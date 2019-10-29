@@ -58,7 +58,7 @@ object DependencyResolution {
     logger.info(Feedback.resolvingDependency(s"$organization:$module:$version"))
     val org = coursier.Organization(organization)
     val moduleName = coursier.ModuleName(module)
-    val dependency = Dependency(Module(org, moduleName), version)
+    val dependency = Dependency.of(Module(org, moduleName), version)
     var fetch = Fetch()
       .addDependencies(dependency)
       .addRepositories(Repositories.bintray("scalacenter", "releases"))

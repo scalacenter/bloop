@@ -127,7 +127,7 @@ object NakedLowLevelBuildClient {
       process.getOutputStream(),
       handlers,
       Some(process),
-      executor
+      None //executor
     )
   }
 }

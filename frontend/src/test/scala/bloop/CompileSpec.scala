@@ -270,7 +270,8 @@ object CompileSpec extends bloop.testing.BaseSuite {
       assertNonExistingInternalClassesDir(secondCompiledState)(compiledState, List(`A`))
       // There should only be 2 dirs: current classes dir and external (no empty classes dir)
       val targetA = workspace.resolve("target").resolve("a")
-      val classesDirInA = bloop.io.Paths.list(targetA).map(ap => ap.toRelative(targetA).syntax)
+      val classesDirInA =
+        bloop.io.Paths.list(targetA).filter(_.isDirectory).map(ap => ap.toRelative(targetA).syntax)
       assert(classesDirInA.size == 2)
     }
   }

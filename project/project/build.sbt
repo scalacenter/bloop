@@ -39,7 +39,6 @@ val sbtBloopBuildShaded = project
     toShadeJars := {
       // Redefine toShadeJars as it seems broken in sbt-shading
       Def.taskDyn {
-        val _ = Keys.managedResources.in(Compile).value
         Def.task {
           // Only shade transitive dependencies, not bloop deps
           (fullClasspath in Compile in sbtBloopBuildShadedDeps).value.map(_.data).filter {
@@ -88,9 +87,11 @@ val sbtBloopBuildShaded = project
       val baseDir = baseDirectory.value.getParentFile.getParentFile.getParentFile.getParentFile
       val pluginMainDir = baseDir / "integrations" / "sbt-bloop" / "src" / "main"
       List(
+        baseDir / "project" / "project",
         baseDir / "config" / "src" / "main" / "scala",
         baseDir / "config" / "src" / "main" / "scala-2.11-13",
         baseDir / "sockets" / "src" / "main" / "java",
+        baseDir / "bloop4j" / "src" / "main" / "java",
         baseDir / "bloop4j" / "src" / "main" / "scala",
         baseDir / "bloopgun" / "src" / "main" / "scala",
         baseDir / "launcher" / "src" / "main" / "scala",
@@ -100,13 +101,10 @@ val sbtBloopBuildShaded = project
     },
     packageBin in Compile := {
       (packageBin in Compile)
-        .dependsOn(
-          Keys.discoveredSbtPlugins.in(Compile)
-        )
+        .dependsOn(Keys.copyResources.in(Compile))
         .value
     },
     packageBin in Compile := {
-      val _ = Keys.managedResources.in(Compile).value
       val namespace = shadingNamespace.?.value.getOrElse {
         throw new NoSuchElementException("shadingNamespace key not set")
       }
@@ -124,6 +122,7 @@ val sbtBloopBuildShaded = project
       Def.taskDyn {
         import sbt.util.{FileFunction, FileInfo}
         var changed: Boolean = false
+        val _ = Keys.copyResources.in(Compile).value
         val cacheDirectory = Keys.target.value / "shaded-inputs-cached"
         val detectChange = FileFunction.cached(cacheDirectory, FileInfo.hash) { srcs =>
           changed = true
@@ -133,7 +132,6 @@ val sbtBloopBuildShaded = project
         detectChange(inputs)
         if (changed) publishLocal
         else Def.task(())
-        publishLocal
       }.value
     }
   )
@@ -143,6 +141,7 @@ val root = project
   .settings(sharedSettings)
   .settings(
     compile in Compile := {
+      (copyResources in Compile in sbtBloopBuildShaded).value
       (publishShadedLocal in sbtBloopBuildShaded).value
       sbt.internal.inc.Analysis.empty
     }

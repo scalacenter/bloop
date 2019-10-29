@@ -62,13 +62,11 @@ object Utils {
 
   def bloopStaticCacheStore(analysisOut: File): BloopAnalysisStore = {
     val analysisStore = new BloopAnalysisStore(FileAnalysisStore.binary(analysisOut))
-    //analysisStore.readFromDisk
     analysisCache.synchronized {
       val current = analysisCache.get(analysisOut).flatMap(ref => Option(ref.get))
       current match {
         case Some(current: BloopAnalysisStore) => current
         case _ =>
-          println(s"replacing cache store $current by our own store for $analysisOut")
           analysisCache.put(analysisOut, new SoftReference(analysisStore)); analysisStore
       }
     }
@@ -78,7 +76,6 @@ object Utils {
     private var lastStore: ju.Optional[AnalysisContents] = ju.Optional.empty()
     def readFromDisk: Option[AnalysisContents] = {
       val read = backing.get()
-      //println(s"Reading from disk $read")
       lastStore.synchronized {
         if (!lastStore.isPresent()) {
           lastStore = read

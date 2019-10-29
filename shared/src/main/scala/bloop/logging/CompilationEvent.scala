@@ -3,6 +3,7 @@ package bloop.logging
 import ch.epfl.scala.bsp
 import bloop.reporter.Problem
 import java.io.File
+import bloop.io.AbsolutePath
 
 sealed abstract class CompilationEvent
 
@@ -61,13 +62,26 @@ object CompilationEvent {
    * @param taskId The task id to use for this publication.
    * @param problems The sequence of problems that were found during compilation.
    * @param code The status code associated with the finished compilation event.
+   * @param isNoOp Whether the compilation was a no-op or not.
+   * @param isLastCycle Whether the user can expect this to be the last `taskFinish` notification.
+   * @param clientDir The client directory of the compilation end when this
+   *   client directory is fully populated and ready to be read for the client.
+   *   This value is only present if this compilation end is the last cycle and
+   *   the status code is OK.
+   * @param analysisOut The analysis file attached to the compilation end when
+   *   the analysis file is ready to be read for the client. This value is only
+   *   present if this compilation end is the last cycle and the status code is OK.
    */
   case class EndCompilation(
       projectName: String,
       projectUri: bsp.Uri,
       taskId: bsp.TaskId,
       problems: Seq[Problem],
-      code: bsp.StatusCode
+      code: bsp.StatusCode,
+      isNoOp: Boolean,
+      isLastCycle: Boolean,
+      clientDir: Option[AbsolutePath],
+      analysisOut: Option[AbsolutePath]
   ) extends CompilationEvent
 
   /**

@@ -35,6 +35,9 @@ import scala.collection.mutable
 import java.{util => ju}
 import bloop.CompileOutPaths
 import bloop.CompileBackgroundTasks
+import ch.epfl.scala.bsp.{StatusCode => BspStatusCode}
+import bloop.logging.CompilationEvent
+import bloop.reporter.Reporter
 
 object CompileGraph {
   private implicit val filter: DebugFilter = DebugFilter.Compilation
@@ -182,6 +185,9 @@ object CompileGraph {
         val previousProblems =
           Compiler.previousProblemsFromResult(bundle.latestResult, previousSuccessfulProblems)
 
+        val externalClassesDir =
+          client.getUniqueClassesDirFor(bundle.project, forceGeneration = true)
+
         // Replay events asynchronously to waiting for the compilation result
         import scala.concurrent.duration.FiniteDuration
         import java.util.concurrent.TimeUnit
@@ -209,8 +215,25 @@ object CompileGraph {
                   reporter.reportEndIncrementalCycle(a.durationMs, a.result)
                 case ReporterAction.ReportCancelledCompilation =>
                   reporter.reportCancelledCompilation()
-                case a: ReporterAction.ReportEndCompilation =>
-                  reporter.reportEndCompilation(previousSuccessfulProblems, a.code)
+                case a: ReporterAction.ProcessEndCompilation =>
+                  a.code match {
+                    case BspStatusCode.Cancelled | BspStatusCode.Error =>
+                      reporter.processEndCompilation(previousSuccessfulProblems, a.code, None, None)
+                      reporter.reportEndCompilation()
+                    case _ =>
+                      /*
+                       * Only process the end, don't report it. It's only safe to
+                       * report when all the client tasks have been run and the
+                       * analysis/classes dirs are fully populated so that clients
+                       * can use `taskFinish` notifications as a signal to process them.
+                       */
+                      reporter.processEndCompilation(
+                        previousSuccessfulProblems,
+                        a.code,
+                        Some(externalClassesDir),
+                        Some(bundle.out.analysisOut)
+                      )
+                  }
               }
             case Right(action) =>
               action match {
@@ -259,10 +282,8 @@ object CompileGraph {
                 results.fromCompiler match {
                   case s: Compiler.Result.Success =>
                     // Wait on new classes to be populated for correctness
-                    val externalClassesDir =
-                      client.getUniqueClassesDirFor(bundle.project, forceGeneration = true)
                     val runningBackgroundTasks = s.backgroundTasks
-                      .trigger(externalClassesDir, bundle.tracer)
+                      .trigger(externalClassesDir, reporter, bundle.tracer)
                       .runAsync(ExecutionContext.ioScheduler)
                     Task.now(results.copy(runningBackgroundTasks = runningBackgroundTasks))
                   case _: Compiler.Result.Cancelled =>
@@ -341,7 +362,8 @@ object CompileGraph {
                 )
 
                 compilationFuture.cancel()
-                reporter.reportEndCompilation(Nil, StatusCode.Cancelled)
+                reporter.processEndCompilation(Nil, StatusCode.Cancelled, None, None)
+                reporter.reportEndCompilation()
 
                 logger.displayWarningToUser(
                   s"""Disconnecting from deduplication of ongoing compilation for '${inputs.project.name}'

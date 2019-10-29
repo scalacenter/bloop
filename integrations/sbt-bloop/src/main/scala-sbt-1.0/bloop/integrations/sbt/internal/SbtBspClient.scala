@@ -76,6 +76,7 @@ import sbt.nio.file.FileTreeView
 import sbt.SessionVar
 import java.util.concurrent.atomic.AtomicReference
 import bloop.integrations.sbt.BloopCompileInputs
+import ch.epfl.scala.bsp4j.BloopCompileReport
 
 class SbtBspClient(logger: Logger, reporter: CompileReporter) extends BuildClientHandlers {
   override def onBuildLogMessage(params: LogMessageParams): Unit = {
@@ -113,24 +114,16 @@ class SbtBspClient(logger: Logger, reporter: CompileReporter) extends BuildClien
   }
 
   override def onBuildTaskFinish(params: TaskFinishParams): Unit = {
-    import SbtBspClient.{
-      compileRequestDataMap,
-      executor,
-      readAndStoreAnalysis,
-      compileAnalysisMapPerRequest
-    }
+    import SbtBspClient.{executor, readAndStoreAnalysis, compileAnalysisMapPerRequest}
 
     if (params.getStatus() == StatusCode.OK) {
       params.getDataKind() match {
         case TaskDataKind.COMPILE_REPORT =>
-          parseAs(params.getData, classOf[CompileReport], logger).foreach { report =>
+          parseAs(params.getData, classOf[BloopCompileReport], logger).foreach { report =>
             val target = report.getTarget()
             val requestId = report.getOriginId()
-            val compileData = compileRequestDataMap.get(requestId)
-            val inputs = compileData.get(target)
-            val futureAnalysis = executor.submit { () =>
-              readAndStoreAnalysis(inputs, logger)
-            }
+            val analysisOut = new File(new java.net.URI(report.getAnalysisOut()))
+            val futureAnalysis = executor.submit(() => readAndStoreAnalysis(analysisOut, logger))
             val analysisMap = compileAnalysisMapPerRequest.computeIfAbsent(
               requestId,
               (_: String) => {
@@ -140,7 +133,6 @@ class SbtBspClient(logger: Logger, reporter: CompileReporter) extends BuildClien
                 initial
               }
             )
-            println(s"adding future analysis for ${target}")
             analysisMap.put(target, futureAnalysis)
           }
           ()
@@ -173,10 +165,7 @@ class SbtBspClient(logger: Logger, reporter: CompileReporter) extends BuildClien
 }
 
 object SbtBspClient {
-  private val executor = Executors.newCachedThreadPool()
-
-  val compileRequestDataMap =
-    new ConcurrentHashMap[String, ju.HashMap[BuildTargetIdentifier, BloopCompileInputs]]()
+  private[bloop] val executor = Executors.newCachedThreadPool()
 
   type CompileAnalysisMap =
     ConcurrentHashMap[BuildTargetIdentifier, JFuture[Option[AnalysisContents]]]
@@ -219,11 +208,13 @@ object SbtBspClient {
           val launcherThread = new Thread {
             override def run(): Unit = {
               import bloop.launcher.LauncherStatus
-              try launcher.cli(Array("1.3.4"))
+              import bloopgun.internal.build.BloopgunInfo.version
+              try launcher.cli(Array(version))
               catch {
                 case _: Throwable =>
                   failedToConnect.compareAndSet(false, true)
               }
+              ()
             }
           }
 
@@ -251,23 +242,6 @@ object SbtBspClient {
       }
       cachedBloopBuildClient = bloopBuildClient
       bloopBuildClient
-    }
-  }
-
-  def readAndStoreAnalysis(
-      inputs: BloopCompileInputs,
-      logger: Logger
-  ): Option[AnalysisContents] = {
-    try {
-      //assert(inputs != null)
-      //val exists = Files.exists(inputs.analysisOut.toPath)
-      //logger.info(s"File ${inputs.analysisOut} exists: ${exists}")
-      Utils.bloopStaticCacheStore(inputs.analysisOut).readFromDisk
-    } catch {
-      case NonFatal(t) =>
-        //logger.error(s"Fatal error when reading analysis from ${inputs.analysisOut}")
-        //logger.trace(t)
-        None
     }
   }
 }

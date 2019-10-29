@@ -9,6 +9,7 @@ import bloop.bloopgun.core.AvailableWithCommand
 import bloop.bloopgun.core.ListeningAndAvailableAt
 import bloop.bloopgun.core.ServerStatus
 import bloop.bloopgun.core.ResolvedAt
+import bloopgun.internal.build.BloopgunInfo
 
 import java.io.PrintStream
 import java.io.InputStream
@@ -555,6 +556,7 @@ class BloopgunCli(
   }
 }
 
-object Bloopgun extends BloopgunCli("1.3.4", System.in, System.out, System.err, Shell.default) {
+object Bloopgun
+    extends BloopgunCli(BloopgunInfo.version, System.in, System.out, System.err, Shell.default) {
   def main(args: Array[String]): Unit = System.exit(run(args))
 }

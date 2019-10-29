@@ -11,9 +11,13 @@ import xsbti.Severity
 
 import scala.meta.jsonrpc.JsonRpcClient
 import ch.epfl.scala.bsp
+import ch.epfl.scala.bsp.Uri
 import ch.epfl.scala.bsp.{BuildTargetIdentifier, DiagnosticSeverity}
 import ch.epfl.scala.bsp.endpoints.Build
+
 import monix.execution.atomic.AtomicInt
+import io.circe.derivation.JsonCodec
+import java.nio.file.Path
 
 /**
  * Creates a logger that will forward all the messages to the underlying bsp client.
@@ -210,13 +214,17 @@ final class BspServerLogger private (
   def publishCompilationEnd(event: CompilationEvent.EndCompilation): Unit = {
     val errors = event.problems.count(_.severity == Severity.Error)
     val warnings = event.problems.count(_.severity == Severity.Warn)
-    val json = bsp.CompileReport.encodeCompileReport(
-      bsp.CompileReport(
+    val json = BspServerLogger.BloopCompileReport.encoder(
+      BspServerLogger.BloopCompileReport(
         bsp.BuildTargetIdentifier(event.projectUri),
         originId,
         errors,
         warnings,
-        None
+        None,
+        Some(event.isNoOp),
+        Some(event.isLastCycle),
+        event.clientDir.map(path => bsp.Uri(path.toBspUri)),
+        event.analysisOut.map(path => bsp.Uri(path.toBspUri))
       )
     )
 
@@ -245,5 +253,31 @@ object BspServerLogger {
   ): BspServerLogger = {
     val name: String = s"bsp-logger-${BspServerLogger.counter.incrementAndGet()}"
     new BspServerLogger(name, state.logger, client, taskIdCounter, ansiCodesSupported, None)
+  }
+
+  /**
+   * A modified version of `bsp.CompileReport` with optional bloop fields.
+   *
+   * We should consider upstreaming many of these fields as they are usually
+   * very useful for clients.
+   */
+  final case class BloopCompileReport(
+      target: BuildTargetIdentifier,
+      originId: Option[String],
+      errors: Int,
+      warnings: Int,
+      time: Option[Long],
+      // ++ bloop ++
+      isNoOp: Option[Boolean],
+      isLastCycle: Option[Boolean],
+      clientDir: Option[Uri],
+      analysisOut: Option[Uri]
+  )
+
+  object BloopCompileReport {
+    import io.circe.{RootEncoder, Decoder}
+    import io.circe.derivation._
+    val encoder: RootEncoder[BloopCompileReport] = deriveEncoder
+    val decoder: Decoder[BloopCompileReport] = deriveDecoder
   }
 }

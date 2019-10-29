@@ -6,6 +6,8 @@ import scala.collection.mutable
 import bloop.io.AbsolutePath
 import ch.epfl.scala.bsp
 import bloop.logging.{ObservedLogger, Logger}
+import scala.concurrent.Promise
+import bloop.logging.CompilationEvent
 
 final class ObservedReporter(
     val observedLogger: ObservedLogger[Logger],
@@ -52,12 +54,23 @@ final class ObservedReporter(
     registerAction(ReporterAction.ReportStartCompilation)
   }
 
-  override def reportEndCompilation(
+  override def reportEndCompilation(): Unit = {
+    underlying.reportEndCompilation()
+  }
+
+  override def processEndCompilation(
       previousSuccessfulProblems: List[ProblemPerPhase],
-      code: bsp.StatusCode
+      code: bsp.StatusCode,
+      clientClassesDir: Option[AbsolutePath],
+      analysisOut: Option[AbsolutePath]
   ): Unit = {
-    underlying.reportEndCompilation(previousSuccessfulProblems, code)
-    registerAction(ReporterAction.ReportEndCompilation(code))
+    underlying.processEndCompilation(
+      previousSuccessfulProblems,
+      code,
+      clientClassesDir,
+      analysisOut
+    )
+    registerAction(ReporterAction.ProcessEndCompilation(code))
   }
 
   override def reportStartIncrementalCycle(sources: Seq[File], outputDirs: Seq[File]): Unit = {

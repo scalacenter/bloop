@@ -244,6 +244,9 @@ lazy val bloopgun: Project = project
     fork in run := true,
     fork in Test := true,
     parallelExecution in Test := false,
+    buildInfoPackage := "bloopgun.internal.build",
+    buildInfoKeys := List(Keys.version),
+    buildInfoObject := "BloopgunInfo",
     libraryDependencies ++= List(
       //Dependencies.configDirectories,
       Dependencies.snailgun,

@@ -14,6 +14,7 @@ import scala.collection.mutable
 
 import xsbti.compile.ClassFileManager
 import monix.eval.Task
+import bloop.reporter.Reporter
 
 final class BloopClassFileManager(
     inputs: CompileInputs,
@@ -119,7 +120,11 @@ final class BloopClassFileManager(
     if (success) {
       // Schedule copying compilation products to visible classes directory
       backgroundTasksWhenNewSuccessfulAnalysis.+=(
-        (clientExternalClassesDir: AbsolutePath, clientTracer: BraveTracer) => {
+        (
+            clientExternalClassesDir: AbsolutePath,
+            clientReporter: Reporter,
+            clientTracer: BraveTracer
+        ) => {
           clientTracer.traceTask("copy new products to external classes dir") { _ =>
             val config = ParallelOps.CopyConfiguration(5, CopyMode.ReplaceExisting, Set.empty)
             ParallelOps
@@ -141,13 +146,21 @@ final class BloopClassFileManager(
       // Delete all compilation products generated in the new classes directory
       val deleteNewDir = Task { BloopPaths.delete(AbsolutePath(newClassesDir)); () }.memoize
       backgroundTasksForFailedCompilation.+=(
-        (clientExternalClassesDir: AbsolutePath, clientTracer: BraveTracer) => {
+        (
+            clientExternalClassesDir: AbsolutePath,
+            clientReporter: Reporter,
+            clientTracer: BraveTracer
+        ) => {
           clientTracer.traceTask("delete class files after")(_ => deleteNewDir)
         }
       )
 
       backgroundTasksForFailedCompilation.+=(
-        (clientExternalClassesDir: AbsolutePath, clientTracer: BraveTracer) => {
+        (
+            clientExternalClassesDir: AbsolutePath,
+            clientReporter: Reporter,
+            clientTracer: BraveTracer
+        ) => {
           clientTracer.traceTask("populate external classes dir as it's empty") { _ =>
             Task {
               if (!BloopPaths.isDirectoryEmpty(clientExternalClassesDir)) Task.unit

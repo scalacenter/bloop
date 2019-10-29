@@ -1111,7 +1111,12 @@ object BloopDefaults {
                 val newResources = Some(currentResources ++ missingResources)
                 val newProject = generated.project.copy(resources = newResources)
                 val newConfig = Config.File(Config.File.LatestVersion, newProject)
-                bloop.config.write(newConfig, generated.outPath)
+                // Copy somewhere else and then move to make an atomic replacement
+                val tempConfigFile =
+                  Files.createTempFile("bloop-config", generated.outPath.getFileName.toString)
+                bloop.config.write(newConfig, tempConfigFile)
+                Files.move(tempConfigFile, generated.outPath)
+                ()
               }
             }
           }

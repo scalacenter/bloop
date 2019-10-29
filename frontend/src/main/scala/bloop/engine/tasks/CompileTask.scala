@@ -191,7 +191,7 @@ object CompileTask {
                 // Post compilation tasks use tracer, so terminate right after they have
                 val postCompilationTasks =
                   backgroundTasks
-                    .trigger(externalUserClassesDir, compileProjectTracer)
+                    .trigger(externalUserClassesDir, reporter.underlying, compileProjectTracer)
                     .doOnFinish(_ => Task(compileProjectTracer.terminate()))
                 postCompilationTasks.runAsync(ExecutionContext.ioScheduler)
               }

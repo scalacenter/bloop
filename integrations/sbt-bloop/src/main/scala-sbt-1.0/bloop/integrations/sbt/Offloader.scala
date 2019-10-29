@@ -114,38 +114,41 @@ object Offloader {
 
   private val compileReporterKey =
     TaskKey[CompileReporter]("compilerReporter", rank = sbt.KeyRanks.DTask)
-  def bloopCompileInputs: Def.Initialize[Task[Option[BloopCompileInputs]]] = Def.taskDyn {
-    val compileIsNotScopedInIntegrationTest =
-      BloopDefaults.productDirectoriesUndeprecatedKey.?.value.isEmpty
-
-    val logger = Keys.streams.value.log
+  def bloopCompileInputsTask: Def.Initialize[Task[BloopCompileInputs]] = Def.task {
+    val config = BloopKeys.bloopGenerate.value
     val targetName = BloopKeys.bloopTargetName.value
-    logger.info(s"Compile inputs init for ${targetName}!")
-
-    //val scopedKey = Keys.resolvedScoped.value
-    if (compileIsNotScopedInIntegrationTest) Utils.inlinedTask(None)
-    else {
-      Def.task {
-        //val reporter = compileReporterKey.in(Keys.compile).?.value
-        val config = BloopKeys.bloopGenerate.value
-        val targetName = BloopKeys.bloopTargetName.value
-        val analysisOut = BloopKeys.bloopAnalysisOut.value
-        val baseDirectory = Keys.baseDirectory.value.toPath.toAbsolutePath
-        val buildTargetId = Utils.toBuildTargetIdentifier(baseDirectory, targetName)
-        for {
-          //c <- config
-          //r <- reporter
-          a <- analysisOut
-        } yield BloopCompileInputs(buildTargetId, a)
-      }
-      //.apply(markBloopCompileProxy(_, scopedKey))
-    }
+    val reporter = compileReporterKey.in(Keys.compile).value
+    val baseDirectory = Keys.baseDirectory.value.toPath.toAbsolutePath
+    val buildTargetId = Utils.toBuildTargetIdentifier(baseDirectory, targetName)
+    BloopCompileInputs(buildTargetId, config, reporter)
   }
 
   type SessionKey = Option[sbt.Exec]
   @volatile private[this] var previousSessionKey: SessionKey = None
+
+  private val randomId = new java.util.Random()
+  def bloopExtractionIdTask: Def.Initialize[Task[Long]] = Def.setting(randomId.nextLong())
+
+  // Must be used through its attribute key so that this is only run once in a session
+  def bloopSessionIdTask: Def.Initialize[Task[String]] = Def.task {
+    val sessionKey = Keys.state.value.history.executed.headOption
+    val compileRequestId = sessionKey.hashCode.toString
+    previousSessionKey.synchronized {
+      if (sessionKey != previousSessionKey) {
+        cleanUpStateBeforeSession(compileRequestId)
+        previousSessionKey = sessionKey
+      }
+    }
+    compileRequestId
+  }
+
   private[this] val compiledBloopProjects =
     new ConcurrentHashMap[BuildTargetIdentifier, CompileResult]()
+
+  def cleanUpStateBeforeSession(sessionKey: String): Unit = {
+    SbtBspClient.compileAnalysisMapPerRequest.clear()
+    compiledBloopProjects.clear()
+  }
 
   val BloopWait = sbt.Tags.Tag("bloop-wait")
 
@@ -153,33 +156,14 @@ object Offloader {
     val state = Keys.state.value
     val logger = Keys.streams.value.log
     val scopedKey = Keys.resolvedScoped.value
+
     val targetName = BloopKeys.bloopTargetName.value
-    val defaultScalaVersion = Keys.scalaVersion.in(sbt.Global).value
     val baseDirectory = Keys.baseDirectory.value.toPath.toAbsolutePath
     val buildTargetId = Utils.toBuildTargetIdentifier(baseDirectory, targetName)
-    val sessionKey = state.history.executed.headOption
-    val compileRequestId = sessionKey.hashCode.toString
-    val compileIsNotScopedInIntegrationTest =
-      BloopDefaults.productDirectoriesUndeprecatedKey.?.value.isEmpty
+    val compileRequestId = BloopCompileKeys.bloopSessionInternal.value
 
-    previousSessionKey.synchronized {
-      if (sessionKey != previousSessionKey) {
-        //logger.info(s"Preparing for session clearing from ${previousSessionKey} to ${sessionKey}!")
-        SbtBspClient.compileRequestDataMap.clear()
-        SbtBspClient.compileAnalysisMapPerRequest.clear()
-        SbtBspClient.compileRequestDataMap.remove(compileRequestId)
-        SbtBspClient.compileAnalysisMapPerRequest.remove(compileRequestId)
-        previousSessionKey = sessionKey
-        compiledBloopProjects.clear()
-      }
-    }
-
-    logger.info(s"Bloop dynamic init for ${targetName}!")
     val alreadyCompiledAnalysis = compiledBloopProjects.get(buildTargetId)
-    if (compileIsNotScopedInIntegrationTest) {
-      // Should never run unless plugins use ScopeFilter, return dummy analysis just in case
-      Utils.inlinedTask(emptyCompileResult(targetName, defaultScalaVersion))
-    } else if (alreadyCompiledAnalysis != null) {
+    if (alreadyCompiledAnalysis != null) {
       Utils.inlinedTask(alreadyCompiledAnalysis)
     } else {
       val compileTask = Def.taskDyn {
@@ -191,32 +175,40 @@ object Offloader {
         val rootBaseDir = new File(Keys.loadedBuild.value.root).toPath()
         val client = SbtBspClient.initializeConnection(false, rootBaseDir, logger, reporter).get
 
-        val compileInputs = bloopDependencyCompileInputsInternal.value
+        val compileInputs = BloopCompileKeys.bloopDependencyInputsInternal.value
 
-        val selfTransitiveInputs = new ju.HashMap[BuildTargetIdentifier, BloopCompileInputs]()
-        compileInputs.foreach(in => selfTransitiveInputs.putIfAbsent(in.buildTargetId, in))
+        val skipCompilation = BloopDefaults.targetNamesToConfigs.containsKey(targetName)
+        if (skipCompilation) {
+          Def.task {
+            val setup = toMiniSetup(targetName)
+            CompileResult.create(Analysis.Empty, setup, false)
+          }
+        } else {
+          val selfTransitiveInputs = new ju.HashMap[BuildTargetIdentifier, BloopCompileInputs]()
+          compileInputs.foreach(in => selfTransitiveInputs.putIfAbsent(in.buildTargetId, in))
 
-        val actualTransitiveInputs = Option(
-          SbtBspClient.compileRequestDataMap.putIfAbsent(compileRequestId, selfTransitiveInputs)
-        ).getOrElse(selfTransitiveInputs)
+          val actualTransitiveInputs = Option(
+            SbtBspClient.compileRequestDataMap.putIfAbsent(compileRequestId, selfTransitiveInputs)
+          ).getOrElse(selfTransitiveInputs)
 
-        if (actualTransitiveInputs != selfTransitiveInputs) {
-          compileInputs.foreach { in =>
-            if (!actualTransitiveInputs.containsKey(in.buildTargetId)) {
-              actualTransitiveInputs.synchronized {
-                actualTransitiveInputs.put(in.buildTargetId, in)
+          if (actualTransitiveInputs != selfTransitiveInputs) {
+            compileInputs.foreach { in =>
+              if (!actualTransitiveInputs.containsKey(in.buildTargetId)) {
+                actualTransitiveInputs.synchronized {
+                  actualTransitiveInputs.put(in.buildTargetId, in)
+                }
               }
             }
           }
+
+          // Assemble and make compile request to Bloop server
+          val params = new CompileParams(ju.Arrays.asList(buildTargetId))
+          params.setOriginId(compileRequestId)
+          val result = client.compile(params)
+
+          waitForResult(targetName, buildTargetId, compileRequestId, result, logger)
+            .apply(markBloopWaitForCompile(_, scopedKey))
         }
-
-        // Assemble and make compile request to Bloop server
-        val params = new CompileParams(ju.Arrays.asList(buildTargetId))
-        params.setOriginId(compileRequestId)
-        val result = client.compile(params)
-
-        waitForResult(targetName, buildTargetId, compileRequestId, result, logger)
-          .apply(markBloopWaitForCompile(_, scopedKey))
       }
 
       compileTask //.apply(markBloopCompileEntrypoint(_, scopedKey))
@@ -248,7 +240,7 @@ object Offloader {
 
     Def.task {
       //logger.info(s"Waiting for result of ${targetName}")
-      val result = waitForResult(50).value
+      val result = futureResult.get() // waitForResult(50).value
       Option(SbtBspClient.compileAnalysisMapPerRequest.get(compileRequestId)) match {
         case None =>
           val setup = toMiniSetup(targetName)
@@ -257,21 +249,19 @@ object Offloader {
         case Some(analysisFutures) =>
           //logger.info(s"Blocking on analysis of ${targetName}")
           import scala.collection.JavaConverters._
-          val results2 = analysisFutures.asScala.map(kv => kv._1 -> kv._2.get())
-          println(results2)
-          val transitiveResults = results2.collect {
+          val transitiveResults = analysisFutures.asScala.map(kv => kv._1 -> kv._2.get()).collect {
             case (key, Some(analysis)) =>
               // TODO: Return valid result for `hasModified`
               key -> CompileResult.create(analysis.getAnalysis, analysis.getMiniSetup, false)
           }
 
-          println(transitiveResults.toMap)
+          //println(transitiveResults.toMap)
           transitiveResults.foreach {
             case (buildTarget, result) =>
               compiledBloopProjects.put(buildTarget, result)
           }
 
-          logger.info(s"Finished compilation for ${targetName}")
+          //logger.info(s"Finished compilation for ${targetName}")
           val result = transitiveResults.get(buildTarget).getOrElse {
             logger.warn("Compile analysis was empty")
             val setup = toMiniSetup(targetName)
@@ -299,23 +289,6 @@ object Offloader {
       case None => CompileOrder.Mixed
     }
     MiniSetup.create(output, options, scala.version, order, true, new Array(0))
-  }
-
-  private def emptyCompileResult(targetName: String, defaultScalaVersion: String): CompileResult = {
-    def emptyMiniSetup: MiniSetup = {
-      // Create dummy file whose path tells users this result is dummy
-      val outputFile = Paths
-        .get(sys.props("user.dir"))
-        .resolve(".sbt")
-        .resolve("bloop-non-existing-dummy-classes-dir")
-        .toFile
-      val output = sbt.internal.inc.CompileOutput(outputFile)
-      val options = xsbti.compile.MiniOptions.create(new Array(0), new Array(0), new Array(0))
-      val order = CompileOrder.Mixed
-      MiniSetup.create(output, options, defaultScalaVersion, order, true, new Array(0))
-    }
-
-    CompileResult.create(Analysis.Empty, emptyMiniSetup, false)
   }
 
   def markBloopCompileEntrypoint[T](task: Task[T], currentKey: sbt.ScopedKey[_]): Task[T] = {
@@ -355,7 +328,7 @@ object Offloader {
     thread.run()
   }
 
-  private def bloopDependencyCompileInputs: Def.Initialize[Task[Seq[BloopCompileInputs]]] = {
+  private def bloopDependencyInputsTask: Def.Initialize[Task[Seq[BloopCompileInputs]]] = {
     Def.taskDyn {
       val currentProject = Keys.thisProjectRef.value
       val data = Keys.settingsData.value
@@ -365,24 +338,20 @@ object Offloader {
       conf match {
         case Some(conf) =>
           import scala.collection.JavaConverters._
-          val noTask: Task[Option[BloopCompileInputs]] = TaskExtra.constant(None)
           val sortedDependencyOrder = Classpaths.interSort(currentProject, conf, data, deps)
-          val bloopCompileInputsTasks =
-            (new java.util.LinkedHashSet[Task[Option[BloopCompileInputs]]]).asScala
+          val inputsTasks = (new java.util.LinkedHashSet[Task[BloopCompileInputs]]).asScala
 
           for ((dependency, dependencyConfig) <- sortedDependencyOrder) {
             val configKey = sbt.ConfigKey(dependencyConfig)
-            val bloopCompileInputsKey = bloopCompileInputsInternal in (dependency, configKey)
-            bloopCompileInputsKey.get(data).map { bloopCompileInputsTask =>
-              //println(s"Adding bloop generate task in ${(dependency, configKey)}")
-              bloopCompileInputsTasks += bloopCompileInputsTask
+            val inputsKey = BloopCompileKeys.bloopCompileInputsInternal in (dependency, configKey)
+            inputsKey.get(data).map { inputsTask =>
+              inputsTasks += inputsTask
             }
           }
 
-          Def.value((bloopCompileInputsTasks.toList.join).map(_.flatten.distinct))
+          Def.value((inputsTasks.toList.join).map(_.distinct))
         case None => Utils.inlinedTask(Nil)
       }
-
     }
   }
 
@@ -427,20 +396,6 @@ object Offloader {
     }
   }
 
-  val bloopCompileInputsInternal: TaskKey[Option[BloopCompileInputs]] =
-    sbt.TaskKey[Option[BloopCompileInputs]](
-      "bloopCompileInputsInternal",
-      "Obtain the compile inputs required to offload compilation",
-      rank = sbt.KeyRanks.Invisible
-    )
-
-  val bloopDependencyCompileInputsInternal: TaskKey[Seq[BloopCompileInputs]] =
-    sbt.TaskKey[Seq[BloopCompileInputs]](
-      "bloopDependencyCompileInputsInternal",
-      "Obtain the dependency compile inputs from this target",
-      rank = sbt.KeyRanks.Invisible
-    )
-
   def compile: Def.Initialize[Task[CompileAnalysis]] = {
     Def.taskDyn {
       val config = Keys.configuration.value
@@ -469,17 +424,33 @@ object Offloader {
     }
   }
 
-  private def none[A]: Option[A] = (None: Option[A])
-  private def jnone[A]: ju.Optional[A] = InterfaceUtil.toOptional(none[A])
+  object BloopCompileKeys {
+    val bloopExtractionIdInternal: TaskKey[Long] = sbt
+      .taskKey[Long]("Obtain extraction id which represents uniquely an sbt settings evaluation.")
+      .withRank(sbt.KeyRanks.Invisible)
+
+    val bloopSessionIdInternal: TaskKey[String] = sbt
+      .taskKey[String]("Obtain the session id for an sbt command execution")
+      .withRank(sbt.KeyRanks.Invisible)
+
+    val bloopCompileInputsInternal: TaskKey[BloopCompileInputs] = sbt
+      .taskKey[BloopCompileInputs]("Obtain the compile inputs required to offload compilation")
+      .withRank(sbt.KeyRanks.Invisible)
+
+    val bloopDependencyInputsInternal = sbt
+      .taskKey[Seq[BloopCompileInputs]]("Obtain the dependency compile inputs from this target")
+      .withRank(sbt.KeyRanks.Invisible)
+  }
+
+  private def sbtBloopPosition = sbt.internal.util.SourcePosition.fromEnclosing()
   lazy val offloaderSettings: Seq[Def.Setting[_]] = List(
-    Def.derive(Keys.compile.set(compile, sbt.internal.util.NoPosition), allowDynamic = true),
-    Def.derive(
-      Keys.compileIncremental.set(compileIncremental, sbt.internal.util.NoPosition),
-      allowDynamic = true
-    ),
-    BloopKeys.bloopCompile := Offloader.bloopOffloadCompilationTask.value,
-    Keys.compileIncSetup := compileIncSetup.value,
-    bloopCompileInputsInternal := bloopCompileInputs.value,
-    bloopDependencyCompileInputsInternal := bloopDependencyCompileInputs.value
-  )
+    Keys.compile.set(compile, sbtBloopPosition),
+    Keys.compileIncremental.set(compileIncremental, sbtBloopPosition),
+    BloopKeys.bloopCompile.set(Offloader.bloopOffloadCompilationTask, sbtBloopPosition),
+    Keys.compileIncSetup.set(compileIncSetup, sbtBloopPosition),
+    BloopCompileKeys.bloopCompileInputsInternal.set(bloopCompileInputsTask, sbtBloopPosition),
+    BloopCompileKeys.bloopDependencyInputsInternal.set(bloopDependencyInputsTask, sbtBloopPosition),
+    BloopCompileKeys.bloopSessionIdInternal.set(bloopSessionIdTask, sbtBloopPosition),
+    BloopCompileKeys.bloopExtractionIdInternal.set(bloopExtractionIdTask, sbtBloopPosition)
+  ).map(Def.derive(_, allowDynamic = true))
 }

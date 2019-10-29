@@ -44,7 +44,8 @@ import sbt.internal.inc.BloopComponentCompiler
 object TestUtil {
   def projectDir(base: Path, name: String) = base.resolve(name)
   def sourcesDir(base: Path, name: String) = projectDir(base, name).resolve("src")
-  def classesDir(base: Path, name: String) = projectDir(base, name).resolve("classes")
+  def targetDir(base: Path, name: String) = projectDir(base.resolve("target"), name)
+  def classesDir(base: Path, name: String) = targetDir(base, name).resolve("classes")
   def getBaseFromConfigDir(configDir: Path): Path = configDir.getParent.getParent
   def getProject(name: String, state: State): Project =
     state.build.getProjectFor(name).getOrElse(sys.error(s"Project '$name' does not exist!"))
@@ -345,10 +346,10 @@ object TestUtil {
   ): Project = {
     val origin = syntheticOriginFor(baseDir)
     val baseDirectory = projectDir(baseDir.underlying, name)
-    val ProjectArchetype(srcs, _, _, classes) = createProjectArchetype(baseDir.underlying, name)
+    val ProjectArchetype(srcs, out, _, classes) = createProjectArchetype(baseDir.underlying, name)
     val tempDir = baseDirectory.resolve("tmp")
     Files.createDirectories(tempDir)
-    val target = classesDir(baseDir.underlying, name)
+    Files.createDirectories(classes.underlying)
 
     // Requires dependencies to be transitively listed
     val depsTargets =
@@ -369,15 +370,14 @@ object TestUtil {
       rawClasspath = classpath,
       resources = Nil,
       compileSetup = Config.CompileSetup.empty.copy(order = compileOrder),
-      genericClassesDir = AbsolutePath(target),
+      genericClassesDir = classes,
       scalacOptions = Nil,
       javacOptions = Nil,
       sources = sourceDirectories,
       testFrameworks = testFrameworks,
       testOptions = Config.TestOptions.empty,
-      out = AbsolutePath(baseDirectory), // This means nothing in tests
-      // Let's store the analysis file in target even though we usually do it in `out`
-      analysisOut = AbsolutePath(target.resolve(Config.Project.analysisFileName(name))),
+      out = out,
+      analysisOut = out.resolve(Config.Project.analysisFileName(name)),
       platform = Project.defaultPlatform(logger, Some(javaEnv)),
       sbt = None,
       resolution = None,
@@ -394,16 +394,16 @@ object TestUtil {
 
   def createProjectArchetype(base: Path, name: String): ProjectArchetype = {
     val sourceDir = sourcesDir(base, name)
-    val targetDir = base.resolve("target")
+    val target = targetDir(base, name)
     val resourcesDir = base.resolve("resources")
-    val classes = classesDir(targetDir, name)
+    val classes = classesDir(base, name)
     Files.createDirectories(sourceDir)
-    Files.createDirectories(targetDir)
+    Files.createDirectories(target)
     Files.createDirectories(resourcesDir)
     Files.createDirectories(classes)
     ProjectArchetype(
       AbsolutePath(sourceDir),
-      AbsolutePath(targetDir),
+      AbsolutePath(target),
       AbsolutePath(resourcesDir),
       AbsolutePath(classes)
     )
