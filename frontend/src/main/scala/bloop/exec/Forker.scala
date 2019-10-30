@@ -6,13 +6,15 @@ import java.nio.charset.StandardCharsets
 import java.util.concurrent.TimeUnit
 
 import bloop.cli.{CommonOptions, ExitStatus}
+import bloop.dap.DebugSessionLogger
 import bloop.engine.ExecutionContext
 import bloop.io.AbsolutePath
 import bloop.logging.{DebugFilter, Logger}
+import bloop.util.CrossPlatform
 import com.zaxxer.nuprocess.{NuAbstractProcessHandler, NuProcess, NuProcessBuilder}
 import monix.eval.Task
 import monix.execution.Cancelable
-
+import scala.annotation.tailrec
 import scala.concurrent.duration.FiniteDuration
 
 object Forker {
@@ -77,7 +79,7 @@ object Forker {
           if (!remaining.isEmpty)
             logger.info(remaining)
         } else {
-          Forker.linesFrom(buffer, outBuilder).foreach(logger.info)
+          Forker.onEachLine(buffer, outBuilder)(logger.info)
         }
       }
 
@@ -87,7 +89,7 @@ object Forker {
           if (!remaining.isEmpty)
             logger.error(remaining)
         } else {
-          Forker.linesFrom(buffer, errBuilder).foreach(logger.error)
+          Forker.onEachLine(buffer, errBuilder)(logger.error)
         }
       }
     }
@@ -188,43 +190,53 @@ object Forker {
   }
 
   /**
-   * Return an array of lines from a process buffer and a no lines buffer
+   * Performs specified operation on each line from the process [[input]].
+   * Segment without a new line is carried over using the [[carry]] buffer.
    *
-   * The no lines buffer keeps track of previous messages that did not contain
-   * a new line, it is therefore mutated. The buffer is the logs that we just
-   * received from our process.
-   *
-   * This method returns an array of new lines when the messages contain new
-   * lines at the end. If there are several new lines in a message but the last
-   * one doesn't, then we add the remaining to the string builder.
-   *
-   * @param buffer The buffer that we receive from NuProcess
-   * @param remaining The string builder bookkeeping remaining messages without new lines
-   * @return An array of new lines. It can be empty.
+   * @param input containing lines on which the [[op]] must be performed
+   * @param carry The string builder bookkeeping remaining message without new lines
    */
-  private[bloop] def linesFrom(buffer: ByteBuffer, remaining: StringBuilder): Array[String] = {
-    val bytes = new Array[Byte](buffer.remaining())
-    buffer.get(bytes)
-    val msg = new String(bytes, StandardCharsets.UTF_8)
-    // TODO what when we attach to a process on different system?
-    val newLines = msg.split(System.lineSeparator, Integer.MAX_VALUE)
-    newLines match {
-      case Array() => remaining.++=(msg); Array.empty[String]
-      case msgs =>
-        val msgAtTheEnd = newLines.apply(newLines.length - 1)
-        val shouldBuffer = !msgAtTheEnd.isEmpty
-        if (shouldBuffer)
-          remaining.++=(msgAtTheEnd)
+  private[bloop] def onEachLine(input: ByteBuffer, carry: StringBuilder)(
+      op: String => Unit
+  ): Unit = {
+    val bytes = new Array[Byte](input.remaining())
+    input.get(bytes)
+    val newMessage = new String(bytes, StandardCharsets.UTF_8)
 
-        if (msgs.length > 1) {
-          if (shouldBuffer) newLines.init
-          else {
-            val firstLine = newLines.apply(0)
-            newLines(0) = remaining.mkString ++ firstLine
-            remaining.clear()
-            newLines.init
+    if (newMessage.nonEmpty) {
+      val msg = new StringBuilder()
+        .append(carry)
+        .append(newMessage)
+      carry.clear()
+
+      @tailrec
+      def traverseLines(start: Int): Unit = {
+        if (start < msg.length) {
+          val lineEnd = msg.indexOf(System.lineSeparator(), start)
+          if (lineEnd < 0) {
+            // JVM send the JDI notification with "\n" as newline delimiter even on windows
+            if (CrossPlatform.isWindows && containsFullJdiNotification(msg)) {
+              op(msg.stripLineEnd)
+            } else {
+              val remaining = msg.substring(start)
+              carry.append(remaining)
+              ()
+            }
+          } else {
+            val line = msg.substring(start, lineEnd)
+            op(line)
+            traverseLines(lineEnd + System.lineSeparator().length)
           }
-        } else Array.empty[String]
+        }
+      }
+
+      traverseLines(0)
     }
+  }
+
+  private def containsFullJdiNotification(msg: StringBuilder): Boolean = {
+    val jdiIdx = msg.indexOf(DebugSessionLogger.JDINotificationPrefix)
+    val jdiNewLine = msg.indexOf("\n", jdiIdx)
+    jdiIdx >= 0 && jdiNewLine >= 0
   }
 }

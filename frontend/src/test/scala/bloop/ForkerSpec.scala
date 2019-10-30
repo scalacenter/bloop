@@ -6,6 +6,7 @@ import java.nio.file.{Files, Path}
 import java.util.concurrent.TimeUnit
 
 import bloop.cli.ExitStatus
+import bloop.dap.DebugSessionLogger
 import bloop.exec.{Forker, JvmProcessForker, JavaEnv}
 import bloop.io.AbsolutePath
 import bloop.logging.RecordingLogger
@@ -14,6 +15,7 @@ import org.junit.Assert.{assertEquals, assertNotEquals}
 import org.junit.Test
 import org.junit.experimental.categories.Category
 
+import scala.collection.mutable
 import scala.concurrent.duration.Duration
 
 @Category(Array(classOf[bloop.FastTests]))
@@ -61,29 +63,46 @@ class ForkerSpec {
     val nl = System.lineSeparator()
     val remaining = new StringBuilder()
     val msg = ByteBuffer.wrap("   ".getBytes(StandardCharsets.UTF_8))
-    val lines = Forker.linesFrom(msg, remaining)
+    val lines = linesFrom(msg, remaining)
     assert(lines.length == 0)
     assert(remaining.mkString == "   ")
 
     val msg2 = ByteBuffer.wrap(s"Hello${nl}World!$nl".getBytes(StandardCharsets.UTF_8))
-    val lines2 = Forker.linesFrom(msg2, remaining)
+    val lines2 = linesFrom(msg2, remaining)
     assert(lines2.length == 2)
     assert(lines2(0) == "   Hello")
     assert(lines2(1) == "World!")
-    assert(remaining.mkString.isEmpty)
+    assert(remaining.isEmpty)
 
     val msg3 = ByteBuffer.wrap(s"${nl}${nl}asdf".getBytes(StandardCharsets.UTF_8))
-    val lines3 = Forker.linesFrom(msg3, remaining)
+    val lines3 = linesFrom(msg3, remaining)
     assert(lines3.length == 2)
     assert(lines3(0) == "")
     assert(lines3(1) == "")
     assert(remaining.mkString == "asdf")
 
     val msg4 = ByteBuffer.wrap(s"${nl}this is SPARTA${nl}".getBytes(StandardCharsets.UTF_8))
-    val lines4 = Forker.linesFrom(msg4, remaining)
+    val lines4 = linesFrom(msg4, remaining)
     assert(lines4.length == 2)
     assert(lines4(0) == "asdf")
     assert(lines4(1) == "this is SPARTA")
+    assert(remaining.isEmpty)
+  }
+
+  @Test
+  def detectJDINotification(): Unit = {
+    val line = s"${DebugSessionLogger.JDINotificationPrefix} 123\n"
+    val buffer = ByteBuffer.wrap(line.getBytes(StandardCharsets.UTF_8))
+    val remaining = new mutable.StringBuilder()
+    val lines = linesFrom(buffer, remaining)
+    assert(lines.sameElements(Array(line.stripLineEnd)))
+    assert(remaining.isEmpty)
+  }
+
+  private def linesFrom(buffer: ByteBuffer, remaining: StringBuilder): Array[String] = {
+    val lines = mutable.ArrayBuffer.empty[String]
+    Forker.onEachLine(buffer, remaining)(lines += _)
+    lines.toArray
   }
 
   @Test
