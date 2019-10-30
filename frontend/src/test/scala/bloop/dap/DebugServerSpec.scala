@@ -66,7 +66,6 @@ object DebugServerSpec extends DebugBspBaseSuite {
             _ <- client.configurationDone()
             _ <- Task(server.cancel())
             _ <- client.terminated
-            _ <- client.exited
             _ <- Task.fromFuture(client.closedPromise.future)
           } yield ()
 
