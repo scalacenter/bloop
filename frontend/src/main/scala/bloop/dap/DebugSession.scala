@@ -48,6 +48,7 @@ final class DebugSession(
   private val endOfConnection = Promise[Unit]()
   private val debugAddress = Promise[InetSocketAddress]()
   private val sessionStatusPromise = Promise[DebugSession.ExitStatus]()
+  private val attachedPromise = Promise[Unit]()
   private val state = new Synchronized(initialState)
 
   /*
@@ -119,6 +120,15 @@ final class DebugSession(
         startDebuggeeTask.runAsync(ioScheduler)
         ()
 
+      case "configurationDone" =>
+        // Delay handling of this request until we attach to the debuggee.
+        // Otherwise, a race condition may happen when we try to communicate
+        // with the VM we are not connected to
+        Task
+          .fromFuture(attachedPromise.future)
+          .foreach(_ => super.dispatchRequest(request))(ioScheduler)
+        ()
+
       case "disconnect" =>
         try {
           if (DebugSession.shouldRestart(request)) {
@@ -148,6 +158,7 @@ final class DebugSession(
       case "attach" if launchedRequests(requestId) =>
         // Trick dap4j into thinking we're processing a launch instead of attach
         response.command = Command.LAUNCH.getName
+        attachedPromise.success(())
         super.sendResponse(response)
       case "disconnect" =>
         // we are sending a response manually but the actual handler is also sending one so let's ignore it
