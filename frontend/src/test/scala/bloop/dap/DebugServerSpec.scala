@@ -1,24 +1,19 @@
 package bloop.dap
+
 import java.net.{ConnectException, SocketException, SocketTimeoutException}
 import java.util.NoSuchElementException
 import java.util.concurrent.TimeUnit.{MILLISECONDS, SECONDS}
-
-import bloop.bsp.BspBaseSuite
-import bloop.cli.BspProtocol
 import bloop.logging.RecordingLogger
 import bloop.util.{TestProject, TestUtil}
 import ch.epfl.scala.bsp.ScalaMainClass
 import monix.eval.Task
 import monix.execution.Cancelable
-
-import scala.annotation.tailrec
 import scala.collection.mutable
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{Promise, TimeoutException}
 import bloop.engine.ExecutionContext
 
-object DebugServerSpec extends BspBaseSuite {
-  override val protocol: BspProtocol.Local.type = BspProtocol.Local
+object DebugServerSpec extends DebugBspBaseSuite {
   private val ServerNotListening = new IllegalStateException("Server is not accepting connections")
 
   test("cancelling server closes server connection") {
@@ -75,7 +70,7 @@ object DebugServerSpec extends BspBaseSuite {
             _ <- Task.fromFuture(client.closedPromise.future)
           } yield ()
 
-          TestUtil.await(FiniteDuration(10, SECONDS), ExecutionContext.ioScheduler)(test)
+          TestUtil.await(FiniteDuration(30, SECONDS), ExecutionContext.ioScheduler)(test)
         }
       }
     }
@@ -113,7 +108,7 @@ object DebugServerSpec extends BspBaseSuite {
             assertNoDiff(output, "Hello, World!")
           }
 
-          TestUtil.await(FiniteDuration(10, SECONDS), ExecutionContext.ioScheduler)(test)
+          TestUtil.await(FiniteDuration(60, SECONDS), ExecutionContext.ioScheduler)(test)
         }
       }
     }
@@ -138,7 +133,7 @@ object DebugServerSpec extends BspBaseSuite {
             _ <- client.terminated
           } yield ()
 
-          TestUtil.await(FiniteDuration(5, SECONDS), ExecutionContext.ioScheduler)(test)
+          TestUtil.await(FiniteDuration(60, SECONDS), ExecutionContext.ioScheduler)(test)
         }
       }
     }
