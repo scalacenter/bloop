@@ -466,9 +466,8 @@ object CompileTask {
    * classes directory used as the read-only directory of an effectful compile.
    *
    * There are two conditions where deletion is skipped:
-   *
    * - If a compilation is a no-op because the classes directory is still useful
-   * for a next compile.
+   * for a future compile.
    *
    * - If its used counter is bigger than zero, then it is being used by an
    * alternative running compilation process.
