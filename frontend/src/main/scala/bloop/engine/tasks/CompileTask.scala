@@ -318,7 +318,7 @@ object CompileTask {
           }
         }
 
-        // Schedule to run clean up tasks in the background
+        // Schedule to run clean-up tasks in the background
         runIOTasksInParallel(cleanUpTasksToRunInBackground)
 
         val runningTasksRequiredForCorrectness = Task.sequence {
@@ -462,7 +462,7 @@ object CompileTask {
   }
 
   /**
-   * Prepares a clean up task that will delete the previously used read-only
+   * Prepares a clean-up task that will delete the previously used read-only
    * classes directory used as the read-only directory of an effectful compile.
    *
    * There are two conditions where deletion is skipped:
