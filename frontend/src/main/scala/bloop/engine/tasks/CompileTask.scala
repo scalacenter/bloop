@@ -462,7 +462,7 @@ object CompileTask {
   }
 
   /**
-   * Prepares a clean up task that will delete the previous used read-only
+   * Prepares a clean up task that will delete the previously used read-only
    * classes directory used as the read-only directory of an effectful compile.
    *
    * If a compilation is a no-op or its used counter is bigger than zero, the
