@@ -469,7 +469,7 @@ object CompileTask {
    * - If a compilation is a no-op because the classes directory is still useful
    * for a future compile.
    *
-   * - If its used counter is bigger than zero, then it is being used by an
+   * - If its used counter is greater than zero, then it is being used by an
    * alternative running compilation process.
    *
    * The last process to own the classes directory and not use it will be in
