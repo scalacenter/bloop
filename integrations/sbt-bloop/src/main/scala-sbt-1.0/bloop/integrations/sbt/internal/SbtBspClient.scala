@@ -78,92 +78,6 @@ import java.util.concurrent.atomic.AtomicReference
 import bloop.integrations.sbt.BloopCompileInputs
 import ch.epfl.scala.bsp4j.BloopCompileReport
 
-class SbtBspClient(logger: Logger, reporter: CompileReporter) extends BuildClientHandlers {
-  override def onBuildLogMessage(params: LogMessageParams): Unit = {
-    val msg = params.getMessage()
-    params.getType match {
-      case MessageType.INFORMATION => logger.info(msg)
-      case MessageType.ERROR => logger.error(msg)
-      case MessageType.WARNING => logger.warn(msg)
-      case MessageType.LOG => logger.info(msg)
-    }
-  }
-
-  override def onBuildPublishDiagnostics(params: PublishDiagnosticsParams): Unit = {
-    // TODO: Figure out resetting the reporter state
-    params.getDiagnostics().forEach { diagnostic =>
-      SbtBspReporter.report(diagnostic, params.getTextDocument(), reporter)
-    }
-  }
-
-  override def onBuildShowMessage(params: ShowMessageParams): Unit = {
-    val msg = params.getMessage()
-    params.getType match {
-      case MessageType.INFORMATION => logger.info(msg)
-      case MessageType.ERROR => logger.error(msg)
-      case MessageType.WARNING => logger.warn(msg)
-      case MessageType.LOG => logger.info(msg)
-    }
-  }
-
-  override def onBuildTaskStart(params: TaskStartParams): Unit = {
-    val msg = params.getMessage()
-    if (!msg.startsWith("Start no-op compilation for")) {
-      logger.info(params.getMessage())
-    }
-  }
-
-  override def onBuildTaskFinish(params: TaskFinishParams): Unit = {
-    import SbtBspClient.{executor, readAndStoreAnalysis, compileAnalysisMapPerRequest}
-
-    if (params.getStatus() == StatusCode.OK) {
-      params.getDataKind() match {
-        case TaskDataKind.COMPILE_REPORT =>
-          parseAs(params.getData, classOf[BloopCompileReport], logger).foreach { report =>
-            val target = report.getTarget()
-            val requestId = report.getOriginId()
-            val analysisOut = new File(new java.net.URI(report.getAnalysisOut()))
-            val futureAnalysis = executor.submit(() => readAndStoreAnalysis(analysisOut, logger))
-            val analysisMap = compileAnalysisMapPerRequest.computeIfAbsent(
-              requestId,
-              (_: String) => {
-                val initial =
-                  new ConcurrentHashMap[BuildTargetIdentifier, JFuture[Option[AnalysisContents]]]()
-                initial.put(target, futureAnalysis)
-                initial
-              }
-            )
-            analysisMap.put(target, futureAnalysis)
-          }
-          ()
-        case _ => ()
-      }
-      ()
-    }
-
-  }
-
-  override def onBuildTaskProgress(params: TaskProgressParams): Unit = ()
-  override def onBuildTargetDidChange(params: DidChangeBuildTarget): Unit = ()
-
-  private def parseAs[T](
-      obj: Object,
-      clazz: Class[T],
-      logger: Logger
-  ): Option[T] = {
-    Option(obj).flatMap { obj =>
-      val json = obj.asInstanceOf[JsonElement]
-      scala.util.Try(gson.fromJson[T](json, clazz)) match {
-        case scala.util.Success(value) => Some(value)
-        case scala.util.Failure(t) =>
-          logger.error(s"Unexpected error parsing ${clazz}: ${t.getMessage}")
-          logger.trace(t)
-          None
-      }
-    }
-  }
-}
-
 object SbtBspClient {
   private[bloop] val executor = Executors.newCachedThreadPool()
 
@@ -171,14 +85,15 @@ object SbtBspClient {
     ConcurrentHashMap[BuildTargetIdentifier, JFuture[Option[AnalysisContents]]]
   val compileAnalysisMapPerRequest = new ConcurrentHashMap[String, CompileAnalysisMap]()
 
-  private[bloop] var cachedBloopBuildClient: Option[NakedLowLevelBuildClient[SbtBspClient]] = None
+  private[bloop] var cachedBloopBuildClient: Option[NakedLowLevelBuildClient[BuildClientHandlers]] =
+    None
   private[bloop] val failedToConnect = new java.util.concurrent.atomic.AtomicBoolean(false)
   def initializeConnection(
       restartLauncher: Boolean,
       baseDir: Path,
       logger: Logger,
       reporter: CompileReporter
-  ): Option[NakedLowLevelBuildClient[SbtBspClient]] = {
+  ): Option[NakedLowLevelBuildClient[BuildClientHandlers]] = {
     cachedBloopBuildClient.synchronized {
       val bloopBuildClient = cachedBloopBuildClient match {
         case Some(buildClient) if !restartLauncher => Some(buildClient)
@@ -205,6 +120,7 @@ object SbtBspClient {
             startedServer
           )
 
+          /*
           val launcherThread = new Thread {
             override def run(): Unit = {
               import bloop.launcher.LauncherStatus
@@ -239,6 +155,9 @@ object SbtBspClient {
               failedToConnect.compareAndSet(false, true)
               None
           }
+           */
+          failedToConnect.compareAndSet(false, true)
+          None
       }
       cachedBloopBuildClient = bloopBuildClient
       bloopBuildClient

@@ -18,7 +18,7 @@ final class SbtProjectHandlers(inputs: BloopCompileInputs) extends ProjectHandle
   import inputs.{logger, reporter}
   def onBuildPublishDiagnostics(params: PublishDiagnosticsParams): Unit = {
     params.getDiagnostics().forEach { diagnostic =>
-      SbtBspReporter.report(diagnostic, params.getTextDocument(), reporter)
+      SbtBspReporter.report(reporter, diagnostic, params.getTextDocument())
     }
   }
 

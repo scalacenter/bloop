@@ -15,7 +15,7 @@ import java.io.File
 import java.{util => ju}
 
 object SbtBspReporter {
-  def report(diagnostic: Diagnostic, tid: TextDocumentIdentifier, reporter: Reporter): Unit = {
+  def report(reporter: Reporter, diagnostic: Diagnostic, tid: TextDocumentIdentifier): Unit = {
     val severity: Severity = {
       diagnostic.getSeverity match {
         case DiagnosticSeverity.ERROR => Severity.Error
@@ -33,25 +33,50 @@ object SbtBspReporter {
       val hasNoPosition =
         start.getLine() == 0 && start.getCharacter() == 0 &&
           end.getLine() == 0 && end.getCharacter() == 0
-      new PositionImpl(
-        line0 = Some(start.getLine),
-        lineContent0 = diagnostic.getCode(),
-        offset0 = None,
-        pointer0 = None,
-        pointerSpace0 = None,
-        sourcePath0 = Some(sourceFile.getAbsolutePath),
-        sourceFile0 = Some(sourceFile),
-        startOffset0 = None,
-        endOffset0 = None,
-        startLine0 = None,
-        startColumn0 = None,
-        endLine0 = None,
-        endColumn0 = None
-      )
+      if (hasNoPosition) {
+        new PositionImpl(
+          line0 = None,
+          lineContent0 = diagnostic.getCode(),
+          offset0 = None,
+          pointer0 = None,
+          pointerSpace0 = None,
+          sourcePath0 = Some(sourceFile.getAbsolutePath),
+          sourceFile0 = Some(sourceFile),
+          startOffset0 = None,
+          endOffset0 = None,
+          startLine0 = None,
+          startColumn0 = None,
+          endLine0 = None,
+          endColumn0 = None
+        )
+      } else {
+        // Add 1 to simulate 1-index based lines reported from javac/scalac
+        val startLinePos = start.getLine() + 1
+        val endLinePos = end.getLine() + 1
+        val startColumnPos = start.getCharacter()
+        val endColumnPos = end.getCharacter()
+        // TODO: Consider adding `^` if positions are really ranges
+        val pointerSpace = " " * (startColumnPos - 1)
+        new PositionImpl(
+          line0 = Some(startLinePos),
+          lineContent0 = diagnostic.getCode(),
+          offset0 = None,
+          pointer0 = Some(startColumnPos),
+          pointerSpace0 = Some(pointerSpace),
+          sourcePath0 = Some(sourceFile.getAbsolutePath),
+          sourceFile0 = Some(sourceFile),
+          startOffset0 = None,
+          endOffset0 = None,
+          startLine0 = Some(startLinePos),
+          startColumn0 = Some(startColumnPos),
+          endLine0 = Some(endLinePos),
+          endColumn0 = Some(endColumnPos)
+        )
+      }
     }
 
     val msg = diagnostic.getMessage()
-    reporter.log(InterfaceUtil.problem("", position, msg, severity, None))
+    reporter.log(InterfaceUtil.problem(cat = "", position, msg, severity, None))
   }
 
   final class PositionImpl(
@@ -82,6 +107,8 @@ object SbtBspReporter {
     override val startColumn = o2oi(startColumn0)
     override val endLine = o2oi(endLine0)
     override val endColumn = o2oi(endColumn0)
+
+    // This isn't used to render, `ProblemStringFormats` is used instead
     override def toString =
       (sourcePath0, line0) match {
         case (Some(s), Some(l)) => s + ":" + l

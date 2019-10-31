@@ -571,7 +571,7 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
             |  -> Msg: Compiling b (1 Scala source)
             |  -> Data kind: compile-task
             |#1: b/src/B.scala
-            |  -> List(Diagnostic(Range(Position(2,28),Position(2,28)),Some(Error),None,None,type mismatch;  found   : Int  required: String,None))
+            |  -> List(Diagnostic(Range(Position(2,28),Position(2,28)),Some(Error),Some(_),Some(_),type mismatch;  found   : Int  required: String,None))
             |  -> reset = true
             |#1: task finish 2
             |  -> errors 1, warnings 0
@@ -652,7 +652,7 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
             |  -> Msg: Compiling b (1 Scala source)
             |  -> Data kind: compile-task
             |#2: b/src/B.scala
-            |  -> List(Diagnostic(Range(Position(2,28),Position(2,28)),Some(Error),None,None,type mismatch;  found   : Int  required: String,None))
+            |  -> List(Diagnostic(Range(Position(2,28),Position(2,28)),Some(Error),Some(_),Some(_),type mismatch;  found   : Int  required: String,None))
             |  -> reset = true
             |#2: task finish 4
             |  -> errors 1, warnings 0
