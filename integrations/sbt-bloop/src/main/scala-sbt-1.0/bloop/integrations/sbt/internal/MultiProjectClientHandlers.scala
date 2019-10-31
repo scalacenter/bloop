@@ -4,6 +4,7 @@ import sbt.Logger
 
 import java.util.concurrent.ConcurrentHashMap
 
+import bloop.bloop4j.BloopCompileReport
 import bloop.bloop4j.api.handlers.BuildClientHandlers
 
 import com.google.gson.JsonElement
@@ -15,7 +16,6 @@ import ch.epfl.scala.bsp4j.TaskStartParams
 import ch.epfl.scala.bsp4j.TaskFinishParams
 import ch.epfl.scala.bsp4j.TaskProgressParams
 import ch.epfl.scala.bsp4j.DidChangeBuildTarget
-import ch.epfl.scala.bsp4j.BloopCompileReport
 import ch.epfl.scala.bsp4j.CompileTask
 import ch.epfl.scala.bsp4j.TaskDataKind
 import ch.epfl.scala.bsp4j.MessageType

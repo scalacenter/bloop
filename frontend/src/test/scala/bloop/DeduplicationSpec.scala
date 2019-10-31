@@ -19,9 +19,6 @@ import scala.concurrent.duration.FiniteDuration
 import monix.eval.Task
 import monix.execution.CancelableFuture
 
-import bloop.data.ClientInfo.BspClientInfo
-import bloop.data.ClientInfo.CliClientInfo
-
 import ch.epfl.scala.{bsp => scalabsp}
 import bloop.logging.Logger
 

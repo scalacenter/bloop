@@ -72,6 +72,7 @@ object ClientInfo {
       name: String,
       version: String,
       bspVersion: String,
+      ownsBuildFiles: Boolean,
       bspClientClassesRootDir: Option[AbsolutePath],
       private val isConnected: () => Boolean
   ) extends ClientInfo {
@@ -113,10 +114,13 @@ object ClientInfo {
      */
     def parentForClientClassesDirectories(
         project: Project
-    ): Either[AbsolutePath, AbsolutePath] = {
-      bspClientClassesRootDir match {
-        case None => Right(project.bspClientClassesRootDirectory)
-        case Some(bspClientClassesRootDir) => Left(bspClientClassesRootDir)
+    ): Option[Either[AbsolutePath, AbsolutePath]] = {
+      if (ownsBuildFiles) None
+      else {
+        bspClientClassesRootDir match {
+          case None => Some(Right(project.bspClientClassesRootDirectory))
+          case Some(bspClientClassesRootDir) => Some(Left(bspClientClassesRootDir))
+        }
       }
     }
 
@@ -127,26 +131,32 @@ object ClientInfo {
      * deletion when the client exits.
      */
     def getUniqueClassesDirFor(project: Project, forceGeneration: Boolean): AbsolutePath = {
-      uniqueDirs.computeIfAbsent(
-        project,
-        (project: Project) => {
-          val classesDirName = project.genericClassesDir.underlying.getFileName()
-          val newClientDir = parentForClientClassesDirectories(project) match {
-            case Left(unmanagedGlobalRootDir) =>
-              // Use format that avoids clashes between projects when storing in global root
-              val projectDirName = s"${this.name}-${project.name}-$classesDirName"
-              unmanagedGlobalRootDir.resolve(projectDirName)
-            case Right(managedProjectRootDir) =>
-              // We add unique id because we need it to correctly delete orphan dirs
-              val projectDirName = s"$classesDirName-$uniqueId"
-              managedProjectRootDir.resolve(projectDirName)
-          }
-          AbsolutePath(
-            if (!forceGeneration) newClientDir.underlying
-            else Files.createDirectories(newClientDir.underlying).toRealPath()
+      val classesDir = project.genericClassesDir.underlying
+      parentForClientClassesDirectories(project) match {
+        case None =>
+          AbsolutePath(Files.createDirectories(project.genericClassesDir.underlying).toRealPath())
+        case Some(parent) =>
+          val classesDirName = classesDir.getFileName()
+          uniqueDirs.computeIfAbsent(
+            project,
+            (project: Project) => {
+              val newClientDir = parent match {
+                case Left(unmanagedGlobalRootDir) =>
+                  // Use format that avoids clashes between projects when storing in global root
+                  val projectDirName = s"${this.name}-${project.name}-$classesDirName"
+                  unmanagedGlobalRootDir.resolve(projectDirName)
+                case Right(managedProjectRootDir) =>
+                  // We add unique id because we need it to correctly delete orphan dirs
+                  val projectDirName = s"$classesDirName-$uniqueId"
+                  managedProjectRootDir.resolve(projectDirName)
+              }
+              AbsolutePath(
+                if (!forceGeneration) newClientDir.underlying
+                else Files.createDirectories(newClientDir.underlying).toRealPath()
+              )
+            }
           )
-        }
-      )
+      }
     }
 
     override def toString(): String =
@@ -242,8 +252,10 @@ object ClientInfo {
       projectsToVisit.foreach { kv =>
         val (project, client) = kv
         client.parentForClientClassesDirectories(project) match {
-          case Left(unmanagedDir) => () // If unmanaged, it's managed by BSP client, do nothing
-          case Right(bspClientClassesDir) =>
+          case None => () // If owns build files, original generic classes dirs are used
+          case Some(Left(unmanagedDir)) =>
+            () // If unmanaged, it's managed by BSP client, do nothing
+          case Some(Right(bspClientClassesDir)) =>
             try {
               val currentBspConnectedClients = currentBspClients()
               if (currentBspConnectedClients != initialBspConnectedClients) {

@@ -9,6 +9,7 @@ import io.circe.derivation._
 
 object BloopBspDefinitions {
   final case class BloopExtraBuildParams(
+      ownsBuildFiles: Option[Boolean],
       clientClassesRootDir: Option[Uri],
       semanticdbVersion: Option[String],
       supportedScalaVersions: Option[List[String]]
@@ -16,6 +17,7 @@ object BloopBspDefinitions {
 
   object BloopExtraBuildParams {
     val empty = BloopExtraBuildParams(
+      ownsBuildFiles = None,
       clientClassesRootDir = None,
       semanticdbVersion = None,
       supportedScalaVersions = None

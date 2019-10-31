@@ -2,9 +2,9 @@ package bloop.integrations.sbt.internal
 
 import bloop.integrations.sbt.BloopCompileInputs
 
+import bloop.bloop4j.BloopCompileReport
 import bloop.bloop4j.api.handlers.BuildClientHandlers
 
-import ch.epfl.scala.bsp4j.BloopCompileReport
 import ch.epfl.scala.bsp4j.TaskStartParams
 import ch.epfl.scala.bsp4j.TaskFinishParams
 import ch.epfl.scala.bsp4j.PublishDiagnosticsParams

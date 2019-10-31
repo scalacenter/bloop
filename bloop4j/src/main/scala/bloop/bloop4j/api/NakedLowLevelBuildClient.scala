@@ -27,10 +27,10 @@ import ch.epfl.scala.bsp4j.CompileParams
 import ch.epfl.scala.bsp4j.CompileResult
 import java.nio.file.Paths
 import java.io.PrintStream
+import bloop.bloop4j.BloopStopClientCachingParams
+import org.eclipse.lsp4j.jsonrpc.services.JsonNotification
 
 class NakedLowLevelBuildClient[ClientHandlers <: BuildClientHandlers](
-    clientName: String,
-    clientVersion: String,
     clientBaseDir: Path,
     clientIn: InputStream,
     clientOut: OutputStream,
@@ -38,24 +38,18 @@ class NakedLowLevelBuildClient[ClientHandlers <: BuildClientHandlers](
     underlyingProcess: Option[Process],
     executor: Option[ExecutorService]
 ) extends LowLevelBuildClientApi[CompletableFuture] {
-  private var server: ScalaBuildServerBridge = null
-  def initialize: CompletableFuture[InitializeBuildResult] = {
+  private var server: BloopBuildServer = null
+
+  def initialize(params: InitializeBuildParams): CompletableFuture[InitializeBuildResult] = {
     server = unsafeConnectToBuildServer(handlers, clientBaseDir)
-
-    import scala.collection.JavaConverters._
-    val capabilities = new BuildClientCapabilities(List("scala", "java").asJava)
-    val initializeParams = new InitializeBuildParams(
-      clientName,
-      clientVersion,
-      "2.0.0-M4",
-      clientBaseDir.toUri.toString,
-      capabilities
-    )
-
-    server.buildInitialize(initializeParams).thenApply { result =>
+    server.buildInitialize(params).thenApply { result =>
       server.onBuildInitialized()
       result
     }
+  }
+
+  def stopClientCaching(params: BloopStopClientCachingParams): Unit = {
+    server.bloopStopClientCaching(params)
   }
 
   def compile(params: CompileParams): CompletableFuture[CompileResult] = {
@@ -71,19 +65,22 @@ class NakedLowLevelBuildClient[ClientHandlers <: BuildClientHandlers](
 
   def getHandlers: ClientHandlers = handlers
 
-  trait ScalaBuildServerBridge extends BuildServer with ScalaBuildServer
+  trait BloopBuildServer extends BuildServer with ScalaBuildServer {
+    @JsonNotification("bloop/stopClientCaching")
+    def bloopStopClientCaching(params: BloopStopClientCachingParams): Unit
+  }
 
   val cwd = sys.props("user.dir")
   private def unsafeConnectToBuildServer(
       localClient: BuildClient,
       baseDir: Path
-  ): ScalaBuildServerBridge = {
-    val offloadingFile = Paths.get(cwd).resolve("bloop-offloading.logs")
-    if (!Files.exists(offloadingFile)) Files.createFile(offloadingFile)
+  ): BloopBuildServer = {
+    val bloopClientDir = Files.createDirectories(clientBaseDir.resolve(".bloop"))
+    val offloadingFile = bloopClientDir.resolve("sbt-bsp.log")
     val ps = new PrintWriter(Files.newOutputStream(offloadingFile))
-    val builder = new Launcher.Builder[ScalaBuildServerBridge]()
+    val builder = new Launcher.Builder[BloopBuildServer]()
       .traceMessages(ps)
-      .setRemoteInterface(classOf[ScalaBuildServerBridge])
+      .setRemoteInterface(classOf[BloopBuildServer])
       .setInput(clientIn)
       .setOutput(clientOut)
       .setLocalService(localClient)
@@ -99,8 +96,6 @@ class NakedLowLevelBuildClient[ClientHandlers <: BuildClientHandlers](
 
 object NakedLowLevelBuildClient {
   def fromLauncherJars[ClientHandlers <: BuildClientHandlers](
-      clientName: String,
-      clientVersion: String,
       clientBaseDir: Path,
       launcherJars: Seq[Path],
       handlers: ClientHandlers,
@@ -120,14 +115,12 @@ object NakedLowLevelBuildClient {
     val cmd = List("java", "-classpath", stringClasspath, "bloop.launcher.Launcher")
     val process = builder.command(cmd.asJava).directory(clientBaseDir.toFile).start()
     new NakedLowLevelBuildClient(
-      clientName,
-      clientVersion,
       clientBaseDir,
       process.getInputStream(),
       process.getOutputStream(),
       handlers,
       Some(process),
-      None //executor
+      executor
     )
   }
 }

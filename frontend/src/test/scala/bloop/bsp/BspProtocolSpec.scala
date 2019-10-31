@@ -106,6 +106,7 @@ class BspProtocolSpec(
       var secondScalacOptions: List[ScalacOptionsItem] = Nil
 
       val extraBloopParams = BloopExtraBuildParams(
+        ownsBuildFiles = None,
         Some(Uri(userClientClassesRootDir.toBspUri)),
         semanticdbVersion = None,
         supportedScalaVersions = None

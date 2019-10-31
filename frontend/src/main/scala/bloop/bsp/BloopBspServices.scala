@@ -201,7 +201,8 @@ final class BloopBspServices(
     val bspLogger = baseBspLogger
     val uri = new URI(params.rootUri.value)
     val configDir = AbsolutePath(uri).resolve(relativeConfigPath)
-    val extraBuildParams = parseClientClassesRootDir(params.data)
+    val extraBuildParams = parseBloopExtraParams(params.data)
+    val ownsBuildFiles = extraBuildParams.flatMap(_.ownsBuildFiles).getOrElse(false)
     val clientClassesRootDir = extraBuildParams.flatMap(
       extra => extra.clientClassesRootDir.map(dir => AbsolutePath(dir.toPath))
     )
@@ -209,6 +210,7 @@ final class BloopBspServices(
       params.displayName,
       params.version,
       params.bspVersion,
+      ownsBuildFiles,
       clientClassesRootDir,
       () => isClientConnected.get
     )
@@ -270,7 +272,7 @@ final class BloopBspServices(
     }
   }
 
-  private def parseClientClassesRootDir(data: Option[Json]): Option[BloopExtraBuildParams] = {
+  private def parseBloopExtraParams(data: Option[Json]): Option[BloopExtraBuildParams] = {
     data.flatMap { json =>
       BloopExtraBuildParams.decoder.decodeJson(json) match {
         case Right(bloopParams) =>
@@ -376,7 +378,7 @@ final class BloopBspServices(
       val config = ReporterConfig.defaultFormat.copy(reverseOrder = false)
 
       val isSbtClient = state.client match {
-        case BspClientInfo(name, _, _, _, _) if name == "sbt" => true
+        case BspClientInfo(name, _, _, _, _, _) if name == "sbt" => true
         case _ => false
       }
 

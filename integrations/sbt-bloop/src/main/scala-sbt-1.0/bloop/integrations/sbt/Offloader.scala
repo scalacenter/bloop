@@ -59,6 +59,8 @@ import bloop.launcher.LauncherStatus
 import bloop.integrations.sbt.internal.ProjectClientHandlers
 import bloop.integrations.sbt.internal.MultiProjectClientHandlers
 import ch.epfl.scala.bsp4j.InitializeBuildResult
+import bloop.integrations.sbt.internal.SbtBuildClient
+import bloop.bloop4j.BloopStopClientCachingParams
 
 /**
  * Todo list:
@@ -87,9 +89,8 @@ object Offloader {
     BloopCompileInputs(buildTargetId, config, reporter, logger)
   }
 
-  type BloopBuildClient = NakedLowLevelBuildClient[MultiProjectClientHandlers]
   case class BloopCompileState(
-      client: BloopBuildClient,
+      client: SbtBuildClient,
       handlersMap: ConcurrentHashMap[BuildTargetIdentifier, ProjectClientHandlers],
       analysisMap: ConcurrentHashMap[BuildTargetIdentifier, JFuture[Option[AnalysisContents]]],
       resultsMap: ConcurrentHashMap[BuildTargetIdentifier, CompileResult],
@@ -105,6 +106,7 @@ object Offloader {
 
   def bloopCompileStateTask: Def.Initialize[Option[BloopCompileState]] = Def.setting {
     val logger = Keys.sLog.value
+    val sbtVersion = Keys.sbtVersion.value
     val connState = BloopCompileKeys.bloopGatewayInternal.value
     val executor = Executors.newCachedThreadPool()
 
@@ -155,18 +157,15 @@ object Offloader {
           }
           None
         case _ =>
-          val client = new NakedLowLevelBuildClient(
-            "sbt",
-            "2.0.0-M4",
+          val client = new SbtBuildClient(
             connState.baseDir,
             connState.clientIn,
             connState.clientOut,
             new MultiProjectClientHandlers(logger, handlers),
-            None,
             Some(executor)
           )
 
-          initializeBloopClient(client, connState, logger).map(
+          initializeBloopClient(sbtVersion, client, connState, logger).map(
             _ => BloopCompileState(client, handlers, analysis, results, executor)
           )
       }
@@ -174,12 +173,13 @@ object Offloader {
   }
 
   def initializeBloopClient(
-      client: BloopBuildClient,
+      sbtVersion: String,
+      client: SbtBuildClient,
       connState: BloopGateway.ConnectionState,
       logger: Logger
   ): Option[Unit] = {
     import connState.{logOut, logFile}
-    val initializedFuture = client.initialize
+    val initializedFuture = client.initializeAsSbtClient(sbtVersion)
     try {
       val result = initializedFuture.get(15, TimeUnit.SECONDS)
       val clientInfo = s"${result.getDisplayName()} (v${result.getVersion()})"
@@ -219,6 +219,14 @@ object Offloader {
     // We synchronize just out of mistrust on sbt... should only be run once per command execution
     previousSessionKey.synchronized {
       if (sessionKey != previousSessionKey) {
+        previousSessionKey match {
+          case None => ()
+          case previousSessionKey @ Some(_) =>
+            bloopSessionState.client.stopClientCaching(
+              new BloopStopClientCachingParams(previousSessionKey.hashCode.toString)
+            )
+        }
+
         bloopSessionState.handlersMap.clear()
         bloopSessionState.analysisMap.clear()
         bloopSessionState.resultsMap.clear()
@@ -298,7 +306,6 @@ object Offloader {
         }
     }
 
-    sbt.Defaults
     Def.task {
       //logger.info(s"Waiting for result of ${targetName}")
       val result = waitForResult(10).value

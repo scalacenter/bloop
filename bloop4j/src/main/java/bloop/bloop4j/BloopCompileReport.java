@@ -1,4 +1,4 @@
-package ch.epfl.scala.bsp4j;
+package bloop.bloop4j;
 
 import ch.epfl.scala.bsp4j.BuildTargetIdentifier;
 import org.eclipse.lsp4j.jsonrpc.validation.NonNull;

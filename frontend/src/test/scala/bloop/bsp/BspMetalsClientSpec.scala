@@ -41,6 +41,7 @@ class BspMetalsClientSpec(
       val logger = new RecordingLogger(ansiCodesSupported = false)
       val semanticdbVersion = "4.2.0"
       val extraParams = BloopExtraBuildParams(
+        ownsBuildFiles = None,
         clientClassesRootDir = None,
         semanticdbVersion = Some(semanticdbVersion),
         supportedScalaVersions = Some(List(testedScalaVersion))
@@ -81,6 +82,7 @@ class BspMetalsClientSpec(
       val configDir = TestProject.populateWorkspace(workspace, projects)
       val logger = new RecordingLogger(ansiCodesSupported = false)
       val extraParams = BloopExtraBuildParams(
+        ownsBuildFiles = None,
         clientClassesRootDir = None,
         semanticdbVersion = Some(semanticdbVersion),
         supportedScalaVersions = Some(List("2.12.8"))
@@ -126,6 +128,7 @@ class BspMetalsClientSpec(
       val logger = new RecordingLogger(ansiCodesSupported = false)
       val semanticdbVersion = "4.2.0"
       val extraParams = BloopExtraBuildParams(
+        ownsBuildFiles = None,
         clientClassesRootDir = None,
         semanticdbVersion = Some(semanticdbVersion),
         supportedScalaVersions = Some(List(testedScalaVersion))
@@ -172,6 +175,7 @@ class BspMetalsClientSpec(
       val logger = new RecordingLogger(ansiCodesSupported = false)
       val semanticdbVersion = "4.2.0"
       val extraParams = BloopExtraBuildParams(
+        ownsBuildFiles = None,
         clientClassesRootDir = None,
         semanticdbVersion = Some(semanticdbVersion),
         supportedScalaVersions = Some(List(testedScalaVersion))
@@ -199,6 +203,7 @@ class BspMetalsClientSpec(
     TestUtil.withinWorkspace { workspace =>
       val semanticdbVersion = "4.2.0"
       val extraParams = BloopExtraBuildParams(
+        ownsBuildFiles = None,
         clientClassesRootDir = None,
         semanticdbVersion = Some(semanticdbVersion),
         supportedScalaVersions = Some(List(testedScalaVersion))
@@ -240,6 +245,7 @@ class BspMetalsClientSpec(
       ): Task[UnmanagedBspTestState] = {
         Task {
           val extraParams = BloopExtraBuildParams(
+            ownsBuildFiles = None,
             clientClassesRootDir = None,
             semanticdbVersion = Some(semanticdbVersion),
             supportedScalaVersions = Some(List(testedScalaVersion))
@@ -330,6 +336,7 @@ class BspMetalsClientSpec(
       val configDir = TestProject.populateWorkspace(workspace, projects)
       val logger = new RecordingLogger(ansiCodesSupported = false)
       val extraParams = BloopExtraBuildParams(
+        ownsBuildFiles = None,
         clientClassesRootDir = None,
         semanticdbVersion = Some("4.2.0"),
         supportedScalaVersions = Some(List(testedScalaVersion))
