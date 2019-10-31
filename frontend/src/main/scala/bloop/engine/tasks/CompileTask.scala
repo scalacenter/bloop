@@ -462,8 +462,9 @@ object CompileTask {
   }
 
   /**
-   * Prepares a clean-up task that will delete the previously used read-only
-   * classes directory used as the read-only directory of an effectful compile.
+   * Prepares a clean-up task that will delete the previous classes directory
+   * used as the read-only directory for a compile which has generated artifacts
+   * to a new classes directory.
    *
    * There are two conditions where deletion is skipped:
    * - If a compilation is a no-op because the classes directory is still useful
