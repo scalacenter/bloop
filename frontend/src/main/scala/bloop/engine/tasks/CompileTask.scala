@@ -465,13 +465,18 @@ object CompileTask {
    * Prepares a clean up task that will delete the previously used read-only
    * classes directory used as the read-only directory of an effectful compile.
    *
-   * If a compilation is a no-op or its used counter is bigger than zero, the
-   * deletion is skipped because in both scenarios the classes directory is
-   * still useful for either a next compile or is being used by an alternative
-   * running compilation process. The last process to own the classes directory
-   * and not use it will be in charge of cleaning up the used read-only classes
-   * directory as it's superseded by the new classes directory generated
-   * during a successful compile.
+   * There are two conditions where deletion is skipped:
+   *
+   * - If a compilation is a no-op because the classes directory is still useful
+   * for a next compile.
+   *
+   * - If its used counter is bigger than zero, then it is being used by an
+   * alternative running compilation process.
+   *
+   * The last process to own the classes directory and not use it will be in
+   * charge of cleaning up the used read-only classes directory as it's
+   * superseeded by the new classes directory generated during a successful
+   * compile.
    */
   private def cleanUpPreviousResult(
       previousSuccessful: LastSuccessfulResult,
