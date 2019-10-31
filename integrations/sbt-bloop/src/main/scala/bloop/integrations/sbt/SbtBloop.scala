@@ -137,10 +137,6 @@ object BloopDefaults {
       val isMetaBuild = Keys.sbtPlugin.in(LocalRootProject).value
       isMetaBuild && baseDirectory.getAbsolutePath != cwd
     },
-    Keys.initialize := {
-      val _ = Keys.initialize.value
-      Offloader.bloopInitializeConnection.value
-    },
     Keys.onLoad := {
       val oldOnLoad = Keys.onLoad.value
       oldOnLoad.andThen { state =>
@@ -812,13 +808,15 @@ object BloopDefaults {
     val configuration = Keys.configuration.value
     val isMetaBuild = BloopKeys.bloopIsMetaBuild.value
     val hasConfigSettings = productDirectoriesUndeprecatedKey.?.value.isDefined
+    val projectName = projectNameFromString(project.id, configuration, logger)
 
+    lazy val generated = Option(targetNamesToConfigs.get(projectName))
     if (isMetaBuild && configuration == Test) inlinedTask[Option[File]](None)
     else if (!hasConfigSettings) inlinedTask[Option[File]](None)
+    else if (generated.isDefined) inlinedTask(generated.map(_.outPath.toFile))
     else {
       Def
         .task {
-          val projectName = projectNameFromString(project.id, configuration, logger)
           val baseDirectory = Keys.baseDirectory.value.toPath.toAbsolutePath
           val buildBaseDirectory = Keys.baseDirectory.in(ThisBuild).value.getAbsoluteFile
           val rootBaseDirectory = new File(Keys.loadedBuild.value.root)

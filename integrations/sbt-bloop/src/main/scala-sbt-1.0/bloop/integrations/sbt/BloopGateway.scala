@@ -29,7 +29,8 @@ object BloopGateway {
       exitStatus: AtomicReference[Option[LauncherStatus]],
       clientIn: InputStream,
       clientOut: OutputStream,
-      logsOut: PrintStream
+      logFile: Path,
+      logOut: PrintStream
   )
 
   /**
@@ -57,13 +58,14 @@ object BloopGateway {
     val launcherOut = Channels.newOutputStream(secondPipe.sink())
 
     val bloopDir = Files.createDirectories(baseDir.resolve(".bloop"))
-    val logsOut = new PrintStream(Files.newOutputStream(bloopDir.resolve("bloop.log")))
+    val logFile = bloopDir.resolve("bloop.log")
+    val logOut = new PrintStream(Files.newOutputStream(logFile))
 
     val charset = StandardCharsets.UTF_8
     val shell = Shell.default
     val started = Promise[Unit]()
     val launcher =
-      new LauncherMain(launcherIn, launcherOut, logsOut, charset, shell, None, None, started)
+      new LauncherMain(launcherIn, launcherOut, logOut, charset, shell, None, None, started)
 
     val exitStatus = new AtomicReference[Option[LauncherStatus]](None)
     val launcherThread = new Thread {
@@ -73,13 +75,13 @@ object BloopGateway {
         try {
           val launcherStatus = launcher.cli(Array(version))
           exitStatus.set(Some(launcherStatus))
-          logsOut.println(s"Bloop launcher exited with ${launcherStatus}")
+          logOut.println(s"Bloop launcher exited with ${launcherStatus}")
         } catch {
           case t: Throwable =>
-            // Add most likely launcher status if we got exception
+            // Add most likely launcher error status if we got exception
             exitStatus.set(Some(LauncherStatus.FailedToConnectToServer))
-            logsOut.println("Unexpected error stopped the Bloop launcher!")
-            t.printStackTrace(logsOut)
+            logOut.println("Unexpected error stopped the Bloop launcher!")
+            t.printStackTrace(logOut)
         }
         ()
       }
@@ -88,6 +90,6 @@ object BloopGateway {
     launcherThread.setDaemon(true)
     launcherThread.start()
 
-    ConnectionState(baseDir, started, exitStatus, clientIn, clientOut, logsOut)
+    ConnectionState(baseDir, started, exitStatus, clientIn, clientOut, logFile, logOut)
   }
 }

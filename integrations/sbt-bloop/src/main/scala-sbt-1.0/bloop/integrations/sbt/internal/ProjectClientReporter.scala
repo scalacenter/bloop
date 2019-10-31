@@ -14,7 +14,7 @@ import java.nio.file.Paths
 import java.io.File
 import java.{util => ju}
 
-object SbtBspReporter {
+object ProjectClientReporter {
   def report(reporter: Reporter, diagnostic: Diagnostic, tid: TextDocumentIdentifier): Unit = {
     val severity: Severity = {
       diagnostic.getSeverity match {
@@ -28,6 +28,7 @@ object SbtBspReporter {
     val sourceFile = Paths.get(URI.create(tid.getUri())).toFile
     val position = {
       val range = diagnostic.getRange()
+      val lineContent = Option(diagnostic.getCode()).getOrElse("")
       val start = range.getStart()
       val end = range.getEnd()
       val hasNoPosition =
@@ -36,7 +37,7 @@ object SbtBspReporter {
       if (hasNoPosition) {
         new PositionImpl(
           line0 = None,
-          lineContent0 = diagnostic.getCode(),
+          lineContent0 = lineContent,
           offset0 = None,
           pointer0 = None,
           pointerSpace0 = None,
@@ -56,10 +57,16 @@ object SbtBspReporter {
         val startColumnPos = start.getCharacter()
         val endColumnPos = end.getCharacter()
         // TODO: Consider adding `^` if positions are really ranges
-        val pointerSpace = " " * (startColumnPos - 1)
+        val pointerSpace = {
+          val extraPointerChars = endColumnPos - startColumnPos - 1
+          " " * startColumnPos + {
+            if (extraPointerChars <= 0) ""
+            else ("^" * extraPointerChars)
+          }
+        }
         new PositionImpl(
           line0 = Some(startLinePos),
-          lineContent0 = diagnostic.getCode(),
+          lineContent0 = lineContent,
           offset0 = None,
           pointer0 = Some(startColumnPos),
           pointerSpace0 = Some(pointerSpace),

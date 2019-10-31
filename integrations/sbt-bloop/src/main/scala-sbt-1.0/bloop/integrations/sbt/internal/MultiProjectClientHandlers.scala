@@ -23,7 +23,7 @@ import ch.epfl.scala.bsp4j.BuildTargetIdentifier
 
 class MultiProjectClientHandlers(
     glogger: Logger,
-    projectHandlers: ConcurrentHashMap[BuildTargetIdentifier, ProjectHandlers]
+    projectHandlers: ConcurrentHashMap[BuildTargetIdentifier, ProjectClientHandlers]
 ) extends BuildClientHandlers {
 
   override def onBuildLogMessage(params: LogMessageParams): Unit = {

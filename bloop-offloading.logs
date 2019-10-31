@@ -1,0 +1,3059 @@
+{
+  "jsonrpc": "2.0",
+  "id": "1",
+  "method": "build/initialize",
+  "params": {
+    "rootUri": "file:///home/jvican/Code/bloop/",
+    "displayName": "sbt",
+    "version": "2.0.0-M4",
+    "bspVersion": "2.0.0-M4",
+    "capabilities": {
+      "languageIds": [
+        "scala",
+        "java"
+      ]
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "id": "1",
+  "result": {
+    "displayName": "bloop",
+    "version": "1.3.4+47-60b6280c+20191031-1408",
+    "bspVersion": "2.0.0-M4+10-61e61e87",
+    "capabilities": {
+      "compileProvider": {
+        "languageIds": [
+          "scala",
+          "java"
+        ]
+      },
+      "testProvider": {
+        "languageIds": [
+          "scala",
+          "java"
+        ]
+      },
+      "runProvider": {
+        "languageIds": [
+          "scala",
+          "java"
+        ]
+      },
+      "inverseSourcesProvider": true,
+      "dependencySourcesProvider": true,
+      "resourcesProvider": true,
+      "buildTargetChangedProvider": false
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/initialized",
+  "params": null
+}
+{
+  "jsonrpc": "2.0",
+  "id": "2",
+  "method": "buildTarget/compile",
+  "params": {
+    "targets": [
+      {
+        "uri": "file:/home/jvican/Code/bloop/bloopgun/?id\u003dbloopgun"
+      }
+    ],
+    "originId": "1154897155"
+  }
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskStart",
+  "params": {
+    "taskId": {
+      "id": "1"
+    },
+    "eventTime": 1572529600834,
+    "message": "Start no-op compilation for sockets",
+    "dataKind": "compile-task",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/sockets/?id\u003dsockets"
+      }
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskFinish",
+  "params": {
+    "taskId": {
+      "id": "1"
+    },
+    "eventTime": 1572529600855,
+    "message": "Compiled \u0027sockets\u0027",
+    "status": 1,
+    "dataKind": "compile-report",{
+  "jsonrpc": "2.0",
+  "method": "build/taskFinish",
+  "params": {
+    "taskId": {
+      "id": "1"
+    },
+    "eventTime": 1572529600860,
+    "message": "Compiled \u0027bloopgun\u0027",
+    "status": 1,
+    "dataKind": "compile-report",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/bloopgun/?id\u003dbloopgun"
+      },
+      "originId": "1154897155",
+      "errors": 0,
+      "warnings": 0,
+      "isNoOp": true,
+      "isLastCycle": true,
+      "clientDir": "file:///home/jvican/Code/bloo{
+  "jsonrpc": "2.0",
+  "id": "2",
+  "result": {
+    "originId": "1154897155",
+    "statusCode": 1
+  }
+}
+   "statusCode": 1
+  }
+}
+vican/Code/bloop/bloopgun/target/streams/compile/bloopAnalysisOut/_global/streams/inc_compile_2.12.zip"
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "id": "2",
+  "result": {
+    "originId": "1154897155",
+    "statusCode": 1
+  }
+}
+/sockets/bloop-bsp-clients-classes/classes-sbt-7yu9S4yTSGCb5IXjUz_G1A\u003d\u003d/",
+      "analysisOut": "file:///home/jvican/Code/bloop/sockets/target/streams/compile/bloopAnalysisOut/_global/streams/inc_compile.zip"
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskFinish",
+  "params": {
+    "taskId": {
+      "id": "1"
+    },
+    "eventTime": 1572529600857,
+    "message": "Compiled \u0027bloopgun\u0027",
+    "status": 1,
+    "dataKind": "compile-report",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/bloopgun/?id\u003dbloopgun"
+      },
+      "originId": "1154897155",
+      "errors": 0,
+      "warnings": 0,
+      "isNoOp": true,
+      "isLastCycle": true,
+      "clientDir": "file:///home/jvican/Code/bloop/.bloop/bloopgun/bloop-bsp-clients-classes/classes-sbt-7yu9S4yTSGCb5IXjUz_G1A\u003d\u003d/",
+      "analysisOut": "file:///home/jvican/Code/bloop/bloopgun/target/streams/compile/bloopAnalysisOut/_global/streams/inc_compile_2.12.zip"
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskStart",
+  "params": {
+    "taskId": {
+      "id": "3"
+    },
+    "eventTime": 1572529600859,
+    "message": "Start no-op compilation for launcher",
+    "dataKind": "compile-task",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/launcher/?id\u003dlauncher"
+      }
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskFinish",
+  "params": {
+    "taskId": {
+      "id": "2"
+    },
+    "eventTime": 1572529600862,
+    "message": "Compiled \u0027sockets\u0027",
+    "status": 1,
+    "dataKind": "compile-report",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/sockets/?id\u003dsockets"
+      },
+      "originId": "1154897155",
+      "errors": 0,
+      "warnings": 0,
+      "isNoOp": true,
+      "isLastCycle": true,
+      "clientDir": "file:///home/jvican/Code/bloop/.bloop/sockets/bloop-bsp-clients-classes/classes-sbt-7yu9S4yTSGCb5IXjUz_G1A\u003d\u003d/",
+      "analysisOut": "file:///home/jvican/Code/bloop/sockets/target/streams/compile/bloopAnalysisOut/_global/streams/inc_compile.zip"
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskFinish",
+  "params": {
+    "taskId": {
+      "id": "3"
+    },
+    "eventTime": 1572529600862,
+    "message": "Compiled \u0027launcher\u0027",
+    "status": 1,
+    "dataKind": "compile-report",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/launcher/?id\u003dlauncher"
+      },
+      "originId": "1154897155",
+      "errors": 0,
+      "warnings": 0,
+      "isNoOp": true,
+      "isLastCycle": true,
+      "clientDir": "file:///home/jvican/Code/bloop/.bloop/launcher/bloop-bsp-clients-classes/classes-sbt-7yu9S4yTSGCb5IXjUz_G1A\u003d\u003d/",
+      "analysisOut": "file:///home/jvican/Code/bloop/launcher/target/streams/compile/bloopAnalysisOut/_global/streams/inc_compile_2.12.zip"
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "id": "2",
+  "result": {
+    "originId": "1154897155",
+    "statusCode": 1
+  }
+}
+shared/?id\u003dbloopShared"
+      },
+      "originId": "1154897155",
+      "errors": 0,
+      "warnings": 0,
+      "isNoOp": true,
+      "isLastCycle": true,
+      "clientDir": "file:///home/jvican/Code/bloop/.bloop/bloopShared/bloop-bsp-clients-classes/classes-sbt-GAelfwngR1C0j2vmpt0Upw\u003d\u003d/",
+      "analysisOut": "file:///home/jvican/Code/bloop/shared/target/streams/compile/bloopAnalysisOut/_global/streams/inc_compile_2.12.zip"
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskFinish",
+  "params": {
+    "taskId": {
+      "id": "3"
+    },
+    "eventTime": 1572529600764,
+    "message": "Compiled \u0027bloopgun\u0027",
+    "status": 1,
+    "dataKind": "compile-report",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/bloopgun/?id\u003dbloopgun"
+      },
+      "originId": "1154897155",
+      "errors": 0,
+      "warnings": 0,
+      "isNoOp": true,
+      "isLastCycle": true,
+      "clientDir": "file:///home/jvican/Code/bloop/.bloop/bloopgun/bloop-bsp-clients-classes/classes-sbt-GAelfwngR1C0j2vmpt0Upw\u003d\u003d/",
+      "analysisOut": "file:///home/jvican/Code/bloop/bloopgun/target/streams/compile/bloopAnalysisOut/_global/streams/inc_compile_2.12.zip"
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskStart",
+  "params": {
+    "taskId": {
+      "id": "6"
+    },
+    "eventTime": 1572529600770,
+    "message": "Start no-op compilation for buildpress",
+    "dataKind": "compile-task",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/buildpress/?id\u003dbuildpress"
+      }
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskFinish",
+  "params": {
+    "taskId": {
+      "id": "6"
+    },
+    "eventTime": 1572529600778,
+    "message": "Compiled \u0027buildpress\u0027",
+    "status": 1,
+    "dataKind": "compile-report",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/buildpress/?id\u003dbuildpress"
+      },
+      "originId": "1154897155",
+      "errors": 0,
+      "warnings": 0,
+      "isNoOp": true,
+      "isLastCycle": true,
+      "clientDir": "file:///home/jvican/Code/bloop/.bloop/buildpress/bloop-bsp-clients-classes/classes-sbt-GAelfwngR1C0j2vmpt0Upw\u003d\u003d/",
+      "analysisOut": "file:///home/jvican/Code/bloop/buildpress/target/streams/compile/bloopAnalysisOut/_global/streams/inc_compile_2.12.zip"
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "id": "2",
+  "result": {
+    "originId": "1154897155",
+    "statusCode": 1
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "id": "3",
+  "method": "buildTarget/compile",
+  "params": {
+    "targets": [
+      {
+        "uri": "file:/home/jvican/Code/bloop/buildpress/?id\u003dbuildpress"
+      }
+    ],
+    "originId": "370681122"
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskStart",
+  "params": {
+    "taskId": {
+      "id": "7"
+    },
+    "eventTime": 1572529602277,
+    "message": "Start no-op compilation for buildpressConfig",
+    "dataKind": "compile-task",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/buildpress-config/?id\u003dbuildpressConfig"
+      }
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskStart",
+  "params": {
+    "taskId": {
+      "id": "8"
+    },
+    "eventTime": 1572529602277,
+    "message": "Start no-op compilation for bloopgun",
+    "dataKind": "compile-task",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/bloopgun/?id\u003dbloopgun"
+      }
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskStart",
+  "params": {
+    "taskId": {
+      "id": "9"
+    },
+    "eventTime": 1572529602278,
+    "message": "Start no-op compilation for sockets",
+    "dataKind": "compile-task",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/sockets/?id\u003dsockets"
+      }
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskFinish",
+  "params": {
+    "taskId": {
+      "id": "9"
+    },
+    "eventTime": 1572529602280,
+    "message": "Compiled \u0027sockets\u0027",
+    "status": 1,
+    "dataKind": "compile-report",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/sockets/?id\u003dsockets"
+      },
+      "originId": "370681122",
+      "errors": 0,
+      "warnings": 0,
+      "isNoOp": true,
+      "isLastCycle": true,
+      "clientDir": "file:///home/jvican/Code/bloop/.bloop/sockets/bloop-bsp-clients-classes/classes-sbt-GAelfwngR1C0j2vmpt0Upw\u003d\u003d/",
+      "analysisOut": "file:///home/jvican/Code/bloop/sockets/target/streams/compile/bloopAnalysisOut/_global/streams/inc_compile.zip"
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskFinish",
+  "params": {
+    "taskId": {
+      "id": "7"
+    },
+    "eventTime": 1572529602280,
+    "message": "Compiled \u0027buildpressConfig\u0027",
+    "status": 1,
+    "dataKind": "compile-report",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/buildpress-config/?id\u003dbuildpressConfig"
+      },
+      "originId": "370681122",
+      "errors": 0,
+      "warnings": 0,
+      "isNoOp": true,
+      "isLastCycle": true,
+      "clientDir": "file:///home/jvican/Code/bloop/.bloop/buildpressConfig/bloop-bsp-clients-classes/classes-sbt-GAelfwngR1C0j2vmpt0Upw\u003d\u003d/",
+      "analysisOut": "file:///home/jvican/Code/bloop/buildpress-config/target/streams/compile/bloopAnalysisOut/_global/streams/inc_compile_2.12.zip"
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskStart",
+  "params": {
+    "taskId": {
+      "id": "10"
+    },
+    "eventTime": 1572529602281,
+    "message": "Start no-op compilation for bloopShared",
+    "dataKind": "compile-task",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/shared/?id\u003dbloopShared"
+      }
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskFinish",
+  "params": {
+    "taskId": {
+      "id": "8"
+    },
+    "eventTime": 1572529602282,
+    "message": "Compiled \u0027bloopgun\u0027",
+    "status": 1,
+    "dataKind": "compile-report",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/bloopgun/?id\u003dbloopgun"
+      },
+      "originId": "370681122",
+      "errors": 0,
+      "warnings": 0,
+      "isNoOp": true,
+      "isLastCycle": true,
+      "clientDir": "file:///home/jvican/Code/bloop/.bloop/bloopgun/bloop-bsp-clients-classes/classes-sbt-GAelfwngR1C0j2vmpt0Upw\u003d\u003d/",
+      "analysisOut": "file:///home/jvican/Code/bloop/bloopgun/target/streams/compile/bloopAnalysisOut/_global/streams/inc_compile_2.12.zip"
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskStart",
+  "params": {
+    "taskId": {
+      "id": "11"
+    },
+    "eventTime": 1572529602284,
+    "message": "Start no-op compilation for launcher",
+    "dataKind": "compile-task",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/launcher/?id\u003dlauncher"
+      }
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskFinish",
+  "params": {
+    "taskId": {
+      "id": "10"
+    },
+    "eventTime": 1572529602285,
+    "message": "Compiled \u0027bloopShared\u0027",
+    "status": 1,
+    "dataKind": "compile-report",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/shared/?id\u003dbloopShared"
+      },
+      "originId": "370681122",
+      "errors": 0,
+      "warnings": 0,
+      "isNoOp": true,
+      "isLastCycle": true,
+      "clientDir": "file:///home/jvican/Code/bloop/.bloop/bloopShared/bloop-bsp-clients-classes/classes-sbt-GAelfwngR1C0j2vmpt0Upw\u003d\u003d/",
+      "analysisOut": "file:///home/jvican/Code/bloop/shared/target/streams/compile/bloopAnalysisOut/_global/streams/inc_compile_2.12.zip"
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskFinish",
+  "params": {
+    "taskId": {
+      "id": "11"
+    },
+    "eventTime": 1572529602285,
+    "message": "Compiled \u0027launcher\u0027",
+    "status": 1,
+    "dataKind": "compile-report",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/launcher/?id\u003dlauncher"
+      },
+      "originId": "370681122",
+      "errors": 0,
+      "warnings": 0,
+      "isNoOp": true,
+      "isLastCycle": true,
+      "clientDir": "file:///home/jvican/Code/bloop/.bloop/launcher/bloop-bsp-clients-classes/classes-sbt-GAelfwngR1C0j2vmpt0Upw\u003d\u003d/",
+      "analysisOut": "file:///home/jvican/Code/bloop/launcher/target/streams/compile/bloopAnalysisOut/_global/streams/inc_compile_2.12.zip"
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskStart",
+  "params": {
+    "taskId": {
+      "id": "12"
+    },
+    "eventTime": 1572529602293,
+    "message": "Start no-op compilation for buildpress",
+    "dataKind": "compile-task",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/buildpress/?id\u003dbuildpress"
+      }
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskFinish",
+  "params": {
+    "taskId": {
+      "id": "12"
+    },
+    "eventTime": 1572529602316,
+    "message": "Compiled \u0027buildpress\u0027",
+    "status": 1,
+    "dataKind": "compile-report",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/buildpress/?id\u003dbuildpress"
+      },
+      "originId": "370681122",
+      "errors": 0,
+      "warnings": 0,
+      "isNoOp": true,
+      "isLastCycle": true,
+      "clientDir": "file:///home/jvican/Code/bloop/.bloop/buildpress/bloop-bsp-clients-classes/classes-sbt-GAelfwngR1C0j2vmpt0Upw\u003d\u003d/",
+      "analysisOut": "file:///home/jvican/Code/bloop/buildpress/target/streams/compile/bloopAnalysisOut/_global/streams/inc_compile_2.12.zip"
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "id": "3",
+  "result": {
+    "originId": "370681122",
+    "statusCode": 1
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "id": "4",
+  "method": "buildTarget/compile",
+  "params": {
+    "targets": [
+      {
+        "uri": "file:/home/jvican/Code/bloop/buildpress/?id\u003dbuildpress"
+      }
+    ],
+    "originId": "-1218757943"
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskStart",
+  "params": {
+    "taskId": {
+      "id": "13"
+    },
+    "eventTime": 1572529604995,
+    "message": "Start no-op compilation for buildpressConfig",
+    "dataKind": "compile-task",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/buildpress-config/?id\u003dbuildpressConfig"
+      }
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskStart",
+  "params": {
+    "taskId": {
+      "id": "14"
+    },
+    "eventTime": 1572529604999,
+    "message": "Start no-op compilation for sockets",
+    "dataKind": "compile-task",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/sockets/?id\u003dsockets"
+      }
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskFinish",
+  "params": {
+    "taskId": {
+      "id": "13"
+    },
+    "eventTime": 1572529605000,
+    "message": "Compiled \u0027buildpressConfig\u0027",
+    "status": 1,
+    "dataKind": "compile-report",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/buildpress-config/?id\u003dbuildpressConfig"
+      },
+      "originId": "-1218757943",
+      "errors": 0,
+      "warnings": 0,
+      "isNoOp": true,
+      "isLastCycle": true,
+      "clientDir": "file:///home/jvican/Code/bloop/.bloop/buildpressConfig/bloop-bsp-clients-classes/classes-sbt-GAelfwngR1C0j2vmpt0Upw\u003d\u003d/",
+      "analysisOut": "file:///home/jvican/Code/bloop/buildpress-config/target/streams/compile/bloopAnalysisOut/_global/streams/inc_compile_2.12.zip"
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskStart",
+  "params": {
+    "taskId": {
+      "id": "15"
+    },
+    "eventTime": 1572529605001,
+    "message": "Start no-op compilation for bloopShared",
+    "dataKind": "compile-task",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/shared/?id\u003dbloopShared"
+      }
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskStart",
+  "params": {
+    "taskId": {
+      "id": "16"
+    },
+    "eventTime": 1572529605001,
+    "message": "Start no-op compilation for bloopgun",
+    "dataKind": "compile-task",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/bloopgun/?id\u003dbloopgun"
+      }
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskFinish",
+  "params": {
+    "taskId": {
+      "id": "15"
+    },
+    "eventTime": 1572529605003,
+    "message": "Compiled \u0027bloopShared\u0027",
+    "status": 1,
+    "dataKind": "compile-report",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/shared/?id\u003dbloopShared"
+      },
+      "originId": "-1218757943",
+      "errors": 0,
+      "warnings": 0,
+      "isNoOp": true,
+      "isLastCycle": true,
+      "clientDir": "file:///home/jvican/Code/bloop/.bloop/bloopShared/bloop-bsp-clients-classes/classes-sbt-GAelfwngR1C0j2vmpt0Upw\u003d\u003d/",
+      "analysisOut": "file:///home/jvican/Code/bloop/shared/target/streams/compile/bloopAnalysisOut/_global/streams/inc_compile_2.12.zip"
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskFinish",
+  "params": {
+    "taskId": {
+      "id": "16"
+    },
+    "eventTime": 1572529605004,
+    "message": "Compiled \u0027bloopgun\u0027",
+    "status": 1,
+    "dataKind": "compile-report",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/bloopgun/?id\u003dbloopgun"
+      },
+      "originId": "-1218757943",
+      "errors": 0,
+      "warnings": 0,
+      "isNoOp": true,
+      "isLastCycle": true,
+      "clientDir": "file:///home/jvican/Code/bloop/.bloop/bloopgun/bloop-bsp-clients-classes/classes-sbt-GAelfwngR1C0j2vmpt0Upw\u003d\u003d/",
+      "analysisOut": "file:///home/jvican/Code/bloop/bloopgun/target/streams/compile/bloopAnalysisOut/_global/streams/inc_compile_2.12.zip"
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskFinish",
+  "params": {
+    "taskId": {
+      "id": "14"
+    },
+    "eventTime": 1572529605008,
+    "message": "Compiled \u0027sockets\u0027",
+    "status": 1,
+    "dataKind": "compile-report",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/sockets/?id\u003dsockets"
+      },
+      "originId": "-1218757943",
+      "errors": 0,
+      "warnings": 0,
+      "isNoOp": true,
+      "isLastCycle": true,
+      "clientDir": "file:///home/jvican/Code/bloop/.bloop/sockets/bloop-bsp-clients-classes/classes-sbt-GAelfwngR1C0j2vmpt0Upw\u003d\u003d/",
+      "analysisOut": "file:///home/jvican/Code/bloop/sockets/target/streams/compile/bloopAnalysisOut/_global/streams/inc_compile.zip"
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskStart",
+  "params": {
+    "taskId": {
+      "id": "17"
+    },
+    "eventTime": 1572529605013,
+    "message": "Start no-op compilation for launcher",
+    "dataKind": "compile-task",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/launcher/?id\u003dlauncher"
+      }
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskFinish",
+  "params": {
+    "taskId": {
+      "id": "17"
+    },
+    "eventTime": 1572529605018,
+    "message": "Compiled \u0027launcher\u0027",
+    "status": 1,
+    "dataKind": "compile-report",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/launcher/?id\u003dlauncher"
+      },
+      "originId": "-1218757943",
+      "errors": 0,
+      "warnings": 0,
+      "isNoOp": true,
+      "isLastCycle": true,
+      "clientDir": "file:///home/jvican/Code/bloop/.bloop/launcher/bloop-bsp-clients-classes/classes-sbt-GAelfwngR1C0j2vmpt0Upw\u003d\u003d/",
+      "analysisOut": "file:///home/jvican/Code/bloop/launcher/target/streams/compile/bloopAnalysisOut/_global/streams/inc_compile_2.12.zip"
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskStart",
+  "params": {
+    "taskId": {
+      "id": "18"
+    },
+    "eventTime": 1572529605023,
+    "message": "Start no-op compilation for buildpress",
+    "dataKind": "compile-task",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/buildpress/?id\u003dbuildpress"
+      }
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskFinish",
+  "params": {
+    "taskId": {
+      "id": "18"
+    },
+    "eventTime": 1572529605025,
+    "message": "Compiled \u0027buildpress\u0027",
+    "status": 1,
+    "dataKind": "compile-report",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/buildpress/?id\u003dbuildpress"
+      },
+      "originId": "-1218757943",
+      "errors": 0,
+      "warnings": 0,
+      "isNoOp": true,
+      "isLastCycle": true,
+      "clientDir": "file:///home/jvican/Code/bloop/.bloop/buildpress/bloop-bsp-clients-classes/classes-sbt-GAelfwngR1C0j2vmpt0Upw\u003d\u003d/",
+      "analysisOut": "file:///home/jvican/Code/bloop/buildpress/target/streams/compile/bloopAnalysisOut/_global/streams/inc_compile_2.12.zip"
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "id": "4",
+  "result": {
+    "originId": "-1218757943",
+    "statusCode": 1
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "id": "5",
+  "method": "buildTarget/compile",
+  "params": {
+    "targets": [
+      {
+        "uri": "file:/home/jvican/Code/bloop/buildpress/?id\u003dbuildpress"
+      }
+    ],
+    "originId": "-1473990129"
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskStart",
+  "params": {
+    "taskId": {
+      "id": "19"
+    },
+    "eventTime": 1572529605890,
+    "message": "Start no-op compilation for bloopgun",
+    "dataKind": "compile-task",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/bloopgun/?id\u003dbloopgun"
+      }
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskStart",
+  "params": {
+    "taskId": {
+      "id": "20"
+    },
+    "eventTime": 1572529605891,
+    "message": "Start no-op compilation for buildpressConfig",
+    "dataKind": "compile-task",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/buildpress-config/?id\u003dbuildpressConfig"
+      }
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskStart",
+  "params": {
+    "taskId": {
+      "id": "21"
+    },
+    "eventTime": 1572529605893,
+    "message": "Start no-op compilation for bloopShared",
+    "dataKind": "compile-task",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/shared/?id\u003dbloopShared"
+      }
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskStart",
+  "params": {
+    "taskId": {
+      "id": "22"
+    },
+    "eventTime": 1572529605896,
+    "message": "Start no-op compilation for sockets",
+    "dataKind": "compile-task",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/sockets/?id\u003dsockets"
+      }
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskFinish",
+  "params": {
+    "taskId": {
+      "id": "20"
+    },
+    "eventTime": 1572529605896,
+    "message": "Compiled \u0027buildpressConfig\u0027",
+    "status": 1,
+    "dataKind": "compile-report",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/buildpress-config/?id\u003dbuildpressConfig"
+      },
+      "originId": "-1473990129",
+      "errors": 0,
+      "warnings": 0,
+      "isNoOp": true,
+      "isLastCycle": true,
+      "clientDir": "file:///home/jvican/Code/bloop/.bloop/buildpressConfig/bloop-bsp-clients-classes/classes-sbt-GAelfwngR1C0j2vmpt0Upw\u003d\u003d/",
+      "analysisOut": "file:///home/jvican/Code/bloop/buildpress-config/target/streams/compile/bloopAnalysisOut/_global/streams/inc_compile_2.12.zip"
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskFinish",
+  "params": {
+    "taskId": {
+      "id": "22"
+    },
+    "eventTime": 1572529605897,
+    "message": "Compiled \u0027sockets\u0027",
+    "status": 1,
+    "dataKind": "compile-report",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/sockets/?id\u003dsockets"
+      },
+      "originId": "-1473990129",
+      "errors": 0,
+      "warnings": 0,
+      "isNoOp": true,
+      "isLastCycle": true,
+      "clientDir": "file:///home/jvican/Code/bloop/.bloop/sockets/bloop-bsp-clients-classes/classes-sbt-GAelfwngR1C0j2vmpt0Upw\u003d\u003d/",
+      "analysisOut": "file:///home/jvican/Code/bloop/sockets/target/streams/compile/bloopAnalysisOut/_global/streams/inc_compile.zip"
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskFinish",
+  "params": {
+    "taskId": {
+      "id": "21"
+    },
+    "eventTime": 1572529605897,
+    "message": "Compiled \u0027bloopShared\u0027",
+    "status": 1,
+    "dataKind": "compile-report",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/shared/?id\u003dbloopShared"
+      },
+      "originId": "-1473990129",
+      "errors": 0,
+      "warnings": 0,
+      "isNoOp": true,
+      "isLastCycle": true,
+      "clientDir": "file:///home/jvican/Code/bloop/.bloop/bloopShared/bloop-bsp-clients-classes/classes-sbt-GAelfwngR1C0j2vmpt0Upw\u003d\u003d/",
+      "analysisOut": "file:///home/jvican/Code/bloop/shared/target/streams/compile/bloopAnalysisOut/_global/streams/inc_compile_2.12.zip"
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskFinish",
+  "params": {
+    "taskId": {
+      "id": "19"
+    },
+    "eventTime": 1572529605901,
+    "message": "Compiled \u0027bloopgun\u0027",
+    "status": 1,
+    "dataKind": "compile-report",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/bloopgun/?id\u003dbloopgun"
+      },
+      "originId": "-1473990129",
+      "errors": 0,
+      "warnings": 0,
+      "isNoOp": true,
+      "isLastCycle": true,
+      "clientDir": "file:///home/jvican/Code/bloop/.bloop/bloopgun/bloop-bsp-clients-classes/classes-sbt-GAelfwngR1C0j2vmpt0Upw\u003d\u003d/",
+      "analysisOut": "file:///home/jvican/Code/bloop/bloopgun/target/streams/compile/bloopAnalysisOut/_global/streams/inc_compile_2.12.zip"
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskStart",
+  "params": {
+    "taskId": {
+      "id": "23"
+    },
+    "eventTime": 1572529605905,
+    "message": "Start no-op compilation for launcher",
+    "dataKind": "compile-task",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/launcher/?id\u003dlauncher"
+      }
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskFinish",
+  "params": {
+    "taskId": {
+      "id": "23"
+    },
+    "eventTime": 1572529605907,
+    "message": "Compiled \u0027launcher\u0027",
+    "status": 1,
+    "dataKind": "compile-report",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/launcher/?id\u003dlauncher"
+      },
+      "originId": "-1473990129",
+      "errors": 0,
+      "warnings": 0,
+      "isNoOp": true,
+      "isLastCycle": true,
+      "clientDir": "file:///home/jvican/Code/bloop/.bloop/launcher/bloop-bsp-clients-classes/classes-sbt-GAelfwngR1C0j2vmpt0Upw\u003d\u003d/",
+      "analysisOut": "file:///home/jvican/Code/bloop/launcher/target/streams/compile/bloopAnalysisOut/_global/streams/inc_compile_2.12.zip"
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskStart",
+  "params": {
+    "taskId": {
+      "id": "24"
+    },
+    "eventTime": 1572529605910,
+    "message": "Start no-op compilation for buildpress",
+    "dataKind": "compile-task",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/buildpress/?id\u003dbuildpress"
+      }
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskFinish",
+  "params": {
+    "taskId": {
+      "id": "24"
+    },
+    "eventTime": 1572529605912,
+    "message": "Compiled \u0027buildpress\u0027",
+    "status": 1,
+    "dataKind": "compile-report",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/buildpress/?id\u003dbuildpress"
+      },
+      "originId": "-1473990129",
+      "errors": 0,
+      "warnings": 0,
+      "isNoOp": true,
+      "isLastCycle": true,
+      "clientDir": "file:///home/jvican/Code/bloop/.bloop/buildpress/bloop-bsp-clients-classes/classes-sbt-GAelfwngR1C0j2vmpt0Upw\u003d\u003d/",
+      "analysisOut": "file:///home/jvican/Code/bloop/buildpress/target/streams/compile/bloopAnalysisOut/_global/streams/inc_compile_2.12.zip"
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "id": "5",
+  "result": {
+    "originId": "-1473990129",
+    "statusCode": 1
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "id": "6",
+  "method": "buildTarget/compile",
+  "params": {
+    "targets": [
+      {
+        "uri": "file:/home/jvican/Code/bloop/buildpress/?id\u003dbuildpress"
+      }
+    ],
+    "originId": "-1246071659"
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskStart",
+  "params": {
+    "taskId": {
+      "id": "25"
+    },
+    "eventTime": 1572529606675,
+    "message": "Start no-op compilation for sockets",
+    "dataKind": "compile-task",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/sockets/?id\u003dsockets"
+      }
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskStart",
+  "params": {
+    "taskId": {
+      "id": "26"
+    },
+    "eventTime": 1572529606676,
+    "message": "Start no-op compilation for bloopgun",
+    "dataKind": "compile-task",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/bloopgun/?id\u003dbloopgun"
+      }
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskFinish",
+  "params": {
+    "taskId": {
+      "id": "25"
+    },
+    "eventTime": 1572529606678,
+    "message": "Compiled \u0027sockets\u0027",
+    "status": 1,
+    "dataKind": "compile-report",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/sockets/?id\u003dsockets"
+      },
+      "originId": "-1246071659",
+      "errors": 0,
+      "warnings": 0,
+      "isNoOp": true,
+      "isLastCycle": true,
+      "clientDir": "file:///home/jvican/Code/bloop/.bloop/sockets/bloop-bsp-clients-classes/classes-sbt-GAelfwngR1C0j2vmpt0Upw\u003d\u003d/",
+      "analysisOut": "file:///home/jvican/Code/bloop/sockets/target/streams/compile/bloopAnalysisOut/_global/streams/inc_compile.zip"
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskStart",
+  "params": {
+    "taskId": {
+      "id": "27"
+    },
+    "eventTime": 1572529606680,
+    "message": "Start no-op compilation for buildpressConfig",
+    "dataKind": "compile-task",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/buildpress-config/?id\u003dbuildpressConfig"
+      }
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskStart",
+  "params": {
+    "taskId": {
+      "id": "28"
+    },
+    "eventTime": 1572529606682,
+    "message": "Start no-op compilation for launcher",
+    "dataKind": "compile-task",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/launcher/?id\u003dlauncher"
+      }
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskStart",
+  "params": {
+    "taskId": {
+      "id": "29"
+    },
+    "eventTime": 1572529606683,
+    "message": "Start no-op compilation for bloopShared",
+    "dataKind": "compile-task",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/shared/?id\u003dbloopShared"
+      }
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskFinish",
+  "params": {
+    "taskId": {
+      "id": "29"
+    },
+    "eventTime": 1572529606687,
+    "message": "Compiled \u0027bloopShared\u0027",
+    "status": 1,
+    "dataKind": "compile-report",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/shared/?id\u003dbloopShared"
+      },
+      "originId": "-1246071659",
+      "errors": 0,
+      "warnings": 0,
+      "isNoOp": true,
+      "isLastCycle": true,
+      "clientDir": "file:///home/jvican/Code/bloop/.bloop/bloopShared/bloop-bsp-clients-classes/classes-sbt-GAelfwngR1C0j2vmpt0Upw\u003d\u003d/",
+      "analysisOut": "file:///home/jvican/Code/bloop/shared/target/streams/compile/bloopAnalysisOut/_global/streams/inc_compile_2.12.zip"
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskStart",
+  "params": {
+    "taskId": {
+      "id": "30"
+    },
+    "eventTime": 1572529606690,
+    "message": "Start no-op compilation for buildpress",
+    "dataKind": "compile-task",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/buildpress/?id\u003dbuildpress"
+      }
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskFinish",
+  "params": {
+    "taskId": {
+      "id": "27"
+    },
+    "eventTime": 1572529606687,
+    "message": "Compiled \u0027buildpressConfig\u0027",
+    "status": 1,
+    "dataKind": "compile-report",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/buildpress-config/?id\u003dbuildpressConfig"
+      },
+      "originId": "-1246071659",
+      "errors": 0,
+      "warnings": 0,
+      "isNoOp": true,
+      "isLastCycle": true,
+      "clientDir": "file:///home/jvican/Code/bloop/.bloop/buildpressConfig/bloop-bsp-clients-classes/classes-sbt-GAelfwngR1C0j2vmpt0Upw\u003d\u003d/",
+      "analysisOut": "file:///home/jvican/Code/bloop/buildpress-config/target/streams/compile/bloopAnalysisOut/_global/streams/inc_compile_2.12.zip"
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskFinish",
+  "params": {
+    "taskId": {
+      "id": "28"
+    },
+    "eventTime": 1572529606693,
+    "message": "Compiled \u0027launcher\u0027",
+    "status": 1,
+    "dataKind": "compile-report",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/launcher/?id\u003dlauncher"
+      },
+      "originId": "-1246071659",
+      "errors": 0,
+      "warnings": 0,
+      "isNoOp": true,
+      "isLastCycle": true,
+      "clientDir": "file:///home/jvican/Code/bloop/.bloop/launcher/bloop-bsp-clients-classes/classes-sbt-GAelfwngR1C0j2vmpt0Upw\u003d\u003d/",
+      "analysisOut": "file:///home/jvican/Code/bloop/launcher/target/streams/compile/bloopAnalysisOut/_global/streams/inc_compile_2.12.zip"
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskFinish",
+  "params": {
+    "taskId": {
+      "id": "30"
+    },
+    "eventTime": 1572529606696,
+    "message": "Compiled \u0027buildpress\u0027",
+    "status": 1,
+    "dataKind": "compile-report",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/buildpress/?id\u003dbuildpress"
+      },
+      "originId": "-1246071659",
+      "errors": 0,
+      "warnings": 0,
+      "isNoOp": true,
+      "isLastCycle": true,
+      "clientDir": "file:///home/jvican/Code/bloop/.bloop/buildpress/bloop-bsp-clients-classes/classes-sbt-GAelfwngR1C0j2vmpt0Upw\u003d\u003d/",
+      "analysisOut": "file:///home/jvican/Code/bloop/buildpress/target/streams/compile/bloopAnalysisOut/_global/streams/inc_compile_2.12.zip"
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskFinish",
+  "params": {
+    "taskId": {
+      "id": "26"
+    },
+    "eventTime": 1572529606701,
+    "message": "Compiled \u0027bloopgun\u0027",
+    "status": 1,
+    "dataKind": "compile-report",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/bloopgun/?id\u003dbloopgun"
+      },
+      "originId": "-1246071659",
+      "errors": 0,
+      "warnings": 0,
+      "isNoOp": true,
+      "isLastCycle": true,
+      "clientDir": "file:///home/jvican/Code/bloop/.bloop/bloopgun/bloop-bsp-clients-classes/classes-sbt-GAelfwngR1C0j2vmpt0Upw\u003d\u003d/",
+      "analysisOut": "file:///home/jvican/Code/bloop/bloopgun/target/streams/compile/bloopAnalysisOut/_global/streams/inc_compile_2.12.zip"
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "id": "6",
+  "result": {
+    "originId": "-1246071659",
+    "statusCode": 1
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "id": "7",
+  "method": "buildTarget/compile",
+  "params": {
+    "targets": [
+      {
+        "uri": "file:/home/jvican/Code/bloop/buildpress/?id\u003dbuildpress"
+      }
+    ],
+    "originId": "1109347676"
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskStart",
+  "params": {
+    "taskId": {
+      "id": "31"
+    },
+    "eventTime": 1572529607536,
+    "message": "Start no-op compilation for sockets",
+    "dataKind": "compile-task",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/sockets/?id\u003dsockets"
+      }
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskStart",
+  "params": {
+    "taskId": {
+      "id": "32"
+    },
+    "eventTime": 1572529607538,
+    "message": "Start no-op compilation for bloopgun",
+    "dataKind": "compile-task",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/bloopgun/?id\u003dbloopgun"
+      }
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskStart",
+  "params": {
+    "taskId": {
+      "id": "33"
+    },
+    "eventTime": 1572529607542,
+    "message": "Start no-op compilation for buildpressConfig",
+    "dataKind": "compile-task",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/buildpress-config/?id\u003dbuildpressConfig"
+      }
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskFinish",
+  "params": {
+    "taskId": {
+      "id": "32"
+    },
+    "eventTime": 1572529607542,
+    "message": "Compiled \u0027bloopgun\u0027",
+    "status": 1,
+    "dataKind": "compile-report",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/bloopgun/?id\u003dbloopgun"
+      },
+      "originId": "1109347676",
+      "errors": 0,
+      "warnings": 0,
+      "isNoOp": true,
+      "isLastCycle": true,
+      "clientDir": "file:///home/jvican/Code/bloop/.bloop/bloopgun/bloop-bsp-clients-classes/classes-sbt-GAelfwngR1C0j2vmpt0Upw\u003d\u003d/",
+      "analysisOut": "file:///home/jvican/Code/bloop/bloopgun/target/streams/compile/bloopAnalysisOut/_global/streams/inc_compile_2.12.zip"
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskStart",
+  "params": {
+    "taskId": {
+      "id": "34"
+    },
+    "eventTime": 1572529607545,
+    "message": "Start no-op compilation for bloopShared",
+    "dataKind": "compile-task",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/shared/?id\u003dbloopShared"
+      }
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskStart",
+  "params": {
+    "taskId": {
+      "id": "35"
+    },
+    "eventTime": 1572529607546,
+    "message": "Start no-op compilation for launcher",
+    "dataKind": "compile-task",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/launcher/?id\u003dlauncher"
+      }
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskFinish",
+  "params": {
+    "taskId": {
+      "id": "33"
+    },
+    "eventTime": 1572529607547,
+    "message": "Compiled \u0027buildpressConfig\u0027",
+    "status": 1,
+    "dataKind": "compile-report",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/buildpress-config/?id\u003dbuildpressConfig"
+      },
+      "originId": "1109347676",
+      "errors": 0,
+      "warnings": 0,
+      "isNoOp": true,
+      "isLastCycle": true,
+      "clientDir": "file:///home/jvican/Code/bloop/.bloop/buildpressConfig/bloop-bsp-clients-classes/classes-sbt-GAelfwngR1C0j2vmpt0Upw\u003d\u003d/",
+      "analysisOut": "file:///home/jvican/Code/bloop/buildpress-config/target/streams/compile/bloopAnalysisOut/_global/streams/inc_compile_2.12.zip"
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskFinish",
+  "params": {
+    "taskId": {
+      "id": "35"
+    },
+    "eventTime": 1572529607549,
+    "message": "Compiled \u0027launcher\u0027",
+    "status": 1,
+    "dataKind": "compile-report",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/launcher/?id\u003dlauncher"
+      },
+      "originId": "1109347676",
+      "errors": 0,
+      "warnings": 0,
+      "isNoOp": true,
+      "isLastCycle": true,
+      "clientDir": "file:///home/jvican/Code/bloop/.bloop/launcher/bloop-bsp-clients-classes/classes-sbt-GAelfwngR1C0j2vmpt0Upw\u003d\u003d/",
+      "analysisOut": "file:///home/jvican/Code/bloop/launcher/target/streams/compile/bloopAnalysisOut/_global/streams/inc_compile_2.12.zip"
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskFinish",
+  "params": {
+    "taskId": {
+      "id": "31"
+    },
+    "eventTime": 1572529607554,
+    "message": "Compiled \u0027sockets\u0027",
+    "status": 1,
+    "dataKind": "compile-report",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/sockets/?id\u003dsockets"
+      },
+      "originId": "1109347676",
+      "errors": 0,
+      "warnings": 0,
+      "isNoOp": true,
+      "isLastCycle": true,
+      "clientDir": "file:///home/jvican/Code/bloop/.bloop/sockets/bloop-bsp-clients-classes/classes-sbt-GAelfwngR1C0j2vmpt0Upw\u003d\u003d/",
+      "analysisOut": "file:///home/jvican/Code/bloop/sockets/target/streams/compile/bloopAnalysisOut/_global/streams/inc_compile.zip"
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskStart",
+  "params": {
+    "taskId": {
+      "id": "36"
+    },
+    "eventTime": 1572529607557,
+    "message": "Start no-op compilation for buildpress",
+    "dataKind": "compile-task",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/buildpress/?id\u003dbuildpress"
+      }
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskFinish",
+  "params": {
+    "taskId": {
+      "id": "34"
+    },
+    "eventTime": 1572529607559,
+    "message": "Compiled \u0027bloopShared\u0027",
+    "status": 1,
+    "dataKind": "compile-report",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/shared/?id\u003dbloopShared"
+      },
+      "originId": "1109347676",
+      "errors": 0,
+      "warnings": 0,
+      "isNoOp": true,
+      "isLastCycle": true,
+      "clientDir": "file:///home/jvican/Code/bloop/.bloop/bloopShared/bloop-bsp-clients-classes/classes-sbt-GAelfwngR1C0j2vmpt0Upw\u003d\u003d/",
+      "analysisOut": "file:///home/jvican/Code/bloop/shared/target/streams/compile/bloopAnalysisOut/_global/streams/inc_compile_2.12.zip"
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskFinish",
+  "params": {
+    "taskId": {
+      "id": "36"
+    },
+    "eventTime": 1572529607567,
+    "message": "Compiled \u0027buildpress\u0027",
+    "status": 1,
+    "dataKind": "compile-report",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/buildpress/?id\u003dbuildpress"
+      },
+      "originId": "1109347676",
+      "errors": 0,
+      "warnings": 0,
+      "isNoOp": true,
+      "isLastCycle": true,
+      "clientDir": "file:///home/jvican/Code/bloop/.bloop/buildpress/bloop-bsp-clients-classes/classes-sbt-GAelfwngR1C0j2vmpt0Upw\u003d\u003d/",
+      "analysisOut": "file:///home/jvican/Code/bloop/buildpress/target/streams/compile/bloopAnalysisOut/_global/streams/inc_compile_2.12.zip"
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "id": "7",
+  "result": {
+    "originId": "1109347676",
+    "statusCode": 1
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "id": "8",
+  "method": "buildTarget/compile",
+  "params": {
+    "targets": [
+      {
+        "uri": "file:/home/jvican/Code/bloop/buildpress/?id\u003dbuildpress"
+      }
+    ],
+    "originId": "1149255182"
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskStart",
+  "params": {
+    "taskId": {
+      "id": "37"
+    },
+    "eventTime": 1572529651097,
+    "message": "Start no-op compilation for bloopgun",
+    "dataKind": "compile-task",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/bloopgun/?id\u003dbloopgun"
+      }
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskStart",
+  "params": {
+    "taskId": {
+      "id": "38"
+    },
+    "eventTime": 1572529651097,
+    "message": "Start no-op compilation for buildpressConfig",
+    "dataKind": "compile-task",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/buildpress-config/?id\u003dbuildpressConfig"
+      }
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskFinish",
+  "params": {
+    "taskId": {
+      "id": "38"
+    },
+    "eventTime": 1572529651100,
+    "message": "Compiled \u0027buildpressConfig\u0027",
+    "status": 1,
+    "dataKind": "compile-report",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/buildpress-config/?id\u003dbuildpressConfig"
+      },
+      "originId": "1149255182",
+      "errors": 0,
+      "warnings": 0,
+      "isNoOp": true,
+      "isLastCycle": true,
+      "clientDir": "file:///home/jvican/Code/bloop/.bloop/buildpressConfig/bloop-bsp-clients-classes/classes-sbt-GAelfwngR1C0j2vmpt0Upw\u003d\u003d/",
+      "analysisOut": "file:///home/jvican/Code/bloop/buildpress-config/target/streams/compile/bloopAnalysisOut/_global/streams/inc_compile_2.12.zip"
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskStart",
+  "params": {
+    "taskId": {
+      "id": "39"
+    },
+    "eventTime": 1572529651101,
+    "message": "Start no-op compilation for sockets",
+    "dataKind": "compile-task",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/sockets/?id\u003dsockets"
+      }
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskStart",
+  "params": {
+    "taskId": {
+      "id": "40"
+    },
+    "eventTime": 1572529651103,
+    "message": "Start no-op compilation for bloopShared",
+    "dataKind": "compile-task",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/shared/?id\u003dbloopShared"
+      }
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskFinish",
+  "params": {
+    "taskId": {
+      "id": "40"
+    },
+    "eventTime": 1572529651104,
+    "message": "Compiled \u0027bloopShared\u0027",
+    "status": 1,
+    "dataKind": "compile-report",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/shared/?id\u003dbloopShared"
+      },
+      "originId": "1149255182",
+      "errors": 0,
+      "warnings": 0,
+      "isNoOp": true,
+      "isLastCycle": true,
+      "clientDir": "file:///home/jvican/Code/bloop/.bloop/bloopShared/bloop-bsp-clients-classes/classes-sbt-GAelfwngR1C0j2vmpt0Upw\u003d\u003d/",
+      "analysisOut": "file:///home/jvican/Code/bloop/shared/target/streams/compile/bloopAnalysisOut/_global/streams/inc_compile_2.12.zip"
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskFinish",
+  "params": {
+    "taskId": {
+      "id": "37"
+    },
+    "eventTime": 1572529651110,
+    "message": "Compiled \u0027bloopgun\u0027",
+    "status": 1,
+    "dataKind": "compile-report",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/bloopgun/?id\u003dbloopgun"
+      },
+      "originId": "1149255182",
+      "errors": 0,
+      "warnings": 0,
+      "isNoOp": true,
+      "isLastCycle": true,
+      "clientDir": "file:///home/jvican/Code/bloop/.bloop/bloopgun/bloop-bsp-clients-classes/classes-sbt-GAelfwngR1C0j2vmpt0Upw\u003d\u003d/",
+      "analysisOut": "file:///home/jvican/Code/bloop/bloopgun/target/streams/compile/bloopAnalysisOut/_global/streams/inc_compile_2.12.zip"
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskStart",
+  "params": {
+    "taskId": {
+      "id": "41"
+    },
+    "eventTime": 1572529651111,
+    "message": "Start no-op compilation for launcher",
+    "dataKind": "compile-task",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/launcher/?id\u003dlauncher"
+      }
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskFinish",
+  "params": {
+    "taskId": {
+      "id": "39"
+    },
+    "eventTime": 1572529651112,
+    "message": "Compiled \u0027sockets\u0027",
+    "status": 1,
+    "dataKind": "compile-report",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/sockets/?id\u003dsockets"
+      },
+      "originId": "1149255182",
+      "errors": 0,
+      "warnings": 0,
+      "isNoOp": true,
+      "isLastCycle": true,
+      "clientDir": "file:///home/jvican/Code/bloop/.bloop/sockets/bloop-bsp-clients-classes/classes-sbt-GAelfwngR1C0j2vmpt0Upw\u003d\u003d/",
+      "analysisOut": "file:///home/jvican/Code/bloop/sockets/target/streams/compile/bloopAnalysisOut/_global/streams/inc_compile.zip"
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskFinish",
+  "params": {
+    "taskId": {
+      "id": "41"
+    },
+    "eventTime": 1572529651113,
+    "message": "Compiled \u0027launcher\u0027",
+    "status": 1,
+    "dataKind": "compile-report",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/launcher/?id\u003dlauncher"
+      },
+      "originId": "1149255182",
+      "errors": 0,
+      "warnings": 0,
+      "isNoOp": true,
+      "isLastCycle": true,
+      "clientDir": "file:///home/jvican/Code/bloop/.bloop/launcher/bloop-bsp-clients-classes/classes-sbt-GAelfwngR1C0j2vmpt0Upw\u003d\u003d/",
+      "analysisOut": "file:///home/jvican/Code/bloop/launcher/target/streams/compile/bloopAnalysisOut/_global/streams/inc_compile_2.12.zip"
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskStart",
+  "params": {
+    "taskId": {
+      "id": "42"
+    },
+    "eventTime": 1572529651121,
+    "message": "Start no-op compilation for buildpress",
+    "dataKind": "compile-task",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/buildpress/?id\u003dbuildpress"
+      }
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskFinish",
+  "params": {
+    "taskId": {
+      "id": "42"
+    },
+    "eventTime": 1572529651123,
+    "message": "Compiled \u0027buildpress\u0027",
+    "status": 1,
+    "dataKind": "compile-report",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/buildpress/?id\u003dbuildpress"
+      },
+      "originId": "1149255182",
+      "errors": 0,
+      "warnings": 0,
+      "isNoOp": true,
+      "isLastCycle": true,
+      "clientDir": "file:///home/jvican/Code/bloop/.bloop/buildpress/bloop-bsp-clients-classes/classes-sbt-GAelfwngR1C0j2vmpt0Upw\u003d\u003d/",
+      "analysisOut": "file:///home/jvican/Code/bloop/buildpress/target/streams/compile/bloopAnalysisOut/_global/streams/inc_compile_2.12.zip"
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "id": "8",
+  "result": {
+    "originId": "1149255182",
+    "statusCode": 1
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "id": "9",
+  "method": "buildTarget/compile",
+  "params": {
+    "targets": [
+      {
+        "uri": "file:/home/jvican/Code/bloop/buildpress/?id\u003dbuildpress"
+      }
+    ],
+    "originId": "-491826550"
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskStart",
+  "params": {
+    "taskId": {
+      "id": "43"
+    },
+    "eventTime": 1572529651978,
+    "message": "Start no-op compilation for buildpressConfig",
+    "dataKind": "compile-task",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/buildpress-config/?id\u003dbuildpressConfig"
+      }
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskStart",
+  "params": {
+    "taskId": {
+      "id": "44"
+    },
+    "eventTime": 1572529651979,
+    "message": "Start no-op compilation for bloopgun",
+    "dataKind": "compile-task",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/bloopgun/?id\u003dbloopgun"
+      }
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskStart",
+  "params": {
+    "taskId": {
+      "id": "45"
+    },
+    "eventTime": 1572529651979,
+    "message": "Start no-op compilation for sockets",
+    "dataKind": "compile-task",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/sockets/?id\u003dsockets"
+      }
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskFinish",
+  "params": {
+    "taskId": {
+      "id": "45"
+    },
+    "eventTime": 1572529651981,
+    "message": "Compiled \u0027sockets\u0027",
+    "status": 1,
+    "dataKind": "compile-report",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/sockets/?id\u003dsockets"
+      },
+      "originId": "-491826550",
+      "errors": 0,
+      "warnings": 0,
+      "isNoOp": true,
+      "isLastCycle": true,
+      "clientDir": "file:///home/jvican/Code/bloop/.bloop/sockets/bloop-bsp-clients-classes/classes-sbt-GAelfwngR1C0j2vmpt0Upw\u003d\u003d/",
+      "analysisOut": "file:///home/jvican/Code/bloop/sockets/target/streams/compile/bloopAnalysisOut/_global/streams/inc_compile.zip"
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskFinish",
+  "params": {
+    "taskId": {
+      "id": "43"
+    },
+    "eventTime": 1572529651981,
+    "message": "Compiled \u0027buildpressConfig\u0027",
+    "status": 1,
+    "dataKind": "compile-report",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/buildpress-config/?id\u003dbuildpressConfig"
+      },
+      "originId": "-491826550",
+      "errors": 0,
+      "warnings": 0,
+      "isNoOp": true,
+      "isLastCycle": true,
+      "clientDir": "file:///home/jvican/Code/bloop/.bloop/buildpressConfig/bloop-bsp-clients-classes/classes-sbt-GAelfwngR1C0j2vmpt0Upw\u003d\u003d/",
+      "analysisOut": "file:///home/jvican/Code/bloop/buildpress-config/target/streams/compile/bloopAnalysisOut/_global/streams/inc_compile_2.12.zip"
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskStart",
+  "params": {
+    "taskId": {
+      "id": "46"
+    },
+    "eventTime": 1572529651983,
+    "message": "Start no-op compilation for launcher",
+    "dataKind": "compile-task",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/launcher/?id\u003dlauncher"
+      }
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskFinish",
+  "params": {
+    "taskId": {
+      "id": "46"
+    },
+    "eventTime": 1572529651985,
+    "message": "Compiled \u0027launcher\u0027",
+    "status": 1,
+    "dataKind": "compile-report",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/launcher/?id\u003dlauncher"
+      },
+      "originId": "-491826550",
+      "errors": 0,
+      "warnings": 0,
+      "isNoOp": true,
+      "isLastCycle": true,
+      "clientDir": "file:///home/jvican/Code/bloop/.bloop/launcher/bloop-bsp-clients-classes/classes-sbt-GAelfwngR1C0j2vmpt0Upw\u003d\u003d/",
+      "analysisOut": "file:///home/jvican/Code/bloop/launcher/target/streams/compile/bloopAnalysisOut/_global/streams/inc_compile_2.12.zip"
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskStart",
+  "params": {
+    "taskId": {
+      "id": "47"
+    },
+    "eventTime": 1572529651986,
+    "message": "Start no-op compilation for bloopShared",
+    "dataKind": "compile-task",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/shared/?id\u003dbloopShared"
+      }
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskFinish",
+  "params": {
+    "taskId": {
+      "id": "44"
+    },
+    "eventTime": 1572529651987,
+    "message": "Compiled \u0027bloopgun\u0027",
+    "status": 1,
+    "dataKind": "compile-report",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/bloopgun/?id\u003dbloopgun"
+      },
+      "originId": "-491826550",
+      "errors": 0,
+      "warnings": 0,
+      "isNoOp": true,
+      "isLastCycle": true,
+      "clientDir": "file:///home/jvican/Code/bloop/.bloop/bloopgun/bloop-bsp-clients-classes/classes-sbt-GAelfwngR1C0j2vmpt0Upw\u003d\u003d/",
+      "analysisOut": "file:///home/jvican/Code/bloop/bloopgun/target/streams/compile/bloopAnalysisOut/_global/streams/inc_compile_2.12.zip"
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskFinish",
+  "params": {
+    "taskId": {
+      "id": "47"
+    },
+    "eventTime": 1572529651991,
+    "message": "Compiled \u0027bloopShared\u0027",
+    "status": 1,
+    "dataKind": "compile-report",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/shared/?id\u003dbloopShared"
+      },
+      "originId": "-491826550",
+      "errors": 0,
+      "warnings": 0,
+      "isNoOp": true,
+      "isLastCycle": true,
+      "clientDir": "file:///home/jvican/Code/bloop/.bloop/bloopShared/bloop-bsp-clients-classes/classes-sbt-GAelfwngR1C0j2vmpt0Upw\u003d\u003d/",
+      "analysisOut": "file:///home/jvican/Code/bloop/shared/target/streams/compile/bloopAnalysisOut/_global/streams/inc_compile_2.12.zip"
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskStart",
+  "params": {
+    "taskId": {
+      "id": "48"
+    },
+    "eventTime": 1572529651997,
+    "message": "Start no-op compilation for buildpress",
+    "dataKind": "compile-task",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/buildpress/?id\u003dbuildpress"
+      }
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskFinish",
+  "params": {
+    "taskId": {
+      "id": "48"
+    },
+    "eventTime": 1572529651999,
+    "message": "Compiled \u0027buildpress\u0027",
+    "status": 1,
+    "dataKind": "compile-report",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/buildpress/?id\u003dbuildpress"
+      },
+      "originId": "-491826550",
+      "errors": 0,
+      "warnings": 0,
+      "isNoOp": true,
+      "isLastCycle": true,
+      "clientDir": "file:///home/jvican/Code/bloop/.bloop/buildpress/bloop-bsp-clients-classes/classes-sbt-GAelfwngR1C0j2vmpt0Upw\u003d\u003d/",
+      "analysisOut": "file:///home/jvican/Code/bloop/buildpress/target/streams/compile/bloopAnalysisOut/_global/streams/inc_compile_2.12.zip"
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "id": "9",
+  "result": {
+    "originId": "-491826550",
+    "statusCode": 1
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "id": "10",
+  "method": "buildTarget/compile",
+  "params": {
+    "targets": [
+      {
+        "uri": "file:/home/jvican/Code/bloop/buildpress/?id\u003dbuildpress"
+      }
+    ],
+    "originId": "-1735811509"
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskStart",
+  "params": {
+    "taskId": {
+      "id": "49"
+    },
+    "eventTime": 1572529664360,
+    "message": "Start no-op compilation for bloopgun",
+    "dataKind": "compile-task",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/bloopgun/?id\u003dbloopgun"
+      }
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskStart",
+  "params": {
+    "taskId": {
+      "id": "51"
+    },
+    "eventTime": 1572529664360,
+    "message": "Start no-op compilation for buildpressConfig",
+    "dataKind": "compile-task",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/buildpress-config/?id\u003dbuildpressConfig"
+      }
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskStart",
+  "params": {
+    "taskId": {
+      "id": "50"
+    },
+    "eventTime": 1572529664360,
+    "message": "Start no-op compilation for bloopShared",
+    "dataKind": "compile-task",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/shared/?id\u003dbloopShared"
+      }
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskFinish",
+  "params": {
+    "taskId": {
+      "id": "50"
+    },
+    "eventTime": 1572529664362,
+    "message": "Compiled \u0027bloopShared\u0027",
+    "status": 1,
+    "dataKind": "compile-report",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/shared/?id\u003dbloopShared"
+      },
+      "originId": "-1735811509",
+      "errors": 0,
+      "warnings": 0,
+      "isNoOp": true,
+      "isLastCycle": true,
+      "clientDir": "file:///home/jvican/Code/bloop/.bloop/bloopShared/bloop-bsp-clients-classes/classes-sbt-GAelfwngR1C0j2vmpt0Upw\u003d\u003d/",
+      "analysisOut": "file:///home/jvican/Code/bloop/shared/target/streams/compile/bloopAnalysisOut/_global/streams/inc_compile_2.12.zip"
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskFinish",
+  "params": {
+    "taskId": {
+      "id": "49"
+    },
+    "eventTime": 1572529664362,
+    "message": "Compiled \u0027bloopgun\u0027",
+    "status": 1,
+    "dataKind": "compile-report",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/bloopgun/?id\u003dbloopgun"
+      },
+      "originId": "-1735811509",
+      "errors": 0,
+      "warnings": 0,
+      "isNoOp": true,
+      "isLastCycle": true,
+      "clientDir": "file:///home/jvican/Code/bloop/.bloop/bloopgun/bloop-bsp-clients-classes/classes-sbt-GAelfwngR1C0j2vmpt0Upw\u003d\u003d/",
+      "analysisOut": "file:///home/jvican/Code/bloop/bloopgun/target/streams/compile/bloopAnalysisOut/_global/streams/inc_compile_2.12.zip"
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskStart",
+  "params": {
+    "taskId": {
+      "id": "52"
+    },
+    "eventTime": 1572529664366,
+    "message": "Start no-op compilation for sockets",
+    "dataKind": "compile-task",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/sockets/?id\u003dsockets"
+      }
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskFinish",
+  "params": {
+    "taskId": {
+      "id": "52"
+    },
+    "eventTime": 1572529664367,
+    "message": "Compiled \u0027sockets\u0027",
+    "status": 1,
+    "dataKind": "compile-report",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/sockets/?id\u003dsockets"
+      },
+      "originId": "-1735811509",
+      "errors": 0,
+      "warnings": 0,
+      "isNoOp": true,
+      "isLastCycle": true,
+      "clientDir": "file:///home/jvican/Code/bloop/.bloop/sockets/bloop-bsp-clients-classes/classes-sbt-GAelfwngR1C0j2vmpt0Upw\u003d\u003d/",
+      "analysisOut": "file:///home/jvican/Code/bloop/sockets/target/streams/compile/bloopAnalysisOut/_global/streams/inc_compile.zip"
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskFinish",
+  "params": {
+    "taskId": {
+      "id": "51"
+    },
+    "eventTime": 1572529664368,
+    "message": "Compiled \u0027buildpressConfig\u0027",
+    "status": 1,
+    "dataKind": "compile-report",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/buildpress-config/?id\u003dbuildpressConfig"
+      },
+      "originId": "-1735811509",
+      "errors": 0,
+      "warnings": 0,
+      "isNoOp": true,
+      "isLastCycle": true,
+      "clientDir": "file:///home/jvican/Code/bloop/.bloop/buildpressConfig/bloop-bsp-clients-classes/classes-sbt-GAelfwngR1C0j2vmpt0Upw\u003d\u003d/",
+      "analysisOut": "file:///home/jvican/Code/bloop/buildpress-config/target/streams/compile/bloopAnalysisOut/_global/streams/inc_compile_2.12.zip"
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskStart",
+  "params": {
+    "taskId": {
+      "id": "53"
+    },
+    "eventTime": 1572529664373,
+    "message": "Start no-op compilation for launcher",
+    "dataKind": "compile-task",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/launcher/?id\u003dlauncher"
+      }
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskFinish",
+  "params": {
+    "taskId": {
+      "id": "53"
+    },
+    "eventTime": 1572529664376,
+    "message": "Compiled \u0027launcher\u0027",
+    "status": 1,
+    "dataKind": "compile-report",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/launcher/?id\u003dlauncher"
+      },
+      "originId": "-1735811509",
+      "errors": 0,
+      "warnings": 0,
+      "isNoOp": true,
+      "isLastCycle": true,
+      "clientDir": "file:///home/jvican/Code/bloop/.bloop/launcher/bloop-bsp-clients-classes/classes-sbt-GAelfwngR1C0j2vmpt0Upw\u003d\u003d/",
+      "analysisOut": "file:///home/jvican/Code/bloop/launcher/target/streams/compile/bloopAnalysisOut/_global/streams/inc_compile_2.12.zip"
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskStart",
+  "params": {
+    "taskId": {
+      "id": "54"
+    },
+    "eventTime": 1572529664378,
+    "message": "Start no-op compilation for buildpress",
+    "dataKind": "compile-task",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/buildpress/?id\u003dbuildpress"
+      }
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskFinish",
+  "params": {
+    "taskId": {
+      "id": "54"
+    },
+    "eventTime": 1572529664381,
+    "message": "Compiled \u0027buildpress\u0027",
+    "status": 1,
+    "dataKind": "compile-report",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/buildpress/?id\u003dbuildpress"
+      },
+      "originId": "-1735811509",
+      "errors": 0,
+      "warnings": 0,
+      "isNoOp": true,
+      "isLastCycle": true,
+      "clientDir": "file:///home/jvican/Code/bloop/.bloop/buildpress/bloop-bsp-clients-classes/classes-sbt-GAelfwngR1C0j2vmpt0Upw\u003d\u003d/",
+      "analysisOut": "file:///home/jvican/Code/bloop/buildpress/target/streams/compile/bloopAnalysisOut/_global/streams/inc_compile_2.12.zip"
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "id": "10",
+  "result": {
+    "originId": "-1735811509",
+    "statusCode": 1
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "id": "11",
+  "method": "buildTarget/compile",
+  "params": {
+    "targets": [
+      {
+        "uri": "file:/home/jvican/Code/bloop/buildpress/?id\u003dbuildpress"
+      }
+    ],
+    "originId": "-454338965"
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskStart",
+  "params": {
+    "taskId": {
+      "id": "55"
+    },
+    "eventTime": 1572529669178,
+    "message": "Start no-op compilation for buildpressConfig",
+    "dataKind": "compile-task",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/buildpress-config/?id\u003dbuildpressConfig"
+      }
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskFinish",
+  "params": {
+    "taskId": {
+      "id": "55"
+    },
+    "eventTime": 1572529669181,
+    "message": "Compiled \u0027buildpressConfig\u0027",
+    "status": 1,
+    "dataKind": "compile-report",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/buildpress-config/?id\u003dbuildpressConfig"
+      },
+      "originId": "-454338965",
+      "errors": 0,
+      "warnings": 0,
+      "isNoOp": true,
+      "isLastCycle": true,
+      "clientDir": "file:///home/jvican/Code/bloop/.bloop/buildpressConfig/bloop-bsp-clients-classes/classes-sbt-GAelfwngR1C0j2vmpt0Upw\u003d\u003d/",
+      "analysisOut": "file:///home/jvican/Code/bloop/buildpress-config/target/streams/compile/bloopAnalysisOut/_global/streams/inc_compile_2.12.zip"
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskStart",
+  "params": {
+    "taskId": {
+      "id": "56"
+    },
+    "eventTime": 1572529669186,
+    "message": "Start no-op compilation for bloopgun",
+    "dataKind": "compile-task",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/bloopgun/?id\u003dbloopgun"
+      }
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskStart",
+  "params": {
+    "taskId": {
+      "id": "57"
+    },
+    "eventTime": 1572529669186,
+    "message": "Start no-op compilation for bloopShared",
+    "dataKind": "compile-task",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/shared/?id\u003dbloopShared"
+      }
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskFinish",
+  "params": {
+    "taskId": {
+      "id": "57"
+    },
+    "eventTime": 1572529669188,
+    "message": "Compiled \u0027bloopShared\u0027",
+    "status": 1,
+    "dataKind": "compile-report",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/shared/?id\u003dbloopShared"
+      },
+      "originId": "-454338965",
+      "errors": 0,
+      "warnings": 0,
+      "isNoOp": true,
+      "isLastCycle": true,
+      "clientDir": "file:///home/jvican/Code/bloop/.bloop/bloopShared/bloop-bsp-clients-classes/classes-sbt-GAelfwngR1C0j2vmpt0Upw\u003d\u003d/",
+      "analysisOut": "file:///home/jvican/Code/bloop/shared/target/streams/compile/bloopAnalysisOut/_global/streams/inc_compile_2.12.zip"
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskFinish",
+  "params": {
+    "taskId": {
+      "id": "56"
+    },
+    "eventTime": 1572529669188,
+    "message": "Compiled \u0027bloopgun\u0027",
+    "status": 1,
+    "dataKind": "compile-report",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/bloopgun/?id\u003dbloopgun"
+      },
+      "originId": "-454338965",
+      "errors": 0,
+      "warnings": 0,
+      "isNoOp": true,
+      "isLastCycle": true,
+      "clientDir": "file:///home/jvican/Code/bloop/.bloop/bloopgun/bloop-bsp-clients-classes/classes-sbt-GAelfwngR1C0j2vmpt0Upw\u003d\u003d/",
+      "analysisOut": "file:///home/jvican/Code/bloop/bloopgun/target/streams/compile/bloopAnalysisOut/_global/streams/inc_compile_2.12.zip"
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskStart",
+  "params": {
+    "taskId": {
+      "id": "58"
+    },
+    "eventTime": 1572529669189,
+    "message": "Start no-op compilation for sockets",
+    "dataKind": "compile-task",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/sockets/?id\u003dsockets"
+      }
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskFinish",
+  "params": {
+    "taskId": {
+      "id": "58"
+    },
+    "eventTime": 1572529669193,
+    "message": "Compiled \u0027sockets\u0027",
+    "status": 1,
+    "dataKind": "compile-report",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/sockets/?id\u003dsockets"
+      },
+      "originId": "-454338965",
+      "errors": 0,
+      "warnings": 0,
+      "isNoOp": true,
+      "isLastCycle": true,
+      "clientDir": "file:///home/jvican/Code/bloop/.bloop/sockets/bloop-bsp-clients-classes/classes-sbt-GAelfwngR1C0j2vmpt0Upw\u003d\u003d/",
+      "analysisOut": "file:///home/jvican/Code/bloop/sockets/target/streams/compile/bloopAnalysisOut/_global/streams/inc_compile.zip"
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskStart",
+  "params": {
+    "taskId": {
+      "id": "59"
+    },
+    "eventTime": 1572529669196,
+    "message": "Start no-op compilation for launcher",
+    "dataKind": "compile-task",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/launcher/?id\u003dlauncher"
+      }
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskFinish",
+  "params": {
+    "taskId": {
+      "id": "59"
+    },
+    "eventTime": 1572529669199,
+    "message": "Compiled \u0027launcher\u0027",
+    "status": 1,
+    "dataKind": "compile-report",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/launcher/?id\u003dlauncher"
+      },
+      "originId": "-454338965",
+      "errors": 0,
+      "warnings": 0,
+      "isNoOp": true,
+      "isLastCycle": true,
+      "clientDir": "file:///home/jvican/Code/bloop/.bloop/launcher/bloop-bsp-clients-classes/classes-sbt-GAelfwngR1C0j2vmpt0Upw\u003d\u003d/",
+      "analysisOut": "file:///home/jvican/Code/bloop/launcher/target/streams/compile/bloopAnalysisOut/_global/streams/inc_compile_2.12.zip"
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskStart",
+  "params": {
+    "taskId": {
+      "id": "60"
+    },
+    "eventTime": 1572529669202,
+    "message": "Start no-op compilation for buildpress",
+    "dataKind": "compile-task",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/buildpress/?id\u003dbuildpress"
+      }
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskFinish",
+  "params": {
+    "taskId": {
+      "id": "60"
+    },
+    "eventTime": 1572529669205,
+    "message": "Compiled \u0027buildpress\u0027",
+    "status": 1,
+    "dataKind": "compile-report",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/buildpress/?id\u003dbuildpress"
+      },
+      "originId": "-454338965",
+      "errors": 0,
+      "warnings": 0,
+      "isNoOp": true,
+      "isLastCycle": true,
+      "clientDir": "file:///home/jvican/Code/bloop/.bloop/buildpress/bloop-bsp-clients-classes/classes-sbt-GAelfwngR1C0j2vmpt0Upw\u003d\u003d/",
+      "analysisOut": "file:///home/jvican/Code/bloop/buildpress/target/streams/compile/bloopAnalysisOut/_global/streams/inc_compile_2.12.zip"
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "id": "11",
+  "result": {
+    "originId": "-454338965",
+    "statusCode": 1
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "id": "12",
+  "method": "buildTarget/compile",
+  "params": {
+    "targets": [
+      {
+        "uri": "file:/home/jvican/Code/bloop/buildpress/?id\u003dbuildpress"
+      }
+    ],
+    "originId": "66277809"
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskStart",
+  "params": {
+    "taskId": {
+      "id": "62"
+    },
+    "eventTime": 1572529672956,
+    "message": "Start no-op compilation for buildpressConfig",
+    "dataKind": "compile-task",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/buildpress-config/?id\u003dbuildpressConfig"
+      }
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskStart",
+  "params": {
+    "taskId": {
+      "id": "63"
+    },
+    "eventTime": 1572529672956,
+    "message": "Start no-op compilation for sockets",
+    "dataKind": "compile-task",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/sockets/?id\u003dsockets"
+      }
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskStart",
+  "params": {
+    "taskId": {
+      "id": "61"
+    },
+    "eventTime": 1572529672956,
+    "message": "Start no-op compilation for bloopgun",
+    "dataKind": "compile-task",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/bloopgun/?id\u003dbloopgun"
+      }
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskFinish",
+  "params": {
+    "taskId": {
+      "id": "62"
+    },
+    "eventTime": 1572529672957,
+    "message": "Compiled \u0027buildpressConfig\u0027",
+    "status": 1,
+    "dataKind": "compile-report",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/buildpress-config/?id\u003dbuildpressConfig"
+      },
+      "originId": "66277809",
+      "errors": 0,
+      "warnings": 0,
+      "isNoOp": true,
+      "isLastCycle": true,
+      "clientDir": "file:///home/jvican/Code/bloop/.bloop/buildpressConfig/bloop-bsp-clients-classes/classes-sbt-GAelfwngR1C0j2vmpt0Upw\u003d\u003d/",
+      "analysisOut": "file:///home/jvican/Code/bloop/buildpress-config/target/streams/compile/bloopAnalysisOut/_global/streams/inc_compile_2.12.zip"
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskFinish",
+  "params": {
+    "taskId": {
+      "id": "63"
+    },
+    "eventTime": 1572529672958,
+    "message": "Compiled \u0027sockets\u0027",
+    "status": 1,
+    "dataKind": "compile-report",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/sockets/?id\u003dsockets"
+      },
+      "originId": "66277809",
+      "errors": 0,
+      "warnings": 0,
+      "isNoOp": true,
+      "isLastCycle": true,
+      "clientDir": "file:///home/jvican/Code/bloop/.bloop/sockets/bloop-bsp-clients-classes/classes-sbt-GAelfwngR1C0j2vmpt0Upw\u003d\u003d/",
+      "analysisOut": "file:///home/jvican/Code/bloop/sockets/target/streams/compile/bloopAnalysisOut/_global/streams/inc_compile.zip"
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskStart",
+  "params": {
+    "taskId": {
+      "id": "64"
+    },
+    "eventTime": 1572529672961,
+    "message": "Start no-op compilation for bloopShared",
+    "dataKind": "compile-task",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/shared/?id\u003dbloopShared"
+      }
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskFinish",
+  "params": {
+    "taskId": {
+      "id": "64"
+    },
+    "eventTime": 1572529672962,
+    "message": "Compiled \u0027bloopShared\u0027",
+    "status": 1,
+    "dataKind": "compile-report",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/shared/?id\u003dbloopShared"
+      },
+      "originId": "66277809",
+      "errors": 0,
+      "warnings": 0,
+      "isNoOp": true,
+      "isLastCycle": true,
+      "clientDir": "file:///home/jvican/Code/bloop/.bloop/bloopShared/bloop-bsp-clients-classes/classes-sbt-GAelfwngR1C0j2vmpt0Upw\u003d\u003d/",
+      "analysisOut": "file:///home/jvican/Code/bloop/shared/target/streams/compile/bloopAnalysisOut/_global/streams/inc_compile_2.12.zip"
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskStart",
+  "params": {
+    "taskId": {
+      "id": "65"
+    },
+    "eventTime": 1572529672969,
+    "message": "Start no-op compilation for launcher",
+    "dataKind": "compile-task",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/launcher/?id\u003dlauncher"
+      }
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskFinish",
+  "params": {
+    "taskId": {
+      "id": "61"
+    },
+    "eventTime": 1572529672970,
+    "message": "Compiled \u0027bloopgun\u0027",
+    "status": 1,
+    "dataKind": "compile-report",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/bloopgun/?id\u003dbloopgun"
+      },
+      "originId": "66277809",
+      "errors": 0,
+      "warnings": 0,
+      "isNoOp": true,
+      "isLastCycle": true,
+      "clientDir": "file:///home/jvican/Code/bloop/.bloop/bloopgun/bloop-bsp-clients-classes/classes-sbt-GAelfwngR1C0j2vmpt0Upw\u003d\u003d/",
+      "analysisOut": "file:///home/jvican/Code/bloop/bloopgun/target/streams/compile/bloopAnalysisOut/_global/streams/inc_compile_2.12.zip"
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskFinish",
+  "params": {
+    "taskId": {
+      "id": "65"
+    },
+    "eventTime": 1572529672970,
+    "message": "Compiled \u0027launcher\u0027",
+    "status": 1,
+    "dataKind": "compile-report",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/launcher/?id\u003dlauncher"
+      },
+      "originId": "66277809",
+      "errors": 0,
+      "warnings": 0,
+      "isNoOp": true,
+      "isLastCycle": true,
+      "clientDir": "file:///home/jvican/Code/bloop/.bloop/launcher/bloop-bsp-clients-classes/classes-sbt-GAelfwngR1C0j2vmpt0Upw\u003d\u003d/",
+      "analysisOut": "file:///home/jvican/Code/bloop/launcher/target/streams/compile/bloopAnalysisOut/_global/streams/inc_compile_2.12.zip"
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskStart",
+  "params": {
+    "taskId": {
+      "id": "66"
+    },
+    "eventTime": 1572529672977,
+    "message": "Start no-op compilation for buildpress",
+    "dataKind": "compile-task",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/buildpress/?id\u003dbuildpress"
+      }
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "method": "build/taskFinish",
+  "params": {
+    "taskId": {
+      "id": "66"
+    },
+    "eventTime": 1572529672979,
+    "message": "Compiled \u0027buildpress\u0027",
+    "status": 1,
+    "dataKind": "compile-report",
+    "data": {
+      "target": {
+        "uri": "file:/home/jvican/Code/bloop/buildpress/?id\u003dbuildpress"
+      },
+      "originId": "66277809",
+      "errors": 0,
+      "warnings": 0,
+      "isNoOp": true,
+      "isLastCycle": true,
+      "clientDir": "file:///home/jvican/Code/bloop/.bloop/buildpress/bloop-bsp-clients-classes/classes-sbt-GAelfwngR1C0j2vmpt0Upw\u003d\u003d/",
+      "analysisOut": "file:///home/jvican/Code/bloop/buildpress/target/streams/compile/bloopAnalysisOut/_global/streams/inc_compile_2.12.zip"
+    }
+  }
+}
+{
+  "jsonrpc": "2.0",
+  "id": "12",
+  "result": {
+    "originId": "66277809",
+    "statusCode": 1
+  }
+}

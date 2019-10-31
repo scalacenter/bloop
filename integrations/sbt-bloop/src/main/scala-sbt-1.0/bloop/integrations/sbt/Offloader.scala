@@ -31,8 +31,7 @@ import sbt.{
   Tags
 }
 
-import bloop.integrations.sbt.internal.Utils
-import bloop.integrations.sbt.internal.SbtBspClient
+import bloop.integrations.sbt.internal.ProjectUtils
 
 import ch.epfl.scala.bsp4j.{CompileResult => Bsp4jCompileResult}
 import ch.epfl.scala.bsp4j.BuildTargetIdentifier
@@ -53,6 +52,13 @@ import bloop.bloop4j.api.handlers.BuildClientHandlers
 import xsbti.compile.AnalysisContents
 import java.util.concurrent.Executors
 import java.util.concurrent.ExecutorService
+import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.Future
+import com.lmax.disruptor.TimeoutException
+import bloop.launcher.LauncherStatus
+import bloop.integrations.sbt.internal.ProjectClientHandlers
+import bloop.integrations.sbt.internal.MultiProjectClientHandlers
+import ch.epfl.scala.bsp4j.InitializeBuildResult
 
 /**
  * Todo list:
@@ -77,119 +83,202 @@ object Offloader {
     val targetName = BloopKeys.bloopTargetName.value
     val reporter = BloopCompileKeys.bloopCompilerReporterInternal.value.get
     val baseDirectory = Keys.baseDirectory.value.toPath.toAbsolutePath
-    val buildTargetId = Utils.toBuildTargetIdentifier(baseDirectory, targetName)
+    val buildTargetId = ProjectUtils.toBuildTargetIdentifier(baseDirectory, targetName)
     BloopCompileInputs(buildTargetId, config, reporter, logger)
+  }
+
+  type BloopBuildClient = NakedLowLevelBuildClient[MultiProjectClientHandlers]
+  case class BloopCompileState(
+      client: BloopBuildClient,
+      handlersMap: ConcurrentHashMap[BuildTargetIdentifier, ProjectClientHandlers],
+      analysisMap: ConcurrentHashMap[BuildTargetIdentifier, JFuture[Option[AnalysisContents]]],
+      resultsMap: ConcurrentHashMap[BuildTargetIdentifier, CompileResult],
+      executor: ExecutorService
+  )
+
+  private val DisableCompilationProperty = "sbt-bloop.offload-compilation.disable"
+  def bloopGatewayInternalTask: Def.Initialize[Option[BloopGateway.ConnectionState]] = Def.setting {
+    val rootBaseDir = new File(Keys.loadedBuild.value.root).toPath()
+    if (java.lang.Boolean.getBoolean(DisableCompilationProperty)) None
+    else Some(BloopGateway.connectOnTheBackgroundTo(rootBaseDir))
+  }
+
+  def bloopCompileStateTask: Def.Initialize[Option[BloopCompileState]] = Def.setting {
+    val logger = Keys.sLog.value
+    val connState = BloopCompileKeys.bloopGatewayInternal.value
+    val executor = Executors.newCachedThreadPool()
+
+    def reportBloopServerError(
+        headlineMsg: String,
+        errorStatus: String,
+        t: Option[Throwable],
+        connState: BloopGateway.ConnectionState
+    ): Unit = {
+      val msg =
+        s"""$headlineMsg The build fallbacks to sbt's built-in compilation.
+           |  => Launcher error status is $errorStatus
+           |  => Investigate errors and stack traces in ${connState.logFile.toAbsolutePath}
+             """.stripMargin
+      logger.error(msg)
+      connState.logOut.println(s"[error] $msg")
+      t.foreach(_.printStackTrace(connState.logOut))
+    }
+
+    connState.flatMap { connState =>
+      val logOut = connState.logOut
+      var threwException = false
+      val startedRunning = connState.running.future
+      val maxDuration = FiniteDuration(30, TimeUnit.SECONDS)
+      try Await.result(startedRunning, maxDuration)
+      catch {
+        case e @ (_: TimeoutException | _: InterruptedException) =>
+          threwException = true
+          val headlineMsg = "Couldn't connect to Bloop server!"
+          val errorStatus = connState.exitStatus.get().map(_.toString()).getOrElse("unknown")
+          reportBloopServerError(headlineMsg, errorStatus, Some(e), connState)
+      }
+
+      val handlers = new ConcurrentHashMap[BuildTargetIdentifier, ProjectClientHandlers]()
+      val analysis =
+        new ConcurrentHashMap[BuildTargetIdentifier, JFuture[Option[AnalysisContents]]]()
+      val results = new ConcurrentHashMap[BuildTargetIdentifier, CompileResult]()
+
+      connState.exitStatus.get() match {
+        case Some(status) if !threwException =>
+          status match {
+            case LauncherStatus.SuccessfulRun =>
+              val headlineMsg = "Bloop launcher exited!"
+              reportBloopServerError(headlineMsg, status.toString, None, connState)
+            case _ =>
+              val headlineMsg = "Couldn't connect to Bloop server!"
+              reportBloopServerError(headlineMsg, status.toString, None, connState)
+          }
+          None
+        case _ =>
+          val client = new NakedLowLevelBuildClient(
+            "sbt",
+            "2.0.0-M4",
+            connState.baseDir,
+            connState.clientIn,
+            connState.clientOut,
+            new MultiProjectClientHandlers(logger, handlers),
+            None,
+            Some(executor)
+          )
+
+          initializeBloopClient(client, connState, logger).map(
+            _ => BloopCompileState(client, handlers, analysis, results, executor)
+          )
+      }
+    }
+  }
+
+  def initializeBloopClient(
+      client: BloopBuildClient,
+      connState: BloopGateway.ConnectionState,
+      logger: Logger
+  ): Option[Unit] = {
+    import connState.{logOut, logFile}
+    val initializedFuture = client.initialize
+    try {
+      val result = initializedFuture.get(15, TimeUnit.SECONDS)
+      val clientInfo = s"${result.getDisplayName()} (v${result.getVersion()})"
+      logOut.println(s"Initialized BSP v${result.getBspVersion()} session with $clientInfo")
+      Some(())
+    } catch {
+      case e @ (_: TimeoutException | _: InterruptedException) =>
+        val msg =
+          s"""Failed to initialize Bloop session! The build fallbacks to sbt's built-in compilation.
+             |  => Investigate errors and stack traces in ${connState.logFile.toAbsolutePath}
+             """.stripMargin
+        logger.error(msg)
+        logOut.println(s"[error] $msg")
+        e.printStackTrace(logOut)
+        None
+    }
   }
 
   type SessionKey = Option[sbt.Exec]
   @volatile private[this] var previousSessionKey: SessionKey = None
 
-  private val randomId = new java.util.Random()
-  def bloopExtractionIdTask: Def.Initialize[Long] = Def.setting(randomId.nextLong())
+  case class BloopSession(
+      requestId: String,
+      state: BloopCompileState
+  )
 
-  // Must be used through its attribute key so that this is only run once in a session
-  def bloopSessionIdTask: Def.Initialize[Task[String]] = Def.task {
+  def bloopSessionTaskDontCallDirectly: Def.Initialize[Task[BloopSession]] = Def.task {
+    val bloopSessionState = BloopCompileKeys.bloopCompileStateInternal.value.getOrElse(
+      throw new IllegalStateException(
+        s"Fatal programming error: bloop session task state is accessed even though the compile state is empty, please report this error upstream."
+      )
+    )
+
     val sessionKey = Keys.state.value.history.executed.headOption
     val compileRequestId = sessionKey.hashCode.toString
+
+    // We synchronize just out of mistrust on sbt... should only be run once per command execution
     previousSessionKey.synchronized {
       if (sessionKey != previousSessionKey) {
-        cleanUpStateBeforeSession(compileRequestId)
+        bloopSessionState.handlersMap.clear()
+        bloopSessionState.analysisMap.clear()
+        bloopSessionState.resultsMap.clear()
         previousSessionKey = sessionKey
       }
     }
-    compileRequestId
+
+    BloopSession(compileRequestId, bloopSessionState)
   }
-
-  type BloopBuildClient = NakedLowLevelBuildClient[BuildClientHandlers]
-  case class BloopClientState(
-      client: BloopBuildClient,
-      inputs: ConcurrentHashMap[BuildTargetIdentifier, BloopCompileInputs],
-      outputs: ConcurrentHashMap[BuildTargetIdentifier, JFuture[Option[AnalysisContents]]],
-      executor: ExecutorService
-  )
-
-  def bloopSessionState: Def.Initialize[Task[BloopClientState]] = Def.task {
-    val originId = BloopCompileKeys.bloopSessionIdInternal.value
-    ???
-  }
-
-  private[this] val compiledBloopProjects =
-    new ConcurrentHashMap[BuildTargetIdentifier, CompileResult]()
-
-  def cleanUpStateBeforeSession(sessionKey: String): Unit = {
-    SbtBspClient.compileAnalysisMapPerRequest.clear()
-    compiledBloopProjects.clear()
-  }
-
-  val BloopWait = sbt.Tags.Tag("bloop-wait")
 
   def bloopOffloadCompilationTask: Def.Initialize[Task[CompileResult]] = Def.taskDyn {
     val state = Keys.state.value
     val logger = Keys.streams.value.log
     val scopedKey = Keys.resolvedScoped.value
+    val bloopSession = BloopCompileKeys.bloopSessionInternal.value
+    val bloopState = bloopSession.state
 
     val targetName = BloopKeys.bloopTargetName.value
     val baseDirectory = Keys.baseDirectory.value.toPath.toAbsolutePath
-    val buildTargetId = Utils.toBuildTargetIdentifier(baseDirectory, targetName)
-    val compileRequestId = BloopCompileKeys.bloopSessionIdInternal.value
+    val buildTargetId = ProjectUtils.toBuildTargetIdentifier(baseDirectory, targetName)
 
-    val alreadyCompiledAnalysis = compiledBloopProjects.get(buildTargetId)
+    val alreadyCompiledAnalysis = bloopState.resultsMap.get(buildTargetId)
     if (alreadyCompiledAnalysis != null) {
-      Utils.inlinedTask(alreadyCompiledAnalysis)
+      ProjectUtils.inlinedTask(alreadyCompiledAnalysis)
     } else {
-      val compileTask = Def.taskDyn {
-        logger.info(s"Bloop is compiling ${targetName}!")
-
-        val maxErrors = Keys.maxErrors.in(Keys.compile).value
-        val mappers = Utils.foldMappers(Keys.sourcePositionMappers.in(Keys.compile).value)
-        val reporter = new LoggedReporter(maxErrors, logger, mappers)
-        val rootBaseDir = new File(Keys.loadedBuild.value.root).toPath()
-        val client = SbtBspClient.initializeConnection(false, rootBaseDir, logger, reporter).get
-
+      Def.taskDyn {
         val compileInputs = BloopCompileKeys.bloopDependencyInputsInternal.value
+        val skipCompilation = !BloopDefaults.targetNamesToConfigs.containsKey(targetName)
 
-        val skipCompilation = BloopDefaults.targetNamesToConfigs.containsKey(targetName)
         if (skipCompilation) {
           Def.task {
             val setup = toMiniSetup(targetName)
             CompileResult.create(Analysis.Empty, setup, false)
           }
         } else {
-          val selfTransitiveInputs = new ju.HashMap[BuildTargetIdentifier, BloopCompileInputs]()
-          compileInputs.foreach(in => selfTransitiveInputs.putIfAbsent(in.buildTargetId, in))
-
-          val actualTransitiveInputs = Option(
-            null //SbtBspClient.compileRequestDataMap.putIfAbsent(compileRequestId, selfTransitiveInputs)
-          ).getOrElse(selfTransitiveInputs)
-
-          if (actualTransitiveInputs != selfTransitiveInputs) {
-            compileInputs.foreach { in =>
-              if (!actualTransitiveInputs.containsKey(in.buildTargetId)) {
-                actualTransitiveInputs.synchronized {
-                  actualTransitiveInputs.put(in.buildTargetId, in)
-                }
-              }
-            }
+          // Prepare inputs and session-specific project handlers
+          compileInputs.foreach { inputs =>
+            bloopState.handlersMap.putIfAbsent(
+              inputs.buildTargetId,
+              new ProjectClientHandlers(inputs, bloopState.analysisMap, bloopState.executor)
+            )
           }
 
           // Assemble and make compile request to Bloop server
           val params = new CompileParams(ju.Arrays.asList(buildTargetId))
-          params.setOriginId(compileRequestId)
-          val result = client.compile(params)
+          params.setOriginId(bloopSession.requestId)
+          val result = bloopState.client.compile(params)
 
-          waitForResult(targetName, buildTargetId, compileRequestId, result, logger)
+          waitForResult(targetName, buildTargetId, bloopSession, result, logger)
             .apply(markBloopWaitForCompile(_, scopedKey))
         }
       }
-
-      compileTask //.apply(markBloopCompileEntrypoint(_, scopedKey))
     }
   }
 
+  private val BloopWait = sbt.Tags.Tag("bloop-wait")
   private def waitForResult[T](
       targetName: String,
       buildTarget: BuildTargetIdentifier,
-      compileRequestId: String,
+      bloopSession: BloopSession,
       futureResult: JFuture[T],
       logger: Logger
   ): Def.Initialize[Task[CompileResult]] = {
@@ -209,37 +298,38 @@ object Offloader {
         }
     }
 
+    sbt.Defaults
     Def.task {
       //logger.info(s"Waiting for result of ${targetName}")
-      val result = futureResult.get() // waitForResult(50).value
-      Option(SbtBspClient.compileAnalysisMapPerRequest.get(compileRequestId)) match {
+      val result = waitForResult(10).value
+      val analysisMap = bloopSession.state.analysisMap
+      val resultsMap = bloopSession.state.resultsMap
+      Option(analysisMap.get(buildTarget)) match {
         case None =>
           val setup = toMiniSetup(targetName)
           CompileResult.create(Analysis.Empty, setup, false)
 
-        case Some(analysisFutures) =>
-          //logger.info(s"Blocking on analysis of ${targetName}")
-          import scala.collection.JavaConverters._
-          val transitiveResults = analysisFutures.asScala.map(kv => kv._1 -> kv._2.get()).collect {
-            case (key, Some(analysis)) =>
-              // TODO: Return valid result for `hasModified`
-              key -> CompileResult.create(analysis.getAnalysis, analysis.getMiniSetup, false)
-          }
-
-          //println(transitiveResults.toMap)
-          transitiveResults.foreach {
-            case (buildTarget, result) =>
-              compiledBloopProjects.put(buildTarget, result)
-          }
-
-          //logger.info(s"Finished compilation for ${targetName}")
-          val result = transitiveResults.get(buildTarget).getOrElse {
+        case Some(analysisFuture) =>
+          lazy val emptyResult: CompileResult = {
             logger.warn("Compile analysis was empty")
             val setup = toMiniSetup(targetName)
             CompileResult.create(Analysis.Empty, setup, false)
           }
-          //logger.info(s"Result obtained for ${targetName}")
-          result
+
+          val maybeAnalysis = analysisFuture.get()
+          val compileResult = {
+            if (maybeAnalysis == null) emptyResult
+            else {
+              maybeAnalysis match {
+                case Some(contents) =>
+                  CompileResult.create(contents.getAnalysis, contents.getMiniSetup, false)
+                case None => emptyResult
+              }
+            }
+          }
+
+          resultsMap.putIfAbsent(buildTarget, compileResult)
+          compileResult
       }
     }
   }
@@ -277,28 +367,6 @@ object Offloader {
     task.copy(info = task.info.set(Keys.taskDefinitionKey, newKey))
   }
 
-  lazy val bloopInitializeConnection: Def.Initialize[Unit] = Def.setting {
-    val globalLogger = Keys.sLog.value
-    val maxErrors = Keys.maxErrors.in(Keys.compile).value
-    val reporter = new LoggedReporter(maxErrors, globalLogger, identity)
-
-    val rootBaseDir = new File(Keys.loadedBuild.value.root).toPath()
-
-    val thread = new Thread {
-      override def run(): Unit = {
-        SbtBspClient.initializeConnection(
-          restartLauncher = false,
-          rootBaseDir,
-          globalLogger,
-          reporter
-        )
-        ()
-      }
-    }
-
-    thread.run()
-  }
-
   private def bloopDependencyInputsTask: Def.Initialize[Task[Seq[BloopCompileInputs]]] = {
     Def.taskDyn {
       val currentProject = Keys.thisProjectRef.value
@@ -321,7 +389,7 @@ object Offloader {
           }
 
           Def.value((inputsTasks.toList.join).map(_.distinct))
-        case None => Utils.inlinedTask(Nil)
+        case None => ProjectUtils.inlinedTask(Nil)
       }
     }
   }
@@ -342,65 +410,63 @@ object Offloader {
     }
   )
 
-  def compileIncSetup: Def.Initialize[Task[CompileSetup]] = Def.taskDyn {
-    val currentSetup = Keys.compileIncSetup.?.value
-    currentSetup match {
-      case None => Def.task(sys.error(""))
-      case Some(setup) =>
-        Def.task {
-          if (SbtBspClient.failedToConnect.get()) setup
-          else {
-            val bloopCacheFile = BloopKeys.bloopAnalysisOut.value.getOrElse(setup.cacheFile())
-            CompileSetup.create(
-              setup.perClasspathEntryLookup(),
-              setup.skip(),
-              bloopCacheFile,
-              setup.cache(),
-              setup.incrementalCompilerOptions(),
-              setup.reporter(),
-              setup.progress(),
-              setup.extra()
-            )
-          }
-        }
+  def compileIncSetup: Def.Initialize[Task[CompileSetup]] = Def.task {
+    val previousSetup = Keys.compileIncSetup.value
+    val _ = Keys.classpathConfiguration.?.value
+    val bloopState = BloopCompileKeys.bloopCompileStateInternal.value
+    if (bloopState.isEmpty) previousSetup
+    else {
+      val bloopCacheFile = BloopKeys.bloopAnalysisOut.value.getOrElse(previousSetup.cacheFile())
+      CompileSetup.create(
+        previousSetup.perClasspathEntryLookup(),
+        previousSetup.skip(),
+        bloopCacheFile,
+        previousSetup.cache(),
+        previousSetup.incrementalCompilerOptions(),
+        previousSetup.reporter(),
+        previousSetup.progress(),
+        previousSetup.extra()
+      )
     }
   }
 
   def compile: Def.Initialize[Task[CompileAnalysis]] = {
     Def.taskDyn {
       val config = Keys.configuration.value
-      val conf = Keys.classpathConfiguration.?.value
+      // Depend on classpath config to force derive to scope everywhere it's available
+      val _ = Keys.classpathConfiguration.value
+      val bloopState = BloopCompileKeys.bloopCompileStateInternal.value
       val compileTask = Keys.compile.taskValue
-      conf match {
-        case Some(_) =>
-          if (SbtBspClient.failedToConnect.get()) Def.task(compileTask.value)
-          else Def.task(BloopKeys.bloopCompile.in(config).value.analysis())
-        case None => Def.task(BloopKeys.bloopCompile.in(config).value.analysis())
-      }
+      if (bloopState.isEmpty) Def.task(compileTask.value)
+      else Def.task(BloopKeys.bloopCompile.in(config).value.analysis())
     }
   }
 
   def compileIncremental: Def.Initialize[Task[CompileResult]] = {
     Def.taskDyn {
       val config = Keys.configuration.value
-      val conf = Keys.classpathConfiguration.?.value
+      // Depend on classpath config to force derive to scope everywhere it's available
+      val _ = Keys.classpathConfiguration.value
+      val bloopState = BloopCompileKeys.bloopCompileStateInternal.value
       val compileIncrementalTask = Keys.compileIncremental.taskValue
-      conf match {
-        case Some(_) =>
-          if (SbtBspClient.failedToConnect.get()) Def.task(compileIncrementalTask.value)
-          else BloopKeys.bloopCompile.in(config)
-        case None => BloopKeys.bloopCompile.in(config)
-      }
+      if (bloopState.isEmpty) Def.task(compileIncrementalTask.value)
+      else BloopKeys.bloopCompile.in(config)
     }
   }
 
   object BloopCompileKeys {
-    val bloopExtractionIdInternal: SettingKey[Long] = sbt
-      .settingKey[Long]("Obtain id which represents uniquely an sbt settings evaluation.")
+    val bloopGatewayInternal: SettingKey[Option[BloopGateway.ConnectionState]] = sbt
+      .settingKey[Option[BloopGateway.ConnectionState]](
+        "Obtain the compile state for an sbt shell session"
+      )
       .withRank(sbt.KeyRanks.Invisible)
 
-    val bloopSessionIdInternal: TaskKey[String] = sbt
-      .taskKey[String]("Obtain the session id for an sbt command execution")
+    val bloopCompileStateInternal: SettingKey[Option[BloopCompileState]] = sbt
+      .settingKey[Option[BloopCompileState]]("Obtain the compile state for an sbt shell session")
+      .withRank(sbt.KeyRanks.Invisible)
+
+    val bloopSessionInternal: TaskKey[BloopSession] = sbt
+      .taskKey[BloopSession]("Obtain the compile session for an sbt command execution")
       .withRank(sbt.KeyRanks.Invisible)
 
     val bloopCompileInputsInternal: TaskKey[BloopCompileInputs] = sbt
@@ -433,9 +499,10 @@ object Offloader {
     Keys.compileIncremental.set(compileIncremental, sbtBloopPosition),
     BloopKeys.bloopCompile.set(Offloader.bloopOffloadCompilationTask, sbtBloopPosition),
     Keys.compileIncSetup.set(compileIncSetup, sbtBloopPosition),
+    BloopCompileKeys.bloopGatewayInternal.set(bloopGatewayInternalTask, sbtBloopPosition),
+    BloopCompileKeys.bloopCompileStateInternal.set(bloopCompileStateTask, sbtBloopPosition),
     BloopCompileKeys.bloopCompileInputsInternal.set(bloopCompileInputsTask, sbtBloopPosition),
     BloopCompileKeys.bloopDependencyInputsInternal.set(bloopDependencyInputsTask, sbtBloopPosition),
-    BloopCompileKeys.bloopSessionIdInternal.set(bloopSessionIdTask, sbtBloopPosition),
-    BloopCompileKeys.bloopExtractionIdInternal.set(bloopExtractionIdTask, sbtBloopPosition)
+    BloopCompileKeys.bloopSessionInternal.set(bloopSessionTaskDontCallDirectly, sbtBloopPosition)
   ).map(Def.derive(_, allowDynamic = true))
 }

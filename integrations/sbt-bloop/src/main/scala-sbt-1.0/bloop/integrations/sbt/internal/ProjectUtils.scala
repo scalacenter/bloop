@@ -20,7 +20,7 @@ import sbt.ProjectRef
 import sbt.ClasspathDep
 import sbt.util.InterfaceUtil
 
-object Utils {
+object ProjectUtils {
   def foldMappers[A](mappers: Seq[A => Option[A]]) = {
     mappers.foldRight((p: A) => p) { (mapper, mappers) => p =>
       mapper(p).getOrElse(mappers(p))
