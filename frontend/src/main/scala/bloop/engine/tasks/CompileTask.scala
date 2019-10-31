@@ -474,7 +474,7 @@ object CompileTask {
    * alternative running compilation process.
    *
    * The last process to own the classes directory and not use it will be in
-   * charge of cleaning up the used read-only classes directory as it's
+   * charge of cleaning up the old read-only classes directory as it's
    * superseeded by the new classes directory generated during a successful
    * compile.
    */
