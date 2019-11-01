@@ -207,7 +207,19 @@ lazy val frontend: Project = project
         val dependencyClasspath = build.BuildImplementation.lazyDependencyClasspath.value
         ownProductDirectories ++ dependencyClasspath
       }
-    )
+    ),
+    includeFilter in unmanagedResources in Test := {
+      new FileFilter {
+        def accept(file: File): Boolean = {
+          val abs = file.getAbsolutePath
+          !(
+            abs.contains("scala-2.12") ||
+              abs.contains("classes-") ||
+              abs.contains("target")
+          )
+        }
+      }
+    }
   )
   .settings(
     name := "bloop-frontend",
