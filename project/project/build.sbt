@@ -101,8 +101,8 @@ val sbtBloopBuildShaded = project
     },
     packageBin in Compile := {
       (packageBin in Compile)
-        .dependsOn(Keys.copyResources.in(Compile))
-        .value
+      //.dependsOn(Keys.copyResources.in(Compile))
+      .value
     },
     packageBin in Compile := {
       val namespace = shadingNamespace.?.value.getOrElse {
@@ -122,7 +122,7 @@ val sbtBloopBuildShaded = project
       Def.taskDyn {
         import sbt.util.{FileFunction, FileInfo}
         var changed: Boolean = false
-        val _ = Keys.copyResources.in(Compile).value
+        //val _ = Keys.copyResources.in(Compile).value
         val cacheDirectory = Keys.target.value / "shaded-inputs-cached"
         val detectChange = FileFunction.cached(cacheDirectory, FileInfo.hash) { srcs =>
           changed = true
@@ -141,7 +141,7 @@ val root = project
   .settings(sharedSettings)
   .settings(
     compile in Compile := {
-      (copyResources in Compile in sbtBloopBuildShaded).value
+      //(copyResources in Compile in sbtBloopBuildShaded).value
       (publishShadedLocal in sbtBloopBuildShaded).value
       sbt.internal.inc.Analysis.empty
     }
