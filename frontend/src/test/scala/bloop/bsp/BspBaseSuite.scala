@@ -80,7 +80,7 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
       state: State,
       lastBspStatus: bsp.StatusCode,
       currentCompileIteration: AtomicInt,
-      diagnostics: ConcurrentHashMap[bsp.BuildTargetIdentifier, StringBuilder],
+      val diagnostics: ConcurrentHashMap[bsp.BuildTargetIdentifier, StringBuilder],
       implicit val client0: BloopLanguageClient,
       val serverStates: Observable[State]
   ) {
@@ -129,10 +129,14 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
       }
     }
 
-    def compileTask(project: TestProject, originId: Option[String]): Task[ManagedBspTestState] = {
+    def compileTask(
+        project: TestProject,
+        originId: Option[String],
+        clearDiagnostics: Boolean = false
+    ): Task[ManagedBspTestState] = {
       runAfterTargets(project) { target =>
         // Handle internal state before sending compile request
-        diagnostics.clear()
+        if (clearDiagnostics) diagnostics.clear()
         currentCompileIteration.increment(1)
 
         BuildTarget.compile.request(bsp.CompileParams(List(target), originId, None)).flatMap {
@@ -169,10 +173,14 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
       interpretedTask.runAsync(userScheduler.getOrElse(ExecutionContext.scheduler))
     }
 
-    def compile(project: TestProject, originId: Option[String] = None): ManagedBspTestState = {
+    def compile(
+        project: TestProject,
+        originId: Option[String] = None,
+        clearDiagnostics: Boolean = false
+    ): ManagedBspTestState = {
       // Use a default timeout of 30 seconds for every operation
       TestUtil.await(FiniteDuration(30, "s")) {
-        compileTask(project, originId)
+        compileTask(project, originId, clearDiagnostics)
       }
     }
 
@@ -387,6 +395,16 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
       val bspTestBuild = ManagedBspTestBuild(bspState, testBuild.projects)
       runTest(bspTestBuild)
     }
+  }
+
+  def loadBspStateAsSbtClient(
+      workspace: AbsolutePath,
+      projects: List[TestProject],
+      logger: RecordingLogger,
+      ownsBuildFiles: Boolean = false
+  )(runTest: ManagedBspTestState => Unit): Unit = {
+    val bloopExtraParams = BloopExtraBuildParams.empty.copy(ownsBuildFiles = Some(ownsBuildFiles))
+    loadBspState(workspace, projects, logger, "sbt", bloopExtraParams)(runTest)
   }
 
   def loadBspState(

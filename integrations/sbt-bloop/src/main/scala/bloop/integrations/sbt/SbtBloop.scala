@@ -813,8 +813,13 @@ object BloopDefaults {
     lazy val generated = Option(targetNamesToConfigs.get(projectName))
     if (isMetaBuild && configuration == Test) inlinedTask[Option[File]](None)
     else if (!hasConfigSettings) inlinedTask[Option[File]](None)
-    else if (generated.isDefined) inlinedTask(generated.map(_.outPath.toFile))
-    else {
+    else if (generated.isDefined) {
+      Def.task {
+        // Force classpath to force side-effects downstream to fully simulate `bloopGenerate`
+        val _ = emulateDependencyClasspath.value.map(_.toPath.toAbsolutePath).toList
+        generated.map(_.outPath.toFile)
+      }
+    } else {
       Def
         .task {
           val baseDirectory = Keys.baseDirectory.value.toPath.toAbsolutePath

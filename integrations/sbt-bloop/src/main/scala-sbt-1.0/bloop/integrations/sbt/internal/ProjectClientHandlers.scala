@@ -18,6 +18,7 @@ import xsbti.compile.AnalysisContents
 import scala.util.control.NonFatal
 import ch.epfl.scala.bsp4j.BuildTargetIdentifier
 import java.util.concurrent.ExecutorService
+import sbt.util.InterfaceUtil
 
 final class ProjectClientHandlers(
     inputs: BloopCompileInputs,
@@ -43,9 +44,13 @@ final class ProjectClientHandlers(
   def onBuildCompileFinish(params: TaskFinishParams, report: BloopCompileReport): Unit = {
     def readAndStoreAnalysis(analysisOut: File): Option[AnalysisContents] = {
       try {
-        val store = ProjectUtils.bloopStaticCacheStore(analysisOut)
+        val (store, isNew) = ProjectUtils.bloopStaticCacheStore(analysisOut)
         if (!analysisOut.exists()) None
-        else store.readFromDisk
+        else {
+          val shouldRead = isNew || !report.getIsNoOp()
+          if (shouldRead) store.readFromDisk
+          else InterfaceUtil.toOption(store.get())
+        }
       } catch {
         case NonFatal(t) =>
           logger.error(s"Fatal error when reading analysis from ${analysisOut}!")

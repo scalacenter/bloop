@@ -19,6 +19,9 @@ import sbt.internal.inc.FileAnalysisStore
 import sbt.ProjectRef
 import sbt.ClasspathDep
 import sbt.util.InterfaceUtil
+import xsbti.compile.ExternalHooks
+import xsbti.compile.DefaultExternalHooks
+import xsbti.compile.ClassFileManager
 
 object ProjectUtils {
   def foldMappers[A](mappers: Seq[A => Option[A]]) = {
@@ -51,6 +54,13 @@ object ProjectUtils {
     )
   }
 
+  def emptyExternalHooks: ExternalHooks = {
+    new DefaultExternalHooks(
+      ju.Optional.empty[ExternalHooks.Lookup],
+      ju.Optional.empty[ClassFileManager]
+    )
+  }
+
   import sbt.internal.inc.MixedAnalyzingCompiler
   val analysisCacheField = MixedAnalyzingCompiler.getClass().getDeclaredField("cache")
   analysisCacheField.setAccessible(true)
@@ -60,14 +70,15 @@ object ProjectUtils {
   private val analysisCache: AnalysisCache =
     analysisCacheField.get(MixedAnalyzingCompiler).asInstanceOf[AnalysisCache]
 
-  def bloopStaticCacheStore(analysisOut: File): BloopAnalysisStore = {
+  def bloopStaticCacheStore(analysisOut: File): (BloopAnalysisStore, Boolean) = {
     val analysisStore = new BloopAnalysisStore(FileAnalysisStore.binary(analysisOut))
     analysisCache.synchronized {
       val current = analysisCache.get(analysisOut).flatMap(ref => Option(ref.get))
       current match {
-        case Some(current: BloopAnalysisStore) => current
+        case Some(current: BloopAnalysisStore) => current -> false
         case _ =>
-          analysisCache.put(analysisOut, new SoftReference(analysisStore)); analysisStore
+          analysisCache.put(analysisOut, new SoftReference(analysisStore))
+          analysisStore -> true
       }
     }
   }

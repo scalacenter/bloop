@@ -28,7 +28,8 @@ import sbt.{
   IntegrationTest,
   Inc,
   Value,
-  Tags
+  Tags,
+  KeyRanks
 }
 
 import bloop.integrations.sbt.internal.ProjectUtils
@@ -61,6 +62,7 @@ import bloop.integrations.sbt.internal.MultiProjectClientHandlers
 import ch.epfl.scala.bsp4j.InitializeBuildResult
 import bloop.integrations.sbt.internal.SbtBuildClient
 import bloop.bloop4j.BloopStopClientCachingParams
+import xsbti.compile.ExternalHooks
 
 /**
  * Todo list:
@@ -130,7 +132,7 @@ object Offloader {
       val logOut = connState.logOut
       var threwException = false
       val startedRunning = connState.running.future
-      val maxDuration = FiniteDuration(30, TimeUnit.SECONDS)
+      val maxDuration = FiniteDuration(60, TimeUnit.SECONDS)
       try Await.result(startedRunning, maxDuration)
       catch {
         case e @ (_: TimeoutException | _: InterruptedException) =>
@@ -200,6 +202,7 @@ object Offloader {
 
   type SessionKey = Option[sbt.Exec]
   @volatile private[this] var previousSessionKey: SessionKey = None
+  @volatile private[this] var forceNewSession: Boolean = false
 
   case class BloopSession(
       requestId: String,
@@ -218,7 +221,7 @@ object Offloader {
 
     // We synchronize just out of mistrust on sbt... should only be run once per command execution
     previousSessionKey.synchronized {
-      if (sessionKey != previousSessionKey) {
+      if (forceNewSession || sessionKey != previousSessionKey) {
         previousSessionKey match {
           case None => ()
           case previousSessionKey @ Some(_) =>
@@ -235,6 +238,10 @@ object Offloader {
     }
 
     BloopSession(compileRequestId, bloopSessionState)
+  }
+
+  def bloopWatchBeforeCommandTask: Def.Initialize[() => Unit] = Def.setting { () =>
+    forceNewSession = true
   }
 
   def bloopOffloadCompilationTask: Def.Initialize[Task[CompileResult]] = Def.taskDyn {
@@ -307,8 +314,9 @@ object Offloader {
     }
 
     Def.task {
+
       //logger.info(s"Waiting for result of ${targetName}")
-      val result = waitForResult(10).value
+      val result = futureResult.get() //waitForResult(10).value
       val analysisMap = bloopSession.state.analysisMap
       val resultsMap = bloopSession.state.resultsMap
       Option(analysisMap.get(buildTarget)) match {
@@ -374,9 +382,16 @@ object Offloader {
     task.copy(info = task.info.set(Keys.taskDefinitionKey, newKey))
   }
 
+  private[sbt] lazy val transitiveClasspathDependency = sbt
+    .settingKey[Unit](
+      "Leaves a breadcrumb that the scoped task has transitive classpath dependencies"
+    )
+    .withRank(KeyRanks.Invisible)
+
   private def bloopDependencyInputsTask: Def.Initialize[Task[Seq[BloopCompileInputs]]] = {
     Def.taskDyn {
       val currentProject = Keys.thisProjectRef.value
+      val scope = Keys.resolvedScoped.value.scope
       val data = Keys.settingsData.value
       val deps = Keys.buildDependencies.value
       val conf = Keys.classpathConfiguration.?.value
@@ -401,22 +416,6 @@ object Offloader {
     }
   }
 
-  private val LimitAllPattern = "Limit all to (\\d+)".r
-  val bloopExtraGlobalSettings: Seq[Def.Setting[_]] = List(
-    Keys.concurrentRestrictions := {
-      val currentRestrictions = Keys.concurrentRestrictions.value
-      val elevatedRestrictions = currentRestrictions.map { restriction =>
-        restriction.toString match {
-          case LimitAllPattern(n) =>
-            val allCores = Integer.parseInt(n)
-            Tags.limitAll(allCores + 2)
-          case _ => restriction
-        }
-      }
-      elevatedRestrictions ++ List(Tags.limit(BloopWait, 1))
-    }
-  )
-
   def compileIncSetup: Def.Initialize[Task[CompileSetup]] = Def.task {
     val previousSetup = Keys.compileIncSetup.value
     val _ = Keys.classpathConfiguration.?.value
@@ -435,6 +434,14 @@ object Offloader {
         previousSetup.extra()
       )
     }
+  }
+
+  private val externalHooks = sbt.taskKey[ExternalHooks]("The external hooks used by zinc.")
+  def bloopCompilerExternalHooksTask: Def.Initialize[Task[ExternalHooks]] = Def.taskDyn {
+    val externalHooksTask = externalHooks.taskValue
+    val bloopState = BloopCompileKeys.bloopCompileStateInternal.value
+    if (bloopState.isEmpty) Def.task(externalHooksTask.value)
+    else ProjectUtils.inlinedTask(ProjectUtils.emptyExternalHooks)
   }
 
   def compile: Def.Initialize[Task[CompileAnalysis]] = {
@@ -466,33 +473,42 @@ object Offloader {
       .settingKey[Option[BloopGateway.ConnectionState]](
         "Obtain the compile state for an sbt shell session"
       )
-      .withRank(sbt.KeyRanks.Invisible)
+      .withRank(KeyRanks.Invisible)
+
+    // Copy pasted in case we're using a version below 1.3.0
+    val watchBeforeCommand: SettingKey[() => Unit] = sbt
+      .settingKey[() => Unit]("Function to run prior to running a command in a continuous build.")
+      .withRank(KeyRanks.DSetting)
 
     val bloopCompileStateInternal: SettingKey[Option[BloopCompileState]] = sbt
       .settingKey[Option[BloopCompileState]]("Obtain the compile state for an sbt shell session")
-      .withRank(sbt.KeyRanks.Invisible)
+      .withRank(KeyRanks.Invisible)
 
     val bloopSessionInternal: TaskKey[BloopSession] = sbt
       .taskKey[BloopSession]("Obtain the compile session for an sbt command execution")
-      .withRank(sbt.KeyRanks.Invisible)
+      .withRank(KeyRanks.Invisible)
 
     val bloopCompileInputsInternal: TaskKey[BloopCompileInputs] = sbt
       .taskKey[BloopCompileInputs]("Obtain the compile inputs required to offload compilation")
-      .withRank(sbt.KeyRanks.Invisible)
+      .withRank(KeyRanks.Invisible)
 
     val bloopDependencyInputsInternal = sbt
       .taskKey[Seq[BloopCompileInputs]]("Obtain the dependency compile inputs from this target")
-      .withRank(sbt.KeyRanks.Invisible)
+      .withRank(KeyRanks.Invisible)
 
     val bloopCompilerReporterInternal = sbt
       .taskKey[Option[CompileReporter]]("Obtain compiler reporter scoped in sbt compile task")
-      .withRank(sbt.KeyRanks.Invisible)
+      .withRank(KeyRanks.Invisible)
+
+    val bloopCompilerExternalHooks = sbt
+      .taskKey[ExternalHooks]("Obtain empty external hooks if bloop compilation is enabled")
+      .withRank(KeyRanks.Invisible)
   }
 
   private def sbtBloopPosition = sbt.internal.util.SourcePosition.fromEnclosing()
 
   private val compileReporterKey =
-    TaskKey[CompileReporter]("compilerReporter", rank = sbt.KeyRanks.DTask)
+    TaskKey[CompileReporter]("compilerReporter", rank = KeyRanks.DTask)
   private def bloopCompilerReporterTask: Def.Initialize[Task[Option[CompileReporter]]] = Def.task {
     compileReporterKey.in(Keys.compile).?.value
   }
@@ -502,14 +518,34 @@ object Offloader {
   )
 
   lazy val offloaderSettings: Seq[Def.Setting[_]] = highPriorityOffloaderSettings ++ List(
-    Keys.compile.set(compile, sbtBloopPosition),
+    //Keys.compile.set(compile, sbtBloopPosition),
+    Keys.compileIncSetup.set(compileIncSetup, sbtBloopPosition),
     Keys.compileIncremental.set(compileIncremental, sbtBloopPosition),
     BloopKeys.bloopCompile.set(Offloader.bloopOffloadCompilationTask, sbtBloopPosition),
-    Keys.compileIncSetup.set(compileIncSetup, sbtBloopPosition),
+    BloopCompileKeys.bloopCompilerExternalHooks
+      .set(bloopCompilerExternalHooksTask, sbtBloopPosition),
+    BloopCompileKeys.bloopCompileInputsInternal.set(bloopCompileInputsTask, sbtBloopPosition),
+    BloopCompileKeys.bloopDependencyInputsInternal.set(bloopDependencyInputsTask, sbtBloopPosition)
+  ).map(Def.derive(_, allowDynamic = true))
+
+  private val LimitAllPattern = "Limit all to (\\d+)".r
+  val bloopExtraGlobalSettings: Seq[Def.Setting[_]] = List(
+    BloopCompileKeys.watchBeforeCommand.set(bloopWatchBeforeCommandTask, sbtBloopPosition),
     BloopCompileKeys.bloopGatewayInternal.set(bloopGatewayInternalTask, sbtBloopPosition),
     BloopCompileKeys.bloopCompileStateInternal.set(bloopCompileStateTask, sbtBloopPosition),
-    BloopCompileKeys.bloopCompileInputsInternal.set(bloopCompileInputsTask, sbtBloopPosition),
-    BloopCompileKeys.bloopDependencyInputsInternal.set(bloopDependencyInputsTask, sbtBloopPosition),
-    BloopCompileKeys.bloopSessionInternal.set(bloopSessionTaskDontCallDirectly, sbtBloopPosition)
-  ).map(Def.derive(_, allowDynamic = true))
+    BloopCompileKeys.bloopSessionInternal.set(bloopSessionTaskDontCallDirectly, sbtBloopPosition),
+    Keys.concurrentRestrictions := {
+      val currentRestrictions = Keys.concurrentRestrictions.value
+      val elevatedRestrictions = currentRestrictions.map { restriction =>
+        restriction.toString match {
+          case LimitAllPattern(n) =>
+            val allCores = Integer.parseInt(n)
+            Tags.limitAll(allCores + 2)
+          case _ => restriction
+        }
+      }
+      elevatedRestrictions ++ List(Tags.limit(BloopWait, 1))
+    }
+  )
+
 }
