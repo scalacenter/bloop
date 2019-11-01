@@ -30,6 +30,7 @@ import xsbti.compile.CompileOrder
 
 import scala.util.{Try, Success, Failure}
 import java.util.concurrent.ConcurrentHashMap
+import sbt.KeyRanks
 
 object BloopPlugin extends AutoPlugin {
   import sbt.plugins.JvmPlugin
@@ -88,6 +89,10 @@ object BloopKeys {
       "The sequence of configurations that are used to detect inter-project dependencies by bloop."
     )
 
+  val bloopGlobalUniqueId: SettingKey[String] =
+    settingKey[String]("Bloop global unique id to represent a compiled settings universe")
+      .withRank(KeyRanks.Invisible)
+
   val bloopDefinitionKey = AttributeKey[ScopedKey[_]](
     "bloop-definition-key",
     "Internal: used to map a task back to its ScopedKey.",
@@ -122,6 +127,7 @@ object BloopDefaults {
 
   private lazy val cwd: String = System.getProperty("user.dir")
   lazy val globalSettings: Seq[Def.Setting[_]] = List(
+    BloopKeys.bloopGlobalUniqueId := bloopGlobalUniqueIdTask.value,
     BloopKeys.bloopExportJarClassifiers := None,
     BloopKeys.bloopInstall := bloopInstall.value,
     BloopKeys.bloopAggregateSourceDependencies := true,
@@ -795,7 +801,12 @@ object BloopDefaults {
     projectNameFromString(project.id, configuration, logger)
   }
 
-  case class GeneratedProject(outPath: Path, project: Config.Project)
+  case class GeneratedProject(
+      outPath: Path,
+      project: Config.Project,
+      fromSbtUniverseId: String
+  )
+
   private[bloop] val targetNamesToPreviousConfigs =
     new ConcurrentHashMap[String, GeneratedProject]()
   private[bloop] val targetNamesToConfigs =
@@ -809,11 +820,12 @@ object BloopDefaults {
     val isMetaBuild = BloopKeys.bloopIsMetaBuild.value
     val hasConfigSettings = productDirectoriesUndeprecatedKey.?.value.isDefined
     val projectName = projectNameFromString(project.id, configuration, logger)
+    val currentSbtUniverse = BloopKeys.bloopGlobalUniqueId.value
 
     lazy val generated = Option(targetNamesToConfigs.get(projectName))
     if (isMetaBuild && configuration == Test) inlinedTask[Option[File]](None)
     else if (!hasConfigSettings) inlinedTask[Option[File]](None)
-    else if (generated.isDefined) {
+    else if (generated.isDefined && generated.get.fromSbtUniverseId == currentSbtUniverse) {
       Def.task {
         // Force classpath to force side-effects downstream to fully simulate `bloopGenerate`
         val _ = emulateDependencyClasspath.value.map(_.toPath.toAbsolutePath).toList
@@ -968,7 +980,8 @@ object BloopDefaults {
             else outFile
           }
 
-          targetNamesToConfigs.put(projectName, GeneratedProject(outFile.toPath, config.project))
+          targetNamesToConfigs
+            .put(projectName, GeneratedProject(outFile.toPath, config.project, currentSbtUniverse))
 
           logger.debug(s"Bloop wrote the configuration of project '$projectName' to '$outFile'")
           logger.success(s"Generated $userFriendlyConfigPath")
@@ -993,6 +1006,11 @@ object BloopDefaults {
         }
         state
       }
+  }
+
+  def bloopGlobalUniqueIdTask: Def.Initialize[String] = Def.setting {
+    // Create a new instance of any class, gets its hash code and stringify it to get a global id
+    (new scala.util.Random().hashCode()).toString
   }
 
   def bloopInstall: Def.Initialize[Task[Unit]] = Def.taskDyn {
