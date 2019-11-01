@@ -222,6 +222,7 @@ object Offloader {
     // We synchronize just out of mistrust on sbt... should only be run once per command execution
     previousSessionKey.synchronized {
       if (forceNewSession || sessionKey != previousSessionKey) {
+        forceNewSession = false
         previousSessionKey match {
           case None => ()
           case previousSessionKey @ Some(_) =>

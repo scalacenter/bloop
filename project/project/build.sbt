@@ -58,7 +58,7 @@ val sbtBloopBuildShaded = project
                   // Eclipse jars are signed and cannot be uberjar'd
                   ppath.contains("eclipse") ||
                   ppath.contains("scalamacros")
-              ) && path.exists
+              ) && path.isFile
           }
         }
       }.value
