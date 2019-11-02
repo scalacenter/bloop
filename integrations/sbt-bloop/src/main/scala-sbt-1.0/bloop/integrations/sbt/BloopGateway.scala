@@ -20,6 +20,7 @@ import java.nio.file.Files
 import bloop.launcher.LauncherMain
 import java.util.concurrent.atomic.AtomicReference
 import bloop.launcher.LauncherStatus
+import java.io.IOException
 
 object BloopGateway {
 
@@ -29,9 +30,24 @@ object BloopGateway {
       exitStatus: AtomicReference[Option[LauncherStatus]],
       clientIn: InputStream,
       clientOut: OutputStream,
+      launcherIn: InputStream,
+      launcherOut: OutputStream,
       logFile: Path,
-      logOut: PrintStream
-  )
+      logOut: PrintStream,
+      isSuspended: AtomicBoolean
+  ) {
+    def closeLauncherStreams(): Unit = {
+      try {
+        try launcherIn.close()
+        finally launcherOut.close()
+      } catch {
+        case t: IOException =>
+          logOut.println("Caught exception when sbt-bloop closed launcher streams!")
+          t.printStackTrace(logOut)
+          ()
+      }
+    }
+  }
 
   /**
    * Connects to the Bloop server via Bloopgun. Bloopgun will run the server in
@@ -60,6 +76,15 @@ object BloopGateway {
     val bloopDir = Files.createDirectories(baseDir.resolve(".bloop"))
     val logFile = bloopDir.resolve("bloop.log")
     val logOut = new PrintStream(Files.newOutputStream(logFile))
+
+    val isSuspended = new AtomicBoolean(false)
+    import sun.misc.{Signal, SignalHandler}
+    Signal.handle(new Signal("TSTP"), new SignalHandler {
+      def handle(x: Signal): Unit = {
+        isSuspended.compareAndSet(false, true)
+        ()
+      }
+    })
 
     val charset = StandardCharsets.UTF_8
     val shell = Shell.default
@@ -90,6 +115,17 @@ object BloopGateway {
     launcherThread.setDaemon(true)
     launcherThread.start()
 
-    ConnectionState(baseDir, started, exitStatus, clientIn, clientOut, logFile, logOut)
+    ConnectionState(
+      baseDir,
+      started,
+      exitStatus,
+      clientIn,
+      clientOut,
+      launcherIn,
+      launcherOut,
+      logFile,
+      logOut,
+      isSuspended
+    )
   }
 }

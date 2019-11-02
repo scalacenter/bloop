@@ -29,6 +29,7 @@ import java.nio.file.Paths
 import java.io.PrintStream
 import bloop.bloop4j.BloopStopClientCachingParams
 import org.eclipse.lsp4j.jsonrpc.services.JsonNotification
+import java.util.concurrent.Future
 
 class NakedLowLevelBuildClient[ClientHandlers <: BuildClientHandlers](
     clientBaseDir: Path,
@@ -38,6 +39,7 @@ class NakedLowLevelBuildClient[ClientHandlers <: BuildClientHandlers](
     underlyingProcess: Option[Process],
     executor: Option[ExecutorService]
 ) extends LowLevelBuildClientApi[CompletableFuture] {
+  private var launchedServer: Future[Void] = null
   private var server: BloopBuildServer = null
 
   def initialize(params: InitializeBuildParams): CompletableFuture[InitializeBuildResult] = {
@@ -87,7 +89,7 @@ class NakedLowLevelBuildClient[ClientHandlers <: BuildClientHandlers](
     executor.foreach(executor => builder.setExecutorService(executor))
     val launcher = builder.create()
 
-    launcher.startListening()
+    launchedServer = launcher.startListening()
     val serverBridge = launcher.getRemoteProxy
     localClient.onConnectWithServer(serverBridge)
     serverBridge

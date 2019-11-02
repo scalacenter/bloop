@@ -63,6 +63,9 @@ import ch.epfl.scala.bsp4j.InitializeBuildResult
 import bloop.integrations.sbt.internal.SbtBuildClient
 import bloop.bloop4j.BloopStopClientCachingParams
 import xsbti.compile.ExternalHooks
+import java.util.concurrent.atomic.AtomicReference
+import java.nio.file.Path
+import java.io.IOException
 
 /**
  * Todo list:
@@ -92,6 +95,7 @@ object Offloader {
   }
 
   case class BloopCompileState(
+      connState: BloopGateway.ConnectionState,
       client: SbtBuildClient,
       handlersMap: ConcurrentHashMap[BuildTargetIdentifier, ProjectClientHandlers],
       analysisMap: ConcurrentHashMap[BuildTargetIdentifier, JFuture[Option[AnalysisContents]]],
@@ -100,18 +104,17 @@ object Offloader {
   )
 
   private val DisableCompilationProperty = "sbt-bloop.offload-compilation.disable"
-  def bloopGatewayInternalTask: Def.Initialize[Option[BloopGateway.ConnectionState]] = Def.setting {
-    val rootBaseDir = new File(Keys.loadedBuild.value.root).toPath()
+  def connectToBloopServer(rootBaseDir: Path): Option[BloopGateway.ConnectionState] = {
     if (java.lang.Boolean.getBoolean(DisableCompilationProperty)) None
     else Some(BloopGateway.connectOnTheBackgroundTo(rootBaseDir))
   }
 
-  def bloopCompileStateTask: Def.Initialize[Option[BloopCompileState]] = Def.setting {
-    val logger = Keys.sLog.value
-    val sbtVersion = Keys.sbtVersion.value
-    val connState = BloopCompileKeys.bloopGatewayInternal.value
-    val executor = Executors.newCachedThreadPool()
-
+  private val executor = Executors.newCachedThreadPool()
+  def initializeCompileState(
+      rootBaseDir: Path,
+      sbtVersion: String,
+      logger: Logger
+  ): Option[BloopCompileState] = {
     def reportBloopServerError(
         headlineMsg: String,
         errorStatus: String,
@@ -128,7 +131,7 @@ object Offloader {
       t.foreach(_.printStackTrace(connState.logOut))
     }
 
-    connState.flatMap { connState =>
+    connectToBloopServer(rootBaseDir).flatMap { connState =>
       val logOut = connState.logOut
       var threwException = false
       val startedRunning = connState.running.future
@@ -168,7 +171,7 @@ object Offloader {
           )
 
           initializeBloopClient(sbtVersion, client, connState, logger).map(
-            _ => BloopCompileState(client, handlers, analysis, results, executor)
+            _ => BloopCompileState(connState, client, handlers, analysis, results, executor)
           )
       }
     }
@@ -197,6 +200,39 @@ object Offloader {
         logOut.println(s"[error] $msg")
         e.printStackTrace(logOut)
         None
+    }
+  }
+
+  def bloopCompileStateAtBootTimeTask: Def.Initialize[AtomicReference[BloopCompileState]] = {
+    Def.setting {
+      val logger = Keys.sLog.value
+      val sbtVersion = Keys.sbtVersion.value
+      val rootBaseDir = new File(Keys.loadedBuild.value.root).toPath()
+      new AtomicReference(initializeCompileState(rootBaseDir, sbtVersion, logger).orNull)
+    }
+  }
+
+  def bloopCompileStateTask: Def.Initialize[Task[Option[BloopCompileState]]] = Def.task {
+    val logger = Keys.sLog.value
+    val sbtVersion = Keys.sbtVersion.value
+    val rootBaseDir = new File(Keys.loadedBuild.value.root).toPath()
+    val globalStateRef = BloopCompileKeys.bloopCompileStateAtBootTimeInternal.value
+    globalStateRef.synchronized {
+      Option(globalStateRef.get()).flatMap { state =>
+        if (!state.connState.isSuspended.get()) Some(state)
+        else {
+          try {
+            // Close launcher streams from suspended session which will stop lsp4j
+            state.connState.closeLauncherStreams()
+          } catch { case _: IOException => () }
+
+          // Initialize a new compilation state after the suspension and then publish it globally
+          initializeCompileState(rootBaseDir, sbtVersion, logger).map { newState =>
+            globalStateRef.set(newState)
+            newState
+          }
+        }
+      }
     }
   }
 
@@ -420,8 +456,8 @@ object Offloader {
   def compileIncSetup: Def.Initialize[Task[CompileSetup]] = Def.task {
     val previousSetup = Keys.compileIncSetup.value
     val _ = Keys.classpathConfiguration.?.value
-    val bloopState = BloopCompileKeys.bloopCompileStateInternal.value
-    if (bloopState.isEmpty) previousSetup
+    val bloopState = BloopCompileKeys.bloopCompileStateAtBootTimeInternal.value.get()
+    if (bloopState == null) previousSetup
     else {
       val bloopCacheFile = BloopKeys.bloopAnalysisOut.value.getOrElse(previousSetup.cacheFile())
       CompileSetup.create(
@@ -440,8 +476,8 @@ object Offloader {
   private val externalHooks = sbt.taskKey[ExternalHooks]("The external hooks used by zinc.")
   def bloopCompilerExternalHooksTask: Def.Initialize[Task[ExternalHooks]] = Def.taskDyn {
     val externalHooksTask = externalHooks.taskValue
-    val bloopState = BloopCompileKeys.bloopCompileStateInternal.value
-    if (bloopState.isEmpty) Def.task(externalHooksTask.value)
+    val bloopState = BloopCompileKeys.bloopCompileStateAtBootTimeInternal.value.get()
+    if (bloopState == null) Def.task(externalHooksTask.value)
     else ProjectUtils.inlinedTask(ProjectUtils.emptyExternalHooks)
   }
 
@@ -450,9 +486,9 @@ object Offloader {
       val config = Keys.configuration.value
       // Depend on classpath config to force derive to scope everywhere it's available
       val _ = Keys.classpathConfiguration.value
-      val bloopState = BloopCompileKeys.bloopCompileStateInternal.value
+      val bloopState = BloopCompileKeys.bloopCompileStateAtBootTimeInternal.value.get()
       val compileTask = Keys.compile.taskValue
-      if (bloopState.isEmpty) Def.task(compileTask.value)
+      if (bloopState == null) Def.task(compileTask.value)
       else Def.task(BloopKeys.bloopCompile.in(config).value.analysis())
     }
   }
@@ -462,18 +498,19 @@ object Offloader {
       val config = Keys.configuration.value
       // Depend on classpath config to force derive to scope everywhere it's available
       val _ = Keys.classpathConfiguration.value
-      val bloopState = BloopCompileKeys.bloopCompileStateInternal.value
+      val bloopState = BloopCompileKeys.bloopCompileStateAtBootTimeInternal.value.get()
       val compileIncrementalTask = Keys.compileIncremental.taskValue
-      if (bloopState.isEmpty) Def.task(compileIncrementalTask.value)
-      else BloopKeys.bloopCompile.in(config)
+      if (bloopState == null) Def.task(compileIncrementalTask.value)
+      else {
+        //println(s"IS SUSPENDED ${bloopState.get.connState.suspendedPromise.get()}")
+        BloopKeys.bloopCompile.in(config)
+      }
     }
   }
 
   object BloopCompileKeys {
-    val bloopGatewayInternal: SettingKey[Option[BloopGateway.ConnectionState]] = sbt
-      .settingKey[Option[BloopGateway.ConnectionState]](
-        "Obtain the compile state for an sbt shell session"
-      )
+    val bloopCompileStateInternal: TaskKey[Option[BloopCompileState]] = sbt
+      .taskKey[Option[BloopCompileState]]("Obtain the compile state for an sbt shell session")
       .withRank(KeyRanks.Invisible)
 
     // Copy pasted in case we're using a version below 1.3.0
@@ -481,8 +518,10 @@ object Offloader {
       .settingKey[() => Unit]("Function to run prior to running a command in a continuous build.")
       .withRank(KeyRanks.DSetting)
 
-    val bloopCompileStateInternal: SettingKey[Option[BloopCompileState]] = sbt
-      .settingKey[Option[BloopCompileState]]("Obtain the compile state for an sbt shell session")
+    val bloopCompileStateAtBootTimeInternal: SettingKey[AtomicReference[BloopCompileState]] = sbt
+      .settingKey[AtomicReference[BloopCompileState]](
+        "Obtain the compile state for an sbt shell session"
+      )
       .withRank(KeyRanks.Invisible)
 
     val bloopSessionInternal: TaskKey[BloopSession] = sbt
@@ -532,8 +571,9 @@ object Offloader {
   private val LimitAllPattern = "Limit all to (\\d+)".r
   val bloopExtraGlobalSettings: Seq[Def.Setting[_]] = List(
     BloopCompileKeys.watchBeforeCommand.set(bloopWatchBeforeCommandTask, sbtBloopPosition),
-    BloopCompileKeys.bloopGatewayInternal.set(bloopGatewayInternalTask, sbtBloopPosition),
     BloopCompileKeys.bloopCompileStateInternal.set(bloopCompileStateTask, sbtBloopPosition),
+    BloopCompileKeys.bloopCompileStateAtBootTimeInternal
+      .set(bloopCompileStateAtBootTimeTask, sbtBloopPosition),
     BloopCompileKeys.bloopSessionInternal.set(bloopSessionTaskDontCallDirectly, sbtBloopPosition),
     Keys.concurrentRestrictions := {
       val currentRestrictions = Keys.concurrentRestrictions.value

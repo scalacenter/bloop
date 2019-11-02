@@ -265,7 +265,10 @@ final class BspBridge(
     }
   }
 
-  def forwardStreamContents(in: InputStream, out: OutputStream): Unit = {
+  def forwardStreamContents(
+      in: InputStream,
+      out: OutputStream
+  ): Unit = {
     val src = Channels.newChannel(in)
     val dest = Channels.newChannel(out)
     try {
@@ -276,7 +279,11 @@ final class BspBridge(
     }
   }
 
-  def copyContents(src: ReadableByteChannel, dest: WritableByteChannel): Unit = {
+  @volatile var wasSuspended: Boolean = false
+  def copyContents(
+      src: ReadableByteChannel,
+      dest: WritableByteChannel
+  ): Unit = {
     val buffer = ByteBuffer.allocateDirect(16 * 1024)
 
     while (src.read(buffer) != -1) {

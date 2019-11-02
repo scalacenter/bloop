@@ -183,6 +183,7 @@ class BloopgunCli(
       case None => 1
       case Some(params0) =>
         val params = params0.copy(args = additionalCmdArgs ++ extraArgsForServer)
+        out.println(s"is verbose: ${params.verbose}")
         val logger = new SnailgunLogger("log", out, isVerbose = params.verbose)
         if (params.nailgunShowVersion)
           logger.info(s"Nailgun protocol v${Defaults.Version}")
