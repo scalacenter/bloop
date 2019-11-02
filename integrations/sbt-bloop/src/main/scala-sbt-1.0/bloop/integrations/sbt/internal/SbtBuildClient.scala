@@ -16,8 +16,8 @@ import com.google.gson.Gson
 
 final class SbtBuildClient(
     baseDir: Path,
-    in: InputStream,
-    out: OutputStream,
+    val in: InputStream,
+    val out: OutputStream,
     handlers: MultiProjectClientHandlers,
     ec: Option[ExecutorService]
 ) extends NakedLowLevelBuildClient[BuildClientHandlers](baseDir, in, out, handlers, None, ec) {

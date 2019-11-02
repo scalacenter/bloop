@@ -13,6 +13,7 @@ import org.junit.{Assert, Test}
 @Category(Array(classOf[bloop.FastTests]))
 class DagSpec {
 
+  //sddf
   private val logger = new RecordingLogger
   private val compileOptions = Config.CompileSetup.empty
   private val dummyInstance = TestUtil.scalaInstance

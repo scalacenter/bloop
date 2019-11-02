@@ -8,11 +8,12 @@ import java.util.concurrent.ConcurrentHashMap
 import bloop.bsp.BspServer
 import bloop.io.AbsolutePath
 import bloop.util.CrossPlatform
-import bloop.data.ClientInfo
 import bloop.cli.{CliOptions, CliParsers, Commands, CommonOptions, ExitStatus, Validate}
 import bloop.engine._
 import bloop.engine.tasks.Tasks
 import bloop.logging.{BloopLogger, DebugFilter, Logger}
+import bloop.data.ClientInfo.CliClientInfo
+import bloop.exec.JavaEnv
 
 import caseapp.core.{DefaultBaseCommand, Messages}
 import com.martiansoftware.nailgun.NGContext
@@ -23,12 +24,15 @@ import scala.util.control.NonFatal
 import caseapp.core.CommandsMessages
 import scala.concurrent.duration.FiniteDuration
 import java.util.concurrent.TimeUnit
-import bloop.exec.JavaEnv
 import monix.execution.atomic.AtomicBoolean
+import bloop.io.Paths
+import scala.util.Success
+import scala.util.Failure
 
 class Cli
 object Cli {
 
+  implicit private val filter = DebugFilter.All
   def main(args: Array[String]): Unit = {
     val action = parse(args, CommonOptions.default)
     val exitStatus = run(action, NoPool)
@@ -283,14 +287,11 @@ object Cli {
     // Set the proxy settings right before loading the state of the build
     bloop.util.ProxySetup.updateProxySettings(commonOpts.env.toMap, logger)
 
-    val isClientConnected = AtomicBoolean(true)
-    pool.addListener(_ => isClientConnected.set(false))
-    val client = ClientInfo.CliClientInfo("bloop-cli", () => isClientConnected.get)
-
-    val exitPromise = Promise[Unit]()
-    val dir = configDirectory.underlying
-    waitUntilEndOfWorld(action, cliOptions, pool, dir, logger, exitPromise, cancel) {
-      val taskToInterpret = { () =>
+    val configDir = configDirectory.underlying
+    waitUntilEndOfWorld(action, cliOptions, pool, configDir, logger, cancel) {
+      var currentClient: Option[CliClientInfo] = None
+      val taskToInterpret = { (client: CliClientInfo) =>
+        currentClient = Some(client)
         val currentState =
           State.loadActiveStateFor(configDirectory, client, pool, cliOptions.common, logger)
         Interpreter.execute(action, currentState).map { newState =>
@@ -307,61 +308,133 @@ object Cli {
         }
       }
 
-      acquireBuildCliLock(configDirectory, action, exitPromise, taskToInterpret, logger)
+      val session = runTaskWithCliClient(configDirectory, action, taskToInterpret, pool, logger)
+      session.task
+        .doOnFinish(_ => handleCliClientExit(configDir, session, logger))
+        .doOnFinish(_ => cleanUpNonStableCliDirectories(configDir, session.client, logger))
     }
   }
 
   private final val FalseCancellation =
     CompletableFuture.completedFuture[java.lang.Boolean](false)
 
-  // If completed and true, client exited, otherwise client disconnected/cancelled
-  private val activeCliSessions = new ConcurrentHashMap[Path, Promise[Unit]]()
+  private val activeCliSessions = new ConcurrentHashMap[Path, List[CliSession]]()
 
-  private final val CliTimeoutProperty = "bloop.cli-lock.seconds-to-timeout"
-  private final val secondsTimeout: Long = {
-    val default = java.lang.Integer.getInteger(CliTimeoutProperty)
-    if (default == null) 60L else default.toLong
-  }
-
-  def acquireBuildCliLock(
+  case class CliSession(client: CliClientInfo, task: Task[ExitStatus])
+  def runTaskWithCliClient(
       configDir: AbsolutePath,
       action: Action,
-      syncPromise: Promise[Unit],
-      createTaskToRun: () => Task[State],
+      processCliTask: CliClientInfo => Task[State],
+      pool: ClientPool,
       logger: Logger
-  ): Task[ExitStatus] = {
-    val timeoutTask = Task {
-      logger.error(s"Timed out waiting on CLI lock after ${secondsTimeout}s")
-      logger.info(s"  -> Tweak the default value by changing `-D$CliTimeoutProperty` in the server")
-      ExitStatus.UnexpectedError
+  ): CliSession = {
+    val isClientConnected = AtomicBoolean(true)
+    pool.addListener(_ => isClientConnected.set(false))
+    val defaultClient = CliClientInfo(useStableCliDirs = true, () => isClientConnected.get)
+
+    def sessionFor(client: CliClientInfo): CliSession = {
+      val cliTask = processCliTask(client).map(_.status)
+      CliSession(client, cliTask)
     }
 
+    val defaultClientSession = sessionFor(defaultClient)
     action match {
-      case Exit(_) => createTaskToRun().map(_.status)
-      // Don't synchronize on lock commands that can run concurrently on the same build for the same client
-      case Run(_: Commands.About, next) => createTaskToRun().map(_.status)
-      case Run(_: Commands.Projects, next) => createTaskToRun().map(_.status)
-      case Run(_: Commands.Autocomplete, next) => createTaskToRun().map(_.status)
-      case Run(_: Commands.Bsp, next) => createTaskToRun().map(_.status)
-      case Run(_: Commands.ValidatedBsp, next) => createTaskToRun().map(_.status)
+      case Exit(_) => defaultClientSession
+      // Don't synchronize on commands that don't use compilation products and can run concurrently
+      case Run(_: Commands.About, next) => defaultClientSession
+      case Run(_: Commands.Projects, next) => defaultClientSession
+      case Run(_: Commands.Autocomplete, next) => defaultClientSession
+      case Run(_: Commands.Bsp, next) => defaultClientSession
+      case Run(_: Commands.ValidatedBsp, next) => defaultClientSession
       case _ =>
-        val currentPromise = activeCliSessions.putIfAbsent(configDir.underlying, syncPromise)
-        if (currentPromise == null) createTaskToRun().map(_.status)
-        else {
-          logger.info("Waiting on external CLI client to release lock on this build...")
-          Task
-            .fromFuture(currentPromise.future)
-            .timeoutTo(FiniteDuration(secondsTimeout, TimeUnit.SECONDS), timeoutTask)
-            .flatMap { _ =>
-              // Don't try to acquire lock if client waiting for it already disconnected
-              if (syncPromise.isCompleted) {
-                Task.now(ExitStatus.Ok)
-              } else {
-                acquireBuildCliLock(configDir, action, syncPromise, createTaskToRun, logger)
-              }
+        val activeSessions = activeCliSessions.compute(
+          configDir.underlying,
+          (_: Path, sessions: List[CliSession]) => {
+            if (sessions == null) List(defaultClientSession)
+            else {
+              logger.debug("Detected connected cli clients, starting CLI with unique dirs...")
+              val newClient = CliClientInfo(useStableCliDirs = false, () => isClientConnected.get)
+              val newClientSession = sessionFor(newClient)
+              newClientSession :: sessions
             }
-        }
+          }
+        )
+
+        activeSessions.head
     }
+  }
+
+  def handleCliClientExit(configDir: Path, session: CliSession, logger: Logger): Task[Unit] = {
+    var previousSessions: List[CliSession] = Nil
+    activeCliSessions.compute(
+      configDir,
+      (_: Path, sessions: List[CliSession]) => {
+        if (sessions != null) {
+          previousSessions = sessions
+          sessions.filterNot(_ == session)
+        } else {
+          logger.debug(s"Unexpected counter for $configDir is null, report upstream!")
+          previousSessions = Nil
+          Nil
+        }
+      }
+    )
+
+    /*
+     * Creates a task that will list client dirs per project and delete those
+     * that were created by temporary CLI clients that failed to be deleted at
+     * some point in the past. This could have occurred, for example, because
+     * the server was killed with SIGKILL.
+     */
+    State.stateCache.getRawCachedBuildFor(AbsolutePath(configDir)) match {
+      case None => Task.unit
+      case Some(build: Build) =>
+        val cleanUpProjectDirs = build.loadedProjects.map { loadedProject =>
+          val project = loadedProject.project
+          // Create a task and ignore it if it fails (could fail because of
+          // two cli exit contending to delete the same directories). Instead
+          // of synchronizing the deletions, we just fail, as deleting these
+          // outdated directories are just side effects, syncing is overkill
+          Task {
+            Paths.list(loadedProject.project.clientClassesRootDirectory).flatMap { clientDir =>
+              val currentlyUsedDirs = previousSessions.iterator
+                .map(_.client.getUniqueClassesDirFor(project, forceGeneration = false))
+
+              val clientRootFileName = clientDir.underlying.getFileName().toString
+              val ignoreClassesDir =
+                !clientRootFileName.contains("-" + CliClientInfo.id) ||
+                  currentlyUsedDirs.exists(currentDir => currentDir == clientDir)
+
+              if (ignoreClassesDir) Nil
+              else List(Paths.delete(clientDir))
+            }
+          }.onErrorHandle(_ => ())
+        }
+
+        // Process the clean
+        val parallelCleanUpTaskGroups = cleanUpProjectDirs.grouped(4).map { group =>
+          Task.gatherUnordered(group).map(_ => ())
+        }
+
+        Task
+          .sequence(parallelCleanUpTaskGroups)
+          .map(_ => ())
+          .executeOn(ExecutionContext.ioScheduler)
+    }
+  }
+
+  def cleanUpNonStableCliDirectories(
+      configDir: Path,
+      client: CliClientInfo,
+      logger: Logger
+  ): Task[Unit] = {
+    Task {
+      if (!client.useStableCliDirs) {
+        client.getCreatedCliDirectories.foreach { freshDir =>
+          Paths.delete(freshDir)
+        }
+      }
+    }.executeOn(ExecutionContext.ioScheduler)
   }
 
   import scala.concurrent.Await
@@ -372,7 +445,6 @@ object Cli {
       pool: ClientPool,
       configDirectory: Path,
       logger: Logger,
-      exitOrCancelPromise: Promise[Unit],
       cancel: CompletableFuture[java.lang.Boolean] = FalseCancellation
   )(task: Task[ExitStatus]): ExitStatus = {
     val ngout = cliOptions.common.ngout
@@ -381,20 +453,12 @@ object Cli {
       logger.debug(s"Elapsed: $elapsed ms")(DebugFilter.All)
     }
 
-    def releaseBuildCliLock(): Unit = {
-      activeCliSessions.remove(configDirectory, exitOrCancelPromise)
-      exitOrCancelPromise.trySuccess(())
-      ()
-    }
-
     // Simulate try-catch-finally with monix tasks to time the task execution
     val handle =
       Task
         .now(System.nanoTime())
         .flatMap(start => task.materialize.map(s => (s, start)))
         .map { case (state, start) => logElapsed(start); state }
-        .doOnFinish(_ => Task(releaseBuildCliLock()))
-        .doOnCancel(Task(releaseBuildCliLock()))
         .dematerialize
         .runAsync(ExecutionContext.scheduler)
 
@@ -408,7 +472,6 @@ object Cli {
             cliOptions.common.out.println(
               s"Client in $configDirectory triggered cancellation. Cancelling tasks..."
             )
-            exitOrCancelPromise.trySuccess(())
             handle.cancel()
           }
         }
@@ -434,7 +497,6 @@ object Cli {
               s"Client in $configDirectory disconnected with a '$e' event. Cancelling tasks..."
             )
             handle.cancel()
-            exitOrCancelPromise.trySuccess(())
             if (!cancel.isDone)
               cancel.complete(false)
             ()

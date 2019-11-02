@@ -24,13 +24,13 @@ import sbt.{
   Test,
   IntegrationTest,
   ThisBuild,
-  ThisProject
+  ThisProject,
+  KeyRanks
 }
 import xsbti.compile.CompileOrder
 
 import scala.util.{Try, Success, Failure}
 import java.util.concurrent.ConcurrentHashMap
-import sbt.KeyRanks
 
 object BloopPlugin extends AutoPlugin {
   import sbt.plugins.JvmPlugin
@@ -90,31 +90,34 @@ object BloopKeys {
     )
 
   val bloopGlobalUniqueId: SettingKey[String] =
-    settingKey[String]("Bloop global unique id to represent a compiled settings universe")
-      .withRank(KeyRanks.Invisible)
+    sbt.SettingKey[String](
+      "bloopGlobalUniqueId",
+      "Bloop global unique id to represent a compiled settings universe",
+      KeyRanks.Invisible
+    )
 
   val bloopDefinitionKey = AttributeKey[ScopedKey[_]](
     "bloop-definition-key",
     "Internal: used to map a task back to its ScopedKey.",
-    sbt.KeyRanks.Invisible
+    KeyRanks.Invisible
   )
 
   val bloopCompileProxy = AttributeKey[sbt.ScopedKey[_]](
     "bloopCompileProxy",
     "Internal: used to map a task back to its ScopedKey.",
-    sbt.KeyRanks.Invisible
+    KeyRanks.Invisible
   )
 
   val bloopCompileEntrypoint = AttributeKey[sbt.ScopedKey[_]](
     "bloopCompileEntrypoint",
     "Internal: used to map a task back to its ScopedKey.",
-    sbt.KeyRanks.Invisible
+    KeyRanks.Invisible
   )
 
   val bloopWaitForCompile = AttributeKey[sbt.ScopedKey[_]](
     "bloopWaitForCompile",
     "Internal: used to map a task back to its ScopedKey.",
-    sbt.KeyRanks.Invisible
+    KeyRanks.Invisible
   )
 }
 
@@ -123,7 +126,7 @@ object BloopDefaults {
   import sbt.{Task, Defaults, State}
 
   val productDirectoriesUndeprecatedKey =
-    sbt.TaskKey[Seq[File]]("productDirectories", rank = sbt.KeyRanks.CTask)
+    sbt.TaskKey[Seq[File]]("productDirectories", rank = KeyRanks.CTask)
 
   private lazy val cwd: String = System.getProperty("user.dir")
   lazy val globalSettings: Seq[Def.Setting[_]] = List(

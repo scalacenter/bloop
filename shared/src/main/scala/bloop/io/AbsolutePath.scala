@@ -17,6 +17,7 @@ final class AbsolutePath private (val underlying: Path) extends AnyVal {
     AbsolutePath(underlying.resolve(other.underlying))(this)
   def resolve(other: String): AbsolutePath = AbsolutePath(underlying.resolve(other))(this)
   def getParent: AbsolutePath = AbsolutePath(underlying.getParent)
+  def createDirectories: AbsolutePath = AbsolutePath(Files.createDirectories(underlying))
   def exists: Boolean = Files.exists(underlying)
   def isFile: Boolean = Files.isRegularFile(underlying)
   def isDirectory: Boolean = Files.isDirectory(underlying)

@@ -56,7 +56,7 @@ object State {
 
   private[bloop] def forTests(build: Build, compilerCache: CompilerCache, logger: Logger): State = {
     val opts = CommonOptions.default
-    val clientInfo = ClientInfo.CliClientInfo("tests", () => true)
+    val clientInfo = ClientInfo.CliClientInfo(useStableCliDirs = true, () => true)
     val results =
       ResultsCache.load(build, opts.workingPath, cleanOrphanedInternalDirs = false, logger)
     State(build, results, compilerCache, clientInfo, NoPool, opts, ExitStatus.Ok, logger)

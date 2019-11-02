@@ -108,7 +108,7 @@ final case class Project(
    * client-owned classes directories. These directories host compile products
    * and their existence and contents are managed by Bloop itself.
    */
-  def bspClientClassesRootDirectory: AbsolutePath = {
+  def clientClassesRootDirectory: AbsolutePath = {
     this.out.resolve("bloop-bsp-clients-classes")
   }
 }

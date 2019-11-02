@@ -15,6 +15,7 @@ import bloop.config.ConfigCodecs
 import ch.epfl.scala.bsp
 
 import scala.tools.nsc.Properties
+import bloop.data.ClientInfo.CliClientInfo
 
 final case class TestProject(
     config: Config.Project,
@@ -32,8 +33,17 @@ final case class TestProject(
     }
   }
 
+  def clientClassesRootDir: AbsolutePath = {
+    AbsolutePath(config.out.resolve("bloop-bsp-clients-classes"))
+  }
+
+  def externalClassesDir: AbsolutePath = {
+    // Default on stable CLI directory, imitating [[ClientInfo.CliClientInfo]]
+    clientClassesRootDir.resolve(CliClientInfo.id)
+  }
+
   def externalClassFileFor(relPath: String): AbsolutePath = {
-    val classFile = AbsolutePath(config.classesDir).resolve(RelativePath(relPath))
+    val classFile = externalClassesDir.resolve(RelativePath(relPath))
     if (classFile.exists) classFile
     else sys.error(s"Missing class file path ${relPath}")
   }

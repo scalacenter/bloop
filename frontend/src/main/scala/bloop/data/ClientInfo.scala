@@ -50,22 +50,50 @@ sealed trait ClientInfo {
 
 object ClientInfo {
   final case class CliClientInfo(
-      id: String,
+      useStableCliDirs: Boolean,
       private val isConnected: () => Boolean
   ) extends ClientInfo {
+    val id: String = {
+      if (useStableCliDirs) CliClientInfo.id
+      else s"${CliClientInfo.id}-${UUIDUtil.randomUUID}"
+    }
+
     def hasAnActiveConnection: Boolean = isConnected()
     private val connectionTimestamp = System.currentTimeMillis()
     def hasManagedClassesDirectories: Boolean = false
     def getConnectionTimestamp: Long = connectionTimestamp
 
+    private[ClientInfo] val freshCliDirs = new ConcurrentHashMap[Project, AbsolutePath]()
     def getUniqueClassesDirFor(project: Project, forceGeneration: Boolean): AbsolutePath = {
-      // CLI clients use the classes directory from the project, that's why
-      // we don't support concurrent CLI client executions for the same build
-      AbsolutePath(Files.createDirectories(project.genericClassesDir.underlying).toRealPath())
+      // If the unique classes dir changes, change how outdated CLI dirs are cleaned up in [[Cli]]
+      val newClientDir = {
+        if (useStableCliDirs) {
+          project.clientClassesRootDirectory.resolve(id)
+        } else {
+          val classesDir = project.genericClassesDir.underlying
+          val classesDirName = classesDir.getFileName()
+          val projectDirName = s"$classesDirName-$id"
+          project.clientClassesRootDirectory.resolve(projectDirName)
+        }
+      }
+
+      AbsolutePath(
+        if (!forceGeneration) newClientDir.underlying
+        else Files.createDirectories(newClientDir.underlying).toRealPath()
+      )
+    }
+
+    private[bloop] def getCreatedCliDirectories: List[AbsolutePath] = {
+      import scala.collection.JavaConverters._
+      freshCliDirs.values().asScala.toList
     }
 
     override def toString(): String =
       s"cli client '$id' (since ${activeSinceMillis(connectionTimestamp)})"
+  }
+
+  object CliClientInfo {
+    val id: String = "bloop-cli"
   }
 
   final case class BspClientInfo(
@@ -83,7 +111,6 @@ object ClientInfo {
     private val connectionTimestamp = System.currentTimeMillis()
     def getConnectionTimestamp: Long = connectionTimestamp
 
-    import java.util.concurrent.ConcurrentHashMap
     private[ClientInfo] val uniqueDirs = new ConcurrentHashMap[Project, AbsolutePath]()
 
     def hasManagedClassesDirectories: Boolean = bspClientClassesRootDir.nonEmpty
@@ -118,7 +145,7 @@ object ClientInfo {
       if (ownsBuildFiles) None
       else {
         bspClientClassesRootDir match {
-          case None => Some(Right(project.bspClientClassesRootDirectory))
+          case None => Some(Right(project.clientClassesRootDirectory))
           case Some(bspClientClassesRootDir) => Some(Left(bspClientClassesRootDir))
         }
       }

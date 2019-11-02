@@ -148,7 +148,7 @@ object ResultsCache {
         project: Project,
         analysisClassesDir: AbsolutePath
     ): Task[Unit] = {
-      if (cleanOrphanedInternalDirs) Task.unit
+      if (!cleanOrphanedInternalDirs) Task.unit
       else {
         val internalClassesDir =
           CompileOutPaths.createInternalClassesRootDir(project.genericClassesDir)
