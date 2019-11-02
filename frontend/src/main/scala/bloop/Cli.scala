@@ -401,11 +401,11 @@ object Cli {
                 .map(_.client.getUniqueClassesDirFor(project, forceGeneration = false))
 
               val clientRootFileName = clientDir.underlying.getFileName().toString
-              val ignoreClassesDir =
+              val requiresNoDeletion =
                 !clientRootFileName.contains("-" + CliClientInfo.id) ||
                   currentlyUsedDirs.exists(currentDir => currentDir == clientDir)
 
-              if (ignoreClassesDir) Nil
+              if (requiresNoDeletion) Nil
               else List(Paths.delete(clientDir))
             }
           }.onErrorHandle(_ => ())
