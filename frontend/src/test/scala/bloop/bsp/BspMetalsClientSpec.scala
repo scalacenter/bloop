@@ -52,8 +52,8 @@ class BspMetalsClientSpec(
         assertNoDiffInSettingsFile(
           configDir,
           """|{
-             |    "semanticDBVersion" : "4.2.0",
-             |    "supportedScalaVersions" : [
+             |    "semanticDBVersion": "4.2.0",
+             |    "supportedScalaVersions": [
              |        "2.12.8"
              |    ]
              |}
@@ -92,8 +92,8 @@ class BspMetalsClientSpec(
         assertNoDiffInSettingsFile(
           configDir,
           """|{
-             |    "semanticDBVersion" : "4.2.0",
-             |    "supportedScalaVersions" : [
+             |    "semanticDBVersion": "4.2.0",
+             |    "supportedScalaVersions": [
              |        "2.12.8"
              |    ]
              |}
@@ -138,8 +138,8 @@ class BspMetalsClientSpec(
         assertNoDiffInSettingsFile(
           configDir,
           """|{
-             |    "semanticDBVersion" : "4.2.0",
-             |    "supportedScalaVersions" : [
+             |    "semanticDBVersion": "4.2.0",
+             |    "supportedScalaVersions": [
              |        "2.12.8"
              |    ]
              |}
@@ -185,8 +185,8 @@ class BspMetalsClientSpec(
         assertNoDiffInSettingsFile(
           configDir,
           """|{
-             |    "semanticDBVersion" : "4.2.0",
-             |    "supportedScalaVersions" : [
+             |    "semanticDBVersion": "4.2.0",
+             |    "supportedScalaVersions": [
              |        "2.12.8"
              |    ]
              |}
