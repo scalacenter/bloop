@@ -295,21 +295,24 @@ object CompileTask {
               case FinalNormalCompileResult.HasException(project, t) =>
                 rawLogger
                   .error(s"Unexpected error when compiling ${project.name}: '${t.getMessage}'")
-                // Make a better job here at reporting any throwable that happens during compilation
-                t.printStackTrace()
                 rawLogger.trace(t)
               case _ => () // Do nothing when the final compilation result is not an actual error
             }
 
-            // Reverse list of failed projects to get ~correct order of failure
-            val projectsFailedToCompile = failures.map(p => s"'${p.name}'").reverse
-            val failureMessage =
-              if (failures.size <= 2) projectsFailedToCompile.mkString(",")
-              else {
-                s"${projectsFailedToCompile.take(2).mkString(", ")} and ${projectsFailedToCompile.size - 2} more projects"
-              }
+            client match {
+              case _: ClientInfo.CliClientInfo =>
+                // Reverse list of failed projects to get ~correct order of failure
+                val projectsFailedToCompile = failures.map(p => s"'${p.name}'").reverse
+                val failureMessage =
+                  if (failures.size <= 2) projectsFailedToCompile.mkString(",")
+                  else {
+                    s"${projectsFailedToCompile.take(2).mkString(", ")} and ${projectsFailedToCompile.size - 2} more projects"
+                  }
 
-            rawLogger.error("Failed to compile " + failureMessage)
+                rawLogger.error("Failed to compile " + failureMessage)
+              case _: ClientInfo.BspClientInfo => () // Don't report if bsp client
+            }
+
             stateWithResults.copy(status = ExitStatus.CompilationError)
           }
         }
