@@ -6,7 +6,7 @@ object Dependencies {
   val Scala212Version = "2.12.8"
 
   val Sbt013Version = "0.13.18"
-  val Sbt1Version = "1.3.2"
+  val Sbt1Version = "1.3.3"
 
   val nailgunVersion = "ee3c4343"
   // Used to download the python client instead of resolving
@@ -36,7 +36,7 @@ object Dependencies {
   val ipcsocketVersion = "1.0.1"
   val monixVersion = "2.3.3"
   val circeVersion = "0.9.3"
-  val jsoniterVersion = "1.0.0"
+  val jsoniterVersion = "2.0.0"
   val circeVersion213 = "0.12.2"
   val nuprocessVersion = "1.2.4"
   val shapelessVersion = "2.3.3-lower-priority-coproduct"
