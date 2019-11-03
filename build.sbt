@@ -117,7 +117,7 @@ lazy val jsonConfig211 = project
     libraryDependencies ++= {
       List(
         Dependencies.jsoniterCore,
-        Dependencies.jsoniterMacros % Provided,
+        Dependencies.jsoniterMacros,
         Dependencies.scalacheck % Test
       )
     }
@@ -141,7 +141,7 @@ lazy val jsonConfig212 = project
     libraryDependencies ++= {
       List(
         Dependencies.jsoniterCore,
-        Dependencies.jsoniterMacros % Provided,
+        Dependencies.jsoniterMacros,
         Dependencies.scalacheck % Test
       )
     }
@@ -165,7 +165,7 @@ lazy val jsonConfig213 = project
     libraryDependencies ++= {
       List(
         Dependencies.jsoniterCore,
-        Dependencies.jsoniterMacros % Provided
+        Dependencies.jsoniterMacros
       )
     }
   )
