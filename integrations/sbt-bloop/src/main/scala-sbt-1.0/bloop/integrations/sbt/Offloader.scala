@@ -8,7 +8,6 @@ import xsbti.compile.CompileResult
 import xsbti.compile.CompileOrder
 
 import sbt.std.TaskExtra
-import sbt.internal.inc.LoggedReporter
 import sbt.internal.inc.Analysis
 import sbt.{
   Def,
@@ -56,7 +55,6 @@ import java.util.concurrent.Executors
 import java.util.concurrent.ExecutorService
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.Future
-import com.lmax.disruptor.TimeoutException
 import bloop.launcher.LauncherStatus
 import bloop.integrations.sbt.internal.ProjectClientHandlers
 import bloop.integrations.sbt.internal.MultiProjectClientHandlers
@@ -73,6 +71,10 @@ import sbt.internal.util.Signals
 import java.util.concurrent.atomic.AtomicBoolean
 import ch.epfl.scala.bsp4j.CleanCacheParams
 import sbt.ThisProject
+import ch.epfl.scala.bsp4j.StatusCode
+import sbt.internal.util.FeedbackProvidedException
+import sbt.internal.inc.CompileFailed
+import java.util.concurrent.TimeoutException
 
 /**
  * Todo list:
@@ -103,6 +105,8 @@ object Offloader {
     val config = BloopKeys.bloopGenerate.value
     val logger = Keys.streams.value.log
     val reporter = BloopCompileKeys.bloopCompilerReporterInternal.value.get
+    // Make sure reporter is resetted before it's used for compilation
+    reporter.reset()
     val buildTargetId = BloopCompileKeys.bloopBuildTargetId.value
     BloopCompileInputs(buildTargetId, config, reporter, logger)
   }
@@ -322,7 +326,11 @@ object Offloader {
           }
         } else {
           // Prepare inputs and session-specific project handlers
+          var currentInputs: Option[BloopCompileInputs] = None
           compileInputs.foreach { inputs =>
+            if (inputs.buildTargetId == buildTargetId) {
+              currentInputs = Some(inputs)
+            }
             bloopState.handlersMap.putIfAbsent(
               inputs.buildTargetId,
               new ProjectClientHandlers(inputs, bloopState.analysisMap, bloopState.executor)
@@ -335,8 +343,11 @@ object Offloader {
           val result = bloopState.client.compile(params)
           bloopState.ongoingRequestsMap.put(result, true)
 
+          val inputs = currentInputs.getOrElse(
+            throw new IllegalStateException(s"Expected compile inputs for target $buildTargetId")
+          )
           val anyScopedKey = scopedKey.asInstanceOf[ScopedKey[Any]]
-          waitForResult(targetName, buildTargetId, bloopSession, result, anyScopedKey, logger)
+          waitForResult(targetName, inputs, bloopSession, result, anyScopedKey, logger)
             .andFinally({ bloopState.ongoingRequestsMap.remove(result); () })
           //.apply(markBloopWaitForCompile(_, scopedKey))
         }
@@ -362,54 +373,77 @@ object Offloader {
         case Value(compileResult) => sbt.std.TaskExtra.inlineTask(compileResult)
         case Inc(cause) =>
           cause.directCause match {
-            case Some(t) => waitForResultRecursively(futureResult, timeoutMillis, taskKeyName)
-            case None => sys.error("unexpected")
+            case Some(t: TimeoutException) =>
+              waitForResultRecursively(futureResult, timeoutMillis, taskKeyName)
+            case _ => sbt.std.TaskExtra.inlineTask(None)
           }
       }
   }
 
+  private class CompileCancelled(
+      val arguments: Array[String],
+      override val toString: String
+  ) extends xsbti.CompileCancelled
+      with FeedbackProvidedException
+
   private val BloopWait = sbt.Tags.Tag("bloop-wait")
-  private def waitForResult[T](
+  private def waitForResult(
       targetName: String,
-      buildTarget: BuildTargetIdentifier,
+      inputs: BloopCompileInputs,
       bloopSession: BloopSession,
-      futureResult: JFuture[T],
+      futureResult: JFuture[Bsp4jCompileResult],
       scopedKey: ScopedKey[Any],
       logger: Logger
   ): Def.Initialize[Task[CompileResult]] = {
     val prettyPrintedKey =
       showScopedKey.show(scopedKey).replace(scopedKey.key.label, "bloopCompile")
+    def emptyCompileResult: CompileResult = {
+      val setup = toMiniSetup(targetName)
+      CompileResult.create(Analysis.Empty, setup, false)
+    }
+
     Def.task {
       //logger.info(s"Waiting for result of ${targetName}")
       val result = waitForResultRecursively(futureResult, 10, prettyPrintedKey).value
-      val analysisMap = bloopSession.state.analysisMap
-      val resultsMap = bloopSession.state.resultsMap
-      result.flatMap(_ => Option(analysisMap.get(buildTarget))) match {
-        case None =>
-          val setup = toMiniSetup(targetName)
-          CompileResult.create(Analysis.Empty, setup, false)
+      result match {
+        case None => emptyCompileResult
+        case Some(result) =>
+          result.getStatusCode() match {
+            case StatusCode.ERROR =>
+              val problems = inputs.reporter.problems()
+              val msg = s"Compilation of project '$targetName' failed"
+              throw new CompileFailed(new Array(0), msg, problems)
+            case StatusCode.CANCELLED =>
+              val msg =
+                s"Compilation of project '$targetName' was cancelled by sbt or another client!"
+              throw new CompileCancelled(new Array(0), msg)
+            case StatusCode.OK =>
+              val analysisMap = bloopSession.state.analysisMap
+              val resultsMap = bloopSession.state.resultsMap
+              Option(analysisMap.get(inputs.buildTargetId)) match {
+                case None => emptyCompileResult
+                case Some(analysisFuture) =>
+                  lazy val emptyResult: CompileResult = {
+                    logger.warn("Compile analysis was empty")
+                    emptyCompileResult
+                  }
 
-        case Some(analysisFuture) =>
-          lazy val emptyResult: CompileResult = {
-            logger.warn("Compile analysis was empty")
-            val setup = toMiniSetup(targetName)
-            CompileResult.create(Analysis.Empty, setup, false)
-          }
+                  val maybeAnalysis = analysisFuture.get()
+                  val compileResult = {
+                    if (maybeAnalysis == null) emptyResult
+                    else {
+                      maybeAnalysis match {
+                        case Some(contents) =>
+                          CompileResult.create(contents.getAnalysis, contents.getMiniSetup, false)
+                        case None => emptyResult
+                      }
+                    }
+                  }
 
-          val maybeAnalysis = analysisFuture.get()
-          val compileResult = {
-            if (maybeAnalysis == null) emptyResult
-            else {
-              maybeAnalysis match {
-                case Some(contents) =>
-                  CompileResult.create(contents.getAnalysis, contents.getMiniSetup, false)
-                case None => emptyResult
+                  resultsMap.putIfAbsent(inputs.buildTargetId, compileResult)
+                  compileResult
               }
-            }
           }
-
-          resultsMap.putIfAbsent(buildTarget, compileResult)
-          compileResult
       }
     }
   }

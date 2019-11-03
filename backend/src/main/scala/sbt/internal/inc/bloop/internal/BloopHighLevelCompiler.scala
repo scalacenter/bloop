@@ -22,7 +22,6 @@ import scala.util.control.NonFatal
 import sbt.internal.inc.JarUtils
 import scala.concurrent.Promise
 import xsbt.InterfaceCompileCancelled
-import xsbt.InterfaceCompileFailed
 
 /**
  *
@@ -121,12 +120,13 @@ final class BloopHighLevelCompiler(
         }
 
         def compilerArgs: CompilerArguments = {
+          import sbt.internal.inc.CompileFailed
           if (scalac.scalaInstance.compilerJar() == null) {
-            throw new InterfaceCompileFailed(Array(), Array(), s"Expected Scala compiler jar in Scala instance containing ${scalac.scalaInstance.allJars().mkString(", ")}")
+            throw new CompileFailed(new Array(0), s"Expected Scala compiler jar in Scala instance containing ${scalac.scalaInstance.allJars().mkString(", ")}", new Array(0))
           }
 
           if (scalac.scalaInstance.libraryJar() == null) {
-            throw new InterfaceCompileFailed(Array(), Array(), s"Expected Scala library jar in Scala instance containing ${scalac.scalaInstance.allJars().mkString(", ")}")
+            throw new CompileFailed(new Array(0), s"Expected Scala library jar in Scala instance containing ${scalac.scalaInstance.allJars().mkString(", ")}", new Array(0))
           }
 
           new CompilerArguments(scalac.scalaInstance, config.classpathOptions)
