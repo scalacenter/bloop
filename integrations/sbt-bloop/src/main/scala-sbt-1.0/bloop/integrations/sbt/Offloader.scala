@@ -72,6 +72,7 @@ import sbt.RunningTaskEngine
 import sbt.internal.util.Signals
 import java.util.concurrent.atomic.AtomicBoolean
 import ch.epfl.scala.bsp4j.CleanCacheParams
+import sbt.ThisProject
 
 /**
  * Todo list:
@@ -84,6 +85,14 @@ import ch.epfl.scala.bsp4j.CleanCacheParams
  */
 object Offloader {
 
+  def bloopBuildTargetIdTask: Def.Initialize[BuildTargetIdentifier] = Def.setting {
+    // Add dependency on class directory so that this is only scoped if compile settings are
+    val _ = Keys.classDirectory.value
+    val targetName = BloopKeys.bloopTargetName.value
+    val baseDirectory = Keys.baseDirectory.value.toPath.toAbsolutePath
+    ProjectUtils.toBuildTargetIdentifier(baseDirectory, targetName)
+  }
+
   def bloopAnalysisOut: Def.Initialize[Task[Option[File]]] = Def.task {
     import sbt.io.syntax.fileToRichFile
     val cacheDir = Keys.streams.value.cacheDirectory
@@ -93,10 +102,8 @@ object Offloader {
   def bloopCompileInputsTask: Def.Initialize[Task[BloopCompileInputs]] = Def.task {
     val config = BloopKeys.bloopGenerate.value
     val logger = Keys.streams.value.log
-    val targetName = BloopKeys.bloopTargetName.value
     val reporter = BloopCompileKeys.bloopCompilerReporterInternal.value.get
-    val baseDirectory = Keys.baseDirectory.value.toPath.toAbsolutePath
-    val buildTargetId = ProjectUtils.toBuildTargetIdentifier(baseDirectory, targetName)
+    val buildTargetId = BloopCompileKeys.bloopBuildTargetId.value
     BloopCompileInputs(buildTargetId, config, reporter, logger)
   }
 
@@ -298,8 +305,7 @@ object Offloader {
     val bloopState = bloopSession.state
 
     val targetName = BloopKeys.bloopTargetName.value
-    val baseDirectory = Keys.baseDirectory.value.toPath.toAbsolutePath
-    val buildTargetId = ProjectUtils.toBuildTargetIdentifier(baseDirectory, targetName)
+    val buildTargetId = BloopCompileKeys.bloopBuildTargetId.value
 
     val alreadyCompiledAnalysis = bloopState.resultsMap.get(buildTargetId)
     if (alreadyCompiledAnalysis != null) {
@@ -577,18 +583,37 @@ object Offloader {
   }
 
   def bloopClean: Def.Initialize[Task[Unit]] = {
-    Def.task {
+    Def.taskDyn {
       val bloopState = BloopCompileKeys.bloopCompileStateAtBootTimeInternal.value.get()
-      if (bloopState != null) {
-        import scala.collection.JavaConverters._
-        val targetName = BloopKeys.bloopTargetName.value
-        val baseDirectory = Keys.baseDirectory.value.toPath.toAbsolutePath
-        val buildTargetId = ProjectUtils.toBuildTargetIdentifier(baseDirectory, targetName)
-        val cleanParams = new CleanCacheParams(List(buildTargetId).asJava)
-        // TODO: Allow this logic to be cancelled!
-        bloopState.client.cleanCache(cleanParams).get()
-        ()
+      if (bloopState == null) ProjectUtils.inlinedTask(())
+      else {
+        val configFilter = sbt.ScopeFilter(
+          sbt.inProjects(ThisProject),
+          sbt.inAnyConfiguration
+        )
+
+        BloopCompileKeys.bloopBuildTargetId.?.all(configFilter).map { buildTargetIds =>
+          val targetIds = buildTargetIds.iterator.map(_.toList).flatten.toList.distinct
+          import scala.collection.JavaConverters._
+          val cleanParams = new CleanCacheParams(targetIds.asJava)
+          // Allow this logic to be cancelled in case it blocks sbt shell
+          bloopState.client.cleanCache(cleanParams).get()
+          ()
+        }
       }
+    }
+  }
+
+  def bloopCleanOnlyOneConfig: Def.Initialize[Task[Unit]] = Def.task {
+    val bloopState = BloopCompileKeys.bloopCompileStateAtBootTimeInternal.value.get()
+    if (bloopState == null) ()
+    else {
+      val buildTargetId = BloopCompileKeys.bloopBuildTargetId.value
+      import scala.collection.JavaConverters._
+      val cleanParams = new CleanCacheParams(List(buildTargetId).asJava)
+      // Allow this logic to be cancelled in case it blocks sbt shell
+      bloopState.client.cleanCache(cleanParams).get()
+      ()
     }
   }
 
@@ -627,6 +652,10 @@ object Offloader {
       .taskKey[BloopSession]("Obtain the compile session for an sbt command execution")
       .withRank(KeyRanks.Invisible)
 
+    val bloopBuildTargetId: SettingKey[BuildTargetIdentifier] = sbt
+      .settingKey[BuildTargetIdentifier]("Obtain the build target id mapped to this project")
+      .withRank(KeyRanks.Invisible)
+
     val bloopCompileInputsInternal: TaskKey[BloopCompileInputs] = sbt
       .taskKey[BloopCompileInputs]("Obtain the compile inputs required to offload compilation")
       .withRank(KeyRanks.Invisible)
@@ -661,16 +690,16 @@ object Offloader {
   )
 
   lazy val bloopCompileProjectSettings: Seq[Def.Setting[_]] = List(
-    // Necessary because running `clean` doesn't to `compile:clean` in sbt 1.3.0+
-    Keys.clean
-      .set(Keys.clean.dependsOn(BloopCompileKeys.bloopCleanInternal.in(Compile)), sbtBloopPosition)
+    BloopCompileKeys.bloopCleanInternal.set(bloopClean, sbtBloopPosition),
+    Keys.clean.set(Keys.clean.dependsOn(BloopCompileKeys.bloopCleanInternal), sbtBloopPosition)
   )
 
   lazy val bloopCompileConfigSettings: Seq[Def.Setting[_]] = underivedConfigSettings ++ List(
     //Keys.compile.set(compile, sbtBloopPosition),
+    Keys.clean.set(Keys.clean.dependsOn(bloopCleanOnlyOneConfig), sbtBloopPosition),
+    BloopCompileKeys.bloopBuildTargetId.set(bloopBuildTargetIdTask, sbtBloopPosition),
     Keys.compileIncSetup.set(bloopCompileIncSetup, sbtBloopPosition),
     Keys.compileIncremental.set(bloopCompileIncremental, sbtBloopPosition),
-    BloopCompileKeys.bloopCleanInternal.set(bloopClean, sbtBloopPosition),
     BloopKeys.bloopCompile.set(Offloader.bloopOffloadCompilationTask, sbtBloopPosition),
     BloopCompileKeys.bloopCompilerExternalHooks
       .set(bloopCompilerExternalHooksTask, sbtBloopPosition),
