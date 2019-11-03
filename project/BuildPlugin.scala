@@ -399,8 +399,7 @@ object BuildImplementation {
     val bloopOnLoad: Def.Initialize[State => State] = Def.setting {
       Keys.onLoad.value.andThen { state =>
         // TODO enable back, this is just temporary
-        //exportProjectsInTestResources(state, enableCache = true)
-        state
+        exportProjectsInTestResources(state, enableCache = true)
       }
     }
 
