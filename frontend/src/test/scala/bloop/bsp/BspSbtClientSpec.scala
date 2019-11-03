@@ -219,9 +219,102 @@ class BspSbtClientSpec(
     }
   }
 
-  test("compilations with same origin id are cached even if they are deduplicated") {
-    //val i: Int = ""
-    ()
+  test("sbt bsp client doesn't publish diagnostics from previous session") {
+    TestUtil.withinWorkspace { workspace =>
+      object Sources {
+        val `Foo.scala` =
+          """/main/scala/Foo.scala
+            |class Foo {
+            |  def foo(s: String): String = s
+            |}
+          """.stripMargin
+
+        val `Foo2.scala` =
+          """/main/scala/Foo.scala
+            |class Foo {
+            |  /def foo(s: String): String = s
+            |}
+          """.stripMargin
+
+        val `Foo3.scala` =
+          """/main/scala/Foo.scala
+            |class Foo {
+            |  def foo(s: String): String = s
+            |}
+          """.stripMargin
+      }
+
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val `A` = TestProject(workspace, "a", List(Sources.`Foo.scala`))
+      val projects = List(`A`)
+
+      loadBspStateAsSbtClient(workspace, projects, logger, ownsBuildFiles = true) { state =>
+        val compiledState = state.compile(`A`)
+        assertExitStatus(compiledState, ExitStatus.Ok)
+        assertValidCompilationState(compiledState, projects)
+        assertNoDiff(
+          compiledState.lastDiagnostics(`A`),
+          """#1: task start 1
+            |  -> Msg: Compiling a (1 Scala source)
+            |  -> Data kind: compile-task
+            |#1: task finish 1
+            |  -> errors 0, warnings 0
+            |  -> Msg: Compiled 'a'
+            |  -> Data kind: compile-report""".stripMargin
+        )
+
+        val backupCompiledState = compiledState.backup
+        writeFile(`A`.srcFor("/main/scala/Foo.scala"), Sources.`Foo2.scala`)
+
+        val secondCompiledState = compiledState.compile(`A`)
+        assertExitStatus(secondCompiledState, ExitStatus.CompilationError)
+        assertInvalidCompilationState(
+          secondCompiledState,
+          List(`A`),
+          existsAnalysisFile = true,
+          hasPreviousSuccessful = true,
+          hasSameContentsInClassesDir = true
+        )
+
+        assertSameExternalClassesDirs(backupCompiledState, secondCompiledState, projects)
+        assertNoDiff(
+          secondCompiledState.lastDiagnostics(`A`),
+          """
+            |#2: task start 2
+            |  -> Msg: Compiling a (1 Scala source)
+            |  -> Data kind: compile-task
+            |#2: a/src/main/scala/Foo.scala
+            |  -> List(Diagnostic(Range(Position(1,3),Position(1,3)),Some(Error),Some(_),Some(_),';' expected but 'def' found.,None))
+            |  -> reset = true
+            |#2: task finish 2
+            |  -> errors 1, warnings 0
+            |  -> Msg: Compiled 'a'
+            |  -> Data kind: compile-report """.stripMargin
+        )
+
+        writeFile(`A`.srcFor("/main/scala/Foo.scala"), Sources.`Foo3.scala`)
+
+        val thirdCompiledState = secondCompiledState.compile(`A`)
+        assertExitStatus(thirdCompiledState, ExitStatus.Ok)
+        assertValidCompilationState(thirdCompiledState, List(`A`))
+        assertSameExternalClassesDirs(compiledState, thirdCompiledState, `A`)
+
+        assertNoDiff(
+          thirdCompiledState.lastDiagnostics(`A`),
+          """
+            |#3: task start 3
+            |  -> Msg: Start no-op compilation for a
+            |  -> Data kind: compile-task
+            |#3: a/src/main/scala/Foo.scala
+            |  -> List()
+            |  -> reset = true
+            |#3: task finish 3
+            |  -> errors 0, warnings 0
+            |  -> Msg: Compiled 'a'
+            |  -> Data kind: compile-report """.stripMargin
+        )
+      }
+    }
   }
 
   val random = new scala.util.Random()

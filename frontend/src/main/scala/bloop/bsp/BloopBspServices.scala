@@ -386,7 +386,7 @@ final class BloopBspServices(
       val createReporter = (inputs: ReporterInputs[BspServerLogger]) => {
         val btid = bsp.BuildTargetIdentifier(inputs.project.bspUri)
         val reportAllPreviousProblems = {
-          isSbtClient || {
+          !isSbtClient || {
             compiledTargetsAtLeastOnce.putIfAbsent(btid, true) match {
               case Some(_) => false
               case None => true
