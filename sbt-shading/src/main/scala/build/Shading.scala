@@ -58,10 +58,15 @@ object Shading {
   def toShadeClasses(
       shadeNamespaces: Set[String],
       toShadeJars: Seq[File],
-      log: sbt.Logger
+      log: sbt.Logger,
+      verbose: Boolean
   ): Seq[String] = {
+    def infoIfVerbose(msg: String) = {
+      if (verbose) log.info(msg)
+      else log.debug(msg)
+    }
 
-    log.info(
+    infoIfVerbose(
       s"Shading ${toShadeJars.length} JAR(s):\n" +
         toShadeJars.map("  " + _).sorted.mkString("\n")
     )
@@ -76,7 +81,7 @@ object Shading {
         val prefix = namespace + "."
         val (filteredOut, remaining) = toShade.partition(_.startsWith(prefix))
 
-        log.info(
+        infoIfVerbose(
           s"${filteredOut.length} classes already filtered out by shaded namespace $namespace"
         )
         log.debug(filteredOut.map("  " + _).sorted.mkString("\n"))

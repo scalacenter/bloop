@@ -26,16 +26,23 @@ val sbtBloopBuildShadedDeps = project
     )
   )
 
-val publishShadedLocal = taskKey[Unit]("Indirection layer to shade and cache")
 val sbtBloopBuildShaded = project
   .in(file("target")./("sbt-bloop-build-shaded"))
   .enablePlugins(BloopShadingPlugin)
   .settings(sharedSettings)
   .settings(
     // Published name will be sbt-bloop-shaded because of `shading:publishLocal`
-    name := "sbt-bloop-build-shaded",
     sbtPlugin := true,
+    name := "sbt-bloop-build-shaded",
     libraryDependencies ++= (libraryDependencies in sbtBloopBuildShadedDeps).value,
+    toShadeClasses := {
+      build.Shading.toShadeClasses(
+        shadeNamespaces.value,
+        toShadeJars.value,
+        streams.value.log,
+        verbose = false
+      )
+    },
     toShadeJars := {
       // Redefine toShadeJars as it seems broken in sbt-shading
       Def.taskDyn {
@@ -100,49 +107,47 @@ val sbtBloopBuildShaded = project
       )
     },
     packageBin in Compile := {
-      (packageBin in Compile)
-      //.dependsOn(Keys.copyResources.in(Compile))
-      .value
-    },
-    packageBin in Compile := {
       val namespace = shadingNamespace.?.value.getOrElse {
         throw new NoSuchElementException("shadingNamespace key not set")
       }
 
-      build.Shading.createPackage(
-        packageBin.in(Compile).value,
-        Nil,
-        namespace,
-        shadeNamespaces.value,
-        toShadeClasses.value,
-        toShadeJars.value
-      )
+      import sbt.util.{FileFunction, FileInfo}
+
+      val packagedBin = packageBin.in(Compile).value
+      val namespaces = shadeNamespaces.value
+      val classes = toShadeClasses.value
+      val jars = toShadeJars.value
+
+      val inputs = Keys.sources.in(Compile).value.toSet
+      val cacheDirectory = Keys.target.value / "shaded-inputs-cached"
+      val cacheShading = FileFunction.cached(cacheDirectory, FileInfo.hash) { srcs =>
+        Set(
+          build.Shading.createPackage(packagedBin, Nil, namespace, namespaces, classes, jars)
+        )
+      }
+
+      cacheShading(inputs).head
     },
-    publishShadedLocal := {
-      Def.taskDyn {
-        import sbt.util.{FileFunction, FileInfo}
-        var changed: Boolean = false
-        //val _ = Keys.copyResources.in(Compile).value
-        val cacheDirectory = Keys.target.value / "shaded-inputs-cached"
-        val detectChange = FileFunction.cached(cacheDirectory, FileInfo.hash) { srcs =>
-          changed = true
-          srcs
-        }
-        val inputs = Keys.sources.in(Compile).value.toSet
-        detectChange(inputs)
-        if (changed) publishLocal
-        else Def.task(())
-      }.value
+    discoveredSbtPlugins in Compile := {
+      sbt.internal.PluginDiscovery.emptyDiscoveredNames
     }
   )
+
+/*
+ * Most of the machinery here is done to work around https://github.com/sbt/sbt/issues/892
+ */
 
 val root = project
   .in(file("."))
   .settings(sharedSettings)
   .settings(
-    compile in Compile := {
+    sbtPlugin := true,
+    unmanagedJars in Compile := {
       //(copyResources in Compile in sbtBloopBuildShaded).value
-      (publishShadedLocal in sbtBloopBuildShaded).value
-      sbt.internal.inc.Analysis.empty
+      val previousJars = (unmanagedJars in Compile).value
+      Attributed.blank((packageBin in Compile in sbtBloopBuildShaded).value) +: previousJars
+    },
+    discoveredSbtPlugins in Compile := {
+      sbt.internal.PluginDiscovery.emptyDiscoveredNames
     }
   )
