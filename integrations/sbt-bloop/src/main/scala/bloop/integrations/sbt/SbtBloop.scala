@@ -787,6 +787,16 @@ object BloopDefaults {
     }
   }
 
+  // Mostly used by the sbt-scripted tests
+  def unsafeParseConfig(jsonConfig: Path): Config.File = {
+    bloop.config.read(jsonConfig) match {
+      case Right(config) => config
+      case Left(t) =>
+        System.err.println(s"Unexpected error when parsing $jsonConfig: ${t.getMessage}, skipping!")
+        throw t
+    }
+  }
+
   def safeParseConfig(jsonConfig: Path, logger: Logger): Option[Config.File] = {
     bloop.config.read(jsonConfig) match {
       case Right(config) => Some(config)
