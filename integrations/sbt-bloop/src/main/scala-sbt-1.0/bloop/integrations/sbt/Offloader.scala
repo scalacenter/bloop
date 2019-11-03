@@ -10,6 +10,7 @@ import xsbti.compile.CompileOrder
 import sbt.std.TaskExtra
 import sbt.internal.inc.Analysis
 import sbt.{
+  Attributed,
   Def,
   Task,
   TaskKey,
@@ -301,7 +302,7 @@ object Offloader {
     forceNewSession = true
   }
 
-  def bloopOffloadCompilationTask: Def.Initialize[Task[CompileResult]] = Def.taskDyn {
+  def bloopCompileTask: Def.Initialize[Task[CompileResult]] = Def.taskDyn {
     val state = Keys.state.value
     val logger = Keys.streams.value.log
     val scopedKey = Keys.resolvedScoped.value
@@ -729,12 +730,11 @@ object Offloader {
   )
 
   lazy val bloopCompileConfigSettings: Seq[Def.Setting[_]] = underivedConfigSettings ++ List(
-    //Keys.compile.set(compile, sbtBloopPosition),
     Keys.clean.set(Keys.clean.dependsOn(bloopCleanOnlyOneConfig), sbtBloopPosition),
     BloopCompileKeys.bloopBuildTargetId.set(bloopBuildTargetIdTask, sbtBloopPosition),
     Keys.compileIncSetup.set(bloopCompileIncSetup, sbtBloopPosition),
     Keys.compileIncremental.set(bloopCompileIncremental, sbtBloopPosition),
-    BloopKeys.bloopCompile.set(Offloader.bloopOffloadCompilationTask, sbtBloopPosition),
+    BloopKeys.bloopCompile.set(Offloader.bloopCompileTask, sbtBloopPosition),
     BloopCompileKeys.bloopCompilerExternalHooks
       .set(bloopCompilerExternalHooksTask, sbtBloopPosition),
     BloopCompileKeys.bloopCompileInputsInternal.set(bloopCompileInputsTask, sbtBloopPosition),
