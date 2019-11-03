@@ -122,9 +122,9 @@ object Offloader {
       executor: ExecutorService
   )
 
-  private val DisableCompilationProperty = "sbt-bloop.offload-compilation.disable"
+  private val EnableCompilationProperty = "sbt-bloop.offload-compilation"
   def connectToBloopServer(rootBaseDir: Path): Option[BloopGateway.ConnectionState] = {
-    if (java.lang.Boolean.getBoolean(DisableCompilationProperty)) None
+    if (!java.lang.Boolean.getBoolean(EnableCompilationProperty)) None
     else Some(BloopGateway.connectOnTheBackgroundTo(rootBaseDir))
   }
 
