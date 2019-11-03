@@ -117,7 +117,7 @@ lazy val jsonConfig211 = project
     libraryDependencies ++= {
       List(
         Dependencies.jsoniterCore,
-        Dependencies.jsoniterMacros,
+        Dependencies.jsoniterMacros % Provided,
         Dependencies.scalacheck % Test
       )
     }
@@ -141,7 +141,7 @@ lazy val jsonConfig212 = project
     libraryDependencies ++= {
       List(
         Dependencies.jsoniterCore,
-        Dependencies.jsoniterMacros,
+        Dependencies.jsoniterMacros % Provided,
         Dependencies.scalacheck % Test
       )
     }
@@ -165,7 +165,7 @@ lazy val jsonConfig213 = project
     libraryDependencies ++= {
       List(
         Dependencies.jsoniterCore,
-        Dependencies.jsoniterMacros
+        Dependencies.jsoniterMacros % Provided
       )
     }
   )
@@ -634,7 +634,7 @@ lazy val buildpressConfig = (project in file("buildpress-config"))
     scalaVersion := Scala212Version,
     libraryDependencies ++= List(
       Dependencies.jsoniterCore,
-      Dependencies.jsoniterMacros
+      Dependencies.jsoniterMacros % Provided
     ),
     addCompilerPlugin(
       "org.scalamacros" % "paradise" % "2.1.1" cross CrossVersion.full
