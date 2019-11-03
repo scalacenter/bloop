@@ -22,6 +22,7 @@ import scala.util.control.NonFatal
 import sbt.internal.inc.JarUtils
 import scala.concurrent.Promise
 import xsbt.InterfaceCompileCancelled
+import xsbt.InterfaceCompileFailed
 
 /**
  *
@@ -118,14 +119,26 @@ final class BloopHighLevelCompiler(
             else scalaSources
           }
         }
-        val cargs = new CompilerArguments(scalac.scalaInstance, config.classpathOptions)
+
+        def compilerArgs: CompilerArguments = {
+          if (scalac.scalaInstance.compilerJar() == null) {
+            throw new InterfaceCompileFailed(Array(), Array(), s"Expected Scala compiler jar in Scala instance containing ${scalac.scalaInstance.allJars().mkString(", ")}")
+          }
+
+          if (scalac.scalaInstance.libraryJar() == null) {
+            throw new InterfaceCompileFailed(Array(), Array(), s"Expected Scala library jar in Scala instance containing ${scalac.scalaInstance.allJars().mkString(", ")}")
+          }
+
+          new CompilerArguments(scalac.scalaInstance, config.classpathOptions)
+        }
+
         def compileSources(
             sources: Seq[File],
             scalacOptions: Array[String],
             callback: AnalysisCallback
         ): Unit = {
           try {
-            val args = cargs.apply(Nil, classpath, None, scalacOptions).toArray
+            val args = compilerArgs.apply(Nil, classpath, None, scalacOptions).toArray
             scalac.compile(sources.toArray, changes, args, setup.output, callback, config.reporter, config.cache, logger, config.progress.toOptional)
           } catch {
             case NonFatal(t) =>
@@ -142,7 +155,7 @@ final class BloopHighLevelCompiler(
 
         def compileSequentially: Task[Unit] = Task {
           val scalacOptions = setup.options.scalacOptions
-          val args = cargs.apply(Nil, classpath, None, scalacOptions).toArray
+          val args = compilerArgs.apply(Nil, classpath, None, scalacOptions).toArray
           timed("scalac") {
             compileSources(sources, scalacOptions, callback)
           }
