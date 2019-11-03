@@ -85,13 +85,14 @@ class NakedLowLevelBuildClient[ClientHandlers <: BuildClientHandlers](
   ): BloopBuildServer = {
     val bloopClientDir = Files.createDirectories(clientBaseDir.resolve(".bloop"))
     val offloadingFile = bloopClientDir.resolve("sbt-bsp.log")
+    val shouldTraceMessages = Files.exists(offloadingFile)
     val ps = new PrintWriter(Files.newOutputStream(offloadingFile))
     val builder = new Launcher.Builder[BloopBuildServer]()
-      .traceMessages(ps)
       .setRemoteInterface(classOf[BloopBuildServer])
       .setInput(clientIn)
       .setOutput(clientOut)
       .setLocalService(localClient)
+    if (shouldTraceMessages) builder.traceMessages(ps)
     executor.foreach(executor => builder.setExecutorService(executor))
     val launcher = builder.create()
 
