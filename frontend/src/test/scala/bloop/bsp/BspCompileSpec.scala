@@ -144,6 +144,52 @@ class BspCompileSpec(
     }
   }
 
+  test("compile simple build, clean and then compile again") {
+    TestUtil.withinWorkspace { workspace =>
+      val sources = List(
+        """/main/scala/Foo.scala
+          |class Foo
+          """.stripMargin
+      )
+
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val `A` = TestProject(workspace, "a", sources)
+      val projects = List(`A`)
+      loadBspState(workspace, projects, logger) { state =>
+        val compiledState = state.compile(`A`)
+        assertExitStatus(compiledState, ExitStatus.Ok)
+        assertValidCompilationState(compiledState, projects)
+        assertNoDiff(
+          """#1: task start 1
+            |  -> Msg: Compiling a (1 Scala source)
+            |  -> Data kind: compile-task
+            |#1: task finish 1
+            |  -> errors 0, warnings 0
+            |  -> Msg: Compiled 'a'
+            |  -> Data kind: compile-report""".stripMargin,
+          compiledState.lastDiagnostics(`A`)
+        )
+
+        val cleanedState = compiledState.clean(`A`)
+
+        val secondCompiledState = cleanedState.compile(`A`)
+        assertExitStatus(secondCompiledState, ExitStatus.Ok)
+        assertValidCompilationState(secondCompiledState, projects)
+        assertDifferentExternalClassesDirs(compiledState, secondCompiledState, projects)
+        assertNoDiff(
+          """#2: task start 2
+            |  -> Msg: Compiling a (1 Scala source)
+            |  -> Data kind: compile-task
+            |#2: task finish 2
+            |  -> errors 0, warnings 0
+            |  -> Msg: Compiled 'a'
+            |  -> Data kind: compile-report""".stripMargin,
+          compiledState.lastDiagnostics(`A`)
+        )
+      }
+    }
+  }
+
   test("compile simple build with client origin id") {
     TestUtil.withinWorkspace { workspace =>
       val sources = List(

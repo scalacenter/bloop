@@ -426,6 +426,11 @@ object Compiler {
             }
           }
 
+          def persistAnalysis(analysis: CompileAnalysis, out: AbsolutePath): Task[Unit] = {
+            // Important to memoize it, it's triggered by different clients
+            Task(persist(out, analysis, result.setup, tracer, logger)).memoize
+          }
+
           val definedMacroSymbols = mode.oracle.collectDefinedMacroSymbols
           val isNoOp = previousAnalysis.contains(analysis)
           if (isNoOp) {
@@ -437,7 +442,6 @@ object Compiler {
               )
             }
 
-            val previousAnalysis = InterfaceUtil.toOption(compileInputs.previousResult.analysis())
             val products = CompileProducts(
               readOnlyClassesDir,
               readOnlyClassesDir,
@@ -456,12 +460,23 @@ object Compiler {
               ): Task[Unit] = {
                 val updateClientState =
                   updateExternalClassesDirWithReadOnly(clientClassesDir, clientTracer)
-                    .doOnFinish(_ => Task(clientReporter.reportEndCompilation()))
 
-                Task.mapBoth(
-                  Task(BloopPaths.delete(AbsolutePath(newClassesDir))),
-                  updateClientState
-                )((_: Unit, _: Unit) => ())
+                val writeAnalysisIfMissing = {
+                  if (compileOut.analysisOut.exists) Task.unit
+                  else {
+                    previousAnalysis match {
+                      case None => Task.unit
+                      case Some(analysis) => persistAnalysis(analysis, compileOut.analysisOut)
+                    }
+                  }
+                }
+
+                val deleteNewClassesDir = Task(BloopPaths.delete(AbsolutePath(newClassesDir)))
+                val allTasks = List(deleteNewClassesDir, updateClientState, writeAnalysisIfMissing)
+                Task
+                  .gatherUnordered(allTasks)
+                  .map(_ => ())
+                  .doOnFinish(_ => Task(clientReporter.reportEndCompilation()))
               }
             }
 
@@ -490,13 +505,6 @@ object Compiler {
               )
             }
 
-            val persistTask = {
-              val persistOut = compileOut.analysisOut
-              val setup = result.setup
-              // Important to memoize it, it's triggered by different clients
-              Task(persist(persistOut, analysisForFutureCompilationRuns, setup, tracer, logger)).memoize
-            }
-
             // Delete all those class files that were invalidated in the external classes dir
             val allInvalidated = allInvalidatedClassFilesForProject ++ allInvalidatedExtraCompileProducts
 
@@ -512,6 +520,8 @@ object Compiler {
                   backgroundTasksWhenNewSuccessfulAnalysis.map(
                     f => f(clientClassesDir, clientReporter, clientTracer)
                   )
+                val persistTask =
+                  persistAnalysis(analysisForFutureCompilationRuns, compileOut.analysisOut)
                 val initialTasks = persistTask :: successBackgroundTasks.toList
                 val allClientSyncTasks = Task.gatherUnordered(initialTasks).flatMap { _ =>
                   // Only start these tasks after the previous IO tasks in the external dir are done

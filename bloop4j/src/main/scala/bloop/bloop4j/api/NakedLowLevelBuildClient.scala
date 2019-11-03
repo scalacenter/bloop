@@ -30,6 +30,8 @@ import java.io.PrintStream
 import bloop.bloop4j.BloopStopClientCachingParams
 import org.eclipse.lsp4j.jsonrpc.services.JsonNotification
 import java.util.concurrent.Future
+import ch.epfl.scala.bsp4j.CleanCacheParams
+import ch.epfl.scala.bsp4j.CleanCacheResult
 
 class NakedLowLevelBuildClient[ClientHandlers <: BuildClientHandlers](
     clientBaseDir: Path,
@@ -56,6 +58,10 @@ class NakedLowLevelBuildClient[ClientHandlers <: BuildClientHandlers](
 
   def compile(params: CompileParams): CompletableFuture[CompileResult] = {
     server.buildTargetCompile(params)
+  }
+
+  def cleanCache(params: CleanCacheParams): CompletableFuture[CleanCacheResult] = {
+    server.buildTargetCleanCache(params)
   }
 
   def exit: CompletableFuture[Unit] = {

@@ -49,6 +49,7 @@ import bloop.engine.Feedback
 import monix.reactive.subjects.BehaviorSubject
 import bloop.engine.tasks.compilation.CompileClientStore
 import bloop.data.ClientInfo.BspClientInfo
+import bloop.logging.BloopLogger
 
 final class BloopBspServices(
     callSiteState: State,
@@ -102,6 +103,7 @@ final class BloopBspServices(
     .requestAsync(endpoints.BuildTarget.compile)(p => schedule(compile(p)))
     .requestAsync(endpoints.BuildTarget.test)(p => schedule(test(p)))
     .requestAsync(endpoints.BuildTarget.run)(p => schedule(run(p)))
+    .requestAsync(endpoints.BuildTarget.cleanCache)(p => schedule(clean(p)))
     .requestAsync(endpoints.BuildTarget.scalaMainClasses)(p => schedule(scalaMainClasses(p)))
     .requestAsync(endpoints.BuildTarget.scalaTestClasses)(p => schedule(scalaTestClasses(p)))
     .requestAsync(endpoints.BuildTarget.dependencySources)(p => schedule(dependencySources(p)))
@@ -483,6 +485,27 @@ final class BloopBspServices(
         case Right(mappings) =>
           val compileArgs = params.arguments.getOrElse(Nil)
           compileProjects(mappings, state, compileArgs, params.originId, logger)
+      }
+    }
+  }
+
+  def clean(params: bsp.CleanCacheParams): BspEndpointResponse[bsp.CleanCacheResult] = {
+    ifInitialized(None) { (state: State, logger: BspServerLogger) =>
+      mapToProjects(params.targets, state) match {
+        case Left(error) =>
+          // Log the mapping error to the user via a log event + an error status code
+          logger.error(error)
+          val msg = s"Couldn't map all targets to clean to projects in the build: $error"
+          Task.now((state, Right(bsp.CleanCacheResult(Some(msg), cleaned = false))))
+        case Right(mappings) =>
+          val projectsToClean = mappings.map(_._2).toList
+          Tasks.clean(state, projectsToClean, includeDeps = false).materialize.map {
+            case Success(state) => (state, Right(bsp.CleanCacheResult(None, cleaned = true)))
+            case Failure(exception) =>
+              val t = BloopLogger.prettyPrintException(exception)
+              val msg = s"Unexpected error when cleaning build targets!${System.lineSeparator}$t"
+              state -> Right(bsp.CleanCacheResult(Some(msg), cleaned = false))
+          }
       }
     }
   }

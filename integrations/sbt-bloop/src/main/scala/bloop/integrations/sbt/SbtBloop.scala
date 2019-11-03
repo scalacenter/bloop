@@ -155,7 +155,7 @@ object BloopDefaults {
       }
     },
     BloopKeys.bloopSupportedConfigurations := List(Compile, Test, IntegrationTest)
-  ) ++ Offloader.bloopExtraGlobalSettings
+  ) ++ Offloader.bloopCompileGlobalSettings
 
   // From the infamous https://stackoverflow.com/questions/40741244/in-sbt-how-to-execute-a-command-in-task
   def runCommandAndRemaining(command: String): State => State = { st: State =>
@@ -204,7 +204,7 @@ object BloopDefaults {
       BloopKeys.bloopAnalysisOut := Offloader.bloopAnalysisOut.value,
       BloopKeys.bloopMainClass := None,
       BloopKeys.bloopMainClass in Keys.run := BloopKeys.bloopMainClass.value
-    ) ++ discoveredSbtPluginsSettings ++ Offloader.offloaderSettings
+    ) ++ discoveredSbtPluginsSettings ++ Offloader.bloopCompileConfigSettings
 
   lazy val projectSettings: Seq[Def.Setting[_]] = {
     sbt.inConfig(Compile)(configSettings) ++
@@ -231,7 +231,7 @@ object BloopDefaults {
             }
           }
         }.value
-      )
+      ) ++ Offloader.bloopCompileProjectSettings
   }
 
   /**

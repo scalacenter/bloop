@@ -184,6 +184,34 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
       }
     }
 
+    def cleanTask(project: TestProject): Task[ManagedBspTestState] = {
+      runAfterTargets(project) { target =>
+        BuildTarget.cleanCache.request(bsp.CleanCacheParams(List(target))).flatMap {
+          case Right(r) =>
+            // `headL` returns latest saved state from bsp because source is behavior subject
+            val statusCode = if (r.cleaned) bsp.StatusCode.Ok else bsp.StatusCode.Error
+            serverStates.headL.map { state =>
+              new ManagedBspTestState(
+                state,
+                statusCode,
+                currentCompileIteration,
+                diagnostics,
+                client0,
+                serverStates
+              )
+            }
+          case Left(e) => fail(s"Clean error for request ${e.id}:\n${e.error}")
+        }
+      }
+    }
+
+    def clean(project: TestProject): ManagedBspTestState = {
+      // Use a default timeout of 5 seconds for every clean operation
+      TestUtil.await(FiniteDuration(5, "s")) {
+        cleanTask(project)
+      }
+    }
+
     def requestSources(project: TestProject): bsp.SourcesResult = {
       val sourcesTask = {
         endpoints.BuildTarget.sources.request(bsp.SourcesParams(List(project.bspId))).map {

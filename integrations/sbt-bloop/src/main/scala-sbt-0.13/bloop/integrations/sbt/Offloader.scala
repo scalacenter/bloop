@@ -11,9 +11,10 @@ object Offloader {
   val bloopCompile: Def.Initialize[Task[CompileAnalysis]] = Def.task(CompileAnalysis.Empty)
   val bloopOffloadCompilationTask: Def.Initialize[Task[CompileAnalysis]] =
     Def.task(CompileAnalysis.Empty)
-  val bloopExtraGlobalSettings: Seq[Def.Setting[_]] = List()
 
-  val offloaderSettings: Seq[Def.Setting[_]] = List(
+  val bloopCompileProjectSettings: Seq[Def.Setting[_]] = List()
+  val bloopCompileGlobalSettings: Seq[Def.Setting[_]] = List()
+  val bloopCompileConfigSettings: Seq[Def.Setting[_]] = List(
     BloopKeys.bloopCompile := Keys.compileIncremental.value
   )
 }

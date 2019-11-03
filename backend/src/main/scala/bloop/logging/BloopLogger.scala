@@ -137,4 +137,11 @@ object BloopLogger {
    */
   def default(name: String): BloopLogger =
     at(name, System.out, System.err, false, DebugFilter.All)
+
+  def prettyPrintException(t: Throwable): String = {
+    val sw = new java.io.StringWriter()
+    val pw = new java.io.PrintWriter(sw)
+    t.printStackTrace(pw)
+    sw.toString()
+  }
 }

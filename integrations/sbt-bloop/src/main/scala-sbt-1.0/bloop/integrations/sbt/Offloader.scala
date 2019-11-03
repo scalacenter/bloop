@@ -14,6 +14,7 @@ import sbt.{
   Def,
   Task,
   TaskKey,
+  ScopedKey,
   SettingKey,
   Compile,
   Test,
@@ -66,6 +67,11 @@ import xsbti.compile.ExternalHooks
 import java.util.concurrent.atomic.AtomicReference
 import java.nio.file.Path
 import java.io.IOException
+import sbt.TaskCancellationStrategy
+import sbt.RunningTaskEngine
+import sbt.internal.util.Signals
+import java.util.concurrent.atomic.AtomicBoolean
+import ch.epfl.scala.bsp4j.CleanCacheParams
 
 /**
  * Todo list:
@@ -100,6 +106,7 @@ object Offloader {
       handlersMap: ConcurrentHashMap[BuildTargetIdentifier, ProjectClientHandlers],
       analysisMap: ConcurrentHashMap[BuildTargetIdentifier, JFuture[Option[AnalysisContents]]],
       resultsMap: ConcurrentHashMap[BuildTargetIdentifier, CompileResult],
+      ongoingRequestsMap: ConcurrentHashMap[JFuture[_], Boolean],
       executor: ExecutorService
   )
 
@@ -149,6 +156,7 @@ object Offloader {
       val analysis =
         new ConcurrentHashMap[BuildTargetIdentifier, JFuture[Option[AnalysisContents]]]()
       val results = new ConcurrentHashMap[BuildTargetIdentifier, CompileResult]()
+      val requests = new ConcurrentHashMap[JFuture[_], Boolean]()
 
       connState.exitStatus.get() match {
         case Some(status) if !threwException =>
@@ -171,7 +179,8 @@ object Offloader {
           )
 
           initializeBloopClient(sbtVersion, client, connState, logger).map(
-            _ => BloopCompileState(connState, client, handlers, analysis, results, executor)
+            _ =>
+              BloopCompileState(connState, client, handlers, analysis, results, requests, executor)
           )
       }
     }
@@ -318,12 +327,39 @@ object Offloader {
           val params = new CompileParams(ju.Arrays.asList(buildTargetId))
           params.setOriginId(bloopSession.requestId)
           val result = bloopState.client.compile(params)
+          bloopState.ongoingRequestsMap.put(result, true)
 
-          waitForResult(targetName, buildTargetId, bloopSession, result, logger)
-            .apply(markBloopWaitForCompile(_, scopedKey))
+          val anyScopedKey = scopedKey.asInstanceOf[ScopedKey[Any]]
+          waitForResult(targetName, buildTargetId, bloopSession, result, anyScopedKey, logger)
+            .andFinally({ bloopState.ongoingRequestsMap.remove(result); () })
+          //.apply(markBloopWaitForCompile(_, scopedKey))
         }
       }
     }
+  }
+
+  private val showScopedKey = showShortKey(None)
+  private def waitForResultRecursively[T](
+      futureResult: JFuture[T],
+      timeoutMillis: Long,
+      taskKeyName: String
+  ): Task[Option[T]] = {
+    val task0 = sbt.std.TaskExtra.task {
+      Option(futureResult.get(timeoutMillis, TimeUnit.MILLISECONDS))
+    }
+
+    task0
+      .named(taskKeyName)
+      .tag(BloopWait)
+      .result
+      .flatMap {
+        case Value(compileResult) => sbt.std.TaskExtra.inlineTask(compileResult)
+        case Inc(cause) =>
+          cause.directCause match {
+            case Some(t) => waitForResultRecursively(futureResult, timeoutMillis, taskKeyName)
+            case None => sys.error("unexpected")
+          }
+      }
   }
 
   private val BloopWait = sbt.Tags.Tag("bloop-wait")
@@ -332,31 +368,17 @@ object Offloader {
       buildTarget: BuildTargetIdentifier,
       bloopSession: BloopSession,
       futureResult: JFuture[T],
+      scopedKey: ScopedKey[Any],
       logger: Logger
   ): Def.Initialize[Task[CompileResult]] = {
-    def waitForResult(timeoutMillis: Long): Task[T] = {
-      val task0 = sbt.std.TaskExtra
-        .task(futureResult.get(timeoutMillis, TimeUnit.MILLISECONDS))
-        .tag(BloopWait)
-      val task = task0.named("hellooooo")
-      task.result
-        .flatMap {
-          case Value(compileResult) => sbt.std.TaskExtra.inlineTask(compileResult)
-          case Inc(cause) =>
-            cause.directCause match {
-              case Some(t) => waitForResult(50)
-              case None => sys.error("unexpected")
-            }
-        }
-    }
-
+    val prettyPrintedKey =
+      showScopedKey.show(scopedKey).replace(scopedKey.key.label, "bloopCompile")
     Def.task {
-
       //logger.info(s"Waiting for result of ${targetName}")
-      val result = futureResult.get() //waitForResult(10).value
+      val result = waitForResultRecursively(futureResult, 10, prettyPrintedKey).value
       val analysisMap = bloopSession.state.analysisMap
       val resultsMap = bloopSession.state.resultsMap
-      Option(analysisMap.get(buildTarget)) match {
+      result.flatMap(_ => Option(analysisMap.get(buildTarget))) match {
         case None =>
           val setup = toMiniSetup(targetName)
           CompileResult.create(Analysis.Empty, setup, false)
@@ -386,6 +408,29 @@ object Offloader {
     }
   }
 
+  private def showShortKey(
+      keyNameColor: Option[String]
+  ): sbt.Show[ScopedKey[_]] = {
+    def displayShort(
+        project: sbt.Reference
+    ): String = {
+      val trailing = " /"
+      project match {
+        case sbt.BuildRef(_) => "ThisBuild" + trailing
+        case ProjectRef(_, x) => x + trailing
+        case _ => sbt.Reference.display(project) + trailing
+      }
+    }
+    sbt.Show[ScopedKey[_]](
+      key =>
+        sbt.Scope.display(
+          key.scope,
+          sbt.Def.withColor(key.key.label, keyNameColor),
+          ref => displayShort(ref)
+        )
+    )
+  }
+
   private def toMiniSetup(targetName: String): MiniSetup = {
     import bloop.config.Config
     val project = BloopDefaults.targetNamesToConfigs.get(targetName).project
@@ -404,7 +449,7 @@ object Offloader {
     MiniSetup.create(output, options, scala.version, order, true, new Array(0))
   }
 
-  def markBloopCompileEntrypoint[T](task: Task[T], currentKey: sbt.ScopedKey[_]): Task[T] = {
+  def markBloopCompileEntrypoint[T](task: Task[T], currentKey: ScopedKey[_]): Task[T] = {
     val newKey = new sbt.ScopedKey(currentKey.scope, BloopKeys.bloopCompileEntrypoint)
     task.copy(info = task.info.set(Keys.taskDefinitionKey, newKey))
   }
@@ -453,7 +498,7 @@ object Offloader {
     }
   }
 
-  def compileIncSetup: Def.Initialize[Task[CompileSetup]] = Def.task {
+  def bloopCompileIncSetup: Def.Initialize[Task[CompileSetup]] = Def.task {
     val previousSetup = Keys.compileIncSetup.value
     val _ = Keys.classpathConfiguration.?.value
     val bloopState = BloopCompileKeys.bloopCompileStateAtBootTimeInternal.value.get()
@@ -470,6 +515,44 @@ object Offloader {
         previousSetup.progress(),
         previousSetup.extra()
       )
+    }
+  }
+
+  private val taskCancelStrategy =
+    sbt.settingKey[State => TaskCancellationStrategy]("Experimental task cancellation handler.")
+  def bloopTaskCancelStrategy: Def.Initialize[State => TaskCancellationStrategy] = {
+    Def.setting { (state: State) =>
+      val bloopState = BloopCompileKeys.bloopCompileStateAtBootTimeInternal.value.get()
+      val currentStrategy = taskCancelStrategy.value.apply(state)
+      new TaskCancellationStrategy {
+        type State = currentStrategy.State
+        def onTaskEngineStart(canceller: RunningTaskEngine): State = {
+          val bloopTaskEngine = new RunningTaskEngine {
+            def cancelAndShutdown(): Unit = {
+              val cancelledRequests = new mutable.ListBuffer[JFuture[_]]()
+              if (bloopState != null) {
+                bloopState.ongoingRequestsMap.forEachKey(4, { future =>
+                  if (!future.isDone()) {
+                    future.cancel(true)
+                    cancelledRequests.+=(future)
+                  }
+                  ()
+                })
+              }
+
+              canceller.cancelAndShutdown()
+
+              // Guarantee that these requests are removed from the map after cancellation
+              cancelledRequests.foreach(request => bloopState.ongoingRequestsMap.remove(request))
+            }
+          }
+
+          currentStrategy.onTaskEngineStart(bloopTaskEngine)
+        }
+        def onTaskEngineFinish(state: State): Unit = {
+          currentStrategy.onTaskEngineFinish(state)
+        }
+      }
     }
   }
 
@@ -493,7 +576,23 @@ object Offloader {
     }
   }
 
-  def compileIncremental: Def.Initialize[Task[CompileResult]] = {
+  def bloopClean: Def.Initialize[Task[Unit]] = {
+    Def.task {
+      val bloopState = BloopCompileKeys.bloopCompileStateAtBootTimeInternal.value.get()
+      if (bloopState != null) {
+        import scala.collection.JavaConverters._
+        val targetName = BloopKeys.bloopTargetName.value
+        val baseDirectory = Keys.baseDirectory.value.toPath.toAbsolutePath
+        val buildTargetId = ProjectUtils.toBuildTargetIdentifier(baseDirectory, targetName)
+        val cleanParams = new CleanCacheParams(List(buildTargetId).asJava)
+        // TODO: Allow this logic to be cancelled!
+        bloopState.client.cleanCache(cleanParams).get()
+        ()
+      }
+    }
+  }
+
+  def bloopCompileIncremental: Def.Initialize[Task[CompileResult]] = {
     Def.taskDyn {
       val config = Keys.configuration.value
       // Depend on classpath config to force derive to scope everywhere it's available
@@ -543,6 +642,10 @@ object Offloader {
     val bloopCompilerExternalHooks = sbt
       .taskKey[ExternalHooks]("Obtain empty external hooks if bloop compilation is enabled")
       .withRank(KeyRanks.Invisible)
+
+    val bloopCleanInternal = sbt
+      .taskKey[Unit]("Send a clean request to the BSP server.")
+      .withRank(KeyRanks.Invisible)
   }
 
   private def sbtBloopPosition = sbt.internal.util.SourcePosition.fromEnclosing()
@@ -553,14 +656,21 @@ object Offloader {
     compileReporterKey.in(Keys.compile).?.value
   }
 
-  private lazy val highPriorityOffloaderSettings: Seq[Def.Setting[_]] = List(
+  private lazy val underivedConfigSettings: Seq[Def.Setting[_]] = List(
     BloopCompileKeys.bloopCompilerReporterInternal.set(bloopCompilerReporterTask, sbtBloopPosition)
   )
 
-  lazy val offloaderSettings: Seq[Def.Setting[_]] = highPriorityOffloaderSettings ++ List(
+  lazy val bloopCompileProjectSettings: Seq[Def.Setting[_]] = List(
+    // Necessary because running `clean` doesn't to `compile:clean` in sbt 1.3.0+
+    Keys.clean
+      .set(Keys.clean.dependsOn(BloopCompileKeys.bloopCleanInternal.in(Compile)), sbtBloopPosition)
+  )
+
+  lazy val bloopCompileConfigSettings: Seq[Def.Setting[_]] = underivedConfigSettings ++ List(
     //Keys.compile.set(compile, sbtBloopPosition),
-    Keys.compileIncSetup.set(compileIncSetup, sbtBloopPosition),
-    Keys.compileIncremental.set(compileIncremental, sbtBloopPosition),
+    Keys.compileIncSetup.set(bloopCompileIncSetup, sbtBloopPosition),
+    Keys.compileIncremental.set(bloopCompileIncremental, sbtBloopPosition),
+    BloopCompileKeys.bloopCleanInternal.set(bloopClean, sbtBloopPosition),
     BloopKeys.bloopCompile.set(Offloader.bloopOffloadCompilationTask, sbtBloopPosition),
     BloopCompileKeys.bloopCompilerExternalHooks
       .set(bloopCompilerExternalHooksTask, sbtBloopPosition),
@@ -569,7 +679,8 @@ object Offloader {
   ).map(Def.derive(_, allowDynamic = true))
 
   private val LimitAllPattern = "Limit all to (\\d+)".r
-  val bloopExtraGlobalSettings: Seq[Def.Setting[_]] = List(
+  lazy val bloopCompileGlobalSettings: Seq[Def.Setting[_]] = List(
+    taskCancelStrategy.set(bloopTaskCancelStrategy, sbtBloopPosition),
     BloopCompileKeys.watchBeforeCommand.set(bloopWatchBeforeCommandTask, sbtBloopPosition),
     BloopCompileKeys.bloopCompileStateInternal.set(bloopCompileStateTask, sbtBloopPosition),
     BloopCompileKeys.bloopCompileStateAtBootTimeInternal
