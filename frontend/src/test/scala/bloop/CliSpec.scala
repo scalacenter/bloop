@@ -154,7 +154,7 @@ object CliSpec extends BaseSuite {
   }
 
   test("fail at non-sensical host address") {
-    checkInvalidAddress("localhos")
+    checkInvalidAddress("localhost-")
   }
 
   test("fail at invalid ipv4 host addresses") {

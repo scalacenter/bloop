@@ -125,7 +125,7 @@ with `brew services restart bloop`.
 #### Scoop
 
 If you have installed bloop via `scoop`, look for the path of the Scoop
-formula in the installation logs and upgade bloop with the `scoop` CLI.
+formula in the installation logs and upgrade bloop with the `scoop` CLI.
 
 Then, **restart the bloop server** to pick up the new installed version.
 

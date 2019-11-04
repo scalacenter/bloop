@@ -233,7 +233,7 @@ object CompileSpec extends bloop.testing.BaseSuite {
       assert(secondCompiledState.status == ExitStatus.CompilationError)
       assertSameExternalClassesDirs(compiledState, secondCompiledState, projects)
       assertValidCompilationState(secondCompiledState, List(`A`))
-      // The internal classes dir for `A` should not exist, B failed to compile but A succeded
+      // The internal classes dir for `A` should not exist, B failed to compile but A succeeded
       assertNonExistingInternalClassesDir(secondCompiledState)(compiledState, List(`A`))
 
       assertInvalidCompilationState(
@@ -997,7 +997,7 @@ object CompileSpec extends bloop.testing.BaseSuite {
       val state = loadState(workspace, projects, logger)
       val compiledState = state.compile(`A`)
       assert(compiledState.status == ExitStatus.CompilationError)
-      // Despite error, compilation of projet should be valid
+      // Despite error, compilation of project should be valid
       assertValidCompilationState(compiledState, projects)
 
       val targetFoo = TestUtil.universalPath("a/src/Foo.scala")

@@ -15,7 +15,7 @@ Install and learn how to export the build in the Installation Guide:
 
 The following page only walks you through all the configuration options that the `sbt-bloop` plugin
 allows when it's configured in your build. To learn how to install the plugin or the basic concepts
-of exporting your build via bloopp head to the installation guide linked above.
+of exporting your build via bloop head to the installation guide linked above.
 
 ## Don't export certain targets
 

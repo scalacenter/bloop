@@ -34,11 +34,11 @@ To learn more about `bloop server` and managing the server lifecycle automatical
 
 ### Command-line completions
 
-Bloop does not support Powershell completions at the moment. However, it does support Bash/Zsh
+Bloop does not support PowerShell completions at the moment. However, it does support Bash/Zsh
 command-line completions which are installed by default in the bloop installation directory (under
 `/etc`).
 
-There are several projects that allow you to use Bash style completions in your Powershell:
+There are several projects that allow you to use Bash style completions in your PowerShell:
 
-1. [PSReadLine](https://github.com/lzybkr/PSReadLine), a plugin that improves the Powershell experience and supports bash completions.
-1. [`ps-bash-completions`](https://github.com/tillig/ps-bash-completions), a single Powershell module to install bash completions.
+1. [PSReadLine](https://github.com/lzybkr/PSReadLine), a plugin that improves the PowerShell experience and supports bash completions.
+1. [`ps-bash-completions`](https://github.com/tillig/ps-bash-completions), a single PowerShell module to install bash completions.

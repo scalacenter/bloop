@@ -725,12 +725,12 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
         }
 
         val seventhCompilation = secondBspState.compileHandle(`B`)
-        val eigthCompilation =
+        val eighthCompilation =
           waitUntilStartAndCompile(newCliCompiledState, `B`, startedThirdCompilation, cliLogger7)
 
         val thirdBspState = Await.result(seventhCompilation, FiniteDuration(3, TimeUnit.SECONDS))
         val seventhCompiledState =
-          Await.result(eigthCompilation, FiniteDuration(1, TimeUnit.SECONDS))
+          Await.result(eighthCompilation, FiniteDuration(1, TimeUnit.SECONDS))
 
         checkDeduplication(bspLogger, isDeduplicated = false)
         checkDeduplication(cliLogger7, isDeduplicated = true)

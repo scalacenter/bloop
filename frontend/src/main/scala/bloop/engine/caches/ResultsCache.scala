@@ -57,7 +57,7 @@ final case class ResultsCache private (
   def lastSuccessfulResultOrEmpty(project: Project): LastSuccessfulResult =
     lastSuccessfulResult(project).getOrElse(LastSuccessfulResult.empty(project))
 
-  /** Returns an optional last succesful result. */
+  /** Returns an optional last successful result. */
   private[bloop] def lastSuccessfulResult(project: Project): Option[LastSuccessfulResult] =
     successful.get(project)
 

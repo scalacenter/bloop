@@ -220,7 +220,7 @@ object ScalaInstance {
         }
       } catch {
         case NonFatal(t) =>
-          logger.debug("Unexpected error when creting Bloop's classloader")
+          logger.debug("Unexpected error when creating Bloop's classloader")
           logger.trace(t)
           None
       }

@@ -19,7 +19,7 @@ object DependencyResolution {
    * @param module                 The module's name.
    * @param version                The module's version.
    * @param logger                 A logger that receives messages about resolution.
-   * @param additionalRepositories Additional repositories to include in resolition.
+   * @param additionalRepositories Additional repositories to include in resolution.
    * @return All the resolved files.
    */
   def resolve(
@@ -44,7 +44,7 @@ object DependencyResolution {
    * @param module                 The module's name.
    * @param version                The module's version.
    * @param logger                 A logger that receives messages about resolution.
-   * @param additionalRepositories Additional repositories to include in resolition.
+   * @param additionalRepositories Additional repositories to include in resolution.
    * @return Either a coursier error or all the resolved files.
    */
   def resolveWithErrors(

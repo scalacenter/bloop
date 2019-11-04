@@ -183,7 +183,7 @@ final class BspBridge(
   def wireBspConnectionStreams(socket: Socket): Unit = {
     @volatile var isConnectionOpen: Boolean = true
 
-    def closeInconditionally(c: Closeable): Unit = {
+    def closeUnconditionally(c: Closeable): Unit = {
       try c.close()
       catch { case t: Throwable => () }
     }
@@ -206,8 +206,8 @@ final class BspBridge(
               e.printStackTrace(out)
             }
         } finally {
-          closeInconditionally(clientIn)
-          closeInconditionally(socketOut)
+          closeUnconditionally(clientIn)
+          closeUnconditionally(socketOut)
         }
       }
 
@@ -238,8 +238,8 @@ final class BspBridge(
               e.printStackTrace(out)
             }
         } finally {
-          closeInconditionally(socketIn)
-          closeInconditionally(clientOut)
+          closeUnconditionally(socketIn)
+          closeUnconditionally(clientOut)
         }
       }
 

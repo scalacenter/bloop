@@ -56,7 +56,7 @@ function Versions(props) {
           <p>
             Every change merged in Bloop is made available in a pre-release version third parties can depend on.
             To know the latest available release, you can consult the release table in the <a href={siteConfig.baseUrl + "setup"}>Installation section</a>.
-            Pre-release versions provide no guarantees with regards to correctness and performance and only intend to make available those release-worthy changes and provide a playground for mantainers and early adopters to try future changes out.
+            Pre-release versions provide no guarantees with regards to correctness and performance and only intend to make available those release-worthy changes and provide a playground for maintainers and early adopters to try future changes out.
           </p>
           <table className="versions">
             <tbody>

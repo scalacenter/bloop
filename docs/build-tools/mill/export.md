@@ -10,7 +10,7 @@ import $ivy.`com.lihaoyi::mill-contrib-bloop:$millVersion`
 
 * `mill` >= `0.4.0-2-4dbbce`.
 
-The bloop integration has been merged into [mill's codebase](http://www.lihaoyi.com/mill/page/contrib-modules.html#bloop) as a contrib module.  This means that the lifecyle of that integration follows mill's, but is not packaged with it and needs to be manually depended on via `import`.
+The bloop integration has been merged into [mill's codebase](http://www.lihaoyi.com/mill/page/contrib-modules.html#bloop) as a contrib module.  This means that the lifecycle of that integration follows mill's, but is not packaged with it and needs to be manually depended on via `import`.
 
 ## Generate configuration files
 

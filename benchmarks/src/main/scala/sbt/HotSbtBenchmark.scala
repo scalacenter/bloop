@@ -74,8 +74,8 @@ class HotSbtBenchmark {
     path = CommunityBuild.getConfigDirForBenchmark(project).getParent
     cleanClassesPath = path.resolve("project").resolve("CleanClassesPlugin.scala")
     Files.write(cleanClassesPath, cleanClassesPlugin.getBytes("UTF-8"))
-    val sbtLaucherPath = System.getProperty("sbt.launcher")
-    if (sbtLaucherPath == null) sys.error("System property -Dsbt.launcher absent")
+    val sbtLauncherPath = System.getProperty("sbt.launcher")
+    if (sbtLauncherPath == null) sys.error("System property -Dsbt.launcher absent")
     val builder = new ProcessBuilder(
       sys.props("java.home") + "/bin/java",
       "-Xms2G",
@@ -83,7 +83,7 @@ class HotSbtBenchmark {
       "-XX:ReservedCodeCacheSize=256m",
       "-Dsbt.log.format=false",
       "-jar",
-      sbtLaucherPath
+      sbtLauncherPath
     )
     builder.directory(path.toFile)
     inputRedirect = builder.redirectInput()

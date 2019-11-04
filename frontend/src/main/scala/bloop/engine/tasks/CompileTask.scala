@@ -469,7 +469,7 @@ object CompileTask {
    * still useful for either a next compile or is being used by an alternative
    * running compilation process. The last process to own the classes directory
    * and not use it will be in charge of cleaning up the used read-only classes
-   * directory as it's superseeded by the new classes directory generated
+   * directory as it's superseded by the new classes directory generated
    * during a successful compile.
    */
   private def cleanUpPreviousResult(
@@ -493,7 +493,7 @@ object CompileTask {
           None
         } else {
           val newClassesDir = products.newClassesDir
-          logger.debug(s"Scheduling to delete ${previousClassesDir} superseeded by $newClassesDir")
+          logger.debug(s"Scheduling to delete ${previousClassesDir} superseded by $newClassesDir")
           Some(previousClassesDir)
         }
       case _ => None

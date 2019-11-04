@@ -68,8 +68,8 @@ final class BloopAnalysisCallback(
   private[this] val classPublicNameHashes = new mutable.HashMap[String, Array[NameHash]]
   private[this] val objectPublicNameHashes = new mutable.HashMap[String, Array[NameHash]]
   private[this] val usedNames = new mutable.HashMap[String, mutable.HashSet[UsedName]]
-  private[this] val unreporteds = new mutable.HashMap[File, mutable.ListBuffer[Problem]]
-  private[this] val reporteds = new mutable.HashMap[File, mutable.ListBuffer[Problem]]
+  private[this] val unreportedProblems = new mutable.HashMap[File, mutable.ListBuffer[Problem]]
+  private[this] val reportedProblems = new mutable.HashMap[File, mutable.ListBuffer[Problem]]
   private[this] val mainClasses = new mutable.HashMap[File, mutable.ListBuffer[String]]
   private[this] val binaryDeps = new mutable.HashMap[File, mutable.HashSet[File]]
 
@@ -112,7 +112,7 @@ final class BloopAnalysisCallback(
       reported: Boolean
   ): Unit = {
     for (source <- InterfaceUtil.jo2o(pos.sourceFile)) {
-      val map = if (reported) reporteds else unreporteds
+      val map = if (reported) reportedProblems else unreportedProblems
       map
         .getOrElseUpdate(source, new mutable.ListBuffer())
         .+=(InterfaceUtil.problem(category, pos, msg, severity))
@@ -303,8 +303,8 @@ final class BloopAnalysisCallback(
           classNames.getOrElse(src, new mutable.HashSet[(String, String)]()).map(_._1)
         val analyzedApis = classesInSrc.map(analyzeClass)
         val info = SourceInfos.makeInfo(
-          getOrNil(reporteds, src),
-          getOrNil(unreporteds, src),
+          getOrNil(reportedProblems, src),
+          getOrNil(unreportedProblems, src),
           getOrNil(mainClasses, src)
         )
         val binaries = binaryDeps.getOrElse(src, Nil: Iterable[File])

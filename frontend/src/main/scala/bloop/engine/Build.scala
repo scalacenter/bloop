@@ -37,7 +37,7 @@ final case class Build private (
    * transforming projects in-memory after they have been loaded. These
    * transformations depend on values of the workspace settings and
    * `checkForChange` defines many of the semantics of these settings and what
-   * should be the implicitations that a change has in the whole build.
+   * should be the implications that a change has in the whole build.
    *
    * @param newSettings The new settings that should be applied to detect changes.
    *                    These settings are passed by certain clients such as Metals

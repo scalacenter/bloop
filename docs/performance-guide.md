@@ -76,7 +76,7 @@ the Bloop server getting hotter and hotter with every iteration.
 However, how can Zipkin help us create a precise model of our build? Let's
 click on a trace to find out.
 
-![A Zipkin instance showing a detaild profile of a build trace from the akka/akka project](assets/zipkin-akka-traces-2.png)
+![A Zipkin instance showing a detailed profile of a build trace from the akka/akka project](assets/zipkin-akka-traces-2.png)
 
 The hierarchical UI of the traces help us visualize, among others:
 
@@ -138,7 +138,7 @@ certain degree of reproducibility, invest time to stabilize it.
 
 It's legit to ignore any of these steps if, for example, the impact of your
 changes would be higher by enabling NUMA/Turbo Boost or you want to collect
-more "realistic" benchmark data that ressembles better the noisy machines
+more "realistic" benchmark data that resembles better the noisy machines
 developers compile in.
 
 Remember, performance is not composable!
@@ -270,7 +270,7 @@ version. For example, if you are using 2.11.11 while the latest compiler
 developments are in 2.13.0, you're most likely missing out on a lot of
 life-quality performance improvements.
 
-### Pick appropiate JVM and GC options
+### Pick appropriate JVM and GC options
 
 The best JVM options are those striking a balance between making an
 efficient use of your system's available resources and allowing the build

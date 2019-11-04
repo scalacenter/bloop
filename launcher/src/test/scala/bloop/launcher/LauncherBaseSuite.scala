@@ -170,9 +170,9 @@ abstract class LauncherBaseSuite(
       val caseInsensitiveEnvField =
         envClass.getDeclaredField("theCaseInsensitiveEnvironment")
       caseInsensitiveEnvField.setAccessible(true)
-      val currentCaseInsitiveEnv =
+      val currentCaseInsensitiveEnv =
         caseInsensitiveEnvField.get(null).asInstanceOf[ju.Map[String, String]]
-      currentCaseInsitiveEnv.putAll(newEnv)
+      currentCaseInsensitiveEnv.putAll(newEnv)
     } catch {
       case _: NoSuchFieldException =>
         val classes = classOf[ju.Collections].getDeclaredClasses()

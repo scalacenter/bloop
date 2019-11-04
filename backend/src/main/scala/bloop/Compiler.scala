@@ -649,7 +649,7 @@ object Compiler {
   }
 
   /**
-   * Update the previous reuslt with the most recent classpath hashes.
+   * Update the previous result with the most recent classpath hashes.
    *
    * The incremental compiler has two mechanisms to ascertain if it has to
    * recompile code or can skip recompilation (what it's traditionally called
