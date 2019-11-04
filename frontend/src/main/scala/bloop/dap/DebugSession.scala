@@ -1,9 +1,9 @@
 package bloop.dap
 
 import java.net.{InetSocketAddress, Socket}
+import java.util.concurrent.CancellationException
 import java.util.concurrent.TimeUnit
 import java.util.logging.{Handler, Level, LogRecord, Logger => JLogger}
-
 import bloop.logging.{DebugFilter, Logger}
 import com.microsoft.java.debug.core.adapter.{ProtocolServer => DapServer}
 import com.microsoft.java.debug.core.protocol.Messages.{Request, Response}
@@ -13,10 +13,11 @@ import com.microsoft.java.debug.core.{Configuration, LoggerFactory}
 import monix.eval.Task
 import monix.execution.atomic.Atomic
 import monix.execution.{Cancelable, Scheduler}
-
 import scala.collection.mutable
 import scala.concurrent.Promise
 import scala.concurrent.duration.FiniteDuration
+import scala.util.Failure
+import scala.util.Success
 import scala.util.Try
 
 /**
@@ -105,19 +106,17 @@ final class DebugSession(
     request.command match {
       case "launch" =>
         launchedRequests.add(requestId)
-        val startDebuggeeTask = Task
+        Task
           .fromFuture(debugAddress.future)
-          .map(DebugSession.toAttachRequest(requestId, _))
-          .foreachL(super.dispatchRequest)
-          .timeoutTo(
-            FiniteDuration(15, TimeUnit.SECONDS),
-            Task {
-              val response = DebugSession.failed(request, "Could not start debuggee")
-              this.sendResponse(response)
-            }
-          )
-
-        startDebuggeeTask.runAsync(ioScheduler)
+          .timeout(FiniteDuration(15, TimeUnit.SECONDS))
+          .runOnComplete {
+            case Success(address) =>
+              super.dispatchRequest(DebugSession.toAttachRequest(requestId, address))
+            case Failure(exception) =>
+              val cause = s"Could not start debuggee due to ${exception.getCause}"
+              this.sendResponse(DebugSession.failed(request, cause))
+              attachedPromise.tryFailure(new IllegalStateException(cause))
+          }(ioScheduler)
         ()
 
       case "configurationDone" =>
@@ -126,7 +125,12 @@ final class DebugSession(
         // with the VM we are not connected to
         Task
           .fromFuture(attachedPromise.future)
-          .foreach(_ => super.dispatchRequest(request))(ioScheduler)
+          .runOnComplete {
+            case Success(_) =>
+              super.dispatchRequest(request)
+            case Failure(exception) =>
+              sendResponse(DebugSession.failed(request, exception.getMessage))
+          }(ioScheduler)
         ()
 
       case "disconnect" =>
@@ -234,6 +238,9 @@ final class DebugSession(
   }
 
   private def cancelDebuggee(debuggee: Cancelable): Unit = {
+    val cause = new CancellationException("Debug session cancelled")
+    debugAddress.tryFailure(cause)
+    attachedPromise.tryFailure(cause)
     loggerAdapter.onDebuggeeFinished()
     debuggee.cancel()
   }
