@@ -24,6 +24,7 @@ import scala.concurrent.duration.FiniteDuration
 
 import ch.epfl.scala.bsp.endpoints.BuildTarget.scalacOptions
 import bloop.engine.ExecutionContext
+import scala.util.Random
 
 object LocalBspMetalsClientSpec extends BspMetalsClientSpec(BspProtocol.Local)
 object TcpBspMetalsClientSpec extends BspMetalsClientSpec(BspProtocol.Tcp)
@@ -275,12 +276,9 @@ class BspMetalsClientSpec(
       val metalsClientVersion = "4.1.11"
       val client1 = createClient(normalClientsVersion)
       val client2 = createClient(normalClientsVersion)
-      val client3 = createClient(normalClientsVersion)
-      val client4 = createClient(normalClientsVersion)
-      val client5 = createClient(normalClientsVersion)
       val metalsClient = createClient(metalsClientVersion, "Metals")
 
-      val allClients = List(client1, client2, client3, metalsClient, client4, client5)
+      val allClients = Random.shuffle(List(client1, client2, metalsClient))
       TestUtil.await(FiniteDuration(20, "s"), ExecutionContext.ioScheduler) {
         Task.gatherUnordered(allClients).map(_ => ())
       }
