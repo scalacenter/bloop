@@ -1,0 +1,2717 @@
+{
+    "version": "1.1.2",
+    "project": {
+        "name": "frontend",
+        "directory": "/Users/jvican/Code/bloop/frontend",
+        "workspaceDir": "/Users/jvican/Code/bloop",
+        "sources": [
+            "/Users/jvican/Code/bloop/frontend/src/main/scala-2.12",
+            "/Users/jvican/Code/bloop/frontend/src/main/scala",
+            "/Users/jvican/Code/bloop/frontend/src/main/java",
+            "/Users/jvican/Code/bloop/frontend/target/scala-2.12/src_managed/main"
+        ],
+        "dependencies": [
+            "sockets",
+            "bloopShared",
+            "backend",
+            "jsonConfig212"
+        ],
+        "classpath": [
+            "/Users/jvican/Code/bloop/.bloop/sockets/classes",
+            "/Users/jvican/Code/bloop/.bloop/bloopShared/scala-2.12/classes",
+            "/Users/jvican/Code/bloop/.bloop/backend/scala-2.12/classes",
+            "/Users/jvican/Code/bloop/.bloop/jsonConfig212/scala-2.12/classes",
+            "/Library/Java/JavaVirtualMachines/graalvm-ee-19.0.2/Contents/Home/lib/tools.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/io/reactivex/rxjava2/rxjava/2.1.1/rxjava-2.1.1.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-sbt/launcher-interface/1.0.0/launcher-interface-1.0.0.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/io/get-coursier/coursier-core_2.12/1.1.0-M14-4/coursier-core_2.12-1.1.0-M14-4.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-sbt/util-cache_2.12/1.0.0/util-cache_2.12-1.0.0.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/ch/epfl/scala/directory-watcher/0.8.0%2B6-f651bd93/directory-watcher-0.8.0%2B6-f651bd93.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/io/zipkin/zipkin2/zipkin/2.12.1/zipkin-2.12.1.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/lihaoyi/fastparse-utils_2.12/1.0.0/fastparse-utils_2.12-1.0.0.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/ch/epfl/scala/zinc-persist_2.12/1.3.0-M4%2B26-045d2c8c/zinc-persist_2.12-1.3.0-M4%2B26-045d2c8c.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/swoval/apple-file-events/1.3.2/apple-file-events-1.3.2.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/typelevel/machinist_2.12/0.6.2/machinist_2.12-0.6.2.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scalaz/scalaz-concurrent_2.12/7.2.20/scalaz-concurrent_2.12-7.2.20.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/io/monix/monix-eval_2.12/2.3.3/monix-eval_2.12-2.3.3.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/beachape/enumeratum_2.12/1.5.13/enumeratum_2.12-1.5.13.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/typelevel/macro-compat_2.12/1.1.1/macro-compat_2.12-1.1.1.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-sbt/librarymanagement-ivy_2.12/1.0.0/librarymanagement-ivy_2.12-1.0.0.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/outr/perfolation_2.12/1.0.2/perfolation_2.12-1.0.2.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/jctools/jctools-core/2.0.1/jctools-core-2.0.1.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/io/get-coursier/coursier_2.12/1.1.0-M14-4/coursier_2.12-1.1.0-M14-4.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/eed3si9n/sjson-new-scalajson_2.12/0.8.2/sjson-new-scalajson_2.12-0.8.2.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/io/monix/monix_2.12/2.3.3/monix_2.12-2.3.3.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/ch/epfl/scala/zinc-classpath_2.12/1.3.0-M4%2B26-045d2c8c/zinc-classpath_2.12-1.3.0-M4%2B26-045d2c8c.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/ch/epfl/scala/zinc-classfile_2.12/1.3.0-M4%2B26-045d2c8c/zinc-classfile_2.12-1.3.0-M4%2B26-045d2c8c.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/typelevel/cats-core_2.12/1.1.0/cats-core_2.12-1.1.0.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-sbt/util-interface/1.2.1/util-interface-1.2.1.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/squareup/okhttp3/okhttp-urlconnection/3.7.0/okhttp-urlconnection-3.7.0.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/io/github/soc/directories/10/directories-10.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-sbt/util-control_2.12/1.2.1/util-control_2.12-1.2.1.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/eed3si9n/shaded-scalajson_2.12/1.0.0-M4/shaded-scalajson_2.12-1.0.0-M4.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/io/circe/circe-derivation_2.12/0.9.0-M4/circe-derivation_2.12-0.9.0-M4.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/typesafe/config/1.2.0/config-1.2.0.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/reactivestreams/reactive-streams/1.0.0/reactive-streams-1.0.0.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/ch/epfl/scala/case-app-annotations_2.12/1.2.0-faster-compile-time/case-app-annotations_2.12-1.2.0-faster-compile-time.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/io/circe/circe-jawn_2.12/0.9.3/circe-jawn_2.12-0.9.3.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/io/zipkin/brave/brave/5.6.1/brave-5.6.1.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/outr/scribe-macros_2.12/2.5.0/scribe-macros_2.12-2.5.0.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-sbt/util-position_2.12/1.0.0/util-position_2.12-1.0.0.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/ch/epfl/scala/compiler-bridge_2.12/1.3.0-M4%2B26-045d2c8c/compiler-bridge_2.12-1.3.0-M4%2B26-045d2c8c.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/ch/epfl/scala/com-microsoft-java-debug-core/0.21.0%2B1-7f1080f1/com-microsoft-java-debug-core-0.21.0%2B1-7f1080f1.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/eed3si9n/gigahorse-okhttp_2.12/0.3.0/gigahorse-okhttp_2.12-0.3.0.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-sbt/util-logging_2.12/1.2.1/util-logging_2.12-1.2.1.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/eed3si9n/sjson-new-core_2.12/0.8.2/sjson-new-core_2.12-0.8.2.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-sbt/librarymanagement-core_2.12/1.0.0/librarymanagement-core_2.12-1.0.0.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/ow2/asm/asm-util/6.0/asm-util-6.0.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/ch/epfl/scala/zinc_2.12/1.3.0-M4%2B26-045d2c8c/zinc_2.12-1.3.0-M4%2B26-045d2c8c.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/squareup/okhttp3/okhttp/3.7.0/okhttp-3.7.0.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-sbt/test-interface/1.0/test-interface-1.0.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/typelevel/cats-kernel_2.12/1.1.0/cats-kernel_2.12-1.1.0.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/squareup/okio/okio/1.12.0/okio-1.12.0.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-lang/scala-library/2.12.8/scala-library-2.12.8.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-lang/modules/scala-parser-combinators_2.12/1.0.5/scala-parser-combinators_2.12-1.0.5.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/io/circe/circe-numbers_2.12/0.9.3/circe-numbers_2.12-0.9.3.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/eed3si9n/sjson-new-murmurhash_2.12/0.8.0/sjson-new-murmurhash_2.12-0.8.0.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/io/get-coursier/coursier-cache_2.12/1.1.0-M14-4/coursier-cache_2.12-1.1.0-M14-4.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/io/monix/monix-reactive_2.12/2.3.3/monix-reactive_2.12-2.3.3.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/commons-io/commons-io/2.5/commons-io-2.5.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/io/circe/circe-parser_2.12/0.9.3/circe-parser_2.12-0.9.3.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/chuusai/shapeless_2.12/2.3.3/shapeless_2.12-2.3.3.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scalameta/lsp4s_2.12/0.2.0/lsp4s_2.12-0.2.0.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/lihaoyi/pprint_2.12/0.5.3/pprint_2.12-0.5.3.jar",
+            "/Users/jvican/.ivy2/local/ch.epfl.scala/nailgun-server/ee3c4343/jars/nailgun-server.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/ch/epfl/scala/bsp4s_2.12/2.0.0-M4%2B10-61e61e87/bsp4s_2.12-2.0.0-M4%2B10-61e61e87.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/apache/logging/log4j/log4j-core/2.8.1/log4j-core-2.8.1.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scalameta/jsonrpc_2.12/0.2.0/jsonrpc_2.12-0.2.0.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-lang/scala-compiler/2.12.8/scala-compiler-2.12.8.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/slf4j/slf4j-api/1.7.26/slf4j-api-1.7.26.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/ch/epfl/scala/zinc-core_2.12/1.3.0-M4%2B26-045d2c8c/zinc-core_2.12-1.3.0-M4%2B26-045d2c8c.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-lang/modules/scala-xml_2.12/1.2.0/scala-xml_2.12-1.2.0.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/apache/commons/commons-lang3/3.6/commons-lang3-3.6.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/io/zipkin/reporter2/zipkin-reporter/2.7.15/zipkin-reporter-2.7.15.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/io/monix/monix-types_2.12/2.3.3/monix-types_2.12-2.3.3.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/zeroturnaround/zt-zip/1.13/zt-zip-1.13.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-lang/scala-reflect/2.12.8/scala-reflect-2.12.8.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/thesamet/scalapb/scalapb-runtime_2.12/0.8.0-RC1/scalapb-runtime_2.12-0.8.0-RC1.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/beachape/enumeratum-circe_2.12/1.5.17/enumeratum-circe_2.12-1.5.17.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/io/circe/circe-core_2.12/0.9.3/circe-core_2.12-0.9.3.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/github/plokhotnyuk/jsoniter-scala/jsoniter-scala-core_2.12/1.0.0/jsoniter-scala-core_2.12-1.0.0.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/ow2/asm/asm/6.0/asm-6.0.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/typesafe/ssl-config-core_2.12/0.2.2/ssl-config-core_2.12-0.2.2.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/google/protobuf/protobuf-java/3.7.0/protobuf-java-3.7.0.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/ch/epfl/scala/case-app_2.12/1.2.0-faster-compile-time/case-app_2.12-1.2.0-faster-compile-time.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/beachape/enumeratum-macros_2.12/1.5.9/enumeratum-macros_2.12-1.5.9.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/ch/epfl/scala/case-app-util_2.12/1.2.0-faster-compile-time/case-app-util_2.12-1.2.0-faster-compile-time.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/net/jpountz/lz4/lz4/1.3.0/lz4-1.3.0.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/googlecode/java-diff-utils/diffutils/1.3.0/diffutils-1.3.0.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/eed3si9n/gigahorse-core_2.12/0.3.0/gigahorse-core_2.12-0.3.0.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-sbt/test-agent/1.2.8/test-agent-1.2.8.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-sbt/io_2.12/1.2.0/io_2.12-1.2.0.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/net/java/dev/jna/jna/4.5.2/jna-4.5.2.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/io/argonaut/argonaut_2.12/6.2.3/argonaut_2.12-6.2.3.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/ch/epfl/scala/zinc-compile-core_2.12/1.3.0-M4%2B26-045d2c8c/zinc-compile-core_2.12-1.3.0-M4%2B26-045d2c8c.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-sbt/ivy/ivy/2.3.0-sbt-a3314352b638afbf0dca19f127e8263ed6f898bd/ivy-2.3.0-sbt-a3314352b638afbf0dca19f127e8263ed6f898bd.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-sbt/sbinary_2.12/0.4.4/sbinary_2.12-0.4.4.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/typelevel/cats-macros_2.12/1.1.0/cats-macros_2.12-1.1.0.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/github/alexarchambault/argonaut-shapeless_6.2_2.12/1.2.0-M11/argonaut-shapeless_6.2_2.12-1.2.0-M11.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/outr/perfolation-macros_2.12/1.0.2/perfolation-macros_2.12-1.0.2.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/io/zipkin/reporter2/zipkin-sender-urlconnection/2.7.15/zipkin-sender-urlconnection-2.7.15.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/lihaoyi/fansi_2.12/0.2.5/fansi_2.12-0.2.5.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scalaz/scalaz-effect_2.12/7.2.20/scalaz-effect_2.12-7.2.20.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-sbt/util-relation_2.12/1.2.1/util-relation_2.12-1.2.1.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/zaxxer/nuprocess/1.2.4/nuprocess-1.2.4.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/google/code/gson/gson/2.7/gson-2.7.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/outr/scribe_2.12/2.5.0/scribe_2.12-2.5.0.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scalaz/scalaz-core_2.12/7.2.20/scalaz-core_2.12-7.2.20.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/spire-math/jawn-parser_2.12/0.11.1/jawn-parser_2.12-0.11.1.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/ch/epfl/scala/zinc-apiinfo_2.12/1.3.0-M4%2B26-045d2c8c/zinc-apiinfo_2.12-1.3.0-M4%2B26-045d2c8c.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/jline/jline/2.14.4/jline-2.14.4.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/lmax/disruptor/3.3.6/disruptor-3.3.6.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/apache/logging/log4j/log4j-api/2.8.1/log4j-api-2.8.1.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/thesamet/scalapb/lenses_2.12/0.8.0-RC1/lenses_2.12-0.8.0-RC1.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/lihaoyi/fastparse_2.12/1.0.0/fastparse_2.12-1.0.0.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/jcraft/jsch/0.1.46/jsch-0.1.46.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/io/monix/monix-execution_2.12/2.3.3/monix-execution_2.12-2.3.3.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/lihaoyi/sourcecode_2.12/0.1.4/sourcecode_2.12-0.1.4.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/ch/epfl/scala/compiler-interface/1.3.0-M4%2B26-045d2c8c/compiler-interface-1.3.0-M4%2B26-045d2c8c.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/ow2/asm/asm-tree/6.0/asm-tree-6.0.jar",
+            "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/net/java/dev/jna/jna-platform/4.5.0/jna-platform-4.5.0.jar"
+        ],
+        "out": "/Users/jvican/Code/bloop/.bloop/frontend",
+        "classesDir": "/Users/jvican/Code/bloop/.bloop/frontend/scala-2.12/classes",
+        "resources": [
+            "/Users/jvican/Code/bloop/frontend/src/main/resources",
+            "/Users/jvican/Code/bloop/frontend/target/scala-2.12/resource_managed/main",
+            "/Users/jvican/Code/bloop/LICENSE.md",
+            "/Users/jvican/Code/bloop/NOTICE.md"
+        ],
+        "scala": {
+            "organization": "org.scala-lang",
+            "name": "scala-compiler",
+            "version": "2.12.8",
+            "options": [
+                "-deprecation",
+                "-encoding",
+                "UTF-8",
+                "-feature",
+                "-language:existentials",
+                "-language:higherKinds",
+                "-language:implicitConversions",
+                "-unchecked",
+                "-Yno-adapted-args",
+                "-Ywarn-numeric-widen",
+                "-Ywarn-value-discard",
+                "-Xfuture"
+            ],
+            "jars": [
+                "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-lang/scala-library/2.12.8/scala-library-2.12.8.jar",
+                "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/jline/jline/2.14.6/jline-2.14.6.jar",
+                "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-lang/scala-compiler/2.12.8/scala-compiler-2.12.8.jar",
+                "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-lang/scala-reflect/2.12.8/scala-reflect-2.12.8.jar",
+                "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-lang/modules/scala-xml_2.12/1.0.6/scala-xml_2.12-1.0.6.jar"
+            ],
+            "setup": {
+                "order": "mixed",
+                "addLibraryToBootClasspath": true,
+                "addCompilerToClasspath": false,
+                "addExtraJarsToClasspath": false,
+                "manageBootClasspath": true,
+                "filterLibraryFromClasspath": true
+            }
+        },
+        "java": {
+            "options": []
+        },
+        "test": {
+            "frameworks": [
+                {
+                    "names": [
+                        "org.scalacheck.ScalaCheckFramework"
+                    ]
+                },
+                {
+                    "names": [
+                        "org.specs2.runner.Specs2Framework",
+                        "org.specs2.runner.SpecsFramework"
+                    ]
+                },
+                {
+                    "names": [
+                        "org.specs.runner.SpecsFramework"
+                    ]
+                },
+                {
+                    "names": [
+                        "org.scalatest.tools.Framework",
+                        "org.scalatest.tools.ScalaTestFramework"
+                    ]
+                },
+                {
+                    "names": [
+                        "com.novocode.junit.JUnitFramework"
+                    ]
+                },
+                {
+                    "names": [
+                        "utest.runner.Framework"
+                    ]
+                }
+            ],
+            "options": {
+                "excludes": [],
+                "arguments": [
+                    {
+                        "args": [
+                            "-v",
+                            "-a"
+                        ],
+                        "framework": {
+                            "names": [
+                                "com.novocode.junit.JUnitFramework"
+                            ]
+                        }
+                    }
+                ]
+            }
+        },
+        "platform": {
+            "name": "jvm",
+            "config": {
+                "home": "/Library/Java/JavaVirtualMachines/graalvm-ee-19.0.2/Contents/Home/jre",
+                "options": [
+                    "-Xmx3g",
+                    "-Xms1g",
+                    "-XX:ReservedCodeCacheSize=512m",
+                    "-XX:MaxInlineLevel=20"
+                ]
+            },
+            "mainClass": [
+                "bloop.Cli"
+            ]
+        },
+        "resolution": {
+            "modules": [
+                {
+                    "organization": "io.reactivex.rxjava2",
+                    "name": "rxjava",
+                    "version": "2.1.1",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "rxjava",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/io/reactivex/rxjava2/rxjava/2.1.1/rxjava-2.1.1.jar"
+                        },
+                        {
+                            "name": "rxjava",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/io/reactivex/rxjava2/rxjava/2.1.1/rxjava-2.1.1-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "org.scala-sbt",
+                    "name": "launcher-interface",
+                    "version": "1.0.0",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "launcher-interface",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "ccc10bb050b8a584ce6f55fdebd0e5c83de408ba"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-sbt/launcher-interface/1.0.0/launcher-interface-1.0.0.jar"
+                        },
+                        {
+                            "name": "launcher-interface",
+                            "classifier": "sources",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "fb2eee625d22b45b8b9794f76a564f580b412edc"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-sbt/launcher-interface/1.0.0/launcher-interface-1.0.0-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "io.get-coursier",
+                    "name": "coursier-core_2.12",
+                    "version": "1.1.0-M14-4",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "coursier-core_2.12",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/io/get-coursier/coursier-core_2.12/1.1.0-M14-4/coursier-core_2.12-1.1.0-M14-4.jar"
+                        },
+                        {
+                            "name": "coursier-core_2.12",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/io/get-coursier/coursier-core_2.12/1.1.0-M14-4/coursier-core_2.12-1.1.0-M14-4-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "org.scala-sbt",
+                    "name": "util-cache_2.12",
+                    "version": "1.0.0",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "util-cache_2.12",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-sbt/util-cache_2.12/1.0.0/util-cache_2.12-1.0.0.jar"
+                        },
+                        {
+                            "name": "util-cache_2.12",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-sbt/util-cache_2.12/1.0.0/util-cache_2.12-1.0.0-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "ch.epfl.scala",
+                    "name": "directory-watcher",
+                    "version": "0.8.0+6-f651bd93",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "directory-watcher",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "d640a2f99c81b5dfad35d322dfd968076700d5c7"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/ch/epfl/scala/directory-watcher/0.8.0%2B6-f651bd93/directory-watcher-0.8.0%2B6-f651bd93.jar"
+                        },
+                        {
+                            "name": "directory-watcher",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/ch/epfl/scala/directory-watcher/0.8.0%2B6-f651bd93/directory-watcher-0.8.0%2B6-f651bd93-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "io.zipkin.zipkin2",
+                    "name": "zipkin",
+                    "version": "2.12.1",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "zipkin",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "688f9c5c49349fd4af1b8344b9b4e6ebc9c30333"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/io/zipkin/zipkin2/zipkin/2.12.1/zipkin-2.12.1.jar"
+                        },
+                        {
+                            "name": "zipkin",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/io/zipkin/zipkin2/zipkin/2.12.1/zipkin-2.12.1-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "com.lihaoyi",
+                    "name": "fastparse-utils_2.12",
+                    "version": "1.0.0",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "fastparse-utils_2.12",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "02900ec8460abec27913f4154b338e61fd482607"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/lihaoyi/fastparse-utils_2.12/1.0.0/fastparse-utils_2.12-1.0.0.jar"
+                        },
+                        {
+                            "name": "fastparse-utils_2.12",
+                            "classifier": "sources",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "891f76cff455350adc2f122421b67855f93c8dc3"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/lihaoyi/fastparse-utils_2.12/1.0.0/fastparse-utils_2.12-1.0.0-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "ch.epfl.scala",
+                    "name": "zinc-persist_2.12",
+                    "version": "1.3.0-M4+26-045d2c8c",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "zinc-persist_2.12",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/ch/epfl/scala/zinc-persist_2.12/1.3.0-M4%2B26-045d2c8c/zinc-persist_2.12-1.3.0-M4%2B26-045d2c8c.jar"
+                        },
+                        {
+                            "name": "zinc-persist_2.12",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/ch/epfl/scala/zinc-persist_2.12/1.3.0-M4%2B26-045d2c8c/zinc-persist_2.12-1.3.0-M4%2B26-045d2c8c-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "com.swoval",
+                    "name": "apple-file-events",
+                    "version": "1.3.2",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "apple-file-events",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "5e432c1c1c4f592539b2789545d94fc4e973b537"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/swoval/apple-file-events/1.3.2/apple-file-events-1.3.2.jar"
+                        },
+                        {
+                            "name": "apple-file-events",
+                            "classifier": "sources",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "f763de47f077981573fa7ca746c43021ae360b91"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/swoval/apple-file-events/1.3.2/apple-file-events-1.3.2-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "org.typelevel",
+                    "name": "machinist_2.12",
+                    "version": "0.6.2",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "machinist_2.12",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "a0e8521deafd0d24c18460104eee6ce4c679c779"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/typelevel/machinist_2.12/0.6.2/machinist_2.12-0.6.2.jar"
+                        },
+                        {
+                            "name": "machinist_2.12",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/typelevel/machinist_2.12/0.6.2/machinist_2.12-0.6.2-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "org.scalaz",
+                    "name": "scalaz-concurrent_2.12",
+                    "version": "7.2.20",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "scalaz-concurrent_2.12",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "954ecae7ae5a84c05fc63e96c21627d17cc63fcb"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scalaz/scalaz-concurrent_2.12/7.2.20/scalaz-concurrent_2.12-7.2.20.jar"
+                        },
+                        {
+                            "name": "scalaz-concurrent_2.12",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scalaz/scalaz-concurrent_2.12/7.2.20/scalaz-concurrent_2.12-7.2.20-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "io.monix",
+                    "name": "monix-eval_2.12",
+                    "version": "2.3.3",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "monix-eval_2.12",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "2b5a0a9c06db69365a916317d77d068f2b9185d0"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/io/monix/monix-eval_2.12/2.3.3/monix-eval_2.12-2.3.3.jar"
+                        },
+                        {
+                            "name": "monix-eval_2.12",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/io/monix/monix-eval_2.12/2.3.3/monix-eval_2.12-2.3.3-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "com.beachape",
+                    "name": "enumeratum_2.12",
+                    "version": "1.5.13",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "enumeratum_2.12",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "f3cd444af103422b9baa0f81bf2f55d6e0378546"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/beachape/enumeratum_2.12/1.5.13/enumeratum_2.12-1.5.13.jar"
+                        },
+                        {
+                            "name": "enumeratum_2.12",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/beachape/enumeratum_2.12/1.5.13/enumeratum_2.12-1.5.13-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "org.typelevel",
+                    "name": "macro-compat_2.12",
+                    "version": "1.1.1",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "macro-compat_2.12",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "ed809d26ef4237d7c079ae6cf7ebd0dfa7986adf"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/typelevel/macro-compat_2.12/1.1.1/macro-compat_2.12-1.1.1.jar"
+                        },
+                        {
+                            "name": "macro-compat_2.12",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/typelevel/macro-compat_2.12/1.1.1/macro-compat_2.12-1.1.1-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "org.scala-sbt",
+                    "name": "librarymanagement-ivy_2.12",
+                    "version": "1.0.0",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "librarymanagement-ivy_2.12",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "ffff7540c53f100fcf9eebeb9030e9f4fcc46e37"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-sbt/librarymanagement-ivy_2.12/1.0.0/librarymanagement-ivy_2.12-1.0.0.jar"
+                        },
+                        {
+                            "name": "librarymanagement-ivy_2.12",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-sbt/librarymanagement-ivy_2.12/1.0.0/librarymanagement-ivy_2.12-1.0.0-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "com.outr",
+                    "name": "perfolation_2.12",
+                    "version": "1.0.2",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "perfolation_2.12",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "7c037e7dc7c19d4429f87a9a9f08a7aeed605e1a"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/outr/perfolation_2.12/1.0.2/perfolation_2.12-1.0.2.jar"
+                        },
+                        {
+                            "name": "perfolation_2.12",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/outr/perfolation_2.12/1.0.2/perfolation_2.12-1.0.2-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "org.jctools",
+                    "name": "jctools-core",
+                    "version": "2.0.1",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "jctools-core",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "1d055e97b997dae4d8ea28ae5ebc328334f82ac6"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/jctools/jctools-core/2.0.1/jctools-core-2.0.1.jar"
+                        },
+                        {
+                            "name": "jctools-core",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/jctools/jctools-core/2.0.1/jctools-core-2.0.1-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "io.get-coursier",
+                    "name": "coursier_2.12",
+                    "version": "1.1.0-M14-4",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "coursier_2.12",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/io/get-coursier/coursier_2.12/1.1.0-M14-4/coursier_2.12-1.1.0-M14-4.jar"
+                        },
+                        {
+                            "name": "coursier_2.12",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/io/get-coursier/coursier_2.12/1.1.0-M14-4/coursier_2.12-1.1.0-M14-4-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "com.eed3si9n",
+                    "name": "sjson-new-scalajson_2.12",
+                    "version": "0.8.2",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "sjson-new-scalajson_2.12",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "30ba19811e5a522371131383bbf34cba91cbfdef"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/eed3si9n/sjson-new-scalajson_2.12/0.8.2/sjson-new-scalajson_2.12-0.8.2.jar"
+                        },
+                        {
+                            "name": "sjson-new-scalajson_2.12",
+                            "classifier": "sources",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "f058a40f5ffb23176fb85b726c58d8fad83f53cf"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/eed3si9n/sjson-new-scalajson_2.12/0.8.2/sjson-new-scalajson_2.12-0.8.2-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "io.monix",
+                    "name": "monix_2.12",
+                    "version": "2.3.3",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "monix_2.12",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "cb82f5522ce17975b10ea0f1963249833c2543d0"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/io/monix/monix_2.12/2.3.3/monix_2.12-2.3.3.jar"
+                        },
+                        {
+                            "name": "monix_2.12",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/io/monix/monix_2.12/2.3.3/monix_2.12-2.3.3-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "ch.epfl.scala",
+                    "name": "zinc-classpath_2.12",
+                    "version": "1.3.0-M4+26-045d2c8c",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "zinc-classpath_2.12",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/ch/epfl/scala/zinc-classpath_2.12/1.3.0-M4%2B26-045d2c8c/zinc-classpath_2.12-1.3.0-M4%2B26-045d2c8c.jar"
+                        },
+                        {
+                            "name": "zinc-classpath_2.12",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/ch/epfl/scala/zinc-classpath_2.12/1.3.0-M4%2B26-045d2c8c/zinc-classpath_2.12-1.3.0-M4%2B26-045d2c8c-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "ch.epfl.scala",
+                    "name": "zinc-classfile_2.12",
+                    "version": "1.3.0-M4+26-045d2c8c",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "zinc-classfile_2.12",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/ch/epfl/scala/zinc-classfile_2.12/1.3.0-M4%2B26-045d2c8c/zinc-classfile_2.12-1.3.0-M4%2B26-045d2c8c.jar"
+                        },
+                        {
+                            "name": "zinc-classfile_2.12",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/ch/epfl/scala/zinc-classfile_2.12/1.3.0-M4%2B26-045d2c8c/zinc-classfile_2.12-1.3.0-M4%2B26-045d2c8c-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "org.typelevel",
+                    "name": "cats-core_2.12",
+                    "version": "1.1.0",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "cats-core_2.12",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "d0c2945d768cd95fad28299980bec26be4a29fc7"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/typelevel/cats-core_2.12/1.1.0/cats-core_2.12-1.1.0.jar"
+                        },
+                        {
+                            "name": "cats-core_2.12",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/typelevel/cats-core_2.12/1.1.0/cats-core_2.12-1.1.0-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "org.scala-sbt",
+                    "name": "util-interface",
+                    "version": "1.2.1",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "util-interface",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "fa8848df347dc62795c6ea58bc9b80dd3ea2a301"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-sbt/util-interface/1.2.1/util-interface-1.2.1.jar"
+                        },
+                        {
+                            "name": "util-interface",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-sbt/util-interface/1.2.1/util-interface-1.2.1-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "com.squareup.okhttp3",
+                    "name": "okhttp-urlconnection",
+                    "version": "3.7.0",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "okhttp-urlconnection",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "22c61dda6d7e63a7325932c85b0a3412443b1f5a"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/squareup/okhttp3/okhttp-urlconnection/3.7.0/okhttp-urlconnection-3.7.0.jar"
+                        },
+                        {
+                            "name": "okhttp-urlconnection",
+                            "classifier": "sources",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "aafbd94ea15dc21693ab864f7a81e8a0ae703234"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/squareup/okhttp3/okhttp-urlconnection/3.7.0/okhttp-urlconnection-3.7.0-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "io.github.soc",
+                    "name": "directories",
+                    "version": "10",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "directories",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "36347ea1483452598cfbf11f668a08bd998e7a36"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/io/github/soc/directories/10/directories-10.jar"
+                        },
+                        {
+                            "name": "directories",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/io/github/soc/directories/10/directories-10-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "org.scala-sbt",
+                    "name": "util-control_2.12",
+                    "version": "1.2.1",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "util-control_2.12",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "cfa5eea922575d2892e9aa4d2c463bec04cbad31"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-sbt/util-control_2.12/1.2.1/util-control_2.12-1.2.1.jar"
+                        },
+                        {
+                            "name": "util-control_2.12",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-sbt/util-control_2.12/1.2.1/util-control_2.12-1.2.1-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "com.eed3si9n",
+                    "name": "shaded-scalajson_2.12",
+                    "version": "1.0.0-M4",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "shaded-scalajson_2.12",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "10f27db4bc3b0c0c1a5c9a28a67f84995a2c3013"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/eed3si9n/shaded-scalajson_2.12/1.0.0-M4/shaded-scalajson_2.12-1.0.0-M4.jar"
+                        },
+                        {
+                            "name": "shaded-scalajson_2.12",
+                            "classifier": "sources",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "815c3da773917a299e10657936129df69b502d95"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/eed3si9n/shaded-scalajson_2.12/1.0.0-M4/shaded-scalajson_2.12-1.0.0-M4-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "io.circe",
+                    "name": "circe-derivation_2.12",
+                    "version": "0.9.0-M4",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "circe-derivation_2.12",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "a37e3e9616757a5de84382e5ae43156909d0055f"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/io/circe/circe-derivation_2.12/0.9.0-M4/circe-derivation_2.12-0.9.0-M4.jar"
+                        },
+                        {
+                            "name": "circe-derivation_2.12",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/io/circe/circe-derivation_2.12/0.9.0-M4/circe-derivation_2.12-0.9.0-M4-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "com.typesafe",
+                    "name": "config",
+                    "version": "1.2.0",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "config",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "b2b6ad16307793a8e57f378de24447a4968c0ca3"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/typesafe/config/1.2.0/config-1.2.0.jar"
+                        },
+                        {
+                            "name": "config",
+                            "classifier": "sources",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "75f72540ff3257bed5dffae175dd03b4a9135db6"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/typesafe/config/1.2.0/config-1.2.0-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "org.reactivestreams",
+                    "name": "reactive-streams",
+                    "version": "1.0.0",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "reactive-streams",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "14b8c877d98005ba3941c9257cfe09f6ed0e0d74"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/reactivestreams/reactive-streams/1.0.0/reactive-streams-1.0.0.jar"
+                        },
+                        {
+                            "name": "reactive-streams",
+                            "classifier": "sources",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "5be7bd3f38e43c8fc83699bbb5328c62adb95bbf"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/reactivestreams/reactive-streams/1.0.0/reactive-streams-1.0.0-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "ch.epfl.scala",
+                    "name": "case-app-annotations_2.12",
+                    "version": "1.2.0-faster-compile-time",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "case-app-annotations_2.12",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "9366dd52e037af6294cf5ad26d317892c9f8ed4a"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/ch/epfl/scala/case-app-annotations_2.12/1.2.0-faster-compile-time/case-app-annotations_2.12-1.2.0-faster-compile-time.jar"
+                        },
+                        {
+                            "name": "case-app-annotations_2.12",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/ch/epfl/scala/case-app-annotations_2.12/1.2.0-faster-compile-time/case-app-annotations_2.12-1.2.0-faster-compile-time-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "io.circe",
+                    "name": "circe-jawn_2.12",
+                    "version": "0.9.3",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "circe-jawn_2.12",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "8462d202404f578f09cc9b89d7dca57dd94b09e5"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/io/circe/circe-jawn_2.12/0.9.3/circe-jawn_2.12-0.9.3.jar"
+                        },
+                        {
+                            "name": "circe-jawn_2.12",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/io/circe/circe-jawn_2.12/0.9.3/circe-jawn_2.12-0.9.3-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "io.zipkin.brave",
+                    "name": "brave",
+                    "version": "5.6.1",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "brave",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "66645b9cdd42dce46eae84e5f59ee94f479a9550"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/io/zipkin/brave/brave/5.6.1/brave-5.6.1.jar"
+                        },
+                        {
+                            "name": "brave",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/io/zipkin/brave/brave/5.6.1/brave-5.6.1-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "com.outr",
+                    "name": "scribe-macros_2.12",
+                    "version": "2.5.0",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "scribe-macros_2.12",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "934e52c9b17c9f627a284e052f190623a15b9c1d"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/outr/scribe-macros_2.12/2.5.0/scribe-macros_2.12-2.5.0.jar"
+                        },
+                        {
+                            "name": "scribe-macros_2.12",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/outr/scribe-macros_2.12/2.5.0/scribe-macros_2.12-2.5.0-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "org.scala-sbt",
+                    "name": "util-position_2.12",
+                    "version": "1.0.0",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "util-position_2.12",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-sbt/util-position_2.12/1.0.0/util-position_2.12-1.0.0.jar"
+                        },
+                        {
+                            "name": "util-position_2.12",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-sbt/util-position_2.12/1.0.0/util-position_2.12-1.0.0-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "ch.epfl.scala",
+                    "name": "compiler-bridge_2.12",
+                    "version": "1.3.0-M4+26-045d2c8c",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "compiler-bridge_2.12",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/ch/epfl/scala/compiler-bridge_2.12/1.3.0-M4%2B26-045d2c8c/compiler-bridge_2.12-1.3.0-M4%2B26-045d2c8c.jar"
+                        },
+                        {
+                            "name": "compiler-bridge_2.12",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/ch/epfl/scala/compiler-bridge_2.12/1.3.0-M4%2B26-045d2c8c/compiler-bridge_2.12-1.3.0-M4%2B26-045d2c8c-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "ch.epfl.scala",
+                    "name": "com-microsoft-java-debug-core",
+                    "version": "0.21.0+1-7f1080f1",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "com-microsoft-java-debug-core",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/ch/epfl/scala/com-microsoft-java-debug-core/0.21.0%2B1-7f1080f1/com-microsoft-java-debug-core-0.21.0%2B1-7f1080f1.jar"
+                        },
+                        {
+                            "name": "com-microsoft-java-debug-core",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/ch/epfl/scala/com-microsoft-java-debug-core/0.21.0%2B1-7f1080f1/com-microsoft-java-debug-core-0.21.0%2B1-7f1080f1-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "com.eed3si9n",
+                    "name": "gigahorse-okhttp_2.12",
+                    "version": "0.3.0",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "gigahorse-okhttp_2.12",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "9b0befc6cc40b80b3d3a685a7cd4657f225177cb"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/eed3si9n/gigahorse-okhttp_2.12/0.3.0/gigahorse-okhttp_2.12-0.3.0.jar"
+                        },
+                        {
+                            "name": "gigahorse-okhttp_2.12",
+                            "classifier": "sources",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "79645f4704c411cc07604ce9c4cb3f87b3f4281c"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/eed3si9n/gigahorse-okhttp_2.12/0.3.0/gigahorse-okhttp_2.12-0.3.0-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "org.scala-sbt",
+                    "name": "util-logging_2.12",
+                    "version": "1.2.1",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "util-logging_2.12",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "b764a2defa463f9266c641aa080e02c37f799be6"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-sbt/util-logging_2.12/1.2.1/util-logging_2.12-1.2.1.jar"
+                        },
+                        {
+                            "name": "util-logging_2.12",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-sbt/util-logging_2.12/1.2.1/util-logging_2.12-1.2.1-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "com.eed3si9n",
+                    "name": "sjson-new-core_2.12",
+                    "version": "0.8.2",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "sjson-new-core_2.12",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "dd1c94c21c9e3fc61438eabe012d1309f83ea973"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/eed3si9n/sjson-new-core_2.12/0.8.2/sjson-new-core_2.12-0.8.2.jar"
+                        },
+                        {
+                            "name": "sjson-new-core_2.12",
+                            "classifier": "sources",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "889c1ca416c77925879d89c3beb1cfa6e6eff866"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/eed3si9n/sjson-new-core_2.12/0.8.2/sjson-new-core_2.12-0.8.2-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "org.scala-sbt",
+                    "name": "librarymanagement-core_2.12",
+                    "version": "1.0.0",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "librarymanagement-core_2.12",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-sbt/librarymanagement-core_2.12/1.0.0/librarymanagement-core_2.12-1.0.0.jar"
+                        },
+                        {
+                            "name": "librarymanagement-core_2.12",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-sbt/librarymanagement-core_2.12/1.0.0/librarymanagement-core_2.12-1.0.0-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "org.ow2.asm",
+                    "name": "asm-util",
+                    "version": "6.0",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "asm-util",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/ow2/asm/asm-util/6.0/asm-util-6.0.jar"
+                        },
+                        {
+                            "name": "asm-util",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/ow2/asm/asm-util/6.0/asm-util-6.0-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "ch.epfl.scala",
+                    "name": "zinc_2.12",
+                    "version": "1.3.0-M4+26-045d2c8c",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "zinc_2.12",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/ch/epfl/scala/zinc_2.12/1.3.0-M4%2B26-045d2c8c/zinc_2.12-1.3.0-M4%2B26-045d2c8c.jar"
+                        },
+                        {
+                            "name": "zinc_2.12",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/ch/epfl/scala/zinc_2.12/1.3.0-M4%2B26-045d2c8c/zinc_2.12-1.3.0-M4%2B26-045d2c8c-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "com.squareup.okhttp3",
+                    "name": "okhttp",
+                    "version": "3.7.0",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "okhttp",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "6edbebdd8868708db718d15c09c4b28037fd487e"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/squareup/okhttp3/okhttp/3.7.0/okhttp-3.7.0.jar"
+                        },
+                        {
+                            "name": "okhttp",
+                            "classifier": "sources",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "5d970b07cc51af4334c9e00c5cf0a376e85024fb"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/squareup/okhttp3/okhttp/3.7.0/okhttp-3.7.0-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "org.scala-sbt",
+                    "name": "test-interface",
+                    "version": "1.0",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "test-interface",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "0a3f14d010c4cb32071f863d97291df31603b521"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-sbt/test-interface/1.0/test-interface-1.0.jar"
+                        },
+                        {
+                            "name": "test-interface",
+                            "classifier": "sources",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "d44b23e9e3419ad0e00b91bba764a48d43075000"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-sbt/test-interface/1.0/test-interface-1.0-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "org.typelevel",
+                    "name": "cats-kernel_2.12",
+                    "version": "1.1.0",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "cats-kernel_2.12",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "9e12eec2ba8cdfde63bc4c17ac8aa5092c39dc2d"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/typelevel/cats-kernel_2.12/1.1.0/cats-kernel_2.12-1.1.0.jar"
+                        },
+                        {
+                            "name": "cats-kernel_2.12",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/typelevel/cats-kernel_2.12/1.1.0/cats-kernel_2.12-1.1.0-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "com.squareup.okio",
+                    "name": "okio",
+                    "version": "1.12.0",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "okio",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "3742beff8024d0a0073d284b7c5e4cbf73d99b25"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/squareup/okio/okio/1.12.0/okio-1.12.0.jar"
+                        },
+                        {
+                            "name": "okio",
+                            "classifier": "sources",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "33d5f3992dba0b3779f8816505b59d5faf8785b7"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/squareup/okio/okio/1.12.0/okio-1.12.0-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "org.scala-lang",
+                    "name": "scala-library",
+                    "version": "2.12.8",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "scala-library",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "36b234834d8f842cdde963c8591efae6cf413e3f"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-lang/scala-library/2.12.8/scala-library-2.12.8.jar"
+                        },
+                        {
+                            "name": "scala-library",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-lang/scala-library/2.12.8/scala-library-2.12.8-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "org.scala-lang.modules",
+                    "name": "scala-parser-combinators_2.12",
+                    "version": "1.0.5",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "scala-parser-combinators_2.12",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "3c1c5475ece77c41e18dd971f8f818c091e4961c"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-lang/modules/scala-parser-combinators_2.12/1.0.5/scala-parser-combinators_2.12-1.0.5.jar"
+                        },
+                        {
+                            "name": "scala-parser-combinators_2.12",
+                            "classifier": "sources",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "75c4cc8aaed0f6c0bd2e81b7019ba99290632203"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-lang/modules/scala-parser-combinators_2.12/1.0.5/scala-parser-combinators_2.12-1.0.5-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "io.circe",
+                    "name": "circe-numbers_2.12",
+                    "version": "0.9.3",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "circe-numbers_2.12",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "e8b931a2a2438d9ba84ff5ecbfb2a4ac7249b0d8"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/io/circe/circe-numbers_2.12/0.9.3/circe-numbers_2.12-0.9.3.jar"
+                        },
+                        {
+                            "name": "circe-numbers_2.12",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/io/circe/circe-numbers_2.12/0.9.3/circe-numbers_2.12-0.9.3-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "com.eed3si9n",
+                    "name": "sjson-new-murmurhash_2.12",
+                    "version": "0.8.0",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "sjson-new-murmurhash_2.12",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/eed3si9n/sjson-new-murmurhash_2.12/0.8.0/sjson-new-murmurhash_2.12-0.8.0.jar"
+                        },
+                        {
+                            "name": "sjson-new-murmurhash_2.12",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/eed3si9n/sjson-new-murmurhash_2.12/0.8.0/sjson-new-murmurhash_2.12-0.8.0-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "io.get-coursier",
+                    "name": "coursier-cache_2.12",
+                    "version": "1.1.0-M14-4",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "coursier-cache_2.12",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/io/get-coursier/coursier-cache_2.12/1.1.0-M14-4/coursier-cache_2.12-1.1.0-M14-4.jar"
+                        },
+                        {
+                            "name": "coursier-cache_2.12",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/io/get-coursier/coursier-cache_2.12/1.1.0-M14-4/coursier-cache_2.12-1.1.0-M14-4-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "io.monix",
+                    "name": "monix-reactive_2.12",
+                    "version": "2.3.3",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "monix-reactive_2.12",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "82e593b89260a562f9ac334a290a37f5527a474c"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/io/monix/monix-reactive_2.12/2.3.3/monix-reactive_2.12-2.3.3.jar"
+                        },
+                        {
+                            "name": "monix-reactive_2.12",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/io/monix/monix-reactive_2.12/2.3.3/monix-reactive_2.12-2.3.3-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "commons-io",
+                    "name": "commons-io",
+                    "version": "2.5",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "commons-io",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/commons-io/commons-io/2.5/commons-io-2.5.jar"
+                        },
+                        {
+                            "name": "commons-io",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/commons-io/commons-io/2.5/commons-io-2.5-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "io.circe",
+                    "name": "circe-parser_2.12",
+                    "version": "0.9.3",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "circe-parser_2.12",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "9af9ad5e8a2027a7d93a2b21578f727f73f55d79"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/io/circe/circe-parser_2.12/0.9.3/circe-parser_2.12-0.9.3.jar"
+                        },
+                        {
+                            "name": "circe-parser_2.12",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/io/circe/circe-parser_2.12/0.9.3/circe-parser_2.12-0.9.3-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "com.chuusai",
+                    "name": "shapeless_2.12",
+                    "version": "2.3.3",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "shapeless_2.12",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/chuusai/shapeless_2.12/2.3.3/shapeless_2.12-2.3.3.jar"
+                        },
+                        {
+                            "name": "shapeless_2.12",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/chuusai/shapeless_2.12/2.3.3/shapeless_2.12-2.3.3-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "org.scalameta",
+                    "name": "lsp4s_2.12",
+                    "version": "0.2.0",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "lsp4s_2.12",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "ffde31fd0912a3e2f1306202e686abc4f3f28562"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scalameta/lsp4s_2.12/0.2.0/lsp4s_2.12-0.2.0.jar"
+                        },
+                        {
+                            "name": "lsp4s_2.12",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scalameta/lsp4s_2.12/0.2.0/lsp4s_2.12-0.2.0-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "com.lihaoyi",
+                    "name": "pprint_2.12",
+                    "version": "0.5.3",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "pprint_2.12",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "8fbc583e2444b1e501754dd9fede2abcc0b7a7c3"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/lihaoyi/pprint_2.12/0.5.3/pprint_2.12-0.5.3.jar"
+                        },
+                        {
+                            "name": "pprint_2.12",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/lihaoyi/pprint_2.12/0.5.3/pprint_2.12-0.5.3-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "ch.epfl.scala",
+                    "name": "nailgun-server",
+                    "version": "ee3c4343",
+                    "configurations": "compile",
+                    "artifacts": [
+                        {
+                            "name": "nailgun-server",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "4354c45e3565cd6391e25206216635bd82c465a3"
+                            },
+                            "path": "/Users/jvican/.ivy2/local/ch.epfl.scala/nailgun-server/ee3c4343/jars/nailgun-server.jar"
+                        },
+                        {
+                            "name": "nailgun-server",
+                            "classifier": "sources",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "dc8e1419e50270e10351318b065af3363eeaefdd"
+                            },
+                            "path": "/Users/jvican/.ivy2/local/ch.epfl.scala/nailgun-server/ee3c4343/srcs/nailgun-server-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "ch.epfl.scala",
+                    "name": "bsp4s_2.12",
+                    "version": "2.0.0-M4+10-61e61e87",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "bsp4s_2.12",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/ch/epfl/scala/bsp4s_2.12/2.0.0-M4%2B10-61e61e87/bsp4s_2.12-2.0.0-M4%2B10-61e61e87.jar"
+                        },
+                        {
+                            "name": "bsp4s_2.12",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/ch/epfl/scala/bsp4s_2.12/2.0.0-M4%2B10-61e61e87/bsp4s_2.12-2.0.0-M4%2B10-61e61e87-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "org.apache.logging.log4j",
+                    "name": "log4j-core",
+                    "version": "2.8.1",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "log4j-core",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "4ac28ff2f1ddf05dae3043a190451e8c46b73c31"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/apache/logging/log4j/log4j-core/2.8.1/log4j-core-2.8.1.jar"
+                        },
+                        {
+                            "name": "log4j-core",
+                            "classifier": "sources",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "0a0a7f683da620c345b502fff04d1e46cde2e8d9"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/apache/logging/log4j/log4j-core/2.8.1/log4j-core-2.8.1-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "org.scalameta",
+                    "name": "jsonrpc_2.12",
+                    "version": "0.2.0",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "jsonrpc_2.12",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "f5df0e41f8a21107fdfbc47379d84564c243826b"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scalameta/jsonrpc_2.12/0.2.0/jsonrpc_2.12-0.2.0.jar"
+                        },
+                        {
+                            "name": "jsonrpc_2.12",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scalameta/jsonrpc_2.12/0.2.0/jsonrpc_2.12-0.2.0-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "org.scala-lang",
+                    "name": "scala-compiler",
+                    "version": "2.12.8",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "scala-compiler",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "d373b4ff7f7dcaf3c590813adc39c2ea518eb8c5"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-lang/scala-compiler/2.12.8/scala-compiler-2.12.8.jar"
+                        },
+                        {
+                            "name": "scala-compiler",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-lang/scala-compiler/2.12.8/scala-compiler-2.12.8-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "org.slf4j",
+                    "name": "slf4j-api",
+                    "version": "1.7.26",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "slf4j-api",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "77100a62c2e6f04b53977b9f541044d7d722693d"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/slf4j/slf4j-api/1.7.26/slf4j-api-1.7.26.jar"
+                        },
+                        {
+                            "name": "slf4j-api",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/slf4j/slf4j-api/1.7.26/slf4j-api-1.7.26-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "ch.epfl.scala",
+                    "name": "zinc-core_2.12",
+                    "version": "1.3.0-M4+26-045d2c8c",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "zinc-core_2.12",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/ch/epfl/scala/zinc-core_2.12/1.3.0-M4%2B26-045d2c8c/zinc-core_2.12-1.3.0-M4%2B26-045d2c8c.jar"
+                        },
+                        {
+                            "name": "zinc-core_2.12",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/ch/epfl/scala/zinc-core_2.12/1.3.0-M4%2B26-045d2c8c/zinc-core_2.12-1.3.0-M4%2B26-045d2c8c-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "org.scala-lang.modules",
+                    "name": "scala-xml_2.12",
+                    "version": "1.2.0",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "scala-xml_2.12",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-lang/modules/scala-xml_2.12/1.2.0/scala-xml_2.12-1.2.0.jar"
+                        },
+                        {
+                            "name": "scala-xml_2.12",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-lang/modules/scala-xml_2.12/1.2.0/scala-xml_2.12-1.2.0-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "org.apache.commons",
+                    "name": "commons-lang3",
+                    "version": "3.6",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "commons-lang3",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/apache/commons/commons-lang3/3.6/commons-lang3-3.6.jar"
+                        },
+                        {
+                            "name": "commons-lang3",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/apache/commons/commons-lang3/3.6/commons-lang3-3.6-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "io.zipkin.reporter2",
+                    "name": "zipkin-reporter",
+                    "version": "2.7.15",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "zipkin-reporter",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "5f1f81a2f0f01d2c3f07fa2c1e6a18d05bb00aa8"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/io/zipkin/reporter2/zipkin-reporter/2.7.15/zipkin-reporter-2.7.15.jar"
+                        },
+                        {
+                            "name": "zipkin-reporter",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/io/zipkin/reporter2/zipkin-reporter/2.7.15/zipkin-reporter-2.7.15-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "io.monix",
+                    "name": "monix-types_2.12",
+                    "version": "2.3.3",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "monix-types_2.12",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "007df159e73f74ca04f0330d350d85fadb3e1d9d"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/io/monix/monix-types_2.12/2.3.3/monix-types_2.12-2.3.3.jar"
+                        },
+                        {
+                            "name": "monix-types_2.12",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/io/monix/monix-types_2.12/2.3.3/monix-types_2.12-2.3.3-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "org.zeroturnaround",
+                    "name": "zt-zip",
+                    "version": "1.13",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "zt-zip",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "3167064ecff25549375645d0afdd5c7ebbc232db"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/zeroturnaround/zt-zip/1.13/zt-zip-1.13.jar"
+                        },
+                        {
+                            "name": "zt-zip",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/zeroturnaround/zt-zip/1.13/zt-zip-1.13-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "org.scala-lang",
+                    "name": "scala-reflect",
+                    "version": "2.12.8",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "scala-reflect",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "682d33402cdae50258afa2c0860eb54688dab610"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-lang/scala-reflect/2.12.8/scala-reflect-2.12.8.jar"
+                        },
+                        {
+                            "name": "scala-reflect",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-lang/scala-reflect/2.12.8/scala-reflect-2.12.8-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "com.thesamet.scalapb",
+                    "name": "scalapb-runtime_2.12",
+                    "version": "0.8.0-RC1",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "scalapb-runtime_2.12",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "f9879e234145d4e9e9874509a538f3d64ad205ac"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/thesamet/scalapb/scalapb-runtime_2.12/0.8.0-RC1/scalapb-runtime_2.12-0.8.0-RC1.jar"
+                        },
+                        {
+                            "name": "scalapb-runtime_2.12",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/thesamet/scalapb/scalapb-runtime_2.12/0.8.0-RC1/scalapb-runtime_2.12-0.8.0-RC1-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "com.beachape",
+                    "name": "enumeratum-circe_2.12",
+                    "version": "1.5.17",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "enumeratum-circe_2.12",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "58fa7ebf138fb5590348a2556a9180e5f5792fcc"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/beachape/enumeratum-circe_2.12/1.5.17/enumeratum-circe_2.12-1.5.17.jar"
+                        },
+                        {
+                            "name": "enumeratum-circe_2.12",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/beachape/enumeratum-circe_2.12/1.5.17/enumeratum-circe_2.12-1.5.17-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "io.circe",
+                    "name": "circe-core_2.12",
+                    "version": "0.9.3",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "circe-core_2.12",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "f4f8674788f571d840ed98fabf3237f72c86d1f0"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/io/circe/circe-core_2.12/0.9.3/circe-core_2.12-0.9.3.jar"
+                        },
+                        {
+                            "name": "circe-core_2.12",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/io/circe/circe-core_2.12/0.9.3/circe-core_2.12-0.9.3-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "com.github.plokhotnyuk.jsoniter-scala",
+                    "name": "jsoniter-scala-core_2.12",
+                    "version": "1.0.0",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "jsoniter-scala-core_2.12",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/github/plokhotnyuk/jsoniter-scala/jsoniter-scala-core_2.12/1.0.0/jsoniter-scala-core_2.12-1.0.0.jar"
+                        },
+                        {
+                            "name": "jsoniter-scala-core_2.12",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/github/plokhotnyuk/jsoniter-scala/jsoniter-scala-core_2.12/1.0.0/jsoniter-scala-core_2.12-1.0.0-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "org.ow2.asm",
+                    "name": "asm",
+                    "version": "6.0",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "asm",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "bc6fa6b19424bb9592fe43bbc20178f92d403105"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/ow2/asm/asm/6.0/asm-6.0.jar"
+                        },
+                        {
+                            "name": "asm",
+                            "classifier": "sources",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "066e3ec9f4ff0d70713868456142040111cc201c"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/ow2/asm/asm/6.0/asm-6.0-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "com.typesafe",
+                    "name": "ssl-config-core_2.12",
+                    "version": "0.2.2",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "ssl-config-core_2.12",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "8a357d491f7f94c5b4b1e0b27644e1306cc8742d"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/typesafe/ssl-config-core_2.12/0.2.2/ssl-config-core_2.12-0.2.2.jar"
+                        },
+                        {
+                            "name": "ssl-config-core_2.12",
+                            "classifier": "sources",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "1baaec9149929d0970330aa80aca73e3f1f15624"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/typesafe/ssl-config-core_2.12/0.2.2/ssl-config-core_2.12-0.2.2-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "com.google.protobuf",
+                    "name": "protobuf-java",
+                    "version": "3.7.0",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "protobuf-java",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/google/protobuf/protobuf-java/3.7.0/protobuf-java-3.7.0.jar"
+                        },
+                        {
+                            "name": "protobuf-java",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/google/protobuf/protobuf-java/3.7.0/protobuf-java-3.7.0-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "ch.epfl.scala",
+                    "name": "case-app_2.12",
+                    "version": "1.2.0-faster-compile-time",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "case-app_2.12",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "b8ae63b7ec617206ca8a008d6531b19d34fd8c04"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/ch/epfl/scala/case-app_2.12/1.2.0-faster-compile-time/case-app_2.12-1.2.0-faster-compile-time.jar"
+                        },
+                        {
+                            "name": "case-app_2.12",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/ch/epfl/scala/case-app_2.12/1.2.0-faster-compile-time/case-app_2.12-1.2.0-faster-compile-time-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "com.beachape",
+                    "name": "enumeratum-macros_2.12",
+                    "version": "1.5.9",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "enumeratum-macros_2.12",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "1a63056f0ba55a11c8d10150d27c247920e6c9c8"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/beachape/enumeratum-macros_2.12/1.5.9/enumeratum-macros_2.12-1.5.9.jar"
+                        },
+                        {
+                            "name": "enumeratum-macros_2.12",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/beachape/enumeratum-macros_2.12/1.5.9/enumeratum-macros_2.12-1.5.9-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "ch.epfl.scala",
+                    "name": "case-app-util_2.12",
+                    "version": "1.2.0-faster-compile-time",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "case-app-util_2.12",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "734172993cc5e96af154fba411db9214d9bacc1d"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/ch/epfl/scala/case-app-util_2.12/1.2.0-faster-compile-time/case-app-util_2.12-1.2.0-faster-compile-time.jar"
+                        },
+                        {
+                            "name": "case-app-util_2.12",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/ch/epfl/scala/case-app-util_2.12/1.2.0-faster-compile-time/case-app-util_2.12-1.2.0-faster-compile-time-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "net.jpountz.lz4",
+                    "name": "lz4",
+                    "version": "1.3.0",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "lz4",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "c708bb2590c0652a642236ef45d9f99ff842a2ce"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/net/jpountz/lz4/lz4/1.3.0/lz4-1.3.0.jar"
+                        },
+                        {
+                            "name": "lz4",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/net/jpountz/lz4/lz4/1.3.0/lz4-1.3.0-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "com.googlecode.java-diff-utils",
+                    "name": "diffutils",
+                    "version": "1.3.0",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "diffutils",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "7e060dd5b19431e6d198e91ff670644372f60fbd"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/googlecode/java-diff-utils/diffutils/1.3.0/diffutils-1.3.0.jar"
+                        },
+                        {
+                            "name": "diffutils",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/googlecode/java-diff-utils/diffutils/1.3.0/diffutils-1.3.0-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "com.eed3si9n",
+                    "name": "gigahorse-core_2.12",
+                    "version": "0.3.0",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "gigahorse-core_2.12",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "ddf60d6abfd3b3025be51946aae49b67a1d7336e"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/eed3si9n/gigahorse-core_2.12/0.3.0/gigahorse-core_2.12-0.3.0.jar"
+                        },
+                        {
+                            "name": "gigahorse-core_2.12",
+                            "classifier": "sources",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "b3fb25b9c0588954977aa6a478111d8216b7de77"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/eed3si9n/gigahorse-core_2.12/0.3.0/gigahorse-core_2.12-0.3.0-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "org.scala-sbt",
+                    "name": "test-agent",
+                    "version": "1.2.8",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "test-agent",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-sbt/test-agent/1.2.8/test-agent-1.2.8.jar"
+                        },
+                        {
+                            "name": "test-agent",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-sbt/test-agent/1.2.8/test-agent-1.2.8-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "org.scala-sbt",
+                    "name": "io_2.12",
+                    "version": "1.2.0",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "io_2.12",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "fef141c2a2a4325b1b5dd69838a42874691ed1d7"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-sbt/io_2.12/1.2.0/io_2.12-1.2.0.jar"
+                        },
+                        {
+                            "name": "io_2.12",
+                            "classifier": "sources",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "6f6300a17b6e784180cae1dc1762c909c9bca6d2"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-sbt/io_2.12/1.2.0/io_2.12-1.2.0-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "net.java.dev.jna",
+                    "name": "jna",
+                    "version": "4.5.2",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "jna",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "35d000afbaa4ed425d91873b40f4df9b8236875b"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/net/java/dev/jna/jna/4.5.2/jna-4.5.2.jar"
+                        },
+                        {
+                            "name": "jna",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/net/java/dev/jna/jna/4.5.2/jna-4.5.2-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "io.argonaut",
+                    "name": "argonaut_2.12",
+                    "version": "6.2.3",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "argonaut_2.12",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/io/argonaut/argonaut_2.12/6.2.3/argonaut_2.12-6.2.3.jar"
+                        },
+                        {
+                            "name": "argonaut_2.12",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/io/argonaut/argonaut_2.12/6.2.3/argonaut_2.12-6.2.3-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "ch.epfl.scala",
+                    "name": "zinc-compile-core_2.12",
+                    "version": "1.3.0-M4+26-045d2c8c",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "zinc-compile-core_2.12",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/ch/epfl/scala/zinc-compile-core_2.12/1.3.0-M4%2B26-045d2c8c/zinc-compile-core_2.12-1.3.0-M4%2B26-045d2c8c.jar"
+                        },
+                        {
+                            "name": "zinc-compile-core_2.12",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/ch/epfl/scala/zinc-compile-core_2.12/1.3.0-M4%2B26-045d2c8c/zinc-compile-core_2.12-1.3.0-M4%2B26-045d2c8c-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "org.scala-sbt.ivy",
+                    "name": "ivy",
+                    "version": "2.3.0-sbt-a3314352b638afbf0dca19f127e8263ed6f898bd",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "ivy",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "04f069b976d25c7c6ac77d8a6367302efb52f7e4"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-sbt/ivy/ivy/2.3.0-sbt-a3314352b638afbf0dca19f127e8263ed6f898bd/ivy-2.3.0-sbt-a3314352b638afbf0dca19f127e8263ed6f898bd.jar"
+                        },
+                        {
+                            "name": "ivy",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-sbt/ivy/ivy/2.3.0-sbt-a3314352b638afbf0dca19f127e8263ed6f898bd/ivy-2.3.0-sbt-a3314352b638afbf0dca19f127e8263ed6f898bd-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "org.scala-sbt",
+                    "name": "sbinary_2.12",
+                    "version": "0.4.4",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "sbinary_2.12",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "e9472d8a3f78846be460745041e0800cdfa44487"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-sbt/sbinary_2.12/0.4.4/sbinary_2.12-0.4.4.jar"
+                        },
+                        {
+                            "name": "sbinary_2.12",
+                            "classifier": "sources",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "f0846be4646a080314e583c1026008a338be8075"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-sbt/sbinary_2.12/0.4.4/sbinary_2.12-0.4.4-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "org.typelevel",
+                    "name": "cats-macros_2.12",
+                    "version": "1.1.0",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "cats-macros_2.12",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "9df09851768c53e496a8021e4b1d657237d6bd1a"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/typelevel/cats-macros_2.12/1.1.0/cats-macros_2.12-1.1.0.jar"
+                        },
+                        {
+                            "name": "cats-macros_2.12",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/typelevel/cats-macros_2.12/1.1.0/cats-macros_2.12-1.1.0-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "com.github.alexarchambault",
+                    "name": "argonaut-shapeless_6.2_2.12",
+                    "version": "1.2.0-M11",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "argonaut-shapeless_6.2_2.12",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/github/alexarchambault/argonaut-shapeless_6.2_2.12/1.2.0-M11/argonaut-shapeless_6.2_2.12-1.2.0-M11.jar"
+                        },
+                        {
+                            "name": "argonaut-shapeless_6.2_2.12",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/github/alexarchambault/argonaut-shapeless_6.2_2.12/1.2.0-M11/argonaut-shapeless_6.2_2.12-1.2.0-M11-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "com.outr",
+                    "name": "perfolation-macros_2.12",
+                    "version": "1.0.2",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "perfolation-macros_2.12",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "6571758e7bbac971791b0fd1939c3146ff0fd150"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/outr/perfolation-macros_2.12/1.0.2/perfolation-macros_2.12-1.0.2.jar"
+                        },
+                        {
+                            "name": "perfolation-macros_2.12",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/outr/perfolation-macros_2.12/1.0.2/perfolation-macros_2.12-1.0.2-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "io.zipkin.reporter2",
+                    "name": "zipkin-sender-urlconnection",
+                    "version": "2.7.15",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "zipkin-sender-urlconnection",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "fbd21a83671a4b142e70d2b504e4c4697a292e45"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/io/zipkin/reporter2/zipkin-sender-urlconnection/2.7.15/zipkin-sender-urlconnection-2.7.15.jar"
+                        },
+                        {
+                            "name": "zipkin-sender-urlconnection",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/io/zipkin/reporter2/zipkin-sender-urlconnection/2.7.15/zipkin-sender-urlconnection-2.7.15-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "com.lihaoyi",
+                    "name": "fansi_2.12",
+                    "version": "0.2.5",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "fansi_2.12",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "6e118bee05cac22685f99e826bde32e2f0a7efd7"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/lihaoyi/fansi_2.12/0.2.5/fansi_2.12-0.2.5.jar"
+                        },
+                        {
+                            "name": "fansi_2.12",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/lihaoyi/fansi_2.12/0.2.5/fansi_2.12-0.2.5-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "org.scalaz",
+                    "name": "scalaz-effect_2.12",
+                    "version": "7.2.20",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "scalaz-effect_2.12",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "a6d71c7e95abb1d024ff05039264ad9976376985"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scalaz/scalaz-effect_2.12/7.2.20/scalaz-effect_2.12-7.2.20.jar"
+                        },
+                        {
+                            "name": "scalaz-effect_2.12",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scalaz/scalaz-effect_2.12/7.2.20/scalaz-effect_2.12-7.2.20-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "org.scala-sbt",
+                    "name": "util-relation_2.12",
+                    "version": "1.2.1",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "util-relation_2.12",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "cd8e128634bd03589e8948adc01b8ca0ea3ff560"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-sbt/util-relation_2.12/1.2.1/util-relation_2.12-1.2.1.jar"
+                        },
+                        {
+                            "name": "util-relation_2.12",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-sbt/util-relation_2.12/1.2.1/util-relation_2.12-1.2.1-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "com.zaxxer",
+                    "name": "nuprocess",
+                    "version": "1.2.4",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "nuprocess",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "d53144c96374e885d522168b40f2b4799ff50256"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/zaxxer/nuprocess/1.2.4/nuprocess-1.2.4.jar"
+                        },
+                        {
+                            "name": "nuprocess",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/zaxxer/nuprocess/1.2.4/nuprocess-1.2.4-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "com.google.code.gson",
+                    "name": "gson",
+                    "version": "2.7",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "gson",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/google/code/gson/gson/2.7/gson-2.7.jar"
+                        },
+                        {
+                            "name": "gson",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/google/code/gson/gson/2.7/gson-2.7-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "com.outr",
+                    "name": "scribe_2.12",
+                    "version": "2.5.0",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "scribe_2.12",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "f23e3275d4319613fed55718401c97c4e8cac787"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/outr/scribe_2.12/2.5.0/scribe_2.12-2.5.0.jar"
+                        },
+                        {
+                            "name": "scribe_2.12",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/outr/scribe_2.12/2.5.0/scribe_2.12-2.5.0-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "org.scalaz",
+                    "name": "scalaz-core_2.12",
+                    "version": "7.2.20",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "scalaz-core_2.12",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "ce783c6ed770750e11636c7909a60f3f334390ab"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scalaz/scalaz-core_2.12/7.2.20/scalaz-core_2.12-7.2.20.jar"
+                        },
+                        {
+                            "name": "scalaz-core_2.12",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scalaz/scalaz-core_2.12/7.2.20/scalaz-core_2.12-7.2.20-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "org.spire-math",
+                    "name": "jawn-parser_2.12",
+                    "version": "0.11.1",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "jawn-parser_2.12",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "e49f4a6294af0821d5348ad9f89a5ce8455fc1b3"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/spire-math/jawn-parser_2.12/0.11.1/jawn-parser_2.12-0.11.1.jar"
+                        },
+                        {
+                            "name": "jawn-parser_2.12",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/spire-math/jawn-parser_2.12/0.11.1/jawn-parser_2.12-0.11.1-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "ch.epfl.scala",
+                    "name": "zinc-apiinfo_2.12",
+                    "version": "1.3.0-M4+26-045d2c8c",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "zinc-apiinfo_2.12",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/ch/epfl/scala/zinc-apiinfo_2.12/1.3.0-M4%2B26-045d2c8c/zinc-apiinfo_2.12-1.3.0-M4%2B26-045d2c8c.jar"
+                        },
+                        {
+                            "name": "zinc-apiinfo_2.12",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/ch/epfl/scala/zinc-apiinfo_2.12/1.3.0-M4%2B26-045d2c8c/zinc-apiinfo_2.12-1.3.0-M4%2B26-045d2c8c-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "jline",
+                    "name": "jline",
+                    "version": "2.14.4",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "jline",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "5d040d73596ba7517d830a7bc4bc31e41f6dbddf"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/jline/jline/2.14.4/jline-2.14.4.jar"
+                        },
+                        {
+                            "name": "jline",
+                            "classifier": "sources",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "9edb67cd74445acc691e5748207defae79fcdad6"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/jline/jline/2.14.4/jline-2.14.4-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "com.lmax",
+                    "name": "disruptor",
+                    "version": "3.3.6",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "disruptor",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "09bfca4ee4f691f3737b3f4f006d0c4770f178eb"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/lmax/disruptor/3.3.6/disruptor-3.3.6.jar"
+                        },
+                        {
+                            "name": "disruptor",
+                            "classifier": "sources",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "73526450212ef3191de4b956e53e48b9987d766c"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/lmax/disruptor/3.3.6/disruptor-3.3.6-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "org.apache.logging.log4j",
+                    "name": "log4j-api",
+                    "version": "2.8.1",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "log4j-api",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "e801d13612e22cad62a3f4f3fe7fdbe6334a8e72"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/apache/logging/log4j/log4j-api/2.8.1/log4j-api-2.8.1.jar"
+                        },
+                        {
+                            "name": "log4j-api",
+                            "classifier": "sources",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "a5edb6b8c77843c8be98e0cb1f875699e76ee122"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/apache/logging/log4j/log4j-api/2.8.1/log4j-api-2.8.1-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "com.thesamet.scalapb",
+                    "name": "lenses_2.12",
+                    "version": "0.8.0-RC1",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "lenses_2.12",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "63f6dfbea05fa9793e20368d5b563db9b9444f16"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/thesamet/scalapb/lenses_2.12/0.8.0-RC1/lenses_2.12-0.8.0-RC1.jar"
+                        },
+                        {
+                            "name": "lenses_2.12",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/thesamet/scalapb/lenses_2.12/0.8.0-RC1/lenses_2.12-0.8.0-RC1-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "com.lihaoyi",
+                    "name": "fastparse_2.12",
+                    "version": "1.0.0",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "fastparse_2.12",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "2473a344aa1200fd50b7ff78281188c172f9cfcb"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/lihaoyi/fastparse_2.12/1.0.0/fastparse_2.12-1.0.0.jar"
+                        },
+                        {
+                            "name": "fastparse_2.12",
+                            "classifier": "sources",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "b1fdfd4c95bdb3f49ec78837be78d657a5ac86c0"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/lihaoyi/fastparse_2.12/1.0.0/fastparse_2.12-1.0.0-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "com.jcraft",
+                    "name": "jsch",
+                    "version": "0.1.46",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "jsch",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/jcraft/jsch/0.1.46/jsch-0.1.46.jar"
+                        },
+                        {
+                            "name": "jsch",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/jcraft/jsch/0.1.46/jsch-0.1.46-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "io.monix",
+                    "name": "monix-execution_2.12",
+                    "version": "2.3.3",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "monix-execution_2.12",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "700016fcc15ffef9a83dfd082fc88e25d936275a"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/io/monix/monix-execution_2.12/2.3.3/monix-execution_2.12-2.3.3.jar"
+                        },
+                        {
+                            "name": "monix-execution_2.12",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/io/monix/monix-execution_2.12/2.3.3/monix-execution_2.12-2.3.3-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "com.lihaoyi",
+                    "name": "sourcecode_2.12",
+                    "version": "0.1.4",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "sourcecode_2.12",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "ef9a771975cb0860f2b42778c5cf1f5d76818979"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/lihaoyi/sourcecode_2.12/0.1.4/sourcecode_2.12-0.1.4.jar"
+                        },
+                        {
+                            "name": "sourcecode_2.12",
+                            "classifier": "sources",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "ffb135dacaf0d989c260a486c8b86867bcab2e22"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/com/lihaoyi/sourcecode_2.12/0.1.4/sourcecode_2.12-0.1.4-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "ch.epfl.scala",
+                    "name": "compiler-interface",
+                    "version": "1.3.0-M4+26-045d2c8c",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "compiler-interface",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/ch/epfl/scala/compiler-interface/1.3.0-M4%2B26-045d2c8c/compiler-interface-1.3.0-M4%2B26-045d2c8c.jar"
+                        },
+                        {
+                            "name": "compiler-interface",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/ch/epfl/scala/compiler-interface/1.3.0-M4%2B26-045d2c8c/compiler-interface-1.3.0-M4%2B26-045d2c8c-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "org.ow2.asm",
+                    "name": "asm-tree",
+                    "version": "6.0",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "asm-tree",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/ow2/asm/asm-tree/6.0/asm-tree-6.0.jar"
+                        },
+                        {
+                            "name": "asm-tree",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/ow2/asm/asm-tree/6.0/asm-tree-6.0-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "net.java.dev.jna",
+                    "name": "jna-platform",
+                    "version": "4.5.0",
+                    "configurations": "default",
+                    "artifacts": [
+                        {
+                            "name": "jna-platform",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "00ab163522ed76eb01c8c9a750dedacb134fc8c0"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/net/java/dev/jna/jna-platform/4.5.0/jna-platform-4.5.0.jar"
+                        },
+                        {
+                            "name": "jna-platform",
+                            "classifier": "sources",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "b1557051d9a8cfdd24e1e5d99304be2d7b515d93"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/net/java/dev/jna/jna-platform/4.5.0/jna-platform-4.5.0-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "org.scala-lang",
+                    "name": "scala-library",
+                    "version": "2.12.8",
+                    "configurations": "optional",
+                    "artifacts": [
+                        {
+                            "name": "scala-library",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "36b234834d8f842cdde963c8591efae6cf413e3f"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-lang/scala-library/2.12.8/scala-library-2.12.8.jar"
+                        },
+                        {
+                            "name": "scala-library",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-lang/scala-library/2.12.8/scala-library-2.12.8-sources.jar"
+                        }
+                    ]
+                },
+                {
+                    "organization": "org.scala-lang",
+                    "name": "scala-compiler",
+                    "version": "2.12.8",
+                    "configurations": "optional",
+                    "artifacts": [
+                        {
+                            "name": "scala-compiler",
+                            "checksum": {
+                                "type": "sha1",
+                                "digest": "d373b4ff7f7dcaf3c590813adc39c2ea518eb8c5"
+                            },
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-lang/scala-compiler/2.12.8/scala-compiler-2.12.8.jar"
+                        },
+                        {
+                            "name": "scala-compiler",
+                            "classifier": "sources",
+                            "path": "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-lang/scala-compiler/2.12.8/scala-compiler-2.12.8-sources.jar"
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+}

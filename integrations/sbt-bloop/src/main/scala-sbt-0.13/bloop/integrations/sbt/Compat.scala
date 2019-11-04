@@ -5,10 +5,14 @@ import sbt.{Def, Artifact, Keys, SettingKey}
 import java.io.File
 
 object Compat {
+  type CompileAnalysis = sbt.inc.Analysis
+  val CompileAnalysis = sbt.inc.Analysis
   type PluginData = sbt.PluginData
   val PluginData = sbt.PluginData
   val PluginDiscovery = sbt.PluginDiscovery
   val PluginManagement = sbt.PluginManagement
+
+  type CompileResult = sbt.Compiler.CompileResult
 
   implicit def fileToRichFile(file: File): sbt.RichFile = new sbt.RichFile(file)
 

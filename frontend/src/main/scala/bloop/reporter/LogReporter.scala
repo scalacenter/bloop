@@ -13,6 +13,7 @@ import sbt.util.InterfaceUtil
 
 import scala.collection.mutable
 import scala.collection.concurrent.TrieMap
+import bloop.logging.CompilationEvent
 
 final class LogReporter(
     val project: Project,
@@ -69,9 +70,13 @@ final class LogReporter(
 
   override def reportStartCompilation(previousProblems: List[ProblemPerPhase]): Unit = ()
 
-  override def reportEndCompilation(
+  override def reportEndCompilation(): Unit = ()
+
+  override def processEndCompilation(
       previousSuccessfulProblems: List[ProblemPerPhase],
-      code: bsp.StatusCode
+      code: bsp.StatusCode,
+      clientClassesDir: Option[AbsolutePath],
+      analysisOut: Option[AbsolutePath]
   ): Unit = {
     code match {
       case bsp.StatusCode.Ok =>
@@ -88,6 +93,7 @@ final class LogReporter(
       case _ => ()
     }
 
-    super.reportEndCompilation(previousSuccessfulProblems, code)
+    // Create a dummy end compilation that we return but contains useless data
+    super.processEndCompilation(previousSuccessfulProblems, code, clientClassesDir, analysisOut)
   }
 }

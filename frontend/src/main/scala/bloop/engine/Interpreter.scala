@@ -170,6 +170,7 @@ object Interpreter {
       val dag = getProjectsDag(projects, state)
       val createReporter = (inputs: ReporterInputs[Logger]) =>
         new LogReporter(inputs.project, inputs.logger, inputs.cwd, config)
+      import bloop.engine.tasks.compilation.CompileClientStore
       CompileTask.compile(
         state,
         dag,
@@ -177,6 +178,7 @@ object Interpreter {
         cmd.pipeline,
         excludeRoot,
         Promise[Unit](),
+        CompileClientStore.NoStore,
         state.logger
       )
     }

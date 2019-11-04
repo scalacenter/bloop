@@ -21,7 +21,7 @@ object TestUtils {
     case c: SuiteSelector => Some(c.toString)
     case c: NestedSuiteSelector => Some(c.suiteId())
     case c: TestWildcardSelector => Some(c.testWildcard())
-    case c: NestedTestSelector => Some(c.suiteId())
+    case c: NestedTestSelector => Some(c.testName())
     case _ =>
       logger.debug(s"Unexpected test selector $selector won't be pretty printed!")
       None

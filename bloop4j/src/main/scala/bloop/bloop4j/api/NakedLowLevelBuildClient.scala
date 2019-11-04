@@ -2,14 +2,17 @@ package bloop.bloop4j.api
 
 import bloop.config.Config
 import bloop.bloop4j.util.Environment
-import bloop.bloop4j.api.internal.TestBuildClient
+import bloop.bloop4j.api.handlers.BuildClientHandlers
 
 import java.net.URI
 import java.{util => ju}
 import java.nio.file.{Files, Path}
 import java.io.InputStream
 import java.io.OutputStream
+import java.lang.ProcessBuilder.Redirect
 import java.util.concurrent.CompletableFuture
+import java.io.PrintWriter
+import java.util.concurrent.ExecutorService
 
 import org.eclipse.lsp4j.jsonrpc.Launcher
 
@@ -22,40 +25,43 @@ import ch.epfl.scala.bsp4j.InitializeBuildResult
 import ch.epfl.scala.bsp4j.BuildTargetIdentifier
 import ch.epfl.scala.bsp4j.CompileParams
 import ch.epfl.scala.bsp4j.CompileResult
-import java.lang.ProcessBuilder.Redirect
+import java.nio.file.Paths
+import java.io.PrintStream
+import bloop.bloop4j.BloopStopClientCachingParams
+import org.eclipse.lsp4j.jsonrpc.services.JsonNotification
+import java.util.concurrent.Future
+import ch.epfl.scala.bsp4j.CleanCacheParams
+import ch.epfl.scala.bsp4j.CleanCacheResult
 
-class NakedLowLevelBuildClient(
+class NakedLowLevelBuildClient[ClientHandlers <: BuildClientHandlers](
+    clientBaseDir: Path,
     clientIn: InputStream,
     clientOut: OutputStream,
-    underlyingProcess: Option[Process]
+    handlers: ClientHandlers,
+    underlyingProcess: Option[Process],
+    executor: Option[ExecutorService]
 ) extends LowLevelBuildClientApi[CompletableFuture] {
-  val testDirectory = Files.createTempDirectory("remote-bloop-client")
+  private var launchedServer: Future[Void] = null
+  private var server: BloopBuildServer = null
 
-  private var client: TestBuildClient = null
-  private var server: ScalaBuildServerBridge = null
-
-  def initialize: CompletableFuture[InitializeBuildResult] = {
-    client = new TestBuildClient
-    server = unsafeConnectToBuildServer(client, testDirectory)
-
-    import scala.collection.JavaConverters._
-    val capabilities = new BuildClientCapabilities(List("scala", "java").asJava)
-    val initializeParams = new InitializeBuildParams(
-      "test-client",
-      "1.0.0",
-      "2.0.0-M4",
-      testDirectory.toUri.toString,
-      capabilities
-    )
-
-    server.buildInitialize(initializeParams).thenApply { result =>
+  def initialize(params: InitializeBuildParams): CompletableFuture[InitializeBuildResult] = {
+    server = unsafeConnectToBuildServer(handlers, clientBaseDir)
+    server.buildInitialize(params).thenApply { result =>
       server.onBuildInitialized()
       result
     }
   }
 
+  def stopClientCaching(params: BloopStopClientCachingParams): Unit = {
+    server.bloopStopClientCaching(params)
+  }
+
   def compile(params: CompileParams): CompletableFuture[CompileResult] = {
     server.buildTargetCompile(params)
+  }
+
+  def cleanCache(params: CleanCacheParams): CompletableFuture[CleanCacheResult] = {
+    server.buildTargetCleanCache(params)
   }
 
   def exit: CompletableFuture[Unit] = {
@@ -65,33 +71,46 @@ class NakedLowLevelBuildClient(
     }
   }
 
-  trait ScalaBuildServerBridge extends BuildServer with ScalaBuildServer
+  def getHandlers: ClientHandlers = handlers
 
+  trait BloopBuildServer extends BuildServer with ScalaBuildServer {
+    @JsonNotification("bloop/stopClientCaching")
+    def bloopStopClientCaching(params: BloopStopClientCachingParams): Unit
+  }
+
+  val cwd = sys.props("user.dir")
   private def unsafeConnectToBuildServer(
       localClient: BuildClient,
       baseDir: Path
-  ): ScalaBuildServerBridge = {
-    val launcher = new Launcher.Builder[ScalaBuildServerBridge]()
-    //.traceMessages(new PrintWriter(System.out))
-      .setRemoteInterface(classOf[ScalaBuildServerBridge])
+  ): BloopBuildServer = {
+    val bloopClientDir = Files.createDirectories(clientBaseDir.resolve(".bloop"))
+    val offloadingFile = bloopClientDir.resolve("sbt-bsp.log")
+    val shouldTraceMessages = Files.exists(offloadingFile)
+    val ps = new PrintWriter(Files.newOutputStream(offloadingFile))
+    val builder = new Launcher.Builder[BloopBuildServer]()
+      .setRemoteInterface(classOf[BloopBuildServer])
       .setInput(clientIn)
       .setOutput(clientOut)
       .setLocalService(localClient)
-      .create()
+    if (shouldTraceMessages) builder.traceMessages(ps)
+    executor.foreach(executor => builder.setExecutorService(executor))
+    val launcher = builder.create()
 
-    launcher.startListening()
+    launchedServer = launcher.startListening()
     val serverBridge = launcher.getRemoteProxy
     localClient.onConnectWithServer(serverBridge)
     serverBridge
   }
 }
 
-object RemoteBloopClient {
-  def fromLauncherJars(
-      buildDir: Path,
+object NakedLowLevelBuildClient {
+  def fromLauncherJars[ClientHandlers <: BuildClientHandlers](
+      clientBaseDir: Path,
       launcherJars: Seq[Path],
+      handlers: ClientHandlers,
+      executor: Option[ExecutorService],
       additionalEnv: ju.Map[String, String] = new ju.HashMap()
-  ): NakedLowLevelBuildClient = {
+  ): NakedLowLevelBuildClient[ClientHandlers] = {
     import scala.collection.JavaConverters._
     val builder = new ProcessBuilder()
     val newEnv = builder.environment()
@@ -103,7 +122,14 @@ object RemoteBloopClient {
     val delimiter = if (Environment.isWindows) ";" else ":"
     val stringClasspath = launcherJars.map(_.normalize().toAbsolutePath).mkString(delimiter)
     val cmd = List("java", "-classpath", stringClasspath, "bloop.launcher.Launcher")
-    val process = builder.command(cmd.asJava).directory(buildDir.toFile).start()
-    new NakedLowLevelBuildClient(process.getInputStream(), process.getOutputStream(), Some(process))
+    val process = builder.command(cmd.asJava).directory(clientBaseDir.toFile).start()
+    new NakedLowLevelBuildClient(
+      clientBaseDir,
+      process.getInputStream(),
+      process.getOutputStream(),
+      handlers,
+      Some(process),
+      executor
+    )
   }
 }

@@ -27,7 +27,7 @@ import bloop.engine.ExecutionContext
 class ProjectBenchmark {
   final def loadProject(configDir: AbsolutePath): Unit = {
     import bloop.engine.State
-    val client = ClientInfo.CliClientInfo("bloop-project-benchmarks", () => true)
+    val client = ClientInfo.CliClientInfo(useStableCliDirs = true, () => true)
     val t = State.loadActiveStateFor(configDir, client, NoPool, CommonOptions.default, NoopLogger)
     val duration = FiniteDuration(10, TimeUnit.SECONDS)
     val handle = t.runAsync(ExecutionContext.scheduler)

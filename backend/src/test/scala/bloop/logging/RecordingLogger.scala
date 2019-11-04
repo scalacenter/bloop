@@ -20,42 +20,8 @@ class RecordingLogger(
   def warnings: List[String] = getMessagesAt(Some("warn"))
   def errors: List[String] = getMessagesAt(Some("error"))
 
-  private def replaceTimingInfo(msg: String): String = {
-    def representsTime(word: String, idx: Int): Boolean = {
-      idx > 0 && {
-        val lastChar = word.charAt(idx - 1)
-        Character.isDigit(lastChar)
-      }
-    }
-
-    msg
-      .split("\\s+")
-      .foldLeft(Nil: List[String]) {
-        case (seen, word) =>
-          val indexOfMs = word.lastIndexOf("ms")
-          val indexOfS = word.lastIndexOf("s")
-          if (representsTime(word, indexOfMs)) "???" :: seen
-          else if (representsTime(word, indexOfS)) "???" :: seen
-          else {
-            seen match {
-              case p :: ps =>
-                if (word == "s" && Character.isDigit(p.last)) "???" :: ps
-                else if (word == "ms" && Character.isDigit(p.last)) "???" :: ps
-                else if (word.startsWith("seconds") && Character.isDigit(p.last))
-                  "???" :: ps
-                else if (word.startsWith("milliseconds") && Character.isDigit(p.last))
-                  "???" :: ps
-                else word :: seen
-              case _ => word :: seen
-            }
-          }
-      }
-      .reverse
-      .mkString(" ")
-  }
-
   def captureTimeInsensitiveInfos: List[String] = {
-    infos.map(info => replaceTimingInfo(info))
+    infos.map(info => RecordingLogger.replaceTimingInfo(info))
   }
 
   def renderTimeInsensitiveInfos: String = {
@@ -167,4 +133,41 @@ class RecordingLogger(
     Files.write(path, render.getBytes(StandardCharsets.UTF_8))
     System.err.println(s"Wrote logger ${id} output to ${path}")
   }
+}
+
+object RecordingLogger {
+  def replaceTimingInfo(msg: String): String = {
+    def representsTime(word: String, idx: Int): Boolean = {
+      idx > 0 && {
+        val lastChar = word.charAt(idx - 1)
+        Character.isDigit(lastChar)
+      }
+    }
+
+    msg
+      .split("\\s+")
+      .foldLeft(Nil: List[String]) {
+        case (seen, word) =>
+          val indexOfMs = word.lastIndexOf("ms")
+          val indexOfS = word.lastIndexOf("s")
+          if (representsTime(word, indexOfMs)) "???" :: seen
+          else if (representsTime(word, indexOfS)) "???" :: seen
+          else {
+            seen match {
+              case p :: ps =>
+                if (word == "s" && Character.isDigit(p.last)) "???" :: ps
+                else if (word == "ms" && Character.isDigit(p.last)) "???" :: ps
+                else if (word.startsWith("seconds") && Character.isDigit(p.last))
+                  "???" :: ps
+                else if (word.startsWith("milliseconds") && Character.isDigit(p.last))
+                  "???" :: ps
+                else word :: seen
+              case _ => word :: seen
+            }
+          }
+      }
+      .reverse
+      .mkString(" ")
+  }
+
 }

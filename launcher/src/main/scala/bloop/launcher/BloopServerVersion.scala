@@ -11,7 +11,7 @@ case class BloopServerVersion(
 
 object BloopServerVersion {
   def apply(serverVersion: String, out: PrintStream): Option[BloopServerVersion] = {
-    Version(serverVersion).items match {
+    Version(serverVersion).items.toList match {
       case Version.Number(major) :: Version.Number(minor) :: rest =>
         val patchNumber = rest match {
           case Version.Number(patch) :: _ => patch

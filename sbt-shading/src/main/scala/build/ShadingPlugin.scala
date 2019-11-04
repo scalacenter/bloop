@@ -68,7 +68,8 @@ object BloopShadingPlugin extends AutoPlugin {
       build.Shading.toShadeClasses(
         shadeNamespaces.value,
         toShadeJars.value,
-        streams.value.log
+        streams.value.log,
+        verbose = true
       )
     }
   )

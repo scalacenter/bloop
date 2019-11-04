@@ -159,7 +159,7 @@ final class CompilerCache(
               classFileManager.invalidatedClassFiles().map(_.getAbsolutePath())
             val classpathValueIndex = classpathIndex + 1
             val classpathValue = options.apply(classpathValueIndex)
-            val classpathEntries = classpathValue.split(File.pathSeparator)
+            val classpathEntries = classpathValue.split(File.pathSeparatorChar)
 
             invalidatedPaths.foreach { invalidatedPath =>
               val relativePath = classpathEntries.collectFirst {
@@ -168,7 +168,7 @@ final class CompilerCache(
               }
 
               relativePath.foreach { relative =>
-                val relativeParts = relative.split(File.separator)
+                val relativeParts = relative.split(File.separatorChar)
                 val invalidatedClassFile = relativeParts.foldLeft(newInvalidatedEntry) {
                   case (path, relativePart) => path.resolve(relativePart)
                 }

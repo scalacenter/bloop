@@ -12,6 +12,8 @@ import xsbti.compile.CompileAnalysis
 import scala.collection.concurrent.TrieMap
 import scala.collection.mutable
 import scala.util.Try
+import bloop.logging.CompilationEvent
+import scala.concurrent.Promise
 
 /**
  * A flexible reporter whose configuration is provided by a `ReporterConfig`.
@@ -155,10 +157,13 @@ abstract class Reporter(
     filesToPhaseStack.update(sourceFile, newPhaseStack)
   }
 
-  override def reportEndCompilation(
+  override def processEndCompilation(
       previousSuccessfulProblems: List[ProblemPerPhase],
-      code: bsp.StatusCode
+      code: bsp.StatusCode,
+      clientClassesDir: Option[AbsolutePath],
+      analysisOut: Option[AbsolutePath]
   ): Unit = {
+    // Clean some state, but return no end of compilation
     phasesAtFile.clear()
     filesToPhaseStack.clear()
   }
@@ -218,17 +223,43 @@ trait ZincReporter extends xsbti.Reporter with ConfigurableReporter {
   def reportStartCompilation(previousProblems: List[ProblemPerPhase]): Unit
 
   /**
-   * A function called at the very end of compilation, before returning from
-   * Zinc to bloop. This method **is** called if the compilation is a no-op.
+   * A function called at the very end of compilation that processes the end of
+   * compilation from the reporter point of view as well as announce the end to
+   * the client.
    *
-   * @param previousProblems The problems reported in the previous compiler analysis.
-   * @param analysis An instance of a new compiler analysis, if no error happened.
+   * This method is called when the caller knows for sure that announcing the
+   * end of compilation to the client is safe. For example, when a compilation
+   * fails and there are no background tasks to run. Compare this to the sister
+   * `reportEndCompilation` method which is used for the opposite.
+   *
+   * @param previousSuccessfulProblems The problems reported in the previous
+   *                                   compiler analysis that were successful.
    * @param code The status code for a given compilation. The status code can be used whenever
    *             there is a noop compile and it's successful or cancelled.
    */
-  def reportEndCompilation(
+  def reportEndCompilation(): Unit
+
+  /**
+   * A function called at the very end of compilation that processes the state
+   * of the reporter. The execution of this endpoint can clean or report more
+   * diagnostics with the client but it does not announce the end of
+   * compilation, which is instead done with [[announceEndCompilation]].
+   *
+   * @param previousSuccessfulProblems The problems reported in the previous
+   *    compiler analysis that were successful.
+   * @param code The status code for a given compilation. The status code can
+   *    be used whenever there is a noop compile and it's successful or cancelled.
+   * @param clientClassesDir The classes directory of the client whose
+   *    compilation has been finished **in case** it's already populated.
+   * @param clientClassesDir The analysis file of the client in case it has been rewritten.
+   *    compilation has been finished. When the request is deduplicated, this
+   *    directory matches the classes directory of the deduplicated client.
+   */
+  def processEndCompilation(
       previousSuccessfulProblems: List[ProblemPerPhase],
-      code: bsp.StatusCode
+      code: bsp.StatusCode,
+      clientClassesDir: Option[AbsolutePath],
+      analysisOut: Option[AbsolutePath]
   ): Unit
 
   /**

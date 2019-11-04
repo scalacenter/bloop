@@ -9,7 +9,7 @@ import bloop.logging.{RecordingLogger, Logger}
 import bloop.util.{TestProject, TestUtil}
 import bloop.engine.caches.LastSuccessfulResult
 import bloop.engine.{State, Run, ExecutionContext, BuildLoader, Dag}
-import bloop.config.{Config, ConfigEncoderDecoders}
+import bloop.config.Config
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.duration.FiniteDuration
@@ -21,6 +21,7 @@ import java.nio.file.{Files, Path}
 import java.nio.charset.StandardCharsets
 import bloop.data.WorkspaceSettings
 import monix.execution.Scheduler
+import bloop.config.ConfigCodecs
 
 trait BloopHelpers {
   self: BaseSuite =>
@@ -122,13 +123,9 @@ trait BloopHelpers {
       StandardOpenOption.WRITE
     )
 
-    parser.parse(newContents) match {
-      case Left(failure) => throw failure
-      case Right(json) =>
-        ConfigEncoderDecoders.allDecoder.decodeJson(json) match {
-          case Right(file) => TestProject(file.project, None)
-          case Left(failure) => throw failure
-        }
+    bloop.config.read(newContents.getBytes(StandardCharsets.UTF_8)) match {
+      case Left(error) => throw error
+      case Right(file) => TestProject(file.project, None)
     }
   }
 

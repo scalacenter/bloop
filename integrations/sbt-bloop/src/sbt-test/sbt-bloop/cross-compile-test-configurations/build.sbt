@@ -55,7 +55,7 @@ def readConfigFor(projectName: String, allConfigs: Seq[File]): bloop.config.Conf
   val configFile = allConfigs
     .find(_.toString.endsWith(s"$projectName.json"))
     .getOrElse(sys.error(s"Missing $projectName.json"))
-  BloopDefaults.parseConfig(configFile.toPath)
+  BloopDefaults.unsafeParseConfig(configFile.toPath)
 }
 
 val checkBloopFile = taskKey[Unit]("Check bloop file contents")

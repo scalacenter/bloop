@@ -58,6 +58,7 @@ object CompileTask {
       pipeline: Boolean,
       excludeRoot: Boolean,
       cancelCompilation: Promise[Unit],
+      store: CompileClientStore,
       rawLogger: UseSiteLogger
   ): Task[State] = {
     import bloop.data.ClientInfo
@@ -190,7 +191,7 @@ object CompileTask {
                 // Post compilation tasks use tracer, so terminate right after they have
                 val postCompilationTasks =
                   backgroundTasks
-                    .trigger(externalUserClassesDir, compileProjectTracer)
+                    .trigger(externalUserClassesDir, reporter.underlying, compileProjectTracer)
                     .doOnFinish(_ => Task(compileProjectTracer.terminate()))
                 postCompilationTasks.runAsync(ExecutionContext.ioScheduler)
               }
@@ -267,8 +268,8 @@ object CompileTask {
     }
 
     val client = state.client
-    CompileGraph.traverse(dag, client, setup(_), compile(_), pipeline).flatMap { partialDag =>
-      val partialResults = Dag.dfs(partialDag)
+    CompileGraph.traverse(dag, client, store, setup(_), compile(_), pipeline).flatMap { pdag =>
+      val partialResults = Dag.dfs(pdag)
       val finalResults = partialResults.map(r => PartialCompileResult.toFinalResult(r))
       Task.gatherUnordered(finalResults).map(_.flatten).flatMap { results =>
         val cleanUpTasksToRunInBackground =
@@ -294,21 +295,24 @@ object CompileTask {
               case FinalNormalCompileResult.HasException(project, t) =>
                 rawLogger
                   .error(s"Unexpected error when compiling ${project.name}: '${t.getMessage}'")
-                // Make a better job here at reporting any throwable that happens during compilation
-                t.printStackTrace()
                 rawLogger.trace(t)
               case _ => () // Do nothing when the final compilation result is not an actual error
             }
 
-            // Reverse list of failed projects to get ~correct order of failure
-            val projectsFailedToCompile = failures.map(p => s"'${p.name}'").reverse
-            val failureMessage =
-              if (failures.size <= 2) projectsFailedToCompile.mkString(",")
-              else {
-                s"${projectsFailedToCompile.take(2).mkString(", ")} and ${projectsFailedToCompile.size - 2} more projects"
-              }
+            client match {
+              case _: ClientInfo.CliClientInfo =>
+                // Reverse list of failed projects to get ~correct order of failure
+                val projectsFailedToCompile = failures.map(p => s"'${p.name}'").reverse
+                val failureMessage =
+                  if (failures.size <= 2) projectsFailedToCompile.mkString(",")
+                  else {
+                    s"${projectsFailedToCompile.take(2).mkString(", ")} and ${projectsFailedToCompile.size - 2} more projects"
+                  }
 
-            rawLogger.error("Failed to compile " + failureMessage)
+                rawLogger.error("Failed to compile " + failureMessage)
+              case _: ClientInfo.BspClientInfo => () // Don't report if bsp client
+            }
+
             stateWithResults.copy(status = ExitStatus.CompilationError)
           }
         }
@@ -335,7 +339,6 @@ object CompileTask {
     }
   }
 
-  private final val GeneratePicklesFlag = "-Ygenerate-pickles"
   case class ConfiguredCompilation(mode: CompileMode, scalacOptions: List[String])
   private def configureCompilation(
       project: Project,

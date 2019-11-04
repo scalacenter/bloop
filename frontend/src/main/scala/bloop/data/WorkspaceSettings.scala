@@ -3,7 +3,6 @@ package bloop.data
 import bloop.engine.BuildLoader
 import bloop.logging.Logger
 import bloop.logging.DebugFilter
-import bloop.config.ConfigEncoderDecoders
 import bloop.io.AbsolutePath
 import bloop.DependencyResolution
 import bloop.io.RelativePath
@@ -16,12 +15,8 @@ import java.nio.file.Path
 import java.nio.file.Files
 import java.nio.charset.StandardCharsets
 
-import io.circe.Json
-import io.circe.parser
-import io.circe.Printer
-import io.circe.Decoder
-import io.circe.ObjectEncoder
-import io.circe.JsonObject
+import com.github.plokhotnyuk.jsoniter_scala.core.{JsonValueCodec, WriterConfig}
+import com.github.plokhotnyuk.jsoniter_scala.macros.{JsonCodecMaker, CodecMakerConfig}
 
 /**
  * Defines the settings of a given workspace. A workspace is a URI that has N
@@ -58,20 +53,18 @@ object WorkspaceSettings {
   /** File name to store Metals specific settings*/
   private[bloop] val settingsFileName = RelativePath("bloop.settings.json")
 
-  import io.circe.derivation._
-  private val settingsEncoder: ObjectEncoder[WorkspaceSettings] = deriveEncoder
-  private val settingsDecoder: Decoder[WorkspaceSettings] = deriveDecoder
-
+  private implicit val codecSettings: JsonValueCodec[WorkspaceSettings] =
+    JsonCodecMaker.make[WorkspaceSettings](CodecMakerConfig.withTransientEmpty(false))
+  import com.github.plokhotnyuk.jsoniter_scala.{core => jsoniter}
   def readFromFile(configPath: AbsolutePath, logger: Logger): Option[WorkspaceSettings] = {
     val settingsPath = configPath.resolve(settingsFileName)
     if (!settingsPath.isFile) None
     else {
-      val bytes = Files.readAllBytes(settingsPath.underlying)
       logger.debug(s"Loading workspace settings from $settingsFileName")(DebugFilter.All)
-      val contents = new String(bytes, StandardCharsets.UTF_8)
-      parser.parse(contents) match {
-        case Left(e) => throw e
-        case Right(json) => Option(fromJson(json))
+      val bytes = Files.readAllBytes(settingsPath.underlying)
+      Try(jsoniter.readFromArray(bytes)) match {
+        case Success(settings) => Option(settings)
+        case Failure(e) => throw e
       }
     }
   }
@@ -83,16 +76,8 @@ object WorkspaceSettings {
   ): AbsolutePath = {
     val settingsFile = configDir.resolve(settingsFileName)
     logger.debug(s"Writing workspace settings to $settingsFile")(DebugFilter.All)
-    val jsonObject = settingsEncoder(settings)
-    val output = Printer.spaces4.copy(dropNullValues = true).pretty(jsonObject)
-    Files.write(settingsFile.underlying, output.getBytes(StandardCharsets.UTF_8))
+    val bytes = jsoniter.writeToArray(settings, WriterConfig.withIndentionStep(4))
+    Files.write(settingsFile.underlying, bytes)
     settingsFile
-  }
-
-  def fromJson(json: Json): WorkspaceSettings = {
-    settingsDecoder.decodeJson(json) match {
-      case Right(settings) => settings
-      case Left(failure) => throw failure
-    }
   }
 }

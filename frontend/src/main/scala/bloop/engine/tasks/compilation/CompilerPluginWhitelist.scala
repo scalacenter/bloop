@@ -158,7 +158,7 @@ object CompilerPluginWhitelist {
     // Note we use eval here because the consumer makes sure it gets its own thread
     Task.eval {
       val jarList = pluginCompilerFlag.stripPrefix("-Xplugin:")
-      jarList.split(java.io.File.pathSeparator).headOption match {
+      jarList.split(java.io.File.pathSeparatorChar).headOption match {
         case Some(mainPluginJar) =>
           val pluginPath = Paths.get(mainPluginJar)
           if (!Files.exists(pluginPath)) {

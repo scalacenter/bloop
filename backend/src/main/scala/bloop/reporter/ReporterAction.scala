@@ -37,5 +37,5 @@ object ReporterAction {
 
   final case object ReportCancelledCompilation extends ReporterAction
 
-  final case class ReportEndCompilation(code: bsp.StatusCode) extends ReporterAction
+  final case class ProcessEndCompilation(code: bsp.StatusCode) extends ReporterAction
 }

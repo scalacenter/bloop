@@ -106,7 +106,17 @@ final case class ResultsCache private (
     }
   }
 
-  override def toString: String = pprint.apply(this, height = Int.MaxValue).render
+  override def toString: String = {
+    case class PrettyPrintedResultsCache(
+        all: Map[String, Compiler.Result],
+        successful: Map[String, LastSuccessfulResult]
+    )
+    val cache = PrettyPrintedResultsCache(
+      all.map { case (key, value) => key.name -> value },
+      successful.map { case (key, value) => key.name -> value }
+    )
+    pprint.apply(cache, height = Int.MaxValue).render
+  }
 }
 
 object ResultsCache {
@@ -138,7 +148,7 @@ object ResultsCache {
         project: Project,
         analysisClassesDir: AbsolutePath
     ): Task[Unit] = {
-      if (cleanOrphanedInternalDirs) Task.unit
+      if (!cleanOrphanedInternalDirs) Task.unit
       else {
         val internalClassesDir =
           CompileOutPaths.createInternalClassesRootDir(project.genericClassesDir)

@@ -30,6 +30,10 @@ case class LastSuccessfulResult(
     previous == LastSuccessfulResult.EmptyPreviousResult &&
     CompileOutPaths.hasEmptyClassesDir(classesDir)
   }
+
+  override def toString: String = {
+    pprint.apply(this, height = Int.MaxValue).render
+  }
 }
 
 object LastSuccessfulResult {

@@ -34,7 +34,7 @@ object Bloop extends CaseApp[CliOptions] {
       "The Bloop shell provides less features, is not supported and can be removed without notice."
     )
     logger.warn("Please refer to our documentation for more information.")
-    val client = ClientInfo.CliClientInfo("bloop-single-app", () => true)
+    val client = ClientInfo.CliClientInfo(useStableCliDirs = true, () => true)
     val loadedProjects = BuildLoader.loadSynchronously(configDirectory, logger)
     val build = Build(configDirectory, loadedProjects)
     val state = State(build, client, NoPool, options.common, logger)
@@ -47,8 +47,7 @@ object Bloop extends CaseApp[CliOptions] {
     val config = origin.underlying
     def waitForState(a: Action, t: Task[State]): State = {
       // Ignore the exit status here, all we want is the task to finish execution or fail.
-      val p = Promise[Unit]().success(())
-      Cli.waitUntilEndOfWorld(a, options, state.pool, config, state.logger, p) {
+      Cli.waitUntilEndOfWorld(a, options, state.pool, config, state.logger) {
         t.map(s => { State.stateCache.updateBuild(s.copy(status = ExitStatus.Ok)); s.status })
       }
 

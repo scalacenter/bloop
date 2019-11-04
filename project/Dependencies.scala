@@ -6,7 +6,7 @@ object Dependencies {
   val Scala212Version = "2.12.8"
 
   val Sbt013Version = "0.13.18"
-  val Sbt1Version = "1.3.2"
+  val Sbt1Version = "1.3.3"
 
   val nailgunVersion = "ee3c4343"
   // Used to download the python client instead of resolving
@@ -17,7 +17,7 @@ object Dependencies {
   val javaDebugVersion = "0.21.0+1-7f1080f1"
 
   val scalazVersion = "7.2.20"
-  val coursierVersion = "1.1.0-M14-4"
+  val coursierVersion = "2.0.0-RC3-4"
   val lmVersion = "1.0.0"
   val configDirsVersion = "10"
   val caseAppVersion = "1.2.0-faster-compile-time"
@@ -36,6 +36,7 @@ object Dependencies {
   val ipcsocketVersion = "1.0.1"
   val monixVersion = "2.3.3"
   val circeVersion = "0.9.3"
+  val jsoniterVersion = "2.0.0"
   val circeVersion213 = "0.12.2"
   val nuprocessVersion = "1.2.4"
   val shapelessVersion = "2.3.3-lower-priority-coproduct"
@@ -101,14 +102,11 @@ object Dependencies {
   val groovy = "org.codehaus.groovy" % "groovy" % groovyVersion % Provided
 
   val monix = "io.monix" %% "monix" % monixVersion
-  val circeDerivation = "io.circe" %% "circe-derivation" % "0.9.0-M3"
-  val newCirceDerivation = "io.circe" %% "circe-derivation" % "0.12.0-M7"
+  val jsoniterCore = "com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-core" % jsoniterVersion
+  val jsoniterMacros = "com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-macros" % jsoniterVersion
   val circeParser = "io.circe" %% "circe-parser" % circeVersion
   val circeCore = "io.circe" %% "circe-core" % circeVersion
   val circeGeneric = "io.circe" %% "circe-generic" % circeVersion
-  val newCirceParser = "io.circe" %% "circe-parser" % circeVersion213
-  val newCirceCore = "io.circe" %% "circe-core" % circeVersion213
-  val newCirceGeneric = "io.circe" %% "circe-generic" % circeVersion213
   val nuprocess = "com.zaxxer" % "nuprocess" % nuprocessVersion
 
   val scalaNativeTools03 = "org.scala-native" %% "tools" % scalaNative03Version

@@ -47,6 +47,9 @@ import monix.execution.Cancelable
 import io.circe.{Decoder, Json}
 import bloop.engine.Feedback
 import monix.reactive.subjects.BehaviorSubject
+import bloop.engine.tasks.compilation.CompileClientStore
+import bloop.data.ClientInfo.BspClientInfo
+import bloop.logging.BloopLogger
 
 final class BloopBspServices(
     callSiteState: State,
@@ -100,10 +103,12 @@ final class BloopBspServices(
     .requestAsync(endpoints.BuildTarget.compile)(p => schedule(compile(p)))
     .requestAsync(endpoints.BuildTarget.test)(p => schedule(test(p)))
     .requestAsync(endpoints.BuildTarget.run)(p => schedule(run(p)))
+    .requestAsync(endpoints.BuildTarget.cleanCache)(p => schedule(clean(p)))
     .requestAsync(endpoints.BuildTarget.scalaMainClasses)(p => schedule(scalaMainClasses(p)))
     .requestAsync(endpoints.BuildTarget.scalaTestClasses)(p => schedule(scalaTestClasses(p)))
     .requestAsync(endpoints.BuildTarget.dependencySources)(p => schedule(dependencySources(p)))
     .requestAsync(endpoints.DebugSession.start)(p => schedule(startDebugSession(p)))
+    .notificationAsync(BloopBspDefinitions.stopClientCaching)(p => stopClientCaching(p))
 
   // Internal state, initial value defaults to
   @volatile private var currentState: State = callSiteState
@@ -197,7 +202,8 @@ final class BloopBspServices(
     val bspLogger = baseBspLogger
     val uri = new URI(params.rootUri.value)
     val configDir = AbsolutePath(uri).resolve(relativeConfigPath)
-    val extraBuildParams = parseClientClassesRootDir(params.data)
+    val extraBuildParams = parseBloopExtraParams(params.data)
+    val ownsBuildFiles = extraBuildParams.flatMap(_.ownsBuildFiles).getOrElse(false)
     val clientClassesRootDir = extraBuildParams.flatMap(
       extra => extra.clientClassesRootDir.map(dir => AbsolutePath(dir.toPath))
     )
@@ -205,6 +211,7 @@ final class BloopBspServices(
       params.displayName,
       params.version,
       params.bspVersion,
+      ownsBuildFiles,
       clientClassesRootDir,
       () => isClientConnected.get
     )
@@ -266,7 +273,7 @@ final class BloopBspServices(
     }
   }
 
-  private def parseClientClassesRootDir(data: Option[Json]): Option[BloopExtraBuildParams] = {
+  private def parseBloopExtraParams(data: Option[Json]): Option[BloopExtraBuildParams] = {
     data.flatMap { json =>
       BloopExtraBuildParams.decoder.decodeJson(json) match {
         case Right(bloopParams) =>
@@ -346,6 +353,12 @@ final class BloopBspServices(
    */
   private val compiledTargetsAtLeastOnce = new TrieMap[bsp.BuildTargetIdentifier, Boolean]()
 
+  private val originToCompileStores = new TrieMap[String, CompileClientStore.ConcurrentStore]()
+
+  def stopClientCaching(params: BloopBspDefinitions.StopClientCachingParams): Task[Unit] = {
+    Task.fork(Task.eval { originToCompileStores.remove(params.originId); () })
+  }
+
   def compileProjects(
       userProjects: Seq[ProjectMapping],
       state: State,
@@ -365,13 +378,20 @@ final class BloopBspServices(
       val cwd = state.build.origin.getParent
       val config = ReporterConfig.defaultFormat.copy(reverseOrder = false)
 
+      val isSbtClient = state.client match {
+        case BspClientInfo(name, _, _, _, _, _) if name == "sbt" => true
+        case _ => false
+      }
+
       val createReporter = (inputs: ReporterInputs[BspServerLogger]) => {
         val btid = bsp.BuildTargetIdentifier(inputs.project.bspUri)
         val reportAllPreviousProblems = {
-          compiledTargetsAtLeastOnce.putIfAbsent(btid, true) match {
+          val report = compiledTargetsAtLeastOnce.putIfAbsent(btid, true) match {
             case Some(_) => false
             case None => true
           }
+          if (isSbtClient) false
+          else report
         }
 
         new BspProjectReporter(
@@ -384,7 +404,31 @@ final class BloopBspServices(
       }
 
       val dag = Aggregate(projects.map(p => state.build.getDagFor(p)))
-      CompileTask.compile(state, dag, createReporter, pipeline, false, cancelCompilation, logger)
+      val store = {
+        if (!isSbtClient) CompileClientStore.NoStore
+        else {
+          originId match {
+            case None => CompileClientStore.NoStore
+            case Some(originId) =>
+              val newStore = new CompileClientStore.ConcurrentStore()
+              originToCompileStores.putIfAbsent(originId, newStore) match {
+                case Some(store) => store
+                case None => newStore
+              }
+          }
+        }
+      }
+
+      CompileTask.compile(
+        state,
+        dag,
+        createReporter,
+        pipeline,
+        false,
+        cancelCompilation,
+        store,
+        logger
+      )
     }
 
     val projects: List[Project] = {
@@ -441,6 +485,27 @@ final class BloopBspServices(
         case Right(mappings) =>
           val compileArgs = params.arguments.getOrElse(Nil)
           compileProjects(mappings, state, compileArgs, params.originId, logger)
+      }
+    }
+  }
+
+  def clean(params: bsp.CleanCacheParams): BspEndpointResponse[bsp.CleanCacheResult] = {
+    ifInitialized(None) { (state: State, logger: BspServerLogger) =>
+      mapToProjects(params.targets, state) match {
+        case Left(error) =>
+          // Log the mapping error to the user via a log event + an error status code
+          logger.error(error)
+          val msg = s"Couldn't map all targets to clean to projects in the build: $error"
+          Task.now((state, Right(bsp.CleanCacheResult(Some(msg), cleaned = false))))
+        case Right(mappings) =>
+          val projectsToClean = mappings.map(_._2).toList
+          Tasks.clean(state, projectsToClean, includeDeps = false).materialize.map {
+            case Success(state) => (state, Right(bsp.CleanCacheResult(None, cleaned = true)))
+            case Failure(exception) =>
+              val t = BloopLogger.prettyPrintException(exception)
+              val msg = s"Unexpected error when cleaning build targets!${System.lineSeparator}$t"
+              state -> Right(bsp.CleanCacheResult(Some(msg), cleaned = false))
+          }
       }
     }
   }

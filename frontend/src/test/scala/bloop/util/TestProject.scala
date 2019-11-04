@@ -10,9 +10,12 @@ import bloop.exec.JavaEnv
 import bloop.io.{AbsolutePath, Paths, RelativePath}
 import bloop.logging.NoopLogger
 import bloop.util.TestUtil.ProjectArchetype
+import bloop.config.ConfigCodecs
+
 import ch.epfl.scala.bsp
 
 import scala.tools.nsc.Properties
+import bloop.data.ClientInfo.CliClientInfo
 
 final case class TestProject(
     config: Config.Project,
@@ -30,8 +33,17 @@ final case class TestProject(
     }
   }
 
+  def clientClassesRootDir: AbsolutePath = {
+    AbsolutePath(config.out.resolve("bloop-bsp-clients-classes"))
+  }
+
+  def externalClassesDir: AbsolutePath = {
+    // Default on stable CLI directory, imitating [[ClientInfo.CliClientInfo]]
+    clientClassesRootDir.resolve(CliClientInfo.id)
+  }
+
   def externalClassFileFor(relPath: String): AbsolutePath = {
-    val classFile = AbsolutePath(config.classesDir).resolve(RelativePath(relPath))
+    val classFile = externalClassesDir.resolve(RelativePath(relPath))
     if (classFile.exists) classFile
     else sys.error(s"Missing class file path ${relPath}")
   }
@@ -55,7 +67,7 @@ final case class TestProject(
   }
 
   def toJson: String = {
-    bloop.config.toStr(
+    ConfigCodecs.toStr(
       Config.File.empty.copy(project = config)
     )
   }
@@ -165,7 +177,7 @@ object TestProject {
 
   def srcFor(sources: List[AbsolutePath], relPath: String): AbsolutePath = {
     import java.io.File
-    val universalRelPath = relPath.stripPrefix("/").split("/").mkString(File.separator)
+    val universalRelPath = relPath.stripPrefix("/").split('/').mkString(File.separator)
     val targetPath = RelativePath(universalRelPath)
     val rawFileName = targetPath.underlying.getFileName.toString
     if (rawFileName.endsWith(".scala") || rawFileName.endsWith(".java")) {

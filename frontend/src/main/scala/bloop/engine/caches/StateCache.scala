@@ -46,6 +46,9 @@ final class StateCache(cache: ConcurrentHashMap[AbsolutePath, StateCache.CachedS
     }
   }
 
+  private[bloop] def getRawCachedBuildFor(path: AbsolutePath): Option[Build] =
+    Option(cache.get(path)).map(_.build)
+
   /**
    * Gets an updated state (if any) associated to the build of the given state,
    * while keeping all the session-specific information in it.

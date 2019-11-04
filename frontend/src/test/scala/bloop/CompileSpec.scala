@@ -23,6 +23,7 @@ import bloop.engine.NoPool
 import java.io.ByteArrayOutputStream
 import java.io.PrintStream
 import java.nio.charset.StandardCharsets
+import bloop.testing.DiffAssertions
 
 object CompileSpec extends bloop.testing.BaseSuite {
   test("compile a project twice with no input changes produces a no-op") {
@@ -50,6 +51,47 @@ object CompileSpec extends bloop.testing.BaseSuite {
       logger.debugs.foreach { debug =>
         assert(!debug.contains("Classpath hash changed"))
       }
+    }
+  }
+
+  test("compile a project, delete an analysis and then write it back during a no-op compilation") {
+    TestUtil.withinWorkspace { workspace =>
+      val sources = List(
+        """/main/scala/Foo.scala
+          |class Foo
+          """.stripMargin
+      )
+
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val `A` = TestProject(workspace, "a", sources)
+      val projects = List(`A`)
+      val state = loadState(workspace, projects, logger)
+      val compiledState = state.compile(`A`)
+      assert(compiledState.status == ExitStatus.Ok)
+      assertValidCompilationState(compiledState, projects)
+      assertNoDiff(
+        logger.compilingInfos.mkString(System.lineSeparator),
+        s"""
+           |Compiling a (1 Scala source)
+        """.stripMargin
+      )
+
+      val analysisFile = compiledState.getProjectFor(`A`).analysisOut
+      assert(analysisFile.exists)
+      Files.delete(analysisFile.underlying)
+
+      val secondCompiledState = compiledState.compile(`A`)
+      assert(secondCompiledState.status == ExitStatus.Ok)
+      assertValidCompilationState(secondCompiledState, projects)
+      assert(analysisFile.exists)
+
+      // Logger should contain only the log from the previous compile, as this is a no-op
+      assertNoDiff(
+        logger.compilingInfos.mkString(System.lineSeparator),
+        s"""
+           |Compiling a (1 Scala source)
+        """.stripMargin
+      )
     }
   }
 
@@ -268,10 +310,15 @@ object CompileSpec extends bloop.testing.BaseSuite {
 
       // Check that initial classes directory doesn't exist either
       assertNonExistingInternalClassesDir(secondCompiledState)(compiledState, List(`A`))
-      // There should only be 2 dirs: current classes dir and external (no empty classes dir)
-      val targetA = workspace.resolve("target").resolve("a")
-      val classesDirInA = bloop.io.Paths.list(targetA).map(ap => ap.toRelative(targetA).syntax)
-      assert(classesDirInA.size == 2)
+
+      def listClassesDirs(dir: AbsolutePath) =
+        bloop.io.Paths.list(dir).filter(_.isDirectory).map(ap => ap.toRelative(dir).syntax)
+
+      // There should only be one external classes dir: the one coming from the CLI session
+      assert(listClassesDirs(`A`.clientClassesRootDir).size == 1)
+      val internalClassesRootDir =
+        CompileOutPaths.createInternalClassesRootDir(AbsolutePath(`A`.config.out))
+      assert(listClassesDirs(internalClassesRootDir).size == 1)
     }
   }
 
@@ -1320,22 +1367,27 @@ object CompileSpec extends bloop.testing.BaseSuite {
       val expected = actionsOutput
         .split(System.lineSeparator())
         .filterNot(_.startsWith("Compiled"))
+        .map(msg => RecordingLogger.replaceTimingInfo(msg))
         .mkString(System.lineSeparator())
+        .replaceAll("'(bloop-cli-.*)'", "'bloop-cli'")
 
       try {
         assertNoDiff(
           expected,
-          """|Waiting on external CLI client to release lock on this build...
-             |Compiling a (1 Scala source)
-             |""".stripMargin
+          """Compiling a (1 Scala source)
+            |Deduplicating compilation of a from cli client 'bloop-cli' (since ???
+            |Compiling a (1 Scala source)
+            |""".stripMargin
         )
       } catch {
-        case NonFatal(t) =>
+        case _: DiffAssertions.TestFailedException =>
           assertNoDiff(
             expected,
-            """|Compiling a (1 Scala source)
-               |Waiting on external CLI client to release lock on this build...
-               |""".stripMargin
+            """
+              |Deduplicating compilation of a from cli client 'bloop-cli' (since ???
+              |Compiling a (1 Scala source)
+              |Compiling a (1 Scala source)
+              |""".stripMargin
           )
       }
     }

@@ -23,7 +23,6 @@ import bloop.bloopgun.util.Environment
 import bloop.bloopgun.core.{Shell, ServerStatus}
 import bloop.bloopgun.BloopgunCli
 import bloop.bloopgun.Defaults
-import snailgun.logging.SnailgunLogger
 
 object Launcher
     extends LauncherMain(

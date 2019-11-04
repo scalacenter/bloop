@@ -152,7 +152,7 @@ object Config {
       JsConfig("", LinkerMode.Debug, ModuleKindJS.NoModule, false, None, None, None, Nil)
   }
 
-  /**
+  /*
    * Represents the native platform and all the options it takes.
    *
    * For the description of these fields, see:

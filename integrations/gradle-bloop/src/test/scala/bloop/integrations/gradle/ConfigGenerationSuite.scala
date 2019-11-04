@@ -8,7 +8,6 @@ import java.nio.file.{Files, Paths}
 import bloop.cli.Commands
 import bloop.config.Config
 import bloop.config.Config.{CompileSetup, JavaThenScala, Mixed, Platform}
-import bloop.config.ConfigEncoderDecoders._
 import bloop.engine.{Build, Run, State}
 import bloop.io.AbsolutePath
 import bloop.logging.BloopLogger
@@ -1399,16 +1398,11 @@ abstract class ConfigGenerationSuite {
 
   private def readValidBloopConfig(file: File): Config.File = {
     assertTrue("The bloop project file should exist", file.exists())
-    parse(new String(Files.readAllBytes(file.toPath), StandardCharsets.UTF_8)) match {
+    val bytes = Files.readAllBytes(file.toPath)
+    bloop.config.read(bytes) match {
+      case Right(file) => file
       case Left(failure) =>
         throw new AssertionError(s"Failed to parse ${file.getAbsolutePath}: $failure")
-      case Right(json) =>
-        json.as[Config.File] match {
-          case Left(failure) =>
-            throw new AssertionError(s"Failed to decode ${file.getAbsolutePath}: $failure")
-          case Right(result) =>
-            result
-        }
     }
   }
 

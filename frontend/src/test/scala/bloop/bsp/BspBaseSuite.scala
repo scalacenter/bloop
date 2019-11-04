@@ -80,7 +80,7 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
       state: State,
       lastBspStatus: bsp.StatusCode,
       currentCompileIteration: AtomicInt,
-      diagnostics: ConcurrentHashMap[bsp.BuildTargetIdentifier, StringBuilder],
+      val diagnostics: ConcurrentHashMap[bsp.BuildTargetIdentifier, StringBuilder],
       implicit val client0: BloopLanguageClient,
       val serverStates: Observable[State]
   ) {
@@ -129,10 +129,14 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
       }
     }
 
-    def compileTask(project: TestProject, originId: Option[String]): Task[ManagedBspTestState] = {
+    def compileTask(
+        project: TestProject,
+        originId: Option[String],
+        clearDiagnostics: Boolean = true
+    ): Task[ManagedBspTestState] = {
       runAfterTargets(project) { target =>
         // Handle internal state before sending compile request
-        diagnostics.clear()
+        if (clearDiagnostics) diagnostics.clear()
         currentCompileIteration.increment(1)
 
         BuildTarget.compile.request(bsp.CompileParams(List(target), originId, None)).flatMap {
@@ -169,10 +173,42 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
       interpretedTask.runAsync(userScheduler.getOrElse(ExecutionContext.scheduler))
     }
 
-    def compile(project: TestProject, originId: Option[String] = None): ManagedBspTestState = {
+    def compile(
+        project: TestProject,
+        originId: Option[String] = None,
+        clearDiagnostics: Boolean = true
+    ): ManagedBspTestState = {
       // Use a default timeout of 30 seconds for every operation
       TestUtil.await(FiniteDuration(30, "s")) {
-        compileTask(project, originId)
+        compileTask(project, originId, clearDiagnostics)
+      }
+    }
+
+    def cleanTask(project: TestProject): Task[ManagedBspTestState] = {
+      runAfterTargets(project) { target =>
+        BuildTarget.cleanCache.request(bsp.CleanCacheParams(List(target))).flatMap {
+          case Right(r) =>
+            // `headL` returns latest saved state from bsp because source is behavior subject
+            val statusCode = if (r.cleaned) bsp.StatusCode.Ok else bsp.StatusCode.Error
+            serverStates.headL.map { state =>
+              new ManagedBspTestState(
+                state,
+                statusCode,
+                currentCompileIteration,
+                diagnostics,
+                client0,
+                serverStates
+              )
+            }
+          case Left(e) => fail(s"Clean error for request ${e.id}:\n${e.error}")
+        }
+      }
+    }
+
+    def clean(project: TestProject): ManagedBspTestState = {
+      // Use a default timeout of 5 seconds for every clean operation
+      TestUtil.await(FiniteDuration(5, "s")) {
+        cleanTask(project)
       }
     }
 
@@ -357,7 +393,7 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
   def createBspCommand(configDir: AbsolutePath): Commands.ValidatedBsp = {
     protocol match {
       case BspProtocol.Tcp =>
-        val portNumber = 7001 + scala.util.Random.nextInt(20000)
+        val portNumber = 7001 + scala.util.Random.nextInt(40000)
         createTcpBspCommand(configDir, portNumber)
       case BspProtocol.Local => createLocalBspCommand(configDir, tempDir)
     }
@@ -387,6 +423,16 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
       val bspTestBuild = ManagedBspTestBuild(bspState, testBuild.projects)
       runTest(bspTestBuild)
     }
+  }
+
+  def loadBspStateAsSbtClient(
+      workspace: AbsolutePath,
+      projects: List[TestProject],
+      logger: RecordingLogger,
+      ownsBuildFiles: Boolean = false
+  )(runTest: ManagedBspTestState => Unit): Unit = {
+    val bloopExtraParams = BloopExtraBuildParams.empty.copy(ownsBuildFiles = Some(ownsBuildFiles))
+    loadBspState(workspace, projects, logger, "sbt", bloopExtraParams)(runTest)
   }
 
   def loadBspState(
