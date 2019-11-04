@@ -472,7 +472,7 @@ object TestUtil {
   }
 
   def universalPath(path: String): String = {
-    path.split("/").mkString(File.separator)
+    path.split('/').mkString(File.separator)
   }
 
   def createSimpleRecursiveBuild(bloopDir: RelativePath): AbsolutePath = {

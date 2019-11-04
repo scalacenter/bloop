@@ -148,7 +148,7 @@ class BaseSuite extends TestSuite with BloopHelpers {
           ap.copy(path = maskedRelativePath)
         } else {
           // Remove '/classes-*' from path
-          val newPath = maskedRelativePath.syntax.split(File.separator).tail.tail.mkString("/")
+          val newPath = maskedRelativePath.syntax.split(File.separatorChar).tail.tail.mkString("/")
           ap.copy(path = AbsolutePath("/" + newPath))
         }
       }
