@@ -77,6 +77,7 @@ lazy val backend = project
   )
 
 val publishJsonModuleSettings = List(
+  sources in (Compile, doc) := Nil,
   publishM2Configuration := publishM2Configuration.value.withOverwrite(true),
   publishLocalConfiguration := publishLocalConfiguration.value.withOverwrite(true),
   // We compile in both so that the maven integration can be tested locally

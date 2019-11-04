@@ -13,8 +13,8 @@ val sbtBloopBuildShadedDeps = project
     scalacOptions in Compile :=
       (scalacOptions in Compile).value.filterNot(_ == "-deprecation"),
     libraryDependencies ++= List(
-      "com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-core" % "1.0.0",
-      "com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-macros" % "1.0.0",
+      "com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-core" % "2.0.0",
+      "com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-macros" % "2.0.0",
       "org.zeroturnaround" % "zt-exec" % "1.11",
       "org.slf4j" % "slf4j-nop" % "1.7.2",
       "me.vican.jorge" %% "snailgun-cli" % "0.3.1",
