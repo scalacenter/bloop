@@ -1,9 +1,9 @@
 package bloop.dap
 
 import java.net.{InetSocketAddress, Socket}
+import java.util.concurrent.CancellationException
 import java.util.concurrent.TimeUnit
 import java.util.logging.{Handler, Level, LogRecord, Logger => JLogger}
-
 import bloop.logging.{DebugFilter, Logger}
 import com.microsoft.java.debug.core.adapter.{ProtocolServer => DapServer}
 import com.microsoft.java.debug.core.protocol.Messages.{Request, Response}
@@ -13,10 +13,11 @@ import com.microsoft.java.debug.core.{Configuration, LoggerFactory}
 import monix.eval.Task
 import monix.execution.atomic.Atomic
 import monix.execution.{Cancelable, Scheduler}
-
 import scala.collection.mutable
 import scala.concurrent.Promise
 import scala.concurrent.duration.FiniteDuration
+import scala.util.Failure
+import scala.util.Success
 import scala.util.Try
 
 /**
@@ -48,6 +49,7 @@ final class DebugSession(
   private val endOfConnection = Promise[Unit]()
   private val debugAddress = Promise[InetSocketAddress]()
   private val sessionStatusPromise = Promise[DebugSession.ExitStatus]()
+  private val attachedPromise = Promise[Unit]()
   private val state = new Synchronized(initialState)
 
   /*
@@ -104,19 +106,31 @@ final class DebugSession(
     request.command match {
       case "launch" =>
         launchedRequests.add(requestId)
-        val startDebuggeeTask = Task
+        Task
           .fromFuture(debugAddress.future)
-          .map(DebugSession.toAttachRequest(requestId, _))
-          .foreachL(super.dispatchRequest)
-          .timeoutTo(
-            FiniteDuration(15, TimeUnit.SECONDS),
-            Task {
-              val response = DebugSession.failed(request, "Could not start debuggee")
-              this.sendResponse(response)
-            }
-          )
+          .timeout(FiniteDuration(15, TimeUnit.SECONDS))
+          .runOnComplete {
+            case Success(address) =>
+              super.dispatchRequest(DebugSession.toAttachRequest(requestId, address))
+            case Failure(exception) =>
+              val cause = s"Could not start debuggee due to ${exception.getCause}"
+              this.sendResponse(DebugSession.failed(request, cause))
+              attachedPromise.tryFailure(new IllegalStateException(cause))
+          }(ioScheduler)
+        ()
 
-        startDebuggeeTask.runAsync(ioScheduler)
+      case "configurationDone" =>
+        // Delay handling of this request until we attach to the debuggee.
+        // Otherwise, a race condition may happen when we try to communicate
+        // with the VM we are not connected to
+        Task
+          .fromFuture(attachedPromise.future)
+          .runOnComplete {
+            case Success(_) =>
+              super.dispatchRequest(request)
+            case Failure(exception) =>
+              sendResponse(DebugSession.failed(request, exception.getMessage))
+          }(ioScheduler)
         ()
 
       case "disconnect" =>
@@ -148,6 +162,7 @@ final class DebugSession(
       case "attach" if launchedRequests(requestId) =>
         // Trick dap4j into thinking we're processing a launch instead of attach
         response.command = Command.LAUNCH.getName
+        attachedPromise.success(())
         super.sendResponse(response)
       case "disconnect" =>
         // we are sending a response manually but the actual handler is also sending one so let's ignore it
@@ -223,6 +238,9 @@ final class DebugSession(
   }
 
   private def cancelDebuggee(debuggee: Cancelable): Unit = {
+    val cause = new CancellationException("Debug session cancelled")
+    debugAddress.tryFailure(cause)
+    attachedPromise.tryFailure(cause)
     loggerAdapter.onDebuggeeFinished()
     debuggee.cancel()
   }
