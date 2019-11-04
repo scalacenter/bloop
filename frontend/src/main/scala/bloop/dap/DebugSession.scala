@@ -116,6 +116,7 @@ final class DebugSession(
               val cause = s"Could not start debuggee due to ${exception.getCause}"
               this.sendResponse(DebugSession.failed(request, cause))
               attachedPromise.tryFailure(new IllegalStateException(cause))
+              ()
           }(ioScheduler)
         ()
 
