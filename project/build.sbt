@@ -1,10 +1,29 @@
 val mvnVersion = "3.6.1"
 val mvnPluginToolsVersion = "3.6.0"
 
+val `bloop-shaded-plugin` = project
+  .settings(
+    sbtPlugin := true,
+    exportJars := true,
+    scalaVersion := "2.12.9",
+    bloopGenerate in Compile := None,
+    bloopGenerate in Test := None,
+    compileInputs in Compile in compile := {
+      val inputs = (compileInputs in Compile in compile).value
+      val classDir = (classDirectory in Compile).value
+      val shadingJar = baseDirectory.value.getParentFile / "project" / "target" / "sbt-bloop-build-shaded" / "target" / "scala-2.12" / "sbt-1.0" / "sbt-bloop-build-shaded-raw-1.0.0-SNAPSHOT-shading.jar"
+      IO.unzip(shadingJar, classDir)
+      IO.delete(classDir / "META-INF" / "MANIFEST.MF")
+      inputs
+    }
+  )
+
 updateOptions := updateOptions.value.withLatestSnapshots(false)
 val `bloop-build` = project
   .in(file("."))
+  .dependsOn(`bloop-shaded-plugin`)
   .settings(
+    exportJars := true,
     scalaVersion := "2.12.9",
     addSbtPlugin("com.dwijnand" % "sbt-dynver" % "3.1.0"),
     addSbtPlugin("ohnosequences" % "sbt-github-release" % "0.6.0"),
@@ -19,7 +38,6 @@ val `bloop-build` = project
     addSbtPlugin("org.scalameta" % "sbt-mdoc" % "1.2.10"),
     addSbtPlugin("org.scala-debugger" % "sbt-jdi-tools" % "1.1.1"),
     addSbtPlugin("com.typesafe.sbt" % "sbt-native-packager" % "1.4.0"),
-    addSbtPlugin("ch.epfl.scala" % "sbt-bloop-build-shaded" % "1.0.0-SNAPSHOT"),
     // We need to add libdeps for the maven integration plugin to work
     libraryDependencies ++= List(
       "org.eclipse.jgit" % "org.eclipse.jgit" % "4.6.0.201612231935-r",

@@ -26,14 +26,14 @@ val sbtBloopBuildShadedDeps = project
     )
   )
 
-val sbtBloopBuildShaded = project
+val sbtBloopBuildShadedJar = project
   .in(file("target")./("sbt-bloop-build-shaded"))
   .enablePlugins(BloopShadingPlugin)
   .settings(sharedSettings)
   .settings(
     // Published name will be sbt-bloop-shaded because of `shading:publishLocal`
     sbtPlugin := true,
-    name := "sbt-bloop-build-shaded",
+    name := "sbt-bloop-build-shaded-raw",
     libraryDependencies ++= (libraryDependencies in sbtBloopBuildShadedDeps).value,
     toShadeClasses := {
       build.Shading.toShadeClasses(
@@ -128,8 +128,32 @@ val sbtBloopBuildShaded = project
 
       cacheShading(inputs).head
     },
+    exportJars := true,
     discoveredSbtPlugins in Compile := {
       sbt.internal.PluginDiscovery.emptyDiscoveredNames
+    }
+  )
+
+val sbtBloopBuildShaded = project
+  .in(file("target")./("sbt-bloop-build-shaded-complete"))
+  .settings(sharedSettings)
+  .settings(
+    sbtPlugin := true,
+    exportJars := true,
+    name := "sbt-bloop-build-shaded",
+    compileInputs in Compile in compile := {
+      // Trigger packageBin so that next metaproject can have access to it
+      val fatJar = (packageBin in Compile in sbtBloopBuildShadedJar).value
+
+      val inputs = (compileInputs in Compile in compile).value
+      val classDir = (classDirectory in Compile).value
+      IO.unzip(fatJar, classDir)
+      IO.delete(classDir / "META-INF" / "MANIFEST.MF")
+      inputs
+    },
+    discoveredSbtPlugins in Compile := {
+      val autoPlugins = List("bloop.integrations.sbt.BloopPlugin")
+      new sbt.internal.PluginDiscovery.DiscoveredNames(autoPlugins, Nil)
     }
   )
 
@@ -140,14 +164,15 @@ val sbtBloopBuildShaded = project
 val root = project
   .in(file("."))
   .settings(sharedSettings)
+  .dependsOn(sbtBloopBuildShaded)
   .settings(
     sbtPlugin := true,
-    unmanagedJars in Compile := {
-      //(copyResources in Compile in sbtBloopBuildShaded).value
-      val previousJars = (unmanagedJars in Compile).value
-      Attributed.blank((packageBin in Compile in sbtBloopBuildShaded).value) +: previousJars
-    },
+    exportJars := true,
     discoveredSbtPlugins in Compile := {
-      sbt.internal.PluginDiscovery.emptyDiscoveredNames
+      // Trigger publish local of sbt-bloop shaded so that community build projects have access too
+      (Keys.publishLocal in Compile in sbtBloopBuildShaded).value
+
+      val autoPlugins = List("bloop.integrations.sbt.BloopPlugin")
+      new sbt.internal.PluginDiscovery.DiscoveredNames(autoPlugins, Nil)
     }
   )

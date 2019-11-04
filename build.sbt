@@ -726,7 +726,7 @@ lazy val nativeBridge04 = project
 
 /* This project has the only purpose of forcing the resolution of some artifacts that fail spuriously to be fetched.  */
 lazy val twitterIntegrationProjects = project
-  .disablePlugins(BloopPlugin)
+  .disablePlugins(BloopShadedPlugin)
   .in(file("target") / "twitter-integration-projects")
   .settings(
     resolvers += MavenRepository("twitter-resolver", "https://maven.twttr.com"),
