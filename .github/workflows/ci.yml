@@ -1,7 +1,11 @@
 name: Continuous Integration
 on:
   push:
+    tags:
+    branches:
+      - master
   pull_request:
+
 jobs:
   test:
     runs-on: ${{ matrix.os }}
@@ -71,4 +75,55 @@ jobs:
               "sbtBloop10Shaded/publishLocal" \
               "sbtBloop10/scripted" \
               "benchmarks/jmh:run .*HotBloopBenchmark.* -wi 0 -i 1 -f1 -t1 -p project=with-tests -p projectName=with-tests"
+        shell: bash
+
+  release:
+    name: Release Bloop on ${{ matrix.os }} -- ${{ matrix.jdk }}
+    needs: test
+    runs-on: ${{ matrix.os }}
+    if: github.event == 'push'
+    strategy:
+      fail-fast: true
+      matrix:
+        os: [ubuntu-latest]
+        jdk: [graalvm@]
+    env:
+      SONATYPE_USER: ${{ secrets.SONATYPE_USER }}
+      SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
+      BINTRAY_USER: ${{ secrets.BINTRAY_USER }}
+      BINTRAY_PASSWORD: ${{ secrets.BINTRAY_PASSWORD }}
+      PGP_PASSWORD: ${{ secrets.PGP_PASSWORD }}
+      PGP_PUBLIC_KEY: ${{ secrets.PGP_PUBLIC_KEY }}
+      PGP_PRIVATE_KEY: ${{ secrets.PGP_PRIVATE_KEY }}
+      BLOOPOID_GITHUB_TOKEN: ${{ secrets.BLOOPOID_GITHUB_TOKEN }}
+      BLOOPOID_SSH_PUBLIC_KEY: ${{ secrets.BLOOPOID_SSH_PUBLIC_KEY }}
+      BLOOPOID_SSH_PRIVATE_KEY: ${{ secrets.BLOOPOID_SSH_PRIVATE_KEY }}
+    steps:
+      - uses: actions/checkout@v1
+        with:
+          submodules: true
+      - uses: olafurpg/setup-scala@v5
+        with:
+          java-version: ${{ matrix.jdk }}
+      - uses: actions/setup-node@v1
+        with:
+          node-version: "10.x"
+      - name: Set up environment
+        run: |
+          curl -Lo coursier https://git.io/coursier-cli && chmod +x coursier && ./coursier --help
+          yarn --help
+        shell: bash
+      - name: Publish docs and binaries to Maven Central/Bintray
+        run: |
+          yarn install
+          touch ~/.profile
+          mkdir "$HOME/.ssh"
+          mkdir "$HOME/.gnupg"
+          echo "$PGP_PUBLIC_KEY" > "$HOME/.gnupg/pubring.asc"
+          echo "$PGP_PRIVATE_KEY" > "$HOME/.gnupg/secring.asc"
+          echo "$BLOOPOID_SSH_PUBLIC_KEY" > "$HOME/.ssh/id_rsa.pub"
+          echo "$BLOOPOID_SSH_PRIVATE_KEY" > "$HOME/.ssh/id_rsa"
+          git config --global user.name "Bloopoid"
+          git config --global user.email "bloopoid@trashmail.ws"
+          ./bin/sbt-publish-ci.sh "releaseBloop" "docs/docusaurusPublishGhpages"
         shell: bash
