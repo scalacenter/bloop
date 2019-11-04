@@ -189,7 +189,7 @@ final class BspBridge(
     }
 
     println("Starting thread that pumps stdin and redirects it to the bsp server...", out)
-    val pumpStdinToSocketStdout = shell.startThread("bsp-client-to-server", false) {
+    val pumpStdinToSocketStdout = shell.startThread("bsp-client-to-server", true) {
       var hasReportedClientError: Boolean = false
       while (isConnectionOpen) {
         val socketOut = socket.getOutputStream
@@ -220,7 +220,7 @@ final class BspBridge(
       "Starting thread that pumps server stdout and redirects it to the client stdout...",
       out
     )
-    val pumpSocketStdinToStdout = shell.startThread("bsp-server-to-client", false) {
+    val pumpSocketStdinToStdout = shell.startThread("bsp-server-to-client", true) {
       var hasReportedServerError: Boolean = false
       while (isConnectionOpen) {
         val socketIn = socket.getInputStream

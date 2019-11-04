@@ -20,7 +20,7 @@ jobs:
           java-version: ${{ matrix.jdk }}
       - uses: actions/setup-node@v1
         with:
-          node-version: '10.x'
+          node-version: "10.x"
       - name: Set up environment
         run: |
           curl -Lo coursier https://git.io/coursier-cli && chmod +x coursier && ./coursier --help
@@ -72,4 +72,3 @@ jobs:
               "sbtBloop10/scripted" \
               "benchmarks/jmh:run .*HotBloopBenchmark.* -wi 0 -i 1 -f1 -t1 -p project=with-tests -p projectName=with-tests"
         shell: bash
-
