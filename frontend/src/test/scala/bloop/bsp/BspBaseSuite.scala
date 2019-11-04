@@ -393,7 +393,7 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
   def createBspCommand(configDir: AbsolutePath): Commands.ValidatedBsp = {
     protocol match {
       case BspProtocol.Tcp =>
-        val portNumber = 7001 + scala.util.Random.nextInt(20000)
+        val portNumber = 7001 + scala.util.Random.nextInt(40000)
         createTcpBspCommand(configDir, portNumber)
       case BspProtocol.Local => createLocalBspCommand(configDir, tempDir)
     }
