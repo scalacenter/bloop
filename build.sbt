@@ -177,7 +177,8 @@ lazy val sockets: Project = project
     autoScalaLibrary := false,
     description := "IPC: Unix Domain Socket and Windows Named Pipes for Java",
     libraryDependencies ++= Seq(Dependencies.jna, Dependencies.jnaPlatform),
-    javacOptions ++= Seq("-source", "1.8", "-target", "1.8")
+    javacOptions ++= Seq("-source", "1.8", "-target", "1.8"),
+    sources in (Compile, doc) := Nil
   )
 
 import build.BuildImplementation.jvmOptions
