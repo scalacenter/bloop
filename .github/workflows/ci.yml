@@ -91,7 +91,7 @@ jobs:
       SONATYPE_USER: ${{ secrets.SONATYPE_USER }}
       SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
       BINTRAY_USER: ${{ secrets.BINTRAY_USER }}
-      BINTRAY_PASSWORD: ${{ secrets.BINTRAY_PASSWORD }}
+      BINTRAY_PASS: ${{ secrets.BINTRAY_PASSWORD }}
       PGP_PASSWORD: ${{ secrets.PGP_PASSWORD }}
       PGP_PUBLIC_KEY: ${{ secrets.PGP_PUBLIC_KEY }}
       PGP_PRIVATE_KEY: ${{ secrets.PGP_PRIVATE_KEY }}
