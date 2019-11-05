@@ -154,7 +154,6 @@ object DebugProtocolSpec extends DebugBspBaseSuite {
             _ <- client.initialize()
             _ <- client.launch()
             _ <- client.configurationDone()
-            _ <- client.exited
             _ <- client.terminated
             output <- client.allOutput
           } yield output
