@@ -19,13 +19,13 @@ final class DebugTestClient(connect: () => DebugAdapterConnection) {
    */
   private var activeSession = connect()
 
-  def initialize(): Task[Response[Capabilities]] =
+  def initialize(): Task[Capabilities] =
     activeSession.initialize()
 
-  def configurationDone(): Task[Response[Unit]] =
+  def configurationDone(): Task[Unit] =
     activeSession.configurationDone()
 
-  def launch(): Task[Response[Unit]] =
+  def launch(): Task[Unit] =
     activeSession.launch()
 
   def exited: Task[Events.ExitedEvent] =
@@ -47,7 +47,7 @@ final class DebugTestClient(connect: () => DebugAdapterConnection) {
     activeSession.allOutput
   }
 
-  def disconnect(): Task[Response[Unit]] = {
+  def disconnect(): Task[Unit] = {
     activeSession.disconnect(restart = false)
   }
 

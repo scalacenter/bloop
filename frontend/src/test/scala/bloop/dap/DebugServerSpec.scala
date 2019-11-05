@@ -3,6 +3,7 @@ package bloop.dap
 import java.net.{ConnectException, SocketException, SocketTimeoutException}
 import java.util.NoSuchElementException
 import java.util.concurrent.TimeUnit.{MILLISECONDS, SECONDS}
+import bloop.cli._
 import bloop.logging.RecordingLogger
 import bloop.util.{TestProject, TestUtil}
 import ch.epfl.scala.bsp.ScalaMainClass
@@ -15,9 +16,10 @@ import bloop.engine.ExecutionContext
 
 object DebugServerSpec extends DebugBspBaseSuite {
   private val ServerNotListening = new IllegalStateException("Server is not accepting connections")
+  private val Success: ExitStatus = ExitStatus.Ok
 
   test("cancelling server closes server connection") {
-    startDebugServer(Task.now(())) { server =>
+    startDebugServer(Task.now(Success)) { server =>
       val test = for {
         _ <- Task(server.cancel())
         serverClosed <- waitForServerEnd(server)
@@ -30,7 +32,7 @@ object DebugServerSpec extends DebugBspBaseSuite {
   }
 
   test("cancelling server closes client connection") {
-    startDebugServer(Task.now(())) { server =>
+    startDebugServer(Task.now(Success)) { server =>
       val test = for {
         client <- server.startConnection
         _ <- Task(server.cancel())
@@ -139,7 +141,7 @@ object DebugServerSpec extends DebugBspBaseSuite {
   }
 
   test("does not accept a connection unless the previous session requests a restart") {
-    startDebugServer(Task.now(())) { server =>
+    startDebugServer(Task.now(Success)) { server =>
       val test = for {
         firstClient <- server.startConnection
         secondClient <- server.startConnection
@@ -157,16 +159,16 @@ object DebugServerSpec extends DebugBspBaseSuite {
   test("responds to launch when jvm could not be started") {
     // note that the runner is not starting the jvm
     // therefore the debuggee address will never be bound
-    // and correct response to the launch request
-    // will never be sent
-    val runner = Task.now(())
+    val runner = Task.now(Success)
 
     startDebugServer(runner) { server =>
       val test = for {
         client <- server.startConnection
         _ <- client.initialize()
-        _ <- client.launch()
-      } yield ()
+        cause <- client.launch().failed
+      } yield {
+        assertContains(cause.getMessage, "Task timed-out")
+      }
 
       TestUtil.await(FiniteDuration(20, SECONDS), ExecutionContext.ioScheduler)(test)
     }
@@ -176,6 +178,7 @@ object DebugServerSpec extends DebugBspBaseSuite {
     val cancelled = Promise[Boolean]()
     val awaitCancellation = Task
       .fromFuture(cancelled.future)
+      .map(_ => Success)
       .doOnFinish(_ => complete(cancelled, false))
       .doOnCancel(complete(cancelled, true))
 
@@ -203,6 +206,7 @@ object DebugServerSpec extends DebugBspBaseSuite {
     val cancelled = Promise[Boolean]()
     val awaitCancellation = Task
       .fromFuture(cancelled.future)
+      .map(_ => Success)
       .doOnFinish(_ => complete(cancelled, false))
       .doOnCancel(complete(cancelled, true))
 
@@ -230,6 +234,22 @@ object DebugServerSpec extends DebugBspBaseSuite {
         _ <- Task(server.cancel())
         _ <- Task.fromFuture(client.closedPromise.future)
       } yield ()
+
+      TestUtil.await(FiniteDuration(20, SECONDS), ExecutionContext.ioScheduler)(test)
+    }
+  }
+
+  test("propagates launch failure cause") {
+    val task = Task.now(ExitStatus.RunError)
+
+    startDebugServer(task) { server =>
+      val test = for {
+        client <- server.startConnection
+        _ <- client.initialize()
+        response <- client.launch().failed
+      } yield {
+        assert(response.getMessage.contains(ExitStatus.RunError.name))
+      }
 
       TestUtil.await(FiniteDuration(20, SECONDS), ExecutionContext.ioScheduler)(test)
     }
@@ -268,8 +288,8 @@ object DebugServerSpec extends DebugBspBaseSuite {
     }
   }
 
-  def startDebugServer(task: Task[_])(f: TestServer => Any): Unit = {
-    startDebugServer(_ => task.map(_ => ()))(f)
+  def startDebugServer(task: Task[ExitStatus])(f: TestServer => Any): Unit = {
+    startDebugServer(_ => task)(f)
   }
 
   def startDebugServer(runner: DebuggeeRunner)(f: TestServer => Any): Unit = {

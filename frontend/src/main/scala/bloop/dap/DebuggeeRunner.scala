@@ -1,15 +1,16 @@
 package bloop.dap
 
+import bloop.cli.ExitStatus
 import bloop.data.{Platform, Project}
 import bloop.engine.State
 import bloop.engine.tasks.{RunMode, Tasks}
 import bloop.exec.JavaEnv
-import bloop.testing.{LoggingEventHandler, TestInternals, TestSuiteEventHandler}
+import bloop.testing.{LoggingEventHandler, TestInternals}
 import ch.epfl.scala.bsp.ScalaMainClass
 import monix.eval.Task
 
 trait DebuggeeRunner {
-  def run(logger: DebugSessionLogger): Task[Unit]
+  def run(logger: DebugSessionLogger): Task[ExitStatus]
 }
 
 private final class MainClassDebugAdapter(
@@ -18,7 +19,7 @@ private final class MainClassDebugAdapter(
     env: JavaEnv,
     state: State
 ) extends DebuggeeRunner {
-  def run(debugLogger: DebugSessionLogger): Task[Unit] = {
+  def run(debugLogger: DebugSessionLogger): Task[ExitStatus] = {
     val workingDir = state.commonOptions.workingPath
     val runState = Tasks.runJVM(
       state.copy(logger = debugLogger),
@@ -31,7 +32,7 @@ private final class MainClassDebugAdapter(
       RunMode.Debug
     )
 
-    runState.map(_ => ())
+    runState.map(_.status)
   }
 }
 
@@ -40,7 +41,7 @@ private final class TestSuiteDebugAdapter(
     filters: List[String],
     state: State
 ) extends DebuggeeRunner {
-  def run(debugLogger: DebugSessionLogger): Task[Unit] = {
+  def run(debugLogger: DebugSessionLogger): Task[ExitStatus] = {
     val debugState = state.copy(logger = debugLogger)
 
     val filter = TestInternals.parseFilters(filters)
@@ -57,7 +58,7 @@ private final class TestSuiteDebugAdapter(
       mode = RunMode.Debug
     )
 
-    task.map(_ => ())
+    task.map(_.status)
   }
 }
 
