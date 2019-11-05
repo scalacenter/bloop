@@ -1,7 +1,6 @@
 name: Continuous Integration
 on:
   push:
-    tags:
     branches:
       - master
   pull_request:
@@ -80,7 +79,7 @@ jobs:
   release:
     name: Release Bloop on ${{ matrix.os }} -- ${{ matrix.jdk }}
     runs-on: ${{ matrix.os }}
-    if: github.event == 'push'
+    if: github.event_name == 'push'
     strategy:
       fail-fast: true
       matrix:
