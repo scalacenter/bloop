@@ -10,7 +10,6 @@ import scala.concurrent.duration.FiniteDuration
 import java.util.concurrent.TimeUnit
 import scala.util.Random
 
-object LocalBspSbtClientSpec extends BspSbtClientSpec(BspProtocol.Local)
 object TcpBspSbtClientSpec extends BspSbtClientSpec(BspProtocol.Tcp)
 
 class BspSbtClientSpec(
@@ -65,7 +64,7 @@ class BspSbtClientSpec(
 
       loadBspStateAsSbtClient(workspace, projects, logger) { state =>
         val firstOriginId = "32131"
-        val compiledState = compileProjectsOutOfOrderWith(state, projects, firstOriginId)
+        val compiledState = compileProjectsOutOfOrderWith(state, projects, firstOriginId, logger)
 
         assertExitStatus(compiledState, ExitStatus.Ok)
         assertValidCompilationState(compiledState, projects)
@@ -321,7 +320,8 @@ class BspSbtClientSpec(
   private def compileProjectsOutOfOrderWith(
       state: ManagedBspTestState,
       projects: List[TestProject],
-      originId: String
+      originId: String,
+      logger: RecordingLogger
   ): ManagedBspTestState = {
     val allCompilationTasks = projects.map(
       project => state.compileTask(project, originId = Some(originId), clearDiagnostics = false)
@@ -330,7 +330,7 @@ class BspSbtClientSpec(
     val duration = new FiniteDuration(20, TimeUnit.SECONDS)
     val allCompiledStatesTask = Task.gatherUnordered(random.shuffle(allCompilationTasks))
     val compiledStates =
-      TestUtil.await(duration, ExecutionContext.ioScheduler)(allCompiledStatesTask)
+      TestUtil.await(duration, ExecutionContext.ioScheduler, Some(logger))(allCompiledStatesTask)
 
     var compiledStateForE = compiledStates.head
     compiledStates.foreach { compiledState =>

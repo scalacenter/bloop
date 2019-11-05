@@ -1370,12 +1370,13 @@ object CompileSpec extends bloop.testing.BaseSuite {
         .map(msg => RecordingLogger.replaceTimingInfo(msg))
         .mkString(System.lineSeparator())
         .replaceAll("'(bloop-cli-.*)'", "'bloop-cli'")
+        .replaceAll("'bloop-cli'", "???")
 
       try {
         assertNoDiff(
           expected,
           """Compiling a (1 Scala source)
-            |Deduplicating compilation of a from cli client 'bloop-cli' (since ???
+            |Deduplicating compilation of a from cli client ??? (since ???
             |Compiling a (1 Scala source)
             |""".stripMargin
         )
@@ -1384,7 +1385,7 @@ object CompileSpec extends bloop.testing.BaseSuite {
           assertNoDiff(
             expected,
             """
-              |Deduplicating compilation of a from cli client 'bloop-cli' (since ???
+              |Deduplicating compilation of a from cli client ??? (since ???
               |Compiling a (1 Scala source)
               |Compiling a (1 Scala source)
               |""".stripMargin

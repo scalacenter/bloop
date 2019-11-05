@@ -40,6 +40,7 @@ import scala.util.control.NonFatal
 import bloop.data.WorkspaceSettings
 import bloop.data.LoadedProject
 import sbt.internal.inc.BloopComponentCompiler
+import java.util.concurrent.TimeoutException
 
 object TestUtil {
   def projectDir(base: Path, name: String) = base.resolve(name)
@@ -111,12 +112,23 @@ object TestUtil {
     }
   }
 
-  def await[T](duration: Duration, scheduler: Scheduler)(t: Task[T]): T = {
+  def await[T](
+      duration: Duration,
+      scheduler: Scheduler,
+      logger: Option[RecordingLogger] = None
+  )(t: Task[T]): T = {
     val handle = t.runAsync(scheduler)
     try Await.result(handle, duration)
     catch {
       case NonFatal(t) => handle.cancel(); throw t
       case i: InterruptedException => handle.cancel(); throw i
+      case t: TimeoutException =>
+        System.err.println("Error: timeout detected, printing logs!")
+        logger.foreach(_.dump())
+        System.err.println("Now, taking a thread dump!")
+        System.err.println(threadDump)
+        System.err.println("Rethrowing exception to the caller!")
+        throw t
     }
   }
 
