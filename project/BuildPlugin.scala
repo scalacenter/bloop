@@ -323,6 +323,12 @@ object BuildImplementation {
     Keys.developers := List(
       GitHubDev("Duhemm", "Martin Duhem", "martin.duhem@gmail.com"),
       GitHubDev("jvican", "Jorge Vicente Cantero", "jorge@vican.me")
+    ),
+    Keys.scmInfo := Some(
+      sbt.ScmInfo(
+        sbt.url("https://github.com/scalacenter/bloop"),
+        "scm:git:git@github.com:scalacenter/bloop.git"
+      )
     )
   )
 
