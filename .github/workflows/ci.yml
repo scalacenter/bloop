@@ -86,6 +86,8 @@ jobs:
         os: [ubuntu-latest]
         jdk: [graalvm@]
     env:
+      CI: true
+      SKIP_TEST_RESOURCES_GENERATION: true
       SONATYPE_USER: ${{ secrets.SONATYPE_USER }}
       SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
       BINTRAY_USER: ${{ secrets.BINTRAY_USER }}
