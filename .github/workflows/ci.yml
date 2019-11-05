@@ -6,75 +6,75 @@ on:
   pull_request:
 
 jobs:
-  test:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest, macOS-latest]
-        jdk: [graalvm@, adopt@1.11]
-    name: ${{ matrix.os }} -- ${{ matrix.jdk }}
-    steps:
-      - uses: actions/checkout@v1
-        with:
-          submodules: true
-      - uses: olafurpg/setup-scala@v5
-        with:
-          java-version: ${{ matrix.jdk }}
-      - uses: actions/setup-node@v1
-        with:
-          node-version: "10.x"
-      - name: Set up environment
-        run: |
-          curl -Lo coursier https://git.io/coursier-cli && chmod +x coursier && ./coursier --help
-          yarn --help
-        shell: bash
-      - name: Check formatting
-        if: matrix.os != 'windows-latest'
-        run: |
-          ./bin/sbt-ci.sh \
-              "scalafmtCheckAll" \
-        shell: bash
-      - name: Compile and test main projects
-        run: |
-          ./bin/sbt-ci.sh \
-              "frontend/test:compile" \
-              "sbtBloop013/compile" \
-              "sbtBloop10/compile" \
-              "millBloop/compile" \
-              "mavenBloop/compile" \
-              "backend/test" \
-              "jsBridge06/publishLocal" \
-              "jsBridge10/publishLocal" \
-              "frontend/testOnly bloop.ScalaVersionsSpec" \
-              "frontend/testOnly -bloop.ScalaVersionsSpec" \
-              "jsBridge06/test" \
-              "jsBridge10/test" \
-              "frontend/runMain bloop.util.CommandsDocGenerator --test" \
-              "frontend/runMain bloop.util.CommandsDocGenerator --out ../docs/cli-reference.md"
-        shell: bash
-      - name: Check docs are up-to-date
-        run: |
-          ./bin/check-good-practices.sh
-        shell: bash
-      - name: Run launcher tests
-        if: matrix.jdk == 'graalvm@'
-        run: |
-          ./bin/sbt-ci.sh "install" "launcher/test"
-        shell: bash
-      - name: Run build tool + native tests
-        if: matrix.jdk == 'graalvm@' && matrix.os != 'windows-latest'
-        run: |
-          ./bin/sbt-ci.sh \
-              "millBloop/compile" \
-              "mavenBloop/compile" \
-              "gradleBloop211/compile" \
-              "gradleBloop212/compile" \
-              "gradleBloop212/test" \
-              "sbtBloop10Shaded/publishLocal" \
-              "sbtBloop10/scripted" \
-              "benchmarks/jmh:run .*HotBloopBenchmark.* -wi 0 -i 1 -f1 -t1 -p project=with-tests -p projectName=with-tests"
-        shell: bash
+  #test:
+  #  runs-on: ${{ matrix.os }}
+  #  strategy:
+  #    fail-fast: false
+  #    matrix:
+  #      os: [ubuntu-latest, windows-latest, macOS-latest]
+  #      jdk: [graalvm@, adopt@1.11]
+  #  name: ${{ matrix.os }} -- ${{ matrix.jdk }}
+  #  steps:
+  #    - uses: actions/checkout@v1
+  #      with:
+  #        submodules: true
+  #    - uses: olafurpg/setup-scala@v5
+  #      with:
+  #        java-version: ${{ matrix.jdk }}
+  #    - uses: actions/setup-node@v1
+  #      with:
+  #        node-version: "10.x"
+  #    - name: Set up environment
+  #      run: |
+  #        curl -Lo coursier https://git.io/coursier-cli && chmod +x coursier && ./coursier --help
+  #        yarn --help
+  #      shell: bash
+  #    - name: Check formatting
+  #      if: matrix.os != 'windows-latest'
+  #      run: |
+  #        ./bin/sbt-ci.sh \
+  #            "scalafmtCheckAll" \
+  #      shell: bash
+  #    - name: Compile and test main projects
+  #      run: |
+  #        ./bin/sbt-ci.sh \
+  #            "frontend/test:compile" \
+  #            "sbtBloop013/compile" \
+  #            "sbtBloop10/compile" \
+  #            "millBloop/compile" \
+  #            "mavenBloop/compile" \
+  #            "backend/test" \
+  #            "jsBridge06/publishLocal" \
+  #            "jsBridge10/publishLocal" \
+  #            "frontend/testOnly bloop.ScalaVersionsSpec" \
+  #            "frontend/testOnly -bloop.ScalaVersionsSpec" \
+  #            "jsBridge06/test" \
+  #            "jsBridge10/test" \
+  #            "frontend/runMain bloop.util.CommandsDocGenerator --test" \
+  #            "frontend/runMain bloop.util.CommandsDocGenerator --out ../docs/cli-reference.md"
+  #      shell: bash
+  #    - name: Check docs are up-to-date
+  #      run: |
+  #        ./bin/check-good-practices.sh
+  #      shell: bash
+  #    - name: Run launcher tests
+  #      if: matrix.jdk == 'graalvm@'
+  #      run: |
+  #        ./bin/sbt-ci.sh "install" "launcher/test"
+  #      shell: bash
+  #    - name: Run build tool + native tests
+  #      if: matrix.jdk == 'graalvm@' && matrix.os != 'windows-latest'
+  #      run: |
+  #        ./bin/sbt-ci.sh \
+  #            "millBloop/compile" \
+  #            "mavenBloop/compile" \
+  #            "gradleBloop211/compile" \
+  #            "gradleBloop212/compile" \
+  #            "gradleBloop212/test" \
+  #            "sbtBloop10Shaded/publishLocal" \
+  #            "sbtBloop10/scripted" \
+  #            "benchmarks/jmh:run .*HotBloopBenchmark.* -wi 0 -i 1 -f1 -t1 -p project=with-tests -p projectName=with-tests"
+  #      shell: bash
 
   release:
     name: Release Bloop on ${{ matrix.os }} -- ${{ matrix.jdk }}
