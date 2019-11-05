@@ -123,5 +123,5 @@ jobs:
           echo "$BLOOPOID_SSH_PRIVATE_KEY" > "$HOME/.ssh/id_rsa"
           git config --global user.name "Bloopoid"
           git config --global user.email "bloopoid@trashmail.ws"
-          ./bin/sbt-publish-ci.sh "releaseBloop" "docs/docusaurusPublishGhpages"
+          ./bin/sbt-ci-publish.sh "releaseBloop" "docs/docusaurusPublishGhpages"
         shell: bash
