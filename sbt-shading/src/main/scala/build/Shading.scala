@@ -102,6 +102,7 @@ object Shading {
       unshadedJars: Seq[File],
       shadingNamespace: String,
       shadeNamespaces: Set[String],
+      shadeIgnoredNamespaces: Set[String],
       toShadeClasses: Seq[String],
       toShadeJars: Seq[File]
   ) = {
@@ -118,6 +119,14 @@ object Shading {
       rule
     }
 
+    def zap(namespace: String): Zap = {
+      val rule = new Zap
+      rule.setPattern(namespace)
+      rule
+    }
+
+    val ignoredRules = shadeIgnoredNamespaces.toVector.map(zap(_))
+
     val nsRules = shadeNamespaces.toVector.sorted.map { namespace =>
       rename(namespace + ".**", shadingNamespace + ".@0")
     }
@@ -126,7 +135,8 @@ object Shading {
     }
 
     import scala.collection.JavaConverters._
-    val processor = JarJarProcessor(nsRules ++ clsRules, verbose = false, skipManifest = false)
+    val allRules = ignoredRules ++ nsRules ++ clsRules
+    val processor = JarJarProcessor(ignoredRules, verbose = false, skipManifest = false)
     CoursierJarProcessor.run(
       ((baseJar +: unshadedJars) ++ toShadeJars).toArray,
       outputJar,
