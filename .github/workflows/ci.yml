@@ -79,7 +79,6 @@ jobs:
 
   release:
     name: Release Bloop on ${{ matrix.os }} -- ${{ matrix.jdk }}
-    needs: test
     runs-on: ${{ matrix.os }}
     if: github.event == 'push'
     strategy:
