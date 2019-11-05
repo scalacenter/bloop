@@ -20,6 +20,7 @@ object BloopShadingPlugin extends AutoPlugin {
 
   val shadingNamespace = SettingKey[String]("shading-namespace")
   val shadeNamespaces = SettingKey[Set[String]]("shade-namespaces")
+  val shadeIgnoredNamespaces = SettingKey[Set[String]]("shade-ignored-namespaces")
   val toShadeJars = TaskKey[Seq[File]]("to-shade-jars")
   val toShadeClasses = TaskKey[Seq[String]]("to-shade-classes")
 
@@ -37,6 +38,7 @@ object BloopShadingPlugin extends AutoPlugin {
      * Allows to speed the shading phase, if everything under some namespaces is to be shaded.
      */
     val shadeNamespaces = BloopShadingPlugin.shadeNamespaces
+    val shadeIgnoredNamespaces = BloopShadingPlugin.shadeIgnoredNamespaces
     val toShadeJars = BloopShadingPlugin.toShadeJars
     val toShadeClasses = BloopShadingPlugin.toShadeClasses
 
@@ -51,6 +53,7 @@ object BloopShadingPlugin extends AutoPlugin {
           unshadedJars,
           namespace,
           shadeNamespaces.value,
+          shadeIgnoredNamespaces.value,
           toShadeClasses.value,
           toShadeJars.value
         )

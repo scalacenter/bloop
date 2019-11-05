@@ -141,10 +141,13 @@ object BloopDefaults {
       (if (bloopClassifiers.isEmpty) old else bloopClassifiers.get).toList
     },
     BloopKeys.bloopIsMetaBuild := {
+      /*
       val buildStructure = Keys.loadedBuild.value
       val baseDirectory = new File(buildStructure.root)
       val isMetaBuild = Keys.sbtPlugin.in(LocalRootProject).value
       isMetaBuild && baseDirectory.getAbsolutePath != cwd
+       */
+      false
     },
     Keys.onLoad := {
       val oldOnLoad = Keys.onLoad.value

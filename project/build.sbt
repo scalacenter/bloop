@@ -1,21 +1,12 @@
 val mvnVersion = "3.6.1"
 val mvnPluginToolsVersion = "3.6.0"
 
+// Create a proxy project instead of depending on plugin directly to work around https://github.com/sbt/sbt/issues/892
 val `bloop-shaded-plugin` = project
   .settings(
     sbtPlugin := true,
     exportJars := true,
-    scalaVersion := "2.12.9",
-    bloopGenerate in Compile := None,
-    bloopGenerate in Test := None,
-    compileInputs in Compile in compile := {
-      val inputs = (compileInputs in Compile in compile).value
-      val classDir = (classDirectory in Compile).value
-      val shadingJar = baseDirectory.value.getParentFile / "project" / "target" / "sbt-bloop-build-shaded" / "target" / "scala-2.12" / "sbt-1.0" / "sbt-bloop-build-shaded-raw-1.0.0-SNAPSHOT-shading.jar"
-      IO.unzip(shadingJar, classDir)
-      IO.delete(classDir / "META-INF" / "MANIFEST.MF")
-      inputs
-    }
+    libraryDependencies += "ch.epfl.scala" %% "sbt-bloop-build-shaded-naked" % "1.0.0-SNAPSHOT"
   )
 
 updateOptions := updateOptions.value.withLatestSnapshots(false)
@@ -24,7 +15,6 @@ val `bloop-build` = project
   .dependsOn(`bloop-shaded-plugin`)
   .settings(
     exportJars := true,
-    scalaVersion := "2.12.9",
     addSbtPlugin("com.dwijnand" % "sbt-dynver" % "3.1.0"),
     addSbtPlugin("ohnosequences" % "sbt-github-release" % "0.6.0"),
     addSbtPlugin("org.scalameta" % "sbt-scalafmt" % "2.0.4"),
