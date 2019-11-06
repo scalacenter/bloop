@@ -33,6 +33,7 @@ import scala.meta.jsonrpc.{BaseProtocolMessage, LanguageClient, LanguageServer, 
 import scala.collection.mutable
 import bloop.logging.Logger
 import bloop.cli.ExitStatus
+import bloop.util.CrossPlatform
 import monix.reactive.subjects.BehaviorSubject
 
 abstract class BspBaseSuite extends BaseSuite with BspClientTest {
@@ -301,7 +302,11 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
         result <- f(client)
       } yield result
 
-      TestUtil.await(30, TimeUnit.SECONDS)(session)
+      val timeout =
+        if (CrossPlatform.isWindows) FiniteDuration(60, TimeUnit.SECONDS)
+        else FiniteDuration(30, TimeUnit.SECONDS)
+
+      TestUtil.await(timeout)(session)
     }
 
     def scalaOptions(project: TestProject): (ManagedBspTestState, bsp.ScalacOptionsResult) = {
