@@ -5,7 +5,6 @@ val mvnPluginToolsVersion = "3.6.0"
 val `bloop-shaded-plugin` = project
   .settings(
     sbtPlugin := true,
-    exportJars := true,
     libraryDependencies += "ch.epfl.scala" %% "sbt-bloop-build-shaded-naked" % "1.0.0-SNAPSHOT"
   )
 

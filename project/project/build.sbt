@@ -143,7 +143,7 @@ val sbtBloopBuildShadedJar = project
 
 // Create a proxy project instead of depending on plugin directly to work around https://github.com/sbt/sbt/issues/892
 val sbtBloopBuildShadedNakedJar = project
-  .in(file("target")./("sbt-bloop-build-shaded-naked"))
+  .in(file("sbt-bloop-build-shaded-naked"))
   .settings(sharedSettings)
   .settings(
     name := "sbt-bloop-build-shaded-naked",
@@ -160,6 +160,7 @@ val sbtBloopBuildShadedNakedJar = project
       val classDirectory = Keys.classDirectory.in(Compile).value
       IO.unzip(packagedPluginJar.toFile, classDirectory)
       IO.delete(classDirectory / "META-INF")
+      IO.delete(classDirectory / "sbt" / "sbt.autoplugins")
 
       List(classDirectory)
     }
@@ -168,9 +169,9 @@ val sbtBloopBuildShadedNakedJar = project
 val root = project
   .in(file("."))
   .settings(sharedSettings)
+  .dependsOn(sbtBloopBuildShadedNakedJar)
   .settings(
     sbtPlugin := true,
-    libraryDependencies += "ch.epfl.scala" %% "sbt-bloop-build-shaded-naked" % "1.0.0-SNAPSHOT",
     update := update
       .dependsOn(publishLocal in Compile in sbtBloopBuildShadedJar)
       .dependsOn(publishLocal in Compile in sbtBloopBuildShadedNakedJar)
