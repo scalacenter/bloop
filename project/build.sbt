@@ -25,6 +25,7 @@ val `bloop-build` = project
   .settings(
     exportJars := true,
     scalaVersion := "2.12.9",
+    addSbtPlugin("com.jsuereth" % "sbt-pgp" % "2.0.0"),
     addSbtPlugin("com.dwijnand" % "sbt-dynver" % "3.1.0"),
     addSbtPlugin("ohnosequences" % "sbt-github-release" % "0.6.0"),
     addSbtPlugin("org.scalameta" % "sbt-scalafmt" % "2.0.4"),
