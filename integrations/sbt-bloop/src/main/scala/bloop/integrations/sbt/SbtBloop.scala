@@ -1002,7 +1002,7 @@ object BloopDefaults {
           }
           // format: ON
 
-          bloop.config.write(config, outFile.toPath)
+          writeConfigAtomically(config, outFile.toPath)
 
           // Only shorten path for configuration files written to the the root build
           val allInRoot = BloopKeys.bloopAggregateSourceDependencies.in(Global).value
@@ -1020,6 +1020,23 @@ object BloopDefaults {
           Some(outFile)
         }
     }
+  }
+
+  /**
+   * Write configuration to target file atomically. We achieve atomic semantics
+   * by writing to a temporary file first and then moving.
+   * 
+   * An atomic write is required to avoid clients of this target file to see an
+   * empty file and attempt to parse it (and fail). This empty file is caused
+   * by, for example, `Files.write` whose semantics truncates the size of the
+   * file to zero if it exists. If, for some reason, the clients access the
+   * file while write is ongoing, then they will see it empty and fail.
+   */
+  private def writeConfigAtomically(config: Config.File, target: Path): Unit = {
+    // Create unique tmp path so that move is always atomic (avoids copies across file systems!)
+    val tmpPath = target.resolve(target.getParent.resolve(target.getFileName + ".tmp"))
+    bloop.config.write(config, tmpPath)
+    Files.move(tmpPath, target, StandardCopyOption.REPLACE_EXISTING)
   }
 
   private final val allJson = sbt.GlobFilter("*.json")
@@ -1180,11 +1197,7 @@ object BloopDefaults {
             }
 
             val newConfig = Config.File(Config.File.LatestVersion, newGeneratedProject)
-            // Copy somewhere else and then move to make an atomic replacement
-            val tempConfigFile =
-              Files.createTempFile("bloop-config", generated.outPath.getFileName.toString)
-            bloop.config.write(newConfig, tempConfigFile)
-            Files.move(tempConfigFile, generated.outPath, StandardCopyOption.REPLACE_EXISTING)
+            writeConfigAtomically(newConfig, generated.outPath)
 
             ()
           }
