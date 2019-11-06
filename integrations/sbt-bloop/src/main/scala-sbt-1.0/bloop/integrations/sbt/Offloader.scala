@@ -656,7 +656,12 @@ object Offloader {
     Def.taskDyn {
       val config = Keys.configuration.value
 
-      val isCompilationDisabled = BloopKeys.bloopGenerate.taskValue.work.isInstanceOf[sbt.Pure[_]]
+      val isCompilationDisabled = {
+        // The task mapped to bloopGenerate and scoped by sbt-bloop is never of type Pure
+        // This is the type of the task when users override with `bloopGenerate in Compile := None`
+        BloopKeys.bloopGenerate.taskValue.work.isInstanceOf[sbt.Pure[_]] ||
+        BloopCompileKeys.bloopDisableCompilation.value
+      }
 
       // Depend on classpath config to force derive to scope everywhere it's available
       val _ = Keys.classpathConfiguration.value
@@ -670,7 +675,13 @@ object Offloader {
     }
   }
 
+  def bloopDisableCompilationTask: Def.Initialize[Task[Boolean]] = ProjectUtils.inlinedTask(false)
+
   object BloopCompileKeys {
+    val bloopDisableCompilation: TaskKey[Boolean] = sbt
+      .taskKey[Boolean]("Disable bloop-based compilation for a project")
+      .withRank(KeyRanks.Invisible)
+
     val bloopCompileStateInternal: TaskKey[Option[BloopCompileState]] = sbt
       .taskKey[Option[BloopCompileState]]("Obtain the compile state for an sbt shell session")
       .withRank(KeyRanks.Invisible)
@@ -728,6 +739,7 @@ object Offloader {
   )
 
   lazy val bloopCompileProjectSettings: Seq[Def.Setting[_]] = List(
+    BloopCompileKeys.bloopDisableCompilation.set(bloopDisableCompilationTask, sbtBloopPosition),
     BloopCompileKeys.bloopCleanInternal.set(bloopClean, sbtBloopPosition),
     Keys.clean.set(Keys.clean.dependsOn(BloopCompileKeys.bloopCleanInternal), sbtBloopPosition)
   )
