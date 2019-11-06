@@ -25,7 +25,6 @@ val `bloop-build` = project
   .settings(
     exportJars := true,
     scalaVersion := "2.12.9",
-    addSbtPlugin("com.jsuereth" % "sbt-pgp" % "2.0.0"),
     addSbtPlugin("com.dwijnand" % "sbt-dynver" % "3.1.0"),
     addSbtPlugin("ohnosequences" % "sbt-github-release" % "0.6.0"),
     addSbtPlugin("org.scalameta" % "sbt-scalafmt" % "2.0.4"),
@@ -33,7 +32,7 @@ val `bloop-build` = project
     addSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.3.3"),
     addSbtPlugin("com.eed3si9n" % "sbt-assembly" % "0.14.6"),
     addSbtPlugin("com.typesafe.sbt" % "sbt-git" % "0.9.3"),
-    addSbtPlugin("ch.epfl.scala" % "sbt-release-early" % "2.1.1"),
+    addSbtPlugin("ch.epfl.scala" % "sbt-release-early" % "2.1.1+3-89916524"),
     addSbtPlugin("com.typesafe.sbt" % "sbt-site" % "1.3.1"),
     addSbtPlugin("com.typesafe.sbt" % "sbt-ghpages" % "0.6.2"),
     addSbtPlugin("org.scalameta" % "sbt-mdoc" % "1.2.10"),

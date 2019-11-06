@@ -4,7 +4,7 @@ import java.io.File
 
 import bintray.BintrayKeys
 import ch.epfl.scala.sbt.release.Feedback
-import _root_.com.typesafe.sbt.SbtPgp.{autoImport => Pgp}
+import com.jsuereth.sbtpgp.SbtPgp.{autoImport => Pgp}
 import sbt.{AutoPlugin, BuildPaths, Def, Keys, PluginTrigger, Plugins, State, Task, ThisBuild, uri}
 import sbt.io.IO
 import sbt.io.syntax.fileToRichFile
@@ -20,7 +20,7 @@ import build.BloopShadingPlugin.{autoImport => BloopShadingKeys}
 object BuildPlugin extends AutoPlugin {
   import sbt.plugins.JvmPlugin
   import sbt.plugins.IvyPlugin
-  import _root_.com.typesafe.sbt.SbtPgp
+  import com.jsuereth.sbtpgp.SbtPgp
   import ch.epfl.scala.sbt.release.ReleaseEarlyPlugin
 
   override def trigger: PluginTrigger = allRequirements
