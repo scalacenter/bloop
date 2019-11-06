@@ -120,11 +120,13 @@ jobs:
           mkdir "$HOME/.ssh"
           mkdir "$HOME/.sbt"
           mkdir "$HOME/.sbt/gpg"
+          git config --global user.name "Bloopoid"
+          git config --global user.email "bloopoid@trashmail.ws"
           echo "$PGP_PUBLIC_KEY" > "$HOME/.sbt/gpg/pubring.asc"
           echo "$PGP_PRIVATE_KEY" > "$HOME/.sbt/gpg/secring.asc"
           echo "$BLOOPOID_SSH_PUBLIC_KEY" > "$HOME/.ssh/id_rsa.pub"
           echo "$BLOOPOID_SSH_PRIVATE_KEY" > "$HOME/.ssh/id_rsa"
-          git config --global user.name "Bloopoid"
-          git config --global user.email "bloopoid@trashmail.ws"
+          gpg --import "$HOME/.sbt/gpg/secring.asc"
+          gpg --list-key
           ./bin/sbt-ci-publish.sh "releaseBloop" "docs/docusaurusPublishGhpages"
         shell: bash
