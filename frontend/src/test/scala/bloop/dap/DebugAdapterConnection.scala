@@ -40,16 +40,16 @@ private[dap] final class DebugAdapterConnection(
     }
   )
 
-  def initialize(): Task[Response[Capabilities]] = {
+  def initialize(): Task[Capabilities] = {
     val arguments = new InitializeArguments()
     adapter.request(Initialize, arguments)
   }
 
-  def configurationDone(): Task[Response[Unit]] = {
+  def configurationDone(): Task[Unit] = {
     adapter.request(ConfigurationDone, ())
   }
 
-  def launch(): Task[Response[Unit]] = {
+  def launch(): Task[Unit] = {
     val arguments = new LaunchArguments
     arguments.noDebug = true
     adapter.request(Launch, arguments)
@@ -63,7 +63,7 @@ private[dap] final class DebugAdapterConnection(
     }
   }
 
-  def disconnect(restart: Boolean): Task[Response[Unit]] = {
+  def disconnect(restart: Boolean): Task[Unit] = {
     val arguments = new DisconnectArguments
     arguments.restart = restart
     for {

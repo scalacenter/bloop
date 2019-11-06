@@ -1,24 +1,22 @@
 package bloop.dap
 
 import bloop.TestSchedulers
+import bloop.bsp.BloopBspDefinitions.BloopExtraBuildParams
 import bloop.bsp.BspBaseSuite
 import bloop.cli.{BspProtocol, Commands}
 import bloop.engine.State
 import bloop.io.AbsolutePath
 import bloop.logging.BspClientLogger
-import bloop.bsp.BloopBspDefinitions.BloopExtraBuildParams
-
-import monix.execution.Scheduler
-
 import ch.epfl.scala.bsp
-
+import monix.execution.Scheduler
 import scala.collection.mutable
 import scala.concurrent.Promise
 
 abstract class DebugBspBaseSuite extends BspBaseSuite {
   protected val debugDefaultScheduler: Scheduler =
     TestSchedulers.async("debug-bsp-default", threads = 5)
-  override def protocol: BspProtocol = BspProtocol.Local
+
+  override def protocol: BspProtocol = if (isWindows) BspProtocol.Tcp else BspProtocol.Local
 
   override def openBspConnection[T](
       state: State,

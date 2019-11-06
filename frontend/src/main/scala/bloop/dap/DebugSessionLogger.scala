@@ -52,11 +52,11 @@ final class DebugSessionLogger(
   override def info(msg: String): Unit = {
     underlying.info(msg)
 
-    import DebugSessionLogger.ListeningMessagePrefix
+    import DebugSessionLogger.JDINotificationPrefix
     // Expect the first log to be JDI notification since debuggee runs with `quiet=n` JDI option
-    if (msg.startsWith(ListeningMessagePrefix)) {
+    if (msg.startsWith(JDINotificationPrefix)) {
       if (initialized.compareAndSet(false, true)) {
-        val port = Integer.parseInt(msg.drop(ListeningMessagePrefix.length))
+        val port = Integer.parseInt(msg.drop(JDINotificationPrefix.length))
         val address = new InetSocketAddress("localhost", port)
         listener(address)
       }
@@ -72,5 +72,5 @@ final class DebugSessionLogger(
 }
 
 object DebugSessionLogger {
-  val ListeningMessagePrefix = "Listening for transport dt_socket at address: "
+  val JDINotificationPrefix = "Listening for transport dt_socket at address: "
 }

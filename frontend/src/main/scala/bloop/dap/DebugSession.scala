@@ -5,6 +5,7 @@ import java.util.concurrent.CancellationException
 import java.util.concurrent.TimeUnit
 import java.util.logging.{Handler, Level, LogRecord, Logger => JLogger}
 import bloop.logging.{DebugFilter, Logger}
+import bloop.cli.{ExitStatus => DebuggeeExitStatus}
 import com.microsoft.java.debug.core.adapter.{ProtocolServer => DapServer}
 import com.microsoft.java.debug.core.protocol.Messages.{Request, Response}
 import com.microsoft.java.debug.core.protocol.Requests._
@@ -84,12 +85,19 @@ final class DebugSession(
           }
         }
 
+        def cancelIfError(exitStatus: DebuggeeExitStatus): Unit = {
+          if (!exitStatus.isOk) {
+            cancelPromises(new Exception(exitStatus.name))
+          }
+        }
+
         Task(super.run()).runAsync(ioScheduler)
 
         val logger = new DebugSessionLogger(this, addr => debugAddress.success(addr), initialLogger)
 
         // all output events are sent before debuggee task gets finished
         val debuggee = runner(logger)
+          .transform(cancelIfError, cancelPromises)
           .doOnFinish(terminateGracefully)
           .doOnCancel(terminateGracefully(None))
           .runAsync(ioScheduler)
@@ -113,7 +121,7 @@ final class DebugSession(
             case Success(address) =>
               super.dispatchRequest(DebugSession.toAttachRequest(requestId, address))
             case Failure(exception) =>
-              val cause = s"Could not start debuggee due to ${exception.getCause}"
+              val cause = s"Could not start debuggee due to: ${exception.getMessage}"
               this.sendResponse(DebugSession.failed(request, cause))
               attachedPromise.tryFailure(new IllegalStateException(cause))
               ()
@@ -147,6 +155,7 @@ final class DebugSession(
 
           state.transform {
             case DebugSession.Started(debuggee) =>
+              cancelPromises(new CancellationException("Client disconnected"))
               cancelDebuggee(debuggee)
               super.dispatchRequest(request)
               DebugSession.Cancelled
@@ -230,6 +239,7 @@ final class DebugSession(
         DebugSession.Cancelled
 
       case DebugSession.Started(debuggee) =>
+        cancelPromises(new CancellationException("Debug session cancelled"))
         cancelDebuggee(debuggee)
         scheduleForcedEndOfConnection()
         DebugSession.Cancelled
@@ -239,11 +249,14 @@ final class DebugSession(
   }
 
   private def cancelDebuggee(debuggee: Cancelable): Unit = {
-    val cause = new CancellationException("Debug session cancelled")
-    debugAddress.tryFailure(cause)
-    attachedPromise.tryFailure(cause)
     loggerAdapter.onDebuggeeFinished()
     debuggee.cancel()
+  }
+
+  private def cancelPromises(cause: Throwable): Unit = {
+    debugAddress.tryFailure(cause)
+    attachedPromise.tryFailure(cause)
+    ()
   }
 }
 
@@ -253,13 +266,13 @@ object DebugSession {
   final case object Terminated extends ExitStatus
 
   sealed trait State
-  final case class Idle(runner: DebugSessionLogger => Task[Unit]) extends State
+  final case class Idle(runner: DebugSessionLogger => Task[DebuggeeExitStatus]) extends State
   final case class Started(debuggee: Cancelable) extends State
   final case object Cancelled extends State
 
   def apply(
       socket: Socket,
-      startDebuggee: DebugSessionLogger => Task[Unit],
+      startDebuggee: DebugSessionLogger => Task[DebuggeeExitStatus],
       initialLogger: Logger,
       ioScheduler: Scheduler
   ): DebugSession = {

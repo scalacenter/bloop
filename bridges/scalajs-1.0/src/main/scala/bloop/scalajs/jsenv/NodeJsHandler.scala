@@ -73,7 +73,7 @@ final class NodeJsHandler(logger: Logger, exit: Promise[Unit], files: List[Virtu
       if (!remaining.isEmpty)
         logger.info(remaining)
     } else {
-      Forker.linesFrom(buffer, outBuilder).foreach(logger.info(_))
+      Forker.onEachLine(buffer, outBuilder)(logger.info(_))
     }
   }
 
@@ -84,7 +84,7 @@ final class NodeJsHandler(logger: Logger, exit: Promise[Unit], files: List[Virtu
       if (!remaining.isEmpty)
         logger.info(remaining)
     } else {
-      Forker.linesFrom(buffer, outBuilder).foreach(logger.info(_))
+      Forker.onEachLine(buffer, outBuilder)(logger.info(_))
     }
   }
 

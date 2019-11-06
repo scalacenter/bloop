@@ -28,7 +28,7 @@ private[dap] final class DebugAdapterProxy(
   private val requests = mutable.Map.empty[Int, Promise[Messages.Response]]
   val events = new DebugEvents()
 
-  def request[A, B](endpoint: DebugTestProtocol.Request[A, B], parameters: A): Task[Response[B]] = {
+  def request[A, B](endpoint: DebugTestProtocol.Request[A, B], parameters: A): Task[B] = {
     val message = endpoint.serialize(parameters)
     val response = send(message)
     response.flatMap(endpoint.deserialize)
