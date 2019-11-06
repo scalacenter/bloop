@@ -127,10 +127,5 @@ jobs:
           echo "$PGP_PRIVATE_KEY" > "$HOME/.sbt/gpg/secring.asc"
           echo "$BLOOPOID_SSH_PUBLIC_KEY" > "$HOME/.ssh/id_rsa.pub"
           echo "$BLOOPOID_SSH_PRIVATE_KEY" > "$HOME/.ssh/id_rsa"
-          gpg --import --no-tty --batch --yes "$HOME/.sbt/gpg/secring.asc"
-          gpg --list-key
-          echo "no-tty" >> ~/.gnupg/gpg.conf
-          mkdir -p ~/.gnupg/private-keys-v1.d
-          chmod 700 ~/.gnupg/private-keys-v1.d
           ./bin/sbt-ci-publish.sh "releaseBloop" "docs/docusaurusPublishGhpages"
         shell: bash

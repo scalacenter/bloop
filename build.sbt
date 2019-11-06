@@ -1,6 +1,8 @@
 import _root_.bloop.integrations.sbt.BloopDefaults
 import build.BuildImplementation.BuildDefaults
 
+useGpg in Global := false
+
 // Tell bloop to aggregate source deps (benchmark) config files in the same bloop config dir
 bloopAggregateSourceDependencies in Global := true
 
