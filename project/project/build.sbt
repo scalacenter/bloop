@@ -138,9 +138,7 @@ val sbtBloopBuildShadedJar = project
         )
       }
 
-      //cacheShading(inputs).head
-      build.Shading
-        .createPackage(packagedBin, Nil, namespace, namespaces, ignored, classes, jars)
+      cacheShading(inputs).head
     }
   )
 
