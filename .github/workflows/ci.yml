@@ -120,6 +120,7 @@ jobs:
           mkdir "$HOME/.ssh"
           mkdir "$HOME/.sbt"
           mkdir "$HOME/.sbt/gpg"
+          export GPG_TTY=$(tty)
           git config --global user.name "Bloopoid"
           git config --global user.email "bloopoid@trashmail.ws"
           echo "$PGP_PUBLIC_KEY" > "$HOME/.sbt/gpg/pubring.asc"
