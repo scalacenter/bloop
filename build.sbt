@@ -290,7 +290,7 @@ lazy val bloopgun: Project = project
     }
   )
 
-def shadeSettingsForModule( moduleId: String, module: Reference) = List(
+def shadeSettingsForModule(moduleId: String, module: Reference) = List(
   packageBin in Compile := {
     Def.taskDyn {
       val baseJar = Keys.packageBin.in(module).in(Compile).value

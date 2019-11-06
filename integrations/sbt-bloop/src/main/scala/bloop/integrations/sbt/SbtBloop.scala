@@ -1025,7 +1025,7 @@ object BloopDefaults {
   /**
    * Write configuration to target file atomically. We achieve atomic semantics
    * by writing to a temporary file first and then moving.
-   * 
+   *
    * An atomic write is required to avoid clients of this target file to see an
    * empty file and attempt to parse it (and fail). This empty file is caused
    * by, for example, `Files.write` whose semantics truncates the size of the
