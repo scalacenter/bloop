@@ -13,7 +13,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest, macOS-latest]
         jdk: [graalvm@, adopt@1.11]
-    name: ${{ matrix.os }} -- ${{ matrix.jdk }}
+    name: Test ${{ matrix.os }} -- ${{ matrix.jdk }}
     steps:
       - uses: actions/checkout@v1
         with:
@@ -77,7 +77,8 @@ jobs:
         shell: bash
 
   release:
-    name: Release Bloop on ${{ matrix.os }} -- ${{ matrix.jdk }}
+    name: Publish on ${{ matrix.os }}
+    needs: test
     runs-on: ${{ matrix.os }}
     if: github.event_name == 'push'
     strategy:
