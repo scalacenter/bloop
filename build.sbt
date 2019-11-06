@@ -379,6 +379,10 @@ lazy val launcherShaded = project
     fork in Test := true,
     bloopGenerate in Compile := None,
     bloopGenerate in Test := None,
+    libraryDependencies ++= List(
+      "net.java.dev.jna" % "jna" % "4.5.0",
+      "net.java.dev.jna" % "jna-platform" % "4.5.0"
+    )
   )
 
 lazy val bloop4j = project
