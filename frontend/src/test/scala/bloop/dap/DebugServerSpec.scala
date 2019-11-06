@@ -3,7 +3,7 @@ package bloop.dap
 import java.net.{ConnectException, SocketException, SocketTimeoutException}
 import java.util.NoSuchElementException
 import java.util.concurrent.TimeUnit.{MILLISECONDS, SECONDS}
-import bloop.cli._
+import bloop.cli.ExitStatus
 import bloop.logging.RecordingLogger
 import bloop.util.{TestProject, TestUtil}
 import ch.epfl.scala.bsp.ScalaMainClass
