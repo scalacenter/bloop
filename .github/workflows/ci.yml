@@ -93,6 +93,7 @@ jobs:
       BINTRAY_USER: ${{ secrets.BINTRAY_USER }}
       BINTRAY_PASS: ${{ secrets.BINTRAY_PASSWORD }}
       PGP_PASSWORD: ${{ secrets.PGP_PASSWORD }}
+      PGP_PASSPHRASE: ${{ secrets.PGP_PASSWORD }}
       PGP_PUBLIC_KEY: ${{ secrets.PGP_PUBLIC_KEY }}
       PGP_PRIVATE_KEY: ${{ secrets.PGP_PRIVATE_KEY }}
       BLOOPOID_GITHUB_TOKEN: ${{ secrets.BLOOPOID_GITHUB_TOKEN }}
@@ -120,7 +121,6 @@ jobs:
           mkdir "$HOME/.ssh"
           mkdir "$HOME/.sbt"
           mkdir "$HOME/.sbt/gpg"
-          export GPG_TTY=$(tty)
           git config --global user.name "Bloopoid"
           git config --global user.email "bloopoid@trashmail.ws"
           echo "$PGP_PUBLIC_KEY" > "$HOME/.sbt/gpg/pubring.asc"
@@ -129,5 +129,8 @@ jobs:
           echo "$BLOOPOID_SSH_PRIVATE_KEY" > "$HOME/.ssh/id_rsa"
           gpg --import --no-tty --batch --yes "$HOME/.sbt/gpg/secring.asc"
           gpg --list-key
+          echo "no-tty" >> ~/.gnupg/gpg.conf
+          mkdir -p ~/.gnupg/private-keys-v1.d
+          chmod 700 ~/.gnupg/private-keys-v1.d
           ./bin/sbt-ci-publish.sh "releaseBloop" "docs/docusaurusPublishGhpages"
         shell: bash
