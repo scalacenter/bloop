@@ -118,10 +118,9 @@ jobs:
           yarn install
           touch ~/.profile
           mkdir "$HOME/.ssh"
-          mkdir "$HOME/.sbt"
-          mkdir "$HOME/.sbt/gpg"
-          echo "$PGP_PUBLIC_KEY" > "$HOME/.sbt/gpg/pubring.asc"
-          echo "$PGP_PRIVATE_KEY" > "$HOME/.sbt/gpg/secring.asc"
+          mkdir "$HOME/.gnupg"
+          echo "$PGP_PUBLIC_KEY" > "$HOME/.gnupg/pubring.asc"
+          echo "$PGP_PRIVATE_KEY" > "$HOME/.gnupg/secring.asc"
           echo "$BLOOPOID_SSH_PUBLIC_KEY" > "$HOME/.ssh/id_rsa.pub"
           echo "$BLOOPOID_SSH_PRIVATE_KEY" > "$HOME/.ssh/id_rsa"
           git config --global user.name "Bloopoid"
