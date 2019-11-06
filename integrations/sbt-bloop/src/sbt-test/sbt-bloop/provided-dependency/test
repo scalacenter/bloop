@@ -1,0 +1,7 @@
+> foo/bloopGenerate
+> foo/test:bloopGenerate
+> bar/bloopGenerate
+> bar/test:bloopGenerate
+> baz/bloopGenerate
+> baz/test:bloopGenerate
+> checkBloopFiles

@@ -17,7 +17,6 @@ val baz = project.dependsOn(bar % "compile->test")
 val woo = project.dependsOn(foo % "test->compile")
 val yay = project.dependsOn(foo)
 val zee = project.configs(IntegrationTest).dependsOn(foo % "it->test")
-val ziz = project.dependsOn(foo % Provided)
 
 val allBloopConfigFiles = settingKey[List[File]]("All config files to test")
 allBloopConfigFiles in ThisBuild := {
@@ -35,8 +34,6 @@ allBloopConfigFiles in ThisBuild := {
   val zeeConfig = bloopDir./("zee.json")
   val zeeTestConfig = bloopDir./("zee-test.json")
   val zeeItConfig = bloopDir./("zee-it.json")
-  val zizConfig = bloopDir./("ziz.json")
-  val zizTestConfig = bloopDir./("ziz-test.json")
   List(
     fooConfig,
     fooTestConfig,
@@ -50,9 +47,7 @@ allBloopConfigFiles in ThisBuild := {
     yayTestConfig,
     zeeConfig,
     zeeTestConfig,
-    zeeItConfig,
-    zizConfig,
-    zizTestConfig
+    zeeItConfig
   )
 }
 
@@ -86,10 +81,6 @@ checkBloopFile in ThisBuild := {
   // Test that zee-it contains a dependency to foo-test
   val zeeItConfigContents = readConfigFor("zee-it", allConfigs)
   assert(zeeItConfigContents.project.dependencies.sorted == List("foo-test", "zee"))
-
-  // A project depending on another via a provided dependency should export it as a dep
-  //val zizConfigContents = readConfigFor("ziz", allConfigs)
-  //assert(zeeItConfigContents.project.dependencies == List("foo"))
 }
 
 val checkSourceAndDocs = taskKey[Unit]("Check source and doc jars are resolved and persisted")

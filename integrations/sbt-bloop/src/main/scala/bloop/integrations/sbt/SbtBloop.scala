@@ -25,7 +25,8 @@ import sbt.{
   IntegrationTest,
   ThisBuild,
   ThisProject,
-  KeyRanks
+  KeyRanks,
+  Provided
 }
 import xsbti.compile.CompileOrder
 
@@ -155,7 +156,7 @@ object BloopDefaults {
         else runCommandAndRemaining("bloopInstall")(state)
       }
     },
-    BloopKeys.bloopSupportedConfigurations := List(Compile, Test, IntegrationTest)
+    BloopKeys.bloopSupportedConfigurations := List(Compile, Test, IntegrationTest, Provided)
   ) ++ Offloader.bloopCompileGlobalSettings
 
   // From the infamous https://stackoverflow.com/questions/40741244/in-sbt-how-to-execute-a-command-in-task
@@ -489,8 +490,15 @@ object BloopDefaults {
       data: Settings[Scope]
   ): Seq[Configuration] = Keys.ivyConfigurations.in(p).get(data).getOrElse(Nil)
 
-  private val disabledSbtConfigurationNames: List[String] =
-    List(sbt.Runtime, sbt.Default, sbt.Provided, sbt.Optional).map(_.name)
+  private val defaultSbtConfigurationMappings: Map[String, Option[Configuration]] = {
+    List(
+      sbt.Runtime.name -> None,
+      sbt.Default.name -> None,
+      // Transform provided dependencies into compile dependencies
+      sbt.Provided.name -> Some(Compile),
+      sbt.Optional.name -> None
+    ).toMap
+  }
 
   /**
    * Creates a project name from a classpath dependency and its configuration.
@@ -517,27 +525,37 @@ object BloopDefaults {
     }
 
     val ref = dep.project
-    val activeDependentConfigurations = getConfigurations(ref, data)
-    dep.configuration match {
+    val dependencyConfiguration = dep.configuration
+
+    dependencyConfiguration match {
       case Some(_) =>
+        val activeDependentConfigurations = getConfigurations(ref, data)
         val mapping = sbt.Classpaths.mapped(
-          dep.configuration,
+          dependencyConfiguration,
           filterSupported(activeProjectConfigurationNames),
           filterSupported(activeDependentConfigurations.map(_.name)),
           "compile",
           "*->compile"
         )
 
-        mapping(configuration.name) match {
+        val mappedConfiguration = {
+          // We need this to make `Provided` mean `Compile`
+          val mapped = mapping(configuration.name)
+          val retryWithProvided = mapped.isEmpty && configuration == Compile
+          if (retryWithProvided) mapping(Provided.name) else mapped
+        }
+
+        mappedConfiguration match {
           case Nil => Nil
           case configurationNames =>
             val configurations = configurationNames.iterator
               .flatMap(name => activeDependentConfigurations.find(_.name == name).toList)
+              .flatMap(c => defaultSbtConfigurationMappings.getOrElse(c.name, Some(c)).toList)
               .toList
 
             val allDependentConfigurations = configurations
               .flatMap(c => depsFromConfig(c).filterNot(_ == c))
-              .filterNot(c => disabledSbtConfigurationNames.contains(c.name))
+              .flatMap(c => defaultSbtConfigurationMappings.getOrElse(c.name, Some(c)).toList)
 
             val validDependentConfigurations = {
               allDependentConfigurations.flatMap { dc =>
