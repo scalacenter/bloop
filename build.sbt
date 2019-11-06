@@ -77,7 +77,6 @@ lazy val backend = project
   )
 
 val publishJsonModuleSettings = List(
-  sources in (Compile, doc) := Nil,
   publishM2Configuration := publishM2Configuration.value.withOverwrite(true),
   publishLocalConfiguration := publishLocalConfiguration.value.withOverwrite(true),
   // We compile in both so that the maven integration can be tested locally
@@ -774,6 +773,40 @@ val bloop = project
     commands += BuildDefaults.exportProjectsInTestResourcesCmd,
     buildIntegrationsBase := (Keys.baseDirectory in ThisBuild).value / "build-integrations",
     twitterDodo := buildIntegrationsBase.value./("build-twitter"),
+    releaseEarlyAllModules := {
+      BuildDefaults
+        .releaseEarlyAllModules(
+          List(
+            bloopShared,
+            backend,
+            frontend,
+            jsonConfig210,
+            jsonConfig211,
+            jsonConfig212,
+            jsonConfig213,
+            sbtBloop013,
+            sbtBloop10,
+            sbtBloop013Shaded,
+            sbtBloop10Shaded,
+            mavenBloop,
+            gradleBloop211,
+            gradleBloop212,
+            millBloop,
+            nativeBridge03,
+            nativeBridge04,
+            jsBridge06,
+            jsBridge10,
+            sockets,
+            bloopgun,
+            launcher,
+            bloopgunShaded,
+            launcherShaded,
+            buildpressConfig,
+            buildpress
+          )
+        )
+        .value
+    },
     exportCommunityBuild := {
       build.BuildImplementation
         .exportCommunityBuild(
@@ -859,36 +892,5 @@ addCommandAlias(
   ).mkString(";", ";", "")
 )
 
-val releaseEarlyCmd = releaseEarly.key.label
-
-val allBloopReleases = List(
-  s"${bloopShared.id}/$releaseEarlyCmd",
-  s"${backend.id}/$releaseEarlyCmd",
-  s"${frontend.id}/$releaseEarlyCmd",
-  s"${jsonConfig210.id}/$releaseEarlyCmd",
-  s"${jsonConfig211.id}/$releaseEarlyCmd",
-  s"${jsonConfig212.id}/$releaseEarlyCmd",
-  s"${jsonConfig213.id}/$releaseEarlyCmd",
-  s"${sbtBloop013.id}/$releaseEarlyCmd",
-  s"${sbtBloop10.id}/$releaseEarlyCmd",
-  s"${sbtBloop013Shaded.id}/$releaseEarlyCmd",
-  s"${sbtBloop10Shaded.id}/$releaseEarlyCmd",
-  //s"${mavenBloop.id}/$releaseEarlyCmd",
-  s"${gradleBloop211.id}/$releaseEarlyCmd",
-  s"${gradleBloop212.id}/$releaseEarlyCmd",
-  s"${millBloop.id}/$releaseEarlyCmd",
-  s"${nativeBridge03.id}/$releaseEarlyCmd",
-  s"${nativeBridge04.id}/$releaseEarlyCmd",
-  s"${jsBridge06.id}/$releaseEarlyCmd",
-  s"${jsBridge10.id}/$releaseEarlyCmd",
-  s"${sockets.id}/$releaseEarlyCmd",
-  s"${bloopgun.id}/$releaseEarlyCmd",
-  s"${launcher.id}/$releaseEarlyCmd",
-  s"${bloopgunShaded.id}/$releaseEarlyCmd",
-  s"${launcherShaded.id}/$releaseEarlyCmd",
-  s"${buildpressConfig.id}/$releaseEarlyCmd",
-  s"${buildpress.id}/$releaseEarlyCmd"
-)
-
-val allReleaseActions = allBloopReleases ++ List("sonatypeReleaseAll")
+val allReleaseActions = List("releaseEarlyAllModules", "sonatypeBundleRelease")
 addCommandAlias("releaseBloop", allReleaseActions.mkString(";", ";", ""))

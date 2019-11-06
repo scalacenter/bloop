@@ -5,7 +5,19 @@ import java.io.File
 import bintray.BintrayKeys
 import ch.epfl.scala.sbt.release.Feedback
 import com.jsuereth.sbtpgp.SbtPgp.{autoImport => Pgp}
-import sbt.{AutoPlugin, BuildPaths, Def, Keys, PluginTrigger, Plugins, State, Task, ThisBuild, uri}
+import sbt.{
+  AutoPlugin,
+  BuildPaths,
+  Def,
+  Keys,
+  PluginTrigger,
+  Plugins,
+  State,
+  Task,
+  ThisBuild,
+  uri,
+  Reference
+}
 import sbt.io.IO
 import sbt.io.syntax.fileToRichFile
 import sbt.librarymanagement.syntax.stringToOrganization
@@ -37,7 +49,7 @@ object BuildPlugin extends AutoPlugin {
 }
 
 object BuildKeys {
-  import sbt.{Reference, RootProject, ProjectRef, BuildRef, file, uri}
+  import sbt.{RootProject, ProjectRef, BuildRef, file, uri}
 
   def inProject(ref: Reference)(ss: Seq[Def.Setting[_]]): Seq[Def.Setting[_]] =
     sbt.inScope(sbt.ThisScope.in(project = ref))(ss)
@@ -85,6 +97,7 @@ object BuildKeys {
   val createLocalScoopFormula = Def.taskKey[Unit]("Create local Scoop formula")
   val createLocalArchPackage = Def.taskKey[Unit]("Create local ArchLinux package build files")
   val versionedInstallScript = Def.taskKey[File]("Generate a versioned install script")
+  val releaseEarlyAllModules = Def.taskKey[Unit]("Release early all modules")
   val generateInstallationWitness =
     Def.taskKey[File]("Generate a witness file to know which version is installed locally")
 
@@ -308,11 +321,14 @@ object BuildImplementation {
       (oldResolvers :+ scalametaResolver :+ scalacenterResolver).distinct
     },
     ReleaseEarlyKeys.releaseEarlyWith := {
+      /*
       // Only tag releases go directly to Maven Central, the rest go to bintray!
       val isOnlyTag = DynVerKeys.dynverGitDescribeOutput.value
         .map(v => v.commitSuffix.isEmpty && v.dirtySuffix.value.isEmpty)
       if (isOnlyTag.getOrElse(false)) ReleaseEarlyKeys.SonatypePublisher
       else ReleaseEarlyKeys.BintrayPublisher
+       */
+      ReleaseEarlyKeys.SonatypePublisher
     },
     BintrayKeys.bintrayOrganization := Some("scalacenter"),
     Keys.startYear := Some(2017),
@@ -321,8 +337,8 @@ object BuildImplementation {
     Keys.homepage := Some(ThisRepo),
     Keys.licenses := Seq("Apache-2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0")),
     Keys.developers := List(
-      GitHubDev("Duhemm", "Martin Duhem", "martin.duhem@gmail.com"),
-      GitHubDev("jvican", "Jorge Vicente Cantero", "jorge@vican.me")
+      GitHubDev("jvican", "Jorge Vicente Cantero", "jorge@vican.me"),
+      GitHubDev("Duhemm", "Martin Duhem", "martin.duhem@gmail.com")
     ),
     Keys.scmInfo := Some(
       sbt.ScmInfo(
@@ -363,6 +379,8 @@ object BuildImplementation {
     Keys.scalacOptions := reasonableCompileOptions,
     // Legal requirement: license and notice files must be in the published jar
     Keys.resources in Compile ++= BuildDefaults.getLicense.value,
+    Keys.sources in (Compile, Keys.doc) := Nil,
+    Keys.sources in (Test, Keys.doc) := Nil,
     Keys.publishArtifact in Test := false,
     Keys.publishArtifact in (Compile, Keys.packageDoc) := {
       val output = DynVerKeys.dynverGitDescribeOutput.value
@@ -583,6 +601,17 @@ object BuildImplementation {
       Pgp.PgpKeys.publishSigned.value
     }
 
+    def releaseEarlyAllModules(projects: Seq[sbt.ProjectReference]): Def.Initialize[Task[Unit]] = {
+      Def.taskDyn {
+        val filter = sbt.ScopeFilter(
+          sbt.inProjects(projects: _*),
+          sbt.inConfigurations(sbt.Compile)
+        )
+
+        ReleaseEarlyKeys.releaseEarly.all(filter).map(_ => ())
+      }
+    }
+
     val fixScalaVersionForSbtPlugin: Def.Initialize[String] = Def.setting {
       val orig = Keys.scalaVersion.value
       val is013 = (Keys.sbtVersion in Keys.pluginCrossBuild).value.startsWith("0.13")
@@ -619,7 +648,7 @@ object BuildImplementation {
 
   import java.util.Locale
   import sbt.MessageOnlyException
-  import sbt.{Reference, Compile}
+  import sbt.{Compile}
   import scala.sys.process.Process
   import java.nio.file.Files
   val buildpressHomePath = System.getProperty("user.home") + "/.buildpress"
