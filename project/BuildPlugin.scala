@@ -296,15 +296,7 @@ object BuildImplementation {
     Keys.testOptions in Test += sbt.Tests.Argument("-oD"),
     Keys.onLoadMessage := Header.intro,
     Keys.onLoad := BuildDefaults.bloopOnLoad.value,
-    Keys.publishArtifact in Test := false,
-    Pgp.pgpPublicRing := {
-      if (Keys.insideCI.value) file("/drone/.gnupg/pubring.asc")
-      else Pgp.pgpPublicRing.value
-    },
-    Pgp.pgpSecretRing := {
-      if (Keys.insideCI.value) file("/drone/.gnupg/secring.asc")
-      else Pgp.pgpSecretRing.value
-    }
+    Keys.publishArtifact in Test := false
   )
 
   private final val ThisRepo = GitHub("scalacenter", "bloop")
