@@ -39,16 +39,13 @@ val sbtBloopBuildShadedJar = project
     toShadeClasses := {
       build.Shading.toShadeClasses(
         shadeNamespaces.value,
+        shadeIgnoredNamespaces.value ++ shadeOwnNamespaces.value,
         toShadeJars.value,
         streams.value.log,
         verbose = false
       )
     },
     toShadeJars := {
-      import java.nio.file.{Files, FileSystems}
-      val eclipseJarsUnsignedDir = (Keys.crossTarget.value / "eclipse-jars-unsigned").toPath
-      Files.createDirectories(eclipseJarsUnsignedDir)
-
       val sbtCompileDependencies = (dependencyClasspath in Compile in emptySbtPlugin).value
       val currentCompileDependencies = (fullClasspath in Compile).value
       val currentRuntimeDependencies = (fullClasspath in Runtime).value
@@ -58,31 +55,19 @@ val sbtBloopBuildShadedJar = project
         currentRuntimeDependencies.contains(dep)
       }
 
-      dependenciesToShade.map(_.data).map {
-        path =>
-          val ppath = path.toString
+      import java.nio.file.{Files, FileSystems}
+      val eclipseJarsUnsignedDir = (Keys.crossTarget.value / "eclipse-jars-unsigned").toPath
+      Files.createDirectories(eclipseJarsUnsignedDir)
+      dependenciesToShade.map(_.data).map { path =>
+        val ppath = path.toString
 
-          // Copy over jar and remove signed entries
-          if (!ppath.contains("eclipse")) path
-          else {
-            val targetJar = eclipseJarsUnsignedDir.resolve(path.getName)
-            if (!Files.exists(targetJar)) Files.copy(path.toPath, targetJar)
-            val properties = new java.util.HashMap[String, String]()
-            properties.put("create", "false")
-            val targetUri = java.net.URI.create(s"jar:file:${targetJar.toAbsolutePath.toString}")
-            val fs = FileSystems.newFileSystem(targetUri, properties)
-            try {
-              val metaInfDir = fs.getPath("META-INF")
-              val signatures = List(".SF", ".DSA", ".RSA")
-              if (Files.exists(metaInfDir)) {
-                Files
-                  .list(metaInfDir)
-                  .filter(f => signatures.exists(sig => f.getFileName.toString.endsWith(sig)))
-                  .forEach(f => { Files.delete(f) })
-              }
-            } finally fs.close()
-            targetJar.toFile
-          }
+        // Copy over jar and remove signed entries
+        if (!ppath.contains("eclipse")) path
+        else {
+          val targetJar = eclipseJarsUnsignedDir.resolve(path.getName)
+          build.Shading.deleteSignedJarMetadata(path.toPath, targetJar)
+          targetJar.toFile
+        }
       }
 
     },
@@ -102,7 +87,11 @@ val sbtBloopBuildShadedJar = project
       "shapeless",
       "argonaut",
       "org.checkerframework",
-      "com.google",
+      "com.google.guava",
+      "com.google.common",
+      "com.google.j2objc",
+      "com.google.thirdparty",
+      "com.google.errorprone",
       "org.codehaus",
       "ch.epfl.scala.bsp4j",
       "org.eclipse"
@@ -129,27 +118,26 @@ val sbtBloopBuildShadedJar = project
         throw new NoSuchElementException("shadingNamespace key not set")
       }
 
-      import sbt.util.{FileFunction, FileInfo}
-
       val packagedBin = packageBin.in(Compile).value
       val namespaces = shadeNamespaces.value
-      val ignoredNamespaces = shadeIgnoredNamespaces.value
+      val ignored = shadeIgnoredNamespaces.value
       val classes = toShadeClasses.value
       val jars = toShadeJars.value
 
       val inputs = Keys.sources.in(Compile).value.toSet
       val cacheDirectory = Keys.target.value / "shaded-inputs-cached"
-      /*
+
+      import sbt.util.{FileFunction, FileInfo}
       val cacheShading = FileFunction.cached(cacheDirectory, FileInfo.hash) { srcs =>
         Set(
-          build.Shading.createPackage(packagedBin, Nil, namespace, namespaces, classes, jars)
+          build.Shading
+            .createPackage(packagedBin, Nil, namespace, namespaces, ignored, classes, jars)
         )
       }
 
-      cacheShading(inputs).head
-       */
+      //cacheShading(inputs).head
       build.Shading
-        .createPackage(packagedBin, Nil, namespace, namespaces, ignoredNamespaces, classes, jars)
+        .createPackage(packagedBin, Nil, namespace, namespaces, ignored, classes, jars)
     }
   )
 
@@ -173,27 +161,6 @@ val sbtBloopBuildShadedNakedJar = project
       IO.unzip(packagedPluginJar.toFile, classDirectory)
       IO.delete(classDirectory / "META-INF")
 
-      /*
-      import java.nio.file.{Files, FileSystems}
-      val repackagedClassesDir = (Keys.crossTarget.value / "repackaged").toPath
-      Files.createDirectories(repackagedClassesDir)
-      val repackagedPluginJar = repackagedClassesDir.resolve(packagedPluginJar.getFileName)
-      Files.deleteIfExists(repackagedPluginJar)
-      Files.copy(packagedPluginJar, repackagedPluginJar)
-
-      val properties = new java.util.HashMap[String, String]()
-      properties.put("create", "false")
-      val targetUri =
-        java.net.URI.create(s"jar:file:${repackagedPluginJar.toAbsolutePath.toString}")
-      val fs = FileSystems.newFileSystem(targetUri, properties)
-
-      try {
-        val autopluginsFile = fs.getPath("sbt", "sbt.autoplugins")
-        Files.delete(autopluginsFile)
-      } finally fs.close()
-
-      List(repackagedPluginJar.toFile)
-      */
       List(classDirectory)
     }
   )

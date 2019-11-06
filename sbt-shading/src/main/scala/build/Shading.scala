@@ -4,15 +4,10 @@ import java.io.{File, FileInputStream}
 import java.util.jar.JarInputStream
 import java.util.zip.{ZipEntry, ZipInputStream}
 
-/*
-import com.tonicsystems.jarjar.classpath.ClassPath
-import com.tonicsystems.jarjar.transform.JarTransformer
-import com.tonicsystems.jarjar.transform.config.ClassRename
-import com.tonicsystems.jarjar.transform.jar.DefaultJarProcessor
- */
-
 import _root_.org.pantsbuild.jarjar._
 import _root_.org.pantsbuild.jarjar.util._
+
+import java.nio.file.{Path, Files, FileSystems}
 
 import sbt.file
 
@@ -57,13 +52,13 @@ object Shading {
 
   def toShadeClasses(
       shadeNamespaces: Set[String],
+      ignoredNamespaces: Set[String],
       toShadeJars: Seq[File],
       log: sbt.Logger,
       verbose: Boolean
   ): Seq[String] = {
     def infoIfVerbose(msg: String) = {
-      if (verbose) log.info(msg)
-      else log.debug(msg)
+      if (verbose) log.info(msg) else log.debug(msg)
     }
 
     infoIfVerbose(
@@ -76,7 +71,8 @@ object Shading {
     log.info(s"Found ${toShadeClasses0.length} class(es) in JAR(s) to be shaded")
     log.debug(toShadeClasses0.map("  " + _).sorted.mkString("\n"))
 
-    val toShadeClasses = shadeNamespaces.toVector.sorted.foldLeft(toShadeClasses0) {
+    val allNamespaces = shadeNamespaces ++ ignoredNamespaces
+    val toShadeClasses = allNamespaces.toVector.sorted.foldLeft(toShadeClasses0) {
       (toShade, namespace) =>
         val prefix = namespace + "."
         val (filteredOut, remaining) = toShade.partition(_.startsWith(prefix))
@@ -89,12 +85,42 @@ object Shading {
         remaining
     }
 
-    if (shadeNamespaces.nonEmpty) {
+    if (allNamespaces.nonEmpty) {
       log.info(s"${toShadeClasses.length} remaining class(es) to be shaded")
-      log.debug(toShadeClasses.map("  " + _).sorted.mkString("\n"))
+      if (toShadeClasses.length != 0) {
+        log.info(toShadeClasses.map("  " + _).sorted.mkString("\n"))
+        throw new IllegalStateException(
+          "Classes to be shaded have to be zero because namespaces should cover all"
+        )
+      } else {
+        log.debug(toShadeClasses.map("  " + _).sorted.mkString("\n"))
+      }
     }
 
     toShadeClasses
+  }
+
+  def deleteSignedJarMetadata(sourceJar: Path, targetJar: Path): Unit = {
+    Files.deleteIfExists(targetJar)
+    Files.copy(sourceJar, targetJar)
+
+    val properties = new java.util.HashMap[String, String]()
+    properties.put("create", "false")
+    val targetUri = java.net.URI.create(s"jar:file:${targetJar.toAbsolutePath.toString}")
+    val fs = FileSystems.newFileSystem(targetUri, properties)
+
+    try {
+      val metaInfDir = fs.getPath("META-INF")
+      val signatures = List(".SF", ".DSA", ".RSA")
+      if (Files.exists(metaInfDir)) {
+        Files
+          .list(metaInfDir)
+          .filter(f => signatures.exists(sig => f.getFileName.toString.endsWith(sig)))
+          .forEach(f => { Files.delete(f) })
+      }
+    } finally fs.close()
+
+    ()
   }
 
   def createPackage(
@@ -125,7 +151,8 @@ object Shading {
       rule
     }
 
-    val ignoredRules = shadeIgnoredNamespaces.toVector.map(zap(_))
+    val ignoredRules =
+      shadeIgnoredNamespaces.toVector.flatMap(ns => List(ns + ".**")).map(zap(_))
 
     val nsRules = shadeNamespaces.toVector.sorted.map { namespace =>
       rename(namespace + ".**", shadingNamespace + ".@0")
@@ -136,13 +163,9 @@ object Shading {
 
     import scala.collection.JavaConverters._
     val allRules = ignoredRules ++ nsRules ++ clsRules
-    val processor = JarJarProcessor(ignoredRules, verbose = false, skipManifest = false)
-    CoursierJarProcessor.run(
-      ((baseJar +: unshadedJars) ++ toShadeJars).toArray,
-      outputJar,
-      processor.proc,
-      true
-    )
+    val processor = JarJarProcessor(allRules, verbose = false, skipManifest = false)
+    val allJars = ((baseJar +: unshadedJars) ++ toShadeJars).toArray
+    CoursierJarProcessor.run(allJars, outputJar, processor.proc, true)
 
     outputJar
   }

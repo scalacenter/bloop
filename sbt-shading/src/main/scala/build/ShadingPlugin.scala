@@ -20,6 +20,7 @@ object BloopShadingPlugin extends AutoPlugin {
 
   val shadingNamespace = SettingKey[String]("shading-namespace")
   val shadeNamespaces = SettingKey[Set[String]]("shade-namespaces")
+  val shadeOwnNamespaces = SettingKey[Set[String]]("shade-own-namespaces")
   val shadeIgnoredNamespaces = SettingKey[Set[String]]("shade-ignored-namespaces")
   val toShadeJars = TaskKey[Seq[File]]("to-shade-jars")
   val toShadeClasses = TaskKey[Seq[String]]("to-shade-classes")
@@ -39,6 +40,7 @@ object BloopShadingPlugin extends AutoPlugin {
      */
     val shadeNamespaces = BloopShadingPlugin.shadeNamespaces
     val shadeIgnoredNamespaces = BloopShadingPlugin.shadeIgnoredNamespaces
+    val shadeOwnNamespaces = BloopShadingPlugin.shadeOwnNamespaces
     val toShadeJars = BloopShadingPlugin.toShadeJars
     val toShadeClasses = BloopShadingPlugin.toShadeClasses
 
@@ -61,7 +63,9 @@ object BloopShadingPlugin extends AutoPlugin {
   }
 
   override lazy val buildSettings = super.buildSettings ++ Seq(
-    shadeNamespaces := Set()
+    shadeNamespaces := Set(),
+    shadeOwnNamespaces := Set(),
+    shadeIgnoredNamespaces := Set()
   )
 
   override lazy val projectSettings = List(
@@ -70,6 +74,7 @@ object BloopShadingPlugin extends AutoPlugin {
     toShadeClasses := {
       build.Shading.toShadeClasses(
         shadeNamespaces.value,
+        shadeIgnoredNamespaces.value ++ shadeOwnNamespaces.value,
         toShadeJars.value,
         streams.value.log,
         verbose = true

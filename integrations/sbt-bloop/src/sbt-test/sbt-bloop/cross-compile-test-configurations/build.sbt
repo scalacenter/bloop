@@ -88,8 +88,8 @@ checkBloopFile in ThisBuild := {
   assert(zeeItConfigContents.project.dependencies.sorted == List("foo-test", "zee"))
 
   // A project depending on another via a provided dependency should export it as a dep
-  val zizConfigContents = readConfigFor("ziz", allConfigs)
-  assert(zeeItConfigContents.project.dependencies == List("foo"))
+  //val zizConfigContents = readConfigFor("ziz", allConfigs)
+  //assert(zeeItConfigContents.project.dependencies == List("foo"))
 }
 
 val checkSourceAndDocs = taskKey[Unit]("Check source and doc jars are resolved and persisted")

@@ -73,6 +73,8 @@ object BloopKeys {
     taskKey[Option[File]]("Generate bloop configuration file for this project")
   val bloopForceResourceGenerators: TaskKey[Unit] =
     taskKey[Unit]("Force resource generators for Bloop.")
+  val bloopWriteSbtMetadata: TaskKey[Unit] =
+    taskKey[Unit]("Write the sbt metadata outside of `bloopGenerate`.")
 
   val bloopCompile: TaskKey[CompileResult] =
     taskKey[CompileResult]("Offload compilation to Bloop via BSP.")
@@ -141,14 +143,12 @@ object BloopDefaults {
       (if (bloopClassifiers.isEmpty) old else bloopClassifiers.get).toList
     },
     BloopKeys.bloopIsMetaBuild := {
-      /*
       val buildStructure = Keys.loadedBuild.value
       val baseDirectory = new File(buildStructure.root)
       val isMetaBuild = Keys.sbtPlugin.in(LocalRootProject).value
       isMetaBuild && baseDirectory.getAbsolutePath != cwd
-       */
-      false
     },
+    /*
     Keys.onLoad := {
       val oldOnLoad = Keys.onLoad.value
       oldOnLoad.andThen { state =>
@@ -157,6 +157,7 @@ object BloopDefaults {
         else runCommandAndRemaining("bloopInstall")(state)
       }
     },
+     */
     BloopKeys.bloopSupportedConfigurations := List(Compile, Test, IntegrationTest)
   ) ++ Offloader.bloopCompileGlobalSettings
 
@@ -203,6 +204,7 @@ object BloopDefaults {
       BloopKeys.bloopClassDirectory := generateBloopProductDirectories.value,
       BloopKeys.bloopInternalClasspath := bloopInternalDependencyClasspath.value,
       BloopKeys.bloopGenerate := bloopGenerate.value,
+      BloopKeys.bloopWriteSbtMetadata := bloopWriteSbtMetadata.value,
       BloopKeys.bloopForceResourceGenerators := bloopForceResourceGenerators.value,
       BloopKeys.bloopAnalysisOut := Offloader.bloopAnalysisOut.value,
       BloopKeys.bloopMainClass := None,
@@ -979,7 +981,7 @@ object BloopDefaults {
             val `scala` = Config.Scala(scalaOrg, scalaName, scalaVersion, scalacOptions, allScalaJars, analysisOut, Some(compileSetup))
             val resources = Some(bloopResourcesTask.value)
 
-            val sbt = computeSbtMetadata.value.map(_.config)
+            val sbt = None//computeSbtMetadata.value.map(_.config)
             val project = Config.Project(projectName, baseDirectory, Option(buildBaseDirectory.toPath), sources, dependenciesAndAggregates,
               classpath, out, classesDir, resources, Some(`scala`), Some(java), sbt, Some(testOptions), Some(platform), resolution)
             Config.File(Config.File.LatestVersion, project)
@@ -1109,6 +1111,36 @@ object BloopDefaults {
     val internalClasspath = BloopKeys.bloopInternalClasspath.value.map(_._2)
     val externalClasspath = Keys.externalDependencyClasspath.value.map(_.data)
     internalClasspath ++ externalClasspath
+  }
+
+  def bloopWriteSbtMetadata: Def.Initialize[Task[Unit]] = {
+    Def
+      .taskDyn {
+
+        val name = BloopKeys.bloopTargetName.value
+        val logger = Keys.streams.value.log
+        val configuration = Keys.configuration.value
+        val generated = Option(targetNamesToConfigs.get(name))
+        val hasConfigSettings = productDirectoriesUndeprecatedKey.?.value.isDefined
+        if (!hasConfigSettings || generated.isEmpty) inlinedTask(())
+        else {
+          Def.task {
+            val generated = targetNamesToConfigs.get(name)
+            val sbt = computeSbtMetadata.value.map(_.config)
+            val newProject = generated.project.copy(sbt = sbt)
+            val newConfig = Config.File(Config.File.LatestVersion, newProject)
+
+            // Copy somewhere else and then move to make an atomic replacement
+            val tempConfigFile =
+              Files.createTempFile("bloop-config", generated.outPath.getFileName.toString)
+            bloop.config.write(newConfig, tempConfigFile)
+            Files.move(tempConfigFile, generated.outPath)
+
+            ()
+          }
+        }
+      }
+      .triggeredBy(BloopKeys.bloopGenerate)
   }
 
   /**
