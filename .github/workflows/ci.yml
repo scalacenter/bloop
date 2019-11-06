@@ -127,5 +127,6 @@ jobs:
           echo "$PGP_PRIVATE_KEY" > "$HOME/.sbt/gpg/secring.asc"
           echo "$BLOOPOID_SSH_PUBLIC_KEY" > "$HOME/.ssh/id_rsa.pub"
           echo "$BLOOPOID_SSH_PRIVATE_KEY" > "$HOME/.ssh/id_rsa"
+          ssh-keyscan -t rsa github.com >> ~/.ssh/known_hosts
           ./bin/sbt-ci-publish.sh "releaseBloop" "docs/docusaurusPublishGhpages"
         shell: bash
