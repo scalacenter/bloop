@@ -750,7 +750,8 @@ object Offloader {
     Keys.compileIncSetup.set(bloopCompileIncSetup, sbtBloopPosition),
     Keys.compileIncremental.set(bloopCompileIncremental, sbtBloopPosition),
     BloopKeys.bloopCompile.set(Offloader.bloopCompileTask, sbtBloopPosition),
-    //BloopCompileKeys.bloopCompilerExternalHooks.set(bloopCompilerExternalHooksTask, sbtBloopPosition),
+    BloopCompileKeys.bloopCompilerExternalHooks
+      .set(bloopCompilerExternalHooksTask, sbtBloopPosition),
     BloopCompileKeys.bloopCompileInputsInternal.set(bloopCompileInputsTask, sbtBloopPosition),
     BloopCompileKeys.bloopDependencyInputsInternal.set(bloopDependencyInputsTask, sbtBloopPosition)
   ).map(Def.derive(_, allowDynamic = true))
