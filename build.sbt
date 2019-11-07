@@ -752,6 +752,40 @@ val bloop = project
     commands += BuildDefaults.exportProjectsInTestResourcesCmd,
     buildIntegrationsBase := (Keys.baseDirectory in ThisBuild).value / "build-integrations",
     twitterDodo := buildIntegrationsBase.value./("build-twitter"),
+    publishLocalAllModules := {
+      BuildDefaults
+        .publishLocalAllModules(
+          List(
+            bloopShared,
+            backend,
+            frontend,
+            jsonConfig210,
+            jsonConfig211,
+            jsonConfig212,
+            jsonConfig213,
+            sbtBloop013,
+            sbtBloop10,
+            sbtBloop013Shaded,
+            sbtBloop10Shaded,
+            mavenBloop,
+            gradleBloop211,
+            gradleBloop212,
+            millBloop,
+            nativeBridge03,
+            nativeBridge04,
+            jsBridge06,
+            jsBridge10,
+            sockets,
+            bloopgun,
+            launcher,
+            bloopgunShaded,
+            launcherShaded,
+            buildpressConfig,
+            buildpress
+          )
+        )
+        .value
+    },
     releaseEarlyAllModules := {
       BuildDefaults
         .releaseEarlyAllModules(
@@ -799,75 +833,17 @@ val bloop = project
     }
   )
 
-/**************************************************************************************************/
-/*                      This is the corner for all the command definitions                        */
-/**************************************************************************************************/
-val publishLocalCmd = Keys.publishLocal.key.label
-
-addCommandAlias(
-  "testInstall",
-  Seq(
-    s"${bloopShared.id}/$publishLocalCmd",
-    s"${jsonConfig210.id}/$publishLocalCmd",
-    s"${jsonConfig211.id}/$publishLocalCmd",
-    s"${jsonConfig212.id}/$publishLocalCmd",
-    s"${jsonConfig213.id}/$publishLocalCmd",
-    //s"${sbtBloop013.id}/$publishLocalCmd",
-    s"${sbtBloop10.id}/$publishLocalCmd",
-    //s"${sbtBloop013Shaded.id}/$publishLocalCmd",
-    s"${sbtBloop10Shaded.id}/$publishLocalCmd"
-  ).mkString(";", ";", "")
-)
-
 // Runs the scripted tests to setup integration tests
 // ! This is used by the benchmarks too !
 addCommandAlias(
   "install",
   Seq(
-    s"${bloopShared.id}/$publishLocalCmd",
-    s"${jsonConfig210.id}/$publishLocalCmd",
-    s"${jsonConfig211.id}/$publishLocalCmd",
-    s"${jsonConfig212.id}/$publishLocalCmd",
-    s"${jsonConfig213.id}/$publishLocalCmd",
-    //s"${sbtBloop013.id}/$publishLocalCmd",
-    s"${sbtBloop10.id}/$publishLocalCmd",
-    //s"${sbtBloop013Shaded.id}/$publishLocalCmd",
-    s"${sbtBloop10Shaded.id}/$publishLocalCmd",
-    //s"${mavenBloop.id}/$publishLocalCmd",
-    s"${gradleBloop211.id}/$publishLocalCmd",
-    s"${gradleBloop212.id}/$publishLocalCmd",
-    s"${backend.id}/$publishLocalCmd",
-    s"${frontend.id}/$publishLocalCmd",
-    s"${nativeBridge03.id}/$publishLocalCmd",
-    s"${nativeBridge04.id}/$publishLocalCmd",
-    s"${millBloop.id}/$publishLocalCmd",
-    s"${jsBridge06.id}/$publishLocalCmd",
-    s"${jsBridge10.id}/$publishLocalCmd",
-    s"${sockets.id}/$publishLocalCmd",
-    s"${bloopgun.id}/$publishLocalCmd",
-    s"${launcher.id}/$publishLocalCmd",
-    s"${bloopgunShaded.id}/$publishLocalCmd",
-    s"${launcherShaded.id}/$publishLocalCmd",
-    s"${buildpressConfig.id}/$publishLocalCmd",
-    s"${buildpress.id}/$publishLocalCmd",
-    // Force build info generators in frontend-test
+    "publishLocalAllModules",
     s"${frontend.id}/test:compile",
     "createLocalHomebrewFormula",
     "createLocalScoopFormula",
     "createLocalArchPackage",
     "generateInstallationWitness"
-  ).mkString(";", ";", "")
-)
-
-addCommandAlias(
-  "publishSbtBloop",
-  Seq(
-    s"${jsonConfig210.id}/$publishLocalCmd",
-    s"${jsonConfig212.id}/$publishLocalCmd",
-    s"${sbtBloop013.id}/$publishLocalCmd",
-    s"${sbtBloop10.id}/$publishLocalCmd",
-    s"${sbtBloop013Shaded.id}/$publishLocalCmd",
-    s"${sbtBloop10Shaded.id}/$publishLocalCmd"
   ).mkString(";", ";", "")
 )
 

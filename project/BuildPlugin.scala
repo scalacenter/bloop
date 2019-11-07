@@ -98,6 +98,7 @@ object BuildKeys {
   val createLocalArchPackage = Def.taskKey[Unit]("Create local ArchLinux package build files")
   val versionedInstallScript = Def.taskKey[File]("Generate a versioned install script")
   val releaseEarlyAllModules = Def.taskKey[Unit]("Release early all modules")
+  val publishLocalAllModules = Def.taskKey[Unit]("Publish all modules locally")
   val generateInstallationWitness =
     Def.taskKey[File]("Generate a witness file to know which version is installed locally")
 
@@ -604,6 +605,17 @@ object BuildImplementation {
         )
 
         ReleaseEarlyKeys.releaseEarly.all(filter).map(_ => ())
+      }
+    }
+
+    def publishLocalAllModules(projects: Seq[sbt.ProjectReference]): Def.Initialize[Task[Unit]] = {
+      Def.taskDyn {
+        val filter = sbt.ScopeFilter(
+          sbt.inProjects(projects: _*),
+          sbt.inConfigurations(sbt.Compile)
+        )
+
+        Keys.publishLocal.all(filter).map(_ => ())
       }
     }
 
