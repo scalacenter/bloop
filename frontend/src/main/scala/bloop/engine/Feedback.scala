@@ -4,7 +4,7 @@ import java.nio.file.Path
 import bloop.data.Project
 import bloop.engine.Dag.RecursiveTrace
 import bloop.io.AbsolutePath
-import bloop.exec.JavaEnv
+import bloop.util.JavaRuntime
 
 object Feedback {
   private final val eol = System.lineSeparator
@@ -104,13 +104,13 @@ object Feedback {
     s"Stopped configuration of SemanticDB in Scala $version projects: $cause"
 
   def detectedJdkWithoutJDI(error: Throwable): String = {
-    s"""Debugging is not supported because Java Debug Interface couldn't be resolved in detected JDK ${JavaEnv.DefaultJavaHome}: '${error.getMessage}'. To enable it, check manually that you're running on a JDK and JDI is supported.
+    s"""Debugging is not supported because Java Debug Interface couldn't be resolved in detected JDK ${JavaRuntime.home}: '${error.getMessage}'. To enable it, check manually that you're running on a JDK and JDI is supported.
        |
        |Run bloop about for more information about the current JDK runtime.""".stripMargin
   }
 
   def detectedUnsupportedJreForDebugging(error: Throwable): String = {
-    s"""Debugging is not supported because bloop server is running on a JRE ${JavaEnv.DefaultJavaHome} with no support for Java Debug Interface: '${error.getMessage}'. To enable debugging, install a JDK and restart the bloop server.
+    s"""Debugging is not supported because bloop server is running on a JRE ${JavaRuntime.home} with no support for Java Debug Interface: '${error.getMessage}'. To enable debugging, install a JDK and restart the bloop server.
        |
        |Run bloop about for more information about the current JDK runtime.""".stripMargin
   }

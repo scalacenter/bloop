@@ -44,11 +44,11 @@ final class CompilerCache(
     retrieveDir: AbsolutePath,
     logger: Logger,
     userResolvers: List[Resolver],
-    useSiteCache: Option[ConcurrentHashMap[ScalaInstance, Compilers]],
+    userScalaCache: Option[ConcurrentHashMap[ScalaInstance, Compilers]],
     scheduler: ExecutionContext
 ) {
 
-  private val cache = useSiteCache.getOrElse(new ConcurrentHashMap[ScalaInstance, Compilers]())
+  private val cache = userScalaCache.getOrElse(new ConcurrentHashMap[ScalaInstance, Compilers]())
   def get(scalaInstance: ScalaInstance): Compilers =
     cache.computeIfAbsent(scalaInstance, newCompilers)
 

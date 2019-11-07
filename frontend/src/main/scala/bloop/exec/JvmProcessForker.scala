@@ -5,6 +5,7 @@ import java.net.{InetSocketAddress, ServerSocket, URLClassLoader}
 
 import bloop.cli.CommonOptions
 import bloop.io.AbsolutePath
+import bloop.data.JdkConfig
 import bloop.engine.tasks.RunMode
 import bloop.logging.{DebugFilter, Logger}
 import monix.eval.Task
@@ -69,26 +70,26 @@ trait JvmProcessForker {
 }
 
 object JvmProcessForker {
-  def apply(javaEnv: JavaEnv, classpath: Array[AbsolutePath]): JvmProcessForker =
-    new JvmForker(javaEnv, classpath)
+  def apply(config: JdkConfig, classpath: Array[AbsolutePath]): JvmProcessForker =
+    new JvmForker(config, classpath)
 
   def apply(
-      javaEnv: JavaEnv,
+      config: JdkConfig,
       classpath: Array[AbsolutePath],
       mode: RunMode
   ): JvmProcessForker = {
     mode match {
-      case RunMode.Normal => new JvmForker(javaEnv, classpath)
-      case RunMode.Debug => new JvmDebuggingForker(new JvmForker(javaEnv, classpath))
+      case RunMode.Normal => new JvmForker(config, classpath)
+      case RunMode.Debug => new JvmDebuggingForker(new JvmForker(config, classpath))
     }
   }
 }
 
 /**
- * @param env   The configuration describing how to start the new JVM
+ * @param config The configuration describing how to start the new JVM
  * @param classpath Classpath with which the code should be executed
  */
-final class JvmForker(env: JavaEnv, classpath: Array[AbsolutePath]) extends JvmProcessForker {
+final class JvmForker(config: JdkConfig, classpath: Array[AbsolutePath]) extends JvmProcessForker {
 
   /**
    * Creates a `ClassLoader` from the classpath of this `ForkProcess`
@@ -110,7 +111,7 @@ final class JvmForker(env: JavaEnv, classpath: Array[AbsolutePath]) extends JvmP
       opts: CommonOptions,
       extraClasspath: Array[AbsolutePath]
   ): Task[Int] = {
-    val jvmOptions = jargs ++ env.javaOptions
+    val jvmOptions = jargs ++ config.javaOptions
     val fullClasspath = (classpath ++ extraClasspath).map(_.syntax).mkString(pathSeparator)
     Task.fromTry(javaExecutable).flatMap { java =>
       val classpathOption = "-cp" :: fullClasspath :: Nil
@@ -129,10 +130,10 @@ final class JvmForker(env: JavaEnv, classpath: Array[AbsolutePath]) extends JvmP
   }
 
   private def javaExecutable: Try[AbsolutePath] = {
-    val javaPath = env.javaHome.resolve("bin").resolve("java")
+    val javaPath = config.javaHome.resolve("bin").resolve("java")
     if (javaPath.exists) Success(javaPath)
     else {
-      val javaExePath = env.javaHome.resolve("bin").resolve("java.exe")
+      val javaExePath = config.javaHome.resolve("bin").resolve("java.exe")
       if (CrossPlatform.isWindows && javaExePath.exists) Success(javaExePath)
       else Failure(new IllegalStateException(s"Missing java executable at $javaPath!"))
     }

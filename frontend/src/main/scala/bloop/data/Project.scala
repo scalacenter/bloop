@@ -1,6 +1,5 @@
 package bloop.data
 
-import bloop.exec.JavaEnv
 import bloop.io.AbsolutePath
 import bloop.logging.{DebugFilter, Logger}
 import bloop.ScalaInstance
@@ -111,15 +110,22 @@ final case class Project(
   def clientClassesRootDirectory: AbsolutePath = {
     this.out.resolve("bloop-bsp-clients-classes")
   }
+
+  def jdkConfig: Option[JdkConfig] = {
+    platform match {
+      case Platform.Jvm(config, _, _) => Some(config)
+      case _ => None
+    }
+  }
 }
 
 object Project {
   final implicit val ps: scalaz.Show[Project] =
     new scalaz.Show[Project] { override def shows(f: Project): String = f.name }
 
-  def defaultPlatform(logger: Logger, javaEnv: Option[JavaEnv] = None): Platform = {
+  def defaultPlatform(logger: Logger, jdkConfig: Option[JdkConfig] = None): Platform = {
     val platform = Config.Platform.Jvm(Config.JvmConfig.empty, None)
-    val env = javaEnv.getOrElse(JavaEnv.fromConfig(platform.config))
+    val env = jdkConfig.getOrElse(JdkConfig.fromConfig(platform.config))
     val toolchain = JvmToolchain.resolveToolchain(platform, logger)
     Platform.Jvm(env, toolchain, platform.mainClass)
   }
@@ -144,7 +150,7 @@ object Project {
     val setup = project.`scala`.flatMap(_.setup).getOrElse(Config.CompileSetup.empty)
     val platform = project.platform match {
       case Some(platform: Config.Platform.Jvm) =>
-        val javaEnv = JavaEnv.fromConfig(platform.config)
+        val javaEnv = JdkConfig.fromConfig(platform.config)
         val toolchain = JvmToolchain.resolveToolchain(platform, logger)
         Platform.Jvm(javaEnv, toolchain, platform.mainClass)
       case Some(platform: Config.Platform.Js) =>

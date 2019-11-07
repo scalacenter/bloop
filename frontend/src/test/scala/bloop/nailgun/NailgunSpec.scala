@@ -5,7 +5,7 @@ import bloop.testing.BaseSuite
 import bloop.logging.RecordingLogger
 import bloop.internal.build.BuildInfo
 import bloop.util.TestUtil
-import bloop.exec.JavaEnv
+import bloop.util.JavaRuntime
 
 import java.nio.file.{Paths, Files}
 import java.util.concurrent.TimeUnit
@@ -17,7 +17,7 @@ object NailgunSpec extends BaseSuite with NailgunTestUtils {
   val configDir = simpleBuild.state.build.origin.underlying
 
   val jvmLine =
-    s"Running on Java ${JavaEnv.detectRuntime} v${JavaEnv.version} (${JavaEnv.DefaultJavaHome})"
+    s"Running on Java ${JavaRuntime.current} v${JavaRuntime.version} (${JavaRuntime.home})"
 
   def withServerInProject[T](op: (RecordingLogger, Client) => T): T =
     withServer(configDir, false, new RecordingLogger(ansiCodesSupported = false))(op)

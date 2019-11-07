@@ -9,16 +9,15 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.stream.Collectors
 
 import bloop.io.ServerHandle
-import bloop.data.WorkspaceSettings
+import bloop.util.JavaRuntime
 import bloop.bsp.BloopBspDefinitions.BloopExtraBuildParams
 import bloop.{CompileMode, Compiler, ScalaInstance}
 import bloop.cli.{Commands, ExitStatus, Validate}
 import bloop.dap.{DebugServer, DebuggeeRunner, StartedDebugServer}
-import bloop.data.{ClientInfo, Platform, Project}
+import bloop.data.{ClientInfo, Platform, Project, JdkConfig, WorkspaceSettings}
 import bloop.engine.{State, Aggregate, Dag, Interpreter}
 import bloop.engine.tasks.{CompileTask, Tasks, TestTask, RunMode}
 import bloop.engine.tasks.toolchains.{ScalaJsToolchain, ScalaNativeToolchain}
-import bloop.exec.JavaEnv
 import bloop.internal.build.BuildInfo
 import bloop.io.{AbsolutePath, RelativePath}
 import bloop.logging.{BspServerLogger, DebugFilter, Logger}
@@ -565,11 +564,11 @@ final class BloopBspServices(
     }
 
     ifInitialized(None) { (state, logger) =>
-      JavaEnv.loadJavaDebugInterface match {
+      JavaRuntime.loadJavaDebugInterface match {
         case Failure(exception) =>
-          val message = JavaEnv.detectRuntime match {
-            case JavaEnv.JDK => Feedback.detectedJdkWithoutJDI(exception)
-            case JavaEnv.JRE => Feedback.detectedUnsupportedJreForDebugging(exception)
+          val message = JavaRuntime.current match {
+            case JavaRuntime.JDK => Feedback.detectedJdkWithoutJDI(exception)
+            case JavaRuntime.JRE => Feedback.detectedUnsupportedJreForDebugging(exception)
           }
           Task.now((state, Left(JsonRpcResponse.internalError(message))))
 
@@ -720,13 +719,13 @@ final class BloopBspServices(
           Task.now(sys.error(s"Failed to run main class in $project due to: ${error.getMessage}"))
         case Right(mainClass) =>
           project.platform match {
-            case Platform.Jvm(javaEnv, _, _) =>
+            case Platform.Jvm(config0, _, _) =>
               val mainArgs = mainClass.arguments.toArray
-              val env = JavaEnv(javaEnv.javaHome, javaEnv.javaOptions ++ mainClass.jvmOptions)
+              val config = JdkConfig(config0.javaHome, config0.javaOptions ++ mainClass.jvmOptions)
               Tasks.runJVM(
                 state,
                 project,
-                env,
+                config,
                 cwd,
                 mainClass.`class`,
                 mainArgs,

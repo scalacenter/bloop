@@ -10,9 +10,8 @@ import bloop.{CompilerCache, ScalaInstance}
 import bloop.cli.Commands
 import bloop.config.Config
 import bloop.config.Config.CompileOrder
-import bloop.data.{ClientInfo, Origin, Project}
+import bloop.data.{ClientInfo, Origin, Project, JdkConfig}
 import bloop.engine.{Action, Build, BuildLoader, ExecutionContext, Interpreter, Run, State}
-import bloop.exec.JavaEnv
 import bloop.engine.caches.ResultsCache
 import bloop.internal.build.BuildInfo
 import bloop.io.Paths.delete
@@ -88,13 +87,13 @@ object TestUtil {
       dependencies: Map[String, Set[String]],
       rootProjects: List[String] = List(RootProject),
       scalaInstance: ScalaInstance = TestUtil.scalaInstance,
-      javaEnv: JavaEnv = JavaEnv.default,
+      jdkConfig: JdkConfig = JdkConfig.default,
       quiet: Boolean = false,
       failure: Boolean = false,
       useSiteLogger: Option[Logger] = None,
       order: CompileOrder = Config.Mixed
   )(afterCompile: State => Unit = (_ => ())) = {
-    testState(structures, dependencies, scalaInstance, javaEnv, order) { (state: State) =>
+    testState(structures, dependencies, scalaInstance, jdkConfig, order) { (state: State) =>
       def action(state0: State): Unit = {
         val state = useSiteLogger.map(logger => state0.copy(logger = logger)).getOrElse(state0)
         // Check that this is a clean compile!
@@ -268,12 +267,12 @@ object TestUtil {
     val noDependencies = Map.empty[String, Set[String]]
     val namedSources = sources.zipWithIndex.map { case (src, idx) => s"src$idx.scala" -> src }.toMap
     val projectsStructure = Map(projectName -> namedSources)
-    val javaEnv = JavaEnv.default
+    val jdkConfig = JdkConfig.default
     checkAfterCleanCompilation(
       projectsStructure,
       noDependencies,
       rootProjects = List(projectName),
-      javaEnv = javaEnv,
+      jdkConfig = jdkConfig,
       quiet = true
     ) { state =>
       runAndCheck(state, cmd)(check)
@@ -306,7 +305,7 @@ object TestUtil {
       projectStructures: Map[String, Map[String, String]],
       dependenciesMap: Map[String, Set[String]],
       instance: ScalaInstance = TestUtil.scalaInstance,
-      env: JavaEnv = JavaEnv.default,
+      jdkConfig: JdkConfig = JdkConfig.default,
       order: CompileOrder = Config.Mixed,
       userLogger: Option[Logger] = None,
       extraJars: Array[AbsolutePath] = Array()
@@ -315,8 +314,9 @@ object TestUtil {
       val logger = userLogger.getOrElse(BloopLogger.default(temp.toString))
       val projects = projectStructures.map {
         case (name, sources) =>
+          val instance1 = Some(instance)
           val deps = dependenciesMap.getOrElse(name, Set.empty)
-          makeProject(temp, name, sources, deps, Some(instance), env, logger, order, extraJars)
+          makeProject(temp, name, sources, deps, instance1, jdkConfig, logger, order, extraJars)
       }
       val loaded = projects.map(p => LoadedProject.RawProject(p))
       val build = Build(temp, loaded.toList)
@@ -351,7 +351,7 @@ object TestUtil {
       sources: Map[String, String],
       dependencies: Set[String],
       scalaInstance: Option[ScalaInstance],
-      javaEnv: JavaEnv,
+      jdkConfig: JdkConfig,
       logger: Logger,
       compileOrder: CompileOrder,
       extraJars: Array[AbsolutePath]
@@ -390,7 +390,7 @@ object TestUtil {
       testOptions = Config.TestOptions.empty,
       out = out,
       analysisOut = out.resolve(Config.Project.analysisFileName(name)),
-      platform = Project.defaultPlatform(logger, Some(javaEnv)),
+      platform = Project.defaultPlatform(logger, Some(jdkConfig)),
       sbt = None,
       resolution = None,
       origin = origin

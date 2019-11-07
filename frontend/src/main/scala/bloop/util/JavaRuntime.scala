@@ -1,40 +1,27 @@
-package bloop.exec
+package bloop.util
 
-import bloop.config.Config
-import bloop.io.AbsolutePath
 import javax.tools.ToolProvider
+import scala.util.Try
+import scala.util.Failure
+import bloop.io.AbsolutePath
 
-import scala.util.{Failure, Try}
+sealed trait JavaRuntime
+object JavaRuntime {
+  case object JDK extends JavaRuntime
+  case object JRE extends JavaRuntime
 
-/**
- * The configuration of the Java environment for a given project.
- *
- * @param javaHome    Location of the java home. The `java` binary is expected to be found
- *                    in `$javaHome/bin/java`.
- * @param javaOptions The options to pass the JVM when starting.
- */
-final case class JavaEnv(javaHome: AbsolutePath, javaOptions: Array[String])
+  val home: AbsolutePath = AbsolutePath(sys.props("java.home"))
+  val version: String = sys.props("java.version")
 
-object JavaEnv {
-  private[bloop] final val DefaultJavaHome = AbsolutePath(sys.props("java.home"))
-
-  def fromConfig(jvm: Config.JvmConfig): JavaEnv = {
-    val jvmHome = jvm.home.map(AbsolutePath.apply).getOrElse(JavaEnv.DefaultJavaHome)
-    JavaEnv(jvmHome, jvm.options.toArray)
-  }
-
-  def toConfig(env: JavaEnv): Config.JvmConfig = {
-    Config.JvmConfig(Some(env.javaHome.underlying), env.javaOptions.toList)
-  }
-
-  def detectRuntime: Runtime = {
+  /**
+   * Detects the runtime of the running JDK instance.
+   */
+  def current: JavaRuntime = {
     Option(ToolProvider.getSystemJavaCompiler) match {
       case Some(_) => JDK
       case None => JRE
     }
   }
-
-  def version: String = sys.props("java.version")
 
   /**
    * Loads the java debug interface once.
@@ -83,17 +70,4 @@ object JavaEnv {
 
     Try(initializeJDI()).orElse(loadTools).map(_ => ())
   }
-
-  /**
-   * Default `JavaEnv` constructed from this JVM. Uses the same `javaHome`,
-   * and specifies no arguments.
-   */
-  val default: JavaEnv = {
-    val javaOptions = Array.empty[String]
-    JavaEnv(DefaultJavaHome, javaOptions)
-  }
-
-  sealed trait Runtime
-  case object JDK extends Runtime
-  case object JRE extends Runtime
 }
