@@ -415,11 +415,8 @@ object BuildImplementation {
      * In this case, we clone kafka so that the gradle plugin unit tests can access to its directory. */
     val bloopOnLoad: Def.Initialize[State => State] = Def.setting {
       Keys.onLoad.value.andThen { state =>
-        /*
         if (sys.env.isDefinedAt("SKIP_TEST_RESOURCES_GENERATION")) state
         else exportProjectsInTestResources(state, enableCache = true)
-         */
-        state
       }
     }
 
