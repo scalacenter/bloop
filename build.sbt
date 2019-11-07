@@ -269,12 +269,18 @@ lazy val bloopgun: Project = project
       Dependencies.ztExec,
       Dependencies.slf4jNop,
       Dependencies.coursier,
-      Dependencies.coursierCache
+      Dependencies.coursierCache,
+      // Necessary to compile to native (see https://github.com/coursier/coursier/blob/0bf1c4f364ceff76892751a51361a41dfc478b8d/build.sbt#L376)
+      "org.bouncycastle" % "bcprov-jdk15on" % "1.64",
+      "org.bouncycastle" % "bcpkix-jdk15on" % "1.64"
     ),
     mainClass in GraalVMNativeImage := Some("bloop.bloopgun.Bloopgun"),
     graalVMNativeImageOptions ++= {
       val reflectionFile = Keys.sourceDirectory.in(Compile).value./("graal")./("reflection.json")
+      val securityOverridesFile =
+        Keys.sourceDirectory.in(Compile).value./("graal")./("java.security.overrides")
       assert(reflectionFile.exists)
+      assert(securityOverridesFile.exists)
       List(
         "--no-server",
         "--enable-http",
@@ -283,9 +289,15 @@ lazy val bloopgun: Project = project
         "--enable-all-security-services",
         "--no-fallback",
         s"-H:ReflectionConfigurationFiles=$reflectionFile",
-        //"--allow-incomplete-classpath",
-        "-H:+ReportExceptionStackTraces"
-        //"--initialize-at-build-time=scala.Function1"
+        "--allow-incomplete-classpath",
+        "-H:+ReportExceptionStackTraces",
+        s"-J-Djava.security.properties=$securityOverridesFile",
+        s"-Djava.security.properties=$securityOverridesFile",
+        "--initialize-at-build-time=scala.Symbol",
+        "--initialize-at-build-time=scala.Function1",
+        "--initialize-at-build-time=scala.Function2",
+        "--initialize-at-build-time=scala.runtime.StructuralCallSite",
+        "--initialize-at-build-time=scala.runtime.EmptyMethodCache"
       )
     }
   )
@@ -310,6 +322,8 @@ def shadeSettingsForModule(moduleId: String, module: Reference) = List(
             ppath.contains("scala-reflect") ||
             ppath.contains("scala-xml") ||
             ppath.contains("macro-compat") ||
+            ppath.contains("bcprov-jdk15on") ||
+            ppath.contains("bcpkix-jdk15on") ||
             ppath.contains("jna") ||
             ppath.contains("jna-platform") ||
             isJdiJar(path)
@@ -446,6 +460,8 @@ def shadeSbtSettingsForModule(
               ppath.contains("macro-compat") ||
               ppath.contains("scalamacros") ||
               ppath.contains("jsr") ||
+              ppath.contains("bcprov-jdk15on") ||
+              ppath.contains("bcpkix-jdk15on") ||
               ppath.contains("jna") ||
               ppath.contains("jna-platform") ||
               isJdiJar(path)

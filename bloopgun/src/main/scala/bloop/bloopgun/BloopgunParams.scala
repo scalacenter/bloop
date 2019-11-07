@@ -5,7 +5,7 @@ final case class BloopgunParams(
     nailgunPort: Int = Defaults.Port,
     help: Boolean = false,
     nailgunHelp: Boolean = false,
-    verbose: Boolean = true,
+    verbose: Boolean = false,
     nailgunShowVersion: Boolean = false,
     args: List[String] = Nil,
     server: Boolean = false,
