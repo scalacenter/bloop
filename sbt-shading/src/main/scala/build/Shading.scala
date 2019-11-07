@@ -106,7 +106,7 @@ object Shading {
 
     val properties = new java.util.HashMap[String, String]()
     properties.put("create", "false")
-    val targetUri = java.net.URI.create(s"jar:file:${targetJar.toAbsolutePath.toString}")
+    val targetUri = java.net.URI.create(s"jar:file:${targetJar.toUri.getRawPath}")
     val fs = FileSystems.newFileSystem(targetUri, properties)
 
     try {
