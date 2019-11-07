@@ -38,7 +38,10 @@ object SemanticDBCache {
 
     def attemptResolution: Either[String, AbsolutePath] = {
       import bloop.engine.ExecutionContext.ioScheduler
-      DependencyResolution.resolveWithErrors(organization, module, version, logger)(ioScheduler) match {
+      DependencyResolution.resolveWithErrors(
+        List(DependencyResolution.Artifact(organization, module, version)),
+        logger
+      )(ioScheduler) match {
         case Left(error) => Left(error.getMessage())
         case Right(paths) =>
           paths.find(_.syntax.contains("semanticdb-scalac")) match {

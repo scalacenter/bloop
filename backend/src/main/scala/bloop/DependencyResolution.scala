@@ -12,26 +12,30 @@ import coursier.{Dependency, Attributes, Type, Classifier, Module, Fetch, Reposi
 object DependencyResolution {
 
   /**
-   * Resolve the specified module and get all the files. By default, the local ivy
+   * @param organization The module's organization.
+   * @param module       The module's name.
+   * @param version      The module's version.
+   */
+  case class Artifact(organization: String, module: String, version: String)
+
+  /**
+   * Resolve the specified modules and get all the files. By default, the local Ivy
    * repository and Maven Central are included in resolution. This resolution throws
    * in case there is an error.
    *
-   * @param organization           The module's organization.
-   * @param module                 The module's name.
-   * @param version                The module's version.
-   * @param logger                 A logger that receives messages about resolution.
-   * @param additionalRepositories Additional repositories to include in resolution.
+   * @param artifacts       Artifacts to resolve
+   * @param logger          A logger that receives messages about resolution.
+   * @param resolveSources  Resolve JAR files containing sources
+   * @param additionalRepos Additional repositories to include in resolution.
    * @return All the resolved files.
    */
   def resolve(
-      organization: String,
-      module: String,
-      version: String,
+      artifacts: List[Artifact],
       logger: Logger,
       resolveSources: Boolean = false,
       additionalRepos: Seq[Repository] = Nil
   )(implicit ec: scala.concurrent.ExecutionContext): Array[AbsolutePath] = {
-    resolveWithErrors(organization, module, version, logger, resolveSources, additionalRepos) match {
+    resolveWithErrors(artifacts, logger, resolveSources, additionalRepos) match {
       case Right(paths) => paths
       case Left(error) => throw error
     }
@@ -42,28 +46,25 @@ object DependencyResolution {
    * repository and Maven Central are included in resolution. This resolution is
    * pure and returns either some errors or some resolved jars.
    *
-   * @param organization           The module's organization.
-   * @param module                 The module's name.
-   * @param version                The module's version.
-   * @param logger                 A logger that receives messages about resolution.
-   * @param additionalRepositories Additional repositories to include in resolution.
+   * @param artifacts Artifacts to resolve
    * @return Either a coursier error or all the resolved files.
    */
   def resolveWithErrors(
-      organization: String,
-      module: String,
-      version: String,
+      artifacts: List[Artifact],
       logger: Logger,
       resolveSources: Boolean = false,
       additionalRepositories: Seq[Repository] = Nil
   )(implicit ec: scala.concurrent.ExecutionContext): Either[CoursierError, Array[AbsolutePath]] = {
-    logger.debug(s"Resolving $organization:$module:$version")(DebugFilter.All)
-    val org = coursier.Organization(organization)
-    val moduleName = coursier.ModuleName(module)
-    val attributes =
-      if (!resolveSources) Attributes() else Attributes(Type.empty, Classifier.sources)
-    val dependency = Dependency.of(Module(org, moduleName), version).withAttributes(attributes)
-    resolveDependenciesWithErrors(List(dependency), logger, resolveSources, additionalRepositories)
+    val dependencies = artifacts.map { artifact =>
+      import artifact._
+      logger.debug(s"Resolving $organization:$module:$version")(DebugFilter.All)
+      val org = coursier.Organization(organization)
+      val moduleName = coursier.ModuleName(module)
+      val attributes =
+        if (!resolveSources) Attributes() else Attributes(Type.empty, Classifier.sources)
+      Dependency.of(Module(org, moduleName), version).withAttributes(attributes)
+    }
+    resolveDependenciesWithErrors(dependencies, logger, resolveSources, additionalRepositories)
   }
 
   /**
@@ -97,4 +98,7 @@ object DependencyResolution {
       case error: CoursierError => Left(error)
     }
   }
+
+  def majorMinorVersion(version: String): String =
+    version.reverse.dropWhile(_ != '.').tail.reverse
 }

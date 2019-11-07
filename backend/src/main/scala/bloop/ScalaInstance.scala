@@ -148,7 +148,10 @@ object ScalaInstance {
       logger: Logger
   )(implicit ec: ExecutionContext): ScalaInstance = {
     def resolveInstance: ScalaInstance = {
-      val allPaths = DependencyResolution.resolve(scalaOrg, scalaName, scalaVersion, logger)
+      val allPaths = DependencyResolution.resolve(
+        List(DependencyResolution.Artifact(scalaOrg, scalaName, scalaVersion)),
+        logger
+      )
       val allJars = allPaths.collect {
         case path if path.underlying.toString.endsWith(".jar") => path.underlying.toFile
       }

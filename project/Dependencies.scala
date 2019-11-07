@@ -111,19 +111,19 @@ object Dependencies {
   val circeGeneric = "io.circe" %% "circe-generic" % circeVersion
   val nuprocess = "com.zaxxer" % "nuprocess" % nuprocessVersion
 
-  val scalaNativeTools03 = "org.scala-native" %% "tools" % scalaNative03Version
-  val scalaNativeTools04 = "org.scala-native" %% "tools" % scalaNative04Version
-  val scalaJsTools06 = "org.scala-js" %% "scalajs-tools" % scalaJs06Version
-  val scalaJsSbtTestAdapter06 = "org.scala-js" %% "scalajs-sbt-test-adapter" % scalaJs06Version
-  val scalaJsEnvs06 = "org.scala-js" %% "scalajs-js-envs" % scalaJs06Version
+  val scalaNativeTools03 = "org.scala-native" %% "tools" % scalaNative03Version % Provided
+  val scalaNativeTools04 = "org.scala-native" %% "tools" % scalaNative04Version % Provided
+  val scalaJsTools06 = "org.scala-js" %% "scalajs-tools" % scalaJs06Version % Provided
+  val scalaJsSbtTestAdapter06 = "org.scala-js" %% "scalajs-sbt-test-adapter" % scalaJs06Version % Provided
+  val scalaJsEnvs06 = "org.scala-js" %% "scalajs-js-envs" % scalaJs06Version % Provided
 
-  val scalaJsLinker10 = "org.scala-js" %% "scalajs-linker" % scalaJs10Version
-  val scalaJsIO10 = "org.scala-js" %% "scalajs-io" % scalaJs10Version
-  val scalaJsEnvs10 = "org.scala-js" %% "scalajs-js-envs" % scalaJs10Version
-  val scalaJsEnvNode10 = "org.scala-js" %% "scalajs-env-nodejs" % scalaJs10Version
-  val scalaJsEnvJsdomNode10 = "org.scala-js" %% "scalajs-env-jsdom-nodejs" % scalaJs10Version
-  val scalaJsSbtTestAdapter10 = "org.scala-js" %% "scalajs-sbt-test-adapter" % scalaJs10Version
-  val scalaJsLogging10 = "org.scala-js" %% "scalajs-logging" % scalaJs10Version
+  val scalaJsLinker10 = "org.scala-js" %% "scalajs-linker" % scalaJs10Version % Provided
+  val scalaJsIO10 = "org.scala-js" %% "scalajs-io" % scalaJs10Version % Provided
+  val scalaJsEnvs10 = "org.scala-js" %% "scalajs-js-envs" % scalaJs10Version % Provided
+  val scalaJsEnvNode10 = "org.scala-js" %% "scalajs-env-nodejs" % scalaJs10Version % Provided
+  val scalaJsEnvJsdomNode10 = "org.scala-js" %% "scalajs-env-jsdom-nodejs" % scalaJs10Version % Provided
+  val scalaJsSbtTestAdapter10 = "org.scala-js" %% "scalajs-sbt-test-adapter" % scalaJs10Version % Provided
+  val scalaJsLogging10 = "org.scala-js" %% "scalajs-logging" % scalaJs10Version % Provided
 
   val mill = "com.lihaoyi" %% "mill-scalalib" % millVersion % Provided
   val xxHashLibrary = "net.jpountz.lz4" % "lz4" % xxHashVersion
