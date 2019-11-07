@@ -1,5 +1,5 @@
 version in ThisBuild := "1.0.0-SNAPSHOT"
-scalaVersion in ThisBuild := "2.12.8"
+scalaVersion in ThisBuild := "2.12.10"
 organization in ThisBuild := "ch.epfl.scala"
 
 val sharedSettings = List(
@@ -7,24 +7,17 @@ val sharedSettings = List(
   Keys.publishArtifact in (Compile, Keys.packageDoc) := false
 )
 
-val sbtBloopBuildShadedDeps = project
-  .in(file("target")./("sbt-bloop-build-shaded-deps"))
-  .settings(
-    scalacOptions in Compile :=
-      (scalacOptions in Compile).value.filterNot(_ == "-deprecation"),
-    libraryDependencies ++= List(
-      "com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-core" % "2.0.0",
-      "com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-macros" % "2.0.0",
-      "org.zeroturnaround" % "zt-exec" % "1.11",
-      "org.slf4j" % "slf4j-nop" % "1.7.2",
-      "me.vican.jorge" %% "snailgun-cli" % "0.3.1",
-      "io.get-coursier" %% "coursier" % "2.0.0-RC3-4",
-      "io.get-coursier" %% "coursier-cache" % "2.0.0-RC3-4",
-      "net.java.dev.jna" % "jna" % "4.5.0",
-      "net.java.dev.jna" % "jna-platform" % "4.5.0",
-      "ch.epfl.scala" % "bsp4j" % "2.0.0-M4+10-61e61e87"
-    )
-  )
+val emptySbtPlugin = project
+  .in(file("target")./("empty-sbt-plugin"))
+  .settings(sharedSettings)
+  .settings(sbtPlugin := true)
+
+val directDependencies = List(
+  "net.java.dev.jna" % "jna" % "4.5.0",
+  "net.java.dev.jna" % "jna-platform" % "4.5.0",
+  "com.google.code.gson" % "gson" % "2.7",
+  "com.google.code.findbugs" % "jsr305" % "3.0.2"
+)
 
 val sbtBloopBuildShadedJar = project
   .in(file("target")./("sbt-bloop-build-shaded"))
@@ -33,51 +26,63 @@ val sbtBloopBuildShadedJar = project
   .settings(
     // Published name will be sbt-bloop-shaded because of `shading:publishLocal`
     sbtPlugin := true,
-    name := "sbt-bloop-build-shaded-raw",
-    libraryDependencies ++= (libraryDependencies in sbtBloopBuildShadedDeps).value,
+    name := "sbt-bloop-build-shaded",
+    scalacOptions in Compile :=
+      (scalacOptions in Compile).value.filterNot(_ == "-deprecation"),
+    libraryDependencies ++= directDependencies,
+    libraryDependencies ++= List(
+      "com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-core" % "2.0.0",
+      "com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-macros" % "2.0.0",
+      "org.zeroturnaround" % "zt-exec" % "1.11",
+      "me.vican.jorge" %% "snailgun-cli" % "0.3.1",
+      "io.get-coursier" %% "coursier" % "2.0.0-RC3-4",
+      "io.get-coursier" %% "coursier-cache" % "2.0.0-RC3-4",
+      "ch.epfl.scala" % "bsp4j" % "2.0.0-M4+10-61e61e87"
+    ),
     toShadeClasses := {
       build.Shading.toShadeClasses(
         shadeNamespaces.value,
+        shadeIgnoredNamespaces.value ++ shadeOwnNamespaces.value,
         toShadeJars.value,
         streams.value.log,
         verbose = false
       )
     },
     toShadeJars := {
-      // Redefine toShadeJars as it seems broken in sbt-shading
-      Def.taskDyn {
-        Def.task {
-          // Only shade transitive dependencies, not bloop deps
-          (fullClasspath in Compile in sbtBloopBuildShadedDeps).value.map(_.data).filter {
-            path =>
-              val ppath = path.toString
-              !(
-                ppath.contains("scala-compiler") ||
-                  ppath.contains("scala-library") ||
-                  ppath.contains("scala-reflect") ||
-                  ppath.contains("scala-xml") ||
-                  ppath.contains("macro-compat") ||
-                  ppath.contains("jna-platform") ||
-                  ppath.contains("jna") ||
-                  ppath.contains("jsr305") ||
-                  ppath.contains("gson") ||
-                  ppath.contains("google") ||
-                  // Eclipse jars are signed and cannot be uberjar'd
-                  ppath.contains("eclipse") ||
-                  ppath.contains("scalamacros")
-              ) && path.isFile
+      val sbtCompileDependencies = (dependencyClasspath in Compile in emptySbtPlugin).value
+      val currentCompileDependencies = (dependencyClasspath in Runtime).value
+
+      val dependenciesToShade = currentCompileDependencies.filterNot { dep =>
+        sbtCompileDependencies.contains(dep)
+      }
+
+      import java.nio.file.{Files, FileSystems}
+      val eclipseJarsUnsignedDir = (Keys.crossTarget.value / "eclipse-jars-unsigned").toPath
+      Files.createDirectories(eclipseJarsUnsignedDir)
+      dependenciesToShade.map(_.data).flatMap {
+        path =>
+          val ppath = path.toString
+
+          // Copy over jar and remove signed entries
+          if (!path.exists || !path.isFile) Nil
+          else if (ppath.contains("gson") || ppath.contains("jsr") || ppath.contains("jna")) Nil
+          else if (!ppath.contains("eclipse")) List(path)
+          else {
+            val targetJar = eclipseJarsUnsignedDir.resolve(path.getName)
+            build.Shading.deleteSignedJarMetadata(path.toPath, targetJar)
+            List(targetJar.toFile)
           }
-        }
-      }.value
+      }
+
     },
     shadingNamespace := "shaded.build",
+    shadeIgnoredNamespaces := Set("com.google.gson", "org.slf4j"),
     shadeNamespaces := Set(
       "com.github.plokhotnyuk.jsoniter_scala",
       "machinist",
       "snailgun",
       "org.zeroturnaround",
       "io.github.soc",
-      "org.slf4j",
       "scopt",
       "macrocompat",
       "com.zaxxer.nuprocess",
@@ -85,9 +90,14 @@ val sbtBloopBuildShadedJar = project
       "shapeless",
       "argonaut",
       "org.checkerframework",
-      //"com.google",
+      "com.google.guava",
+      "com.google.common",
+      "com.google.j2objc",
+      "com.google.thirdparty",
+      "com.google.errorprone",
       "org.codehaus",
-      "ch.epfl.scala.bsp4j"
+      "ch.epfl.scala.bsp4j",
+      "org.eclipse"
     ),
     // Let's add our sbt plugin sources to the module
     unmanagedSourceDirectories in Compile ++= {
@@ -111,68 +121,55 @@ val sbtBloopBuildShadedJar = project
         throw new NoSuchElementException("shadingNamespace key not set")
       }
 
-      import sbt.util.{FileFunction, FileInfo}
-
       val packagedBin = packageBin.in(Compile).value
       val namespaces = shadeNamespaces.value
+      val ignored = shadeIgnoredNamespaces.value
       val classes = toShadeClasses.value
       val jars = toShadeJars.value
 
       val inputs = Keys.sources.in(Compile).value.toSet
       val cacheDirectory = Keys.target.value / "shaded-inputs-cached"
+
+      import sbt.util.{FileFunction, FileInfo}
       val cacheShading = FileFunction.cached(cacheDirectory, FileInfo.hash) { srcs =>
         Set(
-          build.Shading.createPackage(packagedBin, Nil, namespace, namespaces, classes, jars)
+          build.Shading
+            .createPackage(packagedBin, Nil, namespace, namespaces, ignored, classes, jars)
         )
       }
 
       cacheShading(inputs).head
-    },
-    exportJars := true,
-    discoveredSbtPlugins in Compile := {
-      sbt.internal.PluginDiscovery.emptyDiscoveredNames
     }
   )
 
-val sbtBloopBuildShaded = project
-  .in(file("target")./("sbt-bloop-build-shaded-complete"))
+// Create a proxy project instead of depending on plugin directly to work around https://github.com/sbt/sbt/issues/892
+val sbtBloopBuildShadedNakedJar = project
+  .in(file("sbt-bloop-build-shaded-naked"))
   .settings(sharedSettings)
   .settings(
-    sbtPlugin := true,
-    exportJars := true,
-    name := "sbt-bloop-build-shaded",
-    compileInputs in Compile in compile := {
-      // Trigger packageBin so that next metaproject can have access to it
-      val fatJar = (packageBin in Compile in sbtBloopBuildShadedJar).value
+    name := "sbt-bloop-build-shaded-naked",
+    libraryDependencies ++= directDependencies,
+    products in Compile := {
+      val packagedPluginJar = (packageBin in Compile in sbtBloopBuildShadedJar).value.toPath
 
-      val inputs = (compileInputs in Compile in compile).value
-      val classDir = (classDirectory in Compile).value
-      IO.unzip(fatJar, classDir)
-      IO.delete(classDir / "META-INF" / "MANIFEST.MF")
-      inputs
-    },
-    discoveredSbtPlugins in Compile := {
-      val autoPlugins = List("bloop.integrations.sbt.BloopPlugin")
-      new sbt.internal.PluginDiscovery.DiscoveredNames(autoPlugins, Nil)
+      // Proceed to remove META-INF, which contains sbt.autoplugins, from jar
+      val classDirectory = Keys.classDirectory.in(Compile).value
+      IO.unzip(packagedPluginJar.toFile, classDirectory)
+      IO.delete(classDirectory / "META-INF")
+      IO.delete(classDirectory / "sbt" / "sbt.autoplugins")
+
+      List(classDirectory)
     }
   )
-
-/*
- * Most of the machinery here is done to work around https://github.com/sbt/sbt/issues/892
- */
 
 val root = project
   .in(file("."))
   .settings(sharedSettings)
-  .dependsOn(sbtBloopBuildShaded)
+  .dependsOn(sbtBloopBuildShadedNakedJar)
   .settings(
     sbtPlugin := true,
-    exportJars := true,
-    discoveredSbtPlugins in Compile := {
-      // Trigger publish local of sbt-bloop shaded so that community build projects have access too
-      (Keys.publishLocal in Compile in sbtBloopBuildShaded).value
-
-      val autoPlugins = List("bloop.integrations.sbt.BloopPlugin")
-      new sbt.internal.PluginDiscovery.DiscoveredNames(autoPlugins, Nil)
-    }
+    update := update
+      .dependsOn(publishLocal in Compile in sbtBloopBuildShadedJar)
+      .dependsOn(publishLocal in Compile in sbtBloopBuildShadedNakedJar)
+      .value
   )

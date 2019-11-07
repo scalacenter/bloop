@@ -25,12 +25,14 @@ import sbt.{
   IntegrationTest,
   ThisBuild,
   ThisProject,
-  KeyRanks
+  KeyRanks,
+  Provided
 }
 import xsbti.compile.CompileOrder
 
 import scala.util.{Try, Success, Failure}
 import java.util.concurrent.ConcurrentHashMap
+import java.nio.file.StandardCopyOption
 
 object BloopPlugin extends AutoPlugin {
   import sbt.plugins.JvmPlugin
@@ -71,7 +73,7 @@ object BloopKeys {
     taskKey[Unit]("Generate all bloop configuration files")
   val bloopGenerate: TaskKey[Option[File]] =
     taskKey[Option[File]]("Generate bloop configuration file for this project")
-  val bloopForceResourceGenerators: TaskKey[Unit] =
+  val bloopPostGenerate: TaskKey[Unit] =
     taskKey[Unit]("Force resource generators for Bloop.")
 
   val bloopCompile: TaskKey[CompileResult] =
@@ -154,7 +156,7 @@ object BloopDefaults {
         else runCommandAndRemaining("bloopInstall")(state)
       }
     },
-    BloopKeys.bloopSupportedConfigurations := List(Compile, Test, IntegrationTest)
+    BloopKeys.bloopSupportedConfigurations := List(Compile, Test, IntegrationTest, Provided)
   ) ++ Offloader.bloopCompileGlobalSettings
 
   // From the infamous https://stackoverflow.com/questions/40741244/in-sbt-how-to-execute-a-command-in-task
@@ -200,7 +202,7 @@ object BloopDefaults {
       BloopKeys.bloopClassDirectory := generateBloopProductDirectories.value,
       BloopKeys.bloopInternalClasspath := bloopInternalDependencyClasspath.value,
       BloopKeys.bloopGenerate := bloopGenerate.value,
-      BloopKeys.bloopForceResourceGenerators := bloopForceResourceGenerators.value,
+      BloopKeys.bloopPostGenerate := bloopPostGenerate.value,
       BloopKeys.bloopAnalysisOut := Offloader.bloopAnalysisOut.value,
       BloopKeys.bloopMainClass := None,
       BloopKeys.bloopMainClass in Keys.run := BloopKeys.bloopMainClass.value
@@ -488,8 +490,15 @@ object BloopDefaults {
       data: Settings[Scope]
   ): Seq[Configuration] = Keys.ivyConfigurations.in(p).get(data).getOrElse(Nil)
 
-  private val disabledSbtConfigurationNames: List[String] =
-    List(sbt.Runtime, sbt.Default, sbt.Provided, sbt.Optional).map(_.name)
+  private val defaultSbtConfigurationMappings: Map[String, Option[Configuration]] = {
+    List(
+      sbt.Runtime.name -> None,
+      sbt.Default.name -> None,
+      // Transform provided dependencies into compile dependencies
+      sbt.Provided.name -> Some(Compile),
+      sbt.Optional.name -> None
+    ).toMap
+  }
 
   /**
    * Creates a project name from a classpath dependency and its configuration.
@@ -516,27 +525,37 @@ object BloopDefaults {
     }
 
     val ref = dep.project
-    val activeDependentConfigurations = getConfigurations(ref, data)
-    dep.configuration match {
+    val dependencyConfiguration = dep.configuration
+
+    dependencyConfiguration match {
       case Some(_) =>
+        val activeDependentConfigurations = getConfigurations(ref, data)
         val mapping = sbt.Classpaths.mapped(
-          dep.configuration,
+          dependencyConfiguration,
           filterSupported(activeProjectConfigurationNames),
           filterSupported(activeDependentConfigurations.map(_.name)),
           "compile",
           "*->compile"
         )
 
-        mapping(configuration.name) match {
+        val mappedConfiguration = {
+          // We need this to make `Provided` mean `Compile`
+          val mapped = mapping(configuration.name)
+          val retryWithProvided = mapped.isEmpty && configuration == Compile
+          if (retryWithProvided) mapping(Provided.name) else mapped
+        }
+
+        mappedConfiguration match {
           case Nil => Nil
           case configurationNames =>
             val configurations = configurationNames.iterator
               .flatMap(name => activeDependentConfigurations.find(_.name == name).toList)
+              .flatMap(c => defaultSbtConfigurationMappings.getOrElse(c.name, Some(c)).toList)
               .toList
 
             val allDependentConfigurations = configurations
               .flatMap(c => depsFromConfig(c).filterNot(_ == c))
-              .filterNot(c => disabledSbtConfigurationNames.contains(c.name))
+              .flatMap(c => defaultSbtConfigurationMappings.getOrElse(c.name, Some(c)).toList)
 
             val validDependentConfigurations = {
               allDependentConfigurations.flatMap { dc =>
@@ -976,14 +995,14 @@ object BloopDefaults {
             val `scala` = Config.Scala(scalaOrg, scalaName, scalaVersion, scalacOptions, allScalaJars, analysisOut, Some(compileSetup))
             val resources = Some(bloopResourcesTask.value)
 
-            val sbt = computeSbtMetadata.value.map(_.config)
+            val sbt = None // Written by `postGenerate` instead
             val project = Config.Project(projectName, baseDirectory, Option(buildBaseDirectory.toPath), sources, dependenciesAndAggregates,
               classpath, out, classesDir, resources, Some(`scala`), Some(java), sbt, Some(testOptions), Some(platform), resolution)
             Config.File(Config.File.LatestVersion, project)
           }
           // format: ON
 
-          bloop.config.write(config, outFile.toPath)
+          writeConfigAtomically(config, outFile.toPath)
 
           // Only shorten path for configuration files written to the the root build
           val allInRoot = BloopKeys.bloopAggregateSourceDependencies.in(Global).value
@@ -1001,6 +1020,24 @@ object BloopDefaults {
           Some(outFile)
         }
     }
+  }
+
+  /**
+   * Write configuration to target file atomically. We achieve atomic semantics
+   * by writing to a temporary file first and then moving.
+   *
+   * An atomic write is required to avoid clients of this target file to see an
+   * empty file and attempt to parse it (and fail). This empty file is caused
+   * by, for example, `Files.write` whose semantics truncates the size of the
+   * file to zero if it exists. If, for some reason, the clients access the
+   * file while write is ongoing, then they will see it empty and fail.
+   */
+  private def writeConfigAtomically(config: Config.File, target: Path): Unit = {
+    // Create unique tmp path so that move is always atomic (avoids copies across file systems!)
+    val tmpPath = target.resolve(target.getParent.resolve(target.getFileName + ".tmp"))
+    bloop.config.write(config, tmpPath)
+    Files.move(tmpPath, target, StandardCopyOption.REPLACE_EXISTING)
+    ()
   }
 
   private final val allJson = sbt.GlobFilter("*.json")
@@ -1109,17 +1146,23 @@ object BloopDefaults {
   }
 
   /**
-   * Forces resource generators outside of `bloopGenerate`, details explained
-   * in `bloopResourcesTask`. The following task writes again into the bloop
-   * configuration file in case a resource that has been generated falls
-   * outside the sbt-defined resource directories. This is rare but Bloop
+   * This task is triggered by `bloopGenerate` and does stuff which is
+   * sometimes dangerous because it can incur on cyclic dependencies, such as:
+   *
+   * * It forces resource generators outside of `bloopGenerate`, details
+   * explained in `bloopResourcesTask`. The following task writes again into
+   * the bloop configuration file in case a resource that has been generated
+   * falls outside the sbt-defined resource directories. This is rare but Bloop
    * handles this two-step configuration phase by always reading the bloop
    * configuration file before compiling *and* before running and testing.
+   *
+   * * It collects sbt metadata information, which can trigger
+   * compile/bloopGenerate when accessing `pluginData`, for reasons unknown to me.
    *
    * Note that this task is triggered by `bloopGenerate`, which means we will
    * run it when `bloopGenerate` has finished its execution.
    */
-  def bloopForceResourceGenerators: Def.Initialize[Task[Unit]] = {
+  def bloopPostGenerate: Def.Initialize[Task[Unit]] = {
     Def
       .taskDyn {
         val name = BloopKeys.bloopTargetName.value
@@ -1129,30 +1172,35 @@ object BloopDefaults {
         val hasConfigSettings = productDirectoriesUndeprecatedKey.?.value.isDefined
         if (!hasConfigSettings || generated.isEmpty) inlinedTask(())
         else {
-          logger.debug(s"Forcing resource generators for target $name")
+          logger.debug(s"Running postGenerate for $name")
           Def.task {
             val generated = targetNamesToConfigs.get(name)
+
             val currentResources = generated.project.resources.toList.flatten
             val currentResourceDirs = currentResources.filter(Files.isDirectory(_))
             val allResourceFiles = Keys.resources.in(configuration).value
             val additionalResources =
               ConfigUtil.pathsOutsideRoots(currentResourceDirs, allResourceFiles.map(_.toPath))
-            if (additionalResources.isEmpty) ()
-            else {
-              val missingResources =
-                additionalResources.filter(resource => !currentResources.contains(resource))
-              if (missingResources.nonEmpty) {
-                val newResources = Some(currentResources ++ missingResources)
-                val newProject = generated.project.copy(resources = newResources)
-                val newConfig = Config.File(Config.File.LatestVersion, newProject)
-                // Copy somewhere else and then move to make an atomic replacement
-                val tempConfigFile =
-                  Files.createTempFile("bloop-config", generated.outPath.getFileName.toString)
-                bloop.config.write(newConfig, tempConfigFile)
-                Files.move(tempConfigFile, generated.outPath)
-                ()
+
+            val newGeneratedProject = {
+              val sbt = computeSbtMetadata.value.map(_.config)
+              val newProject = generated.project.copy(sbt = sbt)
+              if (additionalResources.isEmpty) newProject
+              else {
+                val missingResources =
+                  additionalResources.filter(resource => !currentResources.contains(resource))
+                if (missingResources.isEmpty) newProject
+                else {
+                  val newResources = Some(currentResources ++ missingResources)
+                  newProject.copy(resources = newResources)
+                }
               }
             }
+
+            val newConfig = Config.File(Config.File.LatestVersion, newGeneratedProject)
+            writeConfigAtomically(newConfig, generated.outPath)
+
+            ()
           }
         }
       }
@@ -1168,7 +1216,7 @@ object BloopDefaults {
    * recursive dependency that hangs the sbt execution engine. To avoid this,
    * we force `Keys.resourceGenerators` in another task `triggeredBy` the *
    * `bloopGenerate` task, hence breaking the recursive dependency. See
-   * [[bloopForceResourceGenerators]] for more information on how that works.
+   * [[bloopPostGenerate]] for more information on how that works.
    */
   def bloopResourcesTask: Def.Initialize[Task[List[Path]]] = {
     Def.taskDyn {

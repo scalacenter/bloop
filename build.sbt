@@ -269,12 +269,18 @@ lazy val bloopgun: Project = project
       Dependencies.ztExec,
       Dependencies.slf4jNop,
       Dependencies.coursier,
-      Dependencies.coursierCache
+      Dependencies.coursierCache,
+      // Necessary to compile to native (see https://github.com/coursier/coursier/blob/0bf1c4f364ceff76892751a51361a41dfc478b8d/build.sbt#L376)
+      "org.bouncycastle" % "bcprov-jdk15on" % "1.64",
+      "org.bouncycastle" % "bcpkix-jdk15on" % "1.64"
     ),
     mainClass in GraalVMNativeImage := Some("bloop.bloopgun.Bloopgun"),
     graalVMNativeImageOptions ++= {
       val reflectionFile = Keys.sourceDirectory.in(Compile).value./("graal")./("reflection.json")
+      val securityOverridesFile =
+        Keys.sourceDirectory.in(Compile).value./("graal")./("java.security.overrides")
       assert(reflectionFile.exists)
+      assert(securityOverridesFile.exists)
       List(
         "--no-server",
         "--enable-http",
@@ -283,71 +289,51 @@ lazy val bloopgun: Project = project
         "--enable-all-security-services",
         "--no-fallback",
         s"-H:ReflectionConfigurationFiles=$reflectionFile",
-        //"--allow-incomplete-classpath",
-        "-H:+ReportExceptionStackTraces"
-        //"--initialize-at-build-time=scala.Function1"
+        "--allow-incomplete-classpath",
+        "-H:+ReportExceptionStackTraces",
+        s"-J-Djava.security.properties=$securityOverridesFile",
+        s"-Djava.security.properties=$securityOverridesFile",
+        "--initialize-at-build-time=scala.Symbol",
+        "--initialize-at-build-time=scala.Function1",
+        "--initialize-at-build-time=scala.Function2",
+        "--initialize-at-build-time=scala.runtime.StructuralCallSite",
+        "--initialize-at-build-time=scala.runtime.EmptyMethodCache"
       )
     }
   )
 
-def shadeSettingsForModule(
-    moduleId: String,
-    module: Reference,
-    dependencyModules: List[Reference]
-) = List(
+def shadeSettingsForModule(moduleId: String, module: Reference) = List(
   packageBin in Compile := {
     Def.taskDyn {
-      val data = Keys.settingsData.value
-      val baseJar = Keys.packageBin.in(Compile).in(module).value
-      val unshadedDepJarTasks = dependencyModules.flatMap { dep =>
-        Keys.packageBin.in(Compile).in(dep).get(data).toList
-      }.join
-      Def.taskDyn {
-        val unshadedDepJars = unshadedDepJarTasks.value
-        shadingPackageBin(baseJar, unshadedDepJars)
-      }
+      val baseJar = Keys.packageBin.in(module).in(Compile).value
+      val unshadedJarDependencies =
+        internalDependencyAsJars.in(Compile).in(module).value.map(_.data)
+      shadingPackageBin(baseJar, unshadedJarDependencies)
     }.value
   },
   toShadeJars := {
-    // Redefine toShadeJars as it seems broken in sbt-shading
-    Def.taskDyn {
-      val data = Keys.settingsData.value
-      val projectDepModuleNames = dependencyModules.flatMap { dep =>
-        Keys.name.get(data).toList
-      }
-      Def.task {
-        val projectDepNames = Keys.name.in(module).value :: projectDepModuleNames
-        val depJars = dependencyClasspath.in(Compile).in(module).value.map(_.data)
-        depJars.filter {
-          path =>
-            val ppath = path.toString
-            !(
-              projectDepNames.exists(n => ppath.contains(n)) ||
-                ppath.contains("sockets") || // Our own sockets library
-                ppath.contains("scala-library") ||
-                ppath.contains("scala-reflect") ||
-                ppath.contains("scala-xml") ||
-                ppath.contains("jna-platform") ||
-                ppath.contains("jna") ||
-                ppath.contains("macro-compat") || {
-                if (!System.getProperty("java.specification.version").startsWith("1.")) false
-                else {
-                  val toolsJarPath =
-                    org.scaladebugger.SbtJdiTools.JavaTools.getAbsolutePath.toString
-                  ppath.contains(toolsJarPath)
-                }
-              }
-            ) && path.exists && !path.isDirectory
-        }
-      }
-    }.value
-  },
-  toShadeClasses := {
-    // Only shade dependencies, not bloop code or Scala deps
-    toShadeClasses.value.filter { p =>
-      !(p.startsWith("bloop.") || p.startsWith("scala."))
+    val dependencyJars = dependencyClasspath.in(Runtime).in(module).value.map(_.data)
+    dependencyJars.flatMap {
+      path =>
+        val ppath = path.toString
+        val shouldShadeJar = !(
+          ppath.contains("scala-compiler") ||
+            ppath.contains("scala-library") ||
+            ppath.contains("scala-reflect") ||
+            ppath.contains("scala-xml") ||
+            ppath.contains("macro-compat") ||
+            ppath.contains("bcprov-jdk15on") ||
+            ppath.contains("bcpkix-jdk15on") ||
+            ppath.contains("jna") ||
+            ppath.contains("jna-platform") ||
+            isJdiJar(path)
+        ) && path.exists && !path.isDirectory
+
+        if (!shouldShadeJar) Nil
+        else List(path)
     }
   },
+  shadeIgnoredNamespaces := Set("scala"),
   // Lists *all* Scala dependencies transitively for the shading to work correctly
   shadeNamespaces := Set(
     // Bloopgun direct and transitive deps
@@ -371,7 +357,7 @@ lazy val bloopgunShaded = project
   .disablePlugins(SbtJdiTools)
   .enablePlugins(BloopShadingPlugin)
   .settings(shadedModuleSettings)
-  .settings(shadeSettingsForModule("bloopgun-core", bloopgun, Nil))
+  .settings(shadeSettingsForModule("bloopgun-core", bloopgun))
   .settings(
     name := "bloopgun",
     fork in run := true,
@@ -400,25 +386,17 @@ lazy val launcherShaded = project
   .disablePlugins(SbtJdiTools)
   .enablePlugins(BloopShadingPlugin)
   .settings(shadedModuleSettings)
-  .settings(shadeSettingsForModule("bloop-launcher-core", launcher, List(bloopgun)))
+  .settings(shadeSettingsForModule("bloop-launcher-core", launcher))
   .settings(
     name := "bloop-launcher",
     fork in run := true,
     fork in Test := true,
     bloopGenerate in Compile := None,
     bloopGenerate in Test := None,
-    projectDependencies := {
-      // Redefine ivy configuration to force publishing deps to shade
-      val dependencies = projectDependencies.value
-      Def
-        .sequential(
-          publishLocal in sockets,
-          publishLocal in bloopgun,
-          publishLocal in launcher
-        )
-        .value
-      dependencies
-    }
+    libraryDependencies ++= List(
+      "net.java.dev.jna" % "jna" % "4.5.0",
+      "net.java.dev.jna" % "jna-platform" % "4.5.0"
+    )
   )
 
 lazy val bloop4j = project
@@ -444,63 +422,59 @@ lazy val benchmarks = project
 
 val integrations = file("integrations")
 
+def isJdiJar(file: File): Boolean = {
+  import org.scaladebugger.SbtJdiTools
+  if (!System.getProperty("java.specification.version").startsWith("1.")) false
+  else file.getAbsolutePath.contains(SbtJdiTools.JavaTools.getAbsolutePath.toString)
+}
+
 def shadeSbtSettingsForModule(
     moduleId: String,
-    module: Reference,
-    dependencyModules: List[Reference]
+    module: Reference
 ) = {
   List(
     packageBin in Compile := {
       Def.taskDyn {
-        val data = Keys.settingsData.value
-        val baseJar = Keys.packageBin.in(Compile).in(module).value
-        val unshadedDepJarTasks = dependencyModules.flatMap { dep =>
-          Keys.packageBin.in(Compile).in(dep).get(data).toList
-        }.join
-        Def.taskDyn {
-          val unshadedDepJars = unshadedDepJarTasks.value
-          shadingPackageBin(baseJar, unshadedDepJars)
-        }
+        val baseJar = Keys.packageBin.in(module).in(Compile).value
+        val unshadedJarDependencies =
+          internalDependencyAsJars.in(Compile).in(module).value.map(_.data)
+        shadingPackageBin(baseJar, unshadedJarDependencies)
       }.value
     },
+    shadeOwnNamespaces := Set("bloop"),
+    shadeIgnoredNamespaces := Set("com.google.gson"),
     toShadeJars := {
-      // Redefine toShadeJars as it seems broken in sbt-shading
-      Def.taskDyn {
-        val data = Keys.settingsData.value
-        val projectDepModuleNames = dependencyModules.flatMap { dep =>
-          Keys.name.get(data).toList
-        }
+      val eclipseJarsUnsignedDir = (Keys.crossTarget.value / "eclipse-jars-unsigned").toPath
+      java.nio.file.Files.createDirectories(eclipseJarsUnsignedDir)
 
-        Def.task {
-          val projectDepNames = Keys.name.in(module).value :: projectDepModuleNames
-          val depJars = fullClasspath.in(Runtime).in(module).value.map(_.data)
-          depJars.filter {
-            path =>
-              val ppath = path.toString
-              !(
-                projectDepNames.exists(n => ppath.contains(n)) ||
-                  ppath.contains("scala-compiler") ||
-                  ppath.contains("scala-library") ||
-                  ppath.contains("scala-reflect") ||
-                  ppath.contains("scala-xml") ||
-                  ppath.contains("macro-compat") ||
-                  ppath.contains("scalamacros") ||
-                  // Eclipse jars are signed and cannot be uberjar'd
-                  ppath.contains("eclipse") ||
-                  ppath.contains("jsr305") ||
-                  ppath.contains("jna") ||
-                  ppath.contains("jna-platform") || {
-                  if (!System.getProperty("java.specification.version").startsWith("1.")) false
-                  else {
-                    val toolsJarPath =
-                      org.scaladebugger.SbtJdiTools.JavaTools.getAbsolutePath.toString
-                    ppath.contains(toolsJarPath)
-                  }
-                }
-              ) && path.exists && !path.isDirectory
+      val dependencyJars = dependencyClasspath.in(Runtime).in(module).value.map(_.data)
+      dependencyJars.flatMap {
+        path =>
+          val ppath = path.toString
+          val isEclipseJar = ppath.contains("eclipse")
+          val shouldShadeJar = !(
+            ppath.contains("scala-compiler") ||
+              ppath.contains("scala-library") ||
+              ppath.contains("scala-reflect") ||
+              ppath.contains("scala-xml") ||
+              ppath.contains("macro-compat") ||
+              ppath.contains("scalamacros") ||
+              ppath.contains("jsr") ||
+              ppath.contains("bcprov-jdk15on") ||
+              ppath.contains("bcpkix-jdk15on") ||
+              ppath.contains("jna") ||
+              ppath.contains("jna-platform") ||
+              isJdiJar(path)
+          ) && path.exists && !path.isDirectory
+
+          if (!shouldShadeJar) Nil
+          else if (!isEclipseJar) List(path)
+          else {
+            val targetJar = eclipseJarsUnsignedDir.resolve(path.getName)
+            build.Shading.deleteSignedJarMetadata(path.toPath, targetJar)
+            List(targetJar.toFile)
           }
-        }
-      }.value
+      }
     },
     shadeNamespaces := Set(
       "machinist",
@@ -521,22 +495,22 @@ def shadeSbtSettingsForModule(
       "shapeless",
       "argonaut",
       "org.checkerframework",
-      "com.google",
+      "com.google.guava",
+      "com.google.common",
+      "com.google.j2objc",
+      "com.google.thirdparty",
+      "com.google.errorprone",
       "org.codehaus",
-      "ch.epfl.scala.bsp4j"
-    ),
-    toShadeClasses := {
-      // Only shade dependencies, not bloop config code
-      toShadeClasses.value.filter(!_.startsWith("bloop"))
-    }
+      "ch.epfl.scala.bsp4j",
+      "org.eclipse"
+    )
   )
 }
 
 def defineShadedSbtPlugin(
     projectName: String,
     sbtVersion: String,
-    sbtBloop: Reference,
-    dependencyModules: List[Reference]
+    sbtBloop: Reference
 ) = {
   sbt
     .Project(projectName, integrations / "sbt-bloop" / "target" / s"sbt-bloop-shaded-$sbtVersion")
@@ -545,7 +519,7 @@ def defineShadedSbtPlugin(
     .disablePlugins(SbtJdiTools)
     .settings(sbtPluginSettings("sbt-bloop", sbtVersion))
     .settings(shadedModuleSettings)
-    .settings(shadeSbtSettingsForModule("sbt-bloop-core", sbtBloop, dependencyModules))
+    .settings(shadeSbtSettingsForModule("sbt-bloop-core", sbtBloop))
     .settings(
       fork in run := true,
       fork in Test := true,
@@ -563,11 +537,14 @@ lazy val sbtBloop10: Project = project
   .settings(sbtPluginSettings("sbt-bloop-core", Sbt1Version))
 
 lazy val sbtBloop10Shaded: Project =
-  defineShadedSbtPlugin(
-    "sbtBloop10Shaded",
-    Sbt1Version,
-    sbtBloop10,
-    List(jsonConfig212, sockets, bloopgun, launcher, bloop4j)
+  defineShadedSbtPlugin("sbtBloop10Shaded", Sbt1Version, sbtBloop10).settings(
+    // Add dependencies that are not shaded and are required to be unchanged to work at runtime
+    libraryDependencies ++= List(
+      "net.java.dev.jna" % "jna" % "4.5.0",
+      "net.java.dev.jna" % "jna-platform" % "4.5.0",
+      "com.google.code.gson" % "gson" % "2.7",
+      "com.google.code.findbugs" % "jsr305" % "3.0.2"
+    )
   )
 
 lazy val sbtBloop013 = project
@@ -580,7 +557,7 @@ lazy val sbtBloop013 = project
   .settings(resolvers += Resolver.typesafeIvyRepo("releases"))
 
 lazy val sbtBloop013Shaded =
-  defineShadedSbtPlugin("sbtBloop013Shaded", Sbt013Version, sbtBloop013, List(jsonConfig210))
+  defineShadedSbtPlugin("sbtBloop013Shaded", Sbt013Version, sbtBloop013)
 
 lazy val mavenBloop = project
   .in(integrations / "maven-bloop")
@@ -775,6 +752,40 @@ val bloop = project
     commands += BuildDefaults.exportProjectsInTestResourcesCmd,
     buildIntegrationsBase := (Keys.baseDirectory in ThisBuild).value / "build-integrations",
     twitterDodo := buildIntegrationsBase.value./("build-twitter"),
+    publishLocalAllModules := {
+      BuildDefaults
+        .publishLocalAllModules(
+          List(
+            bloopShared,
+            backend,
+            frontend,
+            jsonConfig210,
+            jsonConfig211,
+            jsonConfig212,
+            jsonConfig213,
+            sbtBloop013,
+            sbtBloop10,
+            sbtBloop013Shaded,
+            sbtBloop10Shaded,
+            mavenBloop,
+            gradleBloop211,
+            gradleBloop212,
+            millBloop,
+            nativeBridge03,
+            nativeBridge04,
+            jsBridge06,
+            jsBridge10,
+            sockets,
+            bloopgun,
+            launcher,
+            bloopgunShaded,
+            launcherShaded,
+            buildpressConfig,
+            buildpress
+          )
+        )
+        .value
+    },
     releaseEarlyAllModules := {
       BuildDefaults
         .releaseEarlyAllModules(
@@ -822,75 +833,17 @@ val bloop = project
     }
   )
 
-/**************************************************************************************************/
-/*                      This is the corner for all the command definitions                        */
-/**************************************************************************************************/
-val publishLocalCmd = Keys.publishLocal.key.label
-
-addCommandAlias(
-  "testInstall",
-  Seq(
-    s"${bloopShared.id}/$publishLocalCmd",
-    s"${jsonConfig210.id}/$publishLocalCmd",
-    s"${jsonConfig211.id}/$publishLocalCmd",
-    s"${jsonConfig212.id}/$publishLocalCmd",
-    s"${jsonConfig213.id}/$publishLocalCmd",
-    //s"${sbtBloop013.id}/$publishLocalCmd",
-    s"${sbtBloop10.id}/$publishLocalCmd",
-    //s"${sbtBloop013Shaded.id}/$publishLocalCmd",
-    s"${sbtBloop10Shaded.id}/$publishLocalCmd"
-  ).mkString(";", ";", "")
-)
-
 // Runs the scripted tests to setup integration tests
 // ! This is used by the benchmarks too !
 addCommandAlias(
   "install",
   Seq(
-    s"${bloopShared.id}/$publishLocalCmd",
-    s"${jsonConfig210.id}/$publishLocalCmd",
-    s"${jsonConfig211.id}/$publishLocalCmd",
-    s"${jsonConfig212.id}/$publishLocalCmd",
-    s"${jsonConfig213.id}/$publishLocalCmd",
-    //s"${sbtBloop013.id}/$publishLocalCmd",
-    s"${sbtBloop10.id}/$publishLocalCmd",
-    //s"${sbtBloop013Shaded.id}/$publishLocalCmd",
-    s"${sbtBloop10Shaded.id}/$publishLocalCmd",
-    //s"${mavenBloop.id}/$publishLocalCmd",
-    s"${gradleBloop211.id}/$publishLocalCmd",
-    s"${gradleBloop212.id}/$publishLocalCmd",
-    s"${backend.id}/$publishLocalCmd",
-    s"${frontend.id}/$publishLocalCmd",
-    s"${nativeBridge03.id}/$publishLocalCmd",
-    s"${nativeBridge04.id}/$publishLocalCmd",
-    s"${millBloop.id}/$publishLocalCmd",
-    s"${jsBridge06.id}/$publishLocalCmd",
-    s"${jsBridge10.id}/$publishLocalCmd",
-    s"${sockets.id}/$publishLocalCmd",
-    s"${bloopgun.id}/$publishLocalCmd",
-    s"${launcher.id}/$publishLocalCmd",
-    s"${bloopgunShaded.id}/$publishLocalCmd",
-    s"${launcherShaded.id}/$publishLocalCmd",
-    s"${buildpressConfig.id}/$publishLocalCmd",
-    s"${buildpress.id}/$publishLocalCmd",
-    // Force build info generators in frontend-test
+    "publishLocalAllModules",
     s"${frontend.id}/test:compile",
     "createLocalHomebrewFormula",
     "createLocalScoopFormula",
     "createLocalArchPackage",
     "generateInstallationWitness"
-  ).mkString(";", ";", "")
-)
-
-addCommandAlias(
-  "publishSbtBloop",
-  Seq(
-    s"${jsonConfig210.id}/$publishLocalCmd",
-    s"${jsonConfig212.id}/$publishLocalCmd",
-    s"${sbtBloop013.id}/$publishLocalCmd",
-    s"${sbtBloop10.id}/$publishLocalCmd",
-    s"${sbtBloop013Shaded.id}/$publishLocalCmd",
-    s"${sbtBloop10Shaded.id}/$publishLocalCmd"
   ).mkString(";", ";", "")
 )
 
