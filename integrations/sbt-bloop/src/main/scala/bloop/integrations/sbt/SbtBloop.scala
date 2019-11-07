@@ -1037,6 +1037,7 @@ object BloopDefaults {
     val tmpPath = target.resolve(target.getParent.resolve(target.getFileName + ".tmp"))
     bloop.config.write(config, tmpPath)
     Files.move(tmpPath, target, StandardCopyOption.REPLACE_EXISTING)
+    ()
   }
 
   private final val allJson = sbt.GlobFilter("*.json")
