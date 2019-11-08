@@ -19,7 +19,6 @@ import ch.epfl.scala.{bsp => Bsp}
 
 import xsbti.compile.{ClasspathOptions, CompileOrder}
 import bloop.config.ConfigCodecs
-import com.github.plokhotnyuk.jsoniter_scala.core.JsonReaderException
 
 final case class Project(
     name: String,
@@ -121,17 +120,23 @@ final case class Project(
 }
 
 object Project {
+  private implicit val filter = DebugFilter.All
   final implicit val ps: scalaz.Show[Project] =
     new scalaz.Show[Project] { override def shows(f: Project): String = f.name }
 
   private final class ProjectReadException(msg: String, cause: Throwable)
       extends RuntimeException(msg, cause)
+
   def fromBytesAndOrigin(bytes: Array[Byte], origin: Origin, logger: Logger): Project = {
     logger.debug(s"Loading project from '${origin.path}'")(DebugFilter.All)
     ConfigCodecs.read(bytes) match {
       case Left(failure) =>
         throw new ProjectReadException(s"Failed to load project from ${origin.path}", failure)
-      case Right(file) => Project.fromConfig(file, origin, logger)
+      case Right(file) =>
+        val project = Project.fromConfig(file, origin, logger)
+        val skipHydraChanges = !project.scalaInstance.map(_.supportsHydra).getOrElse(false)
+        if (skipHydraChanges) project
+        else enableHydraSettings(project, logger)
     }
   }
 
@@ -270,5 +275,63 @@ object Project {
 
   def isSemanticdbSourceRoot(option: String): Boolean = {
     option.contains("semanticdb:sourceroot")
+  }
+
+  def enableHydraSettings(project: Project, logger: Logger): Project = {
+    val homeDir = AbsolutePath(sys.props("user.home"))
+    val workspaceDir = project.workspaceDirectory.getOrElse {
+      val assumedWorkspace = project.origin.path.getParent
+      logger.debug(s"Missing workspace dir for project ${project.name}, assuming $assumedWorkspace")
+      assumedWorkspace
+    }
+
+    // Project is unique and derived from project name and ivy project configuration
+    val hydraTag = project.name
+
+    val hydraRootBaseDir = workspaceDir.resolve("hydra").createDirectories
+    val hydraBaseDir = hydraRootBaseDir.resolve("bloop").createDirectories
+    val hydraStoreDir = hydraBaseDir.resolve(hydraTag)
+    val hydraTimingsFile = hydraBaseDir.resolve("timings.csv")
+    val hydraPartitionFile = hydraBaseDir.resolve("partition.hydra")
+    val hydraMetricsDir = homeDir.resolve(".triplequote").createDirectories
+
+    // Default to `auto`, missing in https://gist.github.com/dotta/37aad757f70d3a4c7457be1f3140c0ed#file-hydracompilersettings-scala-L31-L71
+    val hydraSourcePartitioner = "auto"
+    val hydraSourcepath = project.sources.mkString(java.io.File.pathSeparator)
+
+    val storeOption = ("-YhydraStore", hydraStoreDir.syntax)
+    val rootDirOption = ("-YrootDirectory", workspaceDir.syntax)
+    val timingsFileOption = ("-YtimingsFile", hydraTimingsFile.syntax)
+    val partitionFileOption = ("-YpartitionFile", hydraPartitionFile.syntax)
+    val metricsDirOption = ("-YhydraMetricsDirectory", hydraMetricsDir.syntax)
+    val hydraTagOption = ("-YhydraTag", hydraTag)
+    val sourcepathOption = ("-sourcepath", hydraSourcepath)
+    val sourcePartitionerOption = ("-YsourcePartitioner", hydraSourcePartitioner)
+
+    val allHydraOptions = List(
+      storeOption,
+      rootDirOption,
+      timingsFileOption,
+      partitionFileOption,
+      metricsDirOption,
+      hydraTagOption,
+      sourcepathOption,
+      sourcePartitionerOption
+    )
+
+    //val newScalacOptionsMap = new mutable.LinkedHashMap[String, String]()
+    val optionsWithConflicts =
+      project.scalacOptions.filter(option => allHydraOptions.exists(option == _._1)).toSet
+    val newScalacOptionsBuf = new mutable.ListBuffer[String]
+    project.scalacOptions.foreach(oldOption => newScalacOptionsBuf.+=(oldOption))
+    allHydraOptions.foreach {
+      case (key, value) =>
+        // Do nothing if there's a conflict with a user-defined setting
+        if (optionsWithConflicts.contains(key)) ()
+        else newScalacOptionsBuf.+=(key).+=(value)
+    }
+
+    val newScalacOptions = newScalacOptionsBuf.toList
+    project.copy(scalacOptions = newScalacOptions)
   }
 }
