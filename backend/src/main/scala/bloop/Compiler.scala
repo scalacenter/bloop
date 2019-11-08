@@ -48,6 +48,7 @@ case class CompileInputs(
     baseDirectory: AbsolutePath,
     scalacOptions: Array[String],
     javacOptions: Array[String],
+    javacHome: Option[AbsolutePath],
     compileOrder: CompileOrder,
     classpathOptions: ClasspathOptions,
     previousResult: PreviousResult,
@@ -332,7 +333,7 @@ object Compiler {
     val start = System.nanoTime()
     val scalaInstance = compileInputs.scalaInstance
     val classpathOptions = compileInputs.classpathOptions
-    val compilers = compileInputs.compilerCache.get(scalaInstance)
+    val compilers = compileInputs.compilerCache.get(scalaInstance, compileInputs.javacHome)
     val inputs = tracer.trace("creating zinc inputs")(_ => getInputs(compilers))
 
     // We don't need nanosecond granularity, we're happy with milliseconds

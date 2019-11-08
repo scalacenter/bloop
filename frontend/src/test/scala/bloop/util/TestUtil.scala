@@ -67,7 +67,8 @@ object TestUtil {
     else {
       val scheduler = ExecutionContext.ioScheduler
       val jars = bloop.io.Paths.getCacheDirectory("scala-jars")
-      singleCompilerCache = new CompilerCache(componentProvider, jars, logger, Nil, None, scheduler)
+      singleCompilerCache =
+        new CompilerCache(componentProvider, jars, logger, Nil, None, None, scheduler)
       singleCompilerCache
     }
   }

@@ -60,8 +60,10 @@ object Tasks {
         logger.debug(s"Setting up the console classpath with ${entries.mkString(", ")}")(
           DebugFilter.All
         )
+        val javaHome = project.jdkConfig.map(_.javaHome)
         val loader = ClasspathUtilities.makeLoader(entries, instance)
-        val compiler = state.compilerCache.get(instance).scalac.asInstanceOf[AnalyzingCompiler]
+        val compiler =
+          state.compilerCache.get(instance, javaHome).scalac.asInstanceOf[AnalyzingCompiler]
         val opts = ClasspathOptionsUtil.repl
         val options = project.scalacOptions :+ "-Xnojline"
         // We should by all means add better error handling here!
