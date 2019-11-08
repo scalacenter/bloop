@@ -7,7 +7,7 @@ import java.util.concurrent.TimeUnit
 
 import bloop.bsp.BspServer
 import bloop.cli.Commands
-import bloop.exec.JavaEnv
+import bloop.data.JdkConfig
 import bloop.logging.RecordingLogger
 import bloop.util.TestUtil
 import bloop.util.TestUtil.{checkAfterCleanCompilation, getProject, loadTestProject, runAndCheck}
@@ -60,12 +60,12 @@ class RunSpec {
   def doesntDetectNonRunnableClasses() = {
     val projectName = "test-project"
     val projectsStructure = Map(projectName -> Map("A.scala" -> ArtificialSources.NotRunnable))
-    val javaEnv = JavaEnv.default
+    val jdkConfig = JdkConfig.default
     checkAfterCleanCompilation(
       projectsStructure,
       noDependencies,
       rootProjects = List(projectName),
-      javaEnv = javaEnv,
+      jdkConfig = jdkConfig,
       quiet = true
     ) { state =>
       val project = getProject(projectName, state)
@@ -78,12 +78,12 @@ class RunSpec {
   def canDetectOneMainClass() = {
     val projectName = "test-project"
     val projectsStructure = Map(projectName -> Map("A.scala" -> ArtificialSources.RunnableClass0))
-    val javaEnv = JavaEnv.default
+    val jdkConfig = JdkConfig.default
     checkAfterCleanCompilation(
       projectsStructure,
       noDependencies,
       rootProjects = List(projectName),
-      javaEnv = javaEnv,
+      jdkConfig = jdkConfig,
       quiet = true
     ) { state =>
       val project = getProject(projectName, state)
@@ -102,12 +102,12 @@ class RunSpec {
         "B.scala" -> ArtificialSources.RunnableClass1
       )
     )
-    val javaEnv = JavaEnv.default
+    val jdkConfig = JdkConfig.default
     checkAfterCleanCompilation(
       projectsStructure,
       noDependencies,
       rootProjects = List(projectName),
-      javaEnv = javaEnv,
+      jdkConfig = jdkConfig,
       quiet = true
     ) { state =>
       val project = getProject(projectName, state)

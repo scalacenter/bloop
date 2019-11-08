@@ -4,7 +4,7 @@ import bloop.cli.ExitStatus
 import bloop.data.{Platform, Project}
 import bloop.engine.State
 import bloop.engine.tasks.{RunMode, Tasks}
-import bloop.exec.JavaEnv
+import bloop.data.JdkConfig
 import bloop.testing.{LoggingEventHandler, TestInternals}
 import ch.epfl.scala.bsp.ScalaMainClass
 import monix.eval.Task
@@ -16,7 +16,7 @@ trait DebuggeeRunner {
 private final class MainClassDebugAdapter(
     project: Project,
     mainClass: ScalaMainClass,
-    env: JavaEnv,
+    env: JdkConfig,
     state: State
 ) extends DebuggeeRunner {
   def run(debugLogger: DebugSessionLogger): Task[ExitStatus] = {
@@ -73,7 +73,7 @@ object DebuggeeRunner {
       case Seq(project) =>
         project.platform match {
           case jvm: Platform.Jvm =>
-            Right(new MainClassDebugAdapter(project, mainClass, jvm.env, state))
+            Right(new MainClassDebugAdapter(project, mainClass, jvm.config, state))
           case platform =>
             Left(s"Unsupported platform: ${platform.getClass.getSimpleName}")
         }

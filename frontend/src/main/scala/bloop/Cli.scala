@@ -7,13 +7,12 @@ import java.util.concurrent.ConcurrentHashMap
 
 import bloop.bsp.BspServer
 import bloop.io.AbsolutePath
-import bloop.util.CrossPlatform
+import bloop.util.{CrossPlatform, JavaRuntime}
 import bloop.cli.{CliOptions, CliParsers, Commands, CommonOptions, ExitStatus, Validate}
 import bloop.engine._
 import bloop.engine.tasks.Tasks
 import bloop.logging.{BloopLogger, DebugFilter, Logger}
 import bloop.data.ClientInfo.CliClientInfo
-import bloop.exec.JavaEnv
 
 import caseapp.core.{DefaultBaseCommand, Messages}
 import com.martiansoftware.nailgun.NGContext
@@ -247,7 +246,7 @@ object Cli {
   }
 
   // Attempt to load JDI when we initialize the CLI class
-  private val _ = JavaEnv.loadJavaDebugInterface
+  private val _ = JavaRuntime.loadJavaDebugInterface
   private def run(
       action: Action,
       pool: ClientPool,

@@ -6,7 +6,7 @@ import java.nio.file.{Files, Path}
 import bloop.ScalaInstance
 import bloop.bsp.ProjectUris
 import bloop.config.Config
-import bloop.exec.JavaEnv
+import bloop.data.JdkConfig
 import bloop.io.{AbsolutePath, Paths, RelativePath}
 import bloop.logging.NoopLogger
 import bloop.util.TestUtil.ProjectArchetype
@@ -111,8 +111,7 @@ object TestProject {
     val allJars = instance.allJars.map(AbsolutePath.apply)
     val depsTargets = directDependencies.flatMap(d => classpathDeps(d))
     val classpath = (depsTargets ++ allJars ++ jars).map(_.underlying)
-    val javaConfig = jvmConfig.getOrElse(JavaEnv.toConfig(JavaEnv.default))
-    val javaEnv = JavaEnv.fromConfig(javaConfig)
+    val javaConfig = jvmConfig.getOrElse(JdkConfig.toConfig(JdkConfig.default))
     val setup = Config.CompileSetup.empty.copy(order = order)
     val scalaConfig = Config.Scala(
       finalScalaOrg,

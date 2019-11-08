@@ -49,7 +49,7 @@ object State {
       val componentsDir = Paths.getCacheDirectory("components")
       val provider = BloopComponentCompiler.getComponentProvider(componentsDir)
       val jars = Paths.getCacheDirectory("scala-jars")
-      singleCompilerCache = new CompilerCache(provider, jars, logger, Nil, None, scheduler)
+      singleCompilerCache = new CompilerCache(provider, jars, logger, Nil, None, None, scheduler)
       singleCompilerCache
     }
   }

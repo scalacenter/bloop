@@ -15,11 +15,12 @@ import javax.tools.{
   JavaCompiler => JavaxCompiler
 }
 import bloop.io.{AbsolutePath, Paths}
+import bloop.util.JavaRuntime
 import bloop.logging.Logger
 import sbt.librarymanagement.Resolver
 import xsbti.ComponentProvider
 import xsbti.compile.Compilers
-import xsbti.compile.{JavaCompiler => XJavaCompiler, JavaTool => XJavaTool}
+import xsbti.compile.{JavaCompiler, JavaTool => XJavaTool}
 import xsbti.compile.ClassFileManager
 import xsbti.{Logger => XLogger, Reporter => XReporter}
 import sbt.internal.inc.bloop.ZincInternals
@@ -38,40 +39,64 @@ import sbt.internal.inc.javac.{
 import sbt.internal.util.LoggerWriter
 import java.io.IOException
 import scala.concurrent.ExecutionContext
+import xsbti.compile.ScalaCompiler
 
 final class CompilerCache(
     componentProvider: ComponentProvider,
     retrieveDir: AbsolutePath,
     logger: Logger,
     userResolvers: List[Resolver],
-    useSiteCache: Option[ConcurrentHashMap[ScalaInstance, Compilers]],
+    userScalaCache: Option[ConcurrentHashMap[ScalaInstance, ScalaCompiler]],
+    userJavacCache: Option[ConcurrentHashMap[Option[AbsolutePath], JavaCompiler]],
     scheduler: ExecutionContext
 ) {
 
-  private val cache = useSiteCache.getOrElse(new ConcurrentHashMap[ScalaInstance, Compilers]())
-  def get(scalaInstance: ScalaInstance): Compilers =
-    cache.computeIfAbsent(scalaInstance, newCompilers)
+  private val scalaCompilerCache =
+    userScalaCache.getOrElse(new ConcurrentHashMap[ScalaInstance, ScalaCompiler]())
 
-  private[bloop] def withLogger(logger: Logger): CompilerCache =
-    new CompilerCache(componentProvider, retrieveDir, logger, userResolvers, Some(cache), scheduler)
+  private val javaCompilerCache =
+    userJavacCache.getOrElse(new ConcurrentHashMap[Option[AbsolutePath], JavaCompiler]())
 
-  private val compileJavaHomeKey = "bloop.compilation.java-home"
-  private val compileJavaHome = Option(System.getProperty(compileJavaHomeKey))
-  private def newCompilers(scalaInstance: ScalaInstance): Compilers = {
-    val scalaCompiler = getScalaCompiler(scalaInstance, componentProvider)
-    val javaCompiler = {
-      compileJavaHome
-        .flatMap(javaHome => getForkedJavaCompiler(javaHome))
-        .orElse {
-          Option(javax.tools.ToolProvider.getSystemJavaCompiler)
-            .map(compiler => new BloopJavaCompiler(compiler))
-        }
-        .getOrElse(new BloopForkedJavaCompiler(None))
-    }
+  def get(scalaInstance: ScalaInstance, javacBin: Option[AbsolutePath]): Compilers = {
+    val scalaCompiler = scalaCompilerCache.computeIfAbsent(
+      scalaInstance,
+      getScalaCompiler(_, componentProvider)
+    )
+
+    val javaCompiler = javaCompilerCache.computeIfAbsent(javacBin, getJavaCompiler(_))
 
     val javaDoc = Javadoc.local.getOrElse(Javadoc.fork())
     val javaTools = JavaTools(javaCompiler, javaDoc)
     ZincUtil.compilers(javaTools, scalaCompiler)
+  }
+
+  private[bloop] def withLogger(logger: Logger): CompilerCache = {
+    new CompilerCache(
+      componentProvider,
+      retrieveDir,
+      logger,
+      userResolvers,
+      userScalaCache,
+      userJavacCache,
+      scheduler
+    )
+  }
+
+  def getJavaCompiler(javacBin: Option[AbsolutePath]): JavaCompiler = {
+    javacBin match {
+      case Some(bin) if JavaRuntime.javac.contains(bin) =>
+        // Same bin as the one derived from this VM? Prefer built-in compiler if JDK
+        JavaRuntime.javaCompiler match {
+          case Some(compiler) => new BloopJavaCompiler(compiler)
+          case None => new BloopForkedJavaCompiler(Some(bin.toFile))
+        }
+      case Some(bin) => new BloopForkedJavaCompiler(Some(bin.toFile))
+      case None =>
+        JavaRuntime.javaCompiler match {
+          case Some(compiler) => new BloopJavaCompiler(compiler)
+          case None => new BloopForkedJavaCompiler(None)
+        }
+    }
   }
 
   def getScalaCompiler(
@@ -93,18 +118,6 @@ final class CompilerCache(
           logger,
           scheduler
         )
-    }
-  }
-
-  def getForkedJavaCompiler(javaHome: String): Option[xsbti.compile.JavaCompiler] = {
-    val homeFile = new java.io.File(javaHome)
-    if (homeFile.exists()) {
-      import bloop.logging.DebugFilter
-      logger.debug(s"Instantiating a Java compiler from $javaHome")(DebugFilter.Compilation)
-      Some(new BloopForkedJavaCompiler(Some(homeFile)))
-    } else {
-      logger.warn(s"Ignoring non-existing Java home $compileJavaHome, using default")
-      None
     }
   }
 
@@ -131,7 +144,7 @@ final class CompilerCache(
    * would be confusing if the accessibility error is real and not caused by
    * our invalidation trick.
    */
-  final class BloopForkedJavaCompiler(javaHome: Option[File]) extends XJavaCompiler {
+  final class BloopForkedJavaCompiler(javaHome: Option[File]) extends JavaCompiler {
     import xsbti.compile.IncToolOptions
 
     def run(
@@ -199,7 +212,7 @@ final class CompilerCache(
    * because they cannot be deleted from the classes directories because they
    * are read-only.
    */
-  final class BloopJavaCompiler(compiler: JavaxCompiler) extends XJavaCompiler {
+  final class BloopJavaCompiler(compiler: JavaxCompiler) extends JavaCompiler {
     import java.io.File
     import xsbti.compile.IncToolOptions
     import xsbti.Reporter

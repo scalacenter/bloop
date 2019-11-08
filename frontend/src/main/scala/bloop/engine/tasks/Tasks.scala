@@ -5,9 +5,9 @@ import java.nio.file.{Files, Path}
 import bloop.cli.ExitStatus
 import bloop.engine.caches.ResultsCache
 import bloop.logging.DebugFilter
-import bloop.data.Project
+import bloop.data.{Project, JdkConfig}
 import bloop.engine.{Dag, State}
-import bloop.exec.{Forker, JavaEnv, JvmProcessForker}
+import bloop.exec.{Forker, JvmProcessForker}
 import bloop.io.AbsolutePath
 import bloop.util.JavaCompat.EnrichOptional
 import bloop.testing.{LoggingEventHandler, TestSuiteEvent, TestSuiteEventHandler}
@@ -60,8 +60,10 @@ object Tasks {
         logger.debug(s"Setting up the console classpath with ${entries.mkString(", ")}")(
           DebugFilter.All
         )
+        val javacBin = project.jdkConfig.flatMap(_.javacBin)
         val loader = ClasspathUtilities.makeLoader(entries, instance)
-        val compiler = state.compilerCache.get(instance).scalac.asInstanceOf[AnalyzingCompiler]
+        val compiler =
+          state.compilerCache.get(instance, javacBin).scalac.asInstanceOf[AnalyzingCompiler]
         val opts = ClasspathOptionsUtil.repl
         val options = project.scalacOptions :+ "-Xnojline"
         // We should by all means add better error handling here!
@@ -156,7 +158,7 @@ object Tasks {
   def runJVM(
       state: State,
       project: Project,
-      javaEnv: JavaEnv,
+      config: JdkConfig,
       cwd: AbsolutePath,
       fqn: String,
       args: Array[String],
@@ -165,7 +167,7 @@ object Tasks {
   ): Task[State] = {
     val dag = state.build.getDagFor(project)
     val classpath = project.fullClasspath(dag, state.client)
-    val forker = JvmProcessForker(javaEnv, classpath, mode)
+    val forker = JvmProcessForker(config, classpath, mode)
     val runTask =
       forker.runMain(cwd, fqn, args, skipJargs, state.logger, state.commonOptions)
     runTask.map { exitCode =>

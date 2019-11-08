@@ -6,8 +6,9 @@ import java.nio.file.{Files, Path}
 import java.util.concurrent.TimeUnit
 
 import bloop.cli.ExitStatus
+import bloop.data.JdkConfig
 import bloop.dap.DebugSessionLogger
-import bloop.exec.{Forker, JvmProcessForker, JavaEnv}
+import bloop.exec.{Forker, JvmProcessForker}
 import bloop.io.AbsolutePath
 import bloop.logging.RecordingLogger
 import bloop.util.TestUtil
@@ -45,7 +46,7 @@ class ForkerSpec {
   ): Unit =
     TestUtil.checkAfterCleanCompilation(runnableProject, dependencies) { state =>
       val project = TestUtil.getProject(TestUtil.RootProject, state)
-      val env = JavaEnv.default
+      val env = JdkConfig.default
       val classpath = project.fullClasspath(state.build.getDagFor(project), state.client)
       val config = JvmProcessForker(env, classpath)
       val logger = new RecordingLogger

@@ -1,40 +1,54 @@
-package bloop.exec
+package bloop.util
 
-import bloop.config.Config
-import bloop.io.AbsolutePath
 import javax.tools.ToolProvider
+import scala.util.Try
+import scala.util.Failure
+import bloop.io.AbsolutePath
+import javax.tools.JavaCompiler
 
-import scala.util.{Failure, Try}
+sealed trait JavaRuntime
+object JavaRuntime {
+  case object JDK extends JavaRuntime
+  case object JRE extends JavaRuntime
 
-/**
- * The configuration of the Java environment for a given project.
- *
- * @param javaHome    Location of the java home. The `java` binary is expected to be found
- *                    in `$javaHome/bin/java`.
- * @param javaOptions The options to pass the JVM when starting.
- */
-final case class JavaEnv(javaHome: AbsolutePath, javaOptions: Array[String])
+  val home: AbsolutePath = AbsolutePath(sys.props("java.home"))
+  val version: String = sys.props("java.version")
+  val javac: Option[AbsolutePath] = javacBinaryFromJavaHome(home)
+  val javaCompiler: Option[JavaCompiler] = Option(ToolProvider.getSystemJavaCompiler)
 
-object JavaEnv {
-  private[bloop] final val DefaultJavaHome = AbsolutePath(sys.props("java.home"))
-
-  def fromConfig(jvm: Config.JvmConfig): JavaEnv = {
-    val jvmHome = jvm.home.map(AbsolutePath.apply).getOrElse(JavaEnv.DefaultJavaHome)
-    JavaEnv(jvmHome, jvm.options.toArray)
-  }
-
-  def toConfig(env: JavaEnv): Config.JvmConfig = {
-    Config.JvmConfig(Some(env.javaHome.underlying), env.javaOptions.toList)
-  }
-
-  def detectRuntime: Runtime = {
-    Option(ToolProvider.getSystemJavaCompiler) match {
+  /**
+   * Detects the runtime of the running JDK instance.
+   */
+  def current: JavaRuntime = {
+    javaCompiler match {
       case Some(_) => JDK
       case None => JRE
     }
   }
 
-  def version: String = sys.props("java.version")
+  /**
+   * Points to the javac binary location.
+   *
+   * The javac binary can be derived from [[javaHome]]. However, the home might
+   * point to different places in different operating systems. For example, in
+   * Linux it can point to the home of the runtime instead of the full java
+   * home. It's possible that `bin/javac` doesn't exist in the runtime home,
+   * but instead in the full home where the JDK installation was done.
+   * Therefore, if we don't find javac in the usual location, we go to the
+   * parent of java home and attempt the search again. If nothin works, we just
+   * return `None` and let the caller of this function handle this case
+   * appropriately.
+   */
+  def javacBinaryFromJavaHome(home: AbsolutePath): Option[AbsolutePath] = {
+    def toJavaBinary(home: AbsolutePath) = home.resolve("bin").resolve("javac")
+    if (!home.exists) None
+    else {
+      Option(toJavaBinary(home))
+        .filter(_.exists)
+        .orElse(Option(toJavaBinary(home.getParent)))
+        .filter(_.exists)
+    }
+  }
 
   /**
    * Loads the java debug interface once.
@@ -83,17 +97,4 @@ object JavaEnv {
 
     Try(initializeJDI()).orElse(loadTools).map(_ => ())
   }
-
-  /**
-   * Default `JavaEnv` constructed from this JVM. Uses the same `javaHome`,
-   * and specifies no arguments.
-   */
-  val default: JavaEnv = {
-    val javaOptions = Array.empty[String]
-    JavaEnv(DefaultJavaHome, javaOptions)
-  }
-
-  sealed trait Runtime
-  case object JDK extends Runtime
-  case object JRE extends Runtime
 }

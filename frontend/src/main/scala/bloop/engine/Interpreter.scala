@@ -11,7 +11,8 @@ import bloop.testing.{LoggingEventHandler, TestInternals}
 import bloop.engine.tasks.{CompileTask, LinkTask, Tasks, TestTask, RunMode}
 import bloop.cli.Commands.CompilingCommand
 import bloop.cli.Validate
-import bloop.data.{ClientInfo, Platform, Project}
+import bloop.util.JavaRuntime
+import bloop.data.{ClientInfo, Platform, Project, JdkConfig}
 import bloop.engine.Feedback.XMessageString
 import bloop.engine.tasks.toolchains.{ScalaJsToolchain, ScalaNativeToolchain}
 import bloop.reporter.{LogReporter, ReporterInputs}
@@ -25,8 +26,6 @@ import bloop.ScalaInstance
 import scala.collection.immutable.Nil
 import scala.annotation.tailrec
 import java.io.IOException
-
-import bloop.exec.JavaEnv
 
 object Interpreter {
   // This is stack-safe because of Monix's trampolined execution
@@ -99,21 +98,21 @@ object Interpreter {
     val scalaVersion = bloop.internal.build.BuildInfo.scalaVersion
     val zincVersion = bloop.internal.build.BuildInfo.zincVersion
     val developers = bloop.internal.build.BuildInfo.developers.mkString(", ")
-    val javaVersion = JavaEnv.version
-    val javaHome = JavaEnv.DefaultJavaHome
+    val javaVersion = JavaRuntime.version
+    val javaHome = JavaRuntime.home
     val jdiStatus = {
-      if (JavaEnv.loadJavaDebugInterface.isSuccess)
+      if (JavaRuntime.loadJavaDebugInterface.isSuccess)
         "Supports debugging user code, Java Debug Interface (JDI) is available."
       else
         "Doesn't support debugging user code, runtime doesn't implement Java Debug Interface (JDI)."
     }
 
-    val runtimeInfo = s"Detected Java ${JavaEnv.detectRuntime} runtime $jdiStatus"
+    val runtimeInfo = s"Detected Java ${JavaRuntime.current} runtime $jdiStatus"
 
     logger.info(s"$bloopName v$bloopVersion")
     logger.info("")
     logger.info(s"Using Scala v$scalaVersion and Zinc v$zincVersion")
-    logger.info(s"Running on Java ${JavaEnv.detectRuntime} v$javaVersion ($javaHome)")
+    logger.info(s"Running on Java ${JavaRuntime.current} v$javaVersion ($javaHome)")
     logger.info(s"  -> $jdiStatus")
     logger.info(s"Maintained by the Scala Center ($developers)")
 

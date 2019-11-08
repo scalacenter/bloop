@@ -1,7 +1,7 @@
 package bloop.data
+
 import bloop.config.Config
 import bloop.engine.tasks.toolchains.{JvmToolchain, ScalaJsToolchain, ScalaNativeToolchain}
-import bloop.exec.JavaEnv
 
 sealed trait Platform {
   def userMainClass: Option[String]
@@ -9,7 +9,7 @@ sealed trait Platform {
 
 object Platform {
   final case class Jvm(
-      env: JavaEnv,
+      config: JdkConfig,
       toolchain: JvmToolchain,
       userMainClass: Option[String]
   ) extends Platform

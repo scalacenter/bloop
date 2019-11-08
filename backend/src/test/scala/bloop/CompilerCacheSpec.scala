@@ -72,7 +72,7 @@ class CompilerCacheSpec {
         val wr3 = new WriteReportingJavaFileObject(fo3, classFileManager)
 
         val ec = ExecutionContext.global
-        val compilerCache = new CompilerCache(null, tempDir, logger, List.empty, None, ec)
+        val compilerCache = new CompilerCache(null, tempDir, logger, List.empty, None, None, ec)
         val bloopCompiler = new compilerCache.BloopJavaCompiler(compiler)
         val invalidatingFileManager =
           new bloopCompiler.BloopInvalidatingFileManager(javacFileManager, classFileManager)
