@@ -53,7 +53,8 @@ trait JvmProcessForker {
       extraClasspath: Array[AbsolutePath] = Array.empty
   ): Task[Int] = {
     val (userJvmOptions, userArgs) =
-      if (skipJargs) (Array.empty[String], args0) else args0.partition(_.startsWith("-J"))
+      if (skipJargs) (Array.empty[String], args0)
+      else args0.partition(_.startsWith("-J"))
 
     runMain(cwd, mainClass, userArgs, userJvmOptions, logger, opts, extraClasspath)
   }
@@ -111,7 +112,7 @@ final class JvmForker(config: JdkConfig, classpath: Array[AbsolutePath]) extends
       opts: CommonOptions,
       extraClasspath: Array[AbsolutePath]
   ): Task[Int] = {
-    val jvmOptions = jargs ++ config.javaOptions
+    val jvmOptions = jargs.map(_.stripPrefix("-J")) ++ config.javaOptions
     val fullClasspath = (classpath ++ extraClasspath).map(_.syntax).mkString(pathSeparator)
     Task.fromTry(javaExecutable).flatMap { java =>
       val classpathOption = "-cp" :: fullClasspath :: Nil
@@ -149,13 +150,13 @@ final class JvmDebuggingForker(underlying: JvmProcessForker) extends JvmProcessF
       cwd: AbsolutePath,
       mainClass: String,
       args: Array[String],
-      jargs: Array[String],
+      jargs0: Array[String],
       logger: Logger,
       opts: CommonOptions,
       extraClasspath: Array[AbsolutePath]
   ): Task[Int] = {
-    val jvmOptions = jargs :+ enableDebugInterface
-    underlying.runMain(cwd, mainClass, args, jvmOptions, logger, opts, extraClasspath)
+    val jargs = jargs0 :+ enableDebugInterface
+    underlying.runMain(cwd, mainClass, args, jargs, logger, opts, extraClasspath)
   }
 
   private def enableDebugInterface: String = {
