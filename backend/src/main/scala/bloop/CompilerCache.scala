@@ -15,6 +15,7 @@ import javax.tools.{
   JavaCompiler => JavaxCompiler
 }
 import bloop.io.{AbsolutePath, Paths}
+import bloop.util.JavaRuntime
 import bloop.logging.Logger
 import sbt.librarymanagement.Resolver
 import xsbti.ComponentProvider
@@ -46,7 +47,7 @@ final class CompilerCache(
     logger: Logger,
     userResolvers: List[Resolver],
     userScalaCache: Option[ConcurrentHashMap[ScalaInstance, ScalaCompiler]],
-    userJavaCache: Option[ConcurrentHashMap[Option[AbsolutePath], JavaCompiler]],
+    userJavacCache: Option[ConcurrentHashMap[Option[AbsolutePath], JavaCompiler]],
     scheduler: ExecutionContext
 ) {
 
@@ -54,15 +55,15 @@ final class CompilerCache(
     userScalaCache.getOrElse(new ConcurrentHashMap[ScalaInstance, ScalaCompiler]())
 
   private val javaCompilerCache =
-    userJavaCache.getOrElse(new ConcurrentHashMap[Option[AbsolutePath], JavaCompiler]())
+    userJavacCache.getOrElse(new ConcurrentHashMap[Option[AbsolutePath], JavaCompiler]())
 
-  def get(scalaInstance: ScalaInstance, javaHome: Option[AbsolutePath]): Compilers = {
+  def get(scalaInstance: ScalaInstance, javacBin: Option[AbsolutePath]): Compilers = {
     val scalaCompiler = scalaCompilerCache.computeIfAbsent(
       scalaInstance,
       getScalaCompiler(_, componentProvider)
     )
 
-    val javaCompiler = javaCompilerCache.computeIfAbsent(javaHome, getJavaCompiler(_))
+    val javaCompiler = javaCompilerCache.computeIfAbsent(javacBin, getJavaCompiler(_))
 
     val javaDoc = Javadoc.local.getOrElse(Javadoc.fork())
     val javaTools = JavaTools(javaCompiler, javaDoc)
@@ -76,19 +77,26 @@ final class CompilerCache(
       logger,
       userResolvers,
       userScalaCache,
-      userJavaCache,
+      userJavacCache,
       scheduler
     )
   }
 
-  def getJavaCompiler(javaHome: Option[AbsolutePath]): JavaCompiler = {
-    javaHome
-      .flatMap(home => getForkedJavaCompiler(home))
-      .orElse {
-        Option(javax.tools.ToolProvider.getSystemJavaCompiler)
-          .map(compiler => new BloopJavaCompiler(compiler))
-      }
-      .getOrElse(new BloopForkedJavaCompiler(None))
+  def getJavaCompiler(javacBin: Option[AbsolutePath]): JavaCompiler = {
+    javacBin match {
+      case Some(bin) if JavaRuntime.javac.contains(bin) =>
+        // Same bin as the one derived from this VM? Prefer built-in compiler if JDK
+        JavaRuntime.javaCompiler match {
+          case Some(compiler) => new BloopJavaCompiler(compiler)
+          case None => new BloopForkedJavaCompiler(Some(bin.toFile))
+        }
+      case Some(bin) => new BloopForkedJavaCompiler(Some(bin.toFile))
+      case None =>
+        JavaRuntime.javaCompiler match {
+          case Some(compiler) => new BloopJavaCompiler(compiler)
+          case None => new BloopForkedJavaCompiler(None)
+        }
+    }
   }
 
   def getScalaCompiler(
@@ -110,17 +118,6 @@ final class CompilerCache(
           logger,
           scheduler
         )
-    }
-  }
-
-  def getForkedJavaCompiler(javaHome: AbsolutePath): Option[xsbti.compile.JavaCompiler] = {
-    if (javaHome.exists) {
-      import bloop.logging.DebugFilter
-      logger.debug(s"Instantiating a Java compiler from $javaHome")(DebugFilter.Compilation)
-      Some(new BloopForkedJavaCompiler(Some(javaHome.underlying.toFile)))
-    } else {
-      logger.warn(s"Ignoring non-existing Java home $javaHome, using default")
-      None
     }
   }
 

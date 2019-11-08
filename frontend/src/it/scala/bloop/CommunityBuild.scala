@@ -86,7 +86,7 @@ abstract class CommunityBuild(val buildpressHomeDir: AbsolutePath) {
     val jars = Paths.getCacheDirectory("scala-jars")
     val provider =
       BloopComponentCompiler.getComponentProvider(Paths.getCacheDirectory("components"))
-    new CompilerCache(provider, jars, NoopLogger, Nil, None, scheduler)
+    new CompilerCache(provider, jars, NoopLogger, Nil, None, None, scheduler)
   }
 
   def loadStateForBuild(configDirectory: AbsolutePath, logger: Logger): State = {

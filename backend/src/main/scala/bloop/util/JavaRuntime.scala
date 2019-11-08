@@ -4,6 +4,7 @@ import javax.tools.ToolProvider
 import scala.util.Try
 import scala.util.Failure
 import bloop.io.AbsolutePath
+import javax.tools.JavaCompiler
 
 sealed trait JavaRuntime
 object JavaRuntime {
@@ -12,14 +13,40 @@ object JavaRuntime {
 
   val home: AbsolutePath = AbsolutePath(sys.props("java.home"))
   val version: String = sys.props("java.version")
+  val javac: Option[AbsolutePath] = javacBinaryFromJavaHome(home)
+  val javaCompiler: Option[JavaCompiler] = Option(ToolProvider.getSystemJavaCompiler)
 
   /**
    * Detects the runtime of the running JDK instance.
    */
   def current: JavaRuntime = {
-    Option(ToolProvider.getSystemJavaCompiler) match {
+    javaCompiler match {
       case Some(_) => JDK
       case None => JRE
+    }
+  }
+
+  /**
+   * Points to the javac binary location.
+   *
+   * The javac binary can be derived from [[javaHome]]. However, the home might
+   * point to different places in different operating systems. For example, in
+   * Linux it can point to the home of the runtime instead of the full java
+   * home. It's possible that `bin/javac` doesn't exist in the runtime home,
+   * but instead in the full home where the JDK installation was done.
+   * Therefore, if we don't find javac in the usual location, we go to the
+   * parent of java home and attempt the search again. If nothin works, we just
+   * return `None` and let the caller of this function handle this case
+   * appropriately.
+   */
+  def javacBinaryFromJavaHome(home: AbsolutePath): Option[AbsolutePath] = {
+    def toJavaBinary(home: AbsolutePath) = home.resolve("bin").resolve("javac")
+    if (!home.exists) None
+    else {
+      Option(toJavaBinary(home))
+        .filter(_.exists)
+        .orElse(Option(toJavaBinary(home.getParent)))
+        .filter(_.exists)
     }
   }
 

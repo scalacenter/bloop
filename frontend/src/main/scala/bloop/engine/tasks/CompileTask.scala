@@ -153,7 +153,7 @@ object CompileTask {
               project.out,
               newScalacOptions.toArray,
               project.javacOptions.toArray,
-              project.jdkConfig.map(_.javaHome),
+              project.jdkConfig.flatMap(_.javacBin),
               project.compileOrder,
               project.classpathOptions,
               lastSuccessful.previous,
