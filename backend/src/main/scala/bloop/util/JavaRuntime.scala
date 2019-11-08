@@ -14,7 +14,9 @@ object JavaRuntime {
   val home: AbsolutePath = AbsolutePath(sys.props("java.home"))
   val version: String = sys.props("java.version")
   val javac: Option[AbsolutePath] = javacBinaryFromJavaHome(home)
-  val javaCompiler: Option[JavaCompiler] = Option(ToolProvider.getSystemJavaCompiler)
+
+  // Has to be a def, not a val, otherwise we get "loader constraint violation"
+  def javaCompiler: Option[JavaCompiler] = Option(ToolProvider.getSystemJavaCompiler)
 
   /**
    * Detects the runtime of the running JDK instance.
