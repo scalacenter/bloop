@@ -926,7 +926,8 @@ object BloopDefaults {
           val scalaName = "scala-compiler"
           val scalaVersion = Keys.scalaVersion.value
           val scalaOrg = Keys.ivyScala.value.map(_.scalaOrganization).getOrElse("org.scala-lang")
-          val allScalaJars = Keys.scalaInstance.value.allJars.map(_.toPath.toAbsolutePath).toList
+          val allScalaJars =
+            Keys.scalaInstance.in(Keys.compile).value.allJars.map(_.toPath.toAbsolutePath).toList
 
           val classesDir = BloopKeys.bloopProductDirectories.value.head.toPath()
           val classpath = emulateDependencyClasspath.value.map(_.toPath.toAbsolutePath).toList
