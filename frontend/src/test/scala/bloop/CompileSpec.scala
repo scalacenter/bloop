@@ -907,6 +907,101 @@ object CompileSpec extends bloop.testing.BaseSuite {
     }
   }
 
+  test("compile after moving class from one project to a dependent one") {
+    // Checks bloop is invalidating classes + propagating them to *transitive* dependencies
+    TestUtil.withinWorkspace { workspace =>
+      object Sources {
+        val `Dummy.scala` =
+          """/main/scala/Dummy.scala
+            |class Dummy
+          """.stripMargin
+
+        val `Foo.scala` =
+          """/main/scala/Foo.scala
+            |class Foo {
+            |  def foo: String = ""
+            |}
+          """.stripMargin
+
+        val `Bar.scala` =
+          """/main/scala/Bar.scala
+            |class Bar extends Foo
+          """.stripMargin
+
+        val `Baz.scala` =
+          """/main/scala/Baz.scala
+            |class Baz {
+            |  val bar: Bar = new Bar
+            |  def hello = println(bar.foo)
+            |}
+          """.stripMargin
+      }
+
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val `A` = TestProject(workspace, "a", List(Sources.`Dummy.scala`))
+      val `B` = TestProject(
+        workspace,
+        "b",
+        List(
+          Sources.`Foo.scala`,
+          Sources.`Bar.scala`,
+          Sources.`Baz.scala`
+        ),
+        List(`A`)
+      )
+
+      val projects = List(`A`, `B`)
+      val state = loadState(workspace, projects, logger)
+      val compiledState = state.compile(`B`)
+      assertExitStatus(compiledState, ExitStatus.Ok)
+      assertValidCompilationState(compiledState, projects)
+
+      Files.move(
+        `B`.srcFor("main/scala/Foo.scala").underlying,
+        `A`.srcFor("main/scala/Foo.scala", exists = false).underlying
+      )
+
+      val compiledStateBackup = compiledState.backup
+
+      // Compile first only `A`
+      val secondCompiledState = compiledState.compile(`A`)
+      assertExitStatus(secondCompiledState, ExitStatus.Ok)
+      assertValidCompilationState(secondCompiledState, List(`A`))
+      assertDifferentExternalClassesDirs(secondCompiledState, compiledStateBackup, `A`)
+
+      // Then compile `B` to make sure right info from `A` is passed to `B` for invalidation
+      val thirdCompiledState = secondCompiledState.compile(`B`)
+      assertExitStatus(thirdCompiledState, ExitStatus.Ok)
+      assertValidCompilationState(thirdCompiledState, List(`A`, `B`))
+
+    /*
+      assertInvalidCompilationState(
+        secondCompiledState,
+        List(`A`, `B`),
+        existsAnalysisFile = true,
+        hasPreviousSuccessful = true,
+        hasSameContentsInClassesDir = true
+      )
+
+      val targetBar = TestUtil.universalPath("c/src/main/scala/Bar.scala")
+      assertNoDiff(
+        s"""
+           |[E2] ${targetBar}:2:22
+           |     not found: type Foo
+           |     L2:   val foo: Foo = new Foo
+           |                              ^
+           |[E1] ${targetBar}:2:12
+           |     not found: type Foo
+           |     L2:   val foo: Foo = new Foo
+           |                    ^
+           |${targetBar}: L2 [E1], L2 [E2]
+          """.stripMargin,
+        logger.renderErrors(exceptContaining = "Failed to compile")
+      )
+     */
+    }
+  }
+
   test("report java errors when `JavaThenScala` is enabled") {
     TestUtil.withinWorkspace { workspace =>
       object Sources {

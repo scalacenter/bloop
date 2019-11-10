@@ -432,8 +432,10 @@ object Compiler {
             Task(persist(out, analysis, result.setup, tracer, logger)).memoize
           }
 
-          val definedMacroSymbols = mode.oracle.collectDefinedMacroSymbols
           val isNoOp = previousAnalysis.contains(analysis)
+          val definedMacroSymbols = mode.oracle.collectDefinedMacroSymbols
+          val allGeneratedProducts =
+            generatedProductPathsFrom(analysis, readOnlyClassesDir, newClassesDir)
           if (isNoOp) {
             // If no-op, return previous result with updated classpath hashes
             val noOpPreviousResult = {
@@ -449,7 +451,7 @@ object Compiler {
               noOpPreviousResult,
               noOpPreviousResult,
               Set(),
-              Map.empty,
+              allGeneratedProducts,
               definedMacroSymbols
             )
 
@@ -555,7 +557,7 @@ object Compiler {
               resultForDependentCompilationsInSameRun,
               resultForFutureCompilationRuns,
               allInvalidated.toSet,
-              allGeneratedRelativeClassFilePaths.toMap,
+              allGeneratedProducts,
               definedMacroSymbols
             )
 
@@ -678,6 +680,27 @@ object Compiler {
     previous.withSetup(InterfaceUtil.toOptional(newSetup))
   }
 
+  def generatedProductPathsFrom(
+      analysis0: CompileAnalysis,
+      readOnlyClassesDir: Path,
+      newClassesDir: Path
+  ): Map[String, File] = {
+    // Cast to the only internal analysis that we support
+    val analysis = analysis0.asInstanceOf[Analysis]
+    analysis.stamps.allProducts.map { product =>
+      val productPath = product.toPath
+      val baseDir = {
+        if (productPath.startsWith(newClassesDir)) {
+          newClassesDir
+        } else {
+          readOnlyClassesDir
+        }
+      }
+
+      baseDir.relativize(productPath).toString.stripPrefix("/") -> product
+    }.toMap
+  }
+
   /**
    * Change the paths of the class files inside the analysis.
    *
@@ -693,7 +716,7 @@ object Compiler {
    * system.
    */
   def rebaseAnalysisClassFiles(
-      analysis0: xsbti.compile.CompileAnalysis,
+      analysis0: CompileAnalysis,
       readOnlyClassesDir: Path,
       newClassesDir: Path,
       sourceFilesWithFatalWarnings: scala.collection.Set[File]

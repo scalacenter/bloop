@@ -74,7 +74,7 @@ final class BloopClassFileManager(
       // Don't invalidate a class file if generated earlier by a dependency of
       // this project, which happens when users move sources around projects
       val relativeFilePath = classFile.getAbsolutePath.replace(readOnlyClassesDirPath, "")
-      !generatedClassFilePathsInDependentProjects.contains(relativeFilePath)
+      !generatedClassFilePathsInDependentProjects.contains(relativeFilePath.stripPrefix("/"))
     }
 
     // Add to the blacklist so that we never copy them
