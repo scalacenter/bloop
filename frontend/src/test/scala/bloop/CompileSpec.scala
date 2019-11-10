@@ -945,6 +945,22 @@ object CompileSpec extends bloop.testing.BaseSuite {
           """/Dummy2.scala
             |class Dummy2
           """.stripMargin
+
+        val `Foo2.scala` =
+          """/main/scala/Foo.scala
+            |class Foo {
+            |  def foo: String = ""
+            |  def foo2: String = ""
+            |}
+          """.stripMargin
+
+        val `Baz2.scala` =
+          """/main/scala/Baz.scala
+            |class Baz {
+            |  val bar: Bar = new Bar
+            |  def hello = println(bar.foo2)
+            |}
+          """.stripMargin
       }
 
       val logger = new RecordingLogger(ansiCodesSupported = false)
@@ -973,6 +989,8 @@ object CompileSpec extends bloop.testing.BaseSuite {
         `A`.srcFor("main/scala/Foo.scala", exists = false).underlying
       )
 
+      writeFile(`A`.srcFor("main/scala/Foo.scala"), Sources.`Foo2.scala`)
+
       val compiledStateBackup = compiledState.backup
 
       // Compile first only `A`
@@ -982,11 +1000,16 @@ object CompileSpec extends bloop.testing.BaseSuite {
       assertDifferentExternalClassesDirs(secondCompiledState, compiledStateBackup, `A`)
       assertExistingCompileProduct(secondCompiledState, `A`, RelativePath("Foo.class"))
 
+      // Add change depending on new method to make sure that `Foo.class` coming from dependency is picked
+      writeFile(`B`.srcFor("main/scala/Baz.scala"), Sources.`Baz2.scala`)
+
       // Then compile `B` to make sure right info from `A` is passed to `B` for invalidation
       val thirdCompiledState = secondCompiledState.compile(`B`)
       assertExitStatus(thirdCompiledState, ExitStatus.Ok)
       assertValidCompilationState(thirdCompiledState, List(`A`, `B`))
       assertNonExistingCompileProduct(thirdCompiledState, `B`, RelativePath("Foo.class"))
+      assertExistingCompileProduct(thirdCompiledState, `B`, RelativePath("Bar.class"))
+      assertExistingCompileProduct(thirdCompiledState, `B`, RelativePath("Baz.class"))
     }
   }
 
