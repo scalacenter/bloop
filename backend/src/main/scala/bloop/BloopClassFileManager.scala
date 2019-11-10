@@ -15,12 +15,18 @@ import scala.collection.mutable
 import xsbti.compile.ClassFileManager
 import monix.eval.Task
 import bloop.reporter.Reporter
+import xsbti.compile.PreviousResult
+import java.nio.file.Files
+import java.io.IOException
+import scala.util.Try
+import scala.util.Failure
+import scala.util.Success
 
 final class BloopClassFileManager(
     inputs: CompileInputs,
     outPaths: CompileOutPaths,
     allGeneratedRelativeClassFilePaths: mutable.HashMap[String, File],
-    copiedPathsFromNewClassesDir: mutable.HashSet[Path],
+    readOnlyCopyBlacklist: mutable.HashSet[Path],
     allInvalidatedClassFilesForProject: mutable.HashSet[File],
     allInvalidatedExtraCompileProducts: mutable.HashSet[File],
     backgroundTasksWhenNewSuccessfulAnalysis: mutable.ListBuffer[CompileBackgroundTasks.Sig],
@@ -30,21 +36,11 @@ final class BloopClassFileManager(
   private[this] val readOnlyClassesDirPath = readOnlyClassesDir.toString
   private[this] val newClassesDir = outPaths.internalNewClassesDir.underlying
   private[this] val newClassesDirPath = newClassesDir.toString
+  private[this] val dependentClassFilesLinks = new mutable.HashSet[Path]()
+  private[this] val weakClassFileInvalidations = new mutable.HashSet[Path]()
 
   // Supported compile products by the class file manager
-  private[this] final val supportedCompileProducts = List(".sjsir", ".nir", ".tasty")
-
-  /*
-   * Initialize the class files from dependent projects that should not be
-   * loaded. The value is equal to the invalidations in dependent projects
-   * minus the freshly generated class files in dependent projects. This
-   * processing is key to avoid "not found type" or not found symbols during
-   * incremental compilation.
-   */
-  private[this] val dependentClassFilesThatShouldNotBeLoaded: Set[File] = {
-    inputs.invalidatedClassFilesInDependentProjects --
-      inputs.generatedClassFilePathsInDependentProjects.valuesIterator
-  }
+  private[this] val supportedCompileProducts = List(".sjsir", ".nir", ".tasty")
 
   /**
    * Returns the set of all invalidated class files.
@@ -56,11 +52,23 @@ final class BloopClassFileManager(
     allInvalidatedClassFilesForProject
   }
 
+  private[this] val invalidatedClassFilesInDependentProjects: Set[File] = {
+    inputs.invalidatedClassFilesInDependentProjects --
+      inputs.generatedClassFilePathsInDependentProjects.valuesIterator
+  }
+
   private[this] var memoizedInvalidatedClassFiles: Array[File] = _
   def invalidatedClassFiles(): Array[File] = {
     if (memoizedInvalidatedClassFiles == null) {
-      memoizedInvalidatedClassFiles =
-        (allInvalidatedClassFilesForProject ++ dependentClassFilesThatShouldNotBeLoaded).toArray
+      // Weak invalidated class files are class files that have been found in
+      // dependent projects and should not be communicated to the compiler
+      val skippedInvalidations =
+        weakClassFileInvalidations.iterator.map(_.toFile)
+
+      memoizedInvalidatedClassFiles = {
+        (allInvalidatedClassFilesForProject.toSet ++
+          invalidatedClassFilesInDependentProjects) -- skippedInvalidations
+      }.toArray
     }
 
     memoizedInvalidatedClassFiles
@@ -69,17 +77,62 @@ final class BloopClassFileManager(
   def delete(classes: Array[File]): Unit = {
     memoizedInvalidatedClassFiles = null
 
-    import inputs.generatedClassFilePathsInDependentProjects
-    val classesToInvalidate = classes.filter { classFile =>
-      // Don't invalidate a class file if generated earlier by a dependency of
-      // this project, which happens when users move sources around projects
-      val relativeFilePath = classFile.getAbsolutePath.replace(readOnlyClassesDirPath, "")
-      !generatedClassFilePathsInDependentProjects.contains(relativeFilePath.stripPrefix("/"))
+    classes.foreach { classFile =>
+      val classFilePath = classFile.toPath
+      // Return invalidated class file right away if it's in the new classes dir
+      if (!classFilePath.startsWith(newClassesDir)) {
+        /*
+         * The invalidated class file comes from the read-only classes
+         * directory. Check that the user hasn't moved the original source to a
+         * dependent project and that the same relative class file doesn't
+         * exist in dependent projects before invalidating the file (and its
+         * symbol).
+         *
+         * Why do we do this? If we would invalidate class file `b/Foo.class`
+         * as usual and now `Foo` existed in a dependent classes file
+         * `a/Foo.class`, the compiler would try to load the invalidated class
+         * file in `b/Foo.class`, find that it's invalidated and skip it.
+         * However, the search for that symbol would not continue and would
+         * never hit the dependent class file. This would result in a "not
+         * found type" error in the compiler. To avoid this error, we skip the
+         * invalidated class files in this project if they exist in a dependent
+         * project and instead create a symbolic link in the new classes directory
+         * to the dependent class file such that the dependent class file takes
+         * precedence over the invalidated class file in this project and it's
+         * loaded by the compiler.
+         *
+         * For this strategy to work, we also need to make sure we never copy
+         * neither the links nor the invalidated class files when we aggregate
+         * the contents of the new classes directory and the read-only classes
+         * directory, which we do here as well as in [[bloop.Compiler]].
+         */
+
+        val relativeFilePath = readOnlyClassesDir.relativize(classFilePath).toString
+
+        BloopClasspathEntryLookup.definedClassFileInDependencies(
+          relativeFilePath,
+          inputs.dependentResults
+        ) match {
+          case None => ()
+          case Some(foundClassFile) =>
+            weakClassFileInvalidations.+=(classFilePath)
+            val newLink = newClassesDir.resolve(relativeFilePath)
+            BloopClassFileManager.link(newLink, foundClassFile.toPath) match {
+              case Success(_) => dependentClassFilesLinks.+=(newLink)
+              case Failure(exception) =>
+                inputs.logger.error(
+                  s"Failed to create link for invalidated file $foundClassFile: ${exception.getMessage()}"
+                )
+                inputs.logger.trace(exception)
+            }
+            ()
+        }
+      }
     }
 
-    // Add to the blacklist so that we never copy them
-    allInvalidatedClassFilesForProject.++=(classesToInvalidate)
-    val invalidatedExtraCompileProducts = classesToInvalidate.flatMap { classFile =>
+    allInvalidatedClassFilesForProject.++=(classes)
+
+    val invalidatedExtraCompileProducts = classes.flatMap { classFile =>
       val prefixClassName = classFile.getName().stripSuffix(".class")
       supportedCompileProducts.flatMap { supportedProductSuffix =>
         val productName = prefixClassName + supportedProductSuffix
@@ -118,6 +171,10 @@ final class BloopClassFileManager(
 
   def complete(success: Boolean): Unit = {
     if (success) {
+      dependentClassFilesLinks.foreach { unnecessaryClassFileLink =>
+        Files.deleteIfExists(unnecessaryClassFileLink)
+      }
+
       // Schedule copying compilation products to visible classes directory
       backgroundTasksWhenNewSuccessfulAnalysis.+=(
         (
@@ -136,7 +193,7 @@ final class BloopClassFileManager(
                 enableCancellation = false
               )
               .map { walked =>
-                copiedPathsFromNewClassesDir.++=(walked.target)
+                readOnlyCopyBlacklist.++=(walked.target)
                 ()
               }
           }
@@ -185,6 +242,20 @@ final class BloopClassFileManager(
           }
         }
       )
+    }
+  }
+}
+
+object BloopClassFileManager {
+  def link(link: Path, target: Path): Try[Unit] = {
+    Try {
+      // Try symbolic link before hard link
+      try Files.createSymbolicLink(link, target)
+      catch {
+        case _: IOException =>
+          Files.createLink(link, target)
+      }
+      ()
     }
   }
 }

@@ -42,7 +42,7 @@ object ParallelOps {
    *
    * @param parallelUnits Threads to use for parallel IO copy.
    * @param replaceExisting Whether the copy should replace existing paths in the target.
-   * @param blacklist A list of both origin and target paths that if matched cancel compilation.
+   * @param blacklist A list of both origin and target paths that if matched skip the copy.
    */
   case class CopyConfiguration private (
       parallelUnits: Int,

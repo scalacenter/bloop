@@ -111,4 +111,21 @@ final class BloopClasspathEntryLookup(
 
 object BloopClasspathEntryLookup {
   private[bloop] final val definedClasses = new ConcurrentHashMap[File, (FileHash, DefinesClass)]()
+
+  def definedClassFileInDependencies(
+      relativeClassFile: String,
+      results: Map[File, PreviousResult]
+  ): Option[File] = {
+    def findClassFile(t: (File, PreviousResult)): Option[File] = {
+      val (classesDir, result) = t
+      val targetClassFile = new File(classesDir, relativeClassFile)
+      InterfaceUtil.toOption(result.analysis()).flatMap { analysis0 =>
+        val analysis = analysis0.asInstanceOf[sbt.internal.inc.Analysis]
+        val definedClass = analysis.relations.allProducts.contains(targetClassFile)
+        if (definedClass) Some(targetClassFile) else None
+      }
+    }
+
+    results.collectFirst(Function.unlift(findClassFile))
+  }
 }

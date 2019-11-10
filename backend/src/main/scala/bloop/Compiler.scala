@@ -246,7 +246,7 @@ object Compiler {
     logger.debug(s"New rw classes directory ${newClassesDirPath}")
 
     val allGeneratedRelativeClassFilePaths = new mutable.HashMap[String, File]()
-    val copiedPathsFromNewClassesDir = new mutable.HashSet[Path]()
+    val readOnlyCopyBlacklist = new mutable.HashSet[Path]()
     val allInvalidatedClassFilesForProject = new mutable.HashSet[File]()
     val allInvalidatedExtraCompileProducts = new mutable.HashSet[File]()
 
@@ -260,7 +260,7 @@ object Compiler {
         compileInputs,
         compileOut,
         allGeneratedRelativeClassFilePaths,
-        copiedPathsFromNewClassesDir,
+        readOnlyCopyBlacklist,
         allInvalidatedClassFilesForProject,
         allInvalidatedExtraCompileProducts,
         backgroundTasksWhenNewSuccessfulAnalysis,
@@ -412,7 +412,7 @@ object Compiler {
                 val invalidatedExtraProducts =
                   allInvalidatedExtraCompileProducts.iterator.map(_.toPath).toSet
                 val invalidatedInThisProject = invalidatedClassFiles ++ invalidatedExtraProducts
-                val blacklist = invalidatedInThisProject ++ copiedPathsFromNewClassesDir.iterator
+                val blacklist = invalidatedInThisProject ++ readOnlyCopyBlacklist.iterator
                 val config =
                   ParallelOps.CopyConfiguration(5, CopyMode.ReplaceIfMetadataMismatch, blacklist)
                 val lastCopy = ParallelOps.copyDirectories(config)(
@@ -434,8 +434,6 @@ object Compiler {
 
           val isNoOp = previousAnalysis.contains(analysis)
           val definedMacroSymbols = mode.oracle.collectDefinedMacroSymbols
-          val allGeneratedProducts =
-            generatedProductPathsFrom(analysis, readOnlyClassesDir, newClassesDir)
           if (isNoOp) {
             // If no-op, return previous result with updated classpath hashes
             val noOpPreviousResult = {
@@ -451,7 +449,7 @@ object Compiler {
               noOpPreviousResult,
               noOpPreviousResult,
               Set(),
-              allGeneratedProducts,
+              Map.empty,
               definedMacroSymbols
             )
 
@@ -493,6 +491,7 @@ object Compiler {
               reportedFatalWarnings
             )
           } else {
+            val allGeneratedProducts = allGeneratedRelativeClassFilePaths.toMap
             val analysisForFutureCompilationRuns = {
               rebaseAnalysisClassFiles(
                 analysis,
@@ -678,27 +677,6 @@ object Compiler {
       .toOption(previous.setup())
       .map(s => s.withOptions(s.options().withClasspathHash(newClasspathHashes.toArray)))
     previous.withSetup(InterfaceUtil.toOptional(newSetup))
-  }
-
-  def generatedProductPathsFrom(
-      analysis0: CompileAnalysis,
-      readOnlyClassesDir: Path,
-      newClassesDir: Path
-  ): Map[String, File] = {
-    // Cast to the only internal analysis that we support
-    val analysis = analysis0.asInstanceOf[Analysis]
-    analysis.stamps.allProducts.map { product =>
-      val productPath = product.toPath
-      val baseDir = {
-        if (productPath.startsWith(newClassesDir)) {
-          newClassesDir
-        } else {
-          readOnlyClassesDir
-        }
-      }
-
-      baseDir.relativize(productPath).toString.stripPrefix("/") -> product
-    }.toMap
   }
 
   /**
