@@ -124,7 +124,7 @@ object DebugExtensions {
         lines: mutable.HashMap[Int, String]
     ): Unit = {
       val className = reader.getClassName()
-      val visitor = new ClassVisitor(Opcodes.ASM6) {
+      val visitor = new ClassVisitor(Opcodes.ASM7) {
         override def visitMethod(
             access: Int,
             name: String,
@@ -132,7 +132,7 @@ object DebugExtensions {
             signature: String,
             exceptions: Array[String]
         ): MethodVisitor = {
-          new MethodVisitor(Opcodes.ASM6) {
+          new MethodVisitor(Opcodes.ASM7) {
             override def visitLineNumber(line: Int, start: Label): Unit = {
               lines.+=(line -> className)
             }

@@ -216,8 +216,10 @@ object DebugServerSpec extends DebugBspBaseSuite {
             capabilities <- client.initialize()
             _ <- client.launch()
             _ <- client.initialized
-            _ <- client.setBreakpoints(scalaBreakpoints)
-            _ <- client.setBreakpoints(javaBreakpoints)
+            scalaBreakpointsResult <- client.setBreakpoints(scalaBreakpoints)
+            _ = assert(scalaBreakpointsResult.breakpoints.forall(_.verified))
+            javaBreakpointsResult <- client.setBreakpoints(javaBreakpoints)
+            _ = assert(javaBreakpointsResult.breakpoints.forall(_.verified))
             _ <- client.configurationDone()
             stopped <- client.stopped
             _ <- client.continue(stopped.threadId)
@@ -233,12 +235,12 @@ object DebugServerSpec extends DebugBspBaseSuite {
             _ <- client.continue(stopped6.threadId)
             _ <- client.exited
             _ <- client.terminated
-            output <- client.takeCurrentOutput
+            finalOutput <- client.takeCurrentOutput
             _ <- Task.fromFuture(client.closedPromise.future)
           } yield {
             assert(client.socket.isClosed)
             assertNoDiff(
-              output,
+              finalOutput,
               """|Breakpoint in main method
                  |Breakpoint in hello class
                  |Breakpoint in hello object
