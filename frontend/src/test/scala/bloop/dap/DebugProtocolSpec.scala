@@ -6,6 +6,9 @@ import bloop.logging.RecordingLogger
 import bloop.util.{TestProject, TestUtil}
 import ch.epfl.scala.bsp
 import ch.epfl.scala.bsp.DebugSessionParamsDataKind._
+import monix.eval.Task
+import scala.concurrent.duration.FiniteDuration
+import java.util.concurrent.TimeUnit
 
 object DebugProtocolSpec extends DebugBspBaseSuite {
   test("starts a debug session") {
@@ -30,7 +33,7 @@ object DebugProtocolSpec extends DebugBspBaseSuite {
             _ <- client.configurationDone()
             _ <- client.exited
             _ <- client.terminated
-            output <- client.allOutput
+            output <- client.blockForAllOutput
           } yield output
         }
 
@@ -67,7 +70,7 @@ object DebugProtocolSpec extends DebugBspBaseSuite {
             _ <- client.configurationDone()
             _ <- client.disconnect()
 
-            previousSessionOutput <- previousSession.allOutput
+            previousSessionOutput <- previousSession.takeCurrentOutput
           } yield previousSessionOutput
         }
 
@@ -107,8 +110,9 @@ object DebugProtocolSpec extends DebugBspBaseSuite {
             for {
               _ <- client.initialize()
               _ <- client.launch()
+              _ <- client.initialized
               _ <- client.configurationDone()
-              output <- client.firstOutput
+              output <- client.takeCurrentOutput.restartUntil(!_.isEmpty)
               _ <- client.disconnect()
             } yield output
         }
@@ -128,7 +132,7 @@ object DebugProtocolSpec extends DebugBspBaseSuite {
             _ <- client.configurationDone()
             _ <- client.exited
             _ <- client.terminated
-            output <- client.allOutput
+            output <- client.blockForAllOutput
           } yield output
         }
 
@@ -150,7 +154,7 @@ object DebugProtocolSpec extends DebugBspBaseSuite {
             _ <- client.launch()
             _ <- client.configurationDone()
             _ <- client.terminated
-            output <- client.allOutput
+            output <- client.blockForAllOutput
           } yield output
         }
 

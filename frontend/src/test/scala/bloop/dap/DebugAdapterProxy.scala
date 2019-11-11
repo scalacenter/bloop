@@ -16,6 +16,13 @@ import monix.reactive.{Observable, Observer}
 import scala.collection.mutable
 import scala.concurrent.{Future, Promise}
 import scala.meta.jsonrpc.{BaseProtocolMessage, MessageWriter}
+import monix.reactive.MulticastStrategy
+import bloop.engine.ExecutionContext
+import scala.concurrent.duration.FiniteDuration
+import java.util.concurrent.TimeUnit
+import com.microsoft.java.debug.core.protocol.Events.DebugEvent
+import java.util.concurrent.ConcurrentHashMap
+import com.microsoft.java.debug.core.protocol.Events
 
 /**
  * Handles communication with the debug adapter.
@@ -25,8 +32,52 @@ private[dap] final class DebugAdapterProxy(
     input: Observable[Messages.ProtocolMessage],
     output: Observer[Messages.ProtocolMessage]
 ) {
+  private val outputBuf = new StringBuffer()
   private val requests = mutable.Map.empty[Int, Promise[Messages.Response]]
-  val events = new DebugEvents()
+  private val (observer, events) =
+    Observable.multicast[Messages.Event](MulticastStrategy.replay)(ExecutionContext.ioScheduler)
+
+  events.foreach { event =>
+    if (event.event == DebugTestEndpoints.OutputEvent.name) {
+      DebugTestEndpoints.OutputEvent.rawDeserialize(event) match {
+        case scala.util.Success(event: Events.OutputEvent) =>
+          outputBuf.append(event.output)
+        case _ => ()
+      }
+      ()
+    }
+  }(ExecutionContext.ioScheduler)
+
+  def takeCurrentOutput: String = {
+    outputBuf.toString()
+  }
+
+  def blockForAllOutput: Task[String] = {
+    events.completedL.map { _ =>
+      outputBuf.toString()
+    }
+  }
+
+  private var lastSeenIndex: Long = -1
+  def next[E <: DebugEvent](event: DebugTestProtocol.Event[E]): Task[E] = {
+    events.zipWithIndex
+      .dropWhile(_._2 <= lastSeenIndex)
+      .findF(_._1.event == event.name)
+      .headL
+      .map {
+        case (event, idx) =>
+          lastSeenIndex = idx
+          event
+      }
+      .flatMap(event.deserialize(_))
+  }
+
+  def all[E <: DebugEvent](event: DebugTestProtocol.Event[E]): Task[List[E]] = {
+    events
+      .findF(_.event == event.name)
+      .toListL
+      .flatMap(events => Task.sequence(events.map(event.deserialize(_))))
+  }
 
   def request[A, B](endpoint: DebugTestProtocol.Request[A, B], parameters: A): Task[B] = {
     val message = endpoint.serialize(parameters)
@@ -44,14 +95,14 @@ private[dap] final class DebugAdapterProxy(
   def startBackgroundListening(scheduler: Scheduler): Unit = {
     input
       .foreachL(handleMessage)
-      .runOnComplete(_ => events.onComplete())(scheduler)
+      .runOnComplete(_ => observer.onComplete())(scheduler)
     ()
   }
 
   private def handleMessage(message: ProtocolMessage): Unit = {
     message match {
       case event: Messages.Event =>
-        events.onNext(event)
+        observer.onNext(event)
       case _: Messages.Request =>
         throw new IllegalStateException("Reverse requests are not supported")
       case response: Messages.Response =>

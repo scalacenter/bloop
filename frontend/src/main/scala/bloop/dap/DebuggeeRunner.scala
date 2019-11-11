@@ -8,9 +8,15 @@ import bloop.data.JdkConfig
 import bloop.testing.{LoggingEventHandler, TestInternals}
 import ch.epfl.scala.bsp.ScalaMainClass
 import monix.eval.Task
+import java.nio.file.Path
+import xsbti.compile.analysis.SourceInfo
+import sbt.internal.inc.Analysis
+import bloop.logging.Logger
 
-trait DebuggeeRunner {
+abstract class DebuggeeRunner {
+  def logger: Logger
   def run(logger: DebugSessionLogger): Task[ExitStatus]
+  def classFilesMappedTo(origin: Path, lines: Array[Int], columns: Array[Int]): List[Path]
 }
 
 private final class MainClassDebugAdapter(
@@ -19,6 +25,19 @@ private final class MainClassDebugAdapter(
     env: JdkConfig,
     state: State
 ) extends DebuggeeRunner {
+  private lazy val allAnalysis = state.results.allAnalysis
+  def classFilesMappedTo(
+      origin: Path,
+      lines: Array[Int],
+      columns: Array[Int]
+  ): List[Path] = {
+    DebuggeeRunner.classFilesMappedTo(origin, lines, columns, allAnalysis)
+  }
+
+  def logger: Logger = {
+    state.logger
+  }
+
   def run(debugLogger: DebugSessionLogger): Task[ExitStatus] = {
     val workingDir = state.commonOptions.workingPath
     val runState = Tasks.runJVM(
@@ -41,6 +60,19 @@ private final class TestSuiteDebugAdapter(
     filters: List[String],
     state: State
 ) extends DebuggeeRunner {
+  private lazy val allAnalysis = state.results.allAnalysis
+  def classFilesMappedTo(
+      origin: Path,
+      lines: Array[Int],
+      columns: Array[Int]
+  ): List[Path] = {
+    DebuggeeRunner.classFilesMappedTo(origin, lines, columns, allAnalysis)
+  }
+
+  def logger: Logger = {
+    state.logger
+  }
+
   def run(debugLogger: DebugSessionLogger): Task[ExitStatus] = {
     val debugState = state.copy(logger = debugLogger)
 
@@ -91,5 +123,24 @@ object DebuggeeRunner {
       case Seq() => Left(s"No projects specified for the test suites: [${filters.sorted}]")
       case projects => Right(new TestSuiteDebugAdapter(projects, filters, state))
     }
+  }
+
+  def classFilesMappedTo(
+      origin: Path,
+      lines: Array[Int],
+      columns: Array[Int],
+      allAnalysis: Seq[Analysis]
+  ): List[Path] = {
+    def isInfoEmpty(info: SourceInfo) = info == sbt.internal.inc.SourceInfos.emptyInfo
+
+    val originFile = origin.toFile
+    val foundClassFiles = allAnalysis.collectFirst { analysis =>
+      analysis match {
+        case analysis if !isInfoEmpty(analysis.infos.get(originFile)) =>
+          analysis.relations.products(originFile).iterator.map(_.toPath).toList
+      }
+    }
+
+    foundClassFiles.toList.flatten
   }
 }

@@ -2,7 +2,7 @@ package bloop.dap
 
 import java.net.{InetSocketAddress, Socket, URI}
 
-import bloop.dap.DebugTesEndpoints._
+import bloop.dap.DebugTestEndpoints._
 import bloop.dap.DebugTestProtocol.Response
 import com.microsoft.java.debug.core.protocol.Events
 import com.microsoft.java.debug.core.protocol.Requests._
@@ -14,6 +14,9 @@ import java.io.Closeable
 import bloop.engine.ExecutionContext
 import java.util.concurrent.TimeUnit
 import monix.execution.Cancelable
+import com.microsoft.java.debug.core.Breakpoint
+import com.microsoft.java.debug.core.protocol.Responses.SetBreakpointsResponseBody
+import com.microsoft.java.debug.core.protocol.Responses.ContinueResponseBody
 
 /**
  * Manages a connection with a debug adapter.
@@ -42,7 +45,30 @@ private[dap] final class DebugAdapterConnection(
 
   def initialize(): Task[Capabilities] = {
     val arguments = new InitializeArguments()
+    // These are the defaults specified in the DAP specification
+    arguments.linesStartAt1 = true
+    arguments.columnsStartAt1 = true
     adapter.request(Initialize, arguments)
+  }
+
+  def initialized: Task[Events.InitializedEvent] = {
+    adapter.next(Initialized)
+  }
+
+  def setBreakpoints(
+      arguments: SetBreakpointArguments
+  ): Task[SetBreakpointsResponseBody] = {
+    adapter.request(SetBreakpoints, arguments)
+  }
+
+  def stopped: Task[Events.StoppedEvent] = {
+    adapter.next(StoppedEvent)
+  }
+
+  def continue(threadId: Long): Task[ContinueResponseBody] = {
+    val arguments = new ContinueArguments()
+    arguments.threadId = threadId
+    adapter.request(Continue, arguments)
   }
 
   def configurationDone(): Task[Unit] = {
@@ -73,33 +99,19 @@ private[dap] final class DebugAdapterConnection(
   }
 
   def exited: Task[Events.ExitedEvent] = {
-    adapter.events.first(Exited)
+    adapter.next(Exited)
   }
 
   def terminated: Task[Events.TerminatedEvent] = {
-    adapter.events.first(Terminated)
+    adapter.next(Terminated)
   }
 
-  def output(expected: String): Task[String] = {
-    adapter.events.all(OutputEvent).map { events =>
-      val builder = new StringBuilder
-      events
-        .takeWhile(_ => builder.toString() != expected)
-        .foreach(e => builder.append(e.output))
-      builder.toString()
-    }
+  def takeCurrentOutput: Task[String] = {
+    Task(adapter.takeCurrentOutput)
   }
 
-  def firstOutput: Task[String] = {
-    adapter.events.first(OutputEvent).map(_.output)
-  }
-
-  def allOutput: Task[String] = {
-    adapter.events.all(OutputEvent).map { events =>
-      val builder: StringBuilder =
-        events.foldLeft(new StringBuilder)((acc, e) => acc.append(e.output))
-      builder.toString()
-    }
+  def blockForAllOutput: Task[String] = {
+    adapter.blockForAllOutput
   }
 }
 

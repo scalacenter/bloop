@@ -34,6 +34,7 @@ import java.nio.file.NoSuchFileException
 import monix.execution.misc.NonFatal
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.ConcurrentHashMap
+import sbt.internal.inc.Analysis
 
 /**
  * Maps projects to compilation results, populated by `Tasks.compile`.
@@ -77,6 +78,13 @@ final case class ResultsCache private (
     val newSuccessful = successful.filterKeys(p => !projects.contains(p))
     val newAll = all.filterKeys(p => !projects.contains(p))
     new ResultsCache(newAll, newSuccessful)
+  }
+
+  def allAnalysis: Seq[Analysis] = {
+    successful.valuesIterator
+      .flatMap(s => sbt.util.InterfaceUtil.toOption(s.previous.analysis()).toList)
+      .collect { case a: Analysis => a }
+      .toList
   }
 
   def addResult(

@@ -37,8 +37,7 @@ object DebugServer {
       val session = Task {
         listeningPromise.trySuccess(Some(handle.uri))
         val socket = serverSocket.accept()
-
-        val session = DebugSession(socket, runner.run, logger, ioScheduler)
+        val session = DebugSession(socket, runner, logger, ioScheduler)
         ongoingSessions += session
 
         session.startDebuggeeAndServer()
