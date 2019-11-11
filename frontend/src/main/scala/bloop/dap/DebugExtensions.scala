@@ -166,8 +166,40 @@ object DebugExtensions {
         }
       }
 
-      // Returns empty if line wasn't found and first name didn't exist either
-      lines.get(line).getOrElse(firstName)
+      lines
+        .get(line)
+        .orElse {
+          val closestLineOrdering = new scala.math.Ordering[(Int, String)] {
+            def compare(x: (Int, String), y: (Int, String)): Int = {
+              val line1 = x._1
+              val line2 = y._1
+              val intOrd = implicitly[scala.math.Ordering[Int]]
+              val result = intOrd.compare(scala.math.abs(line1), scala.math.abs(line2))
+              if (result != 0) result
+              else {
+                if (line1 < line2) line2
+                else line1
+              }
+            }
+          }
+
+          /*
+           * In case the line where the breakpoint is set isn't found in the code
+           * array -- a very rare event, but possible -- we pick the name whose
+           * index is closest to the target `line`, both from below and above.
+           * For example, if line is 8 it will prefer to pick 7 over 9, but 9
+           * over 10, as the algorithm tries to go for the instruction closest
+           * to the target line. This strategy is defined in the above ordering.
+           */
+          lines.iterator
+            .map { case (codeLine, name) => (line - codeLine) -> name }
+            .toList
+            .sorted(closestLineOrdering)
+            .headOption
+            .map(_._2)
+        }
+        // Returns first name or empty if previous strategies failed
+        .getOrElse(firstName)
     }
   }
 
