@@ -154,6 +154,9 @@ object DebugServerSpec extends DebugBspBaseSuite {
              |  class Hello {
              |    def greet(): Unit = {
              |      println("Breakpoint in hello class")
+             |      class InnerHello { println("Breakpoint in hello inner class") }
+             |      new InnerHello()
+             |      ()
              |    }
              |  }
              |  object Hello {
@@ -186,13 +189,17 @@ object DebugServerSpec extends DebugBspBaseSuite {
           breakpoint2.line = 13
           // Breakpoint in Hello object, inside constructor
           val breakpoint3 = new SourceBreakpoint()
-          breakpoint3.line = 17
-          // Breakpoint in end of main method
+          breakpoint3.line = 20
+          // Breakpoint in Hello inner classs
           val breakpoint4 = new SourceBreakpoint()
-          breakpoint4.line = 9
+          breakpoint4.line = 14
+          // Breakpoint in end of main method
+          val breakpoint5 = new SourceBreakpoint()
+          breakpoint5.line = 9
           arguments.source = new Types.Source(`Main.scala`.syntax, 0)
           arguments.sourceModified = false
-          arguments.breakpoints = Array(breakpoint1, breakpoint2, breakpoint3, breakpoint4)
+          arguments.breakpoints =
+            Array(breakpoint1, breakpoint2, breakpoint3, breakpoint4, breakpoint5)
           arguments
         }
 
@@ -233,6 +240,8 @@ object DebugServerSpec extends DebugBspBaseSuite {
             _ <- client.continue(stopped5.threadId)
             stopped6 <- client.stopped
             _ <- client.continue(stopped6.threadId)
+            stopped7 <- client.stopped
+            _ <- client.continue(stopped7.threadId)
             _ <- client.exited
             _ <- client.terminated
             finalOutput <- client.takeCurrentOutput
@@ -243,6 +252,7 @@ object DebugServerSpec extends DebugBspBaseSuite {
               finalOutput,
               """|Breakpoint in main method
                  |Breakpoint in hello class
+                 |Breakpoint in hello inner class
                  |Breakpoint in hello object
                  |Breakpoint in hello java class constructor
                  |Breakpoint in hello java greet method
