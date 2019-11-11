@@ -111,7 +111,7 @@ object DebugExtensions {
       val uri = URI.create(uriRepr)
       if (uri.getScheme() == "dap-fqcn") {
         val resolvedName = uri.getSchemeSpecificPart()
-        Array(resolvedName)
+        lines.map(line => resolvedName)
       } else {
         val originSource = java.nio.file.Paths.get(uri)
         val classFiles = runner.classFilesMappedTo(originSource, lines, columns)
