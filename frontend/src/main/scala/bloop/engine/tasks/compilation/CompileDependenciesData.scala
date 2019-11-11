@@ -13,7 +13,6 @@ import bloop.PartialCompileProducts
 
 case class CompileDependenciesData(
     dependencyClasspath: Array[AbsolutePath],
-    dependentResults: Map[File, PreviousResult],
     allInvalidatedClassFiles: Set[File],
     allGeneratedClassFilePaths: Map[String, File]
 ) {
@@ -34,7 +33,6 @@ object CompileDependenciesData {
       genericClasspath: Array[AbsolutePath],
       dependentProducts: Map[Project, Either[PartialCompileProducts, CompileProducts]]
   ): CompileDependenciesData = {
-    val resultsMap = new mutable.HashMap[File, PreviousResult]()
     val dependentClassesDir = new mutable.HashMap[AbsolutePath, Array[AbsolutePath]]()
     val dependentResources = new mutable.HashMap[AbsolutePath, Array[AbsolutePath]]()
     val dependentInvalidatedClassFiles = new mutable.HashSet[File]()
@@ -66,7 +64,6 @@ object CompileDependenciesData {
         dependentInvalidatedClassFiles.++=(products.invalidatedCompileProducts)
         dependentGeneratedClassFilePaths.++=(products.generatedRelativeClassFilePaths.iterator)
         dependentResources.put(genericClassesDir, project.pickValidResources)
-        resultsMap.put(genericClassesDir.toFile, products.resultForDependentCompilationsInSameRun)
     }
 
     val addedResources = new mutable.HashSet[AbsolutePath]()
@@ -87,7 +84,6 @@ object CompileDependenciesData {
 
     CompileDependenciesData(
       rewrittenClasspath,
-      resultsMap.toMap,
       dependentInvalidatedClassFiles.toSet,
       dependentGeneratedClassFilePaths.toMap
     )

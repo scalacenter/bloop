@@ -246,7 +246,7 @@ object Compiler {
     logger.debug(s"New rw classes directory ${newClassesDirPath}")
 
     val allGeneratedRelativeClassFilePaths = new mutable.HashMap[String, File]()
-    val copiedPathsFromNewClassesDir = new mutable.HashSet[Path]()
+    val readOnlyCopyBlacklist = new mutable.HashSet[Path]()
     val allInvalidatedClassFilesForProject = new mutable.HashSet[File]()
     val allInvalidatedExtraCompileProducts = new mutable.HashSet[File]()
 
@@ -260,7 +260,7 @@ object Compiler {
         compileInputs,
         compileOut,
         allGeneratedRelativeClassFilePaths,
-        copiedPathsFromNewClassesDir,
+        readOnlyCopyBlacklist,
         allInvalidatedClassFilesForProject,
         allInvalidatedExtraCompileProducts,
         backgroundTasksWhenNewSuccessfulAnalysis,
@@ -412,7 +412,7 @@ object Compiler {
                 val invalidatedExtraProducts =
                   allInvalidatedExtraCompileProducts.iterator.map(_.toPath).toSet
                 val invalidatedInThisProject = invalidatedClassFiles ++ invalidatedExtraProducts
-                val blacklist = invalidatedInThisProject ++ copiedPathsFromNewClassesDir.iterator
+                val blacklist = invalidatedInThisProject ++ readOnlyCopyBlacklist.iterator
                 val config =
                   ParallelOps.CopyConfiguration(5, CopyMode.ReplaceIfMetadataMismatch, blacklist)
                 val lastCopy = ParallelOps.copyDirectories(config)(
@@ -432,8 +432,8 @@ object Compiler {
             Task(persist(out, analysis, result.setup, tracer, logger)).memoize
           }
 
-          val definedMacroSymbols = mode.oracle.collectDefinedMacroSymbols
           val isNoOp = previousAnalysis.contains(analysis)
+          val definedMacroSymbols = mode.oracle.collectDefinedMacroSymbols
           if (isNoOp) {
             // If no-op, return previous result with updated classpath hashes
             val noOpPreviousResult = {
@@ -491,6 +491,7 @@ object Compiler {
               reportedFatalWarnings
             )
           } else {
+            val allGeneratedProducts = allGeneratedRelativeClassFilePaths.toMap
             val analysisForFutureCompilationRuns = {
               rebaseAnalysisClassFiles(
                 analysis,
@@ -555,7 +556,7 @@ object Compiler {
               resultForDependentCompilationsInSameRun,
               resultForFutureCompilationRuns,
               allInvalidated.toSet,
-              allGeneratedRelativeClassFilePaths.toMap,
+              allGeneratedProducts,
               definedMacroSymbols
             )
 
@@ -693,7 +694,7 @@ object Compiler {
    * system.
    */
   def rebaseAnalysisClassFiles(
-      analysis0: xsbti.compile.CompileAnalysis,
+      analysis0: CompileAnalysis,
       readOnlyClassesDir: Path,
       newClassesDir: Path,
       sourceFilesWithFatalWarnings: scala.collection.Set[File]

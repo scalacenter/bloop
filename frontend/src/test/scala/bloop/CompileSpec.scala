@@ -39,11 +39,11 @@ object CompileSpec extends bloop.testing.BaseSuite {
       val projects = List(`A`)
       val state = loadState(workspace, projects, logger)
       val compiledState = state.compile(`A`)
-      assert(compiledState.status == ExitStatus.Ok)
+      assertExitStatus(compiledState, ExitStatus.Ok)
       assertValidCompilationState(compiledState, projects)
 
       val secondCompiledState = compiledState.compile(`A`)
-      assert(secondCompiledState.status == ExitStatus.Ok)
+      assertExitStatus(secondCompiledState, ExitStatus.Ok)
       assertValidCompilationState(secondCompiledState, projects)
       assertExistingInternalClassesDir(secondCompiledState)(compiledState, projects)
       assertExistingInternalClassesDir(secondCompiledState)(secondCompiledState, projects)
@@ -67,7 +67,7 @@ object CompileSpec extends bloop.testing.BaseSuite {
       val projects = List(`A`)
       val state = loadState(workspace, projects, logger)
       val compiledState = state.compile(`A`)
-      assert(compiledState.status == ExitStatus.Ok)
+      assertExitStatus(compiledState, ExitStatus.Ok)
       assertValidCompilationState(compiledState, projects)
       assertNoDiff(
         logger.compilingInfos.mkString(System.lineSeparator),
@@ -81,7 +81,7 @@ object CompileSpec extends bloop.testing.BaseSuite {
       Files.delete(analysisFile.underlying)
 
       val secondCompiledState = compiledState.compile(`A`)
-      assert(secondCompiledState.status == ExitStatus.Ok)
+      assertExitStatus(secondCompiledState, ExitStatus.Ok)
       assertValidCompilationState(secondCompiledState, projects)
       assert(analysisFile.exists)
 
@@ -114,7 +114,7 @@ object CompileSpec extends bloop.testing.BaseSuite {
       val projects = List(`A`, `B`)
       val state = loadState(workspace, projects, logger)
       val compiledState = state.compile(`B`)
-      assert(compiledState.status == ExitStatus.Ok)
+      assertExitStatus(compiledState, ExitStatus.Ok)
       assertValidCompilationState(compiledState, projects)
 
       // This state loads the previous analysis from the persisted file
@@ -124,7 +124,7 @@ object CompileSpec extends bloop.testing.BaseSuite {
 
       // Assert that it's a no-op even if we sourced from the analysis
       val secondCompiledState = independentState.compile(`B`)
-      assert(secondCompiledState.status == ExitStatus.Ok)
+      assertExitStatus(secondCompiledState, ExitStatus.Ok)
       assertSuccessfulCompilation(secondCompiledState, projects, isNoOp = true)
       assertValidCompilationState(secondCompiledState, projects)
       assertExistingInternalClassesDir(secondCompiledState)(compiledState, projects)
@@ -146,7 +146,7 @@ object CompileSpec extends bloop.testing.BaseSuite {
       val projects = List(`A`)
       val state = loadState(workspace, projects, logger)
       val compiledState = state.compile(`A`)
-      assert(compiledState.status == ExitStatus.Ok)
+      assertExitStatus(compiledState, ExitStatus.Ok)
       assertValidCompilationState(compiledState, projects)
       assertNoDiff(
         logger.compilingInfos.mkString(System.lineSeparator),
@@ -157,7 +157,7 @@ object CompileSpec extends bloop.testing.BaseSuite {
 
       val cleanState = compiledState.clean(`A`)
       val secondCompiledState = cleanState.compile(`A`)
-      assert(secondCompiledState.status == ExitStatus.Ok)
+      assertExitStatus(secondCompiledState, ExitStatus.Ok)
       assertValidCompilationState(secondCompiledState, projects)
       assertDifferentExternalClassesDirs(compiledState, secondCompiledState, projects)
       assertNonExistingInternalClassesDir(secondCompiledState)(compiledState, projects)
@@ -220,7 +220,7 @@ object CompileSpec extends bloop.testing.BaseSuite {
       val initialState = loadState(workspace, projects, logger)
       val compiledState = initialState.compile(`B`)
 
-      assert(compiledState.status == ExitStatus.Ok)
+      assertExitStatus(compiledState, ExitStatus.Ok)
       assertValidCompilationState(compiledState, List(`A`, `B`))
       assertNoDiff(
         logger.compilingInfos.mkString(System.lineSeparator),
@@ -230,7 +230,7 @@ object CompileSpec extends bloop.testing.BaseSuite {
 
       assertIsFile(writeFile(`A`.srcFor("A.scala"), Sources.`A2.scala`))
       val secondCompiledState = compiledState.compile(`B`)
-      assert(secondCompiledState.status == ExitStatus.CompilationError)
+      assertExitStatus(secondCompiledState, ExitStatus.CompilationError)
       assertSameExternalClassesDirs(compiledState, secondCompiledState, projects)
       assertValidCompilationState(secondCompiledState, List(`A`))
       // The internal classes dir for `A` should not exist, B failed to compile but A succeeded
@@ -258,7 +258,7 @@ object CompileSpec extends bloop.testing.BaseSuite {
 
       assertIsFile(writeFile(`A`.srcFor("A.scala"), Sources.`A.scala`))
       val thirdCompiledState = secondCompiledState.compile(`B`)
-      assert(thirdCompiledState.status == ExitStatus.Ok)
+      assertExitStatus(thirdCompiledState, ExitStatus.Ok)
       assertValidCompilationState(thirdCompiledState, List(`A`, `B`))
       assertSameExternalClassesDirs(compiledState, thirdCompiledState, projects)
 
@@ -269,7 +269,7 @@ object CompileSpec extends bloop.testing.BaseSuite {
 
       BloopPaths.delete(AbsolutePath(`B`.config.classesDir))
       val fourthCompiledState = thirdCompiledState.compile(`B`)
-      assert(fourthCompiledState.status == ExitStatus.Ok)
+      assertExitStatus(fourthCompiledState, ExitStatus.Ok)
       assertValidCompilationState(fourthCompiledState, List(`A`, `B`))
       assertSameExternalClassesDirs(compiledState, fourthCompiledState, projects)
 
@@ -281,7 +281,7 @@ object CompileSpec extends bloop.testing.BaseSuite {
       writeFile(`A`.externalClassFileFor("Bar.class"), "incorrect class file contents")
       assertIsFile(writeFile(`A`.srcFor("A.scala"), Sources.`A3.scala`))
       val fifthCompiledState = fourthCompiledState.compile(`B`)
-      assert(fifthCompiledState.status == ExitStatus.Ok)
+      assertExitStatus(fifthCompiledState, ExitStatus.Ok)
       assertValidCompilationState(fifthCompiledState, List(`A`, `B`))
       assertIsFile(`A`.externalClassFileFor("Bar.class"))
 
@@ -293,7 +293,7 @@ object CompileSpec extends bloop.testing.BaseSuite {
       BloopPaths.delete(fifthCompiledState.getLastClassesDir(`A`).get)
       BloopPaths.delete(fifthCompiledState.getLastClassesDir(`B`).get)
       val sixthCompiledState = fifthCompiledState.compile(`B`)
-      assert(sixthCompiledState.status == ExitStatus.Ok)
+      assertExitStatus(sixthCompiledState, ExitStatus.Ok)
       assertValidCompilationState(sixthCompiledState, List(`A`, `B`))
 
       assertNoDiff(
@@ -383,7 +383,7 @@ object CompileSpec extends bloop.testing.BaseSuite {
       }
 
       val compiledState = initialState.compile(`E`)
-      assert(compiledState.status == ExitStatus.Ok)
+      assertExitStatus(compiledState, ExitStatus.Ok)
 
       // Only the build graph of `E` is compiled successfully
       assertValidCompilationState(compiledState, List(`A`, `B`, `C`, `D`, `E`))
@@ -437,7 +437,7 @@ object CompileSpec extends bloop.testing.BaseSuite {
       val projects = List(`A`, `B`)
       val state = loadState(workspace, projects, logger)
       val compiledState = state.compile(`B`)
-      assert(compiledState.status == ExitStatus.Ok)
+      assertExitStatus(compiledState, ExitStatus.Ok)
       assertValidCompilationState(compiledState, projects)
     }
   }
@@ -507,7 +507,7 @@ object CompileSpec extends bloop.testing.BaseSuite {
       val state = loadState(workspace, projects, logger)
       val compiledState = state.compile(`B`)
       val compiledStateBackup = compiledState.backup
-      assert(compiledState.status == ExitStatus.Ok)
+      assertExitStatus(compiledState, ExitStatus.Ok)
       assertValidCompilationState(compiledState, projects)
 
       // Move `Bar.scala` from `B` to `A`; code still compiles
@@ -518,14 +518,14 @@ object CompileSpec extends bloop.testing.BaseSuite {
 
       val secondCompiledState = compiledState.compile(`B`)
       assertNoDiff(logger.errors.mkString(System.lineSeparator), "")
-      assert(secondCompiledState.status == ExitStatus.Ok)
+      assertExitStatus(secondCompiledState, ExitStatus.Ok)
       assertValidCompilationState(secondCompiledState, projects)
       assertDifferentExternalClassesDirs(secondCompiledState, compiledStateBackup, projects)
 
       writeFile(`A`.srcFor("Enrichments.scala"), Sources.`Enrichments2.scala`)
       val thirdCompiledState = secondCompiledState.compile(`B`)
       assertNoDiff(logger.errors.mkString(System.lineSeparator), "")
-      assert(thirdCompiledState.status == ExitStatus.Ok)
+      assertExitStatus(thirdCompiledState, ExitStatus.Ok)
       assertValidCompilationState(thirdCompiledState, projects)
       assertDifferentExternalClassesDirs(thirdCompiledState, secondCompiledState, projects)
     }
@@ -609,7 +609,7 @@ object CompileSpec extends bloop.testing.BaseSuite {
       // #2: Compiler after renaming `Foo` to `Foo2`, which should make `Bar` fail in second cycle
       assertIsFile(writeFile(`A`.srcFor("main/scala/Foo.scala"), Sources.`Foo2.scala`))
       val secondCompiledState = compiledState.compile(`A`)
-      assert(ExitStatus.CompilationError == secondCompiledState.status)
+      assertExitStatus(secondCompiledState, ExitStatus.CompilationError)
       assertInvalidCompilationState(
         secondCompiledState,
         List(`A`),
@@ -636,7 +636,7 @@ object CompileSpec extends bloop.testing.BaseSuite {
 
       assertIsFile(writeFile(`A`.srcFor("main/scala/Bar.scala"), Sources.`Bar2.scala`))
       val thirdCompiledState = secondCompiledState.compile(`A`)
-      assert(thirdCompiledState.status == ExitStatus.Ok)
+      assertExitStatus(thirdCompiledState, ExitStatus.Ok)
 
       assertValidCompilationState(thirdCompiledState, projects)
       assertDifferentExternalClassesDirs(thirdCompiledState, compiledStateBackup, projects)
@@ -699,13 +699,13 @@ object CompileSpec extends bloop.testing.BaseSuite {
         val state = loadState(workspace, projects, logger)
         val compiledState = state.compile(`A`)
         val compiledStateBackup = compiledState.backup
-        assert(compiledState.status == ExitStatus.Ok)
+        assertExitStatus(compiledState, ExitStatus.Ok)
         assertValidCompilationState(compiledState, projects)
 
         // #2: Compiler after changing public API of `Foo`, which should make `Bar` fail
         assertIsFile(writeFile(`A`.srcFor("Foo.java"), Sources.`Foo2.java`))
         val secondCompiledState = compiledState.compile(`A`)
-        assert(ExitStatus.CompilationError == secondCompiledState.status)
+        assertExitStatus(secondCompiledState, ExitStatus.CompilationError)
         assertInvalidCompilationState(
           secondCompiledState,
           List(`A`),
@@ -727,7 +727,7 @@ object CompileSpec extends bloop.testing.BaseSuite {
 
         assertIsFile(writeFile(`A`.srcFor("/Bar.scala"), Sources.`Bar2.scala`))
         val thirdCompiledState = secondCompiledState.compile(`A`)
-        Predef.assert(thirdCompiledState.status == ExitStatus.Ok)
+        assertExitStatus(thirdCompiledState, ExitStatus.Ok)
         assertValidCompilationState(thirdCompiledState, projects)
         assertDifferentExternalClassesDirs(thirdCompiledState, compiledStateBackup, projects)
         assertExistingCompileProduct(secondCompiledState, `A`, RelativePath("Foo.class"))
@@ -778,12 +778,12 @@ object CompileSpec extends bloop.testing.BaseSuite {
       val state = loadState(workspace, projects, logger)
       val compiledState = state.compile(`A`)
       val compiledStateBackup = compiledState.backup
-      Predef.assert(compiledState.status == ExitStatus.Ok)
+      assertExitStatus(compiledState, ExitStatus.Ok)
       assertValidCompilationState(compiledState, projects)
 
       assertIsFile(writeFile(`A`.srcFor("Bar.scala"), Sources.`Bar2.scala`))
       val secondCompiledState = compiledState.compile(`A`)
-      Predef.assert(ExitStatus.CompilationError == secondCompiledState.status)
+      assertExitStatus(secondCompiledState, ExitStatus.CompilationError)
       assertInvalidCompilationState(
         secondCompiledState,
         List(`A`),
@@ -873,7 +873,7 @@ object CompileSpec extends bloop.testing.BaseSuite {
       // #2: Compiler after renaming `Foo` to `Foo2`, which should make `Bar` fail in second cycle
       assertIsFile(writeFile(`A`.srcFor("main/scala/Foo.scala"), Sources.`Foo2.scala`))
       val secondCompiledState = compiledState.compile(`C`)
-      assert(ExitStatus.CompilationError == secondCompiledState.status)
+      assertExitStatus(secondCompiledState, ExitStatus.CompilationError)
       assertInvalidCompilationState(
         secondCompiledState,
         List(`A`, `B`, `C`),
@@ -900,10 +900,116 @@ object CompileSpec extends bloop.testing.BaseSuite {
 
       assertIsFile(writeFile(`C`.srcFor("main/scala/Bar.scala"), Sources.`Bar2.scala`))
       val thirdCompiledState = secondCompiledState.compile(`C`)
-      assert(thirdCompiledState.status == ExitStatus.Ok)
+      assertExitStatus(thirdCompiledState, ExitStatus.Ok)
       // Checks that we remove `Foo.class` from the external classes dir which is critical
       assertValidCompilationState(thirdCompiledState, projects)
       assertNonExistingCompileProduct(thirdCompiledState, `A`, RelativePath("Foo.class"))
+    }
+  }
+
+  test("compile after moving class from one project to a dependent one") {
+    // Checks bloop is invalidating classes + propagating them to *transitive* dependencies
+    TestUtil.withinWorkspace { workspace =>
+      object Sources {
+        val `Dummy.scala` =
+          """/main/scala/Dummy.scala
+            |class Dummy
+          """.stripMargin
+
+        val `Foo.scala` =
+          """/main/scala/Foo.scala
+            |class Foo {
+            |  def foo: String = ""
+            |}
+          """.stripMargin
+
+        val `Bar.scala` =
+          """/main/scala/Bar.scala
+            |class Bar extends Foo
+          """.stripMargin
+
+        val `Baz.scala` =
+          """/main/scala/Baz.scala
+            |class Baz {
+            |  val bar: Bar = new Bar
+            |  def hello = println(bar.foo)
+            |}
+          """.stripMargin
+
+        val `Dummy1.scala` =
+          """/Dummy1.scala
+            |class Dummy1
+          """.stripMargin
+
+        val `Dummy2.scala` =
+          """/Dummy2.scala
+            |class Dummy2
+          """.stripMargin
+
+        val `Foo2.scala` =
+          """/main/scala/Foo.scala
+            |class Foo {
+            |  def foo: String = ""
+            |  def foo2: String = ""
+            |}
+          """.stripMargin
+
+        val `Baz2.scala` =
+          """/main/scala/Baz.scala
+            |class Baz {
+            |  val bar: Bar = new Bar
+            |  def hello = println(bar.foo2)
+            |}
+          """.stripMargin
+      }
+
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val `A` = TestProject(workspace, "a", List(Sources.`Dummy.scala`))
+      val `B` = TestProject(
+        workspace,
+        "b",
+        List(
+          Sources.`Foo.scala`,
+          Sources.`Bar.scala`,
+          Sources.`Baz.scala`,
+          Sources.`Dummy1.scala`,
+          Sources.`Dummy2.scala`
+        ),
+        List(`A`)
+      )
+
+      val projects = List(`A`, `B`)
+      val state = loadState(workspace, projects, logger)
+      val compiledState = state.compile(`B`)
+      assertExitStatus(compiledState, ExitStatus.Ok)
+      assertValidCompilationState(compiledState, projects)
+
+      Files.move(
+        `B`.srcFor("main/scala/Foo.scala").underlying,
+        `A`.srcFor("main/scala/Foo.scala", exists = false).underlying
+      )
+
+      writeFile(`A`.srcFor("main/scala/Foo.scala"), Sources.`Foo2.scala`)
+
+      val compiledStateBackup = compiledState.backup
+
+      // Compile first only `A`
+      val secondCompiledState = compiledState.compile(`A`)
+      assertExitStatus(secondCompiledState, ExitStatus.Ok)
+      assertValidCompilationState(secondCompiledState, List(`A`))
+      assertDifferentExternalClassesDirs(secondCompiledState, compiledStateBackup, `A`)
+      assertExistingCompileProduct(secondCompiledState, `A`, RelativePath("Foo.class"))
+
+      // Add change depending on new method to make sure that `Foo.class` coming from dependency is picked
+      writeFile(`B`.srcFor("main/scala/Baz.scala"), Sources.`Baz2.scala`)
+
+      // Then compile `B` to make sure right info from `A` is passed to `B` for invalidation
+      val thirdCompiledState = secondCompiledState.compile(`B`)
+      assertExitStatus(thirdCompiledState, ExitStatus.Ok)
+      assertValidCompilationState(thirdCompiledState, List(`A`, `B`))
+      assertNonExistingCompileProduct(thirdCompiledState, `B`, RelativePath("Foo.class"))
+      assertExistingCompileProduct(thirdCompiledState, `B`, RelativePath("Bar.class"))
+      assertExistingCompileProduct(thirdCompiledState, `B`, RelativePath("Baz.class"))
     }
   }
 
@@ -931,7 +1037,7 @@ object CompileSpec extends bloop.testing.BaseSuite {
       val logger = new RecordingLogger(ansiCodesSupported = false)
       val initialState = loadState(workspace, projects, logger)
       val compiledState = initialState.compile(`A`)
-      assert(compiledState.status == ExitStatus.CompilationError)
+      assertExitStatus(compiledState, ExitStatus.CompilationError)
       assertInvalidCompilationState(
         compiledState,
         projects,
@@ -996,7 +1102,7 @@ object CompileSpec extends bloop.testing.BaseSuite {
       val projects = List(`A`)
       val state = loadState(workspace, projects, logger)
       val compiledState = state.compile(`A`)
-      assert(compiledState.status == ExitStatus.CompilationError)
+      assertExitStatus(compiledState, ExitStatus.CompilationError)
       // Despite error, compilation of project should be valid
       assertValidCompilationState(compiledState, projects)
 
@@ -1033,7 +1139,7 @@ object CompileSpec extends bloop.testing.BaseSuite {
       val projects = List(`A`)
       val state = loadState(workspace, projects, logger)
       val compiledState = state.compile(`A`)
-      assert(compiledState.status == ExitStatus.CompilationError)
+      assertExitStatus(compiledState, ExitStatus.CompilationError)
       assertInvalidCompilationState(
         compiledState,
         projects,
@@ -1069,7 +1175,7 @@ object CompileSpec extends bloop.testing.BaseSuite {
       val state = loadState(workspace, projects, logger)
       val compiledState = state.compile(`A`)
 
-      assert(compiledState.status == ExitStatus.CompilationError)
+      assertExitStatus(compiledState, ExitStatus.CompilationError)
       assertInvalidCompilationState(
         compiledState,
         projects,
@@ -1132,7 +1238,7 @@ object CompileSpec extends bloop.testing.BaseSuite {
       val state = loadState(workspace, projects, logger)
       val compiledState = state.cascadeCompile(`F`)
 
-      assert(compiledState.status == ExitStatus.Ok)
+      assertExitStatus(compiledState, ExitStatus.Ok)
       assertValidCompilationState(compiledState, projects)
       assertNoDiff(
         logger.compilingInfos.sorted.mkString(System.lineSeparator),
@@ -1150,7 +1256,7 @@ object CompileSpec extends bloop.testing.BaseSuite {
     BuildUtil.testSlowBuild(logger) { build =>
       val state = new TestState(build.state)
       val compiledMacrosState = state.compile(build.macroProject)
-      assert(compiledMacrosState.status == ExitStatus.Ok)
+      assertExitStatus(compiledMacrosState, ExitStatus.Ok)
       assertValidCompilationState(compiledMacrosState, List(build.macroProject))
 
       val projects = List(build.macroProject, build.userProject)
@@ -1179,7 +1285,7 @@ object CompileSpec extends bloop.testing.BaseSuite {
         }
       }
 
-      assert(compiledUserState.status == ExitStatus.CompilationError)
+      assertExitStatus(compiledUserState, ExitStatus.CompilationError)
       assertCancelledCompilation(compiledUserState, List(build.userProject))
       assertNoDiff(
         logger.warnings.mkString(System.lineSeparator()),
@@ -1283,7 +1389,7 @@ object CompileSpec extends bloop.testing.BaseSuite {
       val compiledState = state.compile(`A`)
 
       val targetA = TestUtil.universalPath("a/src/main/scala/A.scala")
-      assert(compiledState.status == ExitStatus.CompilationError)
+      assertExitStatus(compiledState, ExitStatus.CompilationError)
       assertNoDiff(
         logger.errors.mkString(System.lineSeparator()),
         s"""
@@ -1321,7 +1427,7 @@ object CompileSpec extends bloop.testing.BaseSuite {
       val projects = List(`A`)
       val state = loadState(workspace, projects, logger)
       val compiledState = state.compile(`A`)
-      assert(compiledState.status == ExitStatus.CompilationError)
+      assertExitStatus(compiledState, ExitStatus.CompilationError)
       assert(logger.errors.size == 4)
 
       val targetA = TestUtil.universalPath("a/src/A.scala")
@@ -1416,7 +1522,7 @@ object CompileSpec extends bloop.testing.BaseSuite {
       val projects = List(`A`)
       val state = loadState(workspace, projects, logger)
       val compiledState = state.compile(`A`)
-      assert(compiledState.status == ExitStatus.Ok)
+      assertExitStatus(compiledState, ExitStatus.Ok)
       assertValidCompilationState(compiledState, projects)
     }
   }
@@ -1505,13 +1611,13 @@ object CompileSpec extends bloop.testing.BaseSuite {
       val projects = List(`A`)
       val state = loadState(workspace, projects, logger)
       val compiledState = state.compile(`A`)
-      assert(compiledState.status == ExitStatus.Ok)
+      assertExitStatus(compiledState, ExitStatus.Ok)
       assertValidCompilationState(compiledState, projects)
       writeFile(`A`.srcFor("A.java"), Sources.`A2.java`)
       writeFile(`A`.srcFor("B.java"), Sources.`B2.java`)
 
       val newState = compiledState.compile(`A`)
-      assert(newState.status == ExitStatus.Ok)
+      assertExitStatus(newState, ExitStatus.Ok)
       assertValidCompilationState(newState, projects)
     }
   }
