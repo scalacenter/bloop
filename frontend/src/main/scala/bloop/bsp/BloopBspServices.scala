@@ -36,6 +36,7 @@ import monix.execution.atomic.AtomicInt
 import monix.execution.atomic.AtomicBoolean
 
 import scala.collection.concurrent.TrieMap
+import scala.collection.mutable
 import scala.collection.JavaConverters._
 import scala.concurrent.Promise
 import scala.concurrent.duration.FiniteDuration
@@ -999,12 +1000,14 @@ final class BloopBspServices(
         projects: Seq[ProjectMapping],
         state: State
     ): BspResult[bsp.ScalacOptionsResult] = {
+      val uris = mutable.Map.empty[Path, bsp.Uri]
       val response = bsp.ScalacOptionsResult(
         projects.iterator.map {
           case (target, project) =>
             val dag = state.build.getDagFor(project)
             val fullClasspath = project.fullClasspath(dag, state.client)
-            val classpath = fullClasspath.map(e => bsp.Uri(e.toBspUri)).toList
+            val classpath =
+              fullClasspath.map(e => uris.getOrElseUpdate(e.underlying, bsp.Uri(e.toBspUri))).toList
             val classesDir =
               state.client.getUniqueClassesDirFor(project, forceGeneration = true).toBspUri
             bsp.ScalacOptionsItem(
