@@ -130,5 +130,5 @@ jobs:
           echo "$BLOOPOID_SSH_PRIVATE_KEY" > "$HOME/.ssh/id_rsa"
           chmod 400 "$HOME/.ssh/id_rsa"
           ssh-keyscan -t rsa github.com >> "$HOME/.ssh/known_hosts"
-          ./bin/sbt-ci-publish.sh "releaseBloop" "docs/docusaurusPublishGhpages"
+          ./bin/sbt-ci-publish.sh "releaseBloop"
         shell: bash
