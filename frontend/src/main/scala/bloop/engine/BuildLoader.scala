@@ -30,7 +30,7 @@ object BuildLoader {
   def readConfigurationFilesInBase(base: AbsolutePath, logger: Logger): List[AttributedPath] = {
     val workspaceFileName = WorkspaceSettings.settingsFileName.toFile.getName()
     bloop.io.Paths
-      .attributedPathFilesUnder(base, JsonFilePattern, logger, 1)
+      .attributedPathFilesUnder(base, JsonFilePattern, logger, 1, ignoreVisitErrors = true)
       .filterNot(_.path.toFile.getName() == workspaceFileName)
   }
 

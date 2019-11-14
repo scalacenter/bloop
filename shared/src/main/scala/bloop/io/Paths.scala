@@ -98,7 +98,8 @@ object Paths {
       base: AbsolutePath,
       pattern: String,
       logger: xsbti.Logger,
-      maxDepth: Int = Int.MaxValue
+      maxDepth: Int = Int.MaxValue,
+      ignoreVisitErrors: Boolean = false
   ): List[AttributedPath] = {
     val out = collection.mutable.ListBuffer.empty[AttributedPath]
     val matcher = FileSystems.getDefault.getPathMatcher(pattern)
@@ -116,8 +117,10 @@ object Paths {
       }
 
       def visitFileFailed(t: Path, e: IOException): FileVisitResult = {
-        logger.error(() => s"Unexpected failure when visiting ${t}: '${e.getMessage}'")
-        logger.trace(() => e)
+        if (!ignoreVisitErrors) {
+          logger.error(() => s"Unexpected failure when visiting ${t}: '${e.getMessage}'")
+          logger.trace(() => e)
+        }
         FileVisitResult.CONTINUE
       }
 
