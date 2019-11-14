@@ -19,6 +19,7 @@ import ch.epfl.scala.{bsp => Bsp}
 
 import xsbti.compile.{ClasspathOptions, CompileOrder}
 import bloop.config.ConfigCodecs
+import com.github.plokhotnyuk.jsoniter_scala.core.JsonReaderException
 
 final case class Project(
     name: String,
@@ -123,11 +124,15 @@ object Project {
   final implicit val ps: scalaz.Show[Project] =
     new scalaz.Show[Project] { override def shows(f: Project): String = f.name }
 
-  def defaultPlatform(logger: Logger, jdkConfig: Option[JdkConfig] = None): Platform = {
-    val platform = Config.Platform.Jvm(Config.JvmConfig.empty, None)
-    val env = jdkConfig.getOrElse(JdkConfig.fromConfig(platform.config))
-    val toolchain = JvmToolchain.resolveToolchain(platform, logger)
-    Platform.Jvm(env, toolchain, platform.mainClass)
+  private final class ProjectReadException(msg: String, cause: Throwable)
+      extends RuntimeException(msg, cause)
+  def fromBytesAndOrigin(bytes: Array[Byte], origin: Origin, logger: Logger): Project = {
+    logger.debug(s"Loading project from '${origin.path}'")(DebugFilter.All)
+    ConfigCodecs.read(bytes) match {
+      case Left(failure) =>
+        throw new ProjectReadException(s"Failed to load project from ${origin.path}", failure)
+      case Right(file) => Project.fromConfig(file, origin, logger)
+    }
   }
 
   def fromConfig(file: Config.File, origin: Origin, logger: Logger): Project = {
@@ -195,12 +200,11 @@ object Project {
     )
   }
 
-  def fromBytesAndOrigin(bytes: Array[Byte], origin: Origin, logger: Logger): Project = {
-    logger.debug(s"Loading project from '${origin.path}'")(DebugFilter.All)
-    ConfigCodecs.read(bytes) match {
-      case Left(failure) => throw failure
-      case Right(file) => Project.fromConfig(file, origin, logger)
-    }
+  def defaultPlatform(logger: Logger, jdkConfig: Option[JdkConfig] = None): Platform = {
+    val platform = Config.Platform.Jvm(Config.JvmConfig.empty, None)
+    val env = jdkConfig.getOrElse(JdkConfig.fromConfig(platform.config))
+    val toolchain = JvmToolchain.resolveToolchain(platform, logger)
+    Platform.Jvm(env, toolchain, platform.mainClass)
   }
 
   /**

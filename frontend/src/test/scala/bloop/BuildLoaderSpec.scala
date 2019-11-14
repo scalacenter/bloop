@@ -12,6 +12,8 @@ import bloop.data.WorkspaceSettings
 import bloop.internal.build.BuildInfo
 
 import monix.eval.Task
+import com.github.plokhotnyuk.jsoniter_scala.core.JsonReaderException
+import scala.util.Try
 
 object BuildLoaderSpec extends BaseSuite {
   testLoad("don't reload if nothing changes") { (testBuild, logger) =>
@@ -228,6 +230,18 @@ object BuildLoaderSpec extends BaseSuite {
             s"Expected state with deletion of ${configurationFile}, got ReturnPreviousState"
           )
       }
+    }
+  }
+
+  test("print helpful error when project json configuration file can't be parsed") {
+    TestUtil.withinWorkspace { workspace =>
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val state = loadState(workspace, Nil, logger, None)
+      val unparseableJsonFile = state.build.origin.resolve("unparseable.json")
+      Files.write(unparseableJsonFile.underlying, "{}".getBytes(StandardCharsets.UTF_8))
+      val failedState = Try(TestUtil.loadTestProject(state.build.origin.underlying, logger))
+      assert(failedState.isFailure)
+      assert(failedState.failed.get.getMessage.contains("Failed to load project from"))
     }
   }
 
