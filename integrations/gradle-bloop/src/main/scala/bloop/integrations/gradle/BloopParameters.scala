@@ -48,4 +48,18 @@ class BloopParameters(project: Project) {
   def setStdLibName(value: String): Unit = {
     stdLibName_ = value
   }
+
+  private var includeJavadoc_ : Boolean = true
+  def includeJavadoc: Boolean = includeJavadoc_
+  def getIncludeJavadoc = includeJavadoc_
+  def setIncludeJavadoc(value: Boolean): Unit = {
+    includeJavadoc_ = value
+  }
+
+  private var includeSources_ : Boolean = true
+  def includeSources: Boolean = includeSources_
+  def getIncludeSources = includeSources_
+  def setIncludeSources(value: Boolean): Unit = {
+    includeSources_ = value
+  }
 }
