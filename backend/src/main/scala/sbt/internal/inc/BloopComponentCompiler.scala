@@ -25,6 +25,7 @@ import xsbti.compile.{ClasspathOptionsUtil, CompilerBridgeProvider}
 import _root_.bloop.io.AbsolutePath
 import _root_.bloop.{ScalaInstance => BloopScalaInstance}
 import java.nio.file.Files
+import java.nio.file.Paths
 
 import _root_.bloop.logging.{Logger => BloopLogger}
 import _root_.bloop.{DependencyResolution => BloopDependencyResolution}
@@ -38,6 +39,39 @@ object BloopComponentCompiler {
   final val javaClassVersion = System.getProperty("java.class.version")
 
   final lazy val latestVersion: String = BloopComponentManager.version
+
+  object Hydra {
+    val bridgeNamePrefix =
+      sys.props.get("bloop.hydra.bridgeNamePrefix").getOrElse("bloop-hydra-bridge")
+    val bridgeVersion = sys.props.get("bloop.hydra.bridgeVersion").getOrElse("0.0.2")
+    // The Hydra resolver is used to fetch both the bloop-hydra-bridge and the Hydra jars
+    val resolver =
+      coursier.maven.MavenRepository(
+        sys.props
+          .get("bloop.hydra.resolver")
+          .getOrElse("https://repo.triplequote.com/artifactory/libs-release")
+      )
+
+    /* Hydra is considered enabled if the Scala instance contains the hydra scala-compiler jar. */
+    def isEnabled(instance: ScalaInstance) = instance match {
+      case instance: BloopScalaInstance =>
+        instance.supportsHydra
+      case _ => false
+    }
+
+    def getModuleForBridgeSources(instance: ScalaInstance): ModuleID = {
+      ModuleID("com.triplequote", getCompilerBridgeId(instance), bridgeVersion)
+        .withConfigurations(CompileConf)
+        .sources()
+    }
+
+    def getCompilerBridgeId(instance: ScalaInstance) = instance.version match {
+      case sc if (sc startsWith "2.11.") => s"${bridgeNamePrefix}_2.11"
+      case sc if (sc startsWith "2.12.") => s"${bridgeNamePrefix}_2.12"
+      case _ => s"${bridgeNamePrefix}_2.13"
+    }
+  }
+
   def getComponentProvider(componentsDir: AbsolutePath): ComponentProvider = {
     val componentsPath = componentsDir.underlying
     if (!Files.exists(componentsPath)) Files.createDirectory(componentsPath)
@@ -229,8 +263,16 @@ private[inc] class BloopComponentCompiler(
     scheduler: ExecutionContext
 ) {
   def compiledBridgeJar: File = {
-    val jarBinaryName =
-      BloopComponentCompiler.getBridgeComponentId(bridgeSources, compiler.scalaInstance)
+    val jarBinaryName = {
+      val instance = compiler.scalaInstance
+      val bridgeName = {
+        if (BloopComponentCompiler.Hydra.isEnabled(instance))
+          BloopComponentCompiler.Hydra.getModuleForBridgeSources(instance)
+        else
+          bridgeSources
+      }
+      BloopComponentCompiler.getBridgeComponentId(bridgeName, compiler.scalaInstance)
+    }
     manager.file(jarBinaryName)(IfMissing.define(true, compileAndInstall(jarBinaryName)))
   }
 
@@ -266,8 +308,28 @@ private[inc] class BloopComponentCompiler(
           manager.define(compilerBridgeId, allArtifacts)
         } else {
           val (sources, xsbtiJars) = allArtifacts.partition(_.getName.endsWith("-sources.jar"))
-          val toCompileID = bridgeSources.name
-          val allSources = mergeJarsIfHydra(compiler.scalaInstance, sources)
+          val (toCompileID, allSources) = {
+            val instance = compiler.scalaInstance
+            if (BloopComponentCompiler.Hydra.isEnabled(compiler.scalaInstance)) {
+              val hydraBridgeModule =
+                BloopComponentCompiler.Hydra.getModuleForBridgeSources(compiler.scalaInstance)
+              mergeBloopAndHydraBridges(sources, hydraBridgeModule) match {
+                case Right(mergedHydraBridgeSourceJar) =>
+                  (hydraBridgeModule.name, mergedHydraBridgeSourceJar)
+                case Left(error) =>
+                  logger.error(
+                    s"Merging of Bloop and Hydra bridges failed. Reason:$error"
+                  )
+                  // Ideally, we would like to fallback using the Scala compiler, i.e., returning
+                  // `(bridgeSources.name, sources)` here. Unfortunately, if we do so compilation
+                  // would still fail because some Hydra compiler flags are set by the `Project`.
+                  // Hence, we throw so that the reported error is meaningful.
+                  throw error
+              }
+            } else
+              (bridgeSources.name, sources)
+          }
+
           AnalyzingCompiler.compileSources(
             allSources,
             target,
@@ -282,80 +344,78 @@ private[inc] class BloopComponentCompiler(
     }
   }
 
-  private val hydraVersion = sys.props.get("hydra.version").getOrElse("0.0.1")
-  private val triplequoteRepo =
-    coursier.maven.MavenRepository("https://repo.triplequote.com/artifactory/libs-release")
-
   import xsbti.compile.ScalaInstance
-  private def mergeJarsIfHydra(
-      instance: ScalaInstance,
-      bridgeSourceJars: Vector[File]
-  ): Vector[File] = {
-    val supportsHydra = instance match {
-      case instance: BloopScalaInstance => instance.supportsHydra
-      case _ => false
+  private def mergeBloopAndHydraBridges(
+      bloopBridgeSourceJars: Vector[File],
+      hydraBridgeModule: ModuleID
+  ): Either[InvalidComponent, Vector[File]] = {
+    val hydraSourcesJars = BloopDependencyResolution.resolveWithErrors(
+      hydraBridgeModule.organization,
+      hydraBridgeModule.name,
+      hydraBridgeModule.revision,
+      logger,
+      resolveSources = true,
+      additionalRepositories = List(BloopComponentCompiler.Hydra.resolver)
+    )(scheduler) match {
+      case Right(paths) => Right(paths.map(_.toFile).toVector)
+      case Left(t) =>
+        val msg = s"Couldn't retrieve module $hydraBridgeModule"
+        Left(new InvalidComponent(msg, t))
     }
 
-    if (!supportsHydra) bridgeSourceJars
-    else {
-      val hydraBridgeName = instance.version match {
-        case sc if (sc startsWith "0.") => "bloop-hydra-bridge_0"
-        case sc if (sc startsWith "3.0.") => "bloop-hydra-bridge_3.0"
-        case sc if (sc startsWith "2.10.") => "bloop-hydra-bridge_2.10"
-        case sc if (sc startsWith "2.11.") => "bloop-hydra-bridge_2.11"
-        case sc if (sc startsWith "2.12.") => "bloop-hydra-bridge_2.12"
-        case _ => "bloop-hydra-bridge_2.13"
-      }
+    def logDebug(msg: String): Unit = logger.debug(msg)(DebugFilter.Compilation)
 
-      val hydraSourcesJars = BloopDependencyResolution.resolveWithErrors(
-        "com.triplequote",
-        hydraBridgeName,
-        hydraVersion,
-        logger,
-        resolveSources = true,
-        additionalRepositories = List(triplequoteRepo)
-      )(scheduler) match {
-        case Right(paths) => paths.map(_.toFile).toVector
-        case Left(t) =>
-          val msg = s"Couldn't retrieve module $bridgeSources"
-          throw new InvalidComponent(msg, t)
-      }
-
-      import sbt.io.IO.{zip, unzip, withTemporaryDirectory, listFiles, relativize}
-      hydraSourcesJars.headOption match {
-        case Some(sourceJar) =>
-          withTemporaryDirectory { tempDir =>
-            val hydraSourceContents = unzip(sourceJar, tempDir)
-            // Unfortunately we can only use names to filter out, let's hope there's no clashes
-            val filterOutConflicts = new sbt.io.NameFilter {
-              val hydraNameBlacklist = hydraSourceContents.map(_.getName)
-              def accept(fileName: String): Boolean = !hydraNameBlacklist.contains(fileName)
+    import sbt.io.IO.{zip, unzip, withTemporaryDirectory, listFiles, relativize}
+    hydraSourcesJars match {
+      case Right(sourceJar +: otherJars) =>
+        if (otherJars.nonEmpty) {
+          logger.info(
+            s"Expected to retrieve a single bridge jar for Hydra. Keeping $sourceJar and ignoring $otherJars"
+          )
+        }
+        logDebug(
+          s"Merging ${bloopBridgeSourceJars.headOption.getOrElse("[stock compiler-bridge not found]")} with $sourceJar."
+        )
+        withTemporaryDirectory { tempDir =>
+          val hydraSourceContents = unzip(sourceJar, tempDir)
+          logDebug(s"Sources from hydra bridge: $hydraSourceContents")
+          // Unfortunately we can only use names to filter out, let's hope there's no clashes
+          val filterOutConflicts = new sbt.io.NameFilter {
+            val hydraNameBlacklist = hydraSourceContents.map(_.getName)
+            def accept(rawPath: String): Boolean = {
+              val path = Paths.get(rawPath)
+              val fileName = path.getFileName.toString
+              !hydraNameBlacklist.contains(fileName)
             }
-
-            // Extract bridge source contens in same folder with Hydra contents having preference
-            val regularSourceContents = bridgeSourceJars.foldLeft(Set.empty[File]) {
-              case (extracted, sourceJar) =>
-                extracted ++ unzip(sourceJar, tempDir, filter = filterOutConflicts)
-            }
-
-            val mergedJar = Files.createTempFile("bloop-hydra-bridge", "merged").toFile
-            val allSourceContents = (hydraSourceContents ++ regularSourceContents).map(
-              s => s -> relativize(tempDir, s).get
-            )
-
-            zip(allSourceContents.toSeq, mergedJar)
-            Vector(mergedJar)
           }
 
-        case None =>
-          val msg =
-            """Hydra has been disabled because its resolved bridge source jar is empty!
-              |  -> Hydra coordinates (com.triplequote:$hydraBridgeName:$hydraVersion)
-              |  -> Report this error to Triplequote to get Hydra's bridge compiled. 
+          // Extract bridge source contens in same folder with Hydra contents having preference
+          val regularSourceContents = bloopBridgeSourceJars.foldLeft(Set.empty[File]) {
+            case (extracted, sourceJar) =>
+              extracted ++ unzip(sourceJar, tempDir, filter = filterOutConflicts)
+          }
+          logDebug(s"Sources from bloop bridge: $regularSourceContents")
+
+          val mergedJar =
+            Files.createTempFile(BloopComponentCompiler.Hydra.bridgeNamePrefix, "merged").toFile
+          logDebug(s"Merged jar destination: $mergedJar")
+          val allSourceContents = (hydraSourceContents ++ regularSourceContents).map(
+            s => s -> relativize(tempDir, s).get
+          )
+
+          zip(allSourceContents.toSeq, mergedJar)
+          Right(Vector(mergedJar))
+        }
+
+      case Right(Seq()) =>
+        val msg =
+          s"""Hydra resolution failure: bridge source jar is empty!
+             |  -> Hydra coordinates ($hydraBridgeModule)
+             |  -> Report this error to support@triplequote.com.
             """.stripMargin
-          logger.error(msg)
-          bridgeSourceJars
-      }
+        Left(new InvalidComponent(msg))
+
+      case error @ Left(_) => error
     }
   }
 }
