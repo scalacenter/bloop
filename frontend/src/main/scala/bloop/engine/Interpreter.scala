@@ -541,7 +541,7 @@ object Interpreter {
 
   private def run(cmd: Commands.Run, state: State): Task[State] = {
     def doRun(project: Project)(state: State): Task[State] = {
-      val cwd = project.baseDirectory
+      val cwd = project.workspaceDirectory.getOrElse(project.baseDirectory)
       compileAnd(cmd, state, List(project), false, "`run`") { state =>
         getMainClass(state, project, cmd.main) match {
           case Left(failedState) => Task.now(failedState)
