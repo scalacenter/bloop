@@ -288,14 +288,12 @@ object Project {
     // Project is unique and derived from project name and ivy project configuration
     val hydraTag = project.name
 
-    val hydraRootBaseDir = workspaceDir.resolve("hydra").createDirectories
+    val hydraRootBaseDir = workspaceDir.resolve(".hydra").createDirectories
     val hydraBaseDir = hydraRootBaseDir.resolve("bloop").createDirectories
     val hydraStoreDir = hydraBaseDir.resolve(hydraTag)
     val hydraTimingsFile = hydraBaseDir.resolve("timings.csv")
-    val hydraPartitionFile = hydraBaseDir.resolve("partition.hydra")
+    val hydraPartitionFile = hydraStoreDir.resolve("partition.hydra")
     val hydraMetricsDir = homeDir.resolve(".triplequote").createDirectories
-
-    // Default to `auto`, missing in https://gist.github.com/dotta/37aad757f70d3a4c7457be1f3140c0ed#file-hydracompilersettings-scala-L31-L71
     val hydraSourcePartitioner = "auto"
     val hydraSourcepath = project.sources.mkString(java.io.File.pathSeparator)
 
@@ -306,8 +304,10 @@ object Project {
     val metricsDirOption = ("-YhydraMetricsDirectory", hydraMetricsDir.syntax)
     val hydraTagOption = ("-YhydraTag", hydraTag)
     val sourcepathOption = ("-sourcepath", hydraSourcepath)
-    val sourcePartitionerOption = ("-YsourcePartitioner", hydraSourcePartitioner)
+    val sourcePartitionerOption = (s"-YsourcePartitioner:$hydraSourcePartitioner", "")
 
+    // FIXME: Make the number of workers configurable (2 should stay the default)
+    val hydraCpus = ("-cpus", "2")
     val allHydraOptions = List(
       storeOption,
       rootDirOption,
@@ -316,10 +316,10 @@ object Project {
       metricsDirOption,
       hydraTagOption,
       sourcepathOption,
-      sourcePartitionerOption
+      sourcePartitionerOption,
+      hydraCpus
     )
 
-    //val newScalacOptionsMap = new mutable.LinkedHashMap[String, String]()
     val optionsWithConflicts =
       project.scalacOptions.filter(option => allHydraOptions.exists(option == _._1)).toSet
     val newScalacOptionsBuf = new mutable.ListBuffer[String]
