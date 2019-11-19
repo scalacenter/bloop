@@ -1,9 +1,9 @@
 package bloop.data
 
 import bloop.io.AbsolutePath
+import bloop.io.Filenames
 import bloop.util.UUIDUtil
 
-import java.io.File
 import java.nio.file.Files
 import java.util.concurrent.ConcurrentHashMap
 import java.io.PrintStream
@@ -171,9 +171,8 @@ object ClientInfo {
               val newClientDir = parent match {
                 case Left(unmanagedGlobalRootDir) =>
                   // Use format that avoids clashes between projects when storing in global root
-                  val projectName = project.name.replace(File.pathSeparatorChar, '_')
-                  val projectDirName = s"${this.name}-${projectName}-$classesDirName"
-                  unmanagedGlobalRootDir.resolve(projectDirName)
+                  val projectDirName = s"${this.name}-${project.name}-$classesDirName"
+                  unmanagedGlobalRootDir.resolve(Filenames.escapeSpecialCharacters(projectDirName))
                 case Right(managedProjectRootDir) =>
                   // We add unique id because we need it to correctly delete orphan dirs
                   val projectDirName = s"$classesDirName-$uniqueId"
