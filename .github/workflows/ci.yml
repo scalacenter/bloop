@@ -78,7 +78,6 @@ jobs:
 
   release:
     name: Publish on ${{ matrix.os }}
-    needs: test
     runs-on: ${{ matrix.os }}
     if: github.event_name == 'push'
     strategy:
