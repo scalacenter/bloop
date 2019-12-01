@@ -363,8 +363,7 @@ class BloopgunCli(
       logger: SnailgunLogger
   ): Option[mode.Out] = {
     ServerStatus
-      .findServerToRun(bloopVersion, config.serverLocation, shell, logger)
-      .orElse(ServerStatus.resolveServer(bloopVersion, logger))
+      .resolveServer(bloopVersion, logger)
       .map(mode.fire(_, config, logger))
   }
 
