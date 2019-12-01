@@ -131,5 +131,6 @@ jobs:
           chmod 400 "$HOME/.ssh/id_rsa"
           eval "$(ssh-agent -s)"
           ssh-add "$HOME/.ssh/id_rsa"
+          ssh -vT git@github.com
           ./bin/sbt-ci-publish.sh "releaseBloop" "docs/docusaurusPublishGhpages"
         shell: bash
