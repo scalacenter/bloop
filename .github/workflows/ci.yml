@@ -127,5 +127,5 @@ jobs:
           git config --global push.default simple
           echo "$PGP_PUBLIC_KEY" > "$HOME/.sbt/gpg/pubring.asc"
           echo "$PGP_PRIVATE_KEY" > "$HOME/.sbt/gpg/secring.asc"
-          ./bin/sbt-ci-publish.sh "docs/docusaurusPublishGhpages" "releaseBloop"
+          ./bin/sbt-ci-publish.sh "releaseBloop" "docs/docusaurusPublishGhpages"
         shell: bash
