@@ -96,6 +96,7 @@ jobs:
       PGP_PASSPHRASE: ${{ secrets.PGP_PASSWORD }}
       PGP_PUBLIC_KEY: ${{ secrets.PGP_PUBLIC_KEY }}
       PGP_PRIVATE_KEY: ${{ secrets.PGP_PRIVATE_KEY }}
+      GITHUB_DEPLOY_KEY: ${{ secrets.GITHUB_DEPLOY_KEY }}
       BLOOPOID_GITHUB_TOKEN: ${{ secrets.BLOOPOID_GITHUB_TOKEN }}
       BLOOPOID_SSH_PUBLIC_KEY: ${{ secrets.BLOOPOID_SSH_PUBLIC_KEY }}
       BLOOPOID_SSH_PRIVATE_KEY: ${{ secrets.BLOOPOID_SSH_PRIVATE_KEY }}
@@ -124,13 +125,7 @@ jobs:
           git config --global user.name "Bloopoid"
           git config --global user.email "bloop@vican.me"
           git config --global push.default simple
-          ssh-keyscan -t rsa github.com >> ~/.ssh/known_hosts
           echo "$PGP_PUBLIC_KEY" > "$HOME/.sbt/gpg/pubring.asc"
           echo "$PGP_PRIVATE_KEY" > "$HOME/.sbt/gpg/secring.asc"
-          echo "$BLOOPOID_SSH_PRIVATE_KEY" > "$HOME/.ssh/id_rsa"
-          chmod 400 "$HOME/.ssh/id_rsa"
-          eval "$(ssh-agent -s)"
-          ssh-add "$HOME/.ssh/id_rsa"
-          ssh -vT git@github.com
           ./bin/sbt-ci-publish.sh "releaseBloop" "docs/docusaurusPublishGhpages"
         shell: bash
