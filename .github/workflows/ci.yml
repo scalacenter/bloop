@@ -122,7 +122,7 @@ jobs:
           mkdir "$HOME/.sbt"
           mkdir "$HOME/.sbt/gpg"
           git config --global user.name "Bloopoid"
-          git config --global user.email "bloopoid@trashmail.ws"
+          git config --global user.email "bloop@vican.me"
           git config --global push.default simple
           ssh-keyscan -t rsa github.com >> ~/.ssh/known_hosts
           echo "$PGP_PUBLIC_KEY" > "$HOME/.sbt/gpg/pubring.asc"
@@ -132,6 +132,5 @@ jobs:
           chmod 400 "$HOME/.ssh/id_rsa"
           eval "$(ssh-agent -s)"
           ssh-add "$HOME/.ssh/id_rsa"
-          ssh -vT git@github.com
           ./bin/sbt-ci-publish.sh "releaseBloop" "docs/docusaurusPublishGhpages"
         shell: bash
