@@ -127,7 +127,6 @@ jobs:
           ssh-keyscan -t rsa github.com >> ~/.ssh/known_hosts
           echo "$PGP_PUBLIC_KEY" > "$HOME/.sbt/gpg/pubring.asc"
           echo "$PGP_PRIVATE_KEY" > "$HOME/.sbt/gpg/secring.asc"
-          echo "$BLOOPOID_SSH_PUBLIC_KEY" > "$HOME/.ssh/id_rsa.pub"
           echo "$BLOOPOID_SSH_PRIVATE_KEY" > "$HOME/.ssh/id_rsa"
           chmod 400 "$HOME/.ssh/id_rsa"
           eval "$(ssh-agent -s)"
