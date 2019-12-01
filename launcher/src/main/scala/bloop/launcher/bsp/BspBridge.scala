@@ -110,9 +110,9 @@ final class BspBridge(
 
   private final val BspStartLog = "The server is listening for incoming connections at"
   def waitForOpenBsp(conn: RunningBspConnection, attempts: Int = 0): Option[BspConnection] = {
-    println("Waiting 50ms until the bsp connection is up...", out)
-    Thread.sleep(50)
-    if (attempts == 200) {
+    if (attempts % 100 == 0) println("Waiting for the bsp connection to come up...", out)
+    Thread.sleep(10)
+    if (attempts == 3000) {
       printError("Giving up on waiting for a connection, printing embedded bloop logs:", out)
       printQuoted(conn.logs.toList.mkString(System.lineSeparator()), out)
       None
