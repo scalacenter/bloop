@@ -77,6 +77,9 @@
         "title": "Launcher Reference",
         "sidebar_label": "Built-in Launcher"
       },
+      "offloading-compilation-sbt": {
+        "title": "offloading-compilation-sbt"
+      },
       "performance-guide": {
         "title": "Performance guide",
         "sidebar_label": "Performance guide"
