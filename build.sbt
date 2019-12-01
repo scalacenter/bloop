@@ -363,7 +363,8 @@ lazy val bloopgunShaded = project
     fork in run := true,
     fork in Test := true,
     bloopGenerate in Compile := None,
-    bloopGenerate in Test := None
+    bloopGenerate in Test := None,
+    libraryDependencies += Dependencies.scalaXml
   )
 
 lazy val launcher: Project = project
