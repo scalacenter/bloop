@@ -100,14 +100,14 @@ class LauncherSpec(bloopVersion: String)
           // After installing, let's run the launcher in an environment where bloop is available
           val result1 = runBspLauncherWithEnvironment(Array(bloopVersion), shellWithPython)
           val expectedLogs1 = List(
-            BloopgunFeedback.DetectedBloopInstallation,
+            BloopgunFeedback.resolvingDependency(bloopDependency),
             BloopgunFeedback.startingBloopServer(defaultConfig),
             LauncherFeedback.openingBspConnection(Nil)
           )
 
           val prohibitedLogs1 = List(
             LauncherFeedback.installingBloop(bloopVersion),
-            BloopgunFeedback.resolvingDependency(bloopDependency)
+            BloopgunFeedback.DetectedBloopInstallation
           )
 
           result1.throwIfFailed
