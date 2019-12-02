@@ -8,6 +8,9 @@ import org.jsoup.Jsoup
 
 import scala.collection.JavaConverters._
 import scala.util.control.NonFatal
+import bloop.DependencyResolution
+import bloop.logging.NoopLogger
+import coursier.Repositories
 
 case class Release(version: String, lastModified: Date) {
   def date: String = {
@@ -20,10 +23,23 @@ object Sonatype {
   import bloop.engine.ExecutionContext.ioScheduler
   lazy val releaseBloop = fetchLatest("bloop-frontend_2.12")
   lazy val releaseLauncher = fetchLatest("bloop-launcher_2.12")
-  println("HAY")
 
   /** Returns the latest published snapshot release, or the current release if. */
   private def fetchLatest(artifact: String): Release = {
+    val resolvedJars = DependencyResolution.resolve(
+      "ch.epfl.scala",
+      artifact,
+      "latest.stable",
+      NoopLogger,
+      additionalRepos = List(Repositories.sonatype("staging"))
+    )
+
+    val latestStableVersion = resolvedJars.find(_.syntax.contains(artifact)) match {
+      case None => sys.error(s"Missing jar for resolved artifact '$artifact'")
+      case Some(jar) =>
+        jar.underlying.getFileName().toString.stripSuffix(".jar").stripPrefix(artifact + "-")
+    }
+
     val doc = Jsoup
       .connect(
         s"https://oss.sonatype.org/content/repositories/releases/ch/epfl/scala/$artifact/"
@@ -56,7 +72,8 @@ object Sonatype {
         }
       }
 
-    releases.maxBy(_.lastModified.getTime)
+    pprint.log(latestStableVersion)
+    releases.filter(_.version == latestStableVersion).maxBy(_.lastModified.getTime)
   }
 
   lazy val current: Release = Release(BuildInfo.version, new Date())
