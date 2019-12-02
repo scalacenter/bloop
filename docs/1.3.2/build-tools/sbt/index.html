@@ -1,0 +1,200 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>sbt · Bloop</title><meta name="viewport" content="width=device-width"/><meta name="generator" content="Docusaurus"/><meta name="description" content="## Export the build"/><meta name="docsearch:version" content="1.3.2"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="sbt · Bloop"/><meta property="og:type" content="website"/><meta property="og:url" content="https://scalacenter.github.io/bloop/"/><meta property="og:description" content="## Export the build"/><meta property="og:image" content="https://scalacenter.github.io/bloop/img/docusaurus.png"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://scalacenter.github.io/bloop/img/docusaurus.png"/><link rel="shortcut icon" href="/bloop/img/favicon/favicon.ico"/><link rel="stylesheet" href="https://cdn.jsdelivr.net/docsearch.js/1/docsearch.min.css"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/mono-blue.min.css"/><link rel="alternate" type="application/atom+xml" href="https://scalacenter.github.io/bloop/blog/atom.xml" title="Bloop Blog ATOM Feed"/><link rel="alternate" type="application/rss+xml" href="https://scalacenter.github.io/bloop/blog/feed.xml" title="Bloop Blog RSS Feed"/><link rel="stylesheet" href="/bloop/css/code-block-buttons.css"/><script type="text/javascript" src="https://code.jquery.com/jquery-3.2.1.slim.min.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/bloop/scripts/code-block-buttons.js"></script><script src="/bloop/js/scrollSpy.js"></script><link rel="stylesheet" href="/bloop/css/main.css"/><script src="/bloop/js/codetabs.js"></script></head><body class="sideNavVisible separateOnPageNav"><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/bloop/"><img class="logo" src="/bloop/img/impure-logo-bloop.svg" alt="Bloop"/><h2 class="headerTitleWithLogo">Bloop</h2></a><a href="/bloop/versions"><h3>1.3.2</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/bloop/setup" target="_self">Install</a></li><li class="siteNavGroupActive"><a href="/bloop/docs/1.3.2/what-is-bloop" target="_self">Docs</a></li><li class=""><a href="/bloop/blog/" target="_self">Blog</a></li><li class="navSearchWrapper reactNavSearchWrapper"><input type="text" id="search_input_react" placeholder="Search" title="Search"/></li><li class=""><a href="https://github.com/scalacenter/bloop" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div class="docMainWrapper wrapper"><div class="docsNavContainer" id="docsNav"><nav class="toc"><div class="toggleNav"><section class="navWrapper wrapper"><div class="navBreadcrumb wrapper"><div class="navToggle" id="navToggler"><div class="hamburger-menu"><div class="line1"></div><div class="line2"></div><div class="line3"></div></div></div><h2><i>›</i><span>Build Tools</span></h2><div class="tocToggler" id="tocToggler"><i class="icon-toc"></i></div></div><div class="navGroups"><div class="navGroup"><h3 class="navGroupCategoryTitle">General</h3><ul class=""><li class="navListItem"><a class="navItem" href="/bloop/docs/1.3.2/what-is-bloop">What is Bloop</a></li><li class="navListItem"><a class="navItem" href="/bloop/docs/1.3.2/usage">Quickstart</a></li><li class="navListItem"><a class="navItem" href="/bloop/docs/1.3.2/integration">Integration Guide</a></li></ul></div><div class="navGroup"><h3 class="navGroupCategoryTitle">Build Tools</h3><ul class=""><li class="navListItem"><a class="navItem" href="/bloop/docs/1.3.2/build-tools/overview">Overview</a></li><li class="navListItem navListItemActive"><a class="navItem" href="/bloop/docs/1.3.2/build-tools/sbt">sbt</a></li><li class="navListItem"><a class="navItem" href="/bloop/docs/1.3.2/build-tools/maven">Maven</a></li><li class="navListItem"><a class="navItem" href="/bloop/docs/1.3.2/build-tools/gradle">Gradle</a></li><li class="navListItem"><a class="navItem" href="/bloop/docs/1.3.2/build-tools/mill">Mill</a></li></ul></div><div class="navGroup"><h3 class="navGroupCategoryTitle">IDEs</h3><ul class=""><li class="navListItem"><a class="navItem" href="/bloop/docs/1.3.2/ides/overview">Overview</a></li><li class="navListItem"><a class="navItem" href="/bloop/docs/1.3.2/ides/intellij">IntelliJ</a></li><li class="navListItem"><a class="navItem" href="/bloop/docs/1.3.2/ides/metals">Metals</a></li></ul></div><div class="navGroup"><h3 class="navGroupCategoryTitle">References</h3><ul class=""><li class="navListItem"><a class="navItem" href="/bloop/docs/1.3.2/performance-guide">Performance guide</a></li><li class="navListItem"><a class="navItem" href="/bloop/docs/1.3.2/cli-reference">CLI --help</a></li><li class="navListItem"><a class="navItem" href="/bloop/docs/1.3.2/server-reference">Build Server</a></li><li class="navListItem"><a class="navItem" href="/bloop/docs/1.3.2/launcher-reference">Built-in Launcher</a></li><li class="navListItem"><a class="navItem" href="/bloop/docs/1.3.2/configuration-format">JSON Configuration</a></li><li class="navListItem"><a class="navItem" href="/bloop/docs/1.3.2/contributing-guide">Contributing Guide</a></li></ul></div></div></section></div><script>
+            var coll = document.getElementsByClassName('collapsible');
+            var checkActiveCategory = true;
+            for (var i = 0; i < coll.length; i++) {
+              var links = coll[i].nextElementSibling.getElementsByTagName('*');
+              if (checkActiveCategory){
+                for (var j = 0; j < links.length; j++) {
+                  if (links[j].classList.contains('navListItemActive')){
+                    coll[i].nextElementSibling.classList.toggle('hide');
+                    coll[i].childNodes[1].classList.toggle('rotate');
+                    checkActiveCategory = false;
+                    break;
+                  }
+                }
+              }
+
+              coll[i].addEventListener('click', function() {
+                var arrow = this.childNodes[1];
+                arrow.classList.toggle('rotate');
+                var content = this.nextElementSibling;
+                content.classList.toggle('hide');
+              });
+            }
+
+            document.addEventListener('DOMContentLoaded', function() {
+              createToggler('#navToggler', '#docsNav', 'docsSliderActive');
+              createToggler('#tocToggler', 'body', 'tocActive');
+
+              var headings = document.querySelector('.toc-headings');
+              headings && headings.addEventListener('click', function(event) {
+                var el = event.target;
+                while(el !== headings){
+                  if (el.tagName === 'A') {
+                    document.body.classList.remove('tocActive');
+                    break;
+                  } else{
+                    el = el.parentNode;
+                  }
+                }
+              }, false);
+
+              function createToggler(togglerSelector, targetSelector, className) {
+                var toggler = document.querySelector(togglerSelector);
+                var target = document.querySelector(targetSelector);
+
+                if (!toggler) {
+                  return;
+                }
+
+                toggler.onclick = function(event) {
+                  event.preventDefault();
+
+                  target.classList.toggle(className);
+                };
+              }
+            });
+        </script></nav></div><div class="container mainContainer docsContainer"><div class="wrapper"><div class="post"><header class="postHeader"><a class="edit-page-link button" href="https://github.com/scalacenter/bloop/edit/master/docs/build-tools/sbt.md" target="_blank" rel="noreferrer noopener">Edit</a><h1 id="__docusaurus" class="postHeaderTitle">sbt</h1></header><article><div><span><h2><a class="anchor" aria-hidden="true" id="export-the-build"></a><a href="#export-the-build" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Export the build</h2>
+<p>Install and learn how to export the build in the Installation Guide:</p>
+<p><a class="button installationButton" href="/bloop/setup">Follow the Installation Guide</a></p>
+<p></br></p>
+<p>The following page only walks you through all the configuration options that the <code>sbt-bloop</code> plugin
+allows when it's configured in your build. To learn how to install the plugin or the basic concepts
+of exporting your build via bloop head to the installation guide linked above.</p>
+<h2><a class="anchor" aria-hidden="true" id="dont-export-certain-targets"></a><a href="#dont-export-certain-targets" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Don't export certain targets</h2>
+<p><code>bloopInstall</code> exports every project in your build. To disable exporting a project, you can
+customize the result of the <code>bloopGenerate</code> task (which is scoped at the configuration level).</p>
+<pre><code class="hljs css language-scala"><span class="hljs-keyword">val</span> foo = project
+  .settings(
+    <span class="hljs-comment">// Bloop will not generate a target for the compile configuration of `foo`</span>
+    bloopGenerate in <span class="hljs-type">Compile</span> := <span class="hljs-type">None</span>,
+    <span class="hljs-comment">// Bloop will not generate a target for the test configuration of `foo`</span>
+    bloopGenerate in <span class="hljs-type">Test</span> := <span class="hljs-type">None</span>,
+  )
+</code></pre>
+<p>Next time you export, Bloop will automatically remove the old projects.</p>
+<pre><code class="hljs css language-bash">$ sbt bloopInstall
+...
+[warn] Removed stale /disk/foo/.bloop/foo.json
+[warn] Removed stale /disk/foo/.bloop/foo-test.json
+...
+</code></pre>
+<h2><a class="anchor" aria-hidden="true" id="enable-custom-configurations"></a><a href="#enable-custom-configurations" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Enable custom configurations</h2>
+<p>By default, <code>bloopInstall</code> exports projects for the standard <code>Compile</code>,
+<code>Test</code> and <code>IntegrationTest</code> sbt configurations. If your build defines
+additional configurations in a project, such as <a href="https://www.scala-sbt.org/1.0/docs/offline/Testing.html#Custom+test+configuration">your own sbt custom
+configuration</a>,
+you might want to export these configurations to Bloop projects too.</p>
+<p>Exporting projects for additional sbt configuration requires changes in the
+build definition in <code>build.sbt</code> (which in turn requires adding the
+<code>sbt-bloop</code> plugin to your build):</p>
+<pre><code class="hljs css language-scala"><span class="hljs-keyword">import</span> bloop.integrations.sbt.<span class="hljs-type">BloopDefaults</span>
+
+<span class="hljs-keyword">val</span> <span class="hljs-type">MyCustom</span> = config(<span class="hljs-string">"custom-config"</span>) extend <span class="hljs-type">Test</span>
+
+<span class="hljs-comment">// Example of a project configured with an additional `MyCustom` configuration</span>
+<span class="hljs-keyword">val</span> foo = project
+  .configs(<span class="hljs-type">MyCustom</span>)
+  .settings(
+    <span class="hljs-comment">// Scopes bloop configuration settings in `MyCustom`</span>
+    inConfig(<span class="hljs-type">MyCustom</span>)(<span class="hljs-type">BloopDefaults</span>.configSettings)
+  )
+</code></pre>
+<p>When you reload your build, you can check that <code>bloopInstall</code> exports a new project called
+<code>foo-custom-config.json</code>.</p>
+<pre><code class="hljs">sbt&gt; bloopInstall
+[info] <span class="hljs-symbol">Loading</span> global plugins from /<span class="hljs-symbol">Users</span>/<span class="hljs-symbol">John</span>/.sbt/<span class="hljs-number">1.0</span>/plugins
+(...)
+[success] <span class="hljs-symbol">Generated</span> <span class="hljs-string">'/disk/foo/.bloop/foo.json'</span>.
+[success] <span class="hljs-symbol">Generated</span> <span class="hljs-string">'/disk/foo/.bloop/foo-test.json'</span>.
+[success] <span class="hljs-symbol">Generated</span> <span class="hljs-string">'/disk/foo/.bloop/foo-custom-config.json'</span>.
+</code></pre>
+<h2><a class="anchor" aria-hidden="true" id="enable-sbt-project-references"></a><a href="#enable-sbt-project-references" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Enable sbt project references</h2>
+<p>Source dependencies are not well supported in sbt. Nonetheless, if you use them in your build and
+you want to generate bloop configuration files for them too, add the following to your <code>build.sbt</code>:</p>
+<pre><code class="hljs css language-scala"><span class="hljs-comment">// Note that this task has to be scoped globally</span>
+bloopAggregateSourceDependencies in <span class="hljs-type">Global</span> := <span class="hljs-literal">true</span>
+</code></pre>
+<h2><a class="anchor" aria-hidden="true" id="download-dependencies-sources"></a><a href="#download-dependencies-sources" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Download dependencies sources</h2>
+<p>To enable source classifiers and download the sources of your binary dependencies, you can enabled
+the following setting in your <code>build.sbt</code>:</p>
+<pre><code class="hljs css language-scala">bloopExportJarClassifiers in <span class="hljs-type">Global</span> := <span class="hljs-type">Some</span>(<span class="hljs-type">Set</span>(<span class="hljs-string">"sources"</span>))
+</code></pre>
+<p>This option is required if you are using bloop with IDEs (e.g. Metals or IntelliJ) and expect
+navigation to binary dependencies to work. After the option has been enabled, the bloop
+configuration files of your projects should have one artifact per module with the &quot;sources&quot;
+classifier.</p>
+<pre><code class="hljs css language-json">"resolution" : {
+    "modules" : [
+        {
+            "organization" : "org.scala-lang",
+            "name" : "scala-library",
+            "version" : "2.12.7",
+            "configurations" : "default",
+            "artifacts" : [
+                {
+                    "name" : "scala-library",
+                    "checksum" : {
+                        "type" : "sha1",
+                        "digest" : "c5a8eb12969e77db4c0dd785c104b59d226b8265"
+                    },
+                    "path" : "/disk/Caches/scala-library-2.12.7.jar"
+                },
+                {
+                    "name" : "scala-library",
+                    "classifier" : "javadoc",
+                    "path" : "/disk/Caches/scala-library-2.12.7-javadoc.jar"
+                },
+                {
+                    "name" : "scala-library",
+                    "classifier" : "sources",
+                    "path" : "/disk/Caches/scala-library-2.12.7-sources.jar"
+                }
+            ]
+        }
+    ]
+}
+</code></pre>
+<h2><a class="anchor" aria-hidden="true" id="export-main-class-from-sbt"></a><a href="#export-main-class-from-sbt" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Export main class from sbt</h2>
+<p>If you want bloop to export <code>mainClass</code> from your build definition, define either of the following
+settings in your <code>build.sbt</code>:</p>
+<pre><code class="hljs css language-scala">bloopMainClass in (<span class="hljs-type">Compile</span>, run) := <span class="hljs-type">Some</span>(<span class="hljs-string">"foo.App"</span>)
+</code></pre>
+<p>The build plugin doesn't intentionally populate the main class directly from sbt's <code>mainClass</code>
+because the execution of such a task may trigger compilation of projects in the build.</p>
+<h2><a class="anchor" aria-hidden="true" id="speeding-up-build-export"></a><a href="#speeding-up-build-export" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Speeding up build export</h2>
+<p><code>bloopInstall</code> typically completes in 15 seconds for a medium-sized projects once all dependencies
+have already been downloaded. However, it can happen that running <code>bloopInstall</code> in your project is
+slower than that. This long duration can usually be removed by making some changes in the build.</p>
+<p>If you want to speed up this process, here's a list of things you can do.</p>
+<p>Ensure that no compilation is triggered during <code>bloopInstall</code>. <code>bloopInstall</code> is intentionally
+configured to skip project compilations to make the export process fast. If compilations are
+triggered, then it means your build adds certain runtime dependencies in your build graph.</p>
+<blockquote>
+<p>For example, your build may be forcing the <code>publishLocal</code> of a project <code>a</code> whenever the classpath of
+<code>b</code> is computed. Identify this kind of dependencies and prune them.</p>
+</blockquote>
+<p>Another rule of thumb is to make sure that source and resource generators added to your build by
+either you or sbt plugin are incremental and complete as soon as possible.</p>
+<p>Lastly, make sure you keep a hot sbt session around as much time as possible. Running <code>bloopInstall</code>
+a second time in the sbt session is <em>really</em> fast.</p>
+</span></div></article></div><div class="docLastUpdate"><em>Last updated on 6/6/2019</em></div><div class="docs-prevnext"><a class="docs-prev button" href="/bloop/docs/1.3.2/build-tools/overview"><span class="arrow-prev">← </span><span>Overview</span></a><a class="docs-next button" href="/bloop/docs/1.3.2/build-tools/maven"><span>Maven</span><span class="arrow-next"> →</span></a></div></div></div><nav class="onPageNav"><ul class="toc-headings"><li><a href="#export-the-build">Export the build</a></li><li><a href="#dont-export-certain-targets">Don't export certain targets</a></li><li><a href="#enable-custom-configurations">Enable custom configurations</a></li><li><a href="#enable-sbt-project-references">Enable sbt project references</a></li><li><a href="#download-dependencies-sources">Download dependencies sources</a></li><li><a href="#export-main-class-from-sbt">Export main class from sbt</a></li><li><a href="#speeding-up-build-export">Speeding up build export</a></li></ul></nav></div></div><script type="text/javascript" src="https://cdn.jsdelivr.net/docsearch.js/1/docsearch.min.js"></script><script>
+                document.addEventListener('keyup', function(e) {
+                  if (e.target !== document.body) {
+                    return;
+                  }
+                  // keyCode for '/' (slash)
+                  if (e.keyCode === 191) {
+                    const search = document.getElementById('search_input_react');
+                    search && search.focus();
+                  }
+                });
+              </script><script>
+              var search = docsearch({
+                
+                apiKey: 'cf5bcb37b134346182da2be3f5e0a76b',
+                indexName: 'bloop_scala',
+                inputSelector: '#search_input_react',
+                algoliaOptions: {"facetFilters":["version:1.3.2"]}
+              });
+            </script></body></html>

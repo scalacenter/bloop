@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang=""><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Bloop · Compile, test and run Scala code fast</title><meta name="viewport" content="width=device-width"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Compile, test and run Scala code fast"/><meta property="og:title" content="Bloop · Compile, test and run Scala code fast"/><meta property="og:type" content="website"/><meta property="og:url" content="https://scalacenter.github.io/bloop/"/><meta property="og:description" content="Compile, test and run Scala code fast"/><meta property="og:image" content="https://scalacenter.github.io/bloop/img/docusaurus.png"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://scalacenter.github.io/bloop/img/docusaurus.png"/><link rel="shortcut icon" href="/bloop/img/favicon/favicon.ico"/><link rel="stylesheet" href="https://cdn.jsdelivr.net/docsearch.js/1/docsearch.min.css"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/mono-blue.min.css"/><link rel="alternate" type="application/atom+xml" href="https://scalacenter.github.io/bloop/blog/atom.xml" title="Bloop Blog ATOM Feed"/><link rel="alternate" type="application/rss+xml" href="https://scalacenter.github.io/bloop/blog/feed.xml" title="Bloop Blog RSS Feed"/><link rel="stylesheet" href="/bloop/css/code-block-buttons.css"/><script type="text/javascript" src="https://code.jquery.com/jquery-3.2.1.slim.min.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/bloop/scripts/code-block-buttons.js"></script><script src="/bloop/js/scrollSpy.js"></script><link rel="stylesheet" href="/bloop/css/main.css"/><script src="/bloop/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/bloop/"><img class="logo" src="/bloop/img/impure-logo-bloop.svg" alt="Bloop"/><h2 class="headerTitleWithLogo">Bloop</h2></a><a href="/bloop/versions"><h3>1.3.2</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class="siteNavItemActive"><a href="/bloop/setup" target="_self">Install</a></li><li class=""><a href="/bloop/docs/what-is-bloop" target="_self">Docs</a></li><li class=""><a href="/bloop/blog/" target="_self">Blog</a></li><li class="navSearchWrapper reactNavSearchWrapper"><input type="text" id="search_input_react" placeholder="Search" title="Search"/></li><li class=""><a href="https://github.com/scalacenter/bloop" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div class="mainContainer"><div class="installationContainer"><div class="page-header text-center installation-header"><h1>Installation Guide</h1><p style="text-align:justify;margin:1em auto;max-width:70%">The installation guide walks <b>users</b> through all the steps to install bloop and get any of the supported build tools to successfully export their build definitions.</p><p style="text-align:justify;margin:1em auto;max-width:70%">It&#x27;s recommended to install bloop globally. However, it&#x27;s not mandatory to do so. If you want to depend on bloop, the <a href="/bloop/docs/launcher-reference.html">Launcher </a>will install and configure bloop automatically, providing an out-of-the-box experience.</p><div style="display:flex;justify-content:center;margin-bottom:1em"><div></div><div><span><table>
+<!DOCTYPE html><html lang=""><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Bloop · Compile, test and run Scala code fast</title><meta name="viewport" content="width=device-width"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Compile, test and run Scala code fast"/><meta property="og:title" content="Bloop · Compile, test and run Scala code fast"/><meta property="og:type" content="website"/><meta property="og:url" content="https://scalacenter.github.io/bloop/"/><meta property="og:description" content="Compile, test and run Scala code fast"/><meta property="og:image" content="https://scalacenter.github.io/bloop/img/docusaurus.png"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://scalacenter.github.io/bloop/img/docusaurus.png"/><link rel="shortcut icon" href="/bloop/img/favicon/favicon.ico"/><link rel="stylesheet" href="https://cdn.jsdelivr.net/docsearch.js/1/docsearch.min.css"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/mono-blue.min.css"/><link rel="alternate" type="application/atom+xml" href="https://scalacenter.github.io/bloop/blog/atom.xml" title="Bloop Blog ATOM Feed"/><link rel="alternate" type="application/rss+xml" href="https://scalacenter.github.io/bloop/blog/feed.xml" title="Bloop Blog RSS Feed"/><link rel="stylesheet" href="/bloop/css/code-block-buttons.css"/><script type="text/javascript" src="https://code.jquery.com/jquery-3.2.1.slim.min.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/bloop/scripts/code-block-buttons.js"></script><script src="/bloop/js/scrollSpy.js"></script><link rel="stylesheet" href="/bloop/css/main.css"/><script src="/bloop/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/bloop/"><img class="logo" src="/bloop/img/impure-logo-bloop.svg" alt="Bloop"/><h2 class="headerTitleWithLogo">Bloop</h2></a><a href="/bloop/versions"><h3>1.3.4</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class="siteNavItemActive"><a href="/bloop/setup" target="_self">Install</a></li><li class=""><a href="/bloop/docs/what-is-bloop" target="_self">Docs</a></li><li class=""><a href="/bloop/blog/" target="_self">Blog</a></li><li class="navSearchWrapper reactNavSearchWrapper"><input type="text" id="search_input_react" placeholder="Search" title="Search"/></li><li class=""><a href="https://github.com/scalacenter/bloop" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div class="mainContainer"><div class="installationContainer"><div class="page-header text-center installation-header"><h1>Installation Guide</h1><p style="text-align:justify;margin:1em auto;max-width:70%">The installation guide walks <b>users</b> through all the steps to install bloop and get any of the supported build tools to successfully export their build definitions.</p><p style="text-align:justify;margin:1em auto;max-width:70%">It&#x27;s recommended to install bloop globally. However, it&#x27;s not mandatory to do so. If you want to depend on bloop, the <a href="/bloop/docs/launcher-reference.html">Launcher </a>will install and configure bloop automatically, providing an out-of-the-box experience.</p><div style="display:flex;justify-content:center;margin-bottom:1em"><div></div><div><span><table>
       <thead>
         <th>Version</th>
         <th>Published</th>
@@ -6,13 +6,13 @@
       </thead>
       <tbody>
         <tr>
-          <td>1.3.4+247-533137e6</td>
-          <td>01 Dec 2019 23:00</td>
+          <td>1.3.4+250-848d3a5d</td>
+          <td>01 Dec 2019 23:48</td>
           <td><code>-r sonatype:releases</code></td>
         </tr>
         <tr>
-          <td>1.3.4+250-848d3a5d</td>
-          <td>01 Dec 2019 23:50</td>
+          <td>1.3.4+251-1d81dfe5</td>
+          <td>02 Dec 2019 00:06</td>
           <td><code>-r bintray:scalacenter/releases</code></td>
         </tr>
       </tbody>
@@ -69,7 +69,7 @@ scoop search bloop
 <li><strong>Java 8 or higher</strong></li>
 <li><strong>Python 2 or 3</strong> (installation script and CLI client are written in Python)</li>
 </ol>
-</span></div></div><div class="items" data-title="universal"><div><span><pre><code class="hljs css language-sh">curl -L https://github.com/scalacenter/bloop/releases/download/v1.3.4+247-533137e6/install.py | python
+</span></div></div><div class="items" data-title="universal"><div><span><pre><code class="hljs css language-sh">curl -L https://github.com/scalacenter/bloop/releases/download/v1.3.4+250-848d3a5d/install.py | python
 </code></pre>
 <p>Bloop installs under the standard <code>$HOME/.bloop</code> directory.</p>
 <h3><a class="anchor" aria-hidden="true" id="requirements"></a><a href="#requirements" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Requirements</h3>
@@ -140,7 +140,7 @@ The build server <strong>must be started</strong> before the command-line applic
 </code></pre>
 <p>Then, verify your installation by running the command-line application:</p>
 <pre><code class="hljs">$ <span class="hljs-keyword">bloop </span>about
-<span class="hljs-keyword">bloop </span><span class="hljs-built_in">v1</span>.<span class="hljs-number">3</span>.<span class="hljs-number">4</span>+<span class="hljs-number">247</span><span class="hljs-number">-533137</span>e6
+<span class="hljs-keyword">bloop </span><span class="hljs-built_in">v1</span>.<span class="hljs-number">3</span>.<span class="hljs-number">4</span>+<span class="hljs-number">250</span><span class="hljs-number">-848</span>d3a5d
 
 Running on <span class="hljs-keyword">Scala </span>v2.<span class="hljs-number">12</span>.<span class="hljs-number">7</span> <span class="hljs-keyword">and </span>Zinc <span class="hljs-built_in">v1</span>.<span class="hljs-number">1</span>.<span class="hljs-number">0</span>
 Maintained <span class="hljs-keyword">by </span>the <span class="hljs-keyword">Scala </span>Center (Martin Duhem, <span class="hljs-keyword">Jorge </span>Vicente Cantero)
@@ -202,7 +202,7 @@ The build server <strong>must be started</strong> before the command-line applic
 </blockquote>
 <p>Then, verify your installation by running the command-line application:</p>
 <pre><code class="hljs">$ <span class="hljs-keyword">bloop </span>about
-<span class="hljs-keyword">bloop </span><span class="hljs-built_in">v1</span>.<span class="hljs-number">3</span>.<span class="hljs-number">4</span>+<span class="hljs-number">247</span><span class="hljs-number">-533137</span>e6
+<span class="hljs-keyword">bloop </span><span class="hljs-built_in">v1</span>.<span class="hljs-number">3</span>.<span class="hljs-number">4</span>+<span class="hljs-number">250</span><span class="hljs-number">-848</span>d3a5d
 
 Running on <span class="hljs-keyword">Scala </span>v2.<span class="hljs-number">12</span>.<span class="hljs-number">7</span> <span class="hljs-keyword">and </span>Zinc <span class="hljs-built_in">v1</span>.<span class="hljs-number">1</span>.<span class="hljs-number">0</span>
 Maintained <span class="hljs-keyword">by </span>the <span class="hljs-keyword">Scala </span>Center (Martin Duhem, <span class="hljs-keyword">Jorge </span>Vicente Cantero)
@@ -262,7 +262,7 @@ difference in Gradle builds.</p>
   }
 
   dependencies {
-    classpath <span class="hljs-string">'ch.epfl.scala:gradle-bloop_2.11:1.3.4+247-533137e6'</span>
+    classpath <span class="hljs-string">'ch.epfl.scala:gradle-bloop_2.11:1.3.4+250-848d3a5d'</span>
   }
 }
 </code></pre>
@@ -348,10 +348,10 @@ integration for Maven.</p>
 <p><code>maven-bloop</code> generates two configuration files per Maven project. One project for the main sources
 and another one for the tests. Bloop will skip config file generation for those projects that are
 not either Java or Scala.</p>
-<pre><code class="hljs css language-bash">$ mvn ch.epfl.scala:maven-bloop_2.10:1.3.4+247-533137e6:bloopInstall
+<pre><code class="hljs css language-bash">$ mvn ch.epfl.scala:maven-bloop_2.10:1.3.4+250-848d3a5d:bloopInstall
 </code></pre>
 <p>For example, a build with a single Scala project <code>foo</code> generates two configuration files:</p>
-<pre><code class="hljs css language-bash">$ mvn ch.epfl.scala:maven-bloop_2.10:1.3.4+247-533137e6:bloopInstall
+<pre><code class="hljs css language-bash">$ mvn ch.epfl.scala:maven-bloop_2.10:1.3.4+250-848d3a5d:bloopInstall
 (...)
 Generated <span class="hljs-string">'/disk/foo/.bloop/foo.json'</span>.
 Generated <span class="hljs-string">'/disk/foo/.bloop/foo-test.json'</span>.
@@ -461,7 +461,7 @@ IDEs</a>.</p>
 <a href="docs/build-tools/mill">Mill documentation page</a>.</p>
 </span></div></div><div class="build-items" data-title="sbt"><div><span><h2><a class="anchor" aria-hidden="true" id="install-the-plugin"></a><a href="#install-the-plugin" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Install the plugin</h2>
 <p>Install bloop in <code>project/plugins.sbt</code>:</p>
-<pre><code class="hljs css language-scala">addSbtPlugin(<span class="hljs-string">"ch.epfl.scala"</span> % <span class="hljs-string">"sbt-bloop"</span> % <span class="hljs-string">"1.3.4+247-533137e6"</span>)
+<pre><code class="hljs css language-scala">addSbtPlugin(<span class="hljs-string">"ch.epfl.scala"</span> % <span class="hljs-string">"sbt-bloop"</span> % <span class="hljs-string">"1.3.4+250-848d3a5d"</span>)
 </code></pre>
 <p>And start up or reload your sbt shell to add the plugin to your working build.</p>
 <h2><a class="anchor" aria-hidden="true" id="generate-configuration-files"></a><a href="#generate-configuration-files" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Generate configuration files</h2>
@@ -516,7 +516,7 @@ foo-test
 IDEs</a>.</p>
 <p>If you want to configure the installation step or learn more about the integration, visit the
 <a href="docs/build-tools/sbt">sbt documentation page</a>.</p>
-</span></div></div></div></div></div></div><script src="/bloop/scripts/tools.js?t=1575244266431"></script><script src="/bloop/scripts/build-tools.js?t=1575244266431"></script></div></div></div><script type="text/javascript" src="https://cdn.jsdelivr.net/docsearch.js/1/docsearch.min.js"></script><script>
+</span></div></div></div></div></div></div><script src="/bloop/scripts/tools.js?t=1575245227676"></script><script src="/bloop/scripts/build-tools.js?t=1575245227676"></script></div></div></div><script type="text/javascript" src="https://cdn.jsdelivr.net/docsearch.js/1/docsearch.min.js"></script><script>
                 document.addEventListener('keyup', function(e) {
                   if (e.target !== document.body) {
                     return;
@@ -533,6 +533,6 @@ IDEs</a>.</p>
                 apiKey: 'cf5bcb37b134346182da2be3f5e0a76b',
                 indexName: 'bloop_scala',
                 inputSelector: '#search_input_react',
-                algoliaOptions: {"facetFilters":["version:1.3.2"]}
+                algoliaOptions: {"facetFilters":["version:1.3.4"]}
               });
             </script></body></html>

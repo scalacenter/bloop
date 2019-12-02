@@ -1,0 +1,49 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Debug Adapter Protocol Integration · Bloop</title><meta name="viewport" content="width=device-width"/><meta name="generator" content="Docusaurus"/><meta name="description" content="## Debug Adapter Protocol integration guide"/><meta name="docsearch:version" content="1.3.4"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Debug Adapter Protocol Integration · Bloop"/><meta property="og:type" content="website"/><meta property="og:url" content="https://scalacenter.github.io/bloop/"/><meta property="og:description" content="## Debug Adapter Protocol integration guide"/><meta property="og:image" content="https://scalacenter.github.io/bloop/img/docusaurus.png"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://scalacenter.github.io/bloop/img/docusaurus.png"/><link rel="shortcut icon" href="/bloop/img/favicon/favicon.ico"/><link rel="stylesheet" href="https://cdn.jsdelivr.net/docsearch.js/1/docsearch.min.css"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/mono-blue.min.css"/><link rel="alternate" type="application/atom+xml" href="https://scalacenter.github.io/bloop/blog/atom.xml" title="Bloop Blog ATOM Feed"/><link rel="alternate" type="application/rss+xml" href="https://scalacenter.github.io/bloop/blog/feed.xml" title="Bloop Blog RSS Feed"/><link rel="stylesheet" href="/bloop/css/code-block-buttons.css"/><script type="text/javascript" src="https://code.jquery.com/jquery-3.2.1.slim.min.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/bloop/scripts/code-block-buttons.js"></script><script src="/bloop/js/scrollSpy.js"></script><link rel="stylesheet" href="/bloop/css/main.css"/><script src="/bloop/js/codetabs.js"></script></head><body class="sideNavVisible separateOnPageNav"><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/bloop/"><img class="logo" src="/bloop/img/impure-logo-bloop.svg" alt="Bloop"/><h2 class="headerTitleWithLogo">Bloop</h2></a><a href="/bloop/versions"><h3>1.3.4</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/bloop/setup" target="_self">Install</a></li><li class=""><a href="/bloop/docs/what-is-bloop" target="_self">Docs</a></li><li class=""><a href="/bloop/blog/" target="_self">Blog</a></li><li class="navSearchWrapper reactNavSearchWrapper"><input type="text" id="search_input_react" placeholder="Search" title="Search"/></li><li class=""><a href="https://github.com/scalacenter/bloop" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div class="docMainWrapper wrapper"><div class="container mainContainer docsContainer"><div class="wrapper"><div class="post"><header class="postHeader"><a class="edit-page-link button" href="https://github.com/scalacenter/bloop/edit/master/docs/debug-adapter.md" target="_blank" rel="noreferrer noopener">Edit</a><h1 id="__docusaurus" class="postHeaderTitle">Debug Adapter Protocol Integration</h1></header><article><div><span><h2><a class="anchor" aria-hidden="true" id="debug-adapter-protocol-integration-guide"></a><a href="#debug-adapter-protocol-integration-guide" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Debug Adapter Protocol integration guide</h2>
+<p>Bloop allows the client to run and debug both the main classes and the tests defined in the project.
+This is possible thanks to the Debug Adapter Protocol, which bloop exposes to the client
+in a run/test task start notification. This adapter expects either a
+<code>ScalaTestClassesItem</code> or <code>ScalaMainClass</code> as a configuration parameter for the launch request.</p>
+<h3><a class="anchor" aria-hidden="true" id="client-server-communication"></a><a href="#client-server-communication" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Client-Server communication</h3>
+<p><img src="/bloop/docs/assets/dap-sequence.png" alt="communication sequence diagram"></p>
+<ol>
+<li>BSP Client chooses which main class to run. To do so, it requests the list of all runnable main classes from the BSP Server.</li>
+<li>BSP Client request the chosen class to be run.</li>
+<li>BSP Server sets up a new Debug Adapter. It has all the details for running, since those came in the request data field. If the request from 2. had a field debug set to true, the Adapter will be launched with full debugging capabilities. Otherwise only lifecycle-related endpoints (launch, restart, terminate etc.) will be supported.</li>
+<li>BSP Server notifies the BSP Client of the Debug Adapter uri</li>
+<li>BSP Client notifies the Debug Client to connect to the given uri</li>
+<li>Debug Client converses with the Debug Adapter</li>
+<li>Debug Adapter notifies the BSP Server of its progress. As a result it sends notifications to the Client</li>
+<li>Debug Adapter notifies the BSP Server it is about to terminate</li>
+<li>BSP Server notifies the BSP Client the run task has finished</li>
+<li>BSP Server responds to the BSP Client with the run result of request from 2.</li>
+</ol>
+<h3><a class="anchor" aria-hidden="true" id="example-metalshttpsgithubcomscalametametals-integration"></a><a href="#example-metalshttpsgithubcomscalametametals-integration" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Example: <a href="https://github.com/scalameta/metals">metals</a> integration</h3>
+<p>Metals is an interesting case of BSP client.
+It is acting as a language server therefore it must allow the language client to handle the Debug Client.</p>
+<p><img src="/bloop/docs/assets/dap-example-metals.png" alt="metals communication sequence diagram"></p>
+<ol>
+<li>Metals caches the available main classes.</li>
+<li>User opens a source file. As a result, Language Client asks metals for code lenses, which are resolved using the cached main classes metadata.</li>
+<li>User clicks on the code lens with the intention to run the specific main class. Metals requests a Debug Adapter uri from the BSP Server and then passes it back to the Language Client.</li>
+<li>Language Client instruments the Debug Client to connect to this Debug Adapter</li>
+</ol>
+</span></div></article></div><div class="docLastUpdate"><em>Last updated on 6/29/2019</em></div><div class="docs-prevnext"></div></div></div><nav class="onPageNav"><ul class="toc-headings"><li><a href="#debug-adapter-protocol-integration-guide">Debug Adapter Protocol integration guide</a><ul class="toc-headings"><li><a href="#client-server-communication">Client-Server communication</a></li><li><a href="#example-metalshttpsgithubcomscalametametals-integration">Example: <a href="https://github.com/scalameta/metals">metals</a> integration</a></li></ul></li></ul></nav></div></div><script type="text/javascript" src="https://cdn.jsdelivr.net/docsearch.js/1/docsearch.min.js"></script><script>
+                document.addEventListener('keyup', function(e) {
+                  if (e.target !== document.body) {
+                    return;
+                  }
+                  // keyCode for '/' (slash)
+                  if (e.keyCode === 191) {
+                    const search = document.getElementById('search_input_react');
+                    search && search.focus();
+                  }
+                });
+              </script><script>
+              var search = docsearch({
+                
+                apiKey: 'cf5bcb37b134346182da2be3f5e0a76b',
+                indexName: 'bloop_scala',
+                inputSelector: '#search_input_react',
+                algoliaOptions: {"facetFilters":["version:1.3.4"]}
+              });
+            </script></body></html>
