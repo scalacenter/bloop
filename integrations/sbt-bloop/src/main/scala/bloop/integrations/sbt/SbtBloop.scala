@@ -133,7 +133,11 @@ object BloopDefaults {
   private lazy val cwd: String = System.getProperty("user.dir")
   lazy val globalSettings: Seq[Def.Setting[_]] = List(
     BloopKeys.bloopGlobalUniqueId := bloopGlobalUniqueIdTask.value,
-    BloopKeys.bloopExportJarClassifiers := None,
+    BloopKeys.bloopExportJarClassifiers := {
+      Option(System.getProperty("bloop.export-jar-classifiers"))
+        .orElse(Option(System.getenv("BLOOP_EXPORT_JAR_CLASSIFIERS")))
+        .map(_.split(",").toSet)
+    },
     BloopKeys.bloopInstall := bloopInstall.value,
     BloopKeys.bloopAggregateSourceDependencies := true,
     // Override classifiers so that we don't resolve always docs
