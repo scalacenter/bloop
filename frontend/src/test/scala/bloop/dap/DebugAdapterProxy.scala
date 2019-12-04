@@ -4,7 +4,6 @@ import java.net.{Socket, SocketException}
 import java.nio.ByteBuffer
 
 import bloop.bsp.BloopLanguageClient
-import bloop.dap.DebugTestProtocol.Response
 import com.microsoft.java.debug.core.protocol.Messages.ProtocolMessage
 import com.microsoft.java.debug.core.protocol.{JsonUtils, Messages}
 import monix.eval.Task
@@ -18,10 +17,7 @@ import scala.concurrent.{Future, Promise}
 import scala.meta.jsonrpc.{BaseProtocolMessage, MessageWriter}
 import monix.reactive.MulticastStrategy
 import bloop.engine.ExecutionContext
-import scala.concurrent.duration.FiniteDuration
-import java.util.concurrent.TimeUnit
 import com.microsoft.java.debug.core.protocol.Events.DebugEvent
-import java.util.concurrent.ConcurrentHashMap
 import com.microsoft.java.debug.core.protocol.Events
 
 /**
@@ -63,11 +59,13 @@ private[dap] final class DebugAdapterProxy(
     events.zipWithIndex
       .dropWhile(_._2 <= lastSeenIndex)
       .findF(_._1.event == event.name)
-      .headL
-      .map {
-        case (event, idx) =>
+      .headOptionL
+      .flatMap {
+        case Some((event, idx)) =>
           lastSeenIndex = idx
-          event
+          Task.now(event)
+        case None =>
+          Task.raiseError(new NoSuchElementException(s"Missing event ${event.name}"))
       }
       .flatMap(event.deserialize(_))
   }

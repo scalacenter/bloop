@@ -3,7 +3,6 @@ package bloop.dap
 import java.net.{InetSocketAddress, Socket, URI}
 
 import bloop.dap.DebugTestEndpoints._
-import bloop.dap.DebugTestProtocol.Response
 import com.microsoft.java.debug.core.protocol.Events
 import com.microsoft.java.debug.core.protocol.Requests._
 import com.microsoft.java.debug.core.protocol.Types.Capabilities
@@ -14,9 +13,11 @@ import java.io.Closeable
 import bloop.engine.ExecutionContext
 import java.util.concurrent.TimeUnit
 import monix.execution.Cancelable
-import com.microsoft.java.debug.core.Breakpoint
 import com.microsoft.java.debug.core.protocol.Responses.SetBreakpointsResponseBody
 import com.microsoft.java.debug.core.protocol.Responses.ContinueResponseBody
+import com.microsoft.java.debug.core.protocol.Responses.ScopesResponseBody
+import com.microsoft.java.debug.core.protocol.Responses.StackTraceResponseBody
+import com.microsoft.java.debug.core.protocol.Responses.VariablesResponseBody
 
 /**
  * Manages a connection with a debug adapter.
@@ -59,6 +60,24 @@ private[dap] final class DebugAdapterConnection(
       arguments: SetBreakpointArguments
   ): Task[SetBreakpointsResponseBody] = {
     adapter.request(SetBreakpoints, arguments)
+  }
+
+  def stackTrace(threadId: Long): Task[StackTraceResponseBody] = {
+    val arguments = new StackTraceArguments()
+    arguments.threadId = threadId
+    adapter.request(StackTrace, arguments)
+  }
+
+  def scopes(frameId: Int): Task[ScopesResponseBody] = {
+    val arguments = new ScopesArguments
+    arguments.frameId = frameId
+    adapter.request(Scopes, arguments)
+  }
+
+  def variables(variablesReference: Int): Task[VariablesResponseBody] = {
+    val arguments = new VariablesArguments
+    arguments.variablesReference = variablesReference
+    adapter.request(Variables, arguments)
   }
 
   def stopped: Task[Events.StoppedEvent] = {

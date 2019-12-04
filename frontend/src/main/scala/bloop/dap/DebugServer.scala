@@ -4,6 +4,7 @@ import java.net.{ServerSocket, URI}
 
 import bloop.io.ServerHandle
 import bloop.logging.Logger
+import com.microsoft.java.debug.core.DebugSettings
 import monix.eval.Task
 import monix.execution.Scheduler
 import monix.execution.atomic.AtomicBoolean
@@ -17,6 +18,20 @@ final class StartedDebugServer(
 )
 
 object DebugServer {
+
+  /**
+   * Disable evaluation of variable's `toString` methods
+   * since code evaluation is not supported.
+   *
+   * Debug adapter, when asked for variables, tries to present them in a readable way,
+   * hence it evaluates the `toString` method for each object providing it.
+   * The adapter is not checking if evaluation is supported, so the whole request
+   * fails if there is at least one variable with custom `toString` in scope.
+   *
+   * See usages of [[com.microsoft.java.debug.core.adapter.variables.VariableDetailUtils.formatDetailsValue()]]
+   */
+  DebugSettings.getCurrent.showToString = false
+
   def start(
       runner: DebuggeeRunner,
       logger: Logger,
