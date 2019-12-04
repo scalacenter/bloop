@@ -667,7 +667,7 @@ object BloopDefaults {
       ms1.find(
         m => m0.organization == m.organization && m0.name == m.name && m0.version == m.version
       ) match {
-        case Some(m1) => m0.copy(artifacts = m0.artifacts ++ m1.artifacts)
+        case Some(m1) => m0.copy(artifacts = (m0.artifacts ++ m1.artifacts).distinct)
         case None => m0
       }
     }.distinct
@@ -974,7 +974,13 @@ object BloopDefaults {
           val sourceModules = {
             val sourceModulesFromSbt = updateClassifiers.value.toList.flatMap(configModules)
             if (sourceModulesFromSbt.nonEmpty) sourceModulesFromSbt
-            else previousConfigFile.flatMap(_.resolution.map(_.modules)).toList.flatten
+            else {
+              val previousAllModules =
+                previousConfigFile.flatMap(_.resolution.map(_.modules)).toList.flatten
+              previousAllModules.filter(
+                module => module.artifacts.exists(_.classifier == Some("sources"))
+              )
+            }
           }
 
           val allModules = mergeModules(binaryModules, sourceModules)
