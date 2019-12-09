@@ -1,21 +1,19 @@
 package bloop
 
-import java.nio.ByteBuffer
-import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, Path}
-import java.util.concurrent.TimeUnit
-
 import bloop.cli.ExitStatus
-import bloop.data.JdkConfig
 import bloop.dap.DebugSessionLogger
+import bloop.data.JdkConfig
 import bloop.exec.{Forker, JvmProcessForker}
 import bloop.io.AbsolutePath
 import bloop.logging.RecordingLogger
 import bloop.util.TestUtil
+import java.nio.ByteBuffer
+import java.nio.charset.StandardCharsets
+import java.nio.file.Files
+import java.util.concurrent.TimeUnit
 import org.junit.Assert.{assertEquals, assertNotEquals}
 import org.junit.Test
 import org.junit.experimental.categories.Category
-
 import scala.collection.mutable
 import scala.concurrent.duration.Duration
 
@@ -41,7 +39,11 @@ class ForkerSpec {
   val dependencies = Map.empty[String, Set[String]]
   val runnableProject = Map(TestUtil.RootProject -> Map("A.scala" -> ArtificialSources.`A.scala`))
 
-  private def run(cwd: AbsolutePath, args: Array[String])(
+  private def run(
+      cwd: AbsolutePath,
+      args: Array[String],
+      extraClasspath: Array[AbsolutePath] = Array.empty
+  )(
       op: (Int, List[(String, String)]) => Unit
   ): Unit =
     TestUtil.checkAfterCleanCompilation(runnableProject, dependencies) { state =>
@@ -49,12 +51,21 @@ class ForkerSpec {
       val env = JdkConfig.default
       val classpath = project.fullClasspath(state.build.getDagFor(project), state.client)
       val config = JvmProcessForker(env, classpath)
-      val logger = new RecordingLogger
+      val logger = new RecordingLogger()
       val opts = state.commonOptions.copy(env = TestUtil.runAndTestProperties)
       val mainClass = s"$packageName.$mainClassName"
       val wait = Duration.apply(25, TimeUnit.SECONDS)
-      val exitCode =
-        TestUtil.await(wait)(config.runMain(cwd, mainClass, args, false, logger.asVerbose, opts))
+      val exitCode = TestUtil.await(wait)(
+        config.runMain(
+          cwd,
+          mainClass,
+          args,
+          skipJargs = false,
+          logger.asVerbose,
+          opts,
+          extraClasspath
+        )
+      )
       val messages = logger.getMessages()
       op(exitCode, messages)
     }
@@ -109,6 +120,20 @@ class ForkerSpec {
   @Test
   def canRun(): Unit = TestUtil.withinWorkspace { tmp =>
     run(tmp, Array("foo", "bar", "baz")) {
+      case (exitCode, messages) =>
+        assertEquals(0, exitCode.toLong)
+        assert(messages.contains(("info", "Arguments: foo, bar, baz")))
+        assert(messages.contains(("error", "testing stderr")))
+    }
+  }
+
+  @Test
+  def canHandleLongClasspaths(): Unit = TestUtil.withinWorkspace { tmp =>
+    val longCp = Array.fill(JvmProcessForker.classpathCharLimit / 10) {
+      AbsolutePath(Files.createTempFile("forkerspec-temp", ".jar"))
+    }
+
+    run(tmp, Array("foo", "bar", "baz"), longCp) {
       case (exitCode, messages) =>
         assertEquals(0, exitCode.toLong)
         assert(messages.contains(("info", "Arguments: foo, bar, baz")))
