@@ -29,18 +29,19 @@ object HydraSupport {
     }
   }
 
-  private val CompileConf = Some(Configurations.Compile.name)
   def getModuleForBridgeSources(instance: ScalaInstance): ModuleID = {
+    val compileConf = Some(Configurations.Compile.name)
     ModuleID("com.triplequote", getCompilerBridgeId(instance), bridgeVersion)
-      .withConfigurations(CompileConf)
+      .withConfigurations(compileConf)
       .sources()
   }
 
   def getCompilerBridgeId(instance: ScalaInstance) = {
-    instance.version match {
-      case sc if (sc startsWith "2.11.") => s"${bridgeNamePrefix}_2.11"
-      case sc if (sc startsWith "2.12.") => s"${bridgeNamePrefix}_2.12"
-      case _ => s"${bridgeNamePrefix}_2.13"
+    val suffix = instance.version match {
+      case sc if (sc startsWith "2.11.") => "2.11"
+      case sc if (sc startsWith "2.12.") => "2.12"
+      case _ => "2.13"
     }
+    s"${bridgeNamePrefix}_$suffix"
   }
 }
