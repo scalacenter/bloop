@@ -28,6 +28,7 @@ jobs:
         run: |
           curl -Lo coursier https://git.io/coursier-cli && chmod +x coursier && ./coursier --help
           yarn --help
+          java -version
         shell: bash
       - name: Check formatting
         if: matrix.os != 'windows-latest'
