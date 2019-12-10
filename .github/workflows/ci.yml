@@ -12,7 +12,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macOS-latest]
-        jdk: [graalvm@, adopt@1.11]
+        jdk: [graalvm@19.2.1, adopt@1.11]
     name: Test ${{ matrix.os }} -- ${{ matrix.jdk }}
     steps:
       - uses: actions/checkout@v1
@@ -58,12 +58,12 @@ jobs:
           ./bin/check-good-practices.sh
         shell: bash
       - name: Run launcher tests
-        if: matrix.jdk == 'graalvm@'
+        if: matrix.jdk == 'graalvm@19.2.1'
         run: |
           ./bin/sbt-ci.sh "install" "launcher/test"
         shell: bash
       - name: Run build tool + native tests
-        if: matrix.jdk == 'graalvm@' && matrix.os != 'windows-latest'
+        if: matrix.jdk == 'graalvm@19.2.1' && matrix.os != 'windows-latest'
         run: |
           ./bin/sbt-ci.sh \
               "millBloop/compile" \
@@ -84,7 +84,7 @@ jobs:
       fail-fast: true
       matrix:
         os: [ubuntu-latest]
-        jdk: [graalvm@]
+        jdk: [graalvm@19.2.1]
     env:
       CI: true
       SKIP_TEST_RESOURCES_GENERATION: true
