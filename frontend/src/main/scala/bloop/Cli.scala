@@ -349,7 +349,7 @@ object Cli {
         val activeSessions = activeCliSessions.compute(
           configDir.underlying,
           (_: Path, sessions: List[CliSession]) => {
-            if (sessions == null) List(defaultClientSession)
+            if (sessions == null || sessions.isEmpty) List(defaultClientSession)
             else {
               logger.debug("Detected connected cli clients, starting CLI with unique dirs...")
               val newClient = CliClientInfo(useStableCliDirs = false, () => isClientConnected.get)
