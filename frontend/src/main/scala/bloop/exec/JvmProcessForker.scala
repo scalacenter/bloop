@@ -3,14 +3,13 @@ package bloop.exec
 import bloop.cli.CommonOptions
 import bloop.data.JdkConfig
 import bloop.engine.tasks.RunMode
-import bloop.io.{AbsolutePath, Paths, RelativePath}
+import bloop.io.{AbsolutePath, Paths}
 import bloop.logging.{DebugFilter, Logger}
 import bloop.util.CrossPlatform
-import java.io.File
 import java.io.File.pathSeparator
 import java.net.URLClassLoader
 import java.nio.file.Files
-import java.util.jar.{Attributes, JarEntry, JarOutputStream, Manifest}
+import java.util.jar.{Attributes, JarOutputStream, Manifest}
 import monix.eval.Task
 import scala.util.{Failure, Success, Try}
 
@@ -72,9 +71,6 @@ trait JvmProcessForker {
 }
 
 object JvmProcessForker {
-  // Windows max cmd line length is 32767, which seems to be the least of the common shells.
-  val classpathCharLimit: Int = 30000
-
   def apply(config: JdkConfig, classpath: Array[AbsolutePath]): JvmProcessForker =
     new JvmForker(config, classpath)
 
@@ -116,45 +112,73 @@ final class JvmForker(config: JdkConfig, classpath: Array[AbsolutePath]) extends
       opts: CommonOptions,
       extraClasspath: Array[AbsolutePath]
   ): Task[Int] = {
-    val jvmOptions = jargs.map(_.stripPrefix("-J")) ++ config.javaOptions
-    val fullClasspath = classpath ++ extraClasspath
 
-    for {
-      fullClasspathStr <- Task.fromTry(ensureClasspathLength(fullClasspath))
-      java <- Task.fromTry(javaExecutable)
-
-      classpathOption = "-cp" :: fullClasspathStr :: Nil
-      appOptions = mainClass :: args.toList
-      cmd = java.syntax :: jvmOptions.toList ::: classpathOption ::: appOptions
-
-      logTask <- if (logger.isVerbose) {
-        val debugOptions =
-          s"""
-             |Fork options:
-             |   command      = '${cmd.mkString(" ")}'
-             |   cwd          = '$cwd'""".stripMargin
-        Task(logger.debug(debugOptions)(DebugFilter.All))
+    def logDebugIfVerbose(debugMsg: => String): Task[Unit] =
+      if (logger.isVerbose) {
+        Task(logger.debug(debugMsg)(DebugFilter.All))
       } else {
         Task.unit
       }
-      res <- Forker.run(cwd, cmd, logger, opts)
-    } yield {
-      res
+
+    def runCmd(cmd: List[String]): Task[Int] = {
+      def debugOptions =
+        s"""
+           |Fork options:
+           |   command      = '${cmd.mkString(" ")}'
+           |   cwd          = '$cwd'""".stripMargin
+
+      logDebugIfVerbose(debugOptions).flatMap(_ => Forker.run(cwd, cmd, logger, opts))
+    }
+
+    val jvmOptions = jargs.map(_.stripPrefix("-J")) ++ config.javaOptions
+    val fullClasspath = classpath ++ extraClasspath
+    val fullClasspathStr = fullClasspath.map(_.syntax).mkString(pathSeparator)
+
+    // Windows max cmd line length is 32767, which seems to be the least of the common shells.
+    val processCmdCharLimit = 30000
+
+    Task.fromTry(javaExecutable).flatMap { java =>
+      val classpathOption = "-cp" :: fullClasspathStr :: Nil
+      val appOptions = mainClass :: args.toList
+      val cmd = java.syntax :: jvmOptions.toList ::: classpathOption ::: appOptions
+      val cmdStr = cmd.mkString(" ")
+
+      // Note that we current only shorten the classpath portion and not other options
+      // Thus we do not yet *guarantee* that the command will not exceed OS limits
+      if (cmdStr.length > processCmdCharLimit) {
+        def charLimitMsg =
+          s"""|Supplied command to fork exceeds character limit of $processCmdCharLimit
+              |Creating a temporary MANIFEST jar for classpath entries
+              |""".stripMargin
+
+        logDebugIfVerbose(charLimitMsg).flatMap { _ =>
+          withTempManifestJar(fullClasspath, logger) { manifestJar =>
+            val shortClasspathOption = "-cp" :: manifestJar.syntax :: Nil
+            val shortCmd = java.syntax :: jvmOptions.toList ::: shortClasspathOption ::: appOptions
+            runCmd(shortCmd)
+          }
+        }
+      } else {
+        runCmd(cmd)
+      }
     }
   }
 
-  private def ensureClasspathLength(classpath: Array[AbsolutePath]): Try[String] = {
-    val fullClasspathStr = classpath.map(_.syntax).mkString(pathSeparator)
+  private def withTempManifestJar[A](
+      classpath: Array[AbsolutePath],
+      logger: Logger
+  )(op: AbsolutePath => Task[A]): Task[A] = {
 
-    if (fullClasspathStr.length > JvmProcessForker.classpathCharLimit)
-      createTempManifestJar(classpath).map(_.syntax)
-    else
-      Try(fullClasspathStr)
-  }
-
-  private def createTempManifestJar(classpath: Array[AbsolutePath]): Try[AbsolutePath] = Try {
-    val prefix = "jvm-forker-manifest"
-    val manifestJar = Files.createTempFile(prefix, ".jar").toAbsolutePath
+    val manifestJar = Files.createTempFile("jvm-forker-manifest", ".jar").toAbsolutePath
+    val manifestJarAbs = AbsolutePath(manifestJar)
+    def cleanup = {
+      Task {
+        if (logger.isVerbose) {
+          logger.debug(s"Cleaning up temporary MANIFEST jar: $manifestJar")(DebugFilter.All)
+        }
+        Paths.delete(manifestJarAbs)
+      }
+    }
 
     val classpathStr = classpath.map(addTrailingSlashToDirectories).mkString(" ")
 
@@ -162,19 +186,35 @@ final class JvmForker(config: JdkConfig, classpath: Array[AbsolutePath]) extends
     manifest.getMainAttributes.put(Attributes.Name.MANIFEST_VERSION, "1.0")
     manifest.getMainAttributes.put(Attributes.Name.CLASS_PATH, classpathStr)
 
-    val jos = new JarOutputStream(Files.newOutputStream(manifestJar), manifest)
-    jos.close()
+    val out = Files.newOutputStream(manifestJar)
+    // This needs to be declared since jos itself should be set to close as well.
+    var jos: JarOutputStream = null
+    try {
+      jos = new JarOutputStream(out, manifest)
+    } finally {
+      if (jos == null) {
+        out.close()
+      } else {
+        jos.close()
+      }
+    }
 
-    AbsolutePath(manifestJar)
+    op(manifestJarAbs)
+      .doOnFinish(_ => cleanup)
+      .doOnCancel(cleanup)
   }
 
   // Turns out manifest files can use absolute path directories in the classpath
   // But they need a trailing slash
-  private def addTrailingSlashToDirectories(path: AbsolutePath): String =
-    if (path.isDirectory)
-      s"${path.syntax}${File.separatorChar}"
-    else
-      path.syntax
+  private def addTrailingSlashToDirectories(path: AbsolutePath): String = {
+    val syntax = path.syntax
+    if (syntax.endsWith(".jar")) {
+      syntax
+    } else {
+      println(s"Adding to dir $syntax")
+      syntax + "/"
+    }
+  }
 
   private def javaExecutable: Try[AbsolutePath] = {
     val javaPath = config.javaHome.resolve("bin").resolve("java")
