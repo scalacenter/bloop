@@ -4,6 +4,7 @@ import java.lang.reflect.InvocationTargetException
 import java.net.URLClassLoader
 import java.nio.file.Path
 
+import bloop.DependencyResolution
 import bloop.config.Config
 import bloop.config.Config.JsConfig
 import bloop.data.Project
@@ -121,13 +122,27 @@ object ScalaJsToolchain extends ToolchainCompanion[ScalaJsToolchain] {
   }
 
   override def artifactNameFrom(version: String): String = {
-    if (version.startsWith("0.6")) BuildInfo.jsBridge06
+    if (version.length == 3) sys.error("The full Scala.js version must be provided")
+    else if (version.startsWith("0.6")) BuildInfo.jsBridge06
     else if (version.startsWith("1.0")) BuildInfo.jsBridge10
     else sys.error(s"Expected compatible Scala.js version [0.6, 1.0], $version given")
   }
 
   override def getPlatformData(platform: Platform): Option[PlatformData] = {
-    val artifactName: String = artifactNameFrom(platform.config.version)
-    Some(PlatformData(artifactName, platform.config.toolchain))
+    val artifactName = artifactNameFrom(platform.config.version)
+    val platformVersion = platform.config.version
+    val scalaVersion = DependencyResolution.majorMinorVersion(BuildInfo.scalaVersion)
+
+    val artifacts = List(
+      DependencyResolution.Artifact(BuildInfo.organization, artifactName, BuildInfo.version),
+      DependencyResolution
+        .Artifact("org.scala-js", s"scalajs-tools_$scalaVersion", platformVersion),
+      DependencyResolution
+        .Artifact("org.scala-js", s"scalajs-sbt-test-adapter_$scalaVersion", platformVersion),
+      DependencyResolution
+        .Artifact("org.scala-js", s"scalajs-js-envs_$scalaVersion", platformVersion)
+    )
+
+    Some(PlatformData(artifacts, platform.config.toolchain))
   }
 }

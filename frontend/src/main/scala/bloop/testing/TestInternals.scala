@@ -90,7 +90,10 @@ object TestInternals {
       case Some(paths) => paths
       case None =>
         import bloop.engine.ExecutionContext.ioScheduler
-        val paths = DependencyResolution.resolve(sbtOrg, testAgentId, testAgentVersion, logger)
+        val paths = DependencyResolution.resolve(
+          List(DependencyResolution.Artifact(sbtOrg, testAgentId, testAgentVersion)),
+          logger
+        )
         testAgentFiles = Some(paths)
         paths
     }

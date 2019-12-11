@@ -22,11 +22,16 @@ object ClasspathHasherSpec extends bloop.testing.BaseSuite {
     val cancelPromise = Promise[Unit]()
     val cancelPromise2 = Promise[Unit]()
     val tracer = BraveTracer("cancels-correctly-test")
-    val jars = {
-      DependencyResolution.resolve("org.apache.spark", "spark-core_2.11", "2.4.4", logger) ++
-        DependencyResolution.resolve("org.apache.hadoop", "hadoop-main", "3.2.1", logger) ++
-        DependencyResolution.resolve("io.monix", "monix_2.12", "3.0.0", logger)
-    }
+    val jars =
+      Array(
+        DependencyResolution.Artifact("org.apache.spark", "spark-core_2.11", "2.4.4"),
+        DependencyResolution.Artifact("org.apache.hadoop", "hadoop-main", "3.2.1"),
+        DependencyResolution.Artifact("io.monix", "monix_2.12", "3.0.0")
+      ).flatMap(
+        a =>
+          // Force independent resolution for every artifact
+          DependencyResolution.resolve(List(a), logger)
+      )
     val hashClasspathTask =
       ClasspathHasher.hash(jars, 2, cancelPromise, ioScheduler, logger, tracer, System.out)
     val competingHashClasspathTask =
@@ -56,7 +61,10 @@ object ClasspathHasherSpec extends bloop.testing.BaseSuite {
     val logger = new RecordingLogger()
     import bloop.engine.ExecutionContext.ioScheduler
     val jars = DependencyResolution
-      .resolve("ch.epfl.scala", "zinc_2.12", "1.2.1+97-636ca091", logger)
+      .resolve(
+        List(DependencyResolution.Artifact("ch.epfl.scala", "zinc_2.12", "1.2.1+97-636ca091")),
+        logger
+      )
       .filter(_.syntax.endsWith(".jar"))
 
     Timer.timed(logger) {

@@ -127,7 +127,12 @@ object BloopComponentCompiler {
       def isPrefixedWith(artifact: File, prefix: String) = artifact.getName.startsWith(prefix)
       val allArtifacts = {
         BloopDependencyResolution
-          .resolve(ScalaOrganization, ScalaCompilerID, scalaVersion, logger)(scheduler)
+          .resolve(
+            List(
+              BloopDependencyResolution.Artifact(ScalaOrganization, ScalaCompilerID, scalaVersion)
+            ),
+            logger
+          )(scheduler)
           .map(_.toFile)
           .toVector
       }
@@ -241,9 +246,10 @@ private[inc] class BloopComponentCompiler(
         import coursier.core.Type
         val resolveSources = bridgeSources.explicitArtifacts.exists(_.`type` == Type.source.value)
         val allArtifacts = BloopDependencyResolution.resolveWithErrors(
-          bridgeSources.organization,
-          bridgeSources.name,
-          bridgeSources.revision,
+          List(
+            BloopDependencyResolution
+              .Artifact(bridgeSources.organization, bridgeSources.name, bridgeSources.revision)
+          ),
           logger,
           resolveSources = resolveSources
         )(scheduler) match {

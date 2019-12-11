@@ -3,6 +3,7 @@ package bloop.engine.tasks.toolchains
 import java.lang.reflect.InvocationTargetException
 import java.nio.file.Path
 
+import bloop.DependencyResolution
 import bloop.config.Config
 import bloop.config.Config.NativeConfig
 import bloop.data.Project
@@ -65,13 +66,23 @@ object ScalaNativeToolchain extends ToolchainCompanion[ScalaNativeToolchain] {
   override type Config = Config.NativeConfig
 
   override def artifactNameFrom(version: String): String = {
-    if (version.startsWith("0.3")) BuildInfo.nativeBridge03
+    if (version.length == 3) sys.error("The full Scala Native version must be provided")
+    else if (version.startsWith("0.3")) BuildInfo.nativeBridge03
     else if (version.startsWith("0.4")) BuildInfo.nativeBridge04
     else sys.error(s"Expected compatible Scala Native version [0.3, 0.4], $version given")
   }
 
   override def getPlatformData(platform: Platform): Option[PlatformData] = {
-    Some(PlatformData(artifactNameFrom(platform.config.version), platform.config.toolchain))
+    val artifactName = artifactNameFrom(platform.config.version)
+    val platformVersion = platform.config.version
+    val scalaVersion = DependencyResolution.majorMinorVersion(BuildInfo.scalaVersion)
+
+    val artifacts = List(
+      DependencyResolution.Artifact(BuildInfo.organization, artifactName, BuildInfo.version),
+      DependencyResolution.Artifact("org.scala-native", s"tools_$scalaVersion", platformVersion)
+    )
+
+    Some(PlatformData(artifacts, platform.config.toolchain))
   }
 
   def linkTargetFrom(project: Project, config: NativeConfig): AbsolutePath = {

@@ -22,7 +22,10 @@ abstract class ToolchainCompanion[Toolchain] {
   type Platform <: Config.Platform
   type Config <: Config.PlatformConfig
 
-  case class PlatformData(name: String, toolchainClasspath: List[Path])
+  case class PlatformData(
+      artifacts: List[DependencyResolution.Artifact],
+      toolchainClasspath: List[Path]
+  )
 
   /** The artifact name of this toolchain. */
   def artifactNameFrom(version: String): String
@@ -38,7 +41,8 @@ abstract class ToolchainCompanion[Toolchain] {
    */
   def apply(classLoader: ClassLoader): Toolchain
 
-  private[this] val instancesById = new ConcurrentHashMap[String, Toolchain]
+  private[this] val instancesById =
+    new ConcurrentHashMap[List[DependencyResolution.Artifact], Toolchain]
   private[this] val instancesByJar: ConcurrentHashMap[List[Path], Toolchain] = new ConcurrentHashMap
 
   /**
@@ -50,9 +54,9 @@ abstract class ToolchainCompanion[Toolchain] {
   def resolveToolchain(platform: Platform, logger: Logger): Toolchain = {
     getPlatformData(platform) match {
       case None => apply(getClass.getClassLoader)
-      case Some(PlatformData(name, toolchain)) =>
+      case Some(PlatformData(artifacts, toolchain)) =>
         if (toolchain.nonEmpty) toToolchain(toolchain)
-        else instancesById.computeIfAbsent(name, a => toToolchain(resolveJars(a, logger)))
+        else instancesById.computeIfAbsent(artifacts, a => toToolchain(resolveJars(a, logger)))
     }
   }
 
@@ -69,14 +73,20 @@ abstract class ToolchainCompanion[Toolchain] {
     instancesByJar.computeIfAbsent(classpath, createToolchain)
   }
 
-  private final val BloopVersion = BuildInfo.version
-  private final val BloopOrg = BuildInfo.organization
-  private def resolveJars(artifactName: String, logger: Logger): List[Path] = {
+  private def resolveJars(
+      artifacts: List[DependencyResolution.Artifact],
+      logger: Logger
+  ): List[Path] = {
     import bloop.engine.ExecutionContext.ioScheduler
-    logger.debug(s"Resolving platform bridge: $BloopOrg:$artifactName:$BloopVersion")(
-      DebugFilter.Compilation
-    )
-    val files = DependencyResolution.resolve(BloopOrg, artifactName, BloopVersion, logger)
+    logger.debug(s"Resolving platform artifacts: $artifacts")(DebugFilter.Compilation)
+    val files =
+      try DependencyResolution.resolve(artifacts, logger)
+      catch {
+        case t: Throwable =>
+          logger.error("Could not resolve platform artifacts: " + t)
+          Array()
+      }
+
     files.iterator.map(_.underlying).filter(_.toString.endsWith(".jar")).toList
   }
 
