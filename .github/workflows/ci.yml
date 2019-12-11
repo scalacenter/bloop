@@ -45,6 +45,7 @@ jobs:
               "millBloop/compile" \
               "mavenBloop/compile" \
               "backend/test" \
+              "docs/compile" \
               "jsBridge06/publishLocal" \
               "jsBridge10/publishLocal" \
               "frontend/testOnly bloop.ScalaVersionsSpec" \

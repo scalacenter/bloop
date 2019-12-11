@@ -26,10 +26,11 @@ object Sonatype {
 
   /** Returns the latest published snapshot release, or the current release if. */
   private def fetchLatest(artifact: String): Release = {
+    val artifacts = List(
+      DependencyResolution.Artifact("ch.epfl.scala", artifact, "latest.stable")
+    )
     val resolvedJars = DependencyResolution.resolve(
-      "ch.epfl.scala",
-      artifact,
-      "latest.stable",
+      artifacts,
       NoopLogger,
       additionalRepos = List(Repositories.sonatype("staging"))
     )
