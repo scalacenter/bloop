@@ -153,7 +153,8 @@ object Interpreter {
       cmd: CompilingCommand,
       state0: State,
       projects: List[Project],
-      excludeRoot: Boolean = false
+      excludeRoot: Boolean = false,
+      noColor: Boolean
   ): Task[State] = {
     // Make new state cleaned of all compilation products if compilation is not incremental
     val state: Task[State] = {
@@ -165,7 +166,7 @@ object Interpreter {
     }
 
     val compileTask = state.flatMap { state =>
-      val config = ReporterKind.toReporterConfig(cmd.reporter)
+      val config = ReporterKind.toReporterConfig(cmd.reporter).copy(colors = !noColor)
       val dag = getProjectsDag(projects, state)
       val createReporter = (inputs: ReporterInputs[Logger]) =>
         new LogReporter(inputs.project, inputs.logger, inputs.cwd, config)
@@ -194,8 +195,8 @@ object Interpreter {
         else Dag.inverseDependencies(state.build.dags, lookup.found).reduced
       }
 
-      if (!cmd.watch) runCompile(cmd, state, projects)
-      else watch(projects, state)(runCompile(cmd, _, projects))
+      if (!cmd.watch) runCompile(cmd, state, projects, false, cmd.cliOptions.noColor)
+      else watch(projects, state)(runCompile(cmd, _, projects, false, cmd.cliOptions.noColor))
     }
   }
 
@@ -218,9 +219,10 @@ object Interpreter {
       state: State,
       projects: List[Project],
       excludeRoot: Boolean,
+      noColor: Boolean,
       nextAction: String
   )(next: State => Task[State]): Task[State] = {
-    runCompile(cmd, state, projects, excludeRoot).flatMap { compiled =>
+    runCompile(cmd, state, projects, excludeRoot, noColor).flatMap { compiled =>
       if (compiled.status != ExitStatus.CompilationError) next(compiled)
       else {
         val projectsString = projects.mkString(", ")
@@ -244,7 +246,14 @@ object Interpreter {
       case project :: Nil =>
         state.build.getProjectFor(project) match {
           case Some(project) =>
-            compileAnd(cmd, state, List(project), cmd.excludeRoot, "`console`") { state =>
+            compileAnd(
+              cmd,
+              state,
+              List(project),
+              cmd.excludeRoot,
+              cmd.cliOptions.noColor,
+              "`console`"
+            ) { state =>
               cmd.repl match {
                 case ScalacRepl =>
                   if (cmd.ammoniteVersion.isDefined) {
@@ -343,25 +352,26 @@ object Interpreter {
 
       def testAllProjects(state: State): Task[State] = {
         val testFilter = TestInternals.parseFilters(cmd.only)
-        compileAnd(cmd, state, projectsToCompile, false, "`test`") { state =>
-          logger.debug(
-            s"Preparing test execution for ${projectsToTest.mkString(", ")}"
-          )(DebugFilter.Test)
+        compileAnd(cmd, state, projectsToCompile, false, cmd.cliOptions.noColor, "`test`") {
+          state =>
+            logger.debug(
+              s"Preparing test execution for ${projectsToTest.mkString(", ")}"
+            )(DebugFilter.Test)
 
-          val handler = new LoggingEventHandler(state.logger)
-          val failIfNoFrameworks: Boolean =
-            userDefinedProjects.size == projectsToTest.size
+            val handler = new LoggingEventHandler(state.logger)
+            val failIfNoFrameworks: Boolean =
+              userDefinedProjects.size == projectsToTest.size
 
-          Tasks.test(
-            state,
-            projectsToTest,
-            cmd.args,
-            testFilter,
-            handler,
-            failIfNoFrameworks,
-            cmd.parallel,
-            RunMode.Normal
-          )
+            Tasks.test(
+              state,
+              projectsToTest,
+              cmd.args,
+              testFilter,
+              handler,
+              failIfNoFrameworks,
+              cmd.parallel,
+              RunMode.Normal
+            )
         }
       }
 
@@ -503,7 +513,7 @@ object Interpreter {
 
   private[bloop] def link(cmd: Commands.Link, state: State): Task[State] = {
     def doLink(project: Project)(state: State): Task[State] = {
-      compileAnd(cmd, state, List(project), false, "`link`") { state =>
+      compileAnd(cmd, state, List(project), false, cmd.cliOptions.noColor, "`link`") { state =>
         getMainClass(state, project, cmd.main) match {
           case Left(state) => Task.now(state)
           case Right(mainClass) =>
@@ -542,7 +552,7 @@ object Interpreter {
   private def run(cmd: Commands.Run, state: State): Task[State] = {
     def doRun(project: Project)(state: State): Task[State] = {
       val cwd = project.baseDirectory
-      compileAnd(cmd, state, List(project), false, "`run`") { state =>
+      compileAnd(cmd, state, List(project), false, cmd.cliOptions.noColor, "`run`") { state =>
         getMainClass(state, project, cmd.main) match {
           case Left(failedState) => Task.now(failedState)
           case Right(mainClass) =>
