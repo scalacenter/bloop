@@ -6,7 +6,7 @@ import bloop.engine.tasks.RunMode
 import bloop.io.{AbsolutePath, Paths}
 import bloop.logging.{DebugFilter, Logger}
 import bloop.util.CrossPlatform
-import java.io.File.pathSeparator
+import java.io.File
 import java.net.URLClassLoader
 import java.nio.file.Files
 import java.util.jar.{Attributes, JarOutputStream, Manifest}
@@ -132,7 +132,7 @@ final class JvmForker(config: JdkConfig, classpath: Array[AbsolutePath]) extends
 
     val jvmOptions = jargs.map(_.stripPrefix("-J")) ++ config.javaOptions
     val fullClasspath = classpath ++ extraClasspath
-    val fullClasspathStr = fullClasspath.map(_.syntax).mkString(pathSeparator)
+    val fullClasspathStr = fullClasspath.map(_.syntax).mkString(File.pathSeparator)
 
     // Windows max cmd line length is 32767, which seems to be the least of the common shells.
     val processCmdCharLimit = 30000
@@ -208,12 +208,15 @@ final class JvmForker(config: JdkConfig, classpath: Array[AbsolutePath]) extends
   // But they need a trailing slash
   private def addTrailingSlashToDirectories(path: AbsolutePath): String = {
     val syntax = path.syntax
-    if (syntax.endsWith(".jar")) {
+    val separatorAdded = if (syntax.endsWith(".jar")) {
       syntax
     } else {
-      println(s"Adding to dir $syntax")
-      syntax + "/"
+      syntax + File.separator
     }
+    // On Windows, the drive letter is prepended to absolute paths
+    // Even though the official Java docs say to do this,
+    // it seems this fails for MANIFEST files, so we remove the drive letter
+    separatorAdded.substring(separatorAdded.indexOf(":") + 1)
   }
 
   private def javaExecutable: Try[AbsolutePath] = {
