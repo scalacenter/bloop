@@ -189,16 +189,18 @@ final class JvmForker(config: JdkConfig, classpath: Array[AbsolutePath]) extends
 
   private def addTrailingSlashToDirectories(path: AbsolutePath): String = {
     val syntax = path.syntax
-    val separatorAdded = if (syntax.endsWith(".jar")) {
-      syntax
-    } else {
-      syntax + File.separator
+    val separatorAdded = {
+      if (syntax.endsWith(".jar")) {
+        syntax
+      } else {
+        syntax + File.separator
+      }
     }
+
     if (Properties.isWin) {
-      // On Windows, the drive letter is prepended to absolute paths
-      // Even though the official Java docs say to do this,
-      // it seems this fails for MANIFEST files, so we remove the drive letter
-      separatorAdded.substring(separatorAdded.indexOf(":") + 1)
+      // Remove drive letter as MANIFEST files don't support them on Windows
+      if (separatorAdded.indexOf(":") != 1) separatorAdded
+      else separatorAdded.substring(separatorAdded.indexOf(":") + 1)
     } else {
       separatorAdded
     }
