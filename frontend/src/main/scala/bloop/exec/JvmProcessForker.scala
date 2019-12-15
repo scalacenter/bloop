@@ -1,17 +1,17 @@
 package bloop.exec
 
-import java.io.File.pathSeparator
-import java.net.{InetSocketAddress, ServerSocket, URLClassLoader}
-
 import bloop.cli.CommonOptions
-import bloop.io.AbsolutePath
 import bloop.data.JdkConfig
 import bloop.engine.tasks.RunMode
+import bloop.io.{AbsolutePath, Paths}
 import bloop.logging.{DebugFilter, Logger}
-import monix.eval.Task
-
-import scala.util.{Failure, Success, Try}
 import bloop.util.CrossPlatform
+import java.io.File
+import java.net.URLClassLoader
+import java.nio.file.Files
+import java.util.jar.{Attributes, JarOutputStream, Manifest}
+import monix.eval.Task
+import scala.util.{Failure, Properties, Success, Try}
 
 /**
  * Collects configuration to start a new program in a new process
@@ -112,13 +112,97 @@ final class JvmForker(config: JdkConfig, classpath: Array[AbsolutePath]) extends
       opts: CommonOptions,
       extraClasspath: Array[AbsolutePath]
   ): Task[Int] = {
+
     val jvmOptions = jargs.map(_.stripPrefix("-J")) ++ config.javaOptions
-    val fullClasspath = (classpath ++ extraClasspath).map(_.syntax).mkString(pathSeparator)
+    val fullClasspath = classpath ++ extraClasspath
+    val fullClasspathStr = fullClasspath.map(_.syntax).mkString(File.pathSeparator)
+
+    // Windows max cmd line length is 32767, which seems to be the least of the common shells.
+    val processCmdCharLimit = 30000
+
     Task.fromTry(javaExecutable).flatMap { java =>
-      val classpathOption = "-cp" :: fullClasspath :: Nil
+      val classpathOption = "-cp" :: fullClasspathStr :: Nil
       val appOptions = mainClass :: args.toList
       val cmd = java.syntax :: jvmOptions.toList ::: classpathOption ::: appOptions
-      Forker.run(cwd, cmd, logger, opts)
+      val cmdLength = cmd.foldLeft(0)(_ + _.length)
+
+      // Note that we current only shorten the classpath portion and not other options
+      // Thus we do not yet *guarantee* that the command will not exceed OS limits
+      if (cmdLength <= processCmdCharLimit) {
+        Forker.run(cwd, cmd, logger, opts)
+      } else {
+        if (logger.isVerbose) {
+          logger.debug(
+            s"""|Supplied command to fork exceeds character limit of $processCmdCharLimit
+                |Creating a temporary MANIFEST jar for classpath entries
+                |""".stripMargin
+          )(DebugFilter.Link)
+        }
+
+        withTempManifestJar(fullClasspath, logger) { manifestJar =>
+          val shortClasspathOption = "-cp" :: manifestJar.syntax :: Nil
+          val shortCmd = java.syntax :: jvmOptions.toList ::: shortClasspathOption ::: appOptions
+          Forker.run(cwd, shortCmd, logger, opts)
+        }
+      }
+    }
+  }
+
+  private def withTempManifestJar[A](
+      classpath: Array[AbsolutePath],
+      logger: Logger
+  )(op: AbsolutePath => Task[A]): Task[A] = {
+
+    val manifestJar = Files.createTempFile("jvm-forker-manifest", ".jar").toAbsolutePath
+    val manifestJarAbs = AbsolutePath(manifestJar)
+    val cleanup = Task {
+      if (logger.isVerbose) {
+        logger.debug(s"Cleaning up temporary MANIFEST jar: $manifestJar")(DebugFilter.All)
+      }
+      Paths.delete(manifestJarAbs)
+    }
+
+    // Add trailing slash to directories so that manifest dir entries work
+    val classpathStr = classpath.map(addTrailingSlashToDirectories).mkString(" ")
+
+    val manifest = new Manifest()
+    manifest.getMainAttributes.put(Attributes.Name.MANIFEST_VERSION, "1.0")
+    manifest.getMainAttributes.put(Attributes.Name.CLASS_PATH, classpathStr)
+
+    val out = Files.newOutputStream(manifestJar)
+    // This needs to be declared since jos itself should be set to close as well.
+    var jos: JarOutputStream = null
+    try {
+      jos = new JarOutputStream(out, manifest)
+    } finally {
+      if (jos == null) {
+        out.close()
+      } else {
+        jos.close()
+      }
+    }
+
+    op(manifestJarAbs)
+      .doOnFinish(_ => cleanup)
+      .doOnCancel(cleanup)
+  }
+
+  private def addTrailingSlashToDirectories(path: AbsolutePath): String = {
+    val syntax = path.syntax
+    val separatorAdded = {
+      if (syntax.endsWith(".jar")) {
+        syntax
+      } else {
+        syntax + File.separator
+      }
+    }
+
+    if (Properties.isWin) {
+      // Remove drive letter as MANIFEST files don't support them on Windows
+      if (separatorAdded.indexOf(":") != 1) separatorAdded
+      else separatorAdded.substring(separatorAdded.indexOf(":") + 1)
+    } else {
+      separatorAdded
     }
   }
 

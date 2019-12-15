@@ -1,21 +1,19 @@
 package bloop
 
-import java.nio.ByteBuffer
-import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, Path}
-import java.util.concurrent.TimeUnit
-
 import bloop.cli.ExitStatus
-import bloop.data.JdkConfig
 import bloop.dap.DebugSessionLogger
+import bloop.data.JdkConfig
 import bloop.exec.{Forker, JvmProcessForker}
 import bloop.io.AbsolutePath
 import bloop.logging.RecordingLogger
 import bloop.util.TestUtil
+import java.nio.ByteBuffer
+import java.nio.charset.StandardCharsets
+import java.nio.file.{Files, Paths}
+import java.util.concurrent.TimeUnit
 import org.junit.Assert.{assertEquals, assertNotEquals}
 import org.junit.Test
 import org.junit.experimental.categories.Category
-
 import scala.collection.mutable
 import scala.concurrent.duration.Duration
 
@@ -26,22 +24,27 @@ class ForkerSpec {
   val mainClassName = "Main"
 
   object ArtificialSources {
-    val `A.scala` = s"""package $packageName
-                       |object $mainClassName {
-                       |  def main(args: Array[String]): Unit = {
-                       |    if (args.contains("crash")) throw new Exception
-                       |    println(s"Arguments: $${args.mkString(", ")}")
-                       |    val cwd = new java.io.File(sys.props("user.dir")).getCanonicalPath
-                       |    println(s"CWD: $$cwd")
-                       |    System.err.println("testing stderr")
-                       |  }
-                       |}""".stripMargin
+    val `A.scala` =
+      s"""package $packageName
+         |object $mainClassName {
+         |  def main(args: Array[String]): Unit = {
+         |    if (args.contains("crash")) throw new Exception
+         |    println(s"Arguments: $${args.mkString(", ")}")
+         |    val cwd = new java.io.File(sys.props("user.dir")).getCanonicalPath
+         |    println(s"CWD: $$cwd")
+         |    System.err.println("testing stderr")
+         |  }
+         |}""".stripMargin
   }
 
   val dependencies = Map.empty[String, Set[String]]
   val runnableProject = Map(TestUtil.RootProject -> Map("A.scala" -> ArtificialSources.`A.scala`))
 
-  private def run(cwd: AbsolutePath, args: Array[String])(
+  private def run(
+      cwd: AbsolutePath,
+      args: Array[String],
+      extraClasspath: Array[AbsolutePath] = Array.empty
+  )(
       op: (Int, List[(String, String)]) => Unit
   ): Unit =
     TestUtil.checkAfterCleanCompilation(runnableProject, dependencies) { state =>
@@ -53,8 +56,17 @@ class ForkerSpec {
       val opts = state.commonOptions.copy(env = TestUtil.runAndTestProperties)
       val mainClass = s"$packageName.$mainClassName"
       val wait = Duration.apply(25, TimeUnit.SECONDS)
-      val exitCode =
-        TestUtil.await(wait)(config.runMain(cwd, mainClass, args, false, logger.asVerbose, opts))
+      val exitCode = TestUtil.await(wait)(
+        config.runMain(
+          cwd,
+          mainClass,
+          args,
+          skipJargs = false,
+          logger.asVerbose,
+          opts,
+          extraClasspath
+        )
+      )
       val messages = logger.getMessages()
       op(exitCode, messages)
     }
@@ -113,6 +125,46 @@ class ForkerSpec {
         assertEquals(0, exitCode.toLong)
         assert(messages.contains(("info", "Arguments: foo, bar, baz")))
         assert(messages.contains(("error", "testing stderr")))
+    }
+  }
+
+  @Test
+  def canHandleLongClasspaths(): Unit = TestUtil.withinWorkspace { tmp =>
+    TestUtil.withinWorkspace { tmpJarDir =>
+      val longCp = (1 to 3000).map { i =>
+        val tmpFile = tmpJarDir.resolve(s"forkerspec-temp-$i.jar").underlying
+        AbsolutePath(Files.createFile(tmpFile))
+      }.toArray
+
+      val charLimitMsg =
+        s"""|Supplied command to fork exceeds character limit of 30000
+            |Creating a temporary MANIFEST jar for classpath entries
+            |""".stripMargin
+
+      val cleanupPrefix = "Cleaning up temporary MANIFEST jar: "
+
+      def isCleanupMessage(message: (String, String)): Boolean = message match {
+        case ("debug", msg) if msg.startsWith(cleanupPrefix) =>
+          true
+        case _ =>
+          false
+      }
+
+      run(tmp, Array("foo", "bar", "baz"), longCp) {
+        case (exitCode, messages) =>
+          assertEquals(0, exitCode.toLong)
+          assert(messages.contains(("debug", charLimitMsg)))
+
+          val cleanupMessage = messages.filter(isCleanupMessage)
+          assertEquals(cleanupMessage.size.toLong, 1L)
+
+          val tempManifestJar = Paths.get(cleanupMessage.head._2.stripPrefix(cleanupPrefix))
+          assert(tempManifestJar.isAbsolute)
+          assert(Files.notExists(tempManifestJar))
+
+          assert(messages.contains(("info", "Arguments: foo, bar, baz")))
+          assert(messages.contains(("error", "testing stderr")))
+      }
     }
   }
 

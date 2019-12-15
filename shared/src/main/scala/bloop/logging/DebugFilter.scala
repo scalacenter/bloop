@@ -8,6 +8,7 @@ sealed trait DebugFilter { self =>
 object DebugFilter {
   final case object All extends DebugFilter
   final case object Link extends DebugFilter
+  final case object Run extends DebugFilter
   final case object Bsp extends DebugFilter
   final case object Test extends DebugFilter
   final case object Compilation extends DebugFilter
