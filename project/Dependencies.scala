@@ -10,7 +10,7 @@ object Dependencies {
 
   val nailgunVersion = "ee3c4343"
   // Used to download the python client instead of resolving
-  val nailgunCommit = "d7ed5db"
+  val nailgunCommit = "a2520c1e"
 
   val zincVersion = "1.3.0-M4+26-045d2c8c"
   val bspVersion = "2.0.0-M4+10-61e61e87"
