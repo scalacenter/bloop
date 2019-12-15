@@ -11,7 +11,7 @@ import java.net.URLClassLoader
 import java.nio.file.Files
 import java.util.jar.{Attributes, JarOutputStream, Manifest}
 import monix.eval.Task
-import scala.util.{Failure, Success, Try}
+import scala.util.{Failure, Properties, Success, Try}
 
 /**
  * Collects configuration to start a new program in a new process
@@ -141,11 +141,11 @@ final class JvmForker(config: JdkConfig, classpath: Array[AbsolutePath]) extends
       val classpathOption = "-cp" :: fullClasspathStr :: Nil
       val appOptions = mainClass :: args.toList
       val cmd = java.syntax :: jvmOptions.toList ::: classpathOption ::: appOptions
-      val cmdStr = cmd.mkString(" ")
+      val cmdLength = cmd.foldLeft(0)(_ + _.length)
 
       // Note that we current only shorten the classpath portion and not other options
       // Thus we do not yet *guarantee* that the command will not exceed OS limits
-      if (cmdStr.length > processCmdCharLimit) {
+      if (cmdLength > processCmdCharLimit) {
         def charLimitMsg =
           s"""|Supplied command to fork exceeds character limit of $processCmdCharLimit
               |Creating a temporary MANIFEST jar for classpath entries
@@ -171,13 +171,11 @@ final class JvmForker(config: JdkConfig, classpath: Array[AbsolutePath]) extends
 
     val manifestJar = Files.createTempFile("jvm-forker-manifest", ".jar").toAbsolutePath
     val manifestJarAbs = AbsolutePath(manifestJar)
-    def cleanup = {
-      Task {
-        if (logger.isVerbose) {
-          logger.debug(s"Cleaning up temporary MANIFEST jar: $manifestJar")(DebugFilter.All)
-        }
-        Paths.delete(manifestJarAbs)
+    val cleanup = Task {
+      if (logger.isVerbose) {
+        logger.debug(s"Cleaning up temporary MANIFEST jar: $manifestJar")(DebugFilter.All)
       }
+      Paths.delete(manifestJarAbs)
     }
 
     val classpathStr = classpath.map(addTrailingSlashToDirectories).mkString(" ")
@@ -213,10 +211,14 @@ final class JvmForker(config: JdkConfig, classpath: Array[AbsolutePath]) extends
     } else {
       syntax + File.separator
     }
-    // On Windows, the drive letter is prepended to absolute paths
-    // Even though the official Java docs say to do this,
-    // it seems this fails for MANIFEST files, so we remove the drive letter
-    separatorAdded.substring(separatorAdded.indexOf(":") + 1)
+    if (Properties.isWin) {
+      // On Windows, the drive letter is prepended to absolute paths
+      // Even though the official Java docs say to do this,
+      // it seems this fails for MANIFEST files, so we remove the drive letter
+      separatorAdded.substring(separatorAdded.indexOf(":") + 1)
+    } else {
+      separatorAdded
+    }
   }
 
   private def javaExecutable: Try[AbsolutePath] = {
