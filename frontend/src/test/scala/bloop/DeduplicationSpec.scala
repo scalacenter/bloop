@@ -1045,4 +1045,158 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
       ()
     }
   }
+
+  ignore("two concurrent clients deduplicate compilation and run at the same time") {
+    val logger = new RecordingLogger(ansiCodesSupported = false)
+    val logger1 = new RecordingLogger(ansiCodesSupported = false)
+    val logger2 = new RecordingLogger(ansiCodesSupported = false)
+
+    BuildUtil.testSlowAndReallyLargeBuild(logger) { build =>
+      val state = new TestState(build.state)
+      val compiledMacrosState = state.compile(build.macroProject)
+      assert(compiledMacrosState.status == ExitStatus.Ok)
+      assertValidCompilationState(compiledMacrosState, List(build.macroProject))
+      assertNoDiff(
+        logger.compilingInfos.mkString(System.lineSeparator()),
+        s"""
+           |Compiling macros (1 Scala source)
+         """.stripMargin
+      )
+
+      val compileStartPromises =
+        new mutable.HashMap[scalabsp.BuildTargetIdentifier, Promise[Unit]]()
+      val startedProjectCompilation = Promise[Unit]()
+      compileStartPromises.put(build.userProject.bspId, startedProjectCompilation)
+
+      val projects = List(build.macroProject, build.userProject)
+      loadBspState(
+        build.workspace,
+        projects,
+        logger1,
+        compileStartPromises = Some(compileStartPromises)
+      ) { bspState =>
+        val firstRunExecution = bspState.runHandle(build.userProject)
+
+        val secondCompilation = Task
+          .fromFuture(startedProjectCompilation.future)
+          .flatMap(_ => compiledMacrosState.withLogger(logger2).runTask(build.userProject))
+          .runAsync(ExecutionContext.ioScheduler)
+
+        val firstRunState = waitInSeconds(firstRunExecution, 10)(logger1.writeToFile("1"))
+        val secondCompiledState = TestUtil.blockOnTask(Task.fromFuture(secondCompilation), 3)
+
+        assert(firstRunState.status == ExitStatus.Ok)
+        assert(secondCompiledState.status == ExitStatus.Ok)
+
+        // We get the same class files in all their external directories
+        assertValidCompilationState(firstRunState, projects)
+        assertValidCompilationState(secondCompiledState, projects)
+        assertSameExternalClassesDirs(
+          secondCompiledState,
+          firstRunState.toTestState,
+          projects
+        )
+
+        checkDeduplication(logger2, isDeduplicated = true)
+
+        assertNoDiff(
+          firstRunState.lastDiagnostics(build.userProject),
+          """#1: task start 2
+            |  -> Msg: Compiling user (32 Scala sources)
+            |  -> Data kind: compile-task
+            |#1: task finish 2
+            |  -> errors 0, warnings 0
+            |  -> Msg: Compiled 'user'
+            |  -> Data kind: compile-report
+        """.stripMargin
+        )
+
+        assertNoDiff(
+          logger2.compilingInfos.mkString(System.lineSeparator()),
+          s"""
+             |Compiling user (32 Scala sources)
+         """.stripMargin
+        )
+
+        assertNoDiff(
+          logger1.captureTimeInsensitiveInfos
+            .filterNot(_.contains("127.0.0.1"))
+            .filterNot(_.contains("build/initialize"))
+            .filterNot(_.contains("BSP"))
+            .mkString(System.lineSeparator()),
+          s"""
+             |Hello, World!
+             |Hello, World!
+             |Hello, World!
+             |Hello, World!
+             |Hello, World!
+             |Hello, World!
+             |Hello, World!
+             |Hello, World!
+             |Hello, World!
+             |Hello, World!
+             |Hello, World!
+             |Hello, World!
+             |Hello, World!
+             |Hello, World!
+             |Hello, World!
+             |Hello, World!
+             |Hello, World!
+             |Hello, World!
+             |Hello, World!
+             |Hello, World!
+             |Hello, World!
+             |Hello, World!
+             |Hello, World!
+             |Hello, World!
+             |Hello, World!
+             |Hello, World!
+             |Hello, World!
+             |Hello, World!
+             |Hello, World!
+             |Hello, World!
+          """.stripMargin
+        )
+
+        assertNoDiff(
+          logger2.renderTimeInsensitiveInfos,
+          s"""
+             |Deduplicating compilation of user from bsp client 'test-bloop-client 1.0.0' (since ???
+             |Compiling user (32 Scala sources)
+             |Compiled user ???
+             |Hello, World!
+             |Hello, World!
+             |Hello, World!
+             |Hello, World!
+             |Hello, World!
+             |Hello, World!
+             |Hello, World!
+             |Hello, World!
+             |Hello, World!
+             |Hello, World!
+             |Hello, World!
+             |Hello, World!
+             |Hello, World!
+             |Hello, World!
+             |Hello, World!
+             |Hello, World!
+             |Hello, World!
+             |Hello, World!
+             |Hello, World!
+             |Hello, World!
+             |Hello, World!
+             |Hello, World!
+             |Hello, World!
+             |Hello, World!
+             |Hello, World!
+             |Hello, World!
+             |Hello, World!
+             |Hello, World!
+             |Hello, World!
+             |Hello, World!
+          """.stripMargin
+        )
+      }
+    }
+  }
 }

@@ -326,9 +326,11 @@ object BloopDefaults {
   def generateBloopProductDirectories: Def.Initialize[File] = Def.setting {
     val configuration = Keys.configuration.value
     val bloopTarget = BloopKeys.bloopTargetDir.value
+    val isOffloadingEnabled = Offloader.isOffloadingEnabled.value
     Keys.classDirectory.?.value match {
-      case Some(value) => value
-      case None =>
+      // TODO: Use shared classes dir between bloop and sbt by default in next release
+      case Some(value) if isOffloadingEnabled => value
+      case _ =>
         val bloopClassesDir = bloopTarget / (Defaults.prefix(configuration.name) + "classes")
         if (!bloopClassesDir.exists()) sbt.IO.createDirectory(bloopClassesDir)
         bloopClassesDir

@@ -738,6 +738,9 @@ object Offloader {
     BloopCompileKeys.bloopCompilerReporterInternal.set(bloopCompilerReporterTask, sbtBloopPosition)
   )
 
+  val isOffloadingEnabled: Def.Initialize[Boolean] =
+    Def.setting(BloopCompileKeys.bloopCompileStateAtBootTimeInternal.value.get() != null)
+
   lazy val bloopCompileProjectSettings: Seq[Def.Setting[_]] = List(
     BloopCompileKeys.bloopDisableCompilation.set(bloopDisableCompilationTask, sbtBloopPosition),
     BloopCompileKeys.bloopCleanInternal.set(bloopClean, sbtBloopPosition),

@@ -14,7 +14,6 @@ import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{Promise, TimeoutException}
 import bloop.engine.ExecutionContext
 
-import com.microsoft.java.debug.core.protocol.Types.Capabilities
 import com.microsoft.java.debug.core.protocol.Requests.SetBreakpointArguments
 import com.microsoft.java.debug.core.protocol.Types
 import com.microsoft.java.debug.core.protocol.Types.SourceBreakpoint
@@ -115,7 +114,13 @@ object DebugServerSpec extends DebugBspBaseSuite {
             output <- client.takeCurrentOutput
           } yield {
             assert(client.socket.isClosed)
-            assertNoDiff(output, "Hello, World!")
+            assertNoDiff(
+              output.linesIterator
+                .filterNot(_.contains("ERROR: JDWP Unable to get JNI 1.2 environment"))
+                .filterNot(_.contains("JDWP exit error AGENT_ERROR_NO_JNI_ENV"))
+                .mkString(System.lineSeparator),
+              "Hello, World!"
+            )
           }
 
           TestUtil.await(FiniteDuration(60, SECONDS), ExecutionContext.ioScheduler)(test)
@@ -220,7 +225,7 @@ object DebugServerSpec extends DebugBspBaseSuite {
         startDebugServer(runner) { server =>
           val test = for {
             client <- server.startConnection
-            capabilities <- client.initialize()
+            _ <- client.initialize()
             _ <- client.launch()
             _ <- client.initialized
             scalaBreakpointsResult <- client.setBreakpoints(scalaBreakpoints)
@@ -257,6 +262,86 @@ object DebugServerSpec extends DebugBspBaseSuite {
                  |Breakpoint in hello java class constructor
                  |Breakpoint in hello java greet method
                  |Finished all breakpoints
+                 |""".stripMargin
+            )
+          }
+
+          TestUtil.await(FiniteDuration(60, SECONDS), ExecutionContext.ioScheduler)(test)
+        }
+      }
+    }
+  }
+
+  test("requesting stack traces and variables after breakpoints works") {
+    TestUtil.withinWorkspace { workspace =>
+      val source = """|/Main.scala
+                      |object Main {
+                      |  def main(args: Array[String]): Unit = {
+                      |    val foo = new Foo
+                      |    println(foo)
+                      |  }
+                      |}
+                      |
+                      |class Foo {
+                      |  override def toString = "foo"
+                      |}
+                      |""".stripMargin
+
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val project = TestProject(workspace, "r", List(source))
+
+      loadBspState(workspace, List(project), logger) { state =>
+        val runner = mainRunner(project, state)
+
+        val buildProject = state.toTestState.getProjectFor(project)
+        def srcFor(srcName: String) =
+          buildProject.sources.map(_.resolve(srcName)).find(_.exists).get
+        val `Main.scala` = srcFor("Main.scala")
+
+        val breakpoints = {
+          val arguments = new SetBreakpointArguments()
+          val breakpoint1 = new SourceBreakpoint()
+          breakpoint1.line = 4
+          arguments.source = new Types.Source(`Main.scala`.syntax, 0)
+          arguments.sourceModified = false
+          arguments.breakpoints = Array(breakpoint1)
+          arguments
+        }
+
+        startDebugServer(runner) { server =>
+          val test = for {
+            client <- server.startConnection
+            _ <- client.initialize()
+            _ <- client.launch()
+            _ <- client.initialized
+            breakpoints <- client.setBreakpoints(breakpoints)
+            _ = assert(breakpoints.breakpoints.forall(_.verified))
+            _ <- client.configurationDone()
+            stopped <- client.stopped
+            stackTrace <- client.stackTrace(stopped.threadId)
+            topFrame <- stackTrace.stackFrames.headOption
+              .map(Task.now)
+              .getOrElse(Task.raiseError(new NoSuchElementException("no frames on the stack")))
+            scopes <- client.scopes(topFrame.id)
+            localScope <- scopes.scopes
+              .find(_.name == "Local")
+              .map(Task.now)
+              .getOrElse(Task.raiseError(new NoSuchElementException("no local scope")))
+            localVars <- client.variables(localScope.variablesReference)
+            _ <- client.continue(stopped.threadId)
+            _ <- client.exited
+            _ <- client.terminated
+            _ <- Task.fromFuture(client.closedPromise.future)
+          } yield {
+            assert(client.socket.isClosed)
+            val localVariables = localVars.variables
+              .map(v => s"${v.name}: ${v.`type`} = ${v.value.takeWhile(c => c != '@')}")
+
+            assertNoDiff(
+              localVariables.mkString("\n"),
+              """|args: String[] = String[0]
+                 |foo: Foo = Foo
+                 |this: Main$ = Main$
                  |""".stripMargin
             )
           }

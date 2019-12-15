@@ -213,6 +213,50 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
       }
     }
 
+    def runTask(
+        project: TestProject,
+        originId: Option[String],
+        clearDiagnostics: Boolean = true
+    ): Task[ManagedBspTestState] = {
+      runAfterTargets(project) { target =>
+        // Handle internal state before sending compile request
+        if (clearDiagnostics) diagnostics.clear()
+        currentCompileIteration.increment(1)
+
+        BuildTarget.run.request(bsp.RunParams(target, originId, None, None, None)).flatMap {
+          case Right(r) =>
+            // `headL` returns latest saved state from bsp because source is behavior subject
+            serverStates.headL.map { state =>
+              new ManagedBspTestState(
+                state,
+                r.statusCode,
+                currentCompileIteration,
+                diagnostics,
+                client0,
+                serverStates
+              )
+            }
+          case Left(e) => fail(s"Running error for request ${e.id}:\n${e.error}")
+        }
+      }
+    }
+
+    def runHandle(
+        project: TestProject,
+        delay: Option[FiniteDuration] = None,
+        userScheduler: Option[Scheduler] = None
+    ): CancelableFuture[ManagedBspTestState] = {
+      val interpretedTask = {
+        val task = runTask(project, None)
+        delay match {
+          case Some(duration) => task.delayExecution(duration)
+          case None => task
+        }
+      }
+
+      interpretedTask.runAsync(userScheduler.getOrElse(ExecutionContext.scheduler))
+    }
+
     def requestSources(project: TestProject): bsp.SourcesResult = {
       val sourcesTask = {
         endpoints.BuildTarget.sources.request(bsp.SourcesParams(List(project.bspId))).map {

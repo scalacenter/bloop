@@ -156,7 +156,7 @@ class ForkerSpec {
           assert(messages.contains(("debug", charLimitMsg)))
 
           val cleanupMessage = messages.filter(isCleanupMessage)
-          assertEquals(cleanupMessage.size, 1)
+          assertEquals(cleanupMessage.size.toLong, 1L)
 
           val tempManifestJar = Paths.get(cleanupMessage.head._2.stripPrefix(cleanupPrefix))
           assert(tempManifestJar.isAbsolute)

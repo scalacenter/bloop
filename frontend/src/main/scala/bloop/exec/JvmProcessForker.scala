@@ -113,23 +113,6 @@ final class JvmForker(config: JdkConfig, classpath: Array[AbsolutePath]) extends
       extraClasspath: Array[AbsolutePath]
   ): Task[Int] = {
 
-    def logDebugIfVerbose(debugMsg: => String): Task[Unit] =
-      if (logger.isVerbose) {
-        Task(logger.debug(debugMsg)(DebugFilter.All))
-      } else {
-        Task.unit
-      }
-
-    def runCmd(cmd: List[String]): Task[Int] = {
-      def debugOptions =
-        s"""
-           |Fork options:
-           |   command      = '${cmd.mkString(" ")}'
-           |   cwd          = '$cwd'""".stripMargin
-
-      logDebugIfVerbose(debugOptions).flatMap(_ => Forker.run(cwd, cmd, logger, opts))
-    }
-
     val jvmOptions = jargs.map(_.stripPrefix("-J")) ++ config.javaOptions
     val fullClasspath = classpath ++ extraClasspath
     val fullClasspathStr = fullClasspath.map(_.syntax).mkString(File.pathSeparator)
@@ -145,21 +128,22 @@ final class JvmForker(config: JdkConfig, classpath: Array[AbsolutePath]) extends
 
       // Note that we current only shorten the classpath portion and not other options
       // Thus we do not yet *guarantee* that the command will not exceed OS limits
-      if (cmdLength > processCmdCharLimit) {
-        def charLimitMsg =
-          s"""|Supplied command to fork exceeds character limit of $processCmdCharLimit
-              |Creating a temporary MANIFEST jar for classpath entries
-              |""".stripMargin
-
-        logDebugIfVerbose(charLimitMsg).flatMap { _ =>
-          withTempManifestJar(fullClasspath, logger) { manifestJar =>
-            val shortClasspathOption = "-cp" :: manifestJar.syntax :: Nil
-            val shortCmd = java.syntax :: jvmOptions.toList ::: shortClasspathOption ::: appOptions
-            runCmd(shortCmd)
-          }
-        }
+      if (cmdLength <= processCmdCharLimit) {
+        Forker.run(cwd, cmd, logger, opts)
       } else {
-        runCmd(cmd)
+        if (logger.isVerbose) {
+          logger.debug(
+            s"""|Supplied command to fork exceeds character limit of $processCmdCharLimit
+                |Creating a temporary MANIFEST jar for classpath entries
+                |""".stripMargin
+          )(DebugFilter.Link)
+        }
+
+        withTempManifestJar(fullClasspath, logger) { manifestJar =>
+          val shortClasspathOption = "-cp" :: manifestJar.syntax :: Nil
+          val shortCmd = java.syntax :: jvmOptions.toList ::: shortClasspathOption ::: appOptions
+          Forker.run(cwd, shortCmd, logger, opts)
+        }
       }
     }
   }
@@ -178,6 +162,7 @@ final class JvmForker(config: JdkConfig, classpath: Array[AbsolutePath]) extends
       Paths.delete(manifestJarAbs)
     }
 
+    // Add trailing slash to directories so that manifest dir entries work
     val classpathStr = classpath.map(addTrailingSlashToDirectories).mkString(" ")
 
     val manifest = new Manifest()
@@ -202,8 +187,6 @@ final class JvmForker(config: JdkConfig, classpath: Array[AbsolutePath]) extends
       .doOnCancel(cleanup)
   }
 
-  // Turns out manifest files can use absolute path directories in the classpath
-  // But they need a trailing slash
   private def addTrailingSlashToDirectories(path: AbsolutePath): String = {
     val syntax = path.syntax
     val separatorAdded = if (syntax.endsWith(".jar")) {
