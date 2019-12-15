@@ -114,7 +114,13 @@ object DebugServerSpec extends DebugBspBaseSuite {
             output <- client.takeCurrentOutput
           } yield {
             assert(client.socket.isClosed)
-            assertNoDiff(output, "Hello, World!")
+            assertNoDiff(
+              output.linesIterator
+                .filterNot(_.contains("ERROR: JDWP Unable to get JNI 1.2 environment"))
+                .filterNot(_.contains("JDWP exit error AGENT_ERROR_NO_JNI_ENV"))
+                .mkString(System.lineSeparator),
+              "Hello, World!"
+            )
           }
 
           TestUtil.await(FiniteDuration(60, SECONDS), ExecutionContext.ioScheduler)(test)

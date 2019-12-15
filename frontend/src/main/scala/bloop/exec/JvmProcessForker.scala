@@ -118,15 +118,7 @@ final class JvmForker(config: JdkConfig, classpath: Array[AbsolutePath]) extends
       val classpathOption = "-cp" :: fullClasspath :: Nil
       val appOptions = mainClass :: args.toList
       val cmd = java.syntax :: jvmOptions.toList ::: classpathOption ::: appOptions
-      val logTask = if (logger.isVerbose) {
-        val debugOptions =
-          s"""
-             |Fork options:
-             |   command      = '${cmd.mkString(" ")}'
-             |   cwd          = '$cwd'""".stripMargin
-        Task(logger.debug(debugOptions)(DebugFilter.All))
-      } else Task.unit
-      logTask.flatMap(_ => Forker.run(cwd, cmd, logger, opts))
+      Forker.run(cwd, cmd, logger, opts)
     }
   }
 
