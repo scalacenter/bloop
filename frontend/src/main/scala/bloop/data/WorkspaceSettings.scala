@@ -54,7 +54,9 @@ object WorkspaceSettings {
   private[bloop] val settingsFileName = RelativePath("bloop.settings.json")
 
   private implicit val codecSettings: JsonValueCodec[WorkspaceSettings] =
-    JsonCodecMaker.make[WorkspaceSettings](CodecMakerConfig.withTransientEmpty(false))
+    JsonCodecMaker.make[WorkspaceSettings](
+      CodecMakerConfig.withTransientEmpty(false).withRequireCollectionFields(true)
+    )
   import com.github.plokhotnyuk.jsoniter_scala.{core => jsoniter}
   def readFromFile(configPath: AbsolutePath, logger: Logger): Option[WorkspaceSettings] = {
     val settingsPath = configPath.resolve(settingsFileName)
