@@ -293,7 +293,7 @@ object Project {
     val hydraStoreDir = hydraBaseDir.resolve(hydraTag)
     val hydraTimingsFile = hydraBaseDir.resolve("timings.csv")
     val hydraPartitionFile = hydraStoreDir.resolve("partition.hydra")
-    val hydraMetricsDir = homeDir.resolve(".triplequote").createDirectories
+    val hydraMetricsDir = homeDir.resolve(".triplequote").resolve("metrics").createDirectories
     val hydraSourcePartitioner = "auto"
     val hydraSourcepath = project.sources.mkString(java.io.File.pathSeparator)
 
