@@ -6,7 +6,7 @@ import bloop.logging.RecordingLogger
 import bloop.cli.{Commands, ExitStatus}
 import bloop.engine.{Feedback, Run, State, ExecutionContext}
 import bloop.engine.caches.ResultsCache
-import bloop.util.{TestProject, TestUtil, BuildUtil}
+import bloop.util.{TestUtil, BuildUtil}
 
 import java.nio.file.{Files, Paths}
 import java.util.concurrent.TimeUnit
@@ -24,8 +24,13 @@ import java.io.ByteArrayOutputStream
 import java.io.PrintStream
 import java.nio.charset.StandardCharsets
 import bloop.testing.DiffAssertions
+import bloop.util.BaseTestProject
 
 abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
+  protected def TestProject: BaseTestProject
+
+  protected def extraCompilationMessageOutput: String = ""
+
   test("compile a project twice with no input changes produces a no-op") {
     TestUtil.withinWorkspace { workspace =>
       val sources = List(
@@ -1350,7 +1355,7 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
             val scalacOptions = "-Ycache-plugin-class-loader:none" :: currentOptions
             val newScala = whitelistProject.config.scala.map(_.copy(options = scalacOptions))
             val newWhitelistProject =
-              new TestProject(whitelistProject.config.copy(scala = newScala), None)
+              new util.TestProject(whitelistProject.config.copy(scala = newScala), None)
             val newProjects = newWhitelistProject :: remainingProjects
             val configDir = populateWorkspace(build, List(newWhitelistProject))
             newWhitelistProject -> loadState(workspace, newProjects, logger)
@@ -1469,10 +1474,12 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
       Await.result(runCompile.runAsync(ExecutionContext.ioScheduler), FiniteDuration(10, "s"))
 
       val actionsOutput = new String(testOut.toByteArray(), StandardCharsets.UTF_8)
+      def removeAsciiColorCodes(line: String): String = line.replaceAll("\u001B\\[[;\\d]*m", "")
 
       val expected = actionsOutput
         .split(System.lineSeparator())
         .filterNot(_.startsWith("Compiled"))
+        .map(removeAsciiColorCodes)
         .map(msg => RecordingLogger.replaceTimingInfo(msg))
         .mkString(System.lineSeparator())
         .replaceAll("'(bloop-cli-.*)'", "'bloop-cli'")
@@ -1481,20 +1488,22 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
       try {
         assertNoDiff(
           expected,
-          """Compiling a (1 Scala source)
-            |Deduplicating compilation of a from cli client ??? (since ???
-            |Compiling a (1 Scala source)
-            |""".stripMargin
+          s"""Compiling a (1 Scala source)
+             |Deduplicating compilation of a from cli client ??? (since ???
+             |Compiling a (1 Scala source)
+             |$extraCompilationMessageOutput
+             |""".stripMargin
         )
       } catch {
         case _: DiffAssertions.TestFailedException =>
           assertNoDiff(
             expected,
-            """
-              |Deduplicating compilation of a from cli client ??? (since ???
-              |Compiling a (1 Scala source)
-              |Compiling a (1 Scala source)
-              |""".stripMargin
+            s"""
+               |Deduplicating compilation of a from cli client ??? (since ???
+               |Compiling a (1 Scala source)
+               |Compiling a (1 Scala source)
+               |$extraCompilationMessageOutput
+               |""".stripMargin
           )
       }
     }

@@ -8,13 +8,14 @@ import bloop.bsp.ProjectUris
 import bloop.config.Config
 import bloop.data.JdkConfig
 import bloop.io.{AbsolutePath, Paths, RelativePath}
-import bloop.logging.NoopLogger
+import bloop.logging.{Logger, NoopLogger}
 import bloop.util.TestUtil.ProjectArchetype
 import bloop.config.ConfigCodecs
 
 import ch.epfl.scala.bsp
 
 import scala.tools.nsc.Properties
+import scala.concurrent.ExecutionContext
 import bloop.data.ClientInfo.CliClientInfo
 
 final case class TestProject(
@@ -73,7 +74,9 @@ final case class TestProject(
   }
 }
 
-object TestProject {
+object TestProject extends BaseTestProject
+
+abstract class BaseTestProject {
   def apply(
       baseDir: AbsolutePath,
       name: String,
@@ -104,9 +107,8 @@ object TestProject {
 
     val finalScalaOrg = scalaOrg.getOrElse("org.scala-lang")
     val finalScalaCompiler = scalaCompiler.getOrElse("scala-compiler")
-    val instance = scalaVersion
-      .map(v => ScalaInstance.apply(finalScalaOrg, finalScalaCompiler, v, jars.toList, NoopLogger))
-      .getOrElse(TestUtil.scalaInstance)
+    val instance =
+      mkScalaInstance(finalScalaOrg, finalScalaCompiler, scalaVersion, jars.toList, NoopLogger)
 
     val allJars = instance.allJars.map(AbsolutePath.apply)
     val depsTargets = directDependencies.flatMap(d => classpathDeps(d))
@@ -153,6 +155,17 @@ object TestProject {
 
     TestProject(config, Some(directDependencies))
   }
+
+  protected def mkScalaInstance(
+      scalaOrg: String,
+      scalaName: String,
+      scalaVersion: Option[String],
+      allJars: Seq[AbsolutePath],
+      logger: Logger
+  )(implicit ec: ExecutionContext): ScalaInstance =
+    scalaVersion
+      .map(v => ScalaInstance.apply(scalaOrg, scalaName, v, allJars, logger))
+      .getOrElse(TestUtil.scalaInstance)
 
   def populateWorkspaceInConfigDir(
       configDir: AbsolutePath,
