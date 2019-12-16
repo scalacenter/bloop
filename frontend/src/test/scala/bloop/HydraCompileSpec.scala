@@ -3,6 +3,7 @@ package bloop
 import java.net.URI
 import java.nio.file.Paths
 
+import bloop.{DependencyResolution => BloopDependencyResolution}
 import bloop.io.AbsolutePath
 import bloop.logging.Logger
 import coursier.maven.MavenRepository
@@ -30,9 +31,14 @@ object HydraCompileSpec extends BaseCompileSpec {
     )(implicit ec: ExecutionContext): ScalaInstance = {
       val version = scalaVersion.getOrElse(Properties.versionNumberString)
       val allPaths = DependencyResolution.resolve(
-        "com.triplequote",
-        s"hydra_$version",
-        HydraVersion,
+        List(
+          BloopDependencyResolution
+            .Artifact(
+              "com.triplequote",
+              s"hydra_$version",
+              HydraVersion
+            )
+        ),
         logger,
         resolveSources = false,
         additionalRepos = Seq(TriplequoteResolver)

@@ -316,9 +316,14 @@ private[inc] class BloopComponentCompiler(
       hydraBridgeModule: ModuleID
   ): Either[InvalidComponent, Vector[File]] = {
     val hydraSourcesJars = BloopDependencyResolution.resolveWithErrors(
-      hydraBridgeModule.organization,
-      hydraBridgeModule.name,
-      hydraBridgeModule.revision,
+      List(
+        BloopDependencyResolution
+          .Artifact(
+            hydraBridgeModule.organization,
+            hydraBridgeModule.name,
+            hydraBridgeModule.revision
+          )
+      ),
       logger,
       resolveSources = true,
       additionalRepositories = List(HydraSupport.resolver)
