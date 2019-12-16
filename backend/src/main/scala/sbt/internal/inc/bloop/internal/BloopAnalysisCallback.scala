@@ -115,7 +115,7 @@ final class BloopAnalysisCallback(
       val map = if (reported) reportedProblems else unreportedProblems
       map
         .getOrElseUpdate(source, new mutable.ListBuffer())
-        .+=(InterfaceUtil.problem(category, pos, msg, severity))
+        .+=(InterfaceUtil.problem(category, pos, msg, severity, None))
     }
   }
 
