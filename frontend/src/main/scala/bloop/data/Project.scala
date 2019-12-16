@@ -306,8 +306,7 @@ object Project {
     val sourcepathOption = ("-sourcepath", hydraSourcepath)
     val sourcePartitionerOption = (s"-YsourcePartitioner:$hydraSourcePartitioner", "")
 
-    // FIXME: Make the number of workers configurable (2 should stay the default)
-    val hydraCpus = ("-cpus", "2")
+    val hydraCpus = ("-cpus", sys.props.get("bloop.hydra.cpus").getOrElse("2"))
     val allHydraOptions = List(
       storeOption,
       rootDirOption,
