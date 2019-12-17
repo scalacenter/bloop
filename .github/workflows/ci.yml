@@ -14,6 +14,8 @@ jobs:
         os: [ubuntu-latest, windows-latest, macOS-latest]
         jdk: [graalvm@19.2.1, adopt@1.11]
     name: Test ${{ matrix.os }} -- ${{ matrix.jdk }}
+    env:
+      HYDRA_LICENSE: ${{ secrets.HYDRA_LICENSE }}
     steps:
       - uses: actions/checkout@v1
         with:
@@ -38,6 +40,7 @@ jobs:
         shell: bash
       - name: Compile and test main projects
         run: |
+          mkdir -p $HOME/.triplequote && echo "$HYDRA_LICENSE" > "$HOME/.triplequote/hydra.license"
           ./bin/sbt-ci.sh \
               "frontend/test:compile" \
               "sbtBloop013/compile" \
