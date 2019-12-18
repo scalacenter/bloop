@@ -34,7 +34,7 @@ import monix.execution.misc.NonFatal
 import bloop.logging.RecordingLogger
 import bloop.logging.BspServerLogger
 
-class BaseSuite extends TestSuite with BloopHelpers {
+abstract class BaseSuite extends TestSuite with BloopHelpers {
   val pprint = _root_.pprint.PPrinter.BlackWhite
   def isWindows: Boolean = bloop.util.CrossPlatform.isWindows
   def isAppveyor: Boolean = "True" == System.getenv("APPVEYOR")

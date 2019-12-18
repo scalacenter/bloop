@@ -120,14 +120,24 @@ final case class Project(
 }
 
 object Project {
+  private implicit val filter = DebugFilter.All
   final implicit val ps: scalaz.Show[Project] =
     new scalaz.Show[Project] { override def shows(f: Project): String = f.name }
 
-  def defaultPlatform(logger: Logger, jdkConfig: Option[JdkConfig] = None): Platform = {
-    val platform = Config.Platform.Jvm(Config.JvmConfig.empty, None)
-    val env = jdkConfig.getOrElse(JdkConfig.fromConfig(platform.config))
-    val toolchain = JvmToolchain.resolveToolchain(platform, logger)
-    Platform.Jvm(env, toolchain, platform.mainClass)
+  private final class ProjectReadException(msg: String, cause: Throwable)
+      extends RuntimeException(msg, cause)
+
+  def fromBytesAndOrigin(bytes: Array[Byte], origin: Origin, logger: Logger): Project = {
+    logger.debug(s"Loading project from '${origin.path}'")(DebugFilter.All)
+    ConfigCodecs.read(bytes) match {
+      case Left(failure) =>
+        throw new ProjectReadException(s"Failed to load project from ${origin.path}", failure)
+      case Right(file) =>
+        val project = Project.fromConfig(file, origin, logger)
+        val skipHydraChanges = !project.scalaInstance.map(_.supportsHydra).getOrElse(false)
+        if (skipHydraChanges) project
+        else enableHydraSettings(project, logger)
+    }
   }
 
   def fromConfig(file: Config.File, origin: Origin, logger: Logger): Project = {
@@ -195,12 +205,11 @@ object Project {
     )
   }
 
-  def fromBytesAndOrigin(bytes: Array[Byte], origin: Origin, logger: Logger): Project = {
-    logger.debug(s"Loading project from '${origin.path}'")(DebugFilter.All)
-    ConfigCodecs.read(bytes) match {
-      case Left(failure) => throw failure
-      case Right(file) => Project.fromConfig(file, origin, logger)
-    }
+  def defaultPlatform(logger: Logger, jdkConfig: Option[JdkConfig] = None): Platform = {
+    val platform = Config.Platform.Jvm(Config.JvmConfig.empty, None)
+    val env = jdkConfig.getOrElse(JdkConfig.fromConfig(platform.config))
+    val toolchain = JvmToolchain.resolveToolchain(platform, logger)
+    Platform.Jvm(env, toolchain, platform.mainClass)
   }
 
   /**
@@ -266,5 +275,62 @@ object Project {
 
   def isSemanticdbSourceRoot(option: String): Boolean = {
     option.contains("semanticdb:sourceroot")
+  }
+
+  def enableHydraSettings(project: Project, logger: Logger): Project = {
+    val homeDir = AbsolutePath(sys.props("user.home"))
+    val workspaceDir = project.workspaceDirectory.getOrElse {
+      val assumedWorkspace = project.origin.path.getParent
+      logger.debug(s"Missing workspace dir for project ${project.name}, assuming $assumedWorkspace")
+      assumedWorkspace
+    }
+
+    // Project is unique and derived from project name and ivy project configuration
+    val hydraTag = project.name
+
+    val hydraRootBaseDir = workspaceDir.resolve(".hydra").createDirectories
+    val hydraBaseDir = hydraRootBaseDir.resolve("bloop").createDirectories
+    val hydraStoreDir = hydraBaseDir.resolve(hydraTag)
+    val hydraTimingsFile = hydraBaseDir.resolve("timings.csv")
+    val hydraPartitionFile = hydraStoreDir.resolve("partition.hydra")
+    val hydraMetricsDir = homeDir.resolve(".triplequote").resolve("metrics").createDirectories
+    val hydraSourcePartitioner = "auto"
+    val hydraSourcepath = project.sources.mkString(java.io.File.pathSeparator)
+
+    val storeOption = ("-YhydraStore", hydraStoreDir.syntax)
+    val rootDirOption = ("-YrootDirectory", workspaceDir.syntax)
+    val timingsFileOption = ("-YtimingsFile", hydraTimingsFile.syntax)
+    val partitionFileOption = ("-YpartitionFile", hydraPartitionFile.syntax)
+    val metricsDirOption = ("-YhydraMetricsDirectory", hydraMetricsDir.syntax)
+    val hydraTagOption = ("-YhydraTag", hydraTag)
+    val sourcepathOption = ("-sourcepath", hydraSourcepath)
+    val sourcePartitionerOption = (s"-YsourcePartitioner:$hydraSourcePartitioner", "")
+
+    val hydraCpus = ("-cpus", sys.props.get("bloop.hydra.cpus").getOrElse("2"))
+    val allHydraOptions = List(
+      storeOption,
+      rootDirOption,
+      timingsFileOption,
+      partitionFileOption,
+      metricsDirOption,
+      hydraTagOption,
+      sourcepathOption,
+      sourcePartitionerOption,
+      hydraCpus
+    )
+
+    val optionsWithConflicts =
+      project.scalacOptions.filter(option => allHydraOptions.exists(option == _._1)).toSet
+    val newScalacOptionsBuf = new mutable.ListBuffer[String]
+    project.scalacOptions.foreach(oldOption => newScalacOptionsBuf.+=(oldOption))
+    allHydraOptions.foreach {
+      case (key, value) =>
+        // Do nothing if there's a conflict with a user-defined setting
+        if (optionsWithConflicts.contains(key)) ()
+        else newScalacOptionsBuf.+=(key).+=(value)
+    }
+
+    val newScalacOptions = newScalacOptionsBuf.toList
+    project.copy(scalacOptions = newScalacOptions)
   }
 }

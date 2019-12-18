@@ -40,7 +40,8 @@ final class BspServerLogger private (
   override def isVerbose: Boolean = underlying.isVerbose
   override def asDiscrete: Logger =
     new BspServerLogger(name, underlying.asDiscrete, client, taskIdCounter, ansiSupported, originId)
-  override def asVerbose: Logger =
+  override def asVerbose: Logger = asBspServerVerbose
+  def asBspServerVerbose: BspServerLogger =
     new BspServerLogger(name, underlying.asVerbose, client, taskIdCounter, ansiSupported, originId)
   override def withOriginId(originId: Option[String]): BspServerLogger =
     new BspServerLogger(name, underlying, client, taskIdCounter, ansiSupported, originId)

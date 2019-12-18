@@ -373,7 +373,7 @@ final class BloopBspServices(
       s"${p.name} [${elapsedMs}ms] (errors ${count.errors})"
     }
 
-    val pipeline = compileArgs.exists(_ == "--pipeline")
+    val isPipeline = compileArgs.exists(_ == "--pipeline")
     def compile(projects: List[Project]): Task[State] = {
       val cwd = state.build.origin.getParent
       val config = ReporterConfig.defaultFormat.copy(reverseOrder = false)
@@ -423,7 +423,7 @@ final class BloopBspServices(
         state,
         dag,
         createReporter,
-        pipeline,
+        isPipeline,
         false,
         cancelCompilation,
         store,
@@ -476,14 +476,16 @@ final class BloopBspServices(
   }
 
   def compile(params: bsp.CompileParams): BspEndpointResponse[bsp.CompileResult] = {
-    ifInitialized(params.originId) { (state: State, logger: BspServerLogger) =>
+    ifInitialized(params.originId) { (state: State, logger0: BspServerLogger) =>
       mapToProjects(params.targets, state) match {
         case Left(error) =>
           // Log the mapping error to the user via a log event + an error status code
-          logger.error(error)
+          logger0.error(error)
           Task.now((state, Right(bsp.CompileResult(None, bsp.StatusCode.Error, None, None))))
         case Right(mappings) =>
           val compileArgs = params.arguments.getOrElse(Nil)
+          val isVerbose = compileArgs.exists(_ == "--verbose")
+          val logger = logger0.asBspServerVerbose
           compileProjects(mappings, state, compileArgs, params.originId, logger)
       }
     }
@@ -625,14 +627,16 @@ final class BloopBspServices(
     }
 
     val originId = params.originId
-    ifInitialized(originId) { (state: State, logger: BspServerLogger) =>
+    ifInitialized(originId) { (state: State, logger0: BspServerLogger) =>
       mapToProjects(params.targets, state) match {
         case Left(error) =>
           // Log the mapping error to the user via a log event + an error status code
-          logger.error(error)
+          logger0.error(error)
           Task.now((state, Right(bsp.TestResult(originId, bsp.StatusCode.Error, None, None))))
         case Right(mappings) =>
           val args = params.arguments.getOrElse(Nil)
+          val isVerbose = args.exists(_ == "--verbose")
+          val logger = logger0.asBspServerVerbose
           compileProjects(mappings, state, args, originId, logger).flatMap {
             case (newState, compileResult) =>
               compileResult match {
@@ -757,14 +761,16 @@ final class BloopBspServices(
     }
 
     val originId = params.originId
-    ifInitialized(originId) { (state: State, logger: BspServerLogger) =>
+    ifInitialized(originId) { (state: State, logger0: BspServerLogger) =>
       mapToProject(params.target, state) match {
         case Left(error) =>
           // Log the mapping error to the user via a log event + an error status code
-          logger.error(error)
+          logger0.error(error)
           Task.now((state, Right(bsp.RunResult(originId, bsp.StatusCode.Error))))
         case Right((tid, project)) =>
           val args = params.arguments.getOrElse(Nil)
+          val isVerbose = args.exists(_ == "--verbose")
+          val logger = logger0.asBspServerVerbose
           compileProjects(List((tid, project)), state, args, originId, logger).flatMap {
             case (newState, compileResult) =>
               compileResult match {
