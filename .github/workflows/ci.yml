@@ -86,7 +86,7 @@ jobs:
   release:
     name: Publish on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' || github.event_name == 'tag'
     strategy:
       fail-fast: true
       matrix:
@@ -136,3 +136,6 @@ jobs:
           echo "$PGP_PRIVATE_KEY" > "$HOME/.sbt/gpg/secring.asc"
           ./bin/sbt-ci-publish.sh "releaseBloop" "docs/docusaurusPublishGhpages"
         shell: bash
+      - name: Cut GitHub release and update installers on ${{ matrix.os }}
+        run: |
+          ./bin/sbt-ci-release.sh "frontend/updateHomebrewFormula" "frontend/updateScoopFormula" "frontend/updateArchPackage" "frontend/githubRelease"
