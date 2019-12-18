@@ -152,7 +152,7 @@ def macos_launch_script_contents(is_local):
 def generate_bat(bloop_client_target):
     contents = """
     @echo off
-    python %s %%*
+    python "%s" %%*
     """ % bloop_client_target
     return textwrap.dedent(contents)
 
