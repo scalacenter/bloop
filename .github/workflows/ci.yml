@@ -1,6 +1,8 @@
 name: Continuous Integration
 on:
   push:
+    tags:
+      - **
     branches:
       - master
   pull_request:
