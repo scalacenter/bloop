@@ -89,7 +89,7 @@ jobs:
   release:
     name: Publish on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
-    if: github.event_name == 'push' || github.event_name == 'tag'
+    if: github.event_name == 'push'
     strategy:
       fail-fast: true
       matrix:
