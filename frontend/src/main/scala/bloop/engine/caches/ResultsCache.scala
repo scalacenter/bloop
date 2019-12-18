@@ -35,6 +35,7 @@ import monix.execution.misc.NonFatal
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.ConcurrentHashMap
 import sbt.internal.inc.Analysis
+import sbt.internal.inc.bloop.internal.BloopStamps
 
 /**
  * Maps projects to compilation results, populated by `Tasks.compile`.
@@ -206,6 +207,18 @@ object ResultsCache {
     }
 
     def fetchPreviousResult(p: Project): Task[(ResultBundle, Option[Task[Unit]])] = {
+      def processMiniSetup(miniSetup: MiniSetup): MiniSetup = {
+        val classpathHash = miniSetup.options().classpathHash()
+        val newClasspathHash = classpathHash.map { fh =>
+          // Directory hash is random and per bloop instance, so replace it with the previous one upon loading
+          val file = fh.file()
+          if (!file.isDirectory()) fh
+          else BloopStamps.directoryHash(file)
+        }
+        val newOptions = miniSetup.options().withClasspathHash(newClasspathHash)
+        miniSetup.withOptions(newOptions)
+      }
+
       val analysisFile = p.analysisOut
       if (analysisFile.exists) {
         Task {
@@ -214,8 +227,10 @@ object ResultsCache {
             case Some(res) =>
               import monix.execution.CancelableFuture
               logger.debug(s"Loading previous analysis for '${p.name}' from '$analysisFile'.")
-              val r = PreviousResult.of(Optional.of(res.getAnalysis), Optional.of(res.getMiniSetup))
-              res.getAnalysis.readCompilations.getAllCompilations.lastOption match {
+              val analysis = res.getAnalysis()
+              val miniSetup = processMiniSetup(res.getMiniSetup())
+              val r = PreviousResult.of(Optional.of(analysis), Optional.of(miniSetup))
+              analysis.readCompilations.getAllCompilations.lastOption match {
                 case Some(lastCompilation) =>
                   lastCompilation.getOutput.getSingleOutput.toOption match {
                     case Some(classesDirFile) =>
