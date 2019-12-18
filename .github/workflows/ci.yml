@@ -31,6 +31,9 @@ jobs:
           curl -Lo coursier https://git.io/coursier-cli && chmod +x coursier && ./coursier --help
           yarn --help
           java -version
+          mkdir -p $HOME/.triplequote && echo "$HYDRA_LICENSE" > "$HOME/.triplequote/hydra.license"
+          echo "$HOME"
+          echo "$HOME/.triplequote/hydra.license" | wc -c
         shell: bash
       - name: Check formatting
         if: matrix.os != 'windows-latest'
@@ -40,7 +43,6 @@ jobs:
         shell: bash
       - name: Compile and test main projects
         run: |
-          mkdir -p $HOME/.triplequote && echo "$HYDRA_LICENSE" > "$HOME/.triplequote/hydra.license"
           ./bin/sbt-ci.sh \
               "frontend/test:compile" \
               "sbtBloop013/compile" \
