@@ -12,7 +12,6 @@ import bloop.engine.{Build, Run, State}
 import bloop.io.AbsolutePath
 import bloop.logging.BloopLogger
 import bloop.util.TestUtil
-import io.circe.parser._
 import org.gradle.testkit.runner.{BuildResult, GradleRunner}
 import org.gradle.testkit.runner.TaskOutcome._
 import org.junit._
@@ -22,16 +21,27 @@ import bloop.engine.BuildLoader
 
 import scala.collection.JavaConverters._
 
-class ConfigGenerationSuite481 extends ConfigGenerationSuite {
-  protected val gradleVersion: String = "4.8.1"
+/*
+ * To remote debug the ConfigGenerationSuite...
+ * - change "gradlePluginBuildSettings" "Keys.fork in Test" in BuildPlugin.scala to "false"
+ * - scala-library-2-18.1.jar disappears from classpath when fork=false.  Add manually for now to getClasspath output
+ * - add ".withDebug(true)" to the GradleRunner in the particular test to debug
+ */
+
+// minimum supported version
+class ConfigGenerationSuite431 extends ConfigGenerationSuite {
+  protected val gradleVersion: String = "4.3.1"
 }
 
-class ConfigGenerationSuite531 extends ConfigGenerationSuite {
-  protected val gradleVersion: String = "5.3.1"
+// maximum supported version
+class ConfigGenerationSuite601 extends ConfigGenerationSuite {
+  protected val gradleVersion: String = "6.0.1"
 }
 
 abstract class ConfigGenerationSuite {
   protected val gradleVersion: String
+
+  // folder to put test build scripts and java/scala source files
   private val testProjectDir_ = new TemporaryFolder()
   @Rule def testProjectDir: TemporaryFolder = testProjectDir_
 
@@ -55,7 +65,7 @@ abstract class ConfigGenerationSuite {
         .create()
         .withGradleVersion(gradleVersion)
         .withProjectDir(testProjectDir.getRoot)
-        .withPluginClasspath(getClasspath.asJava)
+        .withPluginClasspath(getClasspath)
         .withArguments("tasks")
         .build()
 
@@ -82,7 +92,7 @@ abstract class ConfigGenerationSuite {
         .create()
         .withGradleVersion(gradleVersion)
         .withProjectDir(testProjectDir.getRoot)
-        .withPluginClasspath(getClasspath.asJava)
+        .withPluginClasspath(getClasspath)
         .withArguments("tasks", "--all")
         .build()
 
@@ -95,6 +105,65 @@ abstract class ConfigGenerationSuite {
 
   @Test def worksWithScala212Project(): Unit = {
     worksWithGivenScalaVersion("2.12.8")
+  }
+
+  @Test def worksWithScala213Project(): Unit = {
+    worksWithGivenScalaVersion("2.13.1")
+  }
+
+  @Test def worksWithInputVariables(): Unit = {
+
+    val buildFile = testProjectDir.newFile("build.gradle")
+    testProjectDir.newFolder("src", "main", "scala")
+    writeBuildScript(
+      buildFile,
+      """
+        |plugins {
+        |  id 'bloop'
+        |}
+        |
+        |apply plugin: 'scala'
+        |apply plugin: 'bloop'
+        |
+        |bloop {
+        |  targetDir      = file("testDir")
+        |  stdLibName     = "testLibName"
+        |  includeSources = false
+        |  includeJavadoc = false
+        |}
+        |
+        |repositories {
+        |  mavenCentral()
+        |}
+        |
+        |dependencies {
+        |  compile 'org.scala-lang:scala-library:2.12.8'
+        |}
+      """.stripMargin
+    )
+
+    GradleRunner
+      .create()
+      .withGradleVersion(gradleVersion)
+      .withProjectDir(testProjectDir.getRoot)
+      .withPluginClasspath(getClasspath)
+      .withArguments("bloopInstall", "-Si")
+      .build()
+
+    val projectName = testProjectDir.getRoot.getName
+    // non-".bloop" dir
+    val bloopDir = new File(testProjectDir.getRoot, "testDir")
+    val bloop = new File(bloopDir, s"${projectName}.json")
+
+    val config = readValidBloopConfig(bloop)
+    // no Scala library should be found because it's checking against "testLibName"
+    assert(config.project.`scala`.isEmpty)
+    // no source or JavaDoc artifacts should exist
+    assert(config.project.resolution.nonEmpty)
+    assert(!config.project.resolution.exists(res =>
+      res.modules.exists(conf =>
+        conf.artifacts.exists(artifact =>
+          artifact.classifier.nonEmpty))))
   }
 
   @Test def worksWithTransientProjectDependencies(): Unit = {
@@ -221,7 +290,7 @@ abstract class ConfigGenerationSuite {
       .create()
       .withGradleVersion(gradleVersion)
       .withProjectDir(testProjectDir.getRoot)
-      .withPluginClasspath(getClasspath.asJava)
+      .withPluginClasspath(getClasspath)
       .withArguments("bloopInstall", "-Si")
       .build()
 
@@ -260,9 +329,6 @@ abstract class ConfigGenerationSuite {
     assertEquals(List("c"), configCTest.project.dependencies)
     assertEquals(List("b", "d"), configDTest.project.dependencies.sorted)
 
-    def hasClasspathEntryName(config: Config.File, entryName: String): Boolean =
-      config.project.classpath.exists(_.toString.contains(entryName))
-
     def assertSources(config: Config.File, entryName: String): Unit = {
       assertTrue(
         s"Resolution field for ${config.project.name} does not exist",
@@ -294,24 +360,24 @@ abstract class ConfigGenerationSuite {
     assertSources(configBTest, "scala-library")
     assert(hasClasspathEntryName(configCTest, "scala-library"))
     assertSources(configCTest, "scala-library")
-    assert(hasClasspathEntryName(configATest, "/a/build/classes".replace('/', File.separatorChar)))
-    assert(hasClasspathEntryName(configCTest, "/c/build/classes".replace('/', File.separatorChar)))
+    assert(hasClasspathEntryName(configATest, "/a/build/classes"))
+    assert(hasClasspathEntryName(configCTest, "/c/build/classes"))
     assert(hasClasspathEntryName(configB, "cats-core"))
     assertSources(configB, "cats-core")
-    assert(hasClasspathEntryName(configB, "/a/build/classes".replace('/', File.separatorChar)))
-    assert(hasClasspathEntryName(configB, "/c/build/classes".replace('/', File.separatorChar)))
+    assert(hasClasspathEntryName(configB, "/a/build/classes"))
+    assert(hasClasspathEntryName(configB, "/c/build/classes"))
     assert(hasClasspathEntryName(configBTest, "cats-core"))
     assertSources(configBTest, "cats-core")
-    assert(hasClasspathEntryName(configBTest, "/a/build/classes".replace('/', File.separatorChar)))
-    assert(hasClasspathEntryName(configBTest, "/b/build/classes".replace('/', File.separatorChar)))
-    assert(hasClasspathEntryName(configBTest, "/c/build/classes".replace('/', File.separatorChar)))
-    assert(hasClasspathEntryName(configD, "/a/build/classes".replace('/', File.separatorChar)))
-    assert(hasClasspathEntryName(configD, "/b/build/classes".replace('/', File.separatorChar)))
-    assert(hasClasspathEntryName(configD, "/c/build/classes".replace('/', File.separatorChar)))
-    assert(hasClasspathEntryName(configDTest, "/a/build/classes".replace('/', File.separatorChar)))
-    assert(hasClasspathEntryName(configDTest, "/b/build/classes".replace('/', File.separatorChar)))
-    assert(hasClasspathEntryName(configDTest, "/c/build/classes".replace('/', File.separatorChar)))
-    assert(hasClasspathEntryName(configDTest, "/d/build/classes".replace('/', File.separatorChar)))
+    assert(hasClasspathEntryName(configBTest, "/a/build/classes"))
+    assert(hasClasspathEntryName(configBTest, "/b/build/classes"))
+    assert(hasClasspathEntryName(configBTest, "/c/build/classes"))
+    assert(hasClasspathEntryName(configD, "/a/build/classes"))
+    assert(hasClasspathEntryName(configD, "/b/build/classes"))
+    assert(hasClasspathEntryName(configD, "/c/build/classes"))
+    assert(hasClasspathEntryName(configDTest, "/a/build/classes"))
+    assert(hasClasspathEntryName(configDTest, "/b/build/classes"))
+    assert(hasClasspathEntryName(configDTest, "/c/build/classes"))
+    assert(hasClasspathEntryName(configDTest, "/d/build/classes"))
 
     assert(compileBloopProject("b", bloopDir).status.isOk)
     assert(compileBloopProject("d", bloopDir).status.isOk)
@@ -388,7 +454,7 @@ abstract class ConfigGenerationSuite {
       .create()
       .withGradleVersion(gradleVersion)
       .withProjectDir(testProjectDir.getRoot)
-      .withPluginClasspath(getClasspath.asJava)
+      .withPluginClasspath(getClasspath)
       .withArguments("bloopInstall", "-Si")
       .build()
 
@@ -411,18 +477,12 @@ abstract class ConfigGenerationSuite {
     assertEquals(List("a"), configATest.project.dependencies.sorted)
     assertEquals(List("a-test", "b"), configBTest.project.dependencies.sorted)
 
-    def hasClasspathEntryName(config: Config.File, entryName: String): Boolean =
-      config.project.classpath.exists(_.toString.contains(entryName))
 
-    assert(!hasClasspathEntryName(configB, "/a/build/classes".replace('/', File.separatorChar)))
-    assert(
-      !hasClasspathEntryName(configB, "/a-test/build/classes".replace('/', File.separatorChar))
-    )
-    assert(!hasClasspathEntryName(configBTest, "/a/build/classes".replace('/', File.separatorChar)))
-    assert(hasClasspathEntryName(configBTest, "/b/build/classes".replace('/', File.separatorChar)))
-    assert(
-      hasClasspathEntryName(configBTest, "/a-test/build/classes".replace('/', File.separatorChar))
-    )
+    assert(!hasClasspathEntryName(configB, "/a/build/classes"))
+    assert(!hasClasspathEntryName(configB, "/a-test/build/classes"))
+    assert(!hasClasspathEntryName(configBTest, "/a/build/classes"))
+    assert(hasClasspathEntryName(configBTest, "/b/build/classes"))
+    assert(hasClasspathEntryName(configBTest, "/a-test/build/classes"))
 
     assert(compileBloopProject("b", bloopDir).status.isOk)
   }
@@ -510,7 +570,7 @@ abstract class ConfigGenerationSuite {
       .create()
       .withGradleVersion(gradleVersion)
       .withProjectDir(testProjectDir.getRoot)
-      .withPluginClasspath(getClasspath.asJava)
+      .withPluginClasspath(getClasspath)
       .withArguments("bloopInstall", "-Si")
       .build()
 
@@ -533,16 +593,10 @@ abstract class ConfigGenerationSuite {
     assertEquals(List("a"), configATest.project.dependencies.sorted)
     assertEquals(List("a-test", "b"), configBTest.project.dependencies.sorted)
 
-    def hasClasspathEntryName(config: Config.File, entryName: String): Boolean =
-      config.project.classpath.exists(_.toString.contains(entryName))
-    assert(!hasClasspathEntryName(configB, "/a/build/classes".replace('/', File.separatorChar)))
-    assert(
-      !hasClasspathEntryName(configB, "/a-test/build/classes".replace('/', File.separatorChar))
-    )
-    assert(
-      hasClasspathEntryName(configBTest, "/a-test/build/classes".replace('/', File.separatorChar))
-    )
-    assert(hasClasspathEntryName(configBTest, "/b/build/classes".replace('/', File.separatorChar)))
+    assert(!hasClasspathEntryName(configB, "/a/build/classes"))
+    assert(!hasClasspathEntryName(configB, "/a-test/build/classes"))
+    assert(hasClasspathEntryName(configBTest, "/a-test/build/classes"))
+    assert(hasClasspathEntryName(configBTest, "/b/build/classes"))
 
     assert(compileBloopProject("b-test", bloopDir).status.isOk)
   }
@@ -581,7 +635,7 @@ abstract class ConfigGenerationSuite {
       .create()
       .withGradleVersion(gradleVersion)
       .withProjectDir(testProjectDir.getRoot)
-      .withPluginClasspath(getClasspath.asJava)
+      .withPluginClasspath(getClasspath)
       .withArguments("bloopInstall", "-Si")
       .build()
 
@@ -617,6 +671,11 @@ abstract class ConfigGenerationSuite {
          |  compile group: 'org.scala-lang', name: 'scala-library', version: '2.12.8'
          |}
          |
+         |tasks.withType(JavaCompile) {
+         |  sourceCompatibility = JavaVersion.VERSION_1_2
+         |  targetCompatibility = JavaVersion.VERSION_1_3
+         |}
+         |
          |tasks.withType(ScalaCompile) {
          |  scalaCompileOptions.encoding = "utf8"
          |	scalaCompileOptions.additionalParameters = [
@@ -635,7 +694,7 @@ abstract class ConfigGenerationSuite {
       .create()
       .withGradleVersion(gradleVersion)
       .withProjectDir(testProjectDir.getRoot)
-      .withPluginClasspath(getClasspath.asJava)
+      .withPluginClasspath(getClasspath)
       .withArguments("bloopInstall", "-Si")
       .build()
 
@@ -656,6 +715,18 @@ abstract class ConfigGenerationSuite {
         "-unchecked"
       ),
       resultConfig.project.`scala`.get.options
+    )
+    assertEquals(
+      List(
+        "-source",
+        "1.2",
+        "-target",
+        "1.3",
+        "-g",
+        "-sourcepath",
+        "-XDuseUnsharedTable=true"
+      ),
+      resultConfig.project.java.get.options
     )
   }
 
@@ -721,7 +792,7 @@ abstract class ConfigGenerationSuite {
       .create()
       .withGradleVersion(gradleVersion)
       .withProjectDir(testProjectDir.getRoot)
-      .withPluginClasspath(getClasspath.asJava)
+      .withPluginClasspath(getClasspath)
       .withArguments("bloopInstall", "-Si")
       .build()
 
@@ -765,7 +836,7 @@ abstract class ConfigGenerationSuite {
       .create()
       .withGradleVersion(gradleVersion)
       .withProjectDir(testProjectDir.getRoot)
-      .withPluginClasspath(getClasspath.asJava)
+      .withPluginClasspath(getClasspath)
       .withArguments("bloopInstall", "-Si")
       .build()
 
@@ -840,7 +911,7 @@ abstract class ConfigGenerationSuite {
       .create()
       .withGradleVersion(gradleVersion)
       .withProjectDir(testProjectDir.getRoot)
-      .withPluginClasspath(getClasspath.asJava)
+      .withPluginClasspath(getClasspath)
       .withArguments("bloopInstall", "-Si")
       .build()
 
@@ -860,9 +931,6 @@ abstract class ConfigGenerationSuite {
     assert(configB.project.`scala`.exists(_.version == "2.12.6"))
     assertEquals(Nil, configB.project.dependencies)
     assertEquals(List("b"), configBTest.project.dependencies)
-
-    def hasClasspathEntryName(config: Config.File, entryName: String): Boolean =
-      config.project.classpath.exists(_.toString.contains(entryName))
 
     assert(hasClasspathEntryName(configB, "scala-library"))
     assert(hasClasspathEntryName(configBTest, "scala-library"))
@@ -897,7 +965,7 @@ abstract class ConfigGenerationSuite {
       .create()
       .withGradleVersion(gradleVersion)
       .withProjectDir(testProjectDir.getRoot)
-      .withPluginClasspath(getClasspath.asJava)
+      .withPluginClasspath(getClasspath)
       .withArguments("bloopInstall", "-Si")
       .build()
 
@@ -944,7 +1012,7 @@ abstract class ConfigGenerationSuite {
       .create()
       .withGradleVersion(gradleVersion)
       .withProjectDir(testProjectDir.getRoot)
-      .withPluginClasspath(getClasspath.asJava)
+      .withPluginClasspath(getClasspath)
       .withArguments("bloopInstall", "-Si")
       .build()
 
@@ -986,7 +1054,7 @@ abstract class ConfigGenerationSuite {
       .create()
       .withGradleVersion(gradleVersion)
       .withProjectDir(testProjectDir.getRoot)
-      .withPluginClasspath(getClasspath.asJava)
+      .withPluginClasspath(getClasspath)
       .withArguments("bloopInstall", "-Si")
       .build()
 
@@ -1016,7 +1084,7 @@ abstract class ConfigGenerationSuite {
         .create()
         .withGradleVersion(gradleVersion)
         .withProjectDir(buildDir)
-        .withPluginClasspath(getClasspath.asJava)
+        .withPluginClasspath(getClasspath)
         .withArguments("bloopInstall", "-Si")
         .build()
 
@@ -1092,6 +1160,7 @@ abstract class ConfigGenerationSuite {
     val setupB = getSetup(buildDirB)
     assert(setupB.order == Mixed)
   }
+
   @Test def maintainsClassPathOrder(): Unit = {
     val buildSettings = testProjectDir.newFile("settings.gradle")
     val buildDirA = testProjectDir.newFolder("a")
@@ -1185,7 +1254,7 @@ abstract class ConfigGenerationSuite {
       .create()
       .withGradleVersion(gradleVersion)
       .withProjectDir(testProjectDir.getRoot)
-      .withPluginClasspath(getClasspath.asJava)
+      .withPluginClasspath(getClasspath)
       .withArguments("bloopInstall", "-Si")
       .build()
 
@@ -1198,9 +1267,9 @@ abstract class ConfigGenerationSuite {
     def idxOfClasspathEntryName(config: Config.File, entryName: String): Int =
       config.project.classpath.takeWhile(!_.toString.contains(entryName)).size
 
-    val idxA = idxOfClasspathEntryName(configD, "/a/build/classes".replace('/', File.separatorChar))
-    val idxB = idxOfClasspathEntryName(configD, "/b/build/classes".replace('/', File.separatorChar))
-    val idxC = idxOfClasspathEntryName(configD, "/c/build/classes".replace('/', File.separatorChar))
+    val idxA = idxOfClasspathEntryName(configD, "/a/build/classes")
+    val idxB = idxOfClasspathEntryName(configD, "/b/build/classes")
+    val idxC = idxOfClasspathEntryName(configD, "/c/build/classes")
 
     assert(idxC < idxA)
     assert(idxA < idxB)
@@ -1250,7 +1319,7 @@ abstract class ConfigGenerationSuite {
       .create()
       .withGradleVersion(gradleVersion)
       .withProjectDir(testProjectDir.getRoot)
-      .withPluginClasspath(getClasspath.asJava)
+      .withPluginClasspath(getClasspath)
       .withArguments("bloopInstall", "-Si")
       .build()
 
@@ -1266,12 +1335,12 @@ abstract class ConfigGenerationSuite {
 
     assert(
       resultConfig.project.`scala`.get.options
-        .contains(s"-P:semanticdb:sourceroot:${testProjectDir.getRoot.getCanonicalPath()}")
+        .contains(s"-P:semanticdb:sourceroot:${testProjectDir.getRoot.getCanonicalPath}")
     )
     assert(resultConfig.project.`scala`.get.options.exists(p => p.startsWith("-Xplugin:")))
   }
 
-  def loadBloopState(configDir: File): State = {
+  private def loadBloopState(configDir: File): State = {
     val logger = BloopLogger.default(configDir.toString)
     assert(Files.exists(configDir.toPath), "Does not exist: " + configDir)
     val configDirectory = AbsolutePath(configDir)
@@ -1280,11 +1349,11 @@ abstract class ConfigGenerationSuite {
     State.forTests(build, TestUtil.getCompilerCache(logger), logger)
   }
 
-  def compileBloopProject(projectName: String, bloopDir: File, verbose: Boolean = false): State = {
+  private def compileBloopProject(projectName: String, bloopDir: File, verbose: Boolean = false): State = {
     val state0 = loadBloopState(bloopDir)
     val state = if (verbose) state0.copy(logger = state0.logger.asVerbose) else state0
     val action = Run(Commands.Compile(List(projectName)))
-    TestUtil.blockingExecute(action, state0)
+    TestUtil.blockingExecute(action, state)
   }
 
   private def worksWithGivenScalaVersion(version: String): Unit = {
@@ -1318,7 +1387,7 @@ abstract class ConfigGenerationSuite {
       .create()
       .withGradleVersion(gradleVersion)
       .withProjectDir(testProjectDir.getRoot)
-      .withPluginClasspath(getClasspath.asJava)
+      .withPluginClasspath(getClasspath)
       .withArguments("bloopInstall", "-Si")
       .build()
 
@@ -1397,7 +1466,7 @@ abstract class ConfigGenerationSuite {
   }
 
   private def readValidBloopConfig(file: File): Config.File = {
-    assertTrue("The bloop project file should exist", file.exists())
+    assertTrue(s"The bloop project file should exist: $file", file.exists())
     val bytes = Files.readAllBytes(file.toPath)
     bloop.config.read(bytes) match {
       case Right(file) => file
@@ -1406,12 +1475,18 @@ abstract class ConfigGenerationSuite {
     }
   }
 
-  private def getClasspath: List[File] = {
+  private def getClasspath: java.lang.Iterable[File] = {
     classOf[BloopPlugin].getClassLoader
       .asInstanceOf[URLClassLoader]
       .getURLs
       .toList
       .map(url => new File(url.getFile))
+      .asJava
+  }
+
+  private def hasClasspathEntryName(config: Config.File, entryName: String): Boolean = {
+    val pathValidEntryName = entryName.replace('/', File.separatorChar)
+    config.project.classpath.exists(_.toString.contains(pathValidEntryName))
   }
 
   private def writeBuildScript(buildFile: File, contents: String): Unit = {

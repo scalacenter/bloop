@@ -3,7 +3,7 @@ package bloop.integrations.gradle.tasks
 import java.io.File
 import java.nio.file.Files
 
-import bloop.integrations.gradle.BloopParameters
+import bloop.integrations.gradle.BloopParametersExtension
 import bloop.integrations.gradle.model.BloopConverter
 import bloop.integrations.gradle.model.BloopConverter.SourceSetDep
 import bloop.integrations.gradle.syntax._
@@ -23,8 +23,7 @@ import scala.util.{Failure, Success}
  */
 class BloopInstallTask extends DefaultTask with PluginUtils with TaskLogging {
   override val project: Project = getProject
-  private val parameters: BloopParameters = project.getExtension[BloopParameters]
-  private val converter = new BloopConverter(parameters)
+  private val extension: BloopParametersExtension = project.getExtension[BloopParametersExtension]
 
   @TaskAction
   def run(): Unit = {
@@ -35,6 +34,8 @@ class BloopInstallTask extends DefaultTask with PluginUtils with TaskLogging {
   }
 
   def runBloopPlugin(): Unit = {
+    val parameters = extension.createParameters
+    val converter = new BloopConverter(parameters)
     val targetDir: File = parameters.targetDir
     info(s"Generating Bloop configuration to ${targetDir.getAbsolutePath}")
 
@@ -48,7 +49,7 @@ class BloopInstallTask extends DefaultTask with PluginUtils with TaskLogging {
 
     // The 'main' source set maps to the raw project name (as all integrations do)
     val mainProjectName = converter.getProjectName(project, mainSourceSet)
-    generateBloopConfiguration(mainProjectName, Nil, mainSourceSet, targetDir, true)
+    generateBloopConfiguration(mainProjectName, Nil, mainSourceSet, targetDir, converter, true)
 
     // Hardcode an implicit dependency for every source set to the main source set (compile) if it exists
     val strictDependencies = List(
@@ -58,7 +59,7 @@ class BloopInstallTask extends DefaultTask with PluginUtils with TaskLogging {
     // Generate the bloop configuration files for the rest of the source sets
     for (sourceSet <- otherSourceSets) {
       val projectName = converter.getProjectName(project, sourceSet)
-      generateBloopConfiguration(projectName, strictDependencies, sourceSet, targetDir, false)
+      generateBloopConfiguration(projectName, strictDependencies, sourceSet, targetDir, converter, false)
     }
   }
 
@@ -67,6 +68,7 @@ class BloopInstallTask extends DefaultTask with PluginUtils with TaskLogging {
       projectDependencies: List[SourceSetDep],
       sourceSet: SourceSet,
       targetDir: File,
+      converter: BloopConverter,
       mandatory: Boolean
   ): Unit = {
     val targetFile = targetDir / s"$projectName.json"
