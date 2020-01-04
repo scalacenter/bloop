@@ -39,26 +39,32 @@ case class BloopParametersExtension(project: Project) {
 
   // include the source artifacts
   // In Gradle 4.3 the default property for Boolean is false (not null) so default has to be set here
-  private val includeSources_ : Property[java.lang.Boolean] = project.getObjects.property(classOf[java.lang.Boolean])
+  private val includeSources_ : Property[java.lang.Boolean] =
+    project.getObjects.property(classOf[java.lang.Boolean])
   includeSources_.set(true)
   @Input @Optional def getIncludeSources: Property[java.lang.Boolean] = includeSources_
 
   // include the Javadoc artifacts
   // In Gradle 4.3 the default property for Boolean is false (not null) so default has to be set here
-  private val includeJavadoc_ : Property[java.lang.Boolean] = project.getObjects.property(classOf[java.lang.Boolean])
+  private val includeJavadoc_ : Property[java.lang.Boolean] =
+    project.getObjects.property(classOf[java.lang.Boolean])
   includeJavadoc_.set(false)
   @Input @Optional def getIncludeJavadoc: Property[java.lang.Boolean] = includeJavadoc_
 
-  def createParameters: BloopParameters = BloopParameters(
-    targetDir_.getOrElse(project.getRootProject.getProjectDir / ".bloop"),
-    compilerName_.getOrElse("scala-compiler"),
-    stdLibName_.getOrElse("scala-library"),
-    includeSources_.get,
-    includeJavadoc_.get)
+  def createParameters: BloopParameters =
+    BloopParameters(
+      targetDir_.getOrElse(project.getRootProject.getProjectDir / ".bloop"),
+      compilerName_.getOrElse("scala-compiler"),
+      stdLibName_.getOrElse("scala-library"),
+      includeSources_.get,
+      includeJavadoc_.get
+    )
 }
 
-case class BloopParameters(targetDir: File,
-                           compilerName: String,
-                           stdLibName: String,
-                           includeSources: Boolean,
-                           includeJavadoc: Boolean)
+case class BloopParameters(
+    targetDir: File,
+    compilerName: String,
+    stdLibName: String,
+    includeSources: Boolean,
+    includeJavadoc: Boolean
+)

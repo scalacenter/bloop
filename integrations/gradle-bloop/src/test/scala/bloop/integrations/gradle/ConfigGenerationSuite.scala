@@ -160,10 +160,13 @@ abstract class ConfigGenerationSuite {
     assert(config.project.`scala`.isEmpty)
     // no source or JavaDoc artifacts should exist
     assert(config.project.resolution.nonEmpty)
-    assert(!config.project.resolution.exists(res =>
-      res.modules.exists(conf =>
-        conf.artifacts.exists(artifact =>
-          artifact.classifier.nonEmpty))))
+    assert(
+      !config.project.resolution.exists(
+        res =>
+          res.modules
+            .exists(conf => conf.artifacts.exists(artifact => artifact.classifier.nonEmpty))
+      )
+    )
   }
 
   @Test def worksWithTransientProjectDependencies(): Unit = {
@@ -476,7 +479,6 @@ abstract class ConfigGenerationSuite {
     assert(configB.project.dependencies.isEmpty)
     assertEquals(List("a"), configATest.project.dependencies.sorted)
     assertEquals(List("a-test", "b"), configBTest.project.dependencies.sorted)
-
 
     assert(!hasClasspathEntryName(configB, "/a/build/classes"))
     assert(!hasClasspathEntryName(configB, "/a-test/build/classes"))
@@ -1349,7 +1351,11 @@ abstract class ConfigGenerationSuite {
     State.forTests(build, TestUtil.getCompilerCache(logger), logger)
   }
 
-  private def compileBloopProject(projectName: String, bloopDir: File, verbose: Boolean = false): State = {
+  private def compileBloopProject(
+      projectName: String,
+      bloopDir: File,
+      verbose: Boolean = false
+  ): State = {
     val state0 = loadBloopState(bloopDir)
     val state = if (verbose) state0.copy(logger = state0.logger.asVerbose) else state0
     val action = Run(Commands.Compile(List(projectName)))

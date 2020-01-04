@@ -31,10 +31,17 @@ object GradleIntegration {
           logger.info("Extracting the api path from gradle...")
           val cmdBase =
             if (isWindows) "cmd.exe" :: "/C" :: s"${gradlePath}.bat" :: Nil else gradlePath :: Nil
-          val gradleCmd = cmdBase ++ Seq("--stacktrace", "--no-daemon", "--console=plain", "--quiet", "printClassPath")
+          val gradleCmd = cmdBase ++ Seq(
+            "--stacktrace",
+            "--no-daemon",
+            "--console=plain",
+            "--quiet",
+            "printClassPath"
+          )
           val result: String = Process(gradleCmd, dummyProjectDir).!!
           // Gradle returns classpath plus linefeeds and logging so parse
-          val paths = result.split(java.io.File.pathSeparator)
+          val paths = result
+            .split(java.io.File.pathSeparator)
             .flatMap(_.split("\\r?\\n"))
           copyGeneratedArtifact(logger, libDir, targetApi, paths, "gradle-api", version)
           copyGeneratedArtifact(logger, libDir, targetTestKit, paths, "gradle-test-kit", version)
@@ -62,7 +69,8 @@ object GradleIntegration {
         IO.copyFile(gradleApiJar, targetFile)
       case None =>
         throw new MessageOnlyException(
-          s"Fatal: could not find $name artifact in the generated class path [${paths.mkString(",")}]")
+          s"Fatal: could not find $name artifact in the generated class path [${paths.mkString(",")}]"
+        )
     }
   }
 

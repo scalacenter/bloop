@@ -176,12 +176,10 @@ class BloopConverter(parameters: BloopParameters) {
 
       val compileClasspathFilesAsPaths = compileClassPathFiles
         .filter(f => isProjectSourceSet(allSourceSetsToProjects, f))
-        .map(f => getClassesDir(targetDir,
-          dependencyToProjectName(allSourceSetsToProjects, f)))
+        .map(f => getClassesDir(targetDir, dependencyToProjectName(allSourceSetsToProjects, f)))
       val runtimeClasspathFilesAsPaths = runtimeClassPathFiles
         .filter(f => isProjectSourceSet(allSourceSetsToProjects, f))
-        .map(f => getClassesDir(targetDir,
-          dependencyToProjectName(allSourceSetsToProjects, f)))
+        .map(f => getClassesDir(targetDir, dependencyToProjectName(allSourceSetsToProjects, f)))
 
       // get non-project artifacts for resolution
       val compileNonProjectDependencies: List[ResolvedArtifact] = compileArtifacts
@@ -321,7 +319,9 @@ class BloopConverter(parameters: BloopParameters) {
       if (mainSpec == null)
         None
       else {
-        mainSpec.asInstanceOf[DefaultCopySpec].getSourcePaths
+        mainSpec
+          .asInstanceOf[DefaultCopySpec]
+          .getSourcePaths
           .asScala
           .flatMap({
             case sourceSetOutput: DefaultSourceSetOutput =>
@@ -534,9 +534,11 @@ class BloopConverter(parameters: BloopParameters) {
     projectDependencies.exists(dep => isProjectDependency(dep, resolvedArtifact))
   }
 
-  private def createArtifact(resolvedArtifactResult: ResolvedArtifactResult,
-                             name: String,
-                             classifier: String): Config.Artifact = {
+  private def createArtifact(
+      resolvedArtifactResult: ResolvedArtifactResult,
+      name: String,
+      classifier: String
+  ): Config.Artifact = {
     Config.Artifact(
       name = name,
       classifier = Option(classifier),
@@ -545,15 +547,19 @@ class BloopConverter(parameters: BloopParameters) {
     )
   }
 
-  def getArtifacts(resolvedArtifacts: collection.Set[ComponentArtifactsResult],
-                   name: String,
-                   artifactClass: Class[_ <: Artifact],
-                   classifier: String): collection.Set[Config.Artifact] = {
+  def getArtifacts(
+      resolvedArtifacts: collection.Set[ComponentArtifactsResult],
+      name: String,
+      artifactClass: Class[_ <: Artifact],
+      classifier: String
+  ): collection.Set[Config.Artifact] = {
     resolvedArtifacts
-      .flatMap(_.getArtifacts(artifactClass).asScala
-        .collect {
-          case resolvedArtifact: ResolvedArtifactResult => createArtifact(resolvedArtifact, name, classifier)
-        }
+      .flatMap(
+        _.getArtifacts(artifactClass).asScala
+          .collect {
+            case resolvedArtifact: ResolvedArtifactResult =>
+              createArtifact(resolvedArtifact, name, classifier)
+          }
       )
   }
 
@@ -562,24 +568,26 @@ class BloopConverter(parameters: BloopParameters) {
       project: Project
   ): Config.Module = {
 
-    val javadocArtifact = if (parameters.includeJavadoc) Seq(classOf[JavadocArtifact]) else Seq.empty
-    val sourcesArtifact = if (parameters.includeSources) Seq(classOf[SourcesArtifact]) else Seq.empty
+    val javadocArtifact =
+      if (parameters.includeJavadoc) Seq(classOf[JavadocArtifact]) else Seq.empty
+    val sourcesArtifact =
+      if (parameters.includeSources) Seq(classOf[SourcesArtifact]) else Seq.empty
 
-    val resolutionResult = project
-      .getDependencies
+    val resolutionResult = project.getDependencies
       .createArtifactResolutionQuery()
       .forComponents(artifact.getId.getComponentIdentifier)
       .withArtifacts(classOf[JvmLibrary], javadocArtifact ++ sourcesArtifact: _*)
       .execute()
 
     val name = artifact.getModuleVersion.getId.getName
-    val resolvedArtifacts = resolutionResult
-      .getResolvedComponents
-      .asScala
-    val resolvedOtherDependencies = getArtifacts(resolvedArtifacts,
-      name, classOf[SourcesArtifact], "sources") ++
-      getArtifacts(resolvedArtifacts,
-        name, classOf[JavadocArtifact], "javadoc")
+    val resolvedArtifacts = resolutionResult.getResolvedComponents.asScala
+    val resolvedOtherDependencies = getArtifacts(
+      resolvedArtifacts,
+      name,
+      classOf[SourcesArtifact],
+      "sources"
+    ) ++
+      getArtifacts(resolvedArtifacts, name, classOf[JavadocArtifact], "javadoc")
 
     Config.Module(
       organization = artifact.getModuleVersion.getId.getGroup,
@@ -645,7 +653,8 @@ class BloopConverter(parameters: BloopParameters) {
         val target = s"project ${project.getName}/${sourceSet.getName}"
         val artifactNames =
           if (artifacts.isEmpty) ""
-          else s" Found artifacts:\n${artifacts.map(a => s"${a.getName} ${a.getFile}").mkString("\n")}"
+          else
+            s" Found artifacts:\n${artifacts.map(a => s"${a.getName} ${a.getFile}").mkString("\n")}"
         Failure(
           new GradleException(
             s"Expected ${parameters.stdLibName} library in classpath of $target that defines Scala sources.$artifactNames"

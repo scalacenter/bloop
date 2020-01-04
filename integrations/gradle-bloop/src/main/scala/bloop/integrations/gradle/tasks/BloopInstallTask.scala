@@ -59,7 +59,14 @@ class BloopInstallTask extends DefaultTask with PluginUtils with TaskLogging {
     // Generate the bloop configuration files for the rest of the source sets
     for (sourceSet <- otherSourceSets) {
       val projectName = converter.getProjectName(project, sourceSet)
-      generateBloopConfiguration(projectName, strictDependencies, sourceSet, targetDir, converter, false)
+      generateBloopConfiguration(
+        projectName,
+        strictDependencies,
+        sourceSet,
+        targetDir,
+        converter,
+        false
+      )
     }
   }
 
