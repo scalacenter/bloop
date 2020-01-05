@@ -7,7 +7,7 @@
     <link rel="alternate" href="https://scalacenter.github.io/bloop/blog"/>
     <subtitle>The best place to stay up-to-date with the latest Bloop news and events.</subtitle>
     <logo>https://scalacenter.github.io/bloop/img/impure-logo-bloop.svg</logo>
-    <rights>Copyright © 2019 Scala Center</rights>
+    <rights>Copyright © 2020 Scala Center</rights>
     <entry>
         <title type="html"><![CDATA[Introducing Docusaurus]]></title>
         <id>https://scalacenter.github.io/bloop/blog/2019/04/25/Compiler-Isolation.html</id>

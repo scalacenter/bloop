@@ -12,7 +12,7 @@
             <url>https://scalacenter.github.io/bloop/img/impure-logo-bloop.svg</url>
             <link>https://scalacenter.github.io/bloop/blog</link>
         </image>
-        <copyright>Copyright © 2019 Scala Center</copyright>
+        <copyright>Copyright © 2020 Scala Center</copyright>
         <item>
             <title><![CDATA[Introducing Docusaurus]]></title>
             <link>https://scalacenter.github.io/bloop/blog/2019/04/25/Compiler-Isolation.html</link>
