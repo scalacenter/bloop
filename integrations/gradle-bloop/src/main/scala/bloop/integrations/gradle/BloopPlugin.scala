@@ -1,6 +1,6 @@
 package bloop.integrations.gradle
 
-import bloop.integrations.gradle.tasks.{BloopInstallTask, ConfigureBloopInstallTask, TaskLogging}
+import bloop.integrations.gradle.tasks.{BloopInstallTask, ConfigureBloopInstallTask}
 import org.gradle.api.{Plugin, Project}
 import syntax._
 
@@ -17,7 +17,7 @@ import syntax._
 final class BloopPlugin extends Plugin[Project] {
   override def apply(project: Project): Unit = {
     project.getLogger.info(s"Applying bloop plugin to project ${project.getName}", Seq.empty: _*)
-    project.createExtension[BloopParameters]("bloop", project)
+    project.createExtension[BloopParametersExtension]("bloop", project)
 
     // Creates two tasks: one to configure the plugin and the other one to generate the config files
     val configureBloopInstall =

@@ -6,29 +6,20 @@ import java.nio.file.Paths
 import java.nio.file.Files
 
 import bloop.config.Config
-import bloop.config.Config.{
-  CompileOrder,
-  CompileSetup,
-  JavaThenScala,
-  JvmConfig,
-  Mixed,
-  Platform,
-  TestArgument,
-  TestOptions
-}
+import bloop.config.Config.{CompileSetup, JavaThenScala, JvmConfig, Mixed, Platform}
 import bloop.integrations.gradle.BloopParameters
 import bloop.integrations.gradle.model.BloopConverter.SourceSetDep
 import bloop.integrations.gradle.syntax._
 import org.gradle.api.{GradleException, Project}
 import org.gradle.api.artifacts._
-import org.gradle.api.artifacts.result.ResolvedArtifactResult
-import org.gradle.api.file.FileCollection
+import org.gradle.api.artifacts.result.{ComponentArtifactsResult, ResolvedArtifactResult}
+import org.gradle.api.component.Artifact
 import org.gradle.api.internal.artifacts.publish.ArchivePublishArtifact
 import org.gradle.api.internal.file.copy.DefaultCopySpec
 import org.gradle.api.internal.tasks.DefaultSourceSetOutput
 import org.gradle.api.internal.tasks.compile.{DefaultJavaCompileSpec, JavaCompilerArgumentsBuilder}
 import org.gradle.api.plugins.{ApplicationPluginConvention, JavaPluginConvention}
-import org.gradle.api.specs.{Spec, Specs}
+import org.gradle.api.specs.Specs
 import org.gradle.api.tasks.{AbstractCopyTask, SourceSet, SourceSetOutput}
 import org.gradle.api.tasks.compile.{CompileOptions, JavaCompile}
 import org.gradle.api.tasks.scala.{ScalaCompile, ScalaCompileOptions}
@@ -43,10 +34,9 @@ import scala.util.{Failure, Success, Try}
 
 /**
  * Define the conversion from Gradle's project model to Bloop's project model.
- *
- * @param parameters Parameters provided by Gradle's user configuration
+ * @param parameters Plugin input parameters
  */
-final class BloopConverter(parameters: BloopParameters) {
+class BloopConverter(parameters: BloopParameters) {
 
   /**
    * Converts a project's given source set to a Bloop project
@@ -61,7 +51,6 @@ final class BloopConverter(parameters: BloopParameters) {
    * @param strictProjectDependencies Additional dependencies that cannot be inferred from Gradle's object model
    * @param project The Gradle project model
    * @param sourceSet The source set to convert
-   * @param targetDir Target directory for bloop files
    * @return Bloop configuration
    */
   def toBloopConfig(
@@ -83,19 +72,11 @@ final class BloopConverter(parameters: BloopParameters) {
         !resources.exists(_.toFile.exists())) {
       Failure(new GradleException("Test project has no source so ignore it"))
     } else {
+      // get relevant class path configs
       val compileClassPathConfiguration =
         project.getConfiguration(sourceSet.getCompileClasspathConfigurationName)
-
-      // get runtime classpath.  Config name has changed over Gradle versions so check both
-      val runtimeClassPathConfiguration = {
-        val runtimeConfig = project.getConfiguration(sourceSet.getRuntimeConfigurationName)
-        val runtimeClassPathConfig =
-          project.getConfiguration(sourceSet.getRuntimeConfigurationName + "Classpath")
-        if (runtimeClassPathConfig != null)
-          runtimeClassPathConfig
-        else
-          runtimeConfig
-      }
+      val runtimeClassPathConfiguration =
+        project.getConfiguration(sourceSet.getRuntimeClasspathConfigurationName)
 
       // create a map of all Gradle Java projects and their sourcesets
       val allSourceSetsToProjects = project.getRootProject.getAllprojects.asScala
@@ -110,20 +91,18 @@ final class BloopConverter(parameters: BloopParameters) {
       val runtimeProjectDependencies =
         getProjectDependencies(allSourceSetsToProjects, runtimeClassPathConfiguration)
 
-      // Strict project dependencies should have more priority than regular project dependencies
+      // all project dependencies
       val allDependencies = (strictProjectDependencies.map(_.bloopModuleName) ++
         compileProjectDependencies ++ runtimeProjectDependencies).distinct
 
       // retrieve project dependencies recursively to include transitive project dependencies
       // Bloop requires this for the classpath
-      val allCompileProjectDependencies = getProjectDependenciesRecursively(
-        compileClassPathConfiguration
-      )
-      val allRuntimeProjectDependencies = getProjectDependenciesRecursively(
-        runtimeClassPathConfiguration
-      )
+      val allCompileProjectDependencies =
+        getProjectDependenciesRecursively(compileClassPathConfiguration)
+      val allRuntimeProjectDependencies =
+        getProjectDependenciesRecursively(runtimeClassPathConfiguration)
 
-      // retrieve all artifacts (includes transitive)
+      // retrieve all artifacts (includes transitive?)
       val compileArtifacts: List[ResolvedArtifact] =
         compileClassPathConfiguration.getResolvedConfiguration.getResolvedArtifacts.asScala.toList
       val runtimeArtifacts: List[ResolvedArtifact] =
@@ -144,7 +123,7 @@ final class BloopConverter(parameters: BloopParameters) {
         .filter(
           resolvedArtifact =>
             !isProjectDependency(allCompileProjectDependencies, resolvedArtifact) &&
-              !isProjectDependency(allCompileProjectDependencies, resolvedArtifact)
+              !isProjectDependency(allRuntimeProjectDependencies, resolvedArtifact)
         )
 
       // convert artifacts to class dirs for projects and file paths for non-projects
@@ -236,7 +215,7 @@ final class BloopConverter(parameters: BloopParameters) {
         bloopProject = Config.Project(
           name = getProjectName(project, sourceSet),
           directory = project.getProjectDir.toPath,
-          workspaceDir = Option(project.getRootProject().getProjectDir().toPath()),
+          workspaceDir = Option(project.getRootProject.getProjectDir.toPath),
           sources = sources,
           dependencies = allDependencies,
           classpath = classpath,
@@ -254,10 +233,13 @@ final class BloopConverter(parameters: BloopParameters) {
     }
   }
 
-  private def getJavaCompileOptions(project: Project, sourceSet: SourceSet): CompileOptions = {
+  private def getJavaCompileTask(project: Project, sourceSet: SourceSet): JavaCompile = {
     val javaCompileTaskName = sourceSet.getCompileTaskName("java")
-    val javaCompileTask = project.getTask[JavaCompile](javaCompileTaskName)
-    javaCompileTask.getOptions
+    project.getTask[JavaCompile](javaCompileTaskName)
+  }
+
+  private def getJavaCompileOptions(project: Project, sourceSet: SourceSet): CompileOptions = {
+    getJavaCompileTask(project, sourceSet).getOptions
   }
 
   def getPlatform(
@@ -319,20 +301,9 @@ final class BloopConverter(parameters: BloopParameters) {
     }
   }
 
-  // Gradle has removed the getConfiguration method and replaced it with getTargetConfiguration around version 4.0
   private def getTargetConfiguration(projectDependency: ProjectDependency): String = {
-    try {
-      val getTargetConfiguration = classOf[ProjectDependency].getMethod("getTargetConfiguration")
-      val targetConfigName = getTargetConfiguration.invoke(projectDependency)
-      if (targetConfigName == null) Dependency.DEFAULT_CONFIGURATION
-      else targetConfigName.asInstanceOf[String]
-    } catch {
-      case _: NoSuchMethodException =>
-        val getConfiguration = classOf[ProjectDependency].getMethod("getConfiguration")
-        val configName = getConfiguration.invoke(projectDependency)
-        if (configName == null) Dependency.DEFAULT_CONFIGURATION
-        else configName.asInstanceOf[String]
-    }
+    Option(projectDependency.getTargetConfiguration)
+      .getOrElse(Dependency.DEFAULT_CONFIGURATION)
   }
 
   // find the source of the data going into an archive
@@ -348,10 +319,9 @@ final class BloopConverter(parameters: BloopParameters) {
       if (mainSpec == null)
         None
       else {
-        val getSourcePaths = classOf[DefaultCopySpec].getMethod("getSourcePaths")
-        val sourcePaths = getSourcePaths.invoke(mainSpec)
-        sourcePaths
-          .asInstanceOf[java.util.Set[Object]]
+        mainSpec
+          .asInstanceOf[DefaultCopySpec]
+          .getSourcePaths
           .asScala
           .flatMap({
             case sourceSetOutput: DefaultSourceSetOutput =>
@@ -371,16 +341,7 @@ final class BloopConverter(parameters: BloopParameters) {
 
   // Gradle has removed getClassesDir and replaced with getClassesDirs - version 4.0
   private def matchesOutputDir(sourceSetOutput: SourceSetOutput, outputDir: File): Boolean = {
-    try {
-      val getClassesDirs = classOf[SourceSetOutput].getMethod("getClassesDirs")
-      val classesDirs = getClassesDirs.invoke(sourceSetOutput)
-      if (classesDirs == null)
-        false
-      else
-        classesDirs.asInstanceOf[FileCollection].getFiles.asScala.contains(outputDir)
-    } catch {
-      case _: NoSuchMethodException => sourceSetOutput.getClassesDir == outputDir;
-    }
+    sourceSetOutput.getClassesDirs.getFiles.asScala.contains(outputDir)
   }
 
   private def isProjectSourceSet(
@@ -486,8 +447,7 @@ final class BloopConverter(parameters: BloopParameters) {
           s =>
             List(
               s.getCompileClasspathConfigurationName,
-              s.getRuntimeConfigurationName,
-              s.getRuntimeConfigurationName + "Classpath"
+              s.getRuntimeClasspathConfigurationName
             ).map(name => name -> s)
         )
         .toMap
@@ -574,46 +534,72 @@ final class BloopConverter(parameters: BloopParameters) {
     projectDependencies.exists(dep => isProjectDependency(dep, resolvedArtifact))
   }
 
+  private def createArtifact(
+      resolvedArtifactResult: ResolvedArtifactResult,
+      name: String,
+      classifier: String
+  ): Config.Artifact = {
+    Config.Artifact(
+      name = name,
+      classifier = Option(classifier),
+      checksum = None,
+      path = resolvedArtifactResult.getFile.toPath
+    )
+  }
+
+  def getArtifacts(
+      resolvedArtifacts: collection.Set[ComponentArtifactsResult],
+      name: String,
+      artifactClass: Class[_ <: Artifact],
+      classifier: String
+  ): collection.Set[Config.Artifact] = {
+    resolvedArtifacts
+      .flatMap(
+        _.getArtifacts(artifactClass).asScala
+          .collect {
+            case resolvedArtifact: ResolvedArtifactResult =>
+              createArtifact(resolvedArtifact, name, classifier)
+          }
+      )
+  }
+
   private def artifactToConfigModule(
       artifact: ResolvedArtifact,
       project: Project
   ): Config.Module = {
 
-    val resolutionResult = project
-      .getDependencies()
+    val javadocArtifact =
+      if (parameters.includeJavadoc) Seq(classOf[JavadocArtifact]) else Seq.empty
+    val sourcesArtifact =
+      if (parameters.includeSources) Seq(classOf[SourcesArtifact]) else Seq.empty
+
+    val resolutionResult = project.getDependencies
       .createArtifactResolutionQuery()
       .forComponents(artifact.getId.getComponentIdentifier)
-      .withArtifacts(classOf[JvmLibrary], classOf[SourcesArtifact], classOf[JavadocArtifact])
+      .withArtifacts(classOf[JvmLibrary], javadocArtifact ++ sourcesArtifact: _*)
       .execute()
 
-    val name = artifact.getModuleVersion().getId().getName()
-    val resolvedSourcesDependencies =
-      resolutionResult
-        .getResolvedComponents()
-        .asScala
-        .flatMap(_.getArtifacts(classOf[SourcesArtifact]).asScala)
-        .collect {
-          case artifact: ResolvedArtifactResult =>
-            Config.Artifact(
-              name = name,
-              classifier = Option("sources"),
-              checksum = None,
-              path = artifact.getFile.toPath
-            )
-        }
-        .toList
+    val name = artifact.getModuleVersion.getId.getName
+    val resolvedArtifacts = resolutionResult.getResolvedComponents.asScala
+    val resolvedOtherDependencies = getArtifacts(
+      resolvedArtifacts,
+      name,
+      classOf[SourcesArtifact],
+      "sources"
+    ) ++
+      getArtifacts(resolvedArtifacts, name, classOf[JavadocArtifact], "javadoc")
 
     Config.Module(
-      organization = artifact.getModuleVersion().getId().getGroup(),
-      name = artifact.getName(),
-      version = artifact.getModuleVersion().getId().getVersion(),
+      organization = artifact.getModuleVersion.getId.getGroup,
+      name = artifact.getName,
+      version = artifact.getModuleVersion.getId.getVersion,
       configurations = None,
       Config.Artifact(
         name = name,
-        classifier = Option(artifact.getClassifier()),
+        classifier = Option(artifact.getClassifier),
         checksum = None,
-        path = artifact.getFile().toPath()
-      ) :: resolvedSourcesDependencies
+        path = artifact.getFile.toPath
+      ) :: resolvedOtherDependencies.toList
     )
   }
 
@@ -667,20 +653,24 @@ final class BloopConverter(parameters: BloopParameters) {
         val target = s"project ${project.getName}/${sourceSet.getName}"
         val artifactNames =
           if (artifacts.isEmpty) ""
-          else s" Found artifacts:\n${artifacts.map(_.getFile.toString).mkString("\n")}"
+          else
+            s" Found artifacts:\n${artifacts.map(a => s"${a.getName} ${a.getFile}").mkString("\n")}"
         Failure(
           new GradleException(
-            s"Expected Scala standard library in classpath of $target that defines Scala sources.$artifactNames"
+            s"Expected ${parameters.stdLibName} library in classpath of $target that defines Scala sources.$artifactNames"
           )
         )
     }
   }
 
   private def getJavaConfig(project: Project, sourceSet: SourceSet): Option[Config.Java] = {
-    val opts = getJavaCompileOptions(project, sourceSet)
+    val compileTask = getJavaCompileTask(project, sourceSet)
+    val opts = compileTask.getOptions
 
     val specs = new DefaultJavaCompileSpec()
     specs.setCompileOptions(opts)
+    specs.setSourceCompatibility(compileTask.getSourceCompatibility)
+    specs.setTargetCompatibility(compileTask.getTargetCompatibility)
 
     val builder = new JavaCompilerArgumentsBuilder(specs)
       .includeMainOptions(true)

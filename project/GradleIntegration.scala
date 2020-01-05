@@ -31,11 +31,20 @@ object GradleIntegration {
           logger.info("Extracting the api path from gradle...")
           val cmdBase =
             if (isWindows) "cmd.exe" :: "/C" :: s"${gradlePath}.bat" :: Nil else gradlePath :: Nil
-          val gradleCmd = cmdBase ++ Seq("--stacktrace", "--no-daemon", "printClassPath")
+          val gradleCmd = cmdBase ++ Seq(
+            "--stacktrace",
+            "--no-daemon",
+            "--console=plain",
+            "--quiet",
+            "printClassPath"
+          )
           val result: String = Process(gradleCmd, dummyProjectDir).!!
-
-          copyGeneratedArtifact(logger, libDir, targetApi, result, "gradle-api", version)
-          copyGeneratedArtifact(logger, libDir, targetTestKit, result, "gradle-test-kit", version)
+          // Gradle returns classpath plus linefeeds and logging so parse
+          val paths = result
+            .split(java.io.File.pathSeparator)
+            .flatMap(_.split("\\r?\\n"))
+          copyGeneratedArtifact(logger, libDir, targetApi, paths, "gradle-api", version)
+          copyGeneratedArtifact(logger, libDir, targetTestKit, paths, "gradle-test-kit", version)
         }
       }
     } else {
@@ -48,12 +57,11 @@ object GradleIntegration {
       logger: Logger,
       libDir: File,
       targetFile: File,
-      classpath: String,
+      paths: Array[String],
       name: String,
       version: String
   ): Unit = {
-    val splitCharacter = if (isWindows) ';' else ':'
-    classpath.split(splitCharacter).find(_.endsWith(s"$name-$version.jar")) match {
+    paths.find(_.endsWith(s"$name-$version.jar")) match {
       case Some(gradleApi) =>
         // Copy the api to the lib jar so that it's accessible for the compiler
         val gradleApiJar = new File(gradleApi)
@@ -61,7 +69,8 @@ object GradleIntegration {
         IO.copyFile(gradleApiJar, targetFile)
       case None =>
         throw new MessageOnlyException(
-          s"Fatal: could not find $name artifact in the generated class path $classpath")
+          s"Fatal: could not find $name artifact in the generated class path [${paths.mkString(",")}]"
+        )
     }
   }
 
@@ -73,7 +82,7 @@ object GradleIntegration {
       |  testCompile gradleTestKit()
       |}
       |
-      |task("printClassPath") << {
+      |task("printClassPath") {
       |  println project.sourceSets.test.runtimeClasspath.asPath
       |}
     """.stripMargin

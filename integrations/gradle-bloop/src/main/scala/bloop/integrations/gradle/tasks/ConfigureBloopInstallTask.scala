@@ -1,6 +1,5 @@
 package bloop.integrations.gradle.tasks
 
-import bloop.integrations.gradle.BloopParameters
 import bloop.integrations.gradle.syntax._
 import org.gradle.api.tasks.{SourceSet, TaskAction}
 import org.gradle.api.{DefaultTask, GradleException, Project, Task}
@@ -18,7 +17,6 @@ import org.gradle.api.artifacts.component.ProjectComponentIdentifier
  */
 class ConfigureBloopInstallTask extends DefaultTask with PluginUtils with TaskLogging {
   override val project: Project = getProject
-  private val parameters: BloopParameters = project.getExtension[BloopParameters]
 
   /** The install task to set runtime, automatically set at plugin application */
   var installTask: Option[Task] = None
@@ -27,11 +25,6 @@ class ConfigureBloopInstallTask extends DefaultTask with PluginUtils with TaskLo
   def run(): Unit = {
     installTask match {
       case Some(task) =>
-        // bloopInstall also depends on all the properties on the 'bloop' parameters
-        task.getInputs.property("targetDir", parameters)
-        task.getInputs.property("mainSourceSet", parameters)
-        task.getInputs.property("compilerName", parameters)
-
         if (canRunBloop) {
           // Guard to avoid accessing java-related information (source sets) for non-Java projects
           project.allSourceSets.foreach(addSourceSetAsInputs(task, _))
@@ -50,12 +43,13 @@ class ConfigureBloopInstallTask extends DefaultTask with PluginUtils with TaskLo
    * given tasks' inputs
    */
   private def addSourceSetAsInputs(task: Task, sourceSet: SourceSet): Unit = {
-    val configuration = project.getConfiguration(sourceSet.getCompileConfigurationName)
+    val configuration = project.getConfiguration(sourceSet.getCompileClasspathConfigurationName)
+
     val artifacts = configuration.getResolvedConfiguration.getResolvedArtifacts.asScala
     for (artifact <- artifacts) {
       // we don't want project artifacts, since they might not exist during bloopInstall
       val isNotProjectArtifact =
-        !artifact.getId().getComponentIdentifier().isInstanceOf[ProjectComponentIdentifier]
+        !artifact.getId.getComponentIdentifier.isInstanceOf[ProjectComponentIdentifier]
       if (isNotProjectArtifact) {
         debug(s"[Bloop] Artifact added as input: ${artifact.getFile.getAbsolutePath}")
         task.getInputs.file(artifact.getFile)
