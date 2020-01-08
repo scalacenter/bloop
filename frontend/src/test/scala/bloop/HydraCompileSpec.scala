@@ -56,8 +56,7 @@ object HydraCompileSpec extends BaseCompileSpec {
   }
 
   override def test(name: String)(fun: => Any): Unit = {
-    //if (hydraLicenseExists) super.test(name)(fun)
-    //else ignore(name, "Hydra license is missing")(fun)
-    ignore(name, "Hydra license is missing")(fun)
+    if (hydraLicenseExists) super.test(name)(fun)
+    else ignore(name, "Hydra license is missing")(fun)
   }
 }
