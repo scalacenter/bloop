@@ -8,17 +8,16 @@ import bloop.{CompileMode, CompilerOracle}
 import bloop.reporter.ZincReporter
 import bloop.logging.ObservedLogger
 import bloop.tracing.BraveTracer
-import sbt.internal.inc.bloop.internal.{BloopStamps, BloopLookup}
-
+import sbt.internal.inc.bloop.internal.{BloopLookup, BloopStamps}
 import monix.eval.Task
-import sbt.internal.inc.{Analysis, CompileConfiguration, CompileOutput, Incremental, MiniSetupUtil, MixedAnalyzingCompiler}
+import sbt.internal.inc.{Analysis, CompileConfiguration, CompileOutput, HydraSupport, Incremental, JarUtils, MiniSetupUtil, MixedAnalyzingCompiler}
 import xsbti.{AnalysisCallback, Logger}
 import sbt.internal.inc.JavaInterfaceUtil.{EnrichOptional, EnrichSbtTuple}
 import sbt.internal.inc.bloop.internal.{BloopHighLevelCompiler, BloopIncremental}
 import sbt.util.InterfaceUtil
 import xsbti.compile._
-import sbt.internal.inc.JarUtils
 import bloop.UniqueCompileInputs
+
 import scala.concurrent.Promise
 
 object BloopZincCompiler {
@@ -133,9 +132,25 @@ object BloopZincCompiler {
 
         // Scala needs the explicit type signature to infer the function type arguments
         val compile: (Set[File], DependencyChanges, AnalysisCallback, ClassFileManager) => Task[Unit] = compiler.compile(_, _, _, _, compileMode, cancelPromise)
-        BloopIncremental.compile(setOfSources, uniqueInputs, lookup, compile, analysis, output, logger, reporter, config.incOptions, compileMode, manager, tracer).map {
-          case (changed, analysis) => CompileResult.of(analysis, config.currentSetup, changed)
-        }
+        BloopIncremental
+          .compile(
+            setOfSources,
+            uniqueInputs,
+            lookup,
+            compile,
+            analysis,
+            output,
+            logger,
+            reporter,
+            config.incOptions,
+            compileMode,
+            manager,
+            tracer,
+            HydraSupport.isEnabled(config.compiler.scalaInstance())
+          )
+          .map {
+            case (changed, analysis) => CompileResult.of(analysis, config.currentSetup, changed)
+          }
       }
     }
   }
