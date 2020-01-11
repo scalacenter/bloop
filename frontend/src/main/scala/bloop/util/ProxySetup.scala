@@ -142,14 +142,22 @@ object ProxySetup {
   ): Option[ProxySettings] = {
     env.get(key).flatMap { proxyVar =>
       try {
-        val url = new URI(proxyVar)
-        val maybeNoProxy = env.get("no_proxy").map(_.replace(',', '|'))
-        Some(ProxySettings(url.getHost(), url.getPort(), maybeNoProxy))
+        val uri = new URI(proxyVar)
+        if (isProxyUriValid(uri)) {
+          val maybeNoProxy = env.get("no_proxy").map(_.replace(',', '|'))
+          Some(ProxySettings(uri.getHost, uri.getPort, maybeNoProxy))
+        } else {
+          None
+        }
       } catch {
-        case e: MalformedURLException =>
+        case _: MalformedURLException =>
           logger.foreach(_.warn(s"Expected valid URI format in proxy value of $proxyVar"))
           None
       }
     }
+  }
+
+  private def isProxyUriValid(uri: URI): Boolean = {
+    uri.getHost != null
   }
 }
