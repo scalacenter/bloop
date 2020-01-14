@@ -81,7 +81,7 @@ _project_or_flags() {
     fi
 }
 
-_arguments \
+_arguments >/dev/null 2>&1  \
     ":command:_commands" \
     ":project_or_flags:_project_or_flags" \
     "*::flags:_tests_or_flags"
