@@ -297,7 +297,10 @@ object Interpreter {
                   val classpath = project.fullClasspath(dag, state.client)
                   val coursierClasspathArgs =
                     classpath.flatMap(elem => Seq("--extra-jars", elem.syntax))
-                  val ammoniteCmd = (coursierCmd ++ coursierClasspathArgs).mkString(" ")
+
+                  val ammArgs = Seq("-- --no-home-predef")
+
+                  val ammoniteCmd = (coursierCmd ++ coursierClasspathArgs ++ ammArgs).mkString(" ")
                   cmd.outFile match {
                     case None => Task.now(state.withInfo(ammoniteCmd))
                     case Some(outFile) =>
