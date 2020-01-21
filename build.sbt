@@ -539,6 +539,7 @@ lazy val sbtBloop10: Project = project
 
 lazy val sbtBloop10Shaded: Project =
   defineShadedSbtPlugin("sbtBloop10Shaded", Sbt1Version, sbtBloop10).settings(
+    scalaVersion := (scalaVersion in sbtBloop10).value,
     // Add dependencies that are not shaded and are required to be unchanged to work at runtime
     libraryDependencies ++= List(
       "net.java.dev.jna" % "jna" % "4.5.0",
@@ -558,7 +559,9 @@ lazy val sbtBloop013 = project
   .settings(resolvers += Resolver.typesafeIvyRepo("releases"))
 
 lazy val sbtBloop013Shaded =
-  defineShadedSbtPlugin("sbtBloop013Shaded", Sbt013Version, sbtBloop013)
+  defineShadedSbtPlugin("sbtBloop013Shaded", Sbt013Version, sbtBloop013).settings(
+    scalaVersion := (scalaVersion in sbtBloop013).value,
+  )
 
 lazy val mavenBloop = project
   .in(integrations / "maven-bloop")
