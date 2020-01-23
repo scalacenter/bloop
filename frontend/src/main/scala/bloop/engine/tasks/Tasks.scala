@@ -113,7 +113,7 @@ object Tasks {
         }
       }
 
-      val cwd = project.baseDirectory
+      val cwd = project.workingDirectory
       TestTask.runTestSuites(
         state,
         project,
