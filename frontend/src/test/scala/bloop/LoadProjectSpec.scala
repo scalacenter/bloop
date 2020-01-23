@@ -2,6 +2,9 @@ package bloop
 
 import bloop.config.Config
 import bloop.data.Project
+import bloop.data.Platform
+import bloop.data.JdkConfig
+import bloop.io.Paths
 import bloop.io.AbsolutePath
 import bloop.logging.RecordingLogger
 import bloop.util.TestUtil
@@ -17,5 +20,26 @@ class LoadProjectSpec {
     val origin = TestUtil.syntheticOriginFor(AbsolutePath.completelyUnsafe(""))
     val inferredInstance = Project.fromConfig(configWithNoScala, origin, logger).scalaInstance
     assert(inferredInstance.isEmpty)
+  }
+
+  @Test def CustomWorkingDirectory(): Unit = {
+    val logger = new RecordingLogger()
+    val dummyForTest = Config.File.dummyForTests
+    val origin = TestUtil.syntheticOriginFor(AbsolutePath.completelyUnsafe(""))
+    val project = Project.fromConfig(dummyForTest, origin, logger)
+    assert(
+      project.baseDirectory == project.workingDirectory,
+      s"${project.baseDirectory} != ${project.workingDirectory}"
+    )
+    val platform = project.platform.asInstanceOf[Platform.Jvm]
+    val userdir = AbsolutePath("foobar")
+    val customProject = project.copy(
+      platform =
+        platform.copy(config = platform.config.copy(javaOptions = Array(s"-Duser.dir=$userdir")))
+    )
+    assert(
+      customProject.workingDirectory == userdir,
+      s"${customProject.workingDirectory} != ${userdir}"
+    )
   }
 }

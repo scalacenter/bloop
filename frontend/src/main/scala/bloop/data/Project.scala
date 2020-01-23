@@ -62,6 +62,19 @@ final case class Project(
     case Config.ScalaThenJava => CompileOrder.ScalaThenJava
   }
 
+  def workingDirectory: AbsolutePath = {
+    val customWorkingDirectory = platform match {
+      case jvm: Platform.Jvm =>
+        jvm.config.javaOptions.collectFirst {
+          case option if option.startsWith("-Duser.dir=") =>
+            AbsolutePath(option.stripPrefix("-Duser.dir="))
+        }
+      case _ =>
+        None
+    }
+    customWorkingDirectory.getOrElse(baseDirectory)
+  }
+
   val uniqueId = s"${origin.path.syntax}#${name}"
   override def toString: String = s"$name"
   override val hashCode: Int =
