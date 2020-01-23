@@ -198,9 +198,9 @@ final class JvmForker(config: JdkConfig, classpath: Array[AbsolutePath]) extends
     }
 
     if (Properties.isWin) {
-      // Remove drive letter as MANIFEST files don't support them on Windows
+      // Prepend drive letters in windows with slash
       if (separatorAdded.indexOf(":") != 1) separatorAdded
-      else separatorAdded.substring(separatorAdded.indexOf(":") + 1)
+      else File.separator + separatorAdded
     } else {
       separatorAdded
     }
