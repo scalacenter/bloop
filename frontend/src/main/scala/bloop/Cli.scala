@@ -188,7 +188,11 @@ object Cli {
               case Right(c: Commands.Console) =>
                 val newCommand = c.copy(cliOptions = c.cliOptions.copy(common = commonOptions))
                 withNonEmptyProjects(c.projects, commandName, remainingArgs, commonOptions) { ps =>
-                  run(newCommand.copy(projects = ps), newCommand.cliOptions)
+                  run(
+                    // Infer everything after '--' as if they were execution args
+                    newCommand.copy(projects = ps, args = c.args ++ extraArgs),
+                    newCommand.cliOptions
+                  )
                 }
               case Right(c: Commands.Test) =>
                 val newCommand = c.copy(cliOptions = c.cliOptions.copy(common = commonOptions))

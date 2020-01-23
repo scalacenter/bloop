@@ -29,7 +29,8 @@ object ConsoleSpec extends BaseSuite {
       val `B` = TestProject(workspace, "b", List(Sources.`B.scala`), List(`A`))
       val projects = List(`A`, `B`)
       val state = loadState(workspace, projects, logger)
-      val compiledState = state.console(`B`)
+      val ammArgs = List("--no-home-predef")
+      val compiledState = state.console(`B`, ammArgs)
       assert(compiledState.status == ExitStatus.Ok)
       assertValidCompilationState(compiledState, projects)
 
@@ -43,7 +44,7 @@ object ConsoleSpec extends BaseSuite {
         classpathB.flatMap(elem => Seq("--extra-jars", elem.syntax))
       val expectedCommand =
         s"coursier launch com.lihaoyi:ammonite_2.12.8:latest.release --main-class ammonite.Main --scala-version 2.12.8 ${coursierClasspathArgs
-          .mkString(" ")} -- --no-home-predef"
+          .mkString(" ")} ${("--" :: ammArgs).mkString(" ")}"
 
       assertNoDiff(
         logger.captureTimeInsensitiveInfos

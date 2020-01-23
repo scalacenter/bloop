@@ -163,6 +163,8 @@ object Commands {
         s"Pick REPL to run console. The default is Ammonite, available REPLs are: ${ReplKind.repls.map(_.name).mkString(", ")}"
       )
       repl: ReplKind = AmmoniteRepl,
+      @HelpMessage("The arguments to pass in to Ammonite.")
+      args: List[String] = Nil,
       @HelpMessage(
         "The Ammonite version to use, it defaults to latest release. Ammonite REPL only."
       )

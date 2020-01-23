@@ -260,6 +260,9 @@ object Interpreter {
                     val errMsg =
                       "Specifying an Ammonite version while using the Scalac console does not work"
                     Task.now(state.withError(errMsg, ExitStatus.InvalidCommandLineOption))
+                  } else if (cmd.args.nonEmpty) {
+                    val errMsg = "Passing arguments to the Scalac console does not work"
+                    Task.now(state.withError(errMsg, ExitStatus.InvalidCommandLineOption))
                   } else {
                     Tasks.console(state, project, cmd.excludeRoot)
                   }
@@ -298,7 +301,7 @@ object Interpreter {
                   val coursierClasspathArgs =
                     classpath.flatMap(elem => Seq("--extra-jars", elem.syntax))
 
-                  val ammArgs = Seq("-- --no-home-predef")
+                  val ammArgs = "--" :: cmd.args
 
                   val ammoniteCmd = (coursierCmd ++ coursierClasspathArgs ++ ammArgs).mkString(" ")
                   cmd.outFile match {
