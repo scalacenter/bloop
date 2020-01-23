@@ -461,7 +461,7 @@ class BloopgunCli(
 
     def sysproc(cmd: List[String]): StatusCommand = {
       logger.info(Feedback.startingBloopServer(config))
-      logger.info(s"-> Command: $cmd")
+      logger.debug(s"-> Command: $cmd")
 
       // Don't use `shell.runCommand` b/c it uses an executor that gets shut down upon `System.exit`
       val process = new ProcessBuilder()
