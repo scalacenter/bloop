@@ -249,6 +249,8 @@ final class BloopClassFileManager(
 object BloopClassFileManager {
   def link(link: Path, target: Path): Try[Unit] = {
     Try {
+      // Make sure parent directory for link exists
+      Files.createDirectories(link.getParent)
       // Try symbolic link before hard link
       try Files.createSymbolicLink(link, target)
       catch {
