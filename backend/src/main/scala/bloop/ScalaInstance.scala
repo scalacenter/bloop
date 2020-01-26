@@ -20,10 +20,22 @@ final class ScalaInstance private (
     override val version: String,
     override val allJars: Array[File]
 ) extends xsbti.compile.ScalaInstance {
-  override val compilerJar: File =
-    allJars.find(f => isJar(f.getName) && hasScalaCompilerName(f.getName)).orNull
-  override val libraryJar: File =
-    allJars.find(f => isJar(f.getName) && hasScalaLibraryName(f.getName)).orNull
+  override val compilerJar: File = {
+    allJars
+      .find(f => isJar(f.getName) && hasScalaCompilerName(f.getName))
+      .getOrElse(
+        sys.error(s"Missing compiler jar in Scala jars ${allJars.mkString(", ")}")
+      )
+  }
+
+  override val libraryJar: File = {
+    allJars
+      .find(f => isJar(f.getName) && hasScalaLibraryName(f.getName))
+      .getOrElse(
+        sys.error(s"Missing compiler jar in Scala jars ${allJars.mkString(", ")}")
+      )
+  }
+
   override val otherJars: Array[File] = allJars.filter { file =>
     val filename = file.getName
     isJar(filename) && !hasScalaCompilerName(filename) && !hasScalaLibraryName(filename)
