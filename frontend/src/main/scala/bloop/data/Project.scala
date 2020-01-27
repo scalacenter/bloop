@@ -19,6 +19,7 @@ import ch.epfl.scala.{bsp => Bsp}
 
 import xsbti.compile.{ClasspathOptions, CompileOrder}
 import bloop.config.ConfigCodecs
+import scala.util.control.NonFatal
 
 final case class Project(
     name: String,
@@ -137,7 +138,7 @@ object Project {
   final implicit val ps: scalaz.Show[Project] =
     new scalaz.Show[Project] { override def shows(f: Project): String = f.name }
 
-  private final class ProjectReadException(msg: String, cause: Throwable)
+  final class ProjectReadException(msg: String, cause: Throwable)
       extends RuntimeException(msg, cause)
 
   def fromBytesAndOrigin(bytes: Array[Byte], origin: Origin, logger: Logger): Project = {
@@ -146,10 +147,15 @@ object Project {
       case Left(failure) =>
         throw new ProjectReadException(s"Failed to load project from ${origin.path}", failure)
       case Right(file) =>
-        val project = Project.fromConfig(file, origin, logger)
-        val skipHydraChanges = !project.scalaInstance.map(_.supportsHydra).getOrElse(false)
-        if (skipHydraChanges) project
-        else enableHydraSettings(project, logger)
+        try {
+          val project = Project.fromConfig(file, origin, logger)
+          val skipHydraChanges = !project.scalaInstance.map(_.supportsHydra).getOrElse(false)
+          if (skipHydraChanges) project
+          else enableHydraSettings(project, logger)
+        } catch {
+          case NonFatal(failure) =>
+            throw new ProjectReadException(s"Failed to load project from ${origin.path}", failure)
+        }
     }
   }
 
