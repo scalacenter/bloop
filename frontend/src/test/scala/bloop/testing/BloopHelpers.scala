@@ -24,7 +24,6 @@ import monix.execution.Scheduler
 import bloop.config.ConfigCodecs
 
 trait BloopHelpers {
-  self: BaseSuite =>
   def loadState(
       workspace: AbsolutePath,
       projects: List[TestProject],
@@ -308,4 +307,48 @@ trait BloopHelpers {
     }
 
   }
+
+  import java.nio.file.Files
+  import java.nio.charset.StandardCharsets
+  def readFile(path: AbsolutePath): String = {
+    new String(Files.readAllBytes(path.underlying), StandardCharsets.UTF_8)
+  }
+
+  def writeFile(path: AbsolutePath, contents: String): AbsolutePath = {
+    import scala.util.Try
+    import java.nio.file.StandardOpenOption
+    val body = Try(TestUtil.parseFile(contents)).map(_.contents).getOrElse(contents)
+
+    // Running this piece in Windows can produce spurious `AccessDeniedException`s
+    if (!bloop.util.CrossPlatform.isWindows) {
+      // Delete the file, there are weird issues when creating new files and
+      // SYNCING for existing files in macOS, so it's just better to remove this
+      if (Files.exists(path.underlying)) {
+        Files.delete(path.underlying)
+      }
+
+      AbsolutePath(
+        Files.write(
+          path.underlying,
+          body.getBytes(StandardCharsets.UTF_8),
+          StandardOpenOption.CREATE_NEW,
+          StandardOpenOption.SYNC,
+          StandardOpenOption.WRITE
+        )
+      )
+    } else {
+      AbsolutePath(
+        Files.write(
+          path.underlying,
+          body.getBytes(StandardCharsets.UTF_8),
+          StandardOpenOption.CREATE,
+          StandardOpenOption.TRUNCATE_EXISTING,
+          StandardOpenOption.SYNC,
+          StandardOpenOption.WRITE
+        )
+      )
+    }
+
+  }
+
 }

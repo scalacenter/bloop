@@ -138,7 +138,7 @@ object Project {
   final implicit val ps: scalaz.Show[Project] =
     new scalaz.Show[Project] { override def shows(f: Project): String = f.name }
 
-  private final class ProjectReadException(msg: String, cause: Throwable)
+  final class ProjectReadException(msg: String, cause: Throwable)
       extends RuntimeException(msg, cause)
 
   def fromBytesAndOrigin(bytes: Array[Byte], origin: Origin, logger: Logger): Project = {

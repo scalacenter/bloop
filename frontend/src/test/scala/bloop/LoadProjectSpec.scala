@@ -9,8 +9,10 @@ import bloop.io.AbsolutePath
 import bloop.logging.RecordingLogger
 import bloop.util.TestUtil
 import org.junit.Test
+import bloop.util.TestProject
+import bloop.testing.BloopHelpers
 
-class LoadProjectSpec {
+class LoadProjectSpec extends BloopHelpers {
   @Test def LoadJavaProject(): Unit = {
     // Make sure that when no scala setup is configured the project load succeeds (and no scala instance is defined)
     val logger = new RecordingLogger()
@@ -41,5 +43,20 @@ class LoadProjectSpec {
       customProject.workingDirectory == userdir,
       s"${customProject.workingDirectory} != ${userdir}"
     )
+  }
+
+  @Test(expected = classOf[Project.ProjectReadException])
+  def detectMissingCompiler(): Unit = {
+    TestUtil.withinWorkspace { workspace =>
+      val logger = new RecordingLogger()
+      val `A` = TestProject(workspace, "A", Nil).rewriteProject { scala =>
+        val jarsWithNoCompiler = scala.jars.filterNot(_.toString.contains("compiler"))
+        scala.copy(jars = jarsWithNoCompiler)
+      }
+
+      // Should throw project read exception
+      val _ = loadState(workspace, List(`A`), logger)
+      ()
+    }
   }
 }
