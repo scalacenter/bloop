@@ -15,7 +15,5 @@ object Offloader {
 
   val bloopCompileProjectSettings: Seq[Def.Setting[_]] = List()
   val bloopCompileGlobalSettings: Seq[Def.Setting[_]] = List()
-  val bloopCompileConfigSettings: Seq[Def.Setting[_]] = List(
-    BloopKeys.bloopCompile := Keys.compileIncremental.value
-  )
+  val bloopCompileConfigSettings: Seq[Def.Setting[_]] = List()
 }
