@@ -33,7 +33,6 @@ website/build/bloop-gh-pages/
 node_modules/
 package-lock.json
 .metals/
-project/metals.sbt
 *.lock
 benchmark-bridge/corpus/
 
