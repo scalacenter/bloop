@@ -65,8 +65,16 @@ class BloopgunCli(
     in: InputStream,
     out: PrintStream,
     err: PrintStream,
-    shell: Shell
+    shell: Shell,
+    cwd: Path
 ) {
+  def this(
+      bloopVersion: String,
+      in: InputStream,
+      out: PrintStream,
+      err: PrintStream,
+      shell: Shell
+  ) = this(bloopVersion, in, out, err, shell, Environment.cwd)
   def run(args: Array[String]): Int = {
     var setServer: Boolean = false
     var setPort: Boolean = false
@@ -246,7 +254,6 @@ class BloopgunCli(
     }
 
     import Defaults.env
-    import Environment.cwd
     val streams = Streams(in, out, err)
     val client = TcpClient(config.userOrDefaultHost, config.userOrDefaultPort)
     val noCancel = new AtomicBoolean(false)
@@ -466,7 +473,7 @@ class BloopgunCli(
       // Don't use `shell.runCommand` b/c it uses an executor that gets shut down upon `System.exit`
       val process = new ProcessBuilder()
         .command(cmd.toArray: _*)
-        .directory(Environment.cwd.toFile)
+        .directory(cwd.toFile)
 
       if (redirectOutErr) {
         process.redirectOutput()
@@ -536,7 +543,7 @@ class BloopgunCli(
           } else {
             val status = shell.runCommandInheritingIO(
               replCoursierCmd.toList,
-              Environment.cwd,
+              cwd,
               None,
               attachTerminal = true
             )
