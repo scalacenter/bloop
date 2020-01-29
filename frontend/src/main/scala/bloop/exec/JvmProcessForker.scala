@@ -8,6 +8,8 @@ import bloop.logging.{DebugFilter, Logger}
 import bloop.util.CrossPlatform
 import java.io.File
 import java.net.URLClassLoader
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.util.jar.{Attributes, JarOutputStream, Manifest}
 import monix.eval.Task
@@ -188,7 +190,9 @@ final class JvmForker(config: JdkConfig, classpath: Array[AbsolutePath]) extends
   }
 
   private def addTrailingSlashToDirectories(path: AbsolutePath): String = {
-    val syntax = path.syntax
+    // NOTE(olafur): manifest jars must use URL-encoded paths.
+    // https://docs.oracle.com/javase/7/docs/technotes/guides/jar/jar.html
+    val syntax = path.toBspUri.toURL.getPath
     val separatorAdded = {
       if (syntax.endsWith(".jar")) {
         syntax
