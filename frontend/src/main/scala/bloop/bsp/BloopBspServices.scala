@@ -4,7 +4,7 @@ import java.io.InputStream
 import java.net.URI
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
-import java.nio.file.{Files, FileSystems, Path}
+import java.nio.file.{FileSystems, Files, Path}
 import java.util.concurrent.ConcurrentHashMap
 import java.util.stream.Collectors
 
@@ -14,9 +14,9 @@ import bloop.bsp.BloopBspDefinitions.BloopExtraBuildParams
 import bloop.{CompileMode, Compiler, ScalaInstance}
 import bloop.cli.{Commands, ExitStatus, Validate}
 import bloop.dap.{DebugServer, DebuggeeRunner, StartedDebugServer}
-import bloop.data.{ClientInfo, Platform, Project, JdkConfig, WorkspaceSettings}
-import bloop.engine.{State, Aggregate, Dag, Interpreter}
-import bloop.engine.tasks.{CompileTask, Tasks, TestTask, RunMode}
+import bloop.data.{ClientInfo, JdkConfig, Platform, Project, WorkspaceSettings}
+import bloop.engine.{Aggregate, Dag, Interpreter, State}
+import bloop.engine.tasks.{CompileTask, RunMode, Tasks, TestTask}
 import bloop.engine.tasks.toolchains.{ScalaJsToolchain, ScalaNativeToolchain}
 import bloop.internal.build.BuildInfo
 import bloop.io.{AbsolutePath, RelativePath}
@@ -26,7 +26,13 @@ import bloop.testing.{BspLoggingEventHandler, TestInternals}
 
 import ch.epfl.scala.bsp
 import ch.epfl.scala.bsp.ScalaBuildTarget.encodeScalaBuildTarget
-import ch.epfl.scala.bsp.{BuildTargetIdentifier, MessageType, ShowMessageParams, endpoints}
+import ch.epfl.scala.bsp.{
+  BuildTargetIdentifier,
+  JvmEnvironmentEntry,
+  MessageType,
+  ShowMessageParams,
+  endpoints
+}
 
 import scala.meta.jsonrpc.{JsonRpcClient, Response => JsonRpcResponse, Services => JsonRpcServices}
 import monix.eval.Task
@@ -36,13 +42,11 @@ import monix.execution.atomic.AtomicInt
 import monix.execution.atomic.AtomicBoolean
 
 import scala.collection.concurrent.TrieMap
-import scala.collection.mutable
+import scala.collection.{immutable, mutable}
 import scala.collection.JavaConverters._
 import scala.concurrent.Promise
 import scala.concurrent.duration.FiniteDuration
-import scala.util.Success
-import scala.util.Failure
-
+import scala.util.{Failure, Success, Try}
 import monix.execution.Cancelable
 import io.circe.{Decoder, Json}
 import bloop.engine.Feedback
@@ -50,6 +54,7 @@ import monix.reactive.subjects.BehaviorSubject
 import bloop.engine.tasks.compilation.CompileClientStore
 import bloop.data.ClientInfo.BspClientInfo
 import bloop.logging.BloopLogger
+import cats.Traverse
 
 final class BloopBspServices(
     callSiteState: State,
@@ -108,6 +113,7 @@ final class BloopBspServices(
     .requestAsync(endpoints.BuildTarget.scalaTestClasses)(p => schedule(scalaTestClasses(p)))
     .requestAsync(endpoints.BuildTarget.dependencySources)(p => schedule(dependencySources(p)))
     .requestAsync(endpoints.DebugSession.start)(p => schedule(startDebugSession(p)))
+    .requestAsync(endpoints.BuildTarget.jvmTestEnvironment)(p => schedule(jvmTestEnvironment(p)))
     .notificationAsync(BloopBspDefinitions.stopClientCaching)(p => stopClientCaching(p))
 
   // Internal state, initial value defaults to
@@ -658,6 +664,56 @@ final class BloopBspServices(
                 case Left(error) => Task.now((newState, Left(error)))
               }
           }
+      }
+    }
+  }
+
+  def jvmTestEnvironment(
+      params: bsp.JvmEnvironmentParams
+  ): BspEndpointResponse[bsp.JvmEnvironmentResult] = {
+    ifInitialized(None) { (state: State, logger: BspServerLogger) =>
+      mapToProjects(params.targets, state) match {
+        case Left(error) =>
+          logger.error(error)
+          Task.now((state, Left(JsonRpcResponse.invalidRequest(error))))
+
+        case Right(projects) =>
+          val environmentEntries: List[Either[String, JvmEnvironmentEntry]] = for {
+            (id, project) <- projects.toList
+            dag = state.build.getDagFor(project)
+            fullClasspath = project.fullClasspath(dag, state.client).map(_.toString)
+            environmentVariables = state.commonOptions.env.toMap
+            workingDirectory = state.commonOptions.workingDirectory
+          } yield {
+            project.platform match {
+              case Platform.Jvm(config, _, _) =>
+                Right(
+                  bsp.JvmEnvironmentEntry(
+                    id,
+                    fullClasspath.toList,
+                    config.javaOptions.toList,
+                    workingDirectory,
+                    environmentVariables
+                  )
+                )
+              case _ => Left(s"Not a JVM project: ${project.name}")
+            }
+          }
+
+          def sequenceListOfEithers[L, R](
+              agg: List[R],
+              col: List[Either[L, R]]
+          ): Either[L, List[R]] = {
+            col match {
+              case Nil => Right(agg)
+              case Left(head) :: _ => Left(head)
+              case Right(head) :: tail => sequenceListOfEithers(agg :+ head, tail)
+            }
+          }
+
+          val resp = sequenceListOfEithers(List.empty, environmentEntries)
+            .map(new bsp.JvmEnvironmentResult(_))
+          Task.now((state, resp.swap.map(JsonRpcResponse.invalidRequest(_)).swap))
       }
     }
   }
