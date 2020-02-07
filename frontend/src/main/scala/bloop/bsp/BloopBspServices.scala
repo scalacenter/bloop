@@ -28,7 +28,7 @@ import ch.epfl.scala.bsp
 import ch.epfl.scala.bsp.ScalaBuildTarget.encodeScalaBuildTarget
 import ch.epfl.scala.bsp.{
   BuildTargetIdentifier,
-  JvmEnvironmentEntry,
+  JvmEnvironmentItem,
   MessageType,
   ShowMessageParams,
   endpoints
@@ -669,8 +669,8 @@ final class BloopBspServices(
   }
 
   def jvmTestEnvironment(
-      params: bsp.JvmEnvironmentParams
-  ): BspEndpointResponse[bsp.JvmEnvironmentResult] = {
+      params: bsp.JvmTestEnvironmentParams
+  ): BspEndpointResponse[bsp.JvmTestEnvironmentResult] = {
     ifInitialized(None) { (state: State, logger: BspServerLogger) =>
       mapToProjects(params.targets, state) match {
         case Left(error) =>
@@ -678,7 +678,7 @@ final class BloopBspServices(
           Task.now((state, Left(JsonRpcResponse.invalidRequest(error))))
 
         case Right(projects) =>
-          val environmentEntries: List[Either[String, JvmEnvironmentEntry]] = for {
+          val environmentEntries: List[Either[String, JvmEnvironmentItem]] = for {
             (id, project) <- projects.toList
             dag = state.build.getDagFor(project)
             fullClasspath = project.fullClasspath(dag, state.client).map(_.toString)
@@ -688,7 +688,7 @@ final class BloopBspServices(
             project.platform match {
               case Platform.Jvm(config, _, _) =>
                 Right(
-                  bsp.JvmEnvironmentEntry(
+                  bsp.JvmEnvironmentItem(
                     id,
                     fullClasspath.toList,
                     config.javaOptions.toList,
@@ -712,7 +712,7 @@ final class BloopBspServices(
           }
 
           val resp = sequenceListOfEithers(List.empty, environmentEntries)
-            .map(new bsp.JvmEnvironmentResult(_))
+            .map(new bsp.JvmTestEnvironmentResult(_))
           Task.now((state, resp.swap.map(JsonRpcResponse.invalidRequest(_)).swap))
       }
     }
