@@ -678,42 +678,28 @@ final class BloopBspServices(
           Task.now((state, Left(JsonRpcResponse.invalidRequest(error))))
 
         case Right(projects) =>
-          val environmentEntries: List[Either[String, JvmEnvironmentItem]] = for {
+          val environmentEntries = for {
             (id, project) <- projects.toList
             dag = state.build.getDagFor(project)
             fullClasspath = project.fullClasspath(dag, state.client).map(_.toString)
             environmentVariables = state.commonOptions.env.toMap
             workingDirectory = state.commonOptions.workingDirectory
+            javaOptions = project.platform match {
+              case Platform.Jvm(config, _,_) => config.javaOptions.toList
+              case _ => List()
+            }
           } yield {
-            project.platform match {
-              case Platform.Jvm(config, _, _) =>
-                Right(
                   bsp.JvmEnvironmentItem(
                     id,
                     fullClasspath.toList,
-                    config.javaOptions.toList,
+                    javaOptions,
                     workingDirectory,
-                    environmentVariables
-                  )
-                )
-              case _ => Left(s"Not a JVM project: ${project.name}")
+                    environmentVariables)
             }
-          }
 
-          def sequenceListOfEithers[L, R](
-              agg: List[R],
-              col: List[Either[L, R]]
-          ): Either[L, List[R]] = {
-            col match {
-              case Nil => Right(agg)
-              case Left(head) :: _ => Left(head)
-              case Right(head) :: tail => sequenceListOfEithers(agg :+ head, tail)
-            }
-          }
 
-          val resp = sequenceListOfEithers(List.empty, environmentEntries)
-            .map(new bsp.JvmTestEnvironmentResult(_))
-          Task.now((state, resp.swap.map(JsonRpcResponse.invalidRequest(_)).swap))
+          val resp = new bsp.JvmTestEnvironmentResult(environmentEntries)
+          Task.now((state, Right(resp)))
       }
     }
   }
