@@ -7,8 +7,7 @@ import bloop.cli.{BspProtocol, ExitStatus}
 import bloop.util.{TestProject, TestUtil}
 import bloop.logging.RecordingLogger
 import bloop.internal.build.BuildInfo
-
-import java.nio.file.{Files, Path}
+import java.nio.file.{Files, Path, Paths}
 import java.util.stream.Collectors
 
 import scala.collection.JavaConverters._
@@ -121,7 +120,7 @@ class BspProtocolSpec(
         val environmentItem = result.items.head
         assert(result.items.size == 1)
         assert(environmentItem.environmentVariables.contains("BLOOP_OWNER"))
-        assert(environmentItem.workingDirectory.endsWith("/frontend"))
+        assert(Paths.get(environmentItem.workingDirectory).getFileName.toString == "frontend")
         assert(environmentItem.classpath.exists(_.contains(s"target/${`A`.config.name}")))
         assert(environmentItem.jvmOptions == jvmOptions)
       }
