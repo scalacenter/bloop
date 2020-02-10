@@ -95,6 +95,39 @@ class BspProtocolSpec(
     }
   }
 
+  test("check the correct contents of jvm test environment") {
+    TestUtil.withinWorkspace { workspace =>
+      object Sources {
+        val `A.scala` =
+          """/A.scala
+            |object A
+          """.stripMargin
+      }
+
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val jvmOptions = List("-DSOME_OPTION=X")
+      val jvmConfig = Some(Config.JvmConfig(None, jvmOptions))
+      val `A` = TestProject(
+        workspace,
+        "a",
+        List(Sources.`A.scala`),
+        jvmConfig = jvmConfig
+      )
+
+      val projects = List(`A`)
+      loadBspState(workspace, projects, logger) { state =>
+        val (stateA, result) = state.jvmTestEnvironment(`A`, None)
+        assert(stateA.status == ExitStatus.Ok)
+        val environmentItem = result.items.head
+        assert(result.items.size == 1)
+        assert(environmentItem.environmentVariables.contains("BLOOP_OWNER"))
+        assert(environmentItem.workingDirectory == "/home/tpasternak/Documents/bloop/frontend")
+        assert(environmentItem.classpath.exists(_.contains(s"target/${`A`.config.name}")))
+        assert(environmentItem.jvmOptions == jvmOptions)
+      }
+    }
+  }
+
   test("use client root classes directory and make sure project directories are stable") {
     TestUtil.withinWorkspace { workspace =>
       val `A` = TestProject(workspace, "a", Nil)
