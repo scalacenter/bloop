@@ -121,7 +121,7 @@ class BspProtocolSpec(
         val environmentItem = result.items.head
         assert(result.items.size == 1)
         assert(environmentItem.environmentVariables.contains("BLOOP_OWNER"))
-        assert(environmentItem.workingDirectory == "/home/tpasternak/Documents/bloop/frontend")
+        assert(environmentItem.workingDirectory.endsWith("/frontend"))
         assert(environmentItem.classpath.exists(_.contains(s"target/${`A`.config.name}")))
         assert(environmentItem.jvmOptions == jvmOptions)
       }
