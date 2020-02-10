@@ -379,12 +379,17 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
       }
     }
 
-    def jvmTestEnvironment(project: TestProject, originId: Option[String]): (ManagedBspTestState, bsp.JvmTestEnvironmentResult) = {
+    def jvmTestEnvironment(
+        project: TestProject,
+        originId: Option[String]
+    ): (ManagedBspTestState, bsp.JvmTestEnvironmentResult) = {
       val scalacOptionsTask = runAfterTargets(project) { target =>
-        endpoints.BuildTarget.jvmTestEnvironment.request(bsp.JvmTestEnvironmentParams(List(target), originId)).map {
-          case Left(error) => fail(s"Received error ${error}")
-          case Right(options) => options
-        }
+        endpoints.BuildTarget.jvmTestEnvironment
+          .request(bsp.JvmTestEnvironmentParams(List(target), originId))
+          .map {
+            case Left(error) => fail(s"Received error ${error}")
+            case Right(options) => options
+          }
       }
 
       TestUtil.await(FiniteDuration(5, "s")) {

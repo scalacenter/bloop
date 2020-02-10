@@ -685,18 +685,18 @@ final class BloopBspServices(
             environmentVariables = state.commonOptions.env.toMap
             workingDirectory = state.commonOptions.workingDirectory
             javaOptions = project.platform match {
-              case Platform.Jvm(config, _,_) => config.javaOptions.toList
+              case Platform.Jvm(config, _, _) => config.javaOptions.toList
               case _ => List()
             }
           } yield {
-                  bsp.JvmEnvironmentItem(
-                    id,
-                    fullClasspath.toList,
-                    javaOptions,
-                    workingDirectory,
-                    environmentVariables)
-            }
-
+            bsp.JvmEnvironmentItem(
+              id,
+              fullClasspath.toList,
+              javaOptions,
+              workingDirectory,
+              environmentVariables
+            )
+          }
 
           val resp = new bsp.JvmTestEnvironmentResult(environmentEntries)
           Task.now((state, Right(resp)))
