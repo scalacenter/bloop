@@ -3,6 +3,10 @@ import build.BuildImplementation.BuildDefaults
 
 useGpg in Global := false
 
+version in ThisBuild ~= { old =>
+  old.replace('+', '-')
+}
+
 // Tell bloop to aggregate source deps (benchmark) config files in the same bloop config dir
 bloopAggregateSourceDependencies in Global := true
 
