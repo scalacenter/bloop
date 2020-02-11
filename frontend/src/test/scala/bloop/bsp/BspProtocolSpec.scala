@@ -123,7 +123,10 @@ class BspProtocolSpec(
         assert(result.items.size == 1)
         assert(environmentItem.environmentVariables.contains("BLOOP_OWNER"))
         assert(Paths.get(environmentItem.workingDirectory).getFileName.toString == "frontend")
-        assert(environmentItem.classpath.exists(_.contains(s"target" + File.separator + s"${`A`.config.name}")))
+        assert(
+          environmentItem.classpath
+            .exists(_.contains(s"target" + File.separator + s"${`A`.config.name}"))
+        )
         assert(environmentItem.jvmOptions == jvmOptions)
       }
     }
