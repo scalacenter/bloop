@@ -331,15 +331,15 @@ class BspMetalsClientSpec(
     }
   }
 
-  test("compile with scala3 without using plugin") {
+  test("compile producing Semanticdb with scala3 without using plugin") {
     TestUtil.withinWorkspace { workspace =>
       val `A` = TestProject(
         workspace,
         "A",
         dummyFooSources,
-        scalaVersion = Some("0.21.0-RC1"),
+        scalaVersion = Some("0.23.0-bin-20200210-0dc07b0-NIGHTLY"),
         scalaOrg = Some("ch.epfl.lamp"),
-        scalaCompiler = Some("dotty-compiler_0.21")
+        scalaCompiler = Some("dotty-compiler_0.23")
       )
       val projects = List(`A`)
       val configDir = TestProject.populateWorkspace(workspace, projects)
@@ -351,29 +351,33 @@ class BspMetalsClientSpec(
       )
       loadBspState(workspace, projects, logger) { state =>
         val compiledState = state.compile(`A`).toTestState
-        assert(compiledState.status == ExitStatus.Ok)
+        assertExitStatus(compiledState, ExitStatus.Ok)
+        assertValidCompilationState(compiledState, projects)
         assertSemanticdbFileFor("Foo.scala", compiledState)
+        assertSuccessfulCompilation(compiledState, projects, isNoOp = false)
       }
     }
   }
 
-  test("not compile with scala3 when settings are not present") {
+  test("compile not producing Semanticdb with scala3 when settings are not present") {
     TestUtil.withinWorkspace { workspace =>
       val `A` = TestProject(
         workspace,
         "A",
         dummyFooSources,
-        scalaVersion = Some("0.21.0-RC1"),
+        scalaVersion = Some("0.23.0-bin-20200210-0dc07b0-NIGHTLY"),
         scalaOrg = Some("ch.epfl.lamp"),
-        scalaCompiler = Some("dotty-compiler_0.21")
+        scalaCompiler = Some("dotty-compiler_0.23")
       )
       val projects = List(`A`)
       val configDir = TestProject.populateWorkspace(workspace, projects)
       val logger = new RecordingLogger(ansiCodesSupported = false)
       loadBspState(workspace, projects, logger) { state =>
         val compiledState = state.compile(`A`).toTestState
-        assert(compiledState.status == ExitStatus.Ok)
-        assertSemanticdbFileFor("Foo.scala", compiledState, isPresent = false)
+        assertExitStatus(compiledState, ExitStatus.Ok)
+        assertValidCompilationState(compiledState, projects)
+        assertSuccessfulCompilation(compiledState, projects, isNoOp = false)
+        assertNoSemanticdbFileFor("Foo.scala", compiledState)
       }
     }
   }
@@ -404,16 +408,27 @@ class BspMetalsClientSpec(
           """.stripMargin
   )
 
-  private def assertSemanticdbFileFor(
-      sourceFileName: String,
-      state: TestState,
-      isPresent: Boolean = true
-  ): Unit = {
+  private def semanticdbFile(sourceFileName: String, state: TestState) = {
     val projectA = state.build.getProjectFor("A").get
     val classesDir = state.client.getUniqueClassesDirFor(projectA, forceGeneration = true)
     val sourcePath = if (sourceFileName.startsWith("/")) sourceFileName else s"/$sourceFileName"
-    val file = classesDir.resolve(s"META-INF/semanticdb/A/src/$sourcePath.semanticdb")
-    if (isPresent) assertIsFile(file) else assertNotFile(file)
+    classesDir.resolve(s"META-INF/semanticdb/A/src/$sourcePath.semanticdb")
+  }
+
+  private def assertSemanticdbFileFor(
+      sourceFileName: String,
+      state: TestState
+  ): Unit = {
+    val file = semanticdbFile(sourceFileName, state)
+    assertIsFile(file)
+  }
+
+  private def assertNoSemanticdbFileFor(
+      sourceFileName: String,
+      state: TestState
+  ): Unit = {
+    val file = semanticdbFile(sourceFileName, state)
+    assertNotFile(file)
   }
 
   private def assertNoDiffInSettingsFile(configDir: AbsolutePath, expected: String): Unit = {
