@@ -54,7 +54,6 @@ import monix.reactive.subjects.BehaviorSubject
 import bloop.engine.tasks.compilation.CompileClientStore
 import bloop.data.ClientInfo.BspClientInfo
 import bloop.logging.BloopLogger
-import cats.Traverse
 
 final class BloopBspServices(
     callSiteState: State,
