@@ -683,9 +683,9 @@ final class BloopBspServices(
             fullClasspath = project.fullClasspath(dag, state.client).map(_.toString)
             environmentVariables = state.commonOptions.env.toMap
             workingDirectory = state.commonOptions.workingDirectory
-            javaOptions = project.platform match {
-              case Platform.Jvm(config, _, _) => config.javaOptions.toList
-              case _ => List()
+            javaOptions <- project.platform match {
+              case Platform.Jvm(config, _, _) => Some(config.javaOptions.toList)
+              case _ => None
             }
           } yield {
             bsp.JvmEnvironmentItem(
