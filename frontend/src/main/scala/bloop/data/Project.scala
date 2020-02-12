@@ -254,8 +254,10 @@ object Project {
       semanticDBPlugin: Option[AbsolutePath],
       logger: Logger
   ): Project = {
-    def enableSemanticDB(options: List[String], pluginPath: AbsolutePath): List[String] = {
-      val workspaceDir = project.workspaceDirectory.getOrElse(configDir.getParent)
+    val workspaceDir = project.workspaceDirectory.getOrElse(configDir.getParent)
+    val isDotty = project.scalaInstance.exists(_.isDotty)
+
+    def enableSemanticdb(options: List[String], pluginPath: AbsolutePath): List[String] = {
       val baseSemanticdbOptions = List(
         "-P:semanticdb:failures:warning",
         "-P:semanticdb:synthetics:on",
@@ -271,19 +273,33 @@ object Project {
       (baseOptions ++ baseSemanticdbOptions ++ pluginOption).distinct
     }
 
+    def enableDottySemanticdb(options: List[String]) = {
+      val ysemanticdb = if (!options.contains("-Ysemanticdb")) List("-Ysemanticdb") else Nil
+      val sourceRoot =
+        if (!options.contains("-sourceroot")) List("-sourceroot", workspaceDir.toString()) else Nil
+      ysemanticdb ++ sourceRoot
+    }
+
     def enableRangePositions(options: List[String]): List[String] = {
       val hasYrangepos = options.exists(_.contains("-Yrangepos"))
-      val isDotty = project.scalaInstance.exists(_.isDotty)
       if (hasYrangepos || isDotty) options else options :+ "-Yrangepos"
     }
 
     val projectWithRangePositions =
       project.copy(scalacOptions = enableRangePositions(project.scalacOptions))
+
+    val options = projectWithRangePositions.scalacOptions
+
     semanticDBPlugin match {
-      case None => projectWithRangePositions
+      case None =>
+        if (isDotty) {
+          val optionsWithSemanticDB = enableDottySemanticdb(options)
+          projectWithRangePositions.copy(scalacOptions = optionsWithSemanticDB)
+        } else {
+          projectWithRangePositions
+        }
       case Some(pluginPath) =>
-        val options = projectWithRangePositions.scalacOptions
-        val optionsWithSemanticDB = enableSemanticDB(options, pluginPath)
+        val optionsWithSemanticDB = enableSemanticdb(options, pluginPath)
         projectWithRangePositions.copy(scalacOptions = optionsWithSemanticDB)
     }
   }
