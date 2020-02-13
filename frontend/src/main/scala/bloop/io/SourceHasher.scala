@@ -59,11 +59,11 @@ object SourceHasher {
     val (observer, observable) = Observable.multicast[Path](MulticastStrategy.publish)(scheduler)
 
     val subscribed = Promise[Unit]()
-    val discovery = new FileVisitor[Path] {
+    def fileVisitor(matches: Path => Boolean) = new FileVisitor[Path] {
       def visitFile(file: Path, attributes: BasicFileAttributes): FileVisitResult = {
         if (isCancelled.get) FileVisitResult.TERMINATE
         else {
-          if (!sourceMatcher.matches(file)) ()
+          if (!matches(file)) ()
           else observer.onNext(file)
           FileVisitResult.CONTINUE
         }
@@ -92,12 +92,20 @@ object SourceHasher {
     }
 
     val discoverFileTree = Task {
+      val discovery = fileVisitor(sourceMatcher.matches)
       val opts = java.util.EnumSet.of(FileVisitOption.FOLLOW_LINKS)
       sourceFilesAndDirectories.foreach { sourcePath =>
         if (visitedDirs.contains(sourcePath.underlying)) ()
         else if (isCancelled.get) ()
         else {
           Files.walkFileTree(sourcePath.underlying, opts, Int.MaxValue, discovery)
+        }
+      }
+      project.sourcesGlobs.foreach { glob =>
+        val discovery = fileVisitor(glob.matches)
+        if (isCancelled.get) ()
+        else {
+          Files.walkFileTree(glob.directory, opts, glob.walkDepth, discovery)
         }
       }
     }.doOnFinish {

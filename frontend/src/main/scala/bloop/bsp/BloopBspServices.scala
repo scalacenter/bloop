@@ -934,7 +934,7 @@ final class BloopBspServices(
       val response = bsp.SourcesResult(
         projects.iterator.map {
           case (target, project) =>
-            val sources = project.sources.map {
+            val sources = project.allSourceFilesAndDirectories().map {
               s =>
                 import bsp.SourceItemKind._
                 val uri = s.underlying.toUri()

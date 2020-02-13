@@ -101,6 +101,7 @@ object Bloop extends ExternalModule {
         directory = module.millSourcePath.toNIO,
         workspaceDir = Option(pwd.wrapped),
         sources = module.allSources().map(_.path.toNIO).toList,
+        sourcesGlobs = None,
         dependencies = module.moduleDeps.map(name).toList,
         classpath = classpath().map(_.toNIO).toList,
         out = out(module).toNIO,
