@@ -1,5 +1,7 @@
 package bloop.bsp
 
+import java.io.File
+
 import bloop.engine.State
 import bloop.config.Config
 import bloop.io.AbsolutePath
@@ -7,8 +9,7 @@ import bloop.cli.{BspProtocol, ExitStatus}
 import bloop.util.{TestProject, TestUtil}
 import bloop.logging.RecordingLogger
 import bloop.internal.build.BuildInfo
-
-import java.nio.file.{Files, Path}
+import java.nio.file.{Files, Path, Paths}
 import java.util.stream.Collectors
 
 import scala.collection.JavaConverters._
@@ -91,6 +92,46 @@ class BspProtocolSpec(
         assert(stateB.status == ExitStatus.Ok)
         val classesDirB = stateB.toTestState.getClientExternalDir(`B`).underlying
         testOptions(resultB, ScalacOptions.B, classesDirB, `B`.bspId, List(classesDirB))
+      }
+    }
+  }
+
+  test("check the correct contents of jvm test environment") {
+    TestUtil.withinWorkspace { workspace =>
+      object Sources {
+        val `A.scala` =
+          """/A.scala
+            |object A
+          """.stripMargin
+      }
+
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val jvmOptions = List("-DSOME_OPTION=X")
+      val jvmConfig = Some(Config.JvmConfig(None, jvmOptions))
+      val `A` = TestProject(
+        workspace,
+        "a",
+        List(Sources.`A.scala`),
+        jvmConfig = jvmConfig
+      )
+
+      val projects = List(`A`)
+      loadBspState(workspace, projects, logger) { state =>
+        val (stateA, result) = state.jvmTestEnvironment(`A`, None)
+        assert(stateA.status == ExitStatus.Ok)
+        val environmentItem = result.items.head
+        assert(result.items.size == 1)
+        assert(environmentItem.environmentVariables.contains("BLOOP_OWNER"))
+        assertNoDiff(
+          "BLOOP_OWNER",
+          environmentItem.environmentVariables.keys.mkString("\n")
+        )
+        assert(Paths.get(environmentItem.workingDirectory).getFileName.toString == "frontend")
+        assert(
+          environmentItem.classpath
+            .exists(_.contains(s"target" + File.separator + s"${`A`.config.name}"))
+        )
+        assert(environmentItem.jvmOptions == jvmOptions)
       }
     }
   }

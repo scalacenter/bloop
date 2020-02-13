@@ -4,7 +4,7 @@ import java.io.InputStream
 import java.net.URI
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
-import java.nio.file.{Files, FileSystems, Path}
+import java.nio.file.{FileSystems, Files, Path}
 import java.util.concurrent.ConcurrentHashMap
 import java.util.stream.Collectors
 
@@ -14,9 +14,9 @@ import bloop.bsp.BloopBspDefinitions.BloopExtraBuildParams
 import bloop.{CompileMode, Compiler, ScalaInstance}
 import bloop.cli.{Commands, ExitStatus, Validate}
 import bloop.dap.{DebugServer, DebuggeeRunner, StartedDebugServer}
-import bloop.data.{ClientInfo, Platform, Project, JdkConfig, WorkspaceSettings}
-import bloop.engine.{State, Aggregate, Dag, Interpreter}
-import bloop.engine.tasks.{CompileTask, Tasks, TestTask, RunMode}
+import bloop.data.{ClientInfo, JdkConfig, Platform, Project, WorkspaceSettings}
+import bloop.engine.{Aggregate, Dag, Interpreter, State}
+import bloop.engine.tasks.{CompileTask, RunMode, Tasks, TestTask}
 import bloop.engine.tasks.toolchains.{ScalaJsToolchain, ScalaNativeToolchain}
 import bloop.internal.build.BuildInfo
 import bloop.io.{AbsolutePath, RelativePath}
@@ -26,7 +26,13 @@ import bloop.testing.{BspLoggingEventHandler, TestInternals}
 
 import ch.epfl.scala.bsp
 import ch.epfl.scala.bsp.ScalaBuildTarget.encodeScalaBuildTarget
-import ch.epfl.scala.bsp.{BuildTargetIdentifier, MessageType, ShowMessageParams, endpoints}
+import ch.epfl.scala.bsp.{
+  BuildTargetIdentifier,
+  JvmEnvironmentItem,
+  MessageType,
+  ShowMessageParams,
+  endpoints
+}
 
 import scala.meta.jsonrpc.{JsonRpcClient, Response => JsonRpcResponse, Services => JsonRpcServices}
 import monix.eval.Task
@@ -40,9 +46,7 @@ import scala.collection.mutable
 import scala.collection.JavaConverters._
 import scala.concurrent.Promise
 import scala.concurrent.duration.FiniteDuration
-import scala.util.Success
-import scala.util.Failure
-
+import scala.util.{Failure, Success, Try}
 import monix.execution.Cancelable
 import io.circe.{Decoder, Json}
 import bloop.engine.Feedback
@@ -108,6 +112,7 @@ final class BloopBspServices(
     .requestAsync(endpoints.BuildTarget.scalaTestClasses)(p => schedule(scalaTestClasses(p)))
     .requestAsync(endpoints.BuildTarget.dependencySources)(p => schedule(dependencySources(p)))
     .requestAsync(endpoints.DebugSession.start)(p => schedule(startDebugSession(p)))
+    .requestAsync(endpoints.BuildTarget.jvmTestEnvironment)(p => schedule(jvmTestEnvironment(p)))
     .notificationAsync(BloopBspDefinitions.stopClientCaching)(p => stopClientCaching(p))
 
   // Internal state, initial value defaults to
@@ -658,6 +663,42 @@ final class BloopBspServices(
                 case Left(error) => Task.now((newState, Left(error)))
               }
           }
+      }
+    }
+  }
+
+  def jvmTestEnvironment(
+      params: bsp.JvmTestEnvironmentParams
+  ): BspEndpointResponse[bsp.JvmTestEnvironmentResult] = {
+    ifInitialized(None) { (state: State, logger: BspServerLogger) =>
+      mapToProjects(params.targets, state) match {
+        case Left(error) =>
+          logger.error(error)
+          Task.now((state, Left(JsonRpcResponse.invalidRequest(error))))
+
+        case Right(projects) =>
+          val environmentEntries = for {
+            (id, project) <- projects.toList
+            dag = state.build.getDagFor(project)
+            fullClasspath = project.fullClasspath(dag, state.client).map(_.toString)
+            environmentVariables = state.commonOptions.env.toMap
+            workingDirectory = state.commonOptions.workingDirectory
+            javaOptions <- project.platform match {
+              case Platform.Jvm(config, _, _) => Some(config.javaOptions.toList)
+              case _ => None
+            }
+          } yield {
+            bsp.JvmEnvironmentItem(
+              id,
+              fullClasspath.toList,
+              javaOptions,
+              workingDirectory,
+              environmentVariables
+            )
+          }
+
+          val resp = new bsp.JvmTestEnvironmentResult(environmentEntries)
+          Task.now((state, Right(resp)))
       }
     }
   }
