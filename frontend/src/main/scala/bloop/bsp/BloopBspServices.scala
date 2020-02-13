@@ -42,7 +42,7 @@ import monix.execution.atomic.AtomicInt
 import monix.execution.atomic.AtomicBoolean
 
 import scala.collection.concurrent.TrieMap
-import scala.collection.{immutable, mutable}
+import scala.collection.mutable
 import scala.collection.JavaConverters._
 import scala.concurrent.Promise
 import scala.concurrent.duration.FiniteDuration

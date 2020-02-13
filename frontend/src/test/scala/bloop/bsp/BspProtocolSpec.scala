@@ -122,6 +122,10 @@ class BspProtocolSpec(
         val environmentItem = result.items.head
         assert(result.items.size == 1)
         assert(environmentItem.environmentVariables.contains("BLOOP_OWNER"))
+        assertNoDiff(
+          "BLOOP_OWNER",
+          environmentItem.environmentVariables.keys.mkString("\n")
+        )
         assert(Paths.get(environmentItem.workingDirectory).getFileName.toString == "frontend")
         assert(
           environmentItem.classpath
