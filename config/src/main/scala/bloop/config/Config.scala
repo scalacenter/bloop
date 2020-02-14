@@ -9,6 +9,14 @@ object Config {
   case class TestFramework(names: List[String])
 
   object TestFramework {
+    val utest = Config.TestFramework(
+      List("utest.runner.Framework")
+    )
+
+    val munit = Config.TestFramework(
+      List("munit.Framework")
+    )
+
     val ScalaCheck = Config.TestFramework(
       List(
         "org.scalacheck.ScalaCheckFramework"
@@ -36,7 +44,7 @@ object Config {
       )
     )
 
-    val DefaultFrameworks = List(JUnit, ScalaTest, ScalaCheck, Specs2)
+    val DefaultFrameworks = List(JUnit, ScalaTest, ScalaCheck, Specs2, utest, munit)
   }
 
   case class TestArgument(args: List[String], framework: Option[TestFramework])
