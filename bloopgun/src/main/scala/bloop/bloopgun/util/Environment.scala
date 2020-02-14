@@ -78,6 +78,7 @@ object Environment {
 
   // TODO: Add more options to better tweak GC based on benchmarks
   val PerformanceSensitiveOptsForBloop = List(
+    "-Xss1m",
     "-XX:MaxInlineLevel=20", // Specific option for faster C2, ignored by GraalVM
     "-XX:+UseParallelGC" // Full parallel GC is the best choice for Scala compilation
   )
