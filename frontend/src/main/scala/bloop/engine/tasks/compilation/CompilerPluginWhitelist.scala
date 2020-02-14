@@ -77,7 +77,14 @@ object CompilerPluginWhitelist {
       parallelUnits: Int
   ): Task[List[String]] = {
     case class WorkItem(pluginFlag: String, idx: Int, result: Promise[Boolean])
-    val enableTask = scalaVersionBlacklist.find(v => scalaVersion.startsWith(v)) match {
+    val actualScalaVersion = scalaVersion.split('-').headOption
+    val blacklistedVersions = scalaVersionBlacklist.find { v =>
+      actualScalaVersion.exists { userVersion =>
+        if (v.endsWith(".")) userVersion.startsWith(v) else userVersion == v
+      }
+    }
+
+    val enableTask = blacklistedVersions match {
       case Some(blacklistedVersion) =>
         logger.debug(s"Disabled compiler plugin classloading, unsupported in ${blacklistedVersion}")
         Task.now(scalacOptions)
