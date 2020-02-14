@@ -71,12 +71,15 @@ class LauncherMain(
       else args0.splitAt(index)
     }
 
-    val (jvmOptions, cliOptions) = args.partition(_.startsWith("-J"))
+    val (userJvmOptions, cliOptions) = args.partition(_.startsWith("-J"))
     val (cliFlags, cliArgs) = cliOptions.toList.partition(_.startsWith("--"))
     val skipBspConnection = cliFlags.exists(_ == SkipBspConnection)
+
+    val defaultJvmOptions = bloop.bloopgun.util.Environment.PerformanceSensitiveOptsForBloop
+    val allJvmOptions = userJvmOptions.toList ++ defaultJvmOptions
     if (cliArgs.size == 1) {
       val bloopVersion = cliArgs.apply(0)
-      runLauncher(bloopVersion, skipBspConnection, jvmOptions.toList)
+      runLauncher(bloopVersion, skipBspConnection, allJvmOptions)
     } else {
       printError(Feedback.NoBloopVersion, out)
       FailedToParseArguments

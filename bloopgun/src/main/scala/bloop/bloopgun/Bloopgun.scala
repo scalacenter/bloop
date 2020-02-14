@@ -45,7 +45,7 @@ import java.io.BufferedReader
  *
  * The main library entrypoint for bloopgun, the Bloop binary CLI.
  *
- * It uses Nailgun to communicate to the Bloop server and has support for:
+ * It uses Nailgun to communicate to the Bloop server, the Bloop CLI:
  *
  *   1. Prints Bloop-specific feedback to the user to improve the CLI UX.
  *      * Print custom error if user types `bloop repl`.
