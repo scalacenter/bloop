@@ -1,4 +1,5 @@
 -XX:ReservedCodeCacheSize=512m
 -Dbloop.generate.sbt=false
+-Dbloop-sbt-already-installed=true
 -Dsbt.execute.extrachecks=true
 -Dsbt-bloop.offload-compilation=false
