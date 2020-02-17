@@ -35,9 +35,9 @@ object SourcesGlobsSpec extends bloop.testing.BaseSuite {
         val baseProject = state.build.loadedProjects.head.project
         val globDirectory = baseProject.baseDirectory.resolve("src")
         val sourcesGlobs = SourcesGlobs.fromStrings(
-          globDirectory.underlying,
+          globDirectory,
           None,
-          if (includeGlobs.isEmpty) List("**")
+          if (includeGlobs.isEmpty) List("glob:**")
           else includeGlobs,
           excludeGlobs
         )
@@ -72,7 +72,7 @@ object SourcesGlobsSpec extends bloop.testing.BaseSuite {
   checkGlobs(
     "include",
     List("Foo.scala", "FooTest.scala"),
-    List("*Test.scala"),
+    List("glob:*Test.scala"),
     List(),
     """|FooTest.scala
        |""".stripMargin
@@ -82,7 +82,7 @@ object SourcesGlobsSpec extends bloop.testing.BaseSuite {
     "exclude",
     List("Foo.scala", "FooTest.scala"),
     List(),
-    List("*Test.scala"),
+    List("glob:*Test.scala"),
     """|Foo.scala
        |""".stripMargin
   )
@@ -90,7 +90,7 @@ object SourcesGlobsSpec extends bloop.testing.BaseSuite {
   checkGlobs(
     "recursive-include",
     List("main/scala/Foo.scala", "main/scala/FooTest.scala"),
-    List("**/Foo.scala"),
+    List("glob:**/Foo.scala"),
     List(),
     """|main/scala/Foo.scala
        |""".stripMargin
@@ -99,7 +99,7 @@ object SourcesGlobsSpec extends bloop.testing.BaseSuite {
   checkGlobs(
     "double-asterisk-slash",
     List("Foo.scala", "inner/Bar.scala"),
-    List("**/*.scala"),
+    List("glob:**/*.scala"),
     List(),
     // NOTE(olafur): globs in Bloop follow `java.nio.file.PathMatcher`
     // semantics, which may be incompatible with how other builds tools
@@ -113,7 +113,7 @@ object SourcesGlobsSpec extends bloop.testing.BaseSuite {
   checkGlobs(
     "double-asterisk-no-slash",
     List("Foo.scala", "inner/Bar.scala"),
-    List("**.scala"),
+    List("glob:**.scala"),
     List(),
     """|Foo.scala
        |inner/Bar.scala
@@ -124,7 +124,7 @@ object SourcesGlobsSpec extends bloop.testing.BaseSuite {
     "recursive-exclude",
     List("main/scala/Foo.scala", "main/scala/FooTest.scala"),
     List(),
-    List("**/Foo.scala"),
+    List("glob:**/Foo.scala"),
     """|main/scala/FooTest.scala
        |""".stripMargin
   )
@@ -133,7 +133,7 @@ object SourcesGlobsSpec extends bloop.testing.BaseSuite {
     "recursive-exclude",
     List("main/scala/Foo.scala", "main/scala/FooTest.scala"),
     List(),
-    List("**/Foo.scala"),
+    List("glob:**/Foo.scala"),
     """|main/scala/FooTest.scala
        |""".stripMargin
   )

@@ -39,8 +39,8 @@ object SourcesGlobsCompileSpec extends bloop.testing.BaseSuite {
               Config.SourcesGlobs(
                 globDirectory,
                 walkDepth = None,
-                includes = List("*.scala"),
-                excludes = List("*Test.scala")
+                includes = List("glob:*.scala"),
+                excludes = List("glob:*Test.scala")
               )
             )
           )

@@ -5,18 +5,20 @@ import java.nio.file.PathMatcher
 import java.nio.file.Path
 import bloop.config.Config
 import scala.util.Properties
+import bloop.io.AbsolutePath
 
 case class SourcesGlobs(
-    directory: Path,
+    directory: AbsolutePath,
     walkDepth: Int,
     includes: List[PathMatcher],
     excludes: List[PathMatcher]
 ) {
   def matches(path: Path): Boolean = {
+    val relativePath = AbsolutePath(path).toRelative(directory)
     def matchesList(lst: List[PathMatcher]): Boolean = lst match {
       case Nil => false
       case head :: tail =>
-        if (head.matches(path)) true
+        if (head.matches(relativePath.underlying)) true
         else matchesList(tail)
     }
     matchesList(includes) && !matchesList(excludes)
@@ -30,7 +32,7 @@ object SourcesGlobs {
       case Some(globs) =>
         globs.flatMap { glob =>
           SourcesGlobs.fromStrings(
-            glob.directory,
+            AbsolutePath(glob.directory),
             glob.walkDepth,
             glob.includes,
             glob.excludes
@@ -40,28 +42,20 @@ object SourcesGlobs {
   }
 
   def fromStrings(
-      directory: Path,
+      directory: AbsolutePath,
       walkDepth: Option[Int],
       includes: List[String],
       excludes: List[String]
   ): List[SourcesGlobs] = {
     if (includes.isEmpty) Nil
     else {
-      val uriPath = directory.toUri().getPath()
-      val basePath =
-        if (Properties.isWin) uriPath.stripPrefix("/")
-        else uriPath
-      val prefix = s"glob:${basePath}"
       val fs = FileSystems.getDefault()
-      def newPathMatcher(glob: String): PathMatcher = {
-        fs.getPathMatcher(prefix + glob)
-      }
       List(
         SourcesGlobs(
           directory,
           walkDepth.getOrElse(Int.MaxValue),
-          includes = includes.map(newPathMatcher),
-          excludes = excludes.map(newPathMatcher)
+          includes = includes.map(fs.getPathMatcher),
+          excludes = excludes.map(fs.getPathMatcher)
         )
       )
     }

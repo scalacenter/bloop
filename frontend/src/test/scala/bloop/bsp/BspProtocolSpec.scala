@@ -381,8 +381,8 @@ class BspProtocolSpec(
           Config.SourcesGlobs(
             globDirectory,
             walkDepth = Some(1),
-            includes = List("*.scala"),
-            excludes = List("*Test.scala")
+            includes = List("glob:*.scala"),
+            excludes = List("glob:*Test.scala")
           )
         )
       )

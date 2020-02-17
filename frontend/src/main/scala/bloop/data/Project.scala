@@ -90,9 +90,9 @@ final case class Project(
     val buf = mutable.ListBuffer.empty[AbsolutePath]
     buf ++= sources
     sourcesGlobs.foreach { glob =>
-      if (Files.isDirectory(glob.directory)) {
+      if (Files.isDirectory(glob.directory.underlying)) {
         Files.walkFileTree(
-          glob.directory,
+          glob.directory.underlying,
           java.util.EnumSet.of(FileVisitOption.FOLLOW_LINKS),
           glob.walkDepth,
           new SimpleFileVisitor[Path] {

@@ -105,7 +105,7 @@ object SourceHasher {
         val discovery = fileVisitor(glob.matches)
         if (isCancelled.get) ()
         else {
-          Files.walkFileTree(glob.directory, opts, glob.walkDepth, discovery)
+          Files.walkFileTree(glob.directory.underlying, opts, glob.walkDepth, discovery)
         }
       }
     }.doOnFinish {
