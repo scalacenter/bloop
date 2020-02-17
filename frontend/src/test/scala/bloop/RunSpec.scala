@@ -200,7 +200,6 @@ class RunSpec {
       val targetMsg = "cross-test-build-scalajs-0.6"
 
       runAndCheck(state, command) { messages =>
-        println(messages.mkString(System.lineSeparator))
         assert(
           messages.reverse.find(_._1 == "info").exists(_._2.endsWith(targetMsg))
         )
