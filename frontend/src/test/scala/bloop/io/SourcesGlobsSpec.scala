@@ -35,11 +35,13 @@ object SourcesGlobsSpec extends bloop.testing.BaseSuite {
         val baseProject = state.build.loadedProjects.head.project
         val globDirectory = baseProject.baseDirectory.resolve("src")
         val sourcesGlobs = SourcesGlobs.fromStrings(
+          name,
           globDirectory,
           None,
           if (includeGlobs.isEmpty) List("glob:**")
           else includeGlobs,
-          excludeGlobs
+          excludeGlobs,
+          logger
         )
         val project = baseProject.copy(
           sources = Nil,
@@ -137,5 +139,25 @@ object SourcesGlobsSpec extends bloop.testing.BaseSuite {
     """|main/scala/FooTest.scala
        |""".stripMargin
   )
+
+  test("invalid-glob") {
+    val logger = new RecordingLogger(ansiCodesSupported = false)
+    val globs = SourcesGlobs.fromStrings(
+      "error",
+      AbsolutePath.workingDirectory,
+      None,
+      List("*.scala"), // missing 'glob:' prefix
+      List(),
+      logger
+    )
+    assertEquals(globs, Nil)
+    val obtained = logger
+      .renderErrors()
+      .replaceAllLiterally(AbsolutePath.workingDirectory.toString(), "PATH")
+    assertNoDiff(
+      obtained,
+      "ignoring invalid 'sourcesGlobs' object containing directory 'PATH' in project 'error'"
+    )
+  }
 
 }

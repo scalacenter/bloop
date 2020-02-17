@@ -246,7 +246,7 @@ object Project {
       scala.map(_.options).getOrElse(Nil),
       project.java.map(_.options).getOrElse(Nil),
       project.sources.map(AbsolutePath.apply),
-      SourcesGlobs.fromConfig(project),
+      SourcesGlobs.fromConfig(project, logger),
       project.test.map(_.frameworks).getOrElse(Nil),
       project.test.map(_.options).getOrElse(Config.TestOptions.empty),
       AbsolutePath(project.out),
