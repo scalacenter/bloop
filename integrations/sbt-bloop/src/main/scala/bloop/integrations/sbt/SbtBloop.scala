@@ -791,7 +791,7 @@ object BloopDefaults {
         val isForkedExecution = (Keys.fork in configuration in forkScopedTask).value
         val workingDir = if (isForkedExecution) Keys.baseDirectory.value else rootBaseDirectory
         val extraJavaOptions = List(s"-Duser.dir=${workingDir.getAbsolutePath}")
-        val config = Config.JvmConfig(Some(javaHome.toPath), (javaOptions ++ extraJavaOptions).toList)
+        val config = Config.JvmConfig(Some(javaHome.toPath), (extraJavaOptions ++ javaOptions ++).toList)
         Config.Platform.Jvm(config, mainClass)
       }
     }
