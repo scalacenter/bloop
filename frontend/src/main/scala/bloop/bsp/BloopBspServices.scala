@@ -930,30 +930,30 @@ final class BloopBspServices(
         projects: Seq[ProjectMapping],
         state: State
     ): BspResult[bsp.SourcesResult] = {
-
-      val response = bsp.SourcesResult(
-        projects.iterator.map {
-          case (target, project) =>
-            val sources = project.allSourceFilesAndDirectories().map {
-              s =>
-                import bsp.SourceItemKind._
-                val uri = s.underlying.toUri()
-                val (bspUri, kind) = if (s.exists) {
-                  (uri, if (s.isFile) File else Directory)
-                } else {
-                  val fileMatcher = FileSystems.getDefault.getPathMatcher("glob:*.{scala, java}")
-                  if (fileMatcher.matches(s.underlying.getFileName)) (uri, File)
-                  // If path doesn't exist and its name doesn't look like a file, assume it's a dir
-                  else (new URI(uri.toString + "/"), Directory)
-                }
-                // TODO(jvican): Don't default on false for generated, add this info to JSON fields
-                bsp.SourceItem(bsp.Uri(bspUri), kind, false)
+      val sourcesItems = projects.iterator.map {
+        case (target, project) =>
+          project.allSourceFilesAndDirectories.map { sources =>
+            val items = sources.map { s =>
+              import bsp.SourceItemKind._
+              val uri = s.underlying.toUri()
+              val (bspUri, kind) = if (s.exists) {
+                (uri, if (s.isFile) File else Directory)
+              } else {
+                val fileMatcher = FileSystems.getDefault.getPathMatcher("glob:*.{scala, java}")
+                if (fileMatcher.matches(s.underlying.getFileName)) (uri, File)
+                // If path doesn't exist and its name doesn't look like a file, assume it's a dir
+                else (new URI(uri.toString + "/"), Directory)
+              }
+              // TODO(jvican): Don't default on false for generated, add this info to JSON fields
+              bsp.SourceItem(bsp.Uri(bspUri), kind, false)
             }
-            bsp.SourcesItem(target, sources)
-        }.toList
-      )
+            bsp.SourcesItem(target, items)
+          }
+      }.toList
 
-      Task.now((state, Right(response)))
+      Task.sequence(sourcesItems).map { items =>
+        (state, Right(bsp.SourcesResult(items)))
+      }
     }
 
     ifInitialized(None) { (state: State, logger: BspServerLogger) =>

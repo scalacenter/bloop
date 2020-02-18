@@ -59,10 +59,8 @@ object SourcesGlobsSpec extends bloop.testing.BaseSuite {
           .map(
             _.source
               .toRelative(globDirectory)
-              .underlying
-              .iterator()
-              .asScala
-              .mkString("/")
+              .toUri(isDirectory = false)
+              .toString()
               .stripPrefix("globs/src/")
           )
           .sorted
@@ -156,7 +154,7 @@ object SourcesGlobsSpec extends bloop.testing.BaseSuite {
       .replaceAllLiterally(AbsolutePath.workingDirectory.toString(), "PATH")
     assertNoDiff(
       obtained,
-      "ignoring invalid 'sourcesGlobs' object containing directory 'PATH' in project 'error'"
+      "Ignoring invalid 'sourcesGlobs' object containing directory 'PATH' in project 'error'"
     )
   }
 

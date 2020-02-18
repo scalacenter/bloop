@@ -367,8 +367,7 @@ class BspProtocolSpec(
           """.stripMargin
       }
 
-      val globDirectory =
-        workspace.underlying.resolve("a").resolve("src")
+      val globDirectory = workspace.resolve("a").resolve("src")
       val baseProject = TestProject(
         workspace,
         "a",
@@ -379,7 +378,7 @@ class BspProtocolSpec(
         ),
         sourcesGlobs = List(
           Config.SourcesGlobs(
-            globDirectory,
+            globDirectory.underlying,
             walkDepth = Some(1),
             includes = List("glob:*.scala"),
             excludes = List("glob:*Test.scala")
@@ -395,7 +394,8 @@ class BspProtocolSpec(
           val obtained = for {
             item <- state.requestSources(`A`).items
             source <- item.sources
-          } yield globDirectory.relativize(source.uri.toPath).iterator().asScala.mkString("/")
+            path = AbsolutePath(source.uri.toPath)
+          } yield path.toRelative(globDirectory).toUri(isDirectory = false).toString()
           assertNoDiff(
             obtained.mkString("\n"),
             expected
@@ -403,13 +403,13 @@ class BspProtocolSpec(
         }
         assertSourcesMatches("Hello.scala")
         val hello2 = globDirectory.resolve("Hello2.scala")
-        Files.write(hello2, Array.emptyByteArray)
+        Files.write(hello2.underlying, Array.emptyByteArray)
         assertSourcesMatches(
           """Hello.scala
             |Hello2.scala
             |""".stripMargin
         )
-        Files.delete(hello2)
+        Files.delete(hello2.underlying)
         assertSourcesMatches("Hello.scala")
       }
     }

@@ -70,7 +70,7 @@ object SourcesGlobs {
       } catch {
         case NonFatal(e) =>
           logger.error(
-            s"ignoring invalid 'sourcesGlobs' object containing directory '$directory' in project '$projectName'"
+            s"Ignoring invalid 'sourcesGlobs' object containing directory '$directory' in project '$projectName'"
           )
           logger.trace(e)
           Nil

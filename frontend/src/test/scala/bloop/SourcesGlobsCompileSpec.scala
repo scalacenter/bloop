@@ -49,7 +49,7 @@ object SourcesGlobsCompileSpec extends bloop.testing.BaseSuite {
       val projects = List(`A`)
       val state = loadState(workspace, projects, logger)
       val compiledState = state.compile(`A`)
-      assertExitStatus(compiledState, ExitStatus.Ok)
+      assertValidCompilationState(compiledState, projects)
       assertNoDiff(
         logger.compilingInfos.mkString("\n"),
         "Compiling a (1 Scala source)"
@@ -59,6 +59,7 @@ object SourcesGlobsCompileSpec extends bloop.testing.BaseSuite {
       logger.clear()
       Files.write(globDirectory.resolve("Foo2.scala"), Array.emptyByteArray)
       val compiledState2 = state.clean(`A`).compile(`A`)
+      assertValidCompilationState(compiledState2, projects)
       assertNoDiff(
         logger.compilingInfos.mkString("\n"),
         "Compiling a (2 Scala sources)"

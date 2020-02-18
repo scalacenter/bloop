@@ -28,6 +28,7 @@ import ch.epfl.scala.{bsp => Bsp}
 import xsbti.compile.{ClasspathOptions, CompileOrder}
 import bloop.config.ConfigCodecs
 import scala.util.control.NonFatal
+import monix.eval.Task
 
 final case class Project(
     name: String,
@@ -86,7 +87,7 @@ final case class Project(
   }
 
   /** Returns concatenated list of "sources" and expanded "sourcesGlobs". */
-  def allSourceFilesAndDirectories(): List[AbsolutePath] = {
+  def allSourceFilesAndDirectories: Task[List[AbsolutePath]] = Task {
     val buf = mutable.ListBuffer.empty[AbsolutePath]
     buf ++= sources
     sourcesGlobs.foreach { glob =>

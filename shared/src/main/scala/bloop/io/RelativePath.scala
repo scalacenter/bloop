@@ -1,6 +1,7 @@
 package bloop.io
 
 import java.io.File
+import java.net.URI
 import java.nio.file.{Path, Paths => NioPaths}
 
 final class RelativePath private (val underlying: Path) extends AnyVal {
@@ -9,6 +10,17 @@ final class RelativePath private (val underlying: Path) extends AnyVal {
   override def toString: String = underlying.toString
 
   def toFile: File = underlying.toFile()
+  def toUri(isDirectory: Boolean): URI = {
+    val suffix = if (isDirectory) "/" else ""
+    // Can't use toNIO.toUri because it produces an absolute URI.
+    import scala.collection.JavaConverters._
+    val names = underlying.iterator().asScala
+    val uris = names.map { name =>
+      // URI encode each part of the path individually.
+      new URI(null, null, name.toString, null)
+    }
+    URI.create(uris.mkString("", "/", suffix))
+  }
   def toAbsolute(root: AbsolutePath): AbsolutePath = root.resolve(this)
   def relativize(other: RelativePath): RelativePath =
     RelativePath(underlying.relativize(other.underlying))
