@@ -18,6 +18,7 @@ import bloop.bsp.BloopBspDefinitions.BloopExtraBuildParams
 import io.circe.Json
 import ch.epfl.scala.bsp.Uri
 import bloop.testing.DiffAssertions.TestFailedException
+import bloop.data.SourcesGlobs
 
 object TcpBspProtocolSpec extends BspProtocolSpec(BspProtocol.Tcp)
 object LocalBspProtocolSpec extends BspProtocolSpec(BspProtocol.Local)
@@ -340,6 +341,76 @@ class BspProtocolSpec(
         checkSources(testJsProject)
         checkSources(rootMain)
         checkSources(rootTest)
+      }
+    }
+  }
+
+  test("sources globs are expanded in sources request") {
+    TestUtil.withinWorkspace { workspace =>
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      object Sources {
+        val `Hello.scala` =
+          """/Hello.scala
+            |object A
+          """.stripMargin
+        val `HelloTest.scala` =
+          """/HelloTest.scala
+            |object HelloTest
+          """.stripMargin
+
+        // This file is ignored because `walkDepth == 1`, meaning that the globs
+        // only expand to file that are depth 1 from the base directory.
+        val `toodeep/Hello.scala` =
+          """/toodeep/HelloTest.scala
+            |package toodeep
+            |object Hello
+          """.stripMargin
+      }
+
+      val globDirectory = workspace.resolve("a").resolve("src")
+      val baseProject = TestProject(
+        workspace,
+        "a",
+        sources = List(
+          Sources.`Hello.scala`,
+          Sources.`HelloTest.scala`,
+          Sources.`toodeep/Hello.scala`
+        ),
+        sourcesGlobs = List(
+          Config.SourcesGlobs(
+            globDirectory.underlying,
+            walkDepth = Some(1),
+            includes = List("glob:*.scala"),
+            excludes = List("glob:*Test.scala")
+          )
+        )
+      )
+      val `A` = baseProject.copy(config = baseProject.config.copy(sources = Nil))
+
+      val projects = List(`A`)
+      loadBspState(workspace, projects, logger) { state =>
+        val project = state.underlying.build.loadedProjects.head
+        def assertSourcesMatches(expected: String): Unit = {
+          val obtained = for {
+            item <- state.requestSources(`A`).items
+            source <- item.sources
+            path = AbsolutePath(source.uri.toPath)
+          } yield path.toRelative(globDirectory).toUri(isDirectory = false).toString()
+          assertNoDiff(
+            obtained.mkString("\n"),
+            expected
+          )
+        }
+        assertSourcesMatches("Hello.scala")
+        val hello2 = globDirectory.resolve("Hello2.scala")
+        Files.write(hello2.underlying, Array.emptyByteArray)
+        assertSourcesMatches(
+          """Hello.scala
+            |Hello2.scala
+            |""".stripMargin
+        )
+        Files.delete(hello2.underlying)
+        assertSourcesMatches("Hello.scala")
       }
     }
   }

@@ -11,6 +11,14 @@ import bloop.engine.tasks.toolchains.{JvmToolchain, ScalaJsToolchain, ScalaNativ
 import bloop.io.ByteHasher
 
 import java.nio.charset.StandardCharsets
+import java.nio.file.attribute.BasicFileAttributes
+import java.nio.file.PathMatcher
+import java.nio.file.Path
+import java.nio.file.FileVisitor
+import java.nio.file.FileVisitResult
+import java.nio.file.Files
+import java.nio.file.FileVisitOption
+import java.nio.file.SimpleFileVisitor
 
 import scala.util.Try
 import scala.collection.mutable
@@ -20,6 +28,7 @@ import ch.epfl.scala.{bsp => Bsp}
 import xsbti.compile.{ClasspathOptions, CompileOrder}
 import bloop.config.ConfigCodecs
 import scala.util.control.NonFatal
+import monix.eval.Task
 
 final case class Project(
     name: String,
@@ -34,6 +43,7 @@ final case class Project(
     scalacOptions: List[String],
     javacOptions: List[String],
     sources: List[AbsolutePath],
+    sourcesGlobs: List[SourcesGlobs],
     testFrameworks: List[Config.TestFramework],
     testOptions: Config.TestOptions,
     out: AbsolutePath,
@@ -74,6 +84,30 @@ final case class Project(
         None
     }
     customWorkingDirectory.getOrElse(baseDirectory)
+  }
+
+  /** Returns concatenated list of "sources" and expanded "sourcesGlobs". */
+  def allSourceFilesAndDirectories: Task[List[AbsolutePath]] = Task {
+    val buf = mutable.ListBuffer.empty[AbsolutePath]
+    buf ++= sources
+    sourcesGlobs.foreach { glob =>
+      if (Files.isDirectory(glob.directory.underlying)) {
+        Files.walkFileTree(
+          glob.directory.underlying,
+          java.util.EnumSet.of(FileVisitOption.FOLLOW_LINKS),
+          glob.walkDepth,
+          new SimpleFileVisitor[Path] {
+            override def visitFile(file: Path, attrs: BasicFileAttributes): FileVisitResult = {
+              if (glob.matches(file)) {
+                buf += AbsolutePath(file)
+              }
+              FileVisitResult.CONTINUE
+            }
+          }
+        )
+      }
+    }
+    buf.result()
   }
 
   val uniqueId = s"${origin.path.syntax}#${name}"
@@ -213,6 +247,7 @@ object Project {
       scala.map(_.options).getOrElse(Nil),
       project.java.map(_.options).getOrElse(Nil),
       project.sources.map(AbsolutePath.apply),
+      SourcesGlobs.fromConfig(project, logger),
       project.test.map(_.frameworks).getOrElse(Nil),
       project.test.map(_.options).getOrElse(Config.TestOptions.empty),
       AbsolutePath(project.out),

@@ -2,6 +2,7 @@ package bloop
 
 import bloop.config.Config
 import bloop.data.Project
+import bloop.data.SourcesGlobs
 import bloop.engine.Dag.{DagResult, RecursiveTrace}
 import bloop.engine.{Aggregate, Dag, Leaf, Parent}
 import bloop.logging.RecordingLogger
@@ -23,7 +24,7 @@ class DagSpec {
   def dummyOrigin = TestUtil.syntheticOriginFor(dummyPath)
   def dummyProject(name: String, dependencies: List[String]): Project =
     Project(name, dummyPath, None, dependencies, Some(dummyInstance), Nil, Nil, compileOptions,
-      dummyPath, Nil, Nil, Nil, Nil, Config.TestOptions.empty, dummyPath, dummyPath,
+      dummyPath, Nil, Nil, Nil, Nil, Nil, Config.TestOptions.empty, dummyPath, dummyPath,
       Project.defaultPlatform(logger), None, None, dummyOrigin)
   // format: ON
 
