@@ -720,10 +720,14 @@ object BloopDefaults {
   private val isWindows: Boolean =
     System.getProperty("os.name").toLowerCase(java.util.Locale.ENGLISH).contains("windows")
 
-  lazy val findOutPlatform: Def.Initialize[Task[Config.Platform]] = Def.taskDyn {
+  def findOutPlatform(
+      configuration: sbt.Configuration
+  ): Def.Initialize[Task[Config.Platform]] = Def.taskDyn {
     val project = Keys.thisProject.value
     val (javaHome, javaOptions) = javaConfiguration.value
     val mainClass = BloopKeys.bloopMainClass.in(Keys.run).value
+    val rootBaseDirectory = new File(Keys.loadedBuild.value.root)
+    val forkScopedTask = if (configuration == Test) Keys.test else Keys.run
 
     val libraryDeps = Keys.libraryDependencies.value
     val externalClasspath: Seq[Path] =
@@ -784,7 +788,10 @@ object BloopDefaults {
       }
     } else {
       Def.task {
-        val config = Config.JvmConfig(Some(javaHome.toPath), javaOptions.toList)
+        val isForkedExecution = (Keys.fork in configuration in forkScopedTask).value
+        val workingDir = if (isForkedExecution) Keys.baseDirectory.value else rootBaseDirectory
+        val extraJavaOptions = List(s"-Duser.dir=${workingDir.getAbsolutePath}")
+        val config = Config.JvmConfig(Some(javaHome.toPath), (extraJavaOptions ++ javaOptions).toList)
         Config.Platform.Jvm(config, mainClass)
       }
     }
@@ -975,7 +982,7 @@ object BloopDefaults {
 
           val jsConfig = None
           val nativeConfig = None
-          val platform = findOutPlatform.value
+          val platform = findOutPlatform(configuration).value
 
           val binaryModules = configModules(Keys.update.value)
           val sourceModules = {
