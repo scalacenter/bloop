@@ -25,6 +25,8 @@ import scala.concurrent.duration.FiniteDuration
 import ch.epfl.scala.bsp.endpoints.BuildTarget.scalacOptions
 import bloop.engine.ExecutionContext
 import scala.util.Random
+import bloop.Compiler.Result.Failed
+import java.{util => ju}
 
 object LocalBspMetalsClientSpec extends BspMetalsClientSpec(BspProtocol.Local)
 object TcpBspMetalsClientSpec extends BspMetalsClientSpec(BspProtocol.Tcp)
@@ -328,6 +330,43 @@ class BspMetalsClientSpec(
         assert(compiledState.status == ExitStatus.Ok)
         assertSemanticdbFileFor("Foo.scala", compiledState)
       }
+    }
+  }
+
+  test("compile producing Scala3 errors") {
+
+    val errorSources = List(
+      """/Foo.scala
+        |class Foo{
+        |
+        |  val int : Int = ""
+        |}
+        |""".stripMargin
+    )
+    TestUtil.withinWorkspace { workspace =>
+      val `A` = TestProject(
+        workspace,
+        "A",
+        errorSources,
+        scalaVersion = Some("0.23.0-bin-20200210-0dc07b0-NIGHTLY"),
+        scalaOrg = Some("ch.epfl.lamp"),
+        scalaCompiler = Some("dotty-compiler_0.23")
+      )
+      val projects = List(`A`)
+      val configDir = TestProject.populateWorkspace(workspace, projects)
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val initialState = loadState(workspace, projects, logger)
+      val compiledState = initialState.compile(`A`)
+
+      assertNoDiff(
+        logger.renderErrors(exceptContaining = "Failed to compile"),
+        s"""|[E1] A/src/Foo.scala:2:19
+            |     Found:    ("" : String)
+            |     Required: Int
+            |     L2:   val int : Int = ""
+            |                           ^
+            |A/src/Foo.scala: L2 [E1]""".stripMargin
+      )
     }
   }
 
