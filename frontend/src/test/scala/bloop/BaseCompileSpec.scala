@@ -547,24 +547,24 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
     TestUtil.withinWorkspace { workspace =>
       object Sources {
         val `Foo.scala` =
-          """/main/scala/Foo.scala
+          """/Foo.scala
             |class Foo
           """.stripMargin
 
         val `Bar.scala` =
-          """/main/scala/Bar.scala
+          """/Bar.scala
             |class Bar {
             |  val foo: Foo = new Foo
             |}
           """.stripMargin
 
         val `Foo2.scala` =
-          """/main/scala/Foo.scala
+          """/Foo.scala
             |class Foo2
           """.stripMargin
 
         val `Bar2.scala` =
-          """/main/scala/Bar.scala
+          """/Bar.scala
             |class Bar {
             |  val foo: Foo2 = new Foo2
             |}
@@ -619,7 +619,7 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
       createFakeCompileProducts(lastClassesDirA, clientDirA, "Bar.class")
 
       // #2: Compiler after renaming `Foo` to `Foo2`, which should make `Bar` fail in second cycle
-      assertIsFile(writeFile(`A`.srcFor("main/scala/Foo.scala"), Sources.`Foo2.scala`))
+      assertIsFile(writeFile(`A`.srcFor("Foo.scala"), Sources.`Foo2.scala`))
       val secondCompiledState = compiledState.compile(`A`)
       assertExitStatus(secondCompiledState, ExitStatus.CompilationError)
       assertInvalidCompilationState(
@@ -630,7 +630,7 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
         hasSameContentsInClassesDir = true
       )
 
-      val targetBar = TestUtil.universalPath("a/src/main/scala/Bar.scala")
+      val targetBar = TestUtil.universalPath("a/src/Bar.scala")
       assertNoDiff(
         s"""
            |[E2] ${targetBar}:2:22
@@ -646,7 +646,7 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
         logger.renderErrors(exceptContaining = "Failed to compile")
       )
 
-      assertIsFile(writeFile(`A`.srcFor("main/scala/Bar.scala"), Sources.`Bar2.scala`))
+      assertIsFile(writeFile(`A`.srcFor("Bar.scala"), Sources.`Bar2.scala`))
       val thirdCompiledState = secondCompiledState.compile(`A`)
       assertExitStatus(thirdCompiledState, ExitStatus.Ok)
 
@@ -924,24 +924,24 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
     TestUtil.withinWorkspace { workspace =>
       object Sources {
         val `Dummy.scala` =
-          """/main/scala/Dummy.scala
+          """/Dummy.scala
             |class Dummy
           """.stripMargin
 
         val `Foo.scala` =
-          """/main/scala/Foo.scala
+          """/Foo.scala
             |class Foo {
             |  def foo: String = ""
             |}
           """.stripMargin
 
         val `Bar.scala` =
-          """/main/scala/Bar.scala
+          """/Bar.scala
             |class Bar extends Foo
           """.stripMargin
 
         val `Baz.scala` =
-          """/main/scala/Baz.scala
+          """/Baz.scala
             |class Baz {
             |  val bar: Bar = new Bar
             |  def hello = println(bar.foo)
@@ -959,7 +959,7 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
           """.stripMargin
 
         val `Foo2.scala` =
-          """/main/scala/Foo.scala
+          """/Foo.scala
             |class Foo {
             |  def foo: String = ""
             |  def foo2: String = ""
@@ -967,7 +967,7 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
           """.stripMargin
 
         val `Baz2.scala` =
-          """/main/scala/Baz.scala
+          """/Baz.scala
             |class Baz {
             |  val bar: Bar = new Bar
             |  def hello = println(bar.foo2)
@@ -997,11 +997,11 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
       assertValidCompilationState(compiledState, projects)
 
       Files.move(
-        `B`.srcFor("main/scala/Foo.scala").underlying,
-        `A`.srcFor("main/scala/Foo.scala", exists = false).underlying
+        `B`.srcFor("Foo.scala").underlying,
+        `A`.srcFor("Foo.scala", exists = false).underlying
       )
 
-      writeFile(`A`.srcFor("main/scala/Foo.scala"), Sources.`Foo2.scala`)
+      writeFile(`A`.srcFor("Foo.scala"), Sources.`Foo2.scala`)
 
       val compiledStateBackup = compiledState.backup
 
@@ -1013,7 +1013,7 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
       assertExistingCompileProduct(secondCompiledState, `A`, RelativePath("Foo.class"))
 
       // Add change depending on new method to make sure that `Foo.class` coming from dependency is picked
-      writeFile(`B`.srcFor("main/scala/Baz.scala"), Sources.`Baz2.scala`)
+      writeFile(`B`.srcFor("Baz.scala"), Sources.`Baz2.scala`)
 
       // Then compile `B` to make sure right info from `A` is passed to `B` for invalidation
       val thirdCompiledState = secondCompiledState.compile(`B`)
