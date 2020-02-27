@@ -479,6 +479,149 @@ abstract class ConfigGenerationSuite {
     )
   }
 
+  @Test def worksWithDuplicateNestedProjectNames(): Unit = {
+    val buildSettings = testProjectDir.newFile("settings.gradle")
+    val buildDirA = testProjectDir.newFolder("a", "foo")
+    testProjectDir.newFolder("a", "src", "main", "scala")
+    testProjectDir.newFolder("a", "src", "test", "scala")
+    val buildDirB = testProjectDir.newFolder("b", "foo")
+    testProjectDir.newFolder("b", "src", "main", "scala")
+    testProjectDir.newFolder("b", "src", "test", "scala")
+    val buildDirC = testProjectDir.newFolder("c", "foo")
+    testProjectDir.newFolder("c", "src", "main", "scala")
+    testProjectDir.newFolder("c", "src", "test", "scala")
+    val buildDirD = testProjectDir.newFolder("d", "foo")
+    testProjectDir.newFolder("d", "src", "main", "scala")
+    testProjectDir.newFolder("d", "src", "test", "scala")
+    val buildFileA = new File(buildDirA, "build.gradle")
+    val buildFileB = new File(buildDirB, "build.gradle")
+    val buildFileC = new File(buildDirC, "build.gradle")
+    val buildFileD = new File(buildDirD, "build.gradle")
+
+    writeBuildScript(
+      buildFileA,
+      s"""
+         |plugins {
+         |  id 'bloop'
+         |}
+         |
+         |apply plugin: 'scala'
+         |apply plugin: 'bloop'
+         |
+         |repositories {
+         |  mavenCentral()
+         |}
+         |
+         |dependencies {
+         |  compile 'org.scala-lang:scala-library:2.12.8'
+         |}
+      """.stripMargin
+    )
+
+    writeBuildScript(
+      buildFileB,
+      s"""
+         |plugins {
+         |  id 'bloop'
+         |}
+         |
+         |apply plugin: 'scala'
+         |apply plugin: 'bloop'
+         |
+         |repositories {
+         |  mavenCentral()
+         |}
+         |
+         |dependencies {
+         |  implementation 'org.typelevel:cats-core_2.12:1.2.0'
+         |  compile project(':a:foo')
+         |  compile project(':c:foo')
+         |}
+      """.stripMargin
+    )
+
+    writeBuildScript(
+      buildFileC,
+      s"""
+         |plugins {
+         |  id 'bloop'
+         |}
+         |
+         |apply plugin: 'scala'
+         |apply plugin: 'bloop'
+         |
+         |repositories {
+         |  mavenCentral()
+         |}
+         |
+         |dependencies {
+         |  compile 'org.scala-lang:scala-library:2.12.8'
+         |}
+      """.stripMargin
+    )
+
+    writeBuildScript(
+      buildFileD,
+      s"""
+         |plugins {
+         |  id 'bloop'
+         |}
+         |
+         |apply plugin: 'scala'
+         |apply plugin: 'bloop'
+         |
+         |repositories {
+         |  mavenCentral()
+         |}
+         |
+         |dependencies {
+         |  compile project(':b:foo')
+         |}
+      """.stripMargin
+    )
+
+    writeBuildScript(
+      buildSettings,
+      """
+        |rootProject.name = 'scala-multi-projects'
+        |include 'a:foo'
+        |include 'b:foo'
+        |include 'c:foo'
+        |include 'd:foo'
+      """.stripMargin
+    )
+
+    createHelloWorldScalaSource(buildDirA, "package x { trait A }")
+    createHelloWorldScalaSource(buildDirB, "package y { trait B }")
+    createHelloWorldScalaSource(buildDirC, "package z { trait C }")
+    createHelloWorldScalaSource(buildDirD, "package zz { trait D }")
+
+    GradleRunner
+      .create()
+      .withGradleVersion(gradleVersion)
+      .withProjectDir(testProjectDir.getRoot)
+      .withPluginClasspath(getClasspath)
+      .withArguments("bloopInstall", "-Si")
+      .build()
+
+    val projectName = testProjectDir.getRoot.getName
+    val bloopDir = new File(testProjectDir.getRoot, ".bloop")
+    val bloopNone = new File(bloopDir, s"${projectName}.json")
+    val bloopA = new File(bloopDir, "a-foo.json")
+    val bloopB = new File(bloopDir, "b-foo.json")
+    val bloopC = new File(bloopDir, "c-foo.json")
+    val bloopD = new File(bloopDir, "d-foo.json")
+
+    assert(!bloopNone.exists())
+    val configA = readValidBloopConfig(bloopA)
+    val configB = readValidBloopConfig(bloopB)
+    val configC = readValidBloopConfig(bloopC)
+    val configD = readValidBloopConfig(bloopD)
+
+    assert(compileBloopProject("b-foo", bloopDir).status.isOk)
+    assert(compileBloopProject("d-foo", bloopDir).status.isOk)
+  }
+
   // problem here is that to specify the test sourceset of project b depends on the test sourceset of project a using
   // testCompile project(':a').sourceSets.test.output
   // means that it points directly at the source set directory instead of the project + sourceset
