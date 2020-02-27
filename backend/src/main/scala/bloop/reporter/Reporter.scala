@@ -30,6 +30,8 @@ abstract class Reporter(
     val logger: Logger,
     override val cwd: AbsolutePath,
     override val config: ReporterConfig,
+    // FIXME: _problems needs to be thread-safe. Shall we use a Java ConcurrentLinkedQueue or would you prefer something else?
+    //        Keeping the mutable buffer can cause Hydra to crash because of off-by-one exceptions thrown for instance by Buffer#clear
     val _problems: mutable.Buffer[ProblemPerPhase] = mutable.ArrayBuffer.empty
 ) extends ZincReporter {
   private case class PositionId(sourcePath: String, offset: Int)
@@ -38,7 +40,10 @@ abstract class Reporter(
 
   private var _nextID = 1
   private def nextID(): Int = { val id = _nextID; _nextID += 1; id }
-  override def reset(): Unit = {
+  // FIXME: Adding a synchronized here is clearly not the proper fix, but it seems to help preventing random failures of the test. As
+  //        I'd like to see the test suite succeed on the CI, I've decided to include it in the current PR, even though we will of course
+  //        remove this before merging it.
+  override def reset(): Unit = synchronized {
     _problems.clear()
     _severities.clear()
     _messages.clear()
