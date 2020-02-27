@@ -23,8 +23,25 @@ final class BspProjectReporter(
     cwd: AbsolutePath,
     config: ReporterConfig,
     reportAllPreviousProblems: Boolean,
-    override val _problems: mutable.Buffer[ProblemPerPhase] = mutable.ArrayBuffer.empty
+    override val _problems: Reporter.Buffer[ProblemPerPhase]
 ) extends Reporter(logger, cwd, config, _problems) {
+
+  def this(
+      project: Project,
+      logger: BspServerLogger,
+      cwd: AbsolutePath,
+      config: ReporterConfig,
+      reportAllPreviousProblems: Boolean
+  ) =
+    this(
+      project,
+      logger,
+      cwd,
+      config,
+      reportAllPreviousProblems,
+      createBuffer[ProblemPerPhase](project)
+    )
+
   private lazy val taskId = logger.nextTaskId
 
   /** A cycle count, initialized to 0 when it's a no-op. */
