@@ -8,7 +8,7 @@ import sbt.librarymanagement.Configurations
 object HydraSupport {
   import xsbti.compile.ScalaInstance
 
-  val bridgeVersion = sys.props.get("bloop.hydra.bridgeVersion").getOrElse("0.1.0")
+  val bridgeVersion = sys.props.get("bloop.hydra.bridgeVersion").getOrElse("0.2.0")
   val bridgeNamePrefix =
     sys.props.get("bloop.hydra.bridgeNamePrefix").getOrElse("bloop-hydra-bridge")
 
