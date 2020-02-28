@@ -186,4 +186,4 @@ If the previous procedure doesn't show a change because, for example, you
 modified the name of a sidebar or the title of a documentation page, type
 <kbd>CTRL</kbd>+<kbd>C</kbd> on the `yarn start` process and run it again.
 Docusaurus doesn't incrementally rebuild changes to the Markdown page
-indices.
+indices..
