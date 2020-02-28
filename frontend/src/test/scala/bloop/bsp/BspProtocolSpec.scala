@@ -397,7 +397,7 @@ class BspProtocolSpec(
             path = AbsolutePath(source.uri.toPath)
           } yield path.toRelative(globDirectory).toUri(isDirectory = false).toString()
           assertNoDiff(
-            obtained.mkString("\n"),
+            obtained.sorted.mkString("\n"),
             expected
           )
         }
