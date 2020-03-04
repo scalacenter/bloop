@@ -262,7 +262,8 @@ final class BloopBspServices(
               inverseSourcesProvider = Some(true),
               dependencySourcesProvider = Some(true),
               resourcesProvider = Some(true),
-              buildTargetChangedProvider = Some(false)
+              buildTargetChangedProvider = Some(false),
+              jvmTestEnvironmentProvider = Some(true)
             ),
             None
           )

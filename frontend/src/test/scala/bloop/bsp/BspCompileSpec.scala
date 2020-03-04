@@ -61,7 +61,8 @@ class BspCompileSpec(
           |      "inverseSourcesProvider" : true,
           |      "dependencySourcesProvider" : true,
           |      "resourcesProvider" : true,
-          |      "buildTargetChangedProvider" : false
+          |      "buildTargetChangedProvider" : false,
+          |      "jvmTestEnvironmentProvider" : true
           |    },
           |    "data" : null
           |  },
