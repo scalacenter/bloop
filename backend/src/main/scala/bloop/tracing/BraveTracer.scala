@@ -4,10 +4,11 @@ import brave.{Span, Tracer}
 import brave.propagation.TraceContext
 import monix.eval.Task
 import monix.execution.misc.NonFatal
-
 import scala.util.Failure
+import scala.util.Properties
 import scala.util.Success
 import java.util.concurrent.TimeUnit
+import zipkin2.codec.SpanBytesEncoder.{JSON_V1, JSON_V2}
 
 final class BraveTracer private (
     tracer: Tracer,
@@ -76,9 +77,15 @@ object BraveTracer {
   val zipkinServerUrl = Option(System.getProperty("zipkin.server.url")).getOrElse(
     "http://127.0.0.1:9411/api/v2/spans"
   )
+  val debugTrace = Properties.propOrFalse("zipkin.trace.debug")
 
   val sender = URLConnectionSender.create(zipkinServerUrl)
-  val spanReporter = AsyncReporter.builder(sender).build()
+  val jsonVersion = if (zipkinServerUrl.contains("/api/v1")) {
+    JSON_V1
+  } else {
+    JSON_V2
+  }
+  val spanReporter = AsyncReporter.builder(sender).build(jsonVersion)
   def apply(name: String, tags: (String, String)*): BraveTracer = {
     BraveTracer(name, None, tags: _*)
   }
@@ -91,7 +98,21 @@ object BraveTracer {
       .spanReporter(spanReporter)
       .build()
     val tracer = tracing.tracer()
-    val newParentTrace = ctx.map(c => tracer.newChild(c)).getOrElse(tracer.newTrace())
+    val newParentTrace = ctx
+      .map(c => tracer.newChild(c))
+      .getOrElse(
+        if (debugTrace) {
+          val c = TraceContext
+            .newBuilder()
+            .traceId(util.Random.nextLong())
+            .spanId(util.Random.nextLong())
+            .debug(true)
+            .build()
+          tracer.newChild(c)
+        } else {
+          tracer.newTrace()
+        }
+      )
     val rootSpan = tags.foldLeft(newParentTrace.name(name)) {
       case (span, (tagKey, tagValue)) => span.tag(tagKey, tagValue)
     }
