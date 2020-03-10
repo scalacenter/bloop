@@ -212,12 +212,26 @@ final class BloopBspServices(
     val clientClassesRootDir = extraBuildParams.flatMap(
       extra => extra.clientClassesRootDir.map(dir => AbsolutePath(dir.toPath))
     )
+    val currentWorkspaceSettings = WorkspaceSettings.readFromFile(configDir, callSiteState.logger)
+    val currentRefreshProjectsCommand: Option[List[String]] =
+      currentWorkspaceSettings.flatMap(_.refreshProjectsCommand)
+
+    val isMetals = params.displayName.contains("Metals")
+    val isIntelliJ = params.displayName.contains("IntelliJ")
+
+    val refreshProjectsCommand =
+      if (isIntelliJ) {
+        currentRefreshProjectsCommand
+      } else {
+        None
+      }
     val client = ClientInfo.BspClientInfo(
       params.displayName,
       params.version,
       params.bspVersion,
       ownsBuildFiles,
       clientClassesRootDir,
+      refreshProjectsCommand,
       () => isClientConnected.get
     )
 
@@ -228,9 +242,9 @@ final class BloopBspServices(
      * every project of a build so that users from different build tools don't
      * need to manually enable these in their build.
      */
-    val metalsSettings = {
-      if (!params.displayName.contains("Metals")) {
-        None
+    val metalsSettings: Option[WorkspaceSettings] = {
+      if (!isMetals) {
+        currentWorkspaceSettings
       } else {
         extraBuildParams
           .flatMap(extra => extra.semanticdbVersion)
@@ -238,8 +252,9 @@ final class BloopBspServices(
             val supportedScalaVersions =
               extraBuildParams.toList.flatMap(_.supportedScalaVersions.toList.flatten)
             WorkspaceSettings(
-              semanticDBVersion,
-              supportedScalaVersions
+              Some(semanticDBVersion),
+              Some(supportedScalaVersions),
+              currentRefreshProjectsCommand
             )
           }
       }
@@ -385,7 +400,7 @@ final class BloopBspServices(
       val config = ReporterConfig.defaultFormat.copy(reverseOrder = false)
 
       val isSbtClient = state.client match {
-        case BspClientInfo(name, _, _, _, _, _) if name == "sbt" => true
+        case info: BspClientInfo if info.name == "sbt" => true
         case _ => false
       }
 
@@ -871,7 +886,15 @@ final class BloopBspServices(
   def buildTargets(
       request: bsp.WorkspaceBuildTargetsRequest
   ): BspEndpointResponse[bsp.WorkspaceBuildTargetsResult] = {
-    ifInitialized(None) { (state: State, logger: BspServerLogger) =>
+    // need a separate block so so that state is refreshed after regenerating project data
+    val refreshTask = ifInitialized(None) { (state: State, logger: BspServerLogger) =>
+      state.client.refreshProjectsCommand.foreach { command =>
+        RefreshProjects.run(state.build.origin, command, logger)
+      }
+      Task.now((state, Right(())))
+    }
+
+    val buildTargetsTask = ifInitialized(None) { (state: State, _: BspServerLogger) =>
       def reportBuildError(msg: String): Unit = {
         endpoints.Build.showMessage.notify(
           ShowMessageParams(MessageType.Error, None, None, msg)
@@ -922,6 +945,8 @@ final class BloopBspServices(
         }
       }
     }
+
+    refreshTask.flatMap(_ => buildTargetsTask)
   }
 
   def sources(

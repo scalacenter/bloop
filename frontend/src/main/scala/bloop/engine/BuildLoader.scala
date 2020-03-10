@@ -65,15 +65,15 @@ object BuildLoader {
             project
         }
 
-        settingsForLoad match {
+        settingsForLoad.flatMap(_.withSemanticdbSettings) match {
           case None =>
             Task.now(projectsRequiringMetalsTransformation.map(LoadedProject.RawProject(_)))
-          case Some(settings) =>
+          case Some((settings, semanticdb)) =>
             resolveSemanticDBForProjects(
               projectsRequiringMetalsTransformation,
               configDir,
-              settings.semanticDBVersion,
-              settings.supportedScalaVersions,
+              semanticdb.semanticDBVersion,
+              semanticdb.supportedScalaVersions,
               logger
             ).map { transformedProjects =>
               transformedProjects.map {
@@ -172,9 +172,9 @@ object BuildLoader {
 
     configFiles.map { f =>
       val project = loadProject(f.bytes, f.origin, logger)
-      settings match {
+      settings.flatMap(_.withSemanticdbSettings) match {
         case None => LoadedProject.RawProject(project)
-        case Some(settings) =>
+        case Some((settings, semanticdb)) =>
           project.scalaInstance match {
             case None => LoadedProject.RawProject(project)
             case Some(instance) =>
@@ -183,8 +183,8 @@ object BuildLoader {
                 List(project),
                 configDir,
                 scalaVersion,
-                settings.semanticDBVersion,
-                settings.supportedScalaVersions,
+                semanticdb.semanticDBVersion,
+                semanticdb.supportedScalaVersions,
                 logger
               ) { (plugin: Option[AbsolutePath]) =>
                 LoadedProject.ConfiguredProject(
