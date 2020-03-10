@@ -40,6 +40,7 @@ import snailgun.logging.Logger
 import bloop.bloopgun.core.LocatedServer
 import java.io.InputStreamReader
 import java.io.BufferedReader
+import java.io.IOException
 
 /**
  *
@@ -415,7 +416,8 @@ class BloopgunCli(
 
     def cmdWithArgs(
         found: LocatedServer,
-        extraJvmOpts: List[String]
+        extraJvmOpts: List[String],
+        javaBinary: List[String] = List("java")
     ): (List[String], Boolean) = {
       var usedExtraJvmOpts = false
       def finalJvmOpts(jvmOpts: List[String]): List[String] = {
@@ -434,7 +436,7 @@ class BloopgunCli(
           shell.deriveCommandForPlatform(cmd, attachTerminal = false)
         } else {
           val jvmOpts = Environment.detectJvmOptionsForServer(found, serverArgs, logger)
-          List("java") ++ finalJvmOpts(jvmOpts) ++ List("-jar", fullPath) ++ serverArgs
+          javaBinary ++ finalJvmOpts(jvmOpts) ++ List("-jar", fullPath) ++ serverArgs
         }
       }
 
@@ -447,7 +449,7 @@ class BloopgunCli(
           val delimiter = java.io.File.pathSeparator
           val jvmOpts = Environment.detectJvmOptionsForServer(found, serverArgs, logger)
           val stringClasspath = classpath.map(_.normalize.toAbsolutePath).mkString(delimiter)
-          val cmd = List("java") ++ finalJvmOpts(jvmOpts) ++ List(
+          val cmd = javaBinary ++ finalJvmOpts(jvmOpts) ++ List(
             "-classpath",
             stringClasspath,
             "bloop.Server"
@@ -488,13 +490,43 @@ class BloopgunCli(
       StatusCommand(code, output)
     }
 
+    def sysprocWithJava(
+        found: LocatedServer,
+        extraJvmOpts: List[String]
+    ): (ExitServerStatus, Boolean) = {
+      try {
+        val (cmd, usedExtraJvmOpts) = cmdWithArgs(found, extraJvmOpts)
+        val exitServerStatus = (cmd, sysproc(cmd))
+        (exitServerStatus, usedExtraJvmOpts)
+      } catch {
+        case e: IOException =>
+          val javaExec = sys.env
+            .get("JAVA_HOME")
+            .orElse(sys.props.get("java.home"))
+            .map(Paths.get(_).resolve("bin/java"))
+            .filter(_.toFile().isFile())
+            .map(_.toString())
+          val javaErrorMessage = "Cannot run program \"java\""
+          val errorCode = "error=2"
+          javaExec match {
+            case Some(java)
+                if e.getMessage().contains(javaErrorMessage) && e.getMessage.contains(errorCode) =>
+              logger.info(s"Java executable was not available on PATH, retrying with $java")
+              val (cmd, usedExtraJvmOpts) = cmdWithArgs(found, extraJvmOpts, List(java))
+              val exitServerStatus = (cmd, sysproc(cmd))
+              (exitServerStatus, usedExtraJvmOpts)
+            case _ => throw e
+          }
+      }
+    }
+
     val start = System.currentTimeMillis()
 
     // Run bloop server with special performance-sensitive JVM options
     val performanceSensitiveOpts = Environment.PerformanceSensitiveOptsForBloop
-    val (firstCmd, usedExtraJvmOpts) = cmdWithArgs(serverToRun, performanceSensitiveOpts)
-    val firstStatus = sysproc(firstCmd)
-
+    val (exitServerStatus, usedExtraJvmOpts) =
+      sysprocWithJava(serverToRun, performanceSensitiveOpts)
+    val (firstCmd, firstStatus) = exitServerStatus
     val end = System.currentTimeMillis()
     val elapsedFirstCmd = end - start
 
@@ -509,8 +541,8 @@ class BloopgunCli(
 
       if (!isExitRelatedToPerformanceSensitiveOpts) firstCmd -> firstStatus
       else {
-        val (secondCmd, _) = cmdWithArgs(serverToRun, Nil)
-        secondCmd -> sysproc(secondCmd)
+        val (exitServerStatus, _) = sysprocWithJava(serverToRun, Nil)
+        exitServerStatus
       }
     }
   }
