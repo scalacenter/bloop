@@ -143,6 +143,7 @@ abstract class BaseTestProject {
       List(sourceDir.underlying),
       if (sourcesGlobs.isEmpty) None
       else Some(sourcesGlobs),
+      None,
       directDependencies.map(_.config.name),
       classpath,
       outDir.underlying,

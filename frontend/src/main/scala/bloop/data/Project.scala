@@ -1,5 +1,7 @@
 package bloop.data
 
+import java.net.URI
+
 import bloop.io.AbsolutePath
 import bloop.logging.{DebugFilter, Logger}
 import bloop.ScalaInstance
@@ -9,7 +11,6 @@ import bloop.engine.Dag
 import bloop.engine.caches.SemanticDBCache
 import bloop.engine.tasks.toolchains.{JvmToolchain, ScalaJsToolchain, ScalaNativeToolchain}
 import bloop.io.ByteHasher
-
 import java.nio.charset.StandardCharsets
 import java.nio.file.attribute.BasicFileAttributes
 import java.nio.file.PathMatcher
@@ -22,11 +23,10 @@ import java.nio.file.SimpleFileVisitor
 
 import scala.util.Try
 import scala.collection.mutable
-
 import ch.epfl.scala.{bsp => Bsp}
-
 import xsbti.compile.{ClasspathOptions, CompileOrder}
 import bloop.config.ConfigCodecs
+
 import scala.util.control.NonFatal
 import monix.eval.Task
 
@@ -44,6 +44,7 @@ final case class Project(
     javacOptions: List[String],
     sources: List[AbsolutePath],
     sourcesGlobs: List[SourcesGlobs],
+    sourceRoots: Option[List[String]],
     testFrameworks: List[Config.TestFramework],
     testOptions: Config.TestOptions,
     out: AbsolutePath,
@@ -248,6 +249,7 @@ object Project {
       project.java.map(_.options).getOrElse(Nil),
       project.sources.map(AbsolutePath.apply),
       SourcesGlobs.fromConfig(project, logger),
+      project.sourceRoots,
       project.test.map(_.frameworks).getOrElse(Nil),
       project.test.map(_.options).getOrElse(Config.TestOptions.empty),
       AbsolutePath(project.out),
