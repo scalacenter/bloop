@@ -234,7 +234,7 @@ object Config {
       workspaceDir: Option[Path],
       sources: List[Path],
       sourcesGlobs: Option[List[SourcesGlobs]],
-      sourceRoots: Option[List[String]],
+      sourceRoots: Option[List[Path]],
       dependencies: List[String],
       classpath: List[Path],
       out: Path,

@@ -44,7 +44,7 @@ final case class Project(
     javacOptions: List[String],
     sources: List[AbsolutePath],
     sourcesGlobs: List[SourcesGlobs],
-    sourceRoots: Option[List[String]],
+    sourceRoots: Option[List[AbsolutePath]],
     testFrameworks: List[Config.TestFramework],
     testOptions: Config.TestOptions,
     out: AbsolutePath,
@@ -235,6 +235,8 @@ object Project {
       .getOrElse(out.resolve(Config.Project.analysisFileName(project.name)))
     val resources = project.resources.toList.flatten.map(AbsolutePath.apply)
 
+    val sourceRoots = project.sourceRoots.map(_.map(AbsolutePath.apply))
+
     Project(
       project.name,
       AbsolutePath(project.directory),
@@ -249,7 +251,7 @@ object Project {
       project.java.map(_.options).getOrElse(Nil),
       project.sources.map(AbsolutePath.apply),
       SourcesGlobs.fromConfig(project, logger),
-      project.sourceRoots,
+      sourceRoots,
       project.test.map(_.frameworks).getOrElse(Nil),
       project.test.map(_.options).getOrElse(Config.TestOptions.empty),
       AbsolutePath(project.out),
