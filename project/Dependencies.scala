@@ -39,7 +39,7 @@ object Dependencies {
   val circeVersion = "0.9.3"
   val jsoniterVersion = "2.0.4"
   val circeVersion213 = "0.12.2"
-  val nuprocessVersion = "1.2.6"
+  val nuprocessVersion = "2.0.0"
   val shapelessVersion = "2.3.3-lower-priority-coproduct"
   val scalaNative03Version = "0.3.9"
   val scalaNative04Version = "0.4.0-M2"
