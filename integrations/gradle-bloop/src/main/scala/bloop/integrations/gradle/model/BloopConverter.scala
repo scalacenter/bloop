@@ -218,6 +218,7 @@ class BloopConverter(parameters: BloopParameters) {
           workspaceDir = Option(project.getRootProject.getProjectDir.toPath),
           sources = sources,
           sourcesGlobs = None,
+          sourceRoots = None,
           dependencies = allDependencies,
           classpath = classpath,
           out = outDir,

@@ -948,7 +948,8 @@ final class BloopBspServices(
               // TODO(jvican): Don't default on false for generated, add this info to JSON fields
               bsp.SourceItem(bsp.Uri(bspUri), kind, false)
             }
-            bsp.SourcesItem(target, items)
+            val roots = project.sourceRoots.map(_.map(p => bsp.Uri(p.toBspUri)))
+            bsp.SourcesItem(target, items, roots)
           }
       }.toList
 
