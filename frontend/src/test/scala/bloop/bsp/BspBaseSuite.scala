@@ -109,7 +109,8 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
     def workspaceTargets: bsp.WorkspaceBuildTargetsResult = {
       val workspaceTargetsTask = {
         Workspace.buildTargets.request(bsp.WorkspaceBuildTargetsRequest()).map {
-          case Left(e) => fail(s"The request for build targets in ${state.build.origin} failed with $e!")
+          case Left(e) =>
+            fail(s"The request for build targets in ${state.build.origin} failed with $e!")
           case Right(ts) => ts
         }
       }

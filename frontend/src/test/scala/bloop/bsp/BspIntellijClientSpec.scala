@@ -1,14 +1,7 @@
 package bloop.bsp
 
-import java.io.File
-import java.net.URLClassLoader
-import java.nio.file.Files
-import java.nio.file.StandardOpenOption
-
 import bloop.cli.BspProtocol
 import bloop.data.WorkspaceSettings
-import bloop.io.AbsolutePath
-import bloop.logging.BspClientLogger
 import bloop.logging.RecordingLogger
 import bloop.util.{TestProject, TestUtil}
 import ch.epfl.scala.bsp.WorkspaceBuildTargetsResult
@@ -29,9 +22,11 @@ class BspIntellijClientSpec(
       val configDir = TestProject.populateWorkspace(workspace, initialProjects)
 
       val refreshProjectsCommand = {
-        val content = sanitizeForBash(`B`.toJson)
+        val tmp = configDir.resolve("b.tmp")
+        writeFile(tmp, `B`.toJson)
+
         val path = configDir.resolve("b.json")
-        val addProjectBCommand = s"echo $content > $path"
+        val addProjectBCommand = s"mv $tmp $path"
         // as settings are read when project is initialized, with this command
         // we simulate that project 'b' is added after first request
         List(
@@ -54,10 +49,6 @@ class BspIntellijClientSpec(
         assertEquals(projectNames(finalTargets), List("a", "b"))
       }
     }
-  }
-
-  private def sanitizeForBash(str: String): String = {
-    str.replace("\n", "").replace("\"", "\\\"")
   }
 
 }
