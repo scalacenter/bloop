@@ -40,7 +40,10 @@ final case class TestProject(
 
   def externalClassesDir: AbsolutePath = {
     // Default on stable CLI directory, imitating [[ClientInfo.CliClientInfo]]
-    clientClassesRootDir.resolve(CliClientInfo.id)
+    val classesDir = config.classesDir
+    val classesDirName = classesDir.getFileName()
+    val projectDirName = s"$classesDirName-${CliClientInfo.id}"
+    clientClassesRootDir.resolve(projectDirName)
   }
 
   def externalClassFileFor(relPath: String): AbsolutePath = {

@@ -131,6 +131,18 @@ class RunSpec {
   }
 
   @Test
+  def runCanSeeConflictingResources: Unit = {
+    TestUtil.runOnlyOnJava8 {
+      val mainClassName = "hello.AppWithConflictingResources"
+      val state = loadTestProject("cross-test-build-scalajs-0.6")
+      val command = Commands.Run(List("test-project-test"), Some(mainClassName), args = List.empty)
+      runAndCheck(state, command) { messages =>
+        assert(messages.contains(("info", "Resource application.conf was successfully loaded")))
+      }
+    }
+  }
+
+  @Test
   def runIncludesTransitiveResourcesInAggregatedProjects: Unit = {
     TestUtil.runOnlyOnJava8 {
       val target = "cross-test-build-scalajs-0-6"

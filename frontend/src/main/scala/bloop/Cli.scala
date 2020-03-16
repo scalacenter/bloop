@@ -405,7 +405,7 @@ object Cli {
 
               val clientRootFileName = clientDir.underlying.getFileName().toString
               val requiresNoDeletion =
-                !clientRootFileName.contains("-" + CliClientInfo.id) ||
+                !clientRootFileName.endsWith("-" + CliClientInfo.id) ||
                   currentlyUsedDirs.exists(currentDir => currentDir == clientDir)
 
               if (requiresNoDeletion) Nil

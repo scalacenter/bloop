@@ -69,7 +69,10 @@ object ClientInfo {
       // If the unique classes dir changes, change how outdated CLI dirs are cleaned up in [[Cli]]
       val newClientDir = {
         if (useStableCliDirs) {
-          project.clientClassesRootDirectory.resolve(id)
+          val classesDir = project.genericClassesDir.underlying
+          val classesDirName = classesDir.getFileName()
+          val projectDirName = s"$classesDirName-$id"
+          project.clientClassesRootDirectory.resolve(projectDirName)
         } else {
           val classesDir = project.genericClassesDir.underlying
           val classesDirName = classesDir.getFileName()
