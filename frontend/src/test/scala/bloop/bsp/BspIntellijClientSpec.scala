@@ -3,7 +3,7 @@ package bloop.bsp
 import bloop.cli.BspProtocol
 import bloop.data.WorkspaceSettings
 import bloop.logging.RecordingLogger
-import bloop.util.{TestProject, TestUtil}
+import bloop.util.{CrossPlatform, TestProject, TestUtil}
 import ch.epfl.scala.bsp.WorkspaceBuildTargetsResult
 
 object LocalBspIntellijClientSpec extends BspIntellijClientSpec(BspProtocol.Local)
@@ -29,11 +29,20 @@ class BspIntellijClientSpec(
         val addProjectBCommand = s"mv $tmp $path"
         // as settings are read when project is initialized, with this command
         // we simulate that project 'b' is added after first request
-        List(
-          "bash",
-          "-c",
-          s"[ ! -f first-run-marker ] && touch first-run-marker || $addProjectBCommand"
-        )
+
+        if (CrossPlatform.isWindows) {
+          List(
+            "cmd.exe",
+            "/c",
+            s"if not exist first-run-marker (touch first-run-marker) else ($addProjectBCommand)"
+          )
+        } else {
+          List(
+            "bash",
+            "-c",
+            s"[ ! -f first-run-marker ] && touch first-run-marker || $addProjectBCommand"
+          )
+        }
       }
 
       val workspaceSettings =
