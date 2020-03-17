@@ -295,20 +295,91 @@ private[inc] class BloopComponentCompiler(
             }
           }
 
-          AnalyzingCompiler.compileSources(
-            allSources,
-            target,
-            xsbtiJars,
-            toCompileID,
-            compiler,
-            logger
-          )
-
+          compileSources(allSources, target, xsbtiJars, toCompileID, compiler, logger)
           manager.define(compilerBridgeId, Seq(target))
         }
       }
     }
   }
+
+  /**
+   * Compile a Scala bridge from the sources of the compiler as follows:
+   *   1. Extract sources from source jars.
+   *   2. Compile them with the `xsbti` interfaces on the classpath.
+   *   3. Package the compiled classes and generated resources into a JAR.
+   *
+   * The Scala build depends on some details of this method, please check
+   * <a href="https://github.com/jsuereth/scala/commit/3431860048df8d2a381fb85a526097e00154eae0">
+   * this link for more information</a>.
+   *
+   * This method is invoked by build tools to compile the compiler bridge
+   * for Scala versions in which they are not present (e.g. every time a new
+   * Scala version is installed in your system).
+   */
+  private def compileSources(
+      sourceJars: Iterable[File],
+      targetJar: File,
+      xsbtiJars: Iterable[File],
+      id: String,
+      compiler: RawCompiler,
+      logger: BloopLogger
+  ): Unit = {
+    import sbt.io.RichFile
+    import sbt.io.syntax.filesToFinder
+    import sbt.io.syntax.singleFileFinder
+
+    val isSource = (f: File) => isSourceName(f.getName)
+    def keepIfSource(files: Set[File]): Set[File] =
+      if (files.exists(isSource)) files else Set.empty
+
+    // Generate jar from compilation dirs, the resources and a target name.
+    def generateJar(outputDir: File, dir: File, resources: Seq[File], targetJar: File) = {
+      import sbt.io.Path._
+      IO.copy(resources.pair(rebase(dir, outputDir)))
+      val toBeZipped = outputDir.allPaths.pair(relativeTo(outputDir), errorIfNone = false)
+      IO.zip(toBeZipped, targetJar)
+    }
+
+    // Handle the compilation failure of the Scala compiler.
+    def handleCompilationError(compilation: => Unit) = {
+      try compilation
+      catch {
+        case e: xsbti.CompileFailed =>
+          val msg = s"Error compiling the sbt component '$id'"
+          throw new CompileFailed(e.arguments, msg, e.problems)
+      }
+    }
+
+    IO.withTemporaryDirectory { dir =>
+      // Extract the sources to be compiled
+      val extractedSources = sourceJars
+        .foldLeft(Set.empty[File]) { (extracted, sourceJar) =>
+          extracted ++ keepIfSource(IO.unzip(sourceJar, dir, preserveLastModified = false))
+        }
+        .toSeq
+      val (sourceFiles, resources) = extractedSources.partition(isSource)
+      IO.withTemporaryDirectory { outputDirectory =>
+        val scalaVersion = compiler.scalaInstance.actualVersion
+        logger.info(s"Non-compiled module '$id' for Scala $scalaVersion. Compiling...")
+        val start = System.currentTimeMillis
+        handleCompilationError {
+          val scalaLibraryJar = compiler.scalaInstance.libraryJar
+          val restClasspath = xsbtiJars.toSeq ++ sourceJars
+          val classpath = scalaLibraryJar +: restClasspath
+          compiler(sourceFiles, classpath, outputDirectory, "-nowarn" :: Nil)
+
+          val end = (System.currentTimeMillis - start) / 1000.0
+          logger.info(s"  Compilation completed in ${end}s.")
+        }
+
+        // Create a jar out of the generated class files
+        generateJar(outputDirectory, dir, resources, targetJar)
+      }
+    }
+  }
+
+  private def isSourceName(name: String): Boolean =
+    name.endsWith(".scala") || name.endsWith(".java")
 
   import xsbti.compile.ScalaInstance
   private def mergeBloopAndHydraBridges(
@@ -334,7 +405,6 @@ private[inc] class BloopComponentCompiler(
         Left(new InvalidComponent(msg, t))
     }
 
-    import sbt.io.IO.{zip, unzip, withTemporaryDirectory, listFiles, relativize}
     hydraSourcesJars match {
       case Right(sourceJar +: otherJars) =>
         if (otherJars.nonEmpty) {
@@ -350,8 +420,8 @@ private[inc] class BloopComponentCompiler(
             logger.debug(s"Merging ${stockCompilerBridge} with $sourceJar")
         }
 
-        withTemporaryDirectory { tempDir =>
-          val hydraSourceContents = unzip(sourceJar, tempDir)
+        IO.withTemporaryDirectory { tempDir =>
+          val hydraSourceContents = IO.unzip(sourceJar, tempDir, preserveLastModified = false)
           logger.debug(s"Sources from hydra bridge: $hydraSourceContents")
 
           // Unfortunately we can only use names to filter out, let's hope there's no clashes
@@ -367,7 +437,12 @@ private[inc] class BloopComponentCompiler(
           // Extract bridge source contens in same folder with Hydra contents having preference
           val regularSourceContents = bloopBridgeSourceJars.foldLeft(Set.empty[File]) {
             case (extracted, sourceJar) =>
-              extracted ++ unzip(sourceJar, tempDir, filter = filterOutConflicts)
+              extracted ++ IO.unzip(
+                sourceJar,
+                tempDir,
+                filter = filterOutConflicts,
+                preserveLastModified = false
+              )
           }
 
           logger.debug(s"Sources from bloop bridge: $regularSourceContents")
@@ -375,10 +450,10 @@ private[inc] class BloopComponentCompiler(
           val mergedJar = Files.createTempFile(HydraSupport.bridgeNamePrefix, "merged").toFile
           logger.debug(s"Merged jar destination: $mergedJar")
           val allSourceContents = (hydraSourceContents ++ regularSourceContents).map(
-            s => s -> relativize(tempDir, s).get
+            s => s -> IO.relativize(tempDir, s).get
           )
 
-          zip(allSourceContents.toSeq, mergedJar)
+          IO.zip(allSourceContents.toSeq, mergedJar)
           Right(Vector(mergedJar))
         }
 
