@@ -1,6 +1,7 @@
 package bloop.bloopgun
 
 final case class BloopgunParams(
+    bloopVersion: String,
     nailgunServer: String = Defaults.Host,
     nailgunPort: Int = Defaults.Port,
     help: Boolean = false,
