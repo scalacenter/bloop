@@ -31,6 +31,9 @@ import _root_.bloop.logging.{Logger => BloopLogger}
 import _root_.bloop.{DependencyResolution => BloopDependencyResolution}
 import _root_.bloop.logging.DebugFilter
 import scala.concurrent.ExecutionContext
+import org.zeroturnaround.zip.ZipUtil
+import org.zeroturnaround.zip.FileSource
+import org.zeroturnaround.zip.ZipEntrySource
 
 object BloopComponentCompiler {
   import xsbti.compile.ScalaInstance
@@ -337,7 +340,8 @@ private[inc] class BloopComponentCompiler(
       import sbt.io.Path._
       IO.copy(resources.pair(rebase(dir, outputDir)))
       val toBeZipped = outputDir.allPaths.pair(relativeTo(outputDir), errorIfNone = false)
-      IO.zip(toBeZipped, targetJar)
+      val zipEntries = toBeZipped.flatMap { case (file, name) => Array(new FileSource(name, file)) }
+      ZipUtil.pack(zipEntries.toArray[ZipEntrySource], targetJar)
     }
 
     // Handle the compilation failure of the Scala compiler.
@@ -453,7 +457,11 @@ private[inc] class BloopComponentCompiler(
             s => s -> IO.relativize(tempDir, s).get
           )
 
-          IO.zip(allSourceContents.toSeq, mergedJar)
+          val zipEntries = allSourceContents.flatMap {
+            case (file, name) => Array(new FileSource(name, file))
+          }
+
+          ZipUtil.pack(zipEntries.toArray[ZipEntrySource], mergedJar)
           Right(Vector(mergedJar))
         }
 
