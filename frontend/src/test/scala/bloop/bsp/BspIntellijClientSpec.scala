@@ -26,21 +26,25 @@ class BspIntellijClientSpec(
         writeFile(tmp, `B`.toJson)
 
         val path = configDir.resolve("b.json")
-        val addProjectBCommand = s"mv $tmp $path"
+        val addProjectBCommand = {
+          val move = if (CrossPlatform.isWindows) "move" else "mv"
+          move + s" $tmp $path"
+        }
         // as settings are read when project is initialized, with this command
         // we simulate that project 'b' is added after first request
 
+        val firstRunMarkerPath = configDir.resolve("first-run-marker")
         if (CrossPlatform.isWindows) {
           List(
             "cmd.exe",
             "/c",
-            s"if not exist first-run-marker (touch first-run-marker) else ($addProjectBCommand)"
+            s"if not exist $firstRunMarkerPath (echo dummy > $firstRunMarkerPath) else ($addProjectBCommand)"
           )
         } else {
           List(
             "bash",
             "-c",
-            s"[ ! -f first-run-marker ] && touch first-run-marker || $addProjectBCommand"
+            s"[ ! -f $firstRunMarkerPath ] && touch $firstRunMarkerPath || $addProjectBCommand"
           )
         }
       }
