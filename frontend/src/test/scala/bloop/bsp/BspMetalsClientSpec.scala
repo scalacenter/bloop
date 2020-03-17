@@ -219,14 +219,14 @@ class BspMetalsClientSpec(
       val logger = new RecordingLogger(ansiCodesSupported = false)
       WorkspaceSettings.writeToFile(
         configDir,
-        WorkspaceSettings(semanticdbVersion, List(testedScalaVersion)),
+        WorkspaceSettings.fromSemanticdbSettings(semanticdbVersion, List(testedScalaVersion)),
         logger
       )
 
       def checkSettings: Unit = {
         assert(configDir.resolve(WorkspaceSettings.settingsFileName).exists)
         val settings = WorkspaceSettings.readFromFile(configDir, logger)
-        assert(settings.isDefined && settings.get.semanticDBVersion == semanticdbVersion)
+        assert(settings.isDefined && settings.get.semanticDBVersion.get == semanticdbVersion)
       }
 
       loadBspState(workspace, projects, logger, "Metals")(_ => checkSettings)
@@ -289,7 +289,7 @@ class BspMetalsClientSpec(
 
       assert(configDir.resolve(WorkspaceSettings.settingsFileName).exists)
       val settings = WorkspaceSettings.readFromFile(configDir, logger)
-      assert(settings.isDefined && settings.get.semanticDBVersion == metalsClientVersion)
+      assert(settings.isDefined && settings.get.semanticDBVersion.get == metalsClientVersion)
     }
   }
 
@@ -301,7 +301,7 @@ class BspMetalsClientSpec(
       val logger = new RecordingLogger(ansiCodesSupported = false)
       WorkspaceSettings.writeToFile(
         configDir,
-        WorkspaceSettings("4.2.0", List(testedScalaVersion)),
+        WorkspaceSettings.fromSemanticdbSettings("4.2.0", List(testedScalaVersion)),
         logger
       )
       val bspState = loadBspState(workspace, projects, logger) { state =>
@@ -320,7 +320,7 @@ class BspMetalsClientSpec(
       val logger = new RecordingLogger(ansiCodesSupported = false)
       WorkspaceSettings.writeToFile(
         configDir,
-        WorkspaceSettings("4.1.11", List(testedScalaVersion)),
+        WorkspaceSettings.fromSemanticdbSettings("4.1.11", List(testedScalaVersion)),
         logger
       )
       loadBspState(workspace, projects, logger) { state =>
@@ -346,7 +346,7 @@ class BspMetalsClientSpec(
       val logger = new RecordingLogger(ansiCodesSupported = false)
       WorkspaceSettings.writeToFile(
         configDir,
-        WorkspaceSettings("4.3.0", List()),
+        WorkspaceSettings.fromSemanticdbSettings("4.3.0", List()),
         logger
       )
       loadBspState(workspace, projects, logger) { state =>

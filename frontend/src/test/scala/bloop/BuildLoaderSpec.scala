@@ -24,7 +24,7 @@ object BuildLoaderSpec extends BaseSuite {
   }
 
   testLoad("reload if settings are added") { (testBuild, logger) =>
-    val settings = WorkspaceSettings("4.2.0", List(BuildInfo.scalaVersion))
+    val settings = WorkspaceSettings.fromSemanticdbSettings("4.2.0", List(BuildInfo.scalaVersion))
     testBuild.state.build.checkForChange(Some(settings), logger).map {
       case Build.ReturnPreviousState =>
         sys.error(s"Expected return updated state, got previous state")
@@ -36,7 +36,7 @@ object BuildLoaderSpec extends BaseSuite {
     }
   }
 
-  val sameSettings = WorkspaceSettings("4.2.0", List(BuildInfo.scalaVersion))
+  val sameSettings = WorkspaceSettings.fromSemanticdbSettings("4.2.0", List(BuildInfo.scalaVersion))
   testLoad("do not reload if same settings are added", Some(sameSettings)) { (testBuild, logger) =>
     testBuild.state.build.checkForChange(Some(sameSettings), logger).map {
       case Build.ReturnPreviousState => ()
@@ -46,7 +46,8 @@ object BuildLoaderSpec extends BaseSuite {
   }
 
   testLoad("reload if new settings are added", Some(sameSettings)) { (testBuild, logger) =>
-    val newSettings = WorkspaceSettings("4.1.11", List(BuildInfo.scalaVersion))
+    val newSettings =
+      WorkspaceSettings.fromSemanticdbSettings("4.1.11", List(BuildInfo.scalaVersion))
     testBuild.state.build.checkForChange(Some(newSettings), logger).map {
       case Build.ReturnPreviousState =>
         sys.error(s"Expected return updated state, got previous state")
@@ -100,7 +101,8 @@ object BuildLoaderSpec extends BaseSuite {
   testLoad("reload if new settings are added and two file contents changed", Some(sameSettings)) {
     (testBuild, logger) =>
       changeHashOfRandomFiles(testBuild, 2)
-      val newSettings = WorkspaceSettings("4.1.11", List(BuildInfo.scalaVersion))
+      val newSettings =
+        WorkspaceSettings.fromSemanticdbSettings("4.1.11", List(BuildInfo.scalaVersion))
       testBuild.state.build.checkForChange(Some(newSettings), logger).map {
         case Build.ReturnPreviousState =>
           sys.error(s"Expected return updated state, got previous state")

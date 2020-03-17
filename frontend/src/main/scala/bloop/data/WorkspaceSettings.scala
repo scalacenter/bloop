@@ -1,19 +1,15 @@
 package bloop.data
 
-import bloop.engine.BuildLoader
 import bloop.logging.Logger
 import bloop.logging.DebugFilter
 import bloop.io.AbsolutePath
-import bloop.DependencyResolution
 import bloop.io.RelativePath
 
 import scala.util.Try
 import scala.util.Failure
 import scala.util.Success
 
-import java.nio.file.Path
 import java.nio.file.Files
-import java.nio.charset.StandardCharsets
 
 import com.github.plokhotnyuk.jsoniter_scala.core.{JsonValueCodec, WriterConfig}
 import com.github.plokhotnyuk.jsoniter_scala.macros.{JsonCodecMaker, CodecMakerConfig}
@@ -40,11 +36,26 @@ import com.github.plokhotnyuk.jsoniter_scala.macros.{JsonCodecMaker, CodecMakerC
  * we should skip the resolution of the plugin.
  */
 case class WorkspaceSettings(
-    semanticDBVersion: String,
-    supportedScalaVersions: List[String]
-)
+    semanticDBVersion: Option[String],
+    supportedScalaVersions: Option[List[String]],
+    refreshProjectsCommand: Option[List[String]]
+) {
+  def withSemanticdbSettings: Option[(WorkspaceSettings, SemanticdbSettings)] =
+    (semanticDBVersion, supportedScalaVersions) match {
+      case (Some(semanticDBVersion), Some(supportedScalaVersions)) =>
+        Some(this -> SemanticdbSettings(semanticDBVersion, supportedScalaVersions))
+      case _ => None
+    }
+}
 
 object WorkspaceSettings {
+
+  def fromSemanticdbSettings(
+      semanticDBVersion: String,
+      supportedScalaVersions: List[String]
+  ): WorkspaceSettings = {
+    WorkspaceSettings(Some(semanticDBVersion), Some(supportedScalaVersions), None)
+  }
 
   /** Represents the supported changes in the workspace. */
   sealed trait DetectedChange

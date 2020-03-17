@@ -47,6 +47,8 @@ sealed trait ClientInfo {
    * directories or whether bloop should take care of any created resources.
    */
   def hasManagedClassesDirectories: Boolean
+
+  def refreshProjectsCommand: Option[List[String]]
 }
 
 object ClientInfo {
@@ -94,6 +96,8 @@ object ClientInfo {
 
     override def toString(): String =
       s"cli client '$id' (since ${activeSinceMillis(connectionTimestamp)})"
+
+    def refreshProjectsCommand: Option[List[String]] = None
   }
 
   object CliClientInfo {
@@ -106,6 +110,7 @@ object ClientInfo {
       bspVersion: String,
       ownsBuildFiles: Boolean,
       bspClientClassesRootDir: Option[AbsolutePath],
+      refreshProjectsCommand: Option[List[String]],
       private val isConnected: () => Boolean
   ) extends ClientInfo {
     // The format of this unique id is used in `toGenericClassesDir`
