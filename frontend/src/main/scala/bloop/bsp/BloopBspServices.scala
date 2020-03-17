@@ -53,6 +53,7 @@ import bloop.engine.Feedback
 import monix.reactive.subjects.BehaviorSubject
 import bloop.engine.tasks.compilation.CompileClientStore
 import bloop.data.ClientInfo.BspClientInfo
+import bloop.exec.Forker
 import bloop.logging.BloopLogger
 
 final class BloopBspServices(
@@ -888,10 +889,12 @@ final class BloopBspServices(
   ): BspEndpointResponse[bsp.WorkspaceBuildTargetsResult] = {
     // need a separate block so so that state is refreshed after regenerating project data
     val refreshTask = ifInitialized(None) { (state: State, logger: BspServerLogger) =>
-      state.client.refreshProjectsCommand.foreach { command =>
-        RefreshProjects.run(state.build.origin, command, logger)
-      }
-      Task.now((state, Right(())))
+      val exitCode = state.client.refreshProjectsCommand
+        .map { command =>
+          Forker.run(cwd = state.build.origin, command, logger, state.commonOptions)
+        }
+        .getOrElse(Task.now(0))
+      exitCode.map(_ => (state, Right(())))
     }
 
     val buildTargetsTask = ifInitialized(None) { (state: State, _: BspServerLogger) =>
