@@ -14,6 +14,7 @@ import scala.collection.mutable
 import scala.util.Try
 import bloop.logging.CompilationEvent
 import scala.concurrent.Promise
+import monix.execution.atomic.AtomicInt
 
 /**
  * A flexible reporter whose configuration is provided by a `ReporterConfig`.
@@ -21,6 +22,9 @@ import scala.concurrent.Promise
  * etc.
  *
  * A reporter has internal state and must be instantiated per compilation.
+ *
+ * Note: Implementations must be thread-safe or concurrency hazards will surface
+ *       when compilation is carried out with Hydra.
  *
  * @param logger The logger that will receive the output of the reporter.
  * @param cwd    The current working directory of the user who started compilation.
@@ -36,14 +40,13 @@ abstract class Reporter(
   private val _severities = TrieMap.empty[PositionId, Severity]
   private val _messages = TrieMap.empty[PositionId, List[String]]
 
-  private var _nextID = 1
-  private def nextID(): Int = { val id = _nextID; _nextID += 1; id }
+  private val _nextID = AtomicInt(1)
+  private def nextID(): Int = _nextID.getAndIncrement()
   override def reset(): Unit = {
     _problems.clear()
     _severities.clear()
     _messages.clear()
-    _nextID = 1
-    ()
+    _nextID.set(1)
   }
 
   override def hasWarnings(): Boolean = {

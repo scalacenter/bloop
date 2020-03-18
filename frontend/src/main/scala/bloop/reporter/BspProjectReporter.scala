@@ -16,6 +16,7 @@ import scala.collection.mutable
 import scala.util.Try
 import scala.concurrent.Promise
 import bloop.CompileOutPaths
+import monix.execution.atomic.AtomicInt
 
 final class BspProjectReporter(
     val project: Project,
@@ -45,10 +46,10 @@ final class BspProjectReporter(
   private lazy val taskId = logger.nextTaskId
 
   /** A cycle count, initialized to 0 when it's a no-op. */
-  private var cycleCount: Int = 0
+  private val cycleCount: AtomicInt = AtomicInt(0)
 
   /** A thread-safe map with all the files under compilation. */
-  private val compilingFiles = mutable.HashMap.empty[File, Boolean]
+  private val compilingFiles = TrieMap.empty[File, Boolean]
 
   /** A thread-safe map with all the files that have been cleared. */
   private val clearedFilesForClient = TrieMap.empty[File, Boolean]
@@ -164,7 +165,7 @@ final class BspProjectReporter(
   }
 
   override def reportStartIncrementalCycle(sources: Seq[File], outputDirs: Seq[File]): Unit = {
-    cycleCount += 1
+    cycleCount.incrementAndGet()
 
     statusForNextEndCycle match {
       case Some(_) =>
@@ -344,7 +345,7 @@ final class BspProjectReporter(
     }
 
     endEvent = Some(
-      if (cycleCount == 0) mockNoOpCompileEventsAndEnd
+      if (cycleCount.get == 0) mockNoOpCompileEventsAndEnd
       else {
         // Great, let's report the pending end incremental cycle as the last one
         val inputs =
