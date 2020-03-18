@@ -57,4 +57,36 @@ object SourceHasherSpec extends bloop.testing.BaseSuite {
       assert(!cancelPromise2.isCompleted)
     }
   }
+
+  test("test that hidden source files are not matched") {
+    // Hidden source files should not be matched. Editors such as emacs can
+    // write hidden files to serve as backups, e.g. interlock files
+    TestUtil.withinWorkspace { workspace =>
+      val hiddenScalaFile = workspace.resolve(".Hello.scala")
+      val hiddenJavaFile = workspace.resolve(".Hello.java")
+
+      val validScalaFile = workspace.resolve("Hello.scala")
+      val validJavaFile = workspace.resolve("Hello.java")
+
+      val nestedDir = workspace.resolve("nested")
+      val hiddenNestedJavaFile = nestedDir.resolve(".#Hello.java")
+      val validNestedJavaFile = nestedDir.resolve("Hello.java")
+
+      val nestedHiddenDir = workspace.resolve(".nested")
+      val hiddenInHiddenNestedDirJavaFile = nestedHiddenDir.resolve(".#Hello.java")
+      val validInHiddenNestedDirJavaFile = nestedHiddenDir.resolve("Hello.java")
+
+      assert(!SourceHasher.matchSourceFile(hiddenScalaFile.underlying))
+      assert(!SourceHasher.matchSourceFile(hiddenJavaFile.underlying))
+
+      assert(SourceHasher.matchSourceFile(validScalaFile.underlying))
+      assert(SourceHasher.matchSourceFile(validJavaFile.underlying))
+
+      assert(!SourceHasher.matchSourceFile(hiddenNestedJavaFile.underlying))
+      assert(SourceHasher.matchSourceFile(validNestedJavaFile.underlying))
+
+      assert(!SourceHasher.matchSourceFile(hiddenInHiddenNestedDirJavaFile.underlying))
+      assert(SourceHasher.matchSourceFile(validInHiddenNestedDirJavaFile.underlying))
+    }
+  }
 }

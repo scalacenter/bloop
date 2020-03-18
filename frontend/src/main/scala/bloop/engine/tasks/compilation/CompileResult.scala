@@ -126,10 +126,12 @@ case class FinalNormalCompileResult private (
 
 object FinalNormalCompileResult {
   object HasException {
-    def unapply(res: FinalNormalCompileResult): Option[(Project, Throwable)] = {
+    def unapply(res: FinalNormalCompileResult): Option[(Project, Either[String, Throwable])] = {
       res.result.fromCompiler match {
-        case Compiler.Result.Failed(_, Some(t), _, _) =>
-          Some((res.project, t))
+        case Compiler.Result.Failed(_, Some(err), _, _) =>
+          Some((res.project, Right(err)))
+        case Compiler.Result.GlobalError(problem) =>
+          Some((res.project, Left(problem)))
         case _ => None
       }
     }

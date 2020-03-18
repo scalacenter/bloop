@@ -293,10 +293,10 @@ object CompileTask {
             stateWithResults.copy(status = ExitStatus.Ok)
           } else {
             results.foreach {
-              case FinalNormalCompileResult.HasException(project, t) =>
-                rawLogger
-                  .error(s"Unexpected error when compiling ${project.name}: '${t.getMessage}'")
-                rawLogger.trace(t)
+              case FinalNormalCompileResult.HasException(project, err) =>
+                val errMsg = err.fold(identity, _.getMessage)
+                rawLogger.error(s"Unexpected error when compiling ${project.name}: '$errMsg'")
+                err.foreach(rawLogger.trace(_))
               case _ => () // Do nothing when the final compilation result is not an actual error
             }
 

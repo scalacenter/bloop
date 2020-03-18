@@ -33,7 +33,19 @@ import monix.execution.Cancelable
 import monix.execution.cancelables.CompositeCancelable
 
 object SourceHasher {
-  private final val sourceMatcher = FileSystems.getDefault.getPathMatcher("glob:**.{scala,java}")
+  private final val sourceMatcher =
+    FileSystems.getDefault.getPathMatcher("glob:**/[!.]*.{scala,java}")
+
+  /**
+   * Matches a Scala or Java source file that is not a hidden file (e.g.
+   * doesn't start with a leading dot.)
+   *
+   * @param path is the path of the source file candidate.
+   * @return whether the path can be considered a valid source file.
+   */
+  def matchSourceFile(path: Path): Boolean = {
+    sourceMatcher.matches(path)
+  }
 
   /**
    * Find sources in a project and hash them in parallel.
@@ -92,7 +104,7 @@ object SourceHasher {
     }
 
     val discoverFileTree = Task {
-      val discovery = fileVisitor(sourceMatcher.matches)
+      val discovery = fileVisitor(matchSourceFile)
       val opts = java.util.EnumSet.of(FileVisitOption.FOLLOW_LINKS)
       sourceFilesAndDirectories.foreach { sourcePath =>
         if (visitedDirs.contains(sourcePath.underlying)) ()

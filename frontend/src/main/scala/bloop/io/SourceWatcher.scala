@@ -64,10 +64,9 @@ final class SourceWatcher private (
       private[this] val scheduledResubmissions = new ConcurrentHashMap[Path, Cancelable]()
       override def onEvent(event: DirectoryChangeEvent): Unit = {
         val targetFile = event.path()
-        val targetPath = targetFile.toFile.getAbsolutePath()
         val attrs = Files.readAttributes(targetFile, classOf[BasicFileAttributes])
-        if (attrs.isRegularFile &&
-            (targetPath.endsWith(".scala") || targetPath.endsWith(".java"))) {
+
+        if (attrs.isRegularFile && SourceHasher.matchSourceFile(targetFile)) {
           if (attrs.size != 0L) {
             val resubmission = scheduledResubmissions.remove(targetFile)
             if (resubmission != null) resubmission.cancel()
