@@ -19,7 +19,7 @@ object HydraCompileSpec extends BaseCompileSpec {
   private val TriplequoteResolver = MavenRepository(
     "https://repo.triplequote.com/artifactory/libs-release/"
   )
-  private val HydraVersion = "2.1.13"
+  private val HydraVersion = "2.2.1"
 
   object HydraTestProject extends bloop.util.BaseTestProject {
     override protected def mkScalaInstance(
@@ -56,8 +56,7 @@ object HydraCompileSpec extends BaseCompileSpec {
   }
 
   override def test(name: String)(fun: => Any): Unit = {
-    //if (hydraLicenseExists) super.test(name)(fun)
-    //else ignore(name, "Hydra license is missing")(fun)
-    ignore(name, "Hydra license is missing")(fun)
+    if (hydraLicenseExists) super.test(name)(fun)
+    else ignore(name, "Hydra license is missing")(fun)
   }
 }

@@ -16,6 +16,7 @@ import scala.collection.mutable
 import scala.util.Try
 import scala.concurrent.Promise
 import bloop.CompileOutPaths
+import monix.execution.atomic.AtomicInt
 
 final class BspProjectReporter(
     val project: Project,
@@ -23,15 +24,32 @@ final class BspProjectReporter(
     cwd: AbsolutePath,
     config: ReporterConfig,
     reportAllPreviousProblems: Boolean,
-    override val _problems: mutable.Buffer[ProblemPerPhase] = mutable.ArrayBuffer.empty
+    override val _problems: Reporter.Buffer[ProblemPerPhase]
 ) extends Reporter(logger, cwd, config, _problems) {
+
+  def this(
+      project: Project,
+      logger: BspServerLogger,
+      cwd: AbsolutePath,
+      config: ReporterConfig,
+      reportAllPreviousProblems: Boolean
+  ) =
+    this(
+      project,
+      logger,
+      cwd,
+      config,
+      reportAllPreviousProblems,
+      createBuffer[ProblemPerPhase](project)
+    )
+
   private lazy val taskId = logger.nextTaskId
 
   /** A cycle count, initialized to 0 when it's a no-op. */
-  private var cycleCount: Int = 0
+  private val cycleCount: AtomicInt = AtomicInt(0)
 
-  /** A thread-safe map with all the files under compilation. */
-  private val compilingFiles = mutable.HashMap.empty[File, Boolean]
+  /** A thread-safe set with all the files under compilation. */
+  private val compilingFiles = ConcurrentSet[File]()
 
   /** A thread-safe map with all the files that have been cleared. */
   private val clearedFilesForClient = TrieMap.empty[File, Boolean]
@@ -147,7 +165,7 @@ final class BspProjectReporter(
   }
 
   override def reportStartIncrementalCycle(sources: Seq[File], outputDirs: Seq[File]): Unit = {
-    cycleCount += 1
+    cycleCount.incrementAndGet()
 
     statusForNextEndCycle match {
       case Some(_) =>
@@ -161,7 +179,7 @@ final class BspProjectReporter(
     logger.publishCompilationStart(
       CompilationEvent.StartCompilation(project.name, project.bspUri, msg, taskId)
     )
-    sources.foreach(sourceFile => compilingFiles.+=(sourceFile -> true))
+    compilingFiles ++ sources
   }
 
   private def clearProblemsAtPhase(
@@ -327,7 +345,7 @@ final class BspProjectReporter(
     }
 
     endEvent = Some(
-      if (cycleCount == 0) mockNoOpCompileEventsAndEnd
+      if (cycleCount.get == 0) mockNoOpCompileEventsAndEnd
       else {
         // Great, let's report the pending end incremental cycle as the last one
         val inputs =

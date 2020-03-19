@@ -20,11 +20,18 @@ final class LogReporter(
     override val logger: Logger,
     cwd: AbsolutePath,
     config: ReporterConfig,
-    override val _problems: mutable.Buffer[ProblemPerPhase] = mutable.ArrayBuffer.empty
+    override val _problems: Reporter.Buffer[ProblemPerPhase]
 ) extends Reporter(logger, cwd, config, _problems) {
 
+  def this(
+      project: Project,
+      logger: Logger,
+      cwd: AbsolutePath,
+      config: ReporterConfig
+  ) = this(project, logger, cwd, config, createBuffer[ProblemPerPhase](project))
+
   // Contains the files that are compiled in all incremental compiler cycles
-  private val compilingFiles = mutable.HashSet[File]()
+  private val compilingFiles = ConcurrentSet[File]()
 
   private final val format = config.format(this)
   override def printSummary(): Unit = {
@@ -60,7 +67,7 @@ final class LogReporter(
   override def reportStartIncrementalCycle(sources: Seq[File], outputDirs: Seq[File]): Unit = {
     // TODO(jvican): Fix https://github.com/scalacenter/bloop/issues/386 here
     require(sources.size > 0) // This is an invariant enforced in the call-site
-    compilingFiles ++= sources
+    compilingFiles ++ sources
     logger.info(Reporter.compilationMsgFor(project.name, sources))
   }
 

@@ -14,6 +14,7 @@ import scala.collection.mutable
 import scala.util.Try
 import bloop.logging.CompilationEvent
 import scala.concurrent.Promise
+import monix.execution.atomic.AtomicInt
 
 /**
  * A flexible reporter whose configuration is provided by a `ReporterConfig`.
@@ -21,6 +22,9 @@ import scala.concurrent.Promise
  * etc.
  *
  * A reporter has internal state and must be instantiated per compilation.
+ *
+ * Note: Implementations must be thread-safe or concurrency hazards will surface
+ *       when compilation is carried out with Hydra.
  *
  * @param logger The logger that will receive the output of the reporter.
  * @param cwd    The current working directory of the user who started compilation.
@@ -30,20 +34,19 @@ abstract class Reporter(
     val logger: Logger,
     override val cwd: AbsolutePath,
     override val config: ReporterConfig,
-    val _problems: mutable.Buffer[ProblemPerPhase] = mutable.ArrayBuffer.empty
+    val _problems: Reporter.Buffer[ProblemPerPhase]
 ) extends ZincReporter {
   private case class PositionId(sourcePath: String, offset: Int)
   private val _severities = TrieMap.empty[PositionId, Severity]
   private val _messages = TrieMap.empty[PositionId, List[String]]
 
-  private var _nextID = 1
-  private def nextID(): Int = { val id = _nextID; _nextID += 1; id }
+  private val _nextID = AtomicInt(1)
+  private def nextID(): Int = _nextID.getAndIncrement()
   override def reset(): Unit = {
     _problems.clear()
     _severities.clear()
     _messages.clear()
-    _nextID = 1
-    ()
+    _nextID.set(1)
   }
 
   override def hasWarnings(): Boolean = {
@@ -307,5 +310,68 @@ object Reporter {
         }
     }
     problemsPerFile.toMap
+  }
+
+  import java.util.concurrent.{ConcurrentLinkedQueue => JConcurrentLinkedQueue}
+  import scala.collection.JavaConverters._
+  import scala.reflect.ClassTag
+  object Buffer {
+    def apply[A](needsConcurrentBuffer: Boolean): Buffer[A] = {
+      if (needsConcurrentBuffer) new ConcurrentBuffer[A](new JConcurrentLinkedQueue())
+      else new DelegatingBuffer[A](mutable.ArrayBuffer.empty)
+    }
+  }
+
+  sealed trait Buffer[A] extends Any {
+    def +=(element: A): Unit
+    def clear(): Unit
+    def exists(predicate: A => Boolean): Boolean
+    def foreach(f: A => Unit): Unit
+    def map[B](f: A => B): Buffer[B]
+    def reverse: Buffer[A]
+    def toArray[B >: A: ClassTag]: Array[B]
+    def toList: List[A]
+  }
+
+  private class DelegatingBuffer[A](val underlying: mutable.Buffer[A])
+      extends AnyVal
+      with Buffer[A] {
+    override def +=(element: A): Unit = underlying += element
+    override def clear(): Unit = underlying.clear()
+    override def exists(predicate: A => Boolean): Boolean = underlying.exists(predicate)
+    override def foreach(f: A => Unit): Unit = underlying.foreach(f)
+    override def map[B](f: A => B): Buffer[B] = new DelegatingBuffer(underlying.map(f))
+    override def reverse: Buffer[A] = new DelegatingBuffer(underlying.reverse)
+    override def toList: List[A] = underlying.toList
+    override def toArray[B >: A: ClassTag]: Array[B] = underlying.toArray
+  }
+
+  private class ConcurrentBuffer[A](val underlying: JConcurrentLinkedQueue[A])
+      extends AnyVal
+      with Buffer[A] {
+    override def +=(element: A): Unit = { underlying.add(element); () }
+    override def clear(): Unit = underlying.clear()
+    override def exists(predicate: A => Boolean): Boolean = weakIterator.exists(predicate)
+    override def foreach(f: A => Unit): Unit = weakIterator.foreach(f)
+    override def map[B](f: A => B): Buffer[B] = {
+      val mapped = new JConcurrentLinkedQueue[B]()
+      weakIterator.foreach(element => mapped.add(f(element)))
+      new ConcurrentBuffer(mapped)
+    }
+    override def reverse: Buffer[A] = {
+      val reversed = mutable.Stack.empty[A]
+      weakIterator.foreach(reversed.push)
+      newBuffer(reversed: _*)
+    }
+    override def toList: List[A] = weakIterator.toList
+    override def toArray[B >: A: ClassTag]: Array[B] = weakIterator.toArray
+
+    private def newBuffer[B](elements: B*): ConcurrentBuffer[B] = {
+      val mapped = new JConcurrentLinkedQueue[B]()
+      elements.foreach(mapped.add)
+      new ConcurrentBuffer(mapped)
+    }
+
+    private def weakIterator: Iterator[A] = underlying.iterator().asScala
   }
 }
