@@ -48,8 +48,8 @@ final class BspProjectReporter(
   /** A cycle count, initialized to 0 when it's a no-op. */
   private val cycleCount: AtomicInt = AtomicInt(0)
 
-  /** A thread-safe map with all the files under compilation. */
-  private val compilingFiles = TrieMap.empty[File, Boolean]
+  /** A thread-safe set with all the files under compilation. */
+  private val compilingFiles = ConcurrentSet[File]()
 
   /** A thread-safe map with all the files that have been cleared. */
   private val clearedFilesForClient = TrieMap.empty[File, Boolean]
@@ -179,7 +179,7 @@ final class BspProjectReporter(
     logger.publishCompilationStart(
       CompilationEvent.StartCompilation(project.name, project.bspUri, msg, taskId)
     )
-    sources.foreach(sourceFile => compilingFiles.+=(sourceFile -> true))
+    compilingFiles ++ sources
   }
 
   private def clearProblemsAtPhase(

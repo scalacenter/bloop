@@ -14,8 +14,6 @@ import sbt.util.InterfaceUtil
 import scala.collection.mutable
 import scala.collection.concurrent.TrieMap
 import bloop.logging.CompilationEvent
-import java.util.concurrent.ConcurrentHashMap
-import scala.collection.JavaConverters._
 
 final class LogReporter(
     val project: Project,
@@ -33,7 +31,7 @@ final class LogReporter(
   ) = this(project, logger, cwd, config, createBuffer[ProblemPerPhase](project))
 
   // Contains the files that are compiled in all incremental compiler cycles
-  private val compilingFiles = ConcurrentHashMap.newKeySet[File]()
+  private val compilingFiles = ConcurrentSet[File]()
 
   private final val format = config.format(this)
   override def printSummary(): Unit = {
@@ -69,7 +67,7 @@ final class LogReporter(
   override def reportStartIncrementalCycle(sources: Seq[File], outputDirs: Seq[File]): Unit = {
     // TODO(jvican): Fix https://github.com/scalacenter/bloop/issues/386 here
     require(sources.size > 0) // This is an invariant enforced in the call-site
-    compilingFiles.addAll(sources.asJava)
+    compilingFiles ++ sources
     logger.info(Reporter.compilationMsgFor(project.name, sources))
   }
 
