@@ -55,6 +55,41 @@ If you are integrating your tool with bloop and want to install and start the se
   <dd><p>Use the server jar or script in the given path</p></dd>
 </dl>
 
+## Global settings for the server
+
+Use the `$HOME/.bloop/bloop.json` file to configure the Bloop server. The
+Bloop server must be restarted to pick up new configuration changes.
+
+### Custom Java options
+
+Update the `javaOptions` field to configure custom Java options that should
+be used when starting a new Bloop server. For example, use this to increase
+the memory to Bloop.
+
+```jsonc
+// $HOME/.bloop/bloop.json
+{
+  "javaOptions": ["-Xmx16G"]
+}
+```
+
+### Custom Java home
+
+Update the `javaHome` field declare what Java version the Bloop server should
+run on. For example, use this to declare that Bloop should compile with JDK
+11 or JDK 8.
+
+```jsonc
+// $HOME/.bloop/bloop.json
+{
+  "javaHome": "/Library/Java/JavaVirtualMachines/jdk1.8.0_111.jdk"
+}
+```
+
+The `java` binary should exist in `$JAVA_HOME/bin/java`. The Bloop server
+will not start correctly if the `javaHome` field points directly to the
+`java` binary.
+
 ## Automatic management of the server
 
 It is generally a good practice to have a way to manage the lifecycle of the server. 

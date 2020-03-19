@@ -87,9 +87,14 @@ class BloopgunCli(
     val cliParser = {
       val builder = OParser.builder[BloopgunParams]
       val bloopVersionOpt = builder
-        .opt[String]("bloop-version")
-        .action((bloopVersion, params) => { params.copy(bloopVersion = bloopVersion) })
-        .text("Specify the Bloop version to use for launching a new Bloop server")
+        .opt[String]("fallback-bloop-version")
+        .action((fallbackBloopVersion, params) => {
+          params.copy(bloopVersion = fallbackBloopVersion)
+        })
+        .text(
+          "Specify the Bloop version to use for launching a new Bloop server when there is no running server. " +
+            "This option is ignored when there is a running server in the background."
+        )
       val nailgunServerOpt = builder
         .opt[String]("nailgun-server")
         .action((server, params) => { setServer = true; params.copy(nailgunServer = server) })
@@ -436,6 +441,9 @@ class BloopgunCli(
             jvmOpts ++ extraJvmOpts
           }
         val globalOptions = globalSettings.javaOptions.getOrElse(Nil)
+        if (globalOptions.nonEmpty) {
+          logger.info(s"Picked up global Java options $globalOptions")
+        }
         baseOptions ++ globalOptions
       }
 
