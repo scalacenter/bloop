@@ -563,7 +563,7 @@ lazy val sbtBloop013 = project
 
 lazy val sbtBloop013Shaded =
   defineShadedSbtPlugin("sbtBloop013Shaded", Sbt013Version, sbtBloop013).settings(
-    scalaVersion := (scalaVersion in sbtBloop013).value,
+    scalaVersion := (scalaVersion in sbtBloop013).value
   )
 
 lazy val mavenBloop = project
@@ -598,6 +598,7 @@ lazy val gradleBloop212 = project
   .in(file("integrations") / "gradle-bloop")
   .enablePlugins(BuildInfoPlugin)
   .disablePlugins(ScriptedPlugin)
+  .settings(name := "gradle-bloop")
   .dependsOn(jsonConfig212, frontend % "test->test")
   .settings(BuildDefaults.gradlePluginBuildSettings, testSettings)
   .settings(BuildInfoPlugin.buildInfoScopedSettings(Test))

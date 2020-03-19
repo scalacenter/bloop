@@ -23,7 +23,7 @@ class ReleasesModifier extends StringModifier {
         <tr>
           <td>{Sonatype.current.version}</td>
           <td>{Sonatype.current.date}</td>
-          <td><code>-r bintray:scalacenter/releases</code></td>
+          <td><code>-r sonatype:releases</code></td>
         </tr>
       </tbody>
     </table>
