@@ -29,7 +29,6 @@ import scala.collection.mutable
 
 import scopt.OParser
 
-import scala.tools.nsc.Global
 import scala.sys.process.ProcessIO
 import java.lang.ProcessBuilder.Redirect
 import scala.util.Try
@@ -64,7 +63,7 @@ import java.io.IOException
  * because it can affect already connected clients to the server instance.
  */
 class BloopgunCli(
-    bloopVersion: String,
+    baseBloopVersion: String,
     in: InputStream,
     out: PrintStream,
     err: PrintStream,
@@ -72,12 +71,12 @@ class BloopgunCli(
     cwd: Path
 ) {
   def this(
-      bloopVersion: String,
+      baseBloopVersion: String,
       in: InputStream,
       out: PrintStream,
       err: PrintStream,
       shell: Shell
-  ) = this(bloopVersion, in, out, err, shell, Environment.cwd)
+  ) = this(baseBloopVersion, in, out, err, shell, Environment.cwd)
   def run(args: Array[String]): Int = {
     var setServer: Boolean = false
     var setPort: Boolean = false
@@ -200,7 +199,7 @@ class BloopgunCli(
 
     val (cliArgsToParse, extraArgsForServer) =
       if (args.contains("--")) args.span(_ == "--") else (args, Array.empty[String])
-    OParser.parse(cliParser, cliArgsToParse, BloopgunParams(bloopVersion), setup) match {
+    OParser.parse(cliParser, cliArgsToParse, BloopgunParams(baseBloopVersion), setup) match {
       case None => 1
       case Some(params0) =>
         val params = params0.copy(args = additionalCmdArgs ++ extraArgsForServer)
@@ -442,7 +441,7 @@ class BloopgunCli(
           }
         val globalOptions = globalSettings.javaOptions.getOrElse(Nil)
         if (globalOptions.nonEmpty) {
-          logger.info(s"Picked up global Java options $globalOptions")
+          logger.info(s"Picked up custom Java options $globalOptions")
         }
         baseOptions ++ globalOptions
       }
