@@ -76,7 +76,7 @@ class LauncherMain(
     val skipBspConnection = cliFlags.exists(_ == SkipBspConnection)
 
     val defaultJvmOptions = bloop.bloopgun.util.Environment.PerformanceSensitiveOptsForBloop
-    val allJvmOptions = userJvmOptions.toList ++ defaultJvmOptions
+    val allJvmOptions = defaultJvmOptions ++ userJvmOptions
     if (cliArgs.size == 1) {
       val bloopVersion = cliArgs.apply(0)
       runLauncher(bloopVersion, skipBspConnection, allJvmOptions)
