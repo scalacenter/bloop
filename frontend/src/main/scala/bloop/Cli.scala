@@ -292,18 +292,12 @@ object Cli {
 
     val configDir = configDirectory.underlying
     waitUntilEndOfWorld(action, cliOptions, pool, configDir, logger, cancel) {
-      var currentClient: Option[CliClientInfo] = None
-      val taskToInterpret = { (client: CliClientInfo) =>
-        currentClient = Some(client)
-        val currentState =
-          State.loadActiveStateFor(configDirectory, client, pool, cliOptions.common, logger)
-        Interpreter.execute(action, currentState).map { newState =>
-          // Only update the build if the command is not a BSP long-running
-          // session. The BSP implementation reads and stores the state in every
-          // action, so updating the build at the end of the BSP session can
-          // override a newer state updated by newer clients which is unknown to BSP
+      val taskToInterpret = { (cli: CliClientInfo) =>
+        val state = State.loadActiveStateFor(configDirectory, cli, pool, cliOptions.common, logger)
+        Interpreter.execute(action, state).map { newState =>
           action match {
-            case Run(_: Commands.ValidatedBsp, _) => ()
+            case Run(_: Commands.ValidatedBsp, _) =>
+              () // Ignore, BSP services auto-update the build
             case _ => State.stateCache.updateBuild(newState.copy(status = ExitStatus.Ok))
           }
 
@@ -312,9 +306,14 @@ object Cli {
       }
 
       val session = runTaskWithCliClient(configDirectory, action, taskToInterpret, pool, logger)
+      val exitSession = Task.defer {
+        handleCliClientExit(configDir, session, logger)
+        cleanUpNonStableCliDirectories(configDir, session.client, logger)
+      }
+
       session.task
-        .doOnFinish(_ => handleCliClientExit(configDir, session, logger))
-        .doOnFinish(_ => cleanUpNonStableCliDirectories(configDir, session.client, logger))
+        .doOnCancel(exitSession)
+        .doOnFinish(_ => exitSession)
     }
   }
 
@@ -367,63 +366,20 @@ object Cli {
     }
   }
 
-  def handleCliClientExit(configDir: Path, session: CliSession, logger: Logger): Task[Unit] = {
-    var previousSessions: List[CliSession] = Nil
+  def handleCliClientExit(configDir: Path, session: CliSession, logger: Logger): Unit = {
     activeCliSessions.compute(
       configDir,
       (_: Path, sessions: List[CliSession]) => {
         if (sessions != null) {
-          previousSessions = sessions
           sessions.filterNot(_ == session)
         } else {
           logger.debug(s"Unexpected counter for $configDir is null, report upstream!")
-          previousSessions = Nil
           Nil
         }
       }
     )
 
-    /*
-     * Creates a task that will list client dirs per project and delete those
-     * that were created by temporary CLI clients that failed to be deleted at
-     * some point in the past. This could have occurred, for example, because
-     * the server was killed with SIGKILL.
-     */
-    State.stateCache.getRawCachedBuildFor(AbsolutePath(configDir)) match {
-      case None => Task.unit
-      case Some(build: Build) =>
-        val cleanUpProjectDirs = build.loadedProjects.map { loadedProject =>
-          val project = loadedProject.project
-          // Create a task and ignore it if it fails (could fail because of
-          // two cli exit contending to delete the same directories). Instead
-          // of synchronizing the deletions, we just fail, as deleting these
-          // outdated directories are just side effects, syncing is overkill
-          Task {
-            Paths.list(loadedProject.project.clientClassesRootDirectory).flatMap { clientDir =>
-              val currentlyUsedDirs = previousSessions.iterator
-                .map(_.client.getUniqueClassesDirFor(project, forceGeneration = false))
-
-              val clientRootFileName = clientDir.underlying.getFileName().toString
-              val requiresNoDeletion =
-                !clientRootFileName.endsWith("-" + CliClientInfo.id) ||
-                  currentlyUsedDirs.exists(currentDir => currentDir == clientDir)
-
-              if (requiresNoDeletion) Nil
-              else List(Paths.delete(clientDir))
-            }
-          }.onErrorHandle(_ => ())
-        }
-
-        // Process the clean
-        val parallelCleanUpTaskGroups = cleanUpProjectDirs.grouped(4).map { group =>
-          Task.gatherUnordered(group).map(_ => ())
-        }
-
-        Task
-          .sequence(parallelCleanUpTaskGroups)
-          .map(_ => ())
-          .executeOn(ExecutionContext.ioScheduler)
-    }
+    ()
   }
 
   def cleanUpNonStableCliDirectories(
@@ -431,13 +387,22 @@ object Cli {
       client: CliClientInfo,
       logger: Logger
   ): Task[Unit] = {
-    Task {
-      if (!client.useStableCliDirs) {
-        client.getCreatedCliDirectories.foreach { freshDir =>
-          Paths.delete(freshDir)
-        }
+    if (client.useStableCliDirs) Task.unit
+    else {
+      val deleteTasks = client.getCreatedCliDirectories.map { freshDir =>
+        if (!freshDir.exists) Task.unit
+        else Task.eval(Paths.delete(freshDir)).executeWithFork
       }
-    }.executeOn(ExecutionContext.ioScheduler)
+
+      val groups = deleteTasks
+        .grouped(4)
+        .map(group => Task.gatherUnordered(group).map(_ => ()))
+
+      Task
+        .sequence(groups)
+        .map(_ => ())
+        .executeOn(ExecutionContext.ioScheduler)
+    }
   }
 
   import scala.concurrent.Await

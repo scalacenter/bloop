@@ -283,7 +283,7 @@ object CompileGraph {
                   case s: Compiler.Result.Success =>
                     // Wait on new classes to be populated for correctness
                     val runningBackgroundTasks = s.backgroundTasks
-                      .trigger(externalClassesDir, reporter, bundle.tracer)
+                      .trigger(externalClassesDir, reporter, bundle.tracer, logger)
                       .runAsync(ExecutionContext.ioScheduler)
                     Task.now(results.copy(runningBackgroundTasks = runningBackgroundTasks))
                   case _: Compiler.Result.Cancelled =>

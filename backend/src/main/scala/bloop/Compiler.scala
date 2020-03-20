@@ -402,11 +402,13 @@ object Compiler {
 
           def updateExternalClassesDirWithReadOnly(
               clientClassesDir: AbsolutePath,
-              clientTracer: BraveTracer
-          ): Task[Unit] = {
-            clientTracer.traceTask("update external classes dir with read-only") { _ =>
-              Task {
-                // Attention: blacklist must be computed inside the task!
+              clientTracer: BraveTracer,
+              clientLogger: Logger
+          ): Task[Unit] = Task.defer {
+            val descriptionMsg = s"Updating external classes dir with read only $clientClassesDir"
+            clientTracer.traceTask(descriptionMsg) { _ =>
+              Task.defer {
+                clientLogger.debug(descriptionMsg)
                 val invalidatedClassFiles =
                   allInvalidatedClassFilesForProject.iterator.map(_.toPath).toSet
                 val invalidatedExtraProducts =
@@ -417,13 +419,19 @@ object Compiler {
                   ParallelOps.CopyConfiguration(5, CopyMode.ReplaceIfMetadataMismatch, blacklist)
                 val lastCopy = ParallelOps.copyDirectories(config)(
                   readOnlyClassesDir,
-                  externalClassesDir,
+                  clientClassesDir.underlying,
                   compileInputs.ioScheduler,
                   compileInputs.logger,
                   enableCancellation = false
                 )
-                lastCopy.map(fs => ())
-              }.flatten
+
+                lastCopy.map { fs =>
+                  clientLogger.debug(
+                    s"Finished copying classes from $readOnlyClassesDir to $clientClassesDir"
+                  )
+                  ()
+                }
+              }
             }
           }
 
@@ -457,10 +465,12 @@ object Compiler {
               def trigger(
                   clientClassesDir: AbsolutePath,
                   clientReporter: Reporter,
-                  clientTracer: BraveTracer
-              ): Task[Unit] = {
+                  clientTracer: BraveTracer,
+                  clientLogger: Logger
+              ): Task[Unit] = Task.defer {
+                clientLogger.debug(s"Triggering background tasks for $clientClassesDir")
                 val updateClientState =
-                  updateExternalClassesDirWithReadOnly(clientClassesDir, clientTracer)
+                  updateExternalClassesDirWithReadOnly(clientClassesDir, clientTracer, clientLogger)
 
                 val writeAnalysisIfMissing = {
                   if (compileOut.analysisOut.exists) Task.unit
@@ -477,6 +487,10 @@ object Compiler {
                 Task
                   .gatherUnordered(allTasks)
                   .map(_ => ())
+                  .onErrorHandleWith(err => {
+                    clientLogger.debug("Caught error in background tasks"); clientLogger.trace(err);
+                    Task.raiseError(err)
+                  })
                   .doOnFinish(_ => Task(clientReporter.reportEndCompilation()))
               }
             }
@@ -515,7 +529,8 @@ object Compiler {
               def trigger(
                   clientClassesDir: AbsolutePath,
                   clientReporter: Reporter,
-                  clientTracer: BraveTracer
+                  clientTracer: BraveTracer,
+                  clientLogger: Logger
               ): Task[Unit] = {
                 val clientClassesDirPath = clientClassesDir.toString
                 val successBackgroundTasks =
@@ -527,8 +542,12 @@ object Compiler {
                 val initialTasks = persistTask :: successBackgroundTasks.toList
                 val allClientSyncTasks = Task.gatherUnordered(initialTasks).flatMap { _ =>
                   // Only start these tasks after the previous IO tasks in the external dir are done
-                  val firstTask =
-                    updateExternalClassesDirWithReadOnly(clientClassesDir, clientTracer)
+                  val firstTask = updateExternalClassesDirWithReadOnly(
+                    clientClassesDir,
+                    clientTracer,
+                    clientLogger
+                  )
+
                   val secondTask = Task {
                     allInvalidated.foreach { f =>
                       val path = AbsolutePath(f.toPath)
@@ -606,7 +625,8 @@ object Compiler {
       def trigger(
           clientClassesDir: AbsolutePath,
           clientReporter: Reporter,
-          tracer: BraveTracer
+          tracer: BraveTracer,
+          clientLogger: Logger
       ): Task[Unit] = {
         val backgroundTasks = tasks.map(f => f(clientClassesDir, clientReporter, tracer))
         Task.gatherUnordered(backgroundTasks).memoize.map(_ => ())
