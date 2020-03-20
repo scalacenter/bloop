@@ -348,6 +348,7 @@ def shadeSettingsForModule(moduleId: String, module: Reference) = List(
     "scopt",
     "macrocompat",
     "com.zaxxer.nuprocess",
+    "com.github.plokhotnyuk.jsoniter_scala",
     // Coursier direct and transitive deps
     "coursier",
     "shapeless",
