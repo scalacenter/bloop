@@ -56,10 +56,7 @@ object ClientInfo {
       useStableCliDirs: Boolean,
       private val isConnected: () => Boolean
   ) extends ClientInfo {
-    val id: String = {
-      if (useStableCliDirs) CliClientInfo.id
-      else s"${CliClientInfo.id}-${UUIDUtil.randomUUID}"
-    }
+    val id: String = CliClientInfo.generateDirName(useStableCliDirs)
 
     def hasAnActiveConnection: Boolean = isConnected()
     private val connectionTimestamp = System.currentTimeMillis()
@@ -76,10 +73,15 @@ object ClientInfo {
           val projectDirName = s"$classesDirName-$id"
           project.clientClassesRootDirectory.resolve(projectDirName)
         } else {
-          val classesDir = project.genericClassesDir.underlying
-          val classesDirName = classesDir.getFileName()
-          val projectDirName = s"$classesDirName-$id"
-          project.clientClassesRootDirectory.resolve(projectDirName)
+          freshCliDirs.computeIfAbsent(
+            project,
+            _ => {
+              val classesDir = project.genericClassesDir.underlying
+              val classesDirName = classesDir.getFileName()
+              val projectDirName = s"$classesDirName-$id"
+              project.clientClassesRootDirectory.resolve(projectDirName)
+            }
+          )
         }
       }
 
@@ -101,7 +103,14 @@ object ClientInfo {
   }
 
   object CliClientInfo {
-    val id: String = "bloop-cli"
+    private val id: String = "bloop-cli"
+
+    def generateDirName(useStableName: Boolean): String =
+      if (useStableName) CliClientInfo.id
+      else s"${CliClientInfo.id}-${UUIDUtil.randomUUID}"
+
+    def isStableDirName(dirName: String): Boolean =
+      dirName.endsWith("-" + id)
   }
 
   final case class BspClientInfo(

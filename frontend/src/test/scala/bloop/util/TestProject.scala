@@ -42,7 +42,8 @@ final case class TestProject(
     // Default on stable CLI directory, imitating [[ClientInfo.CliClientInfo]]
     val classesDir = config.classesDir
     val classesDirName = classesDir.getFileName()
-    val projectDirName = s"$classesDirName-${CliClientInfo.id}"
+    val cliSuffix = CliClientInfo.generateDirName(true)
+    val projectDirName = s"$classesDirName-$cliSuffix"
     clientClassesRootDir.resolve(projectDirName)
   }
 
