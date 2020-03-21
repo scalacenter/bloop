@@ -83,6 +83,14 @@ pre {
   content: "YAML";
 }
 
+.hljs.language-sbt::before {
+  content: "Sbt";
+}
+
+.hljs.language-gradle::before {
+  content: "build.gradle";
+}
+
 .hljs.language-scala::before {
   content: "Scala";
 }

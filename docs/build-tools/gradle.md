@@ -14,7 +14,6 @@ Learn how to get set up by following the instructions below.
 
 ## Requirements
 
-- At least Bloop `v1.4.0-RC1`
 - At least Gradle `v4.3`, latest (tested) supported version is `v6.1`
 
 ## Install the plugin
@@ -29,7 +28,7 @@ I am going to be replaced by the docs infrastructure.
 
 Add bloop to your `build.gradle` with:
 
-```groovy
+```gradle
 buildscript {
   repositories {
     // Add here whatever repositories you're already using
@@ -45,7 +44,7 @@ buildscript {
 
 Then, enable bloop in all your Gradle projects with:
 
-```groovy
+```gradle
 allprojects {
   apply plugin: 'bloop'
 }
@@ -53,7 +52,7 @@ allprojects {
 
 For a more advanced configuration, read the [Plugin Configuration](#plugin-configuration) below.
 
-## Export the build
+## Export your build
 
 The gradle command `bloopInstall` exports your gradle build to bloop.
 
@@ -89,7 +88,7 @@ Ignoring 'bloopInstall' on non-Scala and non-Java project '$NON_JVM_PROJECT'
 
 You can safely ignore such messsages.
 
-### Verify installation and export
+## Verify installation and export
 
 > Remember that the build server must be running in the background, as suggested by the [Setup
 page](/setup).

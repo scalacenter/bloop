@@ -40,6 +40,10 @@
   border-radius: 4px;
 }
 
+.tools-group-all {
+  margin-bottom: 2em;
+}
+
 .build-tools-group {
   margin-bottom: 1.5em;
 }

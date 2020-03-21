@@ -18,7 +18,7 @@ tickets](https://github.com/scalacenter/bloop/issues?q=is%3Aissue+is%3Aopen+sort
 
 - Your build uses [`scala-maven-plugin`](https://github.com/davidB/scala-maven-plugin/)
 
-## Export the build
+## Export your build
 
 The Bloop plugin for Maven doesn't need to be installed, you can run
 `bloopInstall`, the task to export your Maven builds to bloop, with the
@@ -28,7 +28,19 @@ following command.
 $ mvn ch.epfl.scala:maven-bloop_2.10:@VERSION@:bloopInstall
 ```
 
-For example, a build with a single Scala project `foo` generates two configuration files:
+Note that the following command uses the latest Bloop stable version
+@VERSION@.
+
+Here is the list of the latest Bloop stable and development versions. If you
+want to be on the very latest at the cost of misbehaviors, replace the above
+question with the development version.
+
+```scala mdoc:releases
+I am going to be replaced by the docs infrastructure.
+```
+
+
+To build with a single Scala project `foo` generates two configuration files:
 
 ```bash
 $ mvn ch.epfl.scala:maven-bloop_2.10:@VERSION@:bloopInstall
@@ -47,8 +59,8 @@ config file generation for those projects that are not either Java or Scala.
 
 ## Verify installation and export
 
-> If you haven't installed bloop yet, [follow these instructions](/setup)
-before proceeding.
+> If you haven't installed bloop and its CLI yet, [follow these
+instructions](/setup) before proceeding.
 
 Verify your installation by running `bloop projects` in the root of the Maven workspace directory.
 

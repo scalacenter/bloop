@@ -26,7 +26,18 @@ function loadMD(fsPath) {
   return fs.readFileSync(path.join(__dirname, fsPath), "utf8");
 }
 
+function loadBuildToolMD(fsPath) {
+  const content = fs.readFileSync(path.join(__dirname, fsPath), "utf8").split("\n");
+  content.shift()
+  content.shift()
+  content.shift()
+  content.shift()
+  content.shift()
+  return content.join("\n");
+}
+
 const tools = loadYaml("./tools.yml");
+const usageContent = loadMD("../out/usage-server.md");
 const buildTools = loadYaml("./build-tools.yml");
 
 const toolsMD = findMarkDownSync("../out/tools/");
@@ -37,7 +48,7 @@ toolsMD.forEach(tool => {
 
 const buildToolsMD = findMarkDownSync("../out/build-tools/");
 buildToolsMD.forEach(buildTool => {
-  buildTool.export = loadMD(`${buildTool.path}/export.md`);
+  buildTool.guide = loadBuildToolMD(`${buildTool.path}.md`);
 });
 
 const releaseTableMD = loadMD("../out/release-table.md")
@@ -85,6 +96,7 @@ const siteConfig = {
   toolsMD,
   buildTools,
   buildToolsMD,
+  usageContent,
   releaseTableMD,
 
   // If you have users set above, you add it here:
@@ -92,7 +104,8 @@ const siteConfig = {
 
   /* path to images for header/footer */
   headerIcon: 'img/impure-logo-bloop.svg',
-  footerIcon: 'img/docusaurus.svg',
+  footerIcon: 'img/impure-logo-bloop.svg',
+  scalaIcon: 'img/frontpage/scala.png',
   favicon: 'img/favicon/favicon.ico',
 
   /* Colors for website */
@@ -128,7 +141,9 @@ const siteConfig = {
   */
 
   // This copyright info is used in /core/Footer.js and blog RSS/Atom feeds.
-  copyright: `Copyright © ${new Date().getFullYear()} Scala Center`,
+  credits1: "Credits to @freepik for svg icons",
+  credits2: "Credits to Bazel, Babel and Metals for inspiring Bloop's website design",
+  copyright: `Copyright © ${new Date().getFullYear()} Bloop`,
 
   highlight: {
     // Highlight.js theme to use for syntax highlighting in code blocks.

@@ -121,6 +121,9 @@
       "tools/universal/usage": {
         "title": "tools/universal/usage"
       },
+      "usage-server": {
+        "title": "usage-server"
+      },
       "usage": {
         "title": "Quickstart",
         "sidebar_label": "Quickstart"
@@ -145,10 +148,11 @@
   },
   "pages-strings": {
     "Installation Guide|setup page - header": "Installation Guide",
-    "Pick your preferred method|setup page - step 1": "Pick your preferred method",
-    "Installation|setup page - step 2": "Installation",
-    "Usage|setup page - step 3": "Usage",
-    "Export your build|setup page - step 4 one": "Export your build",
+    "Learn how to install Bloop|setup page - step 1": "Learn how to install Bloop",
+    "Pick your installation method|setup page - step 2": "Pick your installation method",
+    "Verify installation|setup page - step 3": "Verify installation",
+    "Export your build|setup page - step 4": "Export your build",
+    "Use Bloop|setup page - step 5": "Use Bloop",
     "Help Translate|recruit community translators for your project": "Help Translate",
     "Edit this Doc|recruitment message asking to edit the doc source": "Edit",
     "Translate this Doc|recruitment message asking to translate the docs": "Translate"
