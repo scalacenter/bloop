@@ -193,10 +193,7 @@ const siteConfig = {
   editUrl: `${repoUrl}/edit/master/docs/`,
   algolia: {
     apiKey: 'cf5bcb37b134346182da2be3f5e0a76b',
-    indexName: 'bloop_scala',
-    algoliaOptions: {
-      facetFilters: ["version:VERSION"]
-    }
+    indexName: 'bloop_scala'
   },
 };
 
