@@ -68,7 +68,7 @@ Clients can depend on the launcher and run it when they see fit. The flag
 `--skip-bsp-connection` is particularly useful for clients wishing to install
 and spawn a bloop version, but that do not wish to use BSP and instead prefer
 to detect manually the installed `bloop` version by the launcher and [run the
-CLI](cli-reference.md).
+CLI](cli/reference).
 
 #### Install the launcher
 

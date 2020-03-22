@@ -58,7 +58,7 @@ positions of compiler diagnostics can shell out to the bloop command-line applic
 integration is useful whenever you want to use bloop features in custom tools or scripts or when you
 want to prototype a quick build tool integration.
 
-To interface with the bloop CLI, head to the [CLI reference](cli-reference) to learn all the
+To interface with the bloop CLI, head to the [CLI reference](cli/reference) to learn all the
 supported commands.
 
 ### Generating configuration files

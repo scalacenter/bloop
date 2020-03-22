@@ -447,4 +447,4 @@ Usage: bloop compile <project>
         Debug the execution of a concrete task.
 ```
 
-For a complete overview, visit the [CLI `--help`](cli-reference) reference page.
+For a complete overview, visit the [CLI `--help`](cli/reference) reference page.
