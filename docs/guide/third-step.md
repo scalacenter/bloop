@@ -1,6 +1,6 @@
 This section explains you how to export your build to Bloop manually.
 
-**Skip** this section altogether if:
+You can skip this section if:
 
 - You are using a build tool that has built-in support for Bloop and exports
 the build automatically every time there is a change.
