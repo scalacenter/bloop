@@ -4,6 +4,8 @@ title: sbt
 sidebar_label: sbt
 ---
 
+<!-- start -->
+
 ## Install the plugin
 
 Here is a list of the latest Bloop stable and development versions for `sbt-bloop`.
@@ -82,14 +84,17 @@ Here's a list of bloop commands you can run next to start playing with bloop:
 1. `bloop compile foo-test`: compiles foo's `src/main` and `src/test`.
 1. `bloop test foo-test -w`: runs foo tests repeatedly with file watching enabled.
 
+<!-- end -->
+
 ## Next steps after installation
 
-Start using [Bloop with the CLI](docs/usage) or [configure it with the supported
-IDEs](docs/ides/overview).
+Use an IDE such as [Metals](docs/ides/metals) or
+[IntelliJ](docs/ides/intellij) to write code or play with the
+[CLI](docs/cli/tutorial) if you want to explore what CLI options are
+available.
 
-If you want to configure the installation step or learn more about the integration, visit the
-[sbt documentation page](docs/build-tools/sbt).
-
+If you need help, you can always come over our [Gitter
+channel](https://gitter.im/scalacenter/bloop).
 
 ## Plugin Configuration
 

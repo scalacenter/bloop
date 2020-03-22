@@ -10,6 +10,8 @@ You can use Mill together with Bloop to speed up your development workflow and b
 
 Mill has built-in support for Bloop via `mill-contrib`, so follow the instructions below to install the `mill-bloop` module.
 
+<!-- start -->
+
 ## Requirements
 
 - Your mill version needs to be >= `0.4.0-2-4dbbce`.
@@ -80,8 +82,14 @@ After verifying the export, you can continue using Bloop's command-line
 application or any build client integrating with Bloop, such as
 [Metals](https://scalameta.org/metals/).
 
+<!-- end -->
+
 ## Next steps after installation
 
-Start using [Bloop with the CLI](docs/usage) or [configure it with the supported IDEs](docs/ides/overview).
+Use an IDE such as [Metals](docs/ides/metals) or
+[IntelliJ](docs/ides/intellij) to write code or play with the
+[CLI](docs/cli/tutorial) if you want to explore what CLI options are
+available.
 
-If you want to further configure or learn more about the integration, visit the [Mill documentation page](docs/build-tools/mill).
+If you need help, you can always come over our [Gitter
+channel](https://gitter.im/scalacenter/bloop).

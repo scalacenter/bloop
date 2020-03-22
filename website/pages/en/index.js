@@ -235,9 +235,9 @@ const FeatureCallout = () => (
     style={{ textAlign: 'center' }}>
     <h2>Maintained by a rich community of contributors</h2>
     <MarkdownBlock>
-      Backed up initially by the Scala Center, a non-profit organization
+      Developed initially at the Scala Center —a non-profit organization
       established at EPFL with the goals of promoting, supporting, and
-      advancing the Scala language, the project has grown to be adopted by
+      advancing the Scala language— the project has grown to be adopted by
       many industry leaders and it is now maintained by a dedicated network
       of contributors across the world.
     </MarkdownBlock>

@@ -51,12 +51,12 @@ const SetupInstallationHeader = () => {
       <h2 id="installation">
         <span className="step-no">1</span>
         <translate desc="setup page - step 1">
-          Learn how to install Bloop
+          Do you need to install Bloop?
         </translate>
       </h2>
       <MarkdownBlock>
-        Set up
-    </MarkdownBlock>
+        {siteConfig.firstStepMD}
+      </MarkdownBlock>
     </div>
   )
 };
@@ -96,21 +96,6 @@ const SetupOptions = () => {
   );
 };
 
-const VerifyInstallation = () => {
-  const usage = <translate desc="setup page - step 3">Verify installation</translate>;
-  return (
-    <div className="step-setup">
-      <h2>
-        <span className="step-no">3</span>
-        {usage}
-      </h2>
-      <MarkdownBlock>
-        Verify installation here
-      </MarkdownBlock>
-    </div>
-  );
-};
-
 const ExportBuild = () => {
   const buildTools = siteConfig.buildTools;
   const showCase = buildTools.map((types, i) => {
@@ -131,11 +116,14 @@ const ExportBuild = () => {
   return (
     <div className="step-setup">
       <h2 id="installation">
-        <span className="step-no">4</span>
-        <translate desc="setup page - step 4">
-          Export your build
+        <span className="step-no">3</span>
+        <translate desc="setup page - step 3">
+          Set up your build
         </translate>
       </h2>
+      <MarkdownBlock>
+        {siteConfig.thirdStepMD}
+      </MarkdownBlock>
       <div className="tools-group-all">
         {showCase}
       </div>
@@ -147,16 +135,15 @@ const ExportBuild = () => {
 };
 
 const UseBloop = () => {
-  const usageContent = siteConfig.usageContent;
-  const usage = <translate desc="setup page - step 5">Use Bloop</translate>;
+  const usage = <translate desc="setup page - step 4">Use Bloop</translate>;
   return (
     <div className="step-setup">
       <h2>
-        <span className="step-no">5</span>
+        <span className="step-no">4</span>
         {usage}
       </h2>
       <MarkdownBlock>
-        Use Bloop
+        {siteConfig.lastStepMD}
       </MarkdownBlock>
     </div>
   );
@@ -168,7 +155,6 @@ const SetupContent = () => {
       <div className="step">
         <SetupInstallationHeader />
         <SetupOptions />
-        <VerifyInstallation />
         <ExportBuild />
         <UseBloop />
       </div>

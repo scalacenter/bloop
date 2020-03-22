@@ -57,6 +57,12 @@
         "title": "Debugging Reference",
         "sidebar_label": "Debugging Reference"
       },
+      "guide/first-step": {
+        "title": "guide/first-step"
+      },
+      "guide/last-step": {
+        "title": "guide/last-step"
+      },
       "ides/intellij": {
         "title": "IntelliJ",
         "sidebar_label": "IntelliJ"
@@ -148,11 +154,10 @@
   },
   "pages-strings": {
     "Installation Guide|setup page - header": "Installation Guide",
-    "Learn how to install Bloop|setup page - step 1": "Learn how to install Bloop",
+    "Do you need to install Bloop?|setup page - step 1": "Do you need to install Bloop?",
     "Pick your installation method|setup page - step 2": "Pick your installation method",
-    "Verify installation|setup page - step 3": "Verify installation",
-    "Export your build|setup page - step 4": "Export your build",
-    "Use Bloop|setup page - step 5": "Use Bloop",
+    "Set up your build|setup page - step 3": "Set up your build",
+    "Use Bloop|setup page - step 4": "Use Bloop",
     "Help Translate|recruit community translators for your project": "Help Translate",
     "Edit this Doc|recruitment message asking to edit the doc source": "Edit",
     "Translate this Doc|recruitment message asking to translate the docs": "Translate"

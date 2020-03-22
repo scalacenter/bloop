@@ -28,16 +28,16 @@ function loadMD(fsPath) {
 
 function loadBuildToolMD(fsPath) {
   const content = fs.readFileSync(path.join(__dirname, fsPath), "utf8").split("\n");
-  content.shift()
-  content.shift()
-  content.shift()
-  content.shift()
-  content.shift()
-  return content.join("\n");
+  var idx1 = content.indexOf("<!-- start -->");
+  var idx2 = content.indexOf("<!-- end -->");
+  if (idx1 == -1 || idx2 == -1 || idx1 >= idx2) {
+    return content.join("\n");
+  } else {
+    return content.slice(idx1 + 1, idx2).join("\n");
+  }
 }
 
 const tools = loadYaml("./tools.yml");
-const usageContent = loadMD("../out/usage-server.md");
 const buildTools = loadYaml("./build-tools.yml");
 
 const toolsMD = findMarkDownSync("../out/tools/");
@@ -52,6 +52,9 @@ buildToolsMD.forEach(buildTool => {
 });
 
 const releaseTableMD = loadMD("../out/release-table.md")
+const firstStepMD = loadMD("../out/guide/first-step.md");
+const thirdStepMD = loadMD("../out/guide/third-step.md");
+const lastStepMD = loadMD("../out/guide/last-step.md");
 
 // List of projects/orgs using your project for the users page.
 const users = [
@@ -96,8 +99,10 @@ const siteConfig = {
   toolsMD,
   buildTools,
   buildToolsMD,
-  usageContent,
   releaseTableMD,
+  firstStepMD,
+  thirdStepMD,
+  lastStepMD,
 
   // If you have users set above, you add it here:
   users,

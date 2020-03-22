@@ -14,6 +14,8 @@ our [Gitter channel](https://gitter.im/scalacenter/bloop) or comment on one
 of the [open Maven
 tickets](https://github.com/scalacenter/bloop/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc+label%3Amaven).
 
+<!-- start -->
+
 ## Requirements
 
 - Your build uses [`scala-maven-plugin`](https://github.com/davidB/scala-maven-plugin/)
@@ -59,9 +61,6 @@ config file generation for those projects that are not either Java or Scala.
 
 ## Verify installation and export
 
-> If you haven't installed bloop and its CLI yet, [follow these
-instructions](/setup) before proceeding.
-
 Verify your installation by running `bloop projects` in the root of the Maven workspace directory.
 
 ```bash
@@ -94,13 +93,17 @@ Here's a list of bloop commands you can run next to start playing with bloop:
 After verifying the export, you can continue using Bloop's command-line application or any build
 client integrating with Bloop, such as [Metals](https://scalameta.org/metals/).
 
+<!-- end -->
+
 ## Next steps after installation
 
-Start using [Bloop with the CLI](docs/usage) or [configure it with the supported
-IDEs](docs/ides/overview).
+Use an IDE such as [Metals](docs/ides/metals) or
+[IntelliJ](docs/ides/intellij) to write code or play with the
+[CLI](docs/cli/tutorial) if you want to explore what CLI options are
+available.
 
-If you want to configure the installation step or learn more about the integration, visit the
-[Maven documentation page](docs/build-tools/maven).
+If you need help, you can always come over our [Gitter
+channel](https://gitter.im/scalacenter/bloop).
 
 ## Well-known issues
 
