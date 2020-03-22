@@ -1,8 +1,20 @@
 ---
-id: usage
-title: Quickstart
-sidebar_label: Quickstart
+id: tutorial
+title: CLI tutorial
+sidebar_label: CLI tutorial
 ---
+
+The Bloop CLI allows you to run Bloop commands from the comfort of the
+terminal. It is nothing but another build client for Bloop.
+
+The Bloop CLI is often handy and allows you to run as many build commands as
+you want with a different workflow as most host build tools you use to build
+your project code. It makes building, testing and running Scala code feel
+snappy and productive.
+
+Using the Bloop CLI is optional. If you want to learn more about how to use
+it, you're in the right place. The following page teaches you common CLI
+commands and patterns run on a simple build.
 
 ## Requirements
 

@@ -2,8 +2,11 @@
   "docs": {
     "General": [
       "what-is-bloop",
-      "usage",
       "integration"
+    ],
+    "CLI": [
+      "cli/tutorial",
+      "cli/reference"
     ],
     "Build Tools": [
       "build-tools/overview",

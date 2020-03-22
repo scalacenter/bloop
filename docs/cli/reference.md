@@ -1,5 +1,5 @@
 ---
-id: cli-reference
+id: reference
 title: CLI --help
 sidebar_label: CLI --help
 ---

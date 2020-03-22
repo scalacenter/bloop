@@ -41,6 +41,18 @@
         "title": "CLI --help",
         "sidebar_label": "CLI --help"
       },
+      "cli/cli-reference": {
+        "title": "CLI --help",
+        "sidebar_label": "CLI --help"
+      },
+      "cli/reference": {
+        "title": "CLI --help",
+        "sidebar_label": "CLI --help"
+      },
+      "cli/tutorial": {
+        "title": "CLI tutorial",
+        "sidebar_label": "CLI tutorial"
+      },
       "configuration-format": {
         "title": "JSON Configuration Reference",
         "sidebar_label": "JSON Configuration"
@@ -62,6 +74,9 @@
       },
       "guide/last-step": {
         "title": "guide/last-step"
+      },
+      "guide/third-step": {
+        "title": "guide/third-step"
       },
       "ides/intellij": {
         "title": "IntelliJ",
@@ -147,6 +162,7 @@
     },
     "categories": {
       "General": "General",
+      "CLI": "CLI",
       "Build Tools": "Build Tools",
       "IDEs": "IDEs",
       "References": "References"
