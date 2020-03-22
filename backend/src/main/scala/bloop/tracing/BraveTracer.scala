@@ -26,34 +26,46 @@ final class BraveTracer private (
   }
 
   def trace[T](name: String, tags: (String, String)*)(
-      thunk: BraveTracer => T
+      thunk: BraveTracer => T,
+      verbose: Boolean = false
   ): T = {
-    val newTracer = startNewChildTracer(name, tags: _*)
-    try thunk(newTracer) // Don't catch and report errors in spans
-    catch {
-      case NonFatal(t) =>
-        newTracer.currentSpan.error(t)
-        throw t
-    } finally {
-      try newTracer.terminate()
-      catch { case NonFatal(t) => () }
+    if (!verbose || BraveTracer.verboseTrace) {
+      val newTracer = startNewChildTracer(name, tags: _*)
+      try thunk(newTracer) // Don't catch and report errors in spans
+      catch {
+        case NonFatal(t) =>
+          newTracer.currentSpan.error(t)
+          throw t
+      } finally {
+        try newTracer.terminate()
+        catch {
+          case NonFatal(t) => ()
+        }
+      }
+    } else {
+      thunk(this)
     }
   }
 
   def traceTask[T](name: String, tags: (String, String)*)(
-      thunk: BraveTracer => Task[T]
+      thunk: BraveTracer => Task[T],
+      verbose: Boolean = false
   ): Task[T] = {
-    val newTracer = startNewChildTracer(name, tags: _*)
-    thunk(newTracer)
-      .doOnCancel(Task(newTracer.terminate()))
-      .doOnFinish {
-        case None => Task.eval(newTracer.terminate())
-        case Some(value) =>
-          Task.eval {
-            newTracer.currentSpan.error(value)
-            newTracer.terminate()
-          }
-      }
+    if (!verbose || BraveTracer.verboseTrace) {
+      val newTracer = startNewChildTracer(name, tags: _*)
+      thunk(newTracer)
+        .doOnCancel(Task(newTracer.terminate()))
+        .doOnFinish {
+          case None => Task.eval(newTracer.terminate())
+          case Some(value) =>
+            Task.eval {
+              newTracer.currentSpan.error(value)
+              newTracer.terminate()
+            }
+        }
+    } else {
+      thunk(this)
+    }
   }
 
   def terminate(): Unit = this.synchronized {
@@ -78,6 +90,7 @@ object BraveTracer {
     "http://127.0.0.1:9411/api/v2/spans"
   )
   val debugTrace = Properties.propOrFalse("zipkin.trace.debug")
+  val verboseTrace = Properties.propOrFalse("zipkin.trace.verbose")
 
   val sender = URLConnectionSender.create(zipkinServerUrl)
   val jsonVersion = if (zipkinServerUrl.contains("/api/v1")) {

@@ -95,56 +95,62 @@ object CompilerPluginWhitelist {
           // Use an array with the same indices to be able to update results in a thread-safe way
           val cachePluginResults = new Array[Boolean](pluginCompilerFlags.size)
 
-          tracer.traceTask("enabling plugin caching") { tracer =>
-            // Consumers are processed with `foreachParallel`, so we side-effect on `cachePluginResults`
-            val parallelConsumer = {
-              Consumer.foreachParallelAsync[WorkItem](parallelUnits) {
-                case WorkItem(pluginCompilerFlag, idx, p) =>
-                  shouldCachePlugin(pluginCompilerFlag, tracer, logger).materialize.map {
-                    case scala.util.Success(cache) =>
-                      p.success(cache)
-                      pluginPromises.remove(pluginCompilerFlag)
+          tracer.traceTask("enabling plugin caching")(
+            { tracer =>
+              // Consumers are processed with `foreachParallel`, so we side-effect on `cachePluginResults`
+              val parallelConsumer = {
+                Consumer.foreachParallelAsync[WorkItem](parallelUnits) {
+                  case WorkItem(pluginCompilerFlag, idx, p) =>
+                    shouldCachePlugin(pluginCompilerFlag, tracer, logger).materialize.map {
+                      case scala.util.Success(cache) =>
+                        p.success(cache)
+                        pluginPromises.remove(pluginCompilerFlag)
+                        cachePluginResults(idx) = cache
+                      case scala.util.Failure(t) => p.failure(t)
+                    }
+                }
+              }
+
+              val acquiredByOtherTasks = new mutable.ListBuffer[Task[Unit]]()
+              val acquiredByThisInvocation = new mutable.ListBuffer[WorkItem]()
+
+              // Acquire or stash a work item if it was picked up by another process
+              pluginCompilerFlags.zipWithIndex.foreach {
+                case (pluginCompilerFlag, idx) =>
+                  val shouldCachePromise = Promise[Boolean]()
+                  val promise = pluginPromises.putIfAbsent(pluginCompilerFlag, shouldCachePromise)
+                  if (promise != null) {
+                    acquiredByOtherTasks.+=(Task.fromFuture(promise.future).map { cache =>
                       cachePluginResults(idx) = cache
-                    case scala.util.Failure(t) => p.failure(t)
+                    })
+                  } else {
+                    acquiredByThisInvocation.+=(
+                      WorkItem(pluginCompilerFlag, idx, shouldCachePromise)
+                    )
                   }
               }
-            }
 
-            val acquiredByOtherTasks = new mutable.ListBuffer[Task[Unit]]()
-            val acquiredByThisInvocation = new mutable.ListBuffer[WorkItem]()
+              Observable
+                .fromIterable(acquiredByThisInvocation.toList)
+                .consumeWith(parallelConsumer)
+                .flatMap {
+                  _ =>
+                    // Then, we block on those tasks that were picked up by different invocations
+                    val blockingBatches = {
+                      acquiredByOtherTasks.toList
+                        .grouped(parallelUnits)
+                        .map(group => Task.gatherUnordered(group))
+                    }
 
-            // Acquire or stash a work item if it was picked up by another process
-            pluginCompilerFlags.zipWithIndex.foreach {
-              case (pluginCompilerFlag, idx) =>
-                val shouldCachePromise = Promise[Boolean]()
-                val promise = pluginPromises.putIfAbsent(pluginCompilerFlag, shouldCachePromise)
-                if (promise != null) {
-                  acquiredByOtherTasks.+=(Task.fromFuture(promise.future).map { cache =>
-                    cachePluginResults(idx) = cache
-                  })
-                } else {
-                  acquiredByThisInvocation.+=(WorkItem(pluginCompilerFlag, idx, shouldCachePromise))
+                    Task.sequence(blockingBatches).map(_.flatten).map { _ =>
+                      val enableCacheFlag = cachePluginResults.forall(_ == true)
+                      if (!enableCacheFlag) scalacOptions
+                      else "-Ycache-plugin-class-loader:last-modified" :: scalacOptions
+                    }
                 }
-            }
-
-            Observable
-              .fromIterable(acquiredByThisInvocation.toList)
-              .consumeWith(parallelConsumer)
-              .flatMap { _ =>
-                // Then, we block on those tasks that were picked up by different invocations
-                val blockingBatches = {
-                  acquiredByOtherTasks.toList
-                    .grouped(parallelUnits)
-                    .map(group => Task.gatherUnordered(group))
-                }
-
-                Task.sequence(blockingBatches).map(_.flatten).map { _ =>
-                  val enableCacheFlag = cachePluginResults.forall(_ == true)
-                  if (!enableCacheFlag) scalacOptions
-                  else "-Ycache-plugin-class-loader:last-modified" :: scalacOptions
-                }
-              }
-          }
+            },
+            verbose = true
+          )
         }
     }
 

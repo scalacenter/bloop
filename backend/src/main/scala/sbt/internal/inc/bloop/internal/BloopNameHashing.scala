@@ -145,60 +145,80 @@ private final class BloopNameHashing(
       lookup: Lookup,
       output: Output
   )(implicit equivS: Equiv[XStamp]): InitialChanges = {
-    tracer.trace("detecting initial changes") { tracer =>
-      // Copy pasting from IncrementalCommon to optimize/remove IO work
-      import IncrementalCommon.{isBinaryModified, findExternalAnalyzedClass}
-      val previous = previousAnalysis.stamps
-      val previousRelations = previousAnalysis.relations
+    tracer.trace("detecting initial changes")(
+      { tracer =>
+        // Copy pasting from IncrementalCommon to optimize/remove IO work
+        import IncrementalCommon.{isBinaryModified, findExternalAnalyzedClass}
+        val previous = previousAnalysis.stamps
+        val previousRelations = previousAnalysis.relations
 
-      val hashesMap = uniqueInputs.sources.map(kv => kv.source.toFile -> kv.hash).toMap
-      val sourceChanges = tracer.trace("source changes") { _ =>
-        lookup.changedSources(previousAnalysis).getOrElse {
-          val previousSources = previous.allSources.toSet
-          new UnderlyingChanges[File] {
-            private val inBoth = previousSources & sources
-            val removed = previousSources -- inBoth
-            val added = sources -- inBoth
-            val (changed, unmodified) = inBoth.partition { f =>
-              import sbt.internal.inc.Hash
-              // We compute hashes via xxHash in Bloop, so we adapt them to the zinc hex format
-              val newStamp = hashesMap
-                .get(f)
-                .map(bloopHash => BloopStamps.fromBloopHashToZincHash(bloopHash))
-                .getOrElse(BloopStamps.forHash(f))
-              !equivS.equiv(previous.source(f), newStamp)
+        val hashesMap = uniqueInputs.sources.map(kv => kv.source.toFile -> kv.hash).toMap
+        val sourceChanges = tracer.trace("source changes")(
+          {
+            _ =>
+              lookup.changedSources(previousAnalysis).getOrElse {
+                val previousSources = previous.allSources.toSet
+                new UnderlyingChanges[File] {
+                  private val inBoth = previousSources & sources
+                  val removed = previousSources -- inBoth
+                  val added = sources -- inBoth
+                  val (changed, unmodified) = inBoth.partition { f =>
+                    import sbt.internal.inc.Hash
+                    // We compute hashes via xxHash in Bloop, so we adapt them to the zinc hex format
+                    val newStamp = hashesMap
+                      .get(f)
+                      .map(bloopHash => BloopStamps.fromBloopHashToZincHash(bloopHash))
+                      .getOrElse(BloopStamps.forHash(f))
+                    !equivS.equiv(previous.source(f), newStamp)
+                  }
+                }
+              }
+          },
+          verbose = true
+        )
+
+        // Unnecessary to compute removed products because we can ensure read-only classes dir is untouched
+        val removedProducts = Set.empty[File]
+        val changedBinaries: Set[File] = tracer.trace("changed binaries")(
+          { _ =>
+            lookup.changedBinaries(previousAnalysis).getOrElse {
+              val detectChange =
+                isBinaryModified(false, lookup, previous, stamps, previousRelations, log)
+              previous.allBinaries.filter(detectChange).toSet
             }
-          }
-        }
-      }
+          },
+          verbose = true
+        )
 
-      // Unnecessary to compute removed products because we can ensure read-only classes dir is untouched
-      val removedProducts = Set.empty[File]
-      val changedBinaries: Set[File] = tracer.trace("changed binaries") { _ =>
-        lookup.changedBinaries(previousAnalysis).getOrElse {
-          val detectChange =
-            isBinaryModified(false, lookup, previous, stamps, previousRelations, log)
-          previous.allBinaries.filter(detectChange).toSet
-        }
-      }
+        val externalApiChanges: APIChanges = tracer.trace("external api changes")(
+          {
+            _ =>
+              val incrementalExternalChanges = {
+                val previousAPIs = previousAnalysis.apis
+                val externalFinder = findExternalAnalyzedClass(lookup) _
+                detectAPIChanges(
+                  previousAPIs.allExternals,
+                  previousAPIs.externalAPI,
+                  externalFinder
+                )
+              }
 
-      val externalApiChanges: APIChanges = tracer.trace("external api changes") { _ =>
-        val incrementalExternalChanges = {
-          val previousAPIs = previousAnalysis.apis
-          val externalFinder = findExternalAnalyzedClass(lookup) _
-          detectAPIChanges(previousAPIs.allExternals, previousAPIs.externalAPI, externalFinder)
-        }
+              val changedExternalClassNames = incrementalExternalChanges.allModified.toSet
+              if (!lookup
+                    .shouldDoIncrementalCompilation(changedExternalClassNames, previousAnalysis))
+                new APIChanges(Nil)
+              else incrementalExternalChanges
+          },
+          verbose = true
+        )
 
-        val changedExternalClassNames = incrementalExternalChanges.allModified.toSet
-        if (!lookup.shouldDoIncrementalCompilation(changedExternalClassNames, previousAnalysis))
-          new APIChanges(Nil)
-        else incrementalExternalChanges
-      }
-
-      val init = InitialChanges(sourceChanges, removedProducts, changedBinaries, externalApiChanges)
-      profiler.registerInitial(init)
-      init
-    }
+        val init =
+          InitialChanges(sourceChanges, removedProducts, changedBinaries, externalApiChanges)
+        profiler.registerInitial(init)
+        init
+      },
+      verbose = true
+    )
   }
 
   def recompileClasses(

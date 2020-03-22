@@ -168,80 +168,87 @@ object CompileBundle {
       options: CommonOptions
   ): Task[CompileBundle] = {
     import inputs.{project, dag, dependentProducts}
-    tracer.traceTask(s"computing bundle ${project.name}") { tracer =>
-      val compileDependenciesData = {
-        tracer.trace("dependency classpath") { _ =>
-          CompileDependenciesData.compute(
-            project.rawClasspath.toArray,
-            dependentProducts
-          )
+    tracer.traceTask(s"computing bundle ${project.name}")(
+      { tracer =>
+        val compileDependenciesData = {
+          tracer.trace("dependency classpath")({ _ =>
+            CompileDependenciesData.compute(
+              project.rawClasspath.toArray,
+              dependentProducts
+            )
+          }, verbose = true)
         }
-      }
 
-      // Dependency classpath is not yet complete, but the hashes only cares about jars
-      import bloop.engine.ExecutionContext.ioScheduler
-      import compileDependenciesData.dependencyClasspath
-      val out = options.ngout
-      val classpathHashesTask = bloop.io.ClasspathHasher
-        .hash(dependencyClasspath, 10, cancelCompilation, ioScheduler, logger, tracer, out)
-        .executeOn(ioScheduler)
-
-      val sourceHashesTask = tracer.traceTask("discovering and hashing sources") { _ =>
-        bloop.io.SourceHasher
-          .findAndHashSourcesInProject(project, 20, cancelCompilation, ioScheduler)
-          .map(res => res.map(_.sortBy(_.source.syntax)))
+        // Dependency classpath is not yet complete, but the hashes only cares about jars
+        import bloop.engine.ExecutionContext.ioScheduler
+        import compileDependenciesData.dependencyClasspath
+        val out = options.ngout
+        val classpathHashesTask = bloop.io.ClasspathHasher
+          .hash(dependencyClasspath, 10, cancelCompilation, ioScheduler, logger, tracer, out)
           .executeOn(ioScheduler)
-      }
 
-      logger.debug(s"Computing sources and classpath hashes for ${project.name}")
-      Task.mapBoth(classpathHashesTask, sourceHashesTask) {
-        case (Left(_), _) => CancelledCompileBundle
-        case (_, Left(_)) => CancelledCompileBundle
-        case (Right(classpathHashes), Right(sourceHashes)) =>
-          val originPath = project.origin.path.syntax
-          val originHash = project.origin.hash
-          val (javaSources, scalaSources) = {
-            import scala.collection.mutable.ListBuffer
-            val javaSources = new ListBuffer[AbsolutePath]()
-            val scalaSources = new ListBuffer[AbsolutePath]()
-            sourceHashes.foreach { hashed =>
-              val source = hashed.source
-              val sourceName = source.underlying.getFileName().toString
-              if (sourceName.endsWith(".scala")) {
-                scalaSources += source
-              } else if (sourceName.endsWith(".java")) {
-                javaSources += source
-              } else ()
+        val sourceHashesTask = tracer.traceTask("discovering and hashing sources")(
+          { _ =>
+            bloop.io.SourceHasher
+              .findAndHashSourcesInProject(project, 20, cancelCompilation, ioScheduler)
+              .map(res => res.map(_.sortBy(_.source.syntax)))
+              .executeOn(ioScheduler)
+          },
+          verbose = true
+        )
+
+        logger.debug(s"Computing sources and classpath hashes for ${project.name}")
+        Task.mapBoth(classpathHashesTask, sourceHashesTask) {
+          case (Left(_), _) => CancelledCompileBundle
+          case (_, Left(_)) => CancelledCompileBundle
+          case (Right(classpathHashes), Right(sourceHashes)) =>
+            val originPath = project.origin.path.syntax
+            val originHash = project.origin.hash
+            val (javaSources, scalaSources) = {
+              import scala.collection.mutable.ListBuffer
+              val javaSources = new ListBuffer[AbsolutePath]()
+              val scalaSources = new ListBuffer[AbsolutePath]()
+              sourceHashes.foreach { hashed =>
+                val source = hashed.source
+                val sourceName = source.underlying.getFileName().toString
+                if (sourceName.endsWith(".scala")) {
+                  scalaSources += source
+                } else if (sourceName.endsWith(".java")) {
+                  javaSources += source
+                } else ()
+              }
+              javaSources.toList -> scalaSources.toList
             }
-            javaSources.toList -> scalaSources.toList
-          }
 
-          val scalacOptions = project.scalacOptions.toVector
-          val scalaJars = project.scalaInstance.toVector.flatMap(_.allJars.map(_.getAbsolutePath()))
-          val inputs = UniqueCompileInputs(
-            sourceHashes.toVector,
-            classpathHashes,
-            scalacOptions,
-            scalaJars,
-            originPath
-          )
+            val scalacOptions = project.scalacOptions.toVector
+            val scalaJars =
+              project.scalaInstance.toVector.flatMap(_.allJars.map(_.getAbsolutePath()))
+            val inputs = UniqueCompileInputs(
+              sourceHashes.toVector,
+              classpathHashes,
+              scalacOptions,
+              scalaJars,
+              originPath
+            )
 
-          new SuccessfulCompileBundle(
-            project,
-            clientExternalClassesDir,
-            compileDependenciesData,
-            javaSources,
-            scalaSources,
-            inputs,
-            cancelCompilation,
-            reporter,
-            logger,
-            mirror,
-            lastSuccessful,
-            lastResult,
-            tracer
-          )
-      }
-    }
+            new SuccessfulCompileBundle(
+              project,
+              clientExternalClassesDir,
+              compileDependenciesData,
+              javaSources,
+              scalaSources,
+              inputs,
+              cancelCompilation,
+              reporter,
+              logger,
+              mirror,
+              lastSuccessful,
+              lastResult,
+              tracer
+            )
+        }
+      },
+      verbose = true
+    )
   }
 }
