@@ -1,7 +1,9 @@
 package bloop.tracing
 
 import brave.{Span, Tracer}
+import brave.propagation.SamplingFlags
 import brave.propagation.TraceContext
+import brave.propagation.TraceContextOrSamplingFlags
 import monix.eval.Task
 import monix.execution.misc.NonFatal
 import scala.util.Failure
@@ -137,13 +139,7 @@ object BraveTracer {
       .map(c => tracer.newChild(c))
       .getOrElse(
         if (isDebugTrace) {
-          val c = TraceContext
-            .newBuilder()
-            .traceId(util.Random.nextLong())
-            .spanId(util.Random.nextLong())
-            .debug(true)
-            .build()
-          tracer.newChild(c)
+          tracer.nextSpan(TraceContextOrSamplingFlags.create(SamplingFlags.DEBUG))
         } else {
           tracer.newTrace()
         }
