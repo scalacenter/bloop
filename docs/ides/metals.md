@@ -7,9 +7,10 @@ sidebar_label: Metals
 Metals is a work-in-progress language server for Scala that supports a diverse number of text
 editors such as Visual Studio Code, `vim`, Sublime Text and Atom.
 
-|                              | Build import | Compile        | Test           | Run            |
-| ---------------------------- | ------------ | -------------- | -------------- | -------------- |
-| **Metals**                   | ✅           | ✅              | ❌ use the CLI | ❌ use the CLI |
+|                              | Build import | Compile        | Test                  | Run                  | Debug                 |
+| ---------------------------- | ------------ | -------------- | --------------------- | -------------------- | --------------------- |
+| **IntelliJ BSP**             | ✅           | ✅             | 🚧 use IntelliJ test | 🚧 use IntelliJ test | 🚧 use IntelliJ test |
+| **Metals**                   | ✅           | ✅             | ✅                   | ✅                   | ✅                   |
 
 At the moment, the BSP integration only supports build import and compilation (with compiler
 diagnostics integrated in the editor). This functionality is enough to provide a fluent developer

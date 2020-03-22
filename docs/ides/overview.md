@@ -16,7 +16,7 @@ supports text editors such as Visual Studio Code, `vim`, Sublime Text and Atom.
 
 These IDE integrations support the following BSP actions:
 
-|                              | Build import | Compile        | Test           | Run            |
-| ---------------------------- | ------------ | -------------- | -------------- | -------------- |
-| **IntelliJ BSP**             | ✅           | ✅              | ❌ use the CLI | ❌ use the CLI |
-| **Metals**                   | ✅           | ✅              | ❌ use the CLI | ❌ use the CLI |
+|                              | Build import | Compile        | Test                  | Run                  | Debug                 |
+| ---------------------------- | ------------ | -------------- | --------------------- | -------------------- | --------------------- |
+| **IntelliJ BSP**             | ✅           | ✅             | 🚧 use IntelliJ test | 🚧 use IntelliJ test | 🚧 use IntelliJ test |
+| **Metals**                   | ✅           | ✅             | ✅                   | ✅                   | ✅                   |
