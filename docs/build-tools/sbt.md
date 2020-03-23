@@ -4,19 +4,101 @@ title: sbt
 sidebar_label: sbt
 ---
 
-## Export the build
+<!-- start -->
 
-Install and learn how to export the build in the Installation Guide:
+## Install the plugin
 
-<a class="button installationButton" href="/bloop/setup">Follow the Installation Guide</a>
+Here is a list of the latest Bloop stable and development versions for `sbt-bloop`.
 
-</br>
+```scala mdoc:releases
+I am going to be replaced by the docs infrastructure.
+```
 
-The following page only walks you through all the configuration options that the `sbt-bloop` plugin
-allows when it's configured in your build. To learn how to install the plugin or the basic concepts
-of exporting your build via bloop head to the installation guide linked above.
 
-## Don't export certain targets
+Install bloop by adding the following line to your `project/plugins.sbt`:
+
+```sbt
+addSbtPlugin("ch.epfl.scala" % "sbt-bloop" % "@VERSION@")
+```
+
+After that, start up sbt or reload your sbt shell to load the plugin.
+
+## Export your build
+
+The sbt command `bloopInstall` exports your sbt build to bloop.
+
+In bloop, an sbt project is represented as a pair of `(sbt project, sbt configuration)` and it's
+written to a configuration directory. The default location of this directory in your workspace is
+`.bloop/` (you may want to add `.bloop/` to your `.gitignore` file).
+
+For example, a build with a single project `foo` generates two configuration files by
+default (one per `Compile` and `Test` configuration):
+
+```bash
+$ sbt bloopInstall
+[info] Loading global plugins from /Users/John/.sbt/1.0/plugins
+(...)
+[success] Generated '/disk/foo/.bloop/foo.json'.
+[success] Generated '/disk/foo/.bloop/foo-test.json'.
+```
+
+where:
+1. `foo` comes from the `Compile` sbt configuration; and,
+1. `foo-test` comes from the `Test` sbt configuration and depends on `foo`
+
+If a build enables the `IntegrationTest` configuration in a project, Bloop will also export it.
+
+Any change in the build affecting the semantics of a project (such as adding a new library
+dependency, a resource or changing the project name) requires the user to run `bloopInstall`. When a
+project is removed in the build, `bloopInstall` will automatically remove its old configuration from
+the `.bloop` directory.
+
+## Verify installation and export
+
+Verify your installation by running `bloop projects` in the root of the sbt workspace directory.
+
+```bash
+$ bloop projects
+foo
+foo-test
+```
+
+If the results of `bloop projects` is empty, check that:
+
+1. You are running the command-line invocation in the root base directory (e.g. `/disk/foo`).
+1. The sbt build export process completed successfully.
+1. The `.bloop/` configuration directory contains bloop configuration files.
+
+If you suspect bloop is loading the configuration files from somewhere else, use `--verbose`:
+
+```bash
+$ bloop projects --verbose
+[D] Projects loaded from '/my-project/.bloop':
+foo
+foo-test
+```
+
+Here's a list of bloop commands you can run next to start playing with bloop:
+
+1. `bloop compile --help`: shows the help section for compile.
+1. `bloop compile foo-test`: compiles foo's `src/main` and `src/test`.
+1. `bloop test foo-test -w`: runs foo tests repeatedly with file watching enabled.
+
+<!-- end -->
+
+## Next steps after installation
+
+Use an IDE such as [Metals](docs/ides/metals) or
+[IntelliJ](docs/ides/intellij) to write code or play with the
+[CLI](docs/cli/tutorial) if you want to explore what CLI options are
+available.
+
+If you need help, you can always come over our [Gitter
+channel](https://gitter.im/scalacenter/bloop).
+
+## Plugin Configuration
+
+### Don't export certain targets
 
 `bloopInstall` exports every project in your build. To disable exporting a project, you can
 customize the result of the `bloopGenerate` task (which is scoped at the configuration level).
@@ -41,7 +123,7 @@ $ sbt bloopInstall
 ...
 ```
 
-## Enable custom configurations
+### Enable custom configurations
 
 By default, `bloopInstall` exports projects for the standard `Compile`,
 `Test` and `IntegrationTest` sbt configurations. If your build defines
@@ -79,7 +161,7 @@ sbt> bloopInstall
 [success] Generated '/disk/foo/.bloop/foo-custom-config.json'.
 ```
 
-## Enable sbt project references 
+### Enable sbt project references 
 
 Source dependencies are not well supported in sbt. Nonetheless, if you use them in your build and
 you want to generate bloop configuration files for them too, add the following to your `build.sbt`:
@@ -89,7 +171,7 @@ you want to generate bloop configuration files for them too, add the following t
 bloopAggregateSourceDependencies in Global := true
 ```
 
-## Download dependencies sources
+### Download dependencies sources
 
 To enable source classifiers and download the sources of your binary dependencies, you can enabled
 the following setting in your `build.sbt`:
@@ -136,7 +218,7 @@ classifier.
 }
 ```
 
-## Export main class from sbt
+### Export main class from sbt
 
 If you want bloop to export `mainClass` from your build definition, define either of the following
 settings in your `build.sbt`:
@@ -148,7 +230,7 @@ bloopMainClass in (Compile, run) := Some("foo.App")
 The build plugin doesn't intentionally populate the main class directly from sbt's `mainClass`
 because the execution of such a task may trigger compilation of projects in the build.
 
-## Speeding up build export
+### Speeding up build export
 
 `bloopInstall` typically completes in 15 seconds for a medium-sized projects once all dependencies
 have already been downloaded. However, it can happen that running `bloopInstall` in your project is

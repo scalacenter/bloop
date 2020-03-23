@@ -8,8 +8,8 @@ pre {
   white-space: pre-wrap;
   background-color: rgb(231, 250, 255);
   /* base 20px + header height */
-  margin: 54px 0 20px;
-  margin-left: -15px;
+  margin: 40px 0 20px;
+  margin-left: 15px;
   margin-right: -15px;
   border: 1px solid #f0f0f0;
   border-radius: 6px;
@@ -27,14 +27,16 @@ pre {
   display: block;
   font-size: 11px;
   font-weight: bold;
-  height: 34px;
-  line-height: 34px;
+  height: 30px;
+  line-height: 30px;
   padding: 0 10px;
   position: absolute;
+  margin-left: 15px;
   right: 0;
   bottom: 100%;
   left: 0;
   z-index: 1;
+  font-family: monospace;
 }
 
 /* CSS needs to be listed first so that others can overwrite */
@@ -81,6 +83,14 @@ pre {
   content: "YAML";
 }
 
+.hljs.language-sbt::before {
+  content: "Sbt";
+}
+
+.hljs.language-gradle::before {
+  content: "build.gradle";
+}
+
 .hljs.language-scala::before {
   content: "Scala";
 }
@@ -91,15 +101,16 @@ pre {
 
 pre .btn-icon {
   position: absolute;
-  top: -34px;
+  top: -30px;
   z-index: 2;
   cursor: pointer;
   border: 1px solid transparent;
   padding: 0;
   color: $primaryColor;
   background-color: transparent;
-  height: 34px;
+  height: 30px;
   transition: all 0.25s ease-out;
+  font-family: monospace;
 }
 
 pre .btn-icon:hover {

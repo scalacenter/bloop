@@ -26,6 +26,17 @@ function loadMD(fsPath) {
   return fs.readFileSync(path.join(__dirname, fsPath), "utf8");
 }
 
+function loadBuildToolMD(fsPath) {
+  const content = fs.readFileSync(path.join(__dirname, fsPath), "utf8").split("\n");
+  var idx1 = content.indexOf("<!-- start -->");
+  var idx2 = content.indexOf("<!-- end -->");
+  if (idx1 == -1 || idx2 == -1 || idx1 >= idx2) {
+    return content.join("\n");
+  } else {
+    return content.slice(idx1 + 1, idx2).join("\n");
+  }
+}
+
 const tools = loadYaml("./tools.yml");
 const buildTools = loadYaml("./build-tools.yml");
 
@@ -37,10 +48,13 @@ toolsMD.forEach(tool => {
 
 const buildToolsMD = findMarkDownSync("../out/build-tools/");
 buildToolsMD.forEach(buildTool => {
-  buildTool.export = loadMD(`${buildTool.path}/export.md`);
+  buildTool.guide = loadBuildToolMD(`${buildTool.path}.md`);
 });
 
 const releaseTableMD = loadMD("../out/release-table.md")
+const firstStepMD = loadMD("../out/guide/first-step.md");
+const thirdStepMD = loadMD("../out/guide/third-step.md");
+const lastStepMD = loadMD("../out/guide/last-step.md");
 
 // List of projects/orgs using your project for the users page.
 const users = [
@@ -86,13 +100,17 @@ const siteConfig = {
   buildTools,
   buildToolsMD,
   releaseTableMD,
+  firstStepMD,
+  thirdStepMD,
+  lastStepMD,
 
   // If you have users set above, you add it here:
   users,
 
   /* path to images for header/footer */
   headerIcon: 'img/impure-logo-bloop.svg',
-  footerIcon: 'img/docusaurus.svg',
+  footerIcon: 'img/impure-logo-bloop.svg',
+  scalaIcon: 'img/frontpage/scala.png',
   favicon: 'img/favicon/favicon.ico',
 
   /* Colors for website */
@@ -128,7 +146,9 @@ const siteConfig = {
   */
 
   // This copyright info is used in /core/Footer.js and blog RSS/Atom feeds.
-  copyright: `Copyright © ${new Date().getFullYear()} Scala Center`,
+  credits1: "Credits to @freepik for svg icons",
+  credits2: "Credits to Bazel, Babel and Metals for inspiring Bloop's website design",
+  copyright: `Copyright © ${new Date().getFullYear()} Bloop`,
 
   highlight: {
     // Highlight.js theme to use for syntax highlighting in code blocks.
@@ -173,10 +193,7 @@ const siteConfig = {
   editUrl: `${repoUrl}/edit/master/docs/`,
   algolia: {
     apiKey: 'cf5bcb37b134346182da2be3f5e0a76b',
-    indexName: 'bloop_scala',
-    algoliaOptions: {
-      facetFilters: ["version:VERSION"]
-    }
+    indexName: 'bloop_scala'
   },
 };
 

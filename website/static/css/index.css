@@ -1,5 +1,5 @@
 body {
-  background-color: #f5fcff;
+  background-color: #fff;
 }
 
 .gridBlock div {
@@ -85,7 +85,9 @@ article::before {
 }
 
 .lightBackground {
-  background-color: #e7f8ff;
+  /* background-color: #e7f8ff; */
+  /* background-color: #effaff; */
+  background-color: #fafafa;
 }
 
 .docsNavContainer .toc .navBreadcrumb {
@@ -124,10 +126,9 @@ article::before {
 }
 
 .hero {
-  background: $primaryColor;
   color: #f9f9f9;
   overflow: hidden;
-  padding: 2rem 1rem 2rem;
+  padding: 2rem;
   position: relative;
   text-align: center;
 }
@@ -159,6 +160,25 @@ article::before {
   margin: 0;
 }
 
+.hero h2 {
+  color: $primaryColor;
+  font-size: 2.4rem;
+  font-weight: 400;
+  line-height: 1;
+  margin: 0;
+  text-align: left;
+}
+
+.hero h3 {
+  color: $primaryColor;
+  font-size: 1.4rem;
+  font-weight: 400;
+  line-height: 1.4;
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+  text-align: left;
+}
+
 .hero p {
   font-size: 1.125rem;
   font-weight: 600;
@@ -188,27 +208,52 @@ article::before {
   border-bottom: 1px solid $primaryColor;
 }
 
+.promoSection .promoRow .pluginRowBlock {
+  margin-top: 2rem;
+  justify-content: flex-start;
+}
+
 .pluginRowBlock .buttonWrapper:first-of-type .button {
-  background: #7bc2c1;
 }
 
 .pluginRowBlock .buttonWrapper:nth-of-type(2) .button {
-  background: #c596c7;
 }
 
 .pluginRowBlock .button {
-  font-size: 0.8em;
-  padding: 9px 2rem 8px;
+  margin-left: 20px !important;
+  border: none !important;
+  font-size: 0.7em;
   color: $primaryColor;
-  font-weight: 600;
+
+  font-weight: 400;
+  border: 1px solid #087e8b;
+  display: inline-block;
+  line-height: 1.2em;
+
+  margin: 0.5rem !important;
+  padding: 0.8rem !important;
+  border-radius: 3px !important;
+  text-decoration: none !important;
+  text-transform: uppercase !important;
+  transition: background .3s, color .3s;
+  box-shadow: 0 2px 2px 0 rgba(0, 0, 0, 0.14), 0 3px 1px -2px rgba(0, 0, 0, 0.2), 0 1px 5px 0 rgba(0, 0, 0, 0.12);
 }
 
-.pluginRowBlock .button {
-  border-radius: 16px;
+.pluginRowBlock .button:hover {
+  color: #fff;
 }
 
-.tldrSection h2::before {
-  content: "# ";
+.tldrSection h1 {
+  color: $primaryColor;
+  margin: 2rem;
+  font-weight: 500;
+}
+
+.tldrSection h3 {
+  color: $primaryColor;
+  margin: 2rem;
+  font-size: 1.8rem;
+  font-weight: 500;
 }
 
 .tldrSection {
@@ -255,7 +300,53 @@ blockquote {
     max-width: 97.5%;
 }
 
+.tldrSection .container {
+  padding-top: 0px;
+  padding-bottom: 0px;
+}
+
+.tldrSection .container .gridBlock .blockContent p {
+  text-align: left;
+}
+
+.tldrSection .container .gridBlock .blockContent h2 p {
+  font-size: 1.5rem;
+  font-weight: 400;
+}
+
+.tldrSection .gridBlock .blockElement {
+  flex-wrap: wrap;
+}
+
+.tldrSection .gridBlock .blockImage {
+  margin-top: 2.5rem;
+  width: 55%;
+}
+
+.tldrSection .gridBlock .editorLogos {
+  width: 85% !important;
+}
+
+.tldrSection .gridBlock .blockExtra {
+  margin-top: 2.5rem;
+  width: 80%;
+}
+
 @media only screen and (min-width: 736px) {
+  .hero__container .container .wrapper {
+    position: relative;
+    z-index: 2;
+    width: 80%;
+  }
+
+  .hero__promo {
+    width: 66.666666%;
+  }
+
+  .hero__logo {
+    width: 33.333333%;
+  }
+
   .hero h1 {
     font-size: 3.938rem;
   }
@@ -282,8 +373,27 @@ blockquote {
     font-size: 1.4em;
   }
 
+  .featuresShowcaseSection .blockContent {
+    margin: 1rem;
+  }
+
   .tldrSection {
     padding: 1.5em 0;
+    width: 80%;
+    margin: 0 auto;
+  }
+
+  .tldrSection h1 {
+    color: $primaryColor;
+    margin: 1rem;
+    font-weight: 500;
+  }
+
+  .tldrSection h3 {
+    color: $primaryColor;
+    margin: 2rem;
+    font-size: 1.8rem;
+    font-weight: 500;
   }
 
   .tldrSection ul li {

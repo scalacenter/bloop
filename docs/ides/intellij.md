@@ -7,9 +7,9 @@ sidebar_label: IntelliJ
 IntelliJ is the most popular Scala and Java IDE. It integrates with Bloop via a work-in-progress BSP
 integration with varying degree of functionality.
 
-|                              | Build import | Compile        | Test           | Run            |
-| ---------------------------- | ------------ | -------------- | -------------- | -------------- |
-| **IntelliJ BSP**             | ✅           | ✅              | ❌ use the CLI | ❌ use the CLI |
+|                              | Build import | Compile        | Test                  | Run                  | Debug                 |
+| ---------------------------- | ------------ | -------------- | --------------------- | -------------------- | --------------------- |
+| **IntelliJ BSP**             | ✅           | ✅             | 🚧 use IntelliJ test | 🚧 use IntelliJ test | 🚧 use IntelliJ test |
 
 At the moment, the BSP integration only supports build import, compiler diagnostics and compilation
 on file save. This functionality is enough to benefit from a shorter and more accurate developer

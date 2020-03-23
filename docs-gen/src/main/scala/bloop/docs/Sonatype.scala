@@ -38,7 +38,15 @@ object Sonatype {
     val latestStableVersion = resolvedJars.find(_.syntax.contains(artifact)) match {
       case None => sys.error(s"Missing jar for resolved artifact '$artifact'")
       case Some(jar) =>
-        jar.underlying.getFileName().toString.stripSuffix(".jar").stripPrefix(artifact + "-")
+        val firstTry =
+          jar.underlying
+            .getFileName()
+            .toString
+            .stripSuffix(".jar")
+            .stripPrefix(artifact + "-")
+
+        if (!firstTry.endsWith("_2.12")) firstTry
+        else jar.getParent.getParent.underlying.getFileName.toString
     }
 
     val doc = Jsoup
@@ -73,7 +81,6 @@ object Sonatype {
         }
       }
 
-    pprint.log(latestStableVersion)
     releases.filter(_.version == latestStableVersion).maxBy(_.lastModified.getTime)
   }
 

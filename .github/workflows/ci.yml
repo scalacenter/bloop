@@ -59,7 +59,7 @@ jobs:
               "jsBridge06/test" \
               "jsBridge10/test" \
               "frontend/runMain bloop.util.CommandsDocGenerator --test" \
-              "frontend/runMain bloop.util.CommandsDocGenerator --out ../docs/cli-reference.md"
+              "frontend/runMain bloop.util.CommandsDocGenerator --out ../docs/cli/reference.md"
         shell: bash
       - name: Check docs are up-to-date
         run: |

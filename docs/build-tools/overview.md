@@ -8,8 +8,8 @@ Bloop supports several build tools with varying degree of functionality.
 
 |                          | sbt        | Gradle   | Maven    | Mill       | Bazel | Pants | Fury |
 | ------------------------ | ---------- | -------- | -------- | ---------- | ----- | ----- | ---- |
-| **Build Export**         | ✅         | ✅        | ✅       | ✅         |  ❌    |   ❌  |    ✅   |
-| **Built-in Compile / Test / Run** | 📅 planned  |          |          |            |       |       | ✅   |
+| **Build Export**         | ✅         | ✅        | ✅       | ✅         |  ❌    |   ✅ use [Metals fastpass](https://github.com/scalameta/metals) |    ✅   |
+| **Built-in Compile / Test / Run** | ✅ experimental  |          |          |            |       |       | ✅   |
 
 ## Build Export
 

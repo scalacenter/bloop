@@ -21,22 +21,6 @@ const SetupHeader = () => {
       <h1>
         <translate desc="setup page - header">Installation Guide</translate>
       </h1>
-    <p style={{"textAlign": "justify", "margin": "1em auto", "maxWidth": "70%"}}>
-      The installation guide walks <b>users</b> through all the steps to install bloop and get any
-      of the supported build tools to successfully export their build definitions.
-    </p>
-
-    <p style={{"textAlign": "justify", "margin": "1em auto", "maxWidth": "70%"}}>
-      It's recommended to install bloop globally. However, it's not mandatory to do so. If you want
-      to depend on bloop, the <a href={`${siteConfig.baseUrl}docs/launcher-reference.html`}>Launcher </a>
-      will install and configure bloop automatically, providing an out-of-the-box experience.
-    </p>
-
-      <div style={{"display": "flex", "justifyContent": "center", "marginBottom": "1em"}}>
-        <MarkdownBlock key={"release-table-description"}>
-        </MarkdownBlock>
-        <MarkdownBlock key={"release-table"}>{releaseTableMD}</MarkdownBlock>
-      </div>
     </div>
   );
 };
@@ -61,78 +45,106 @@ const SetupSelectButton = props => {
   );
 };
 
+const SetupInstallationHeader = () => {
+  return (
+    <div className="step-setup">
+      <h2 id="installation">
+        <span className="step-no">1</span>
+        <translate desc="setup page - step 1">
+          Do you need to install Bloop?
+        </translate>
+      </h2>
+      <MarkdownBlock>
+        {siteConfig.firstStepMD}
+      </MarkdownBlock>
+    </div>
+  )
+};
+
 const SetupOptions = () => {
   const tools = siteConfig.tools;
   const showCase = tools.map((types, i) => {
     return (
       <SetupSelectButton
-          buttonClassName={"tools-button"}
-          divClassName={"tools-group"}
-          key={i}
-          types={types}
+        buttonClassName={"tools-button"}
+        divClassName={"tools-group"}
+        key={i}
+        types={types}
       />
     );
   });
+  const markdownsElement = toolsMD.map((tool, index) => (
+    <div className="items" data-title={tool.title} key={index}>
+      <MarkdownBlock key={index}>{tool["install"]}</MarkdownBlock>
+    </div>
+  ));
+  return (
+    <div className="step-setup">
+      <h2 id="installation">
+        <span className="step-no">2</span>
+        <translate desc="setup page - step 2">
+          Pick your installation method
+        </translate>
+      </h2>
+      <div className="tools-group-all">
+        {showCase}
+      </div>
+      <div className="step-hidden step-setup">
+        {markdownsElement}
+      </div>
+    </div>
+  );
+};
+
+const ExportBuild = () => {
+  const buildTools = siteConfig.buildTools;
+  const showCase = buildTools.map((types, i) => {
+    return (
+      <SetupSelectButton
+        buttonClassName={"tools-button"}
+        divClassName={"tools-group"}
+        key={i}
+        types={types}
+      />
+    );
+  });
+  const markdownsElement = buildToolsMD.map((tool, index) => (
+    <div className="items" data-title={tool.title} key={index}>
+      <MarkdownBlock key={index}>{tool["guide"]}</MarkdownBlock>
+    </div>
+  ));
+  return (
+    <div className="step-setup">
+      <h2 id="installation">
+        <span className="step-no">3</span>
+        <translate desc="setup page - step 3">
+          Set up your build
+        </translate>
+      </h2>
+      <MarkdownBlock>
+        {siteConfig.thirdStepMD}
+      </MarkdownBlock>
+      <div className="tools-group-all">
+        {showCase}
+      </div>
+      <div className="step-hidden step-setup">
+        {markdownsElement}
+      </div>
+    </div>
+  );
+};
+
+const UseBloop = () => {
+  const usage = <translate desc="setup page - step 4">Use Bloop</translate>;
   return (
     <div className="step-setup">
       <h2>
-        <span className="step-no">1</span>
-        <translate desc="setup page - step 1">
-          Pick your preferred method
-        </translate>
-      </h2>
-      {showCase}
-    </div>
-  );
-};
-
-const StepInstallAndUsage = props => {
-  const markdownsElement = toolsMD.map((tool, index) => (
-    <div className="items" data-title={tool.title} key={index}>
-      <MarkdownBlock key={index}>{tool[props.name]}</MarkdownBlock>
-    </div>
-  ));
-  const installation = (
-    <translate desc="setup page - step 2">Installation</translate>
-  );
-  const usage = <translate desc="setup page - step 3">Usage</translate>;
-  return (
-    <div className="step-hidden step-setup">
-      <h2 id={props.name === "install" ? "installation" : ""}>
-        <span className="step-no">{props.number}</span>
-        {props.name === "install" ? installation : usage}
-      </h2>
-      {markdownsElement}
-    </div>
-  );
-};
-
-const StepFour = () => {
-  const buildToolButtons = siteConfig.buildTools.map((types, i) => {
-    return (
-      <SetupSelectButton
-          buttonClassName={"build-tools-button"}
-          divClassName={"build-tools-group"}
-          key={i}
-          types={types}
-      />
-    );
-  });
-
-  const buildToolExportGuides = buildToolsMD.map((tool, index) => (
-    <div className="build-items" data-title={tool.title} key={index}>
-      <MarkdownBlock key={index}>{tool["export"]}</MarkdownBlock>
-    </div>
-  ));
-
-  return (
-    <div id="build-tools" className="step-hidden step-setup">
-      <h2>
         <span className="step-no">4</span>
-        <translate desc="setup page - step 4 one">Export your build</translate>
+        {usage}
       </h2>
-      {buildToolButtons}
-      {buildToolExportGuides}
+      <MarkdownBlock>
+        {siteConfig.lastStepMD}
+      </MarkdownBlock>
     </div>
   );
 };
@@ -141,10 +153,10 @@ const SetupContent = () => {
   return (
     <Container padding={["bottom"]}>
       <div className="step">
+        <SetupInstallationHeader />
         <SetupOptions />
-        <StepInstallAndUsage name="install" number="2" />
-        <StepInstallAndUsage name="usage" number="3" />
-        <StepFour />
+        <ExportBuild />
+        <UseBloop />
       </div>
     </Container>
   );

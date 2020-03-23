@@ -90,17 +90,34 @@ const announcement =
   </div>
 
 const Hero = ({ language }) => (
-  <div className="hero">
+  <div className="hero lightBackground">
     <div className="hero__container">
-
-      <Logo img_src={imgUrl('impure-logo-bloop.svg')} />
-      <h1>
-        Bloop is a Scala build server.
-      </h1>
-      <p style={{ margin: "1rem 0 1.5rem 0" }}>
-        Compile, test and run Scala fast.
-      </p>
-      <a class="github-button" href={`${repoUrl()}`} data-size="large" data-show-count="true" aria-label="Star ntkme/github-buttons on GitHub">Star</a>
+      <Container>
+        <div
+          style={{
+            display: "flex",
+            flexFlow: "row wrap",
+            alignItems: "center",
+            margin: "0 auto"
+          }}
+        >
+          <div className="hero__promo" style={{ display: "flex", flexDirection: "column" }}>
+            <h3 style={{ marginLeft: "0.5rem" }}>
+              {"One toolchain, one build server, one developer experience"}
+            </h3>
+            <h2>
+              Build and test <b>Scala</b> code of any size <b>quickly</b>, from any editor, from any build tool
+            </h2>
+            <PromoSection>
+              <Button href="#try">Try It Out</Button>
+              <Button href={docUrl('doc1.html', language)}>Get Started</Button>
+            </PromoSection>
+          </div>
+          <div className="hero__logo" style={{ display: "flex", flexDirection: "column" }}>
+            <Logo img_src={imgUrl('impure-logo-bloop.svg')} />
+          </div>
+        </div>
+      </Container>
     </div>
   </div >
 );
@@ -132,8 +149,46 @@ const Block = props => (
   </Container>
 );
 
+const TopFeatures = () => (
+  <Block layout="fourColumn">
+    {[
+      {
+        title: 'Tighter developer workflow',
+        content: 'Be more productive in Scala and reduce your compile-edit-test workflow. Use Bloop to enjoy an optimized developer experience that provides features from incremental to batch compilation, from running and debugging on the JVM to building Scala.js or Scala Native applications.',
+        image: imgUrl('clock.svg'),
+        imageAlign: 'bottom'
+      },
+      {
+        title: 'One tool, multiple editors and IDEs',
+        content: 'Bloop integrates with IDEs and text editors to provide a short feedback cycle and reliable compiler diagnostics. Use Bloop with IntelliJ or [Metals](https://scalameta.org/metals/), an LSP server to code with editors such as Visual Studio Code, Sublime Text, Vim, Emacs, etc.',
+        image: imgUrl('editors-logos.svg'),
+        imageAlign: 'bottom',
+        imageClassName: 'editorLogos',
+      },
+      {
+        title: 'Compatible with many build tools',
+        content: 'Export your project build to Bloop even if your build tool lacks Bloop support. Everything in Bloop has been thought to be build-tool-agnostic and bring you the best Scala developer experience, no matter what tool you use.',
+        extra:
+          "|            | Supported     |\n" +
+          "| -----------|-------------- |\n" +
+          "| **sbt**    | ✅            |\n" +
+          "| **Maven**  | ✅            |\n" +
+          "| **Gradle** | ✅            |\n" +
+          "| **mill**   | ✅            |\n" +
+          "| **Pants**  | ✅            |\n"
+      },
+      {
+        title: 'Extensible to your custom needs',
+        content: 'Customize Bloop to serve your personal needs or those of your company. Use the CLI to write custom scripts, write your own build tool on top of bloop or leverage the [Build Server Protocol](https://build-server-protocol.github.io) implementation to control and extend Bloop with your own build client, in any language.',
+        image: imgUrl('sew.svg'),
+        imageAlign: 'bottom'
+      }
+    ]}
+  </Block>
+);
+
 const TldrSection = ({ language }) => (
-  <div className="tldrSection productShowcaseSection lightBackground">
+  <div className="tldrSection productShowcaseSection">
     <Container>
       <div
         style={{
@@ -143,25 +198,11 @@ const TldrSection = ({ language }) => (
         }}
       >
         <div style={{ display: "flex", flexDirection: "column" }}>
-          <h2>Features</h2>
-          <ul className="featureSection" style={{ flex: "1" }}>
-            <li>Provides <b>fast</b> compile, test and run</li>
-            <li>Has a built-in command-line tool</li>
-            <li>Integrates with most JVM build tools</li>
-            <li>Implements the <b><a href="https://github.com/scalacenter/bsp">Build Server Protocol</a></b></li>
-            <li>Supports JVM, Scala.js and Scala Native</li>
-          </ul>
-        </div>
-        <div style={{ display: "flex", flexDirection: "column" }}>
-          <h2>Why?</h2>
-          <ul className="whySection" style={{ flex: "1" }}>
-            <li>You edit code and get instant feedback </li>
-            <li>Saves you time and makes you more productive</li>
-            <li>Makes Scala support in build tools easier</li>
-            <li>Adaptable to your own developer workflow</li>
-          </ul>
+          <h1>Why Bloop?</h1>
         </div>
       </div>
+      <TopFeatures>
+      </TopFeatures>
     </Container>
   </div>
 );
@@ -172,52 +213,34 @@ TldrSection.propTypes = {
 
 
 const Features1 = () => (
-  <Block layout="twoColumn">
-    {[
-      {
-        title: 'Use it with your favorite build tool',
-        content: 'Bloop supports the most popular JVM build tools in the Java and Scala community, with more integrations on their way! Export your build and benefit from faster compile times.',
-      },
-      {
-        content:
-          "|            | Supported     |\n" +
-          "| -----------|-------------- |\n" +
-          "| **sbt**    | ✅            |\n" +
-          "| **Maven**  | ✅            |\n" +
-          "| **Gradle** | ✅            |\n" +
-          "| **mill**   | ✅            |\n"
-      },
-    ]}
-  </Block>
+  <div className="featuresShowcaseSection">
+    <Block layout="twoColumn">
+      {[
+        {
+          title: 'Reimagining what a build server is with Bloop',
+          content: "Bloop is a build server that runs in the backgroud of your machine and serves build requests for a specific workspace. As it knows how your build workspace is being built by every client, it can optimize and provide guarantees that conventional build tools cannot. Bloop has taken the concept of build server and stepped it up a notch, enabling you to use it in ways that haven't yet been fully explored.",
+        },
+        {
+          title: 'Run multiple build tasks, concurrently, from any clients',
+          content: "Have you ever wanted to test your code from your IDE and run a main class on your terminal whenever there are changes? Bloop allows you to have multiple build clients (IDEs, build tools, custom scripts, scheduled jobs) triggering build commands at the same time, while the build server makes sure all build commands produce independent outputs, reuse as much state and resources as they can and don't block each other.",
+        },
+      ]}
+    </Block>
+  </div>
 );
-
-const intellijLogo = imgUrl("intellij-logo.png")
-const Features2 = () => (
-  <Block id="ideLogos" layout="threeColumn">
-    {[
-      {
-        content: '![Editors logos](' + imgUrl('editors-logos.svg') + ')'
-      },
-      {
-        title: 'Use it with IDEs',
-        content: 'Bloop integrates with IDEs and text editors to provide a short feedback cycle and reliable compiler diagnostics. Use Bloop with IntelliJ and [Metals](https://scalameta.org/metals/) (Visual Studio Code, Sublime Text, `vim` and Atom).',
-      },
-    ]}
-  </Block>
-);
-
 
 const FeatureCallout = () => (
   <div
     className="productShowcaseSection paddingBottom"
     style={{ textAlign: 'center' }}>
-    <h2>Maintained by the Scala Center</h2>
+    <h2>Maintained by a rich community of contributors</h2>
     <MarkdownBlock>
-      The Scala Center is a non-profit organization established at EPFL (École Polytechnique Federal de Lausanne) with the goals of promoting, supporting, and advancing the Scala language.
+      Developed initially at the Scala Center —a non-profit organization
+      established at EPFL with the goals of promoting, supporting, and
+      advancing the Scala language— the project has grown to be adopted by
+      many industry leaders and it is now maintained by a dedicated network
+      of contributors across the world.
     </MarkdownBlock>
-    <img
-      src={imgUrl('scala-center-logo.png')}
-      style={{ paddingTop: '30px' }}></img>
   </div>
 );
 
@@ -295,7 +318,6 @@ class Index extends React.Component {
         <TldrSection language={language} />
         <div className="mainContainer">
           <Features1 />
-          <Features2 />
           <FeatureCallout />
         </div>
       </div>
