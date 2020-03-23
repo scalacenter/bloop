@@ -245,12 +245,13 @@ object Config {
       sbt: Option[Sbt],
       test: Option[Test],
       platform: Option[Platform],
-      resolution: Option[Resolution]
+      resolution: Option[Resolution],
+      tags: Option[List[String]]
   )
 
   object Project {
     // FORMAT: OFF
-    private[bloop] val empty: Project = Project("", emptyPath, None, List(), None, None, List(), List(),  emptyPath, emptyPath, None, None, None, None, None, None, None)
+    private[bloop] val empty: Project = Project("", emptyPath, None, List(), None, None, List(), List(),  emptyPath, emptyPath, None, None, None, None, None, None, None, None)
     // FORMAT: ON
 
     def analysisFileName(projectName: String) = s"$projectName-analysis.bin"
@@ -259,7 +260,7 @@ object Config {
   case class File(version: String, project: Project)
   object File {
     // We cannot have the version coming from the build tool
-    final val LatestVersion = "1.1.2"
+    final val LatestVersion = "1.4.0"
     private[bloop] val empty = File(LatestVersion, Project.empty)
 
     private[bloop] def dummyForTests: File = {
@@ -313,7 +314,8 @@ object Config {
         Some(Sbt("1.1.0", Nil)),
         Some(Test(List(), TestOptions(Nil, Nil))),
         Some(platform),
-        Some(Resolution(Nil))
+        Some(Resolution(Nil)),
+        None
       )
 
       File(LatestVersion, project)

@@ -396,6 +396,7 @@ object TestUtil {
       platform = Project.defaultPlatform(logger, Some(jdkConfig)),
       sbt = None,
       resolution = None,
+      tags = Nil,
       origin = origin
     )
   }
@@ -499,7 +500,7 @@ object TestUtil {
     val classesDir = Files.createDirectory(outDir.resolve("classes"))
 
     // format: OFF
-    val configFileG = bloop.config.Config.File(Config.File.LatestVersion, Config.Project("g", baseDir, Option(baseDir), Nil, None, None, List("g"), Nil, outDir, classesDir, None, None, None, None, None, None, None))
+    val configFileG = bloop.config.Config.File(Config.File.LatestVersion, Config.Project("g", baseDir, Option(baseDir), Nil, None, None, List("g"), Nil, outDir, classesDir, None, None, None, None, None, None, None, None))
     bloop.config.write(configFileG, jsonTargetG)
     // format: ON
 

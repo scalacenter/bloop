@@ -5,7 +5,7 @@ import java.nio.file.Path
 import java.nio.file.Paths
 import java.nio.file.Files
 
-import bloop.config.Config
+import bloop.config.{Config, Tag}
 import bloop.config.Config.{CompileSetup, JavaThenScala, JvmConfig, Mixed, Platform}
 import bloop.integrations.gradle.BloopParameters
 import bloop.integrations.gradle.model.BloopConverter.SourceSetDep
@@ -209,6 +209,10 @@ class BloopConverter(parameters: BloopParameters) {
       val modules = (nonProjectDependencies.map(artifactToConfigModule(_, project)) ++
         additionalArtifacts.map(artifactToConfigModule(_, project))).distinct
 
+      val tags =
+        if (sourceSet.getName == SourceSet.TEST_SOURCE_SET_NAME) List(Tag.Test)
+        else List(Tag.Library)
+
       for {
         scalaConfig <- getScalaConfig(project, sourceSet, compileArtifacts)
         resolution = Config.Resolution(modules)
@@ -229,7 +233,8 @@ class BloopConverter(parameters: BloopParameters) {
           sbt = None,
           test = getTestConfig(sourceSet),
           platform = getPlatform(project, sourceSet, isTestSourceSet),
-          resolution = Some(resolution)
+          resolution = Some(resolution),
+          tags = Some(tags)
         )
       } yield Config.File(Config.File.LatestVersion, bloopProject)
     }

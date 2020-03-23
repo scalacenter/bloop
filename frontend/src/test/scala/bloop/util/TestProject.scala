@@ -157,7 +157,8 @@ abstract class BaseTestProject {
       sbt = None,
       test = Some(testConfig),
       platform = Some(platform),
-      resolution = None
+      resolution = None,
+      tags = None
     )
 
     TestProject(config, Some(directDependencies))

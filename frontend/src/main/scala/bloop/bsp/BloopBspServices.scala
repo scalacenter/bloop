@@ -914,11 +914,6 @@ final class BloopBspServices(
           val targets = bsp.WorkspaceBuildTargetsResult(
             projects.map { p =>
               val id = toBuildTargetId(p)
-              val tag = {
-                if (p.name.endsWith("-test") && build.getProjectFor(s"${p.name}-test").isEmpty)
-                  bsp.BuildTargetTag.Test
-                else bsp.BuildTargetTag.Library
-              }
               val deps = p.dependencies.iterator.flatMap(build.getProjectFor(_).toList)
               val extra = p.scalaInstance.map(i => encodeScalaBuildTarget(toScalaBuildTarget(p, i)))
               val capabilities = bsp.BuildTargetCapabilities(
@@ -934,7 +929,7 @@ final class BloopBspServices(
                 id = id,
                 displayName = Some(p.name),
                 baseDirectory = Some(bsp.Uri(p.baseDirectory.toBspUri)),
-                tags = List(tag),
+                tags = p.tags,
                 languageIds = languageIds,
                 dependencies = deps.map(toBuildTargetId).toList,
                 capabilities = capabilities,

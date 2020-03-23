@@ -58,6 +58,10 @@ def readConfigFor(projectName: String, allConfigs: Seq[File]): bloop.config.Conf
   BloopDefaults.unsafeParseConfig(configFile.toPath)
 }
 
+def hasTags(config: bloop.config.Config.File, tags: List[String]): Boolean = {
+  config.project.tags.getOrElse(Nil).sorted == tags.sorted
+}
+
 val checkBloopFile = taskKey[Unit]("Check bloop file contents")
 checkBloopFile in ThisBuild := {
   val allConfigs = allBloopConfigFiles.value
@@ -69,18 +73,22 @@ checkBloopFile in ThisBuild := {
     fooTestConfigContents.project.sources.exists(_.toString.contains("StraySourceFile.scala")),
     "Source file is missing in foo."
   )
+  assert(hasTags(fooTestConfigContents, List(bloop.config.Tag.Test)))
 
   val barConfigContents = readConfigFor("bar", allConfigs)
   assert(barConfigContents.project.dependencies.sorted == List())
+  assert(hasTags(barConfigContents, List(bloop.config.Tag.Library)))
 
   // Test that 'yay-test' does not add a dependency to 'foo-test' without the "test->test" configuration
   // Default if no configuration is dependency to `Compile` (double checked by '-> yay/test:compile')
   val yayTestConfigContents = readConfigFor("yay-test", allConfigs)
   assert(yayTestConfigContents.project.dependencies.sorted == List("foo", "yay"))
+  assert(hasTags(yayTestConfigContents, List(bloop.config.Tag.Test)))
 
   // Test that zee-it contains a dependency to foo-test
   val zeeItConfigContents = readConfigFor("zee-it", allConfigs)
   assert(zeeItConfigContents.project.dependencies.sorted == List("foo-test", "zee"))
+  assert(hasTags(zeeItConfigContents, List(bloop.config.Tag.IntegrationTest)))
 }
 
 val checkSourceAndDocs = taskKey[Unit]("Check source and doc jars are resolved and persisted")

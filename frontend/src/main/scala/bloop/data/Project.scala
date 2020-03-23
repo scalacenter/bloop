@@ -52,6 +52,7 @@ final case class Project(
     platform: Platform,
     sbt: Option[Config.Sbt],
     resolution: Option[Config.Resolution],
+    tags: List[String],
     origin: Origin
 ) {
 
@@ -238,6 +239,8 @@ object Project {
 
     val sourceRoots = project.sourceRoots.map(_.map(AbsolutePath.apply))
 
+    val tags = project.tags.getOrElse(Nil)
+
     Project(
       project.name,
       AbsolutePath(project.directory),
@@ -260,6 +263,7 @@ object Project {
       platform,
       sbt,
       resolution,
+      tags,
       origin
     )
   }
