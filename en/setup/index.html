@@ -1,22 +1,29 @@
-<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Bloop · Compile, test and run Scala code fast</title><meta name="viewport" content="width=device-width"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Compile, test and run Scala code fast"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Bloop · Compile, test and run Scala code fast"/><meta property="og:type" content="website"/><meta property="og:url" content="https://scalacenter.github.io/bloop/"/><meta property="og:description" content="Compile, test and run Scala code fast"/><meta property="og:image" content="https://scalacenter.github.io/bloop/img/docusaurus.png"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://scalacenter.github.io/bloop/img/docusaurus.png"/><link rel="shortcut icon" href="/bloop/img/favicon/favicon.ico"/><link rel="stylesheet" href="https://cdn.jsdelivr.net/docsearch.js/1/docsearch.min.css"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/mono-blue.min.css"/><link rel="alternate" type="application/atom+xml" href="https://scalacenter.github.io/bloop/blog/atom.xml" title="Bloop Blog ATOM Feed"/><link rel="alternate" type="application/rss+xml" href="https://scalacenter.github.io/bloop/blog/feed.xml" title="Bloop Blog RSS Feed"/><link rel="stylesheet" href="/bloop/css/code-block-buttons.css"/><script type="text/javascript" src="https://code.jquery.com/jquery-3.2.1.slim.min.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/bloop/scripts/code-block-buttons.js"></script><script src="/bloop/js/scrollSpy.js"></script><link rel="stylesheet" href="/bloop/css/main.css"/><script src="/bloop/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/bloop/"><img class="logo" src="/bloop/img/impure-logo-bloop.svg" alt="Bloop"/><h2 class="headerTitleWithLogo">Bloop</h2></a><a href="/bloop/versions"><h3>1.3.4</h3></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class="siteNavItemActive"><a href="/bloop/setup" target="_self">Install</a></li><li class=""><a href="/bloop/docs/what-is-bloop" target="_self">Docs</a></li><li class=""><a href="/bloop/blog/" target="_self">Blog</a></li><li class="navSearchWrapper reactNavSearchWrapper"><input type="text" id="search_input_react" placeholder="Search" title="Search"/></li><li class=""><a href="https://github.com/scalacenter/bloop" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div class="mainContainer"><div class="installationContainer"><div class="page-header text-center installation-header"><h1>Installation Guide</h1><p style="text-align:justify;margin:1em auto;max-width:70%">The installation guide walks <b>users</b> through all the steps to install bloop and get any of the supported build tools to successfully export their build definitions.</p><p style="text-align:justify;margin:1em auto;max-width:70%">It&#x27;s recommended to install bloop globally. However, it&#x27;s not mandatory to do so. If you want to depend on bloop, the <a href="/bloop/docs/launcher-reference.html">Launcher </a>will install and configure bloop automatically, providing an out-of-the-box experience.</p><div style="display:flex;justify-content:center;margin-bottom:1em"><div></div><div><span><table>
-      <thead>
-        <th>Version</th>
-        <th>Published</th>
-        <th>Resolver</th>
-      </thead>
-      <tbody>
-        <tr>
-          <td>1.4.0-RC1</td>
-          <td>18 Dec 2019 16:01</td>
-          <td><code>-r sonatype:releases</code></td>
-        </tr>
-        <tr>
-          <td>1.4.0-RC1-116-068b96f5</td>
-          <td>20 Mar 2020 18:52</td>
-          <td><code>-r bintray:scalacenter/releases</code></td>
-        </tr>
-      </tbody>
-    </table></span></div></div></div><div class="container paddingBottom"><div class="wrapper"><div class="step"><div class="step-setup"><h2><span class="step-no">1</span>Pick your preferred method</h2><div class="tools-group"><h5>Universal Installation</h5><button data-title="universal" class="tools-button">curl (Default)</button></div><div class="tools-group"><h5>Package Managers</h5><button data-title="homebrew" class="tools-button">Homebrew (macOS)</button><button data-title="scoop" class="tools-button">Scoop (Windows)</button><button data-title="nix" class="tools-button">Nix</button><button data-title="aur" class="tools-button">AUR (Arch Linux)</button></div></div><div class="step-hidden step-setup"><h2 id="installation"><span class="step-no">2</span>Installation</h2><div class="items" data-title="aur"><div><span><p>With <code>yaourt</code>:</p>
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Bloop · Compile, test and run Scala code fast</title><meta name="viewport" content="width=device-width"/><meta name="generator" content="Docusaurus"/><meta name="description" content="Compile, test and run Scala code fast"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="Bloop · Compile, test and run Scala code fast"/><meta property="og:type" content="website"/><meta property="og:url" content="https://scalacenter.github.io/bloop/"/><meta property="og:description" content="Compile, test and run Scala code fast"/><meta property="og:image" content="https://scalacenter.github.io/bloop/img/docusaurus.png"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://scalacenter.github.io/bloop/img/docusaurus.png"/><link rel="shortcut icon" href="/bloop/img/favicon/favicon.ico"/><link rel="stylesheet" href="https://cdn.jsdelivr.net/docsearch.js/1/docsearch.min.css"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/mono-blue.min.css"/><link rel="alternate" type="application/atom+xml" href="https://scalacenter.github.io/bloop/blog/atom.xml" title="Bloop Blog ATOM Feed"/><link rel="alternate" type="application/rss+xml" href="https://scalacenter.github.io/bloop/blog/feed.xml" title="Bloop Blog RSS Feed"/><link rel="stylesheet" href="/bloop/css/code-block-buttons.css"/><script type="text/javascript" src="https://code.jquery.com/jquery-3.2.1.slim.min.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/bloop/scripts/code-block-buttons.js"></script><script src="/bloop/js/scrollSpy.js"></script><link rel="stylesheet" href="/bloop/css/main.css"/><script src="/bloop/js/codetabs.js"></script></head><body><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/bloop/"><img class="logo" src="/bloop/img/impure-logo-bloop.svg" alt="Bloop"/><h2 class="headerTitleWithLogo">Bloop</h2></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class="siteNavItemActive"><a href="/bloop/setup" target="_self">Install</a></li><li class=""><a href="/bloop/docs/what-is-bloop" target="_self">Docs</a></li><li class=""><a href="/bloop/blog/" target="_self">Blog</a></li><li class="navSearchWrapper reactNavSearchWrapper"><input type="text" id="search_input_react" placeholder="Search" title="Search"/></li><li class=""><a href="https://github.com/scalacenter/bloop" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div class="mainContainer"><div class="installationContainer"><div class="page-header text-center installation-header"><h1>Installation Guide</h1></div><div class="container paddingBottom"><div class="wrapper"><div class="step"><div class="step-setup"><h2 id="installation"><span class="step-no">1</span>Do you need to install Bloop?</h2><div><span><p>Bloop is a JVM-based build server that applications such as IDEs (e.g.
+<a href="https://scalameta.org/metals">Metals</a>) or build tools (e.g.
+<a href="https://github.com/tindzk/seed">seed</a>) can depend on. Typically, these
+applications use the <a href="docs/launcher-reference">Bloop Launcher</a> to run bloop
+in the background of your machine. This means, you might be already using
+Bloop without knowing it.</p>
+<p>So, <strong>do you need to install Bloop</strong> if these applications are already
+depending on and running bloop in the background?</p>
+<p>The answer is no. You should only install bloop as a package if you want to:</p>
+<ul>
+<li>Install and use the <strong>Bloop CLI</strong> to send build commands to the bloop
+server from the comfort of your terminal. This includes autocompletions.
+It is always handy to have the CLI installed in your machine!</li>
+<li>Install the bloop server for the first time in your machine because you're
+planning to use it to build it for something or play with it.</li>
+<li>Have complete control over which bloop server version you're using and how
+it runs in the background. For example, because you want to use a
+<a href="https://freedesktop.org/wiki/Software/systemd/">Systemd</a> configuration to
+run bloop.</li>
+</ul>
+<p>If any of the above are true, please proceed with this guide and jump to the
+next step. If none is true or you don't know if they are true or false, it is
+recommended you do not install Bloop directly in your machine.</p>
+<p>The following page explains how to get Bloop installed in your machine and
+how you can export your current project build to Bloop.</p>
+</span></div></div><div class="step-setup"><h2 id="installation"><span class="step-no">2</span>Pick your installation method</h2><div class="tools-group-all"><div class="tools-group"><h5>Universal Installation</h5><button data-title="universal" class="tools-button">curl (Default)</button></div><div class="tools-group"><h5>Package Managers</h5><button data-title="homebrew" class="tools-button">Homebrew (macOS)</button><button data-title="scoop" class="tools-button">Scoop (Windows)</button><button data-title="nix" class="tools-button">Nix</button><button data-title="aur" class="tools-button">AUR (Arch Linux)</button></div></div><div class="step-hidden step-setup"><div class="items" data-title="aur"><div><span><p>With <code>yaourt</code>:</p>
 <pre><code class="hljs css language-bash">yaourt -S bloop
 </code></pre>
 <p>With <code>pacaur</code>:</p>
@@ -92,190 +99,62 @@ If you want to change the location to, say, <code>/opt/bloop</code>, then:</p>
 <li>Use <code>--dest /opt/bloop</code>; and,</li>
 <li>Add <code>/opt/bloop</code> to your <code>$PATH</code> in all your live terminals.</li>
 </ol>
-</span></div></div></div><div class="step-hidden step-setup"><h2 id=""><span class="step-no">3</span>Usage</h2><div class="items" data-title="aur"><div><span><p>The installation script installs the build server and the bloop command-line
-application (CLI). The build server <strong>must be started</strong> before the
-command-line application is used.</p>
-<h3><a class="anchor" aria-hidden="true" id="running-the-server-in-the-background"></a><a href="#running-the-server-in-the-background" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Running the server in the background</h3>
-<p>The AUR formula installs a Systemd service in <em>your user configuration</em> to
-start up the Bloop server automatically when you log into your machine. This
-service spares you from the cumbersome process of starting the build server
-before using any build client, enable it with:</p>
-<pre><code class="hljs">systemctl --<span class="hljs-keyword">user</span> <span class="hljs-title">enable</span> bloop
-</code></pre>
-<p>Command examples to manager the server:</p>
-<ol>
-<li><code>systemctl --user start bloop</code>: starts up the bloop server.</li>
-<li><code>systemctl --user stop bloop</code>: stops the bloop server.</li>
-<li><code>systemctl --user restart bloop</code>: restarts the bloop server, required after every upgrade.</li>
-</ol>
-<p>To learn more about <code>bloop server</code> and managing the server lifecycle
-automatically, head to the <a href="docs/server-reference">Build Server Reference</a>.</p>
-<h3><a class="anchor" aria-hidden="true" id="command-line-completions"></a><a href="#command-line-completions" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Command-line completions</h3>
-<p>The installation script automatically installs completions for bash, zsh and
-fish; reload your shell to get it working.</p>
-</span></div></div><div class="items" data-title="homebrew"><div><span><p>The installation script installs the build server and the bloop command-line application (CLI).
-The build server <strong>must be started</strong> before the command-line application is used.</p>
-<h3><a class="anchor" aria-hidden="true" id="running-the-server-in-the-background"></a><a href="#running-the-server-in-the-background" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Running the server in the background</h3>
-<p>The Homebrew formula installs a Mac OS property list (<code>plist</code>) to start up the Bloop server
-automatically when you log into your machine. The property list spares you from the cumbersome
-process of starting the build server before running any bloop CLI command.</p>
-<p>Command examples:</p>
-<ol>
-<li><code>cat /usr/local/var/log/bloop/bloop.out.log</code>: check the build server logs via stdout.</li>
-<li><code>cat /usr/local/var/log/bloop/bloop.err.log</code>: check the build server logs via stderr.</li>
-<li><code>brew services start bloop</code>: starts up the bloop server.</li>
-<li><code>brew services stop bloop</code>: stops the bloop server.</li>
-<li><code>brew services restart bloop</code>: restarts the bloop server.</li>
-</ol>
-<p>To learn more about <code>bloop server</code> and managing the server lifecycle automatically, head to the
-<a href="docs/server-reference">Build Server Reference</a>.</p>
-<h3><a class="anchor" aria-hidden="true" id="command-line-completions"></a><a href="#command-line-completions" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Command-line completions</h3>
-<p>The installation script automatically installs completions for bash, zsh and fish.</p>
-<p>To use them you <strong>need to</strong> set up your shell to source Homebrew-installed completions by following
-the <a href="https://docs.brew.sh/Shell-Completion">Homebrew Shell Completion</a> guide. If you've already
-set them up for previous Homebrew packages you can skip the guide.</p>
-</span></div></div><div class="items" data-title="nix"><div><span><p>The installation script installs the build server and the bloop command-line application (CLI).
-The build server <strong>must be started</strong> before the command-line application is used. Start it with:</p>
-<pre><code class="hljs css language-bash">blp-server
-</code></pre>
-<p>Then, verify your installation by running the command-line application:</p>
-<pre><code class="hljs">$ <span class="hljs-keyword">bloop </span>about
-<span class="hljs-keyword">bloop </span><span class="hljs-built_in">v1</span>.<span class="hljs-number">4</span>.<span class="hljs-number">0</span>-RC1
-
-Running on <span class="hljs-keyword">Scala </span>v2.<span class="hljs-number">12</span>.<span class="hljs-number">7</span> <span class="hljs-keyword">and </span>Zinc <span class="hljs-built_in">v1</span>.<span class="hljs-number">1</span>.<span class="hljs-number">0</span>
-Maintained <span class="hljs-keyword">by </span>the <span class="hljs-keyword">Scala </span>Center (Martin Duhem, <span class="hljs-keyword">Jorge </span>Vicente Cantero)
-</code></pre>
-<h3><a class="anchor" aria-hidden="true" id="running-the-server-in-the-background"></a><a href="#running-the-server-in-the-background" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Running the server in the background</h3>
-<p>Bloop's build server is a long-running process designed to provide the fastest compilation possible
-to users. As such, users are responsible for managing its lifecycle and minimizing the amount of
-times it's restarted.</p>
-<p>We have seen how to manually start the server with <code>bloop server</code>. However, you may prefer an
-automatic solution that starts the server in the background when you log in and allows you to
-quickly restart it. There are several mechanisms to do so, read the <a href="docs/server-reference">Build Server
-Reference</a>.</p>
-<h3><a class="anchor" aria-hidden="true" id="command-line-completions"></a><a href="#command-line-completions" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Command-line completions</h3>
-<p>The installation script will automatically install completions for bash, zsh and fish.</p>
-</span></div></div><div class="items" data-title="scoop"><div><span><p>The installation script installs the build server and the bloop command-line application (CLI).
-The build server <strong>must be started</strong> before the command-line application is used. Start it with:</p>
-<pre><code class="hljs css language-bash">bloop server
-</code></pre>
-<p>This process can take a while to run the first time is executed. When the nailgun logs show up,
-verify your installation by running the command-line application:</p>
-<pre><code class="hljs">$ <span class="hljs-keyword">bloop </span>about
-<span class="hljs-keyword">bloop </span><span class="hljs-built_in">v1</span>.<span class="hljs-number">1</span>.<span class="hljs-number">1</span>
-
-Running on <span class="hljs-keyword">Scala </span>v2.<span class="hljs-number">12</span>.<span class="hljs-number">7</span> <span class="hljs-keyword">and </span>Zinc <span class="hljs-built_in">v1</span>.<span class="hljs-number">1</span>.<span class="hljs-number">1</span>
-Maintained <span class="hljs-keyword">by </span>the <span class="hljs-keyword">Scala </span>Center (Martin Duhem, <span class="hljs-keyword">Jorge </span>Vicente Cantero)
-</code></pre>
-<h3><a class="anchor" aria-hidden="true" id="running-the-server-in-the-background"></a><a href="#running-the-server-in-the-background" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Running the server in the background</h3>
-<p>Bloop's build server is a long-running process designed to provide the fastest compilation possible
-to users. As such, users are responsible for managing its lifecycle and minimizing the amount of
-times it's restarted.</p>
-<p>Bloop does not have a service file for Windows so you have to start and stop the bloop server
-manually. It is recommended to have the bloop server running in a long-lived terminal session.</p>
-<blockquote>
-<p>If you want to improve this situation, check this
-<a href="https://github.com/scalacenter/bloop/issues/766">ticket</a> which proposes a solution to this problem
-that is compatible with Windows Services.</p>
-</blockquote>
-<p>To learn more about <code>bloop server</code> and managing the server lifecycle automatically, head to the
-<a href="docs/server-reference">Build Server Reference</a>.</p>
-<h3><a class="anchor" aria-hidden="true" id="command-line-completions"></a><a href="#command-line-completions" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Command-line completions</h3>
-<p>Bloop does not support PowerShell completions at the moment. However, it does support Bash/Zsh
-command-line completions which are installed by default in the bloop installation directory (under
-<code>/etc</code>).</p>
-<p>There are several projects that allow you to use Bash style completions in your PowerShell:</p>
-<ol>
-<li><a href="https://github.com/lzybkr/PSReadLine">PSReadLine</a>, a plugin that improves the PowerShell experience and supports bash completions.</li>
-<li><a href="https://github.com/tillig/ps-bash-completions"><code>ps-bash-completions</code></a>, a single PowerShell module to install bash completions.</li>
-</ol>
-</span></div></div><div class="items" data-title="universal"><div><span><p>The installation script installs the build server and the bloop command-line application (CLI).
-The build server <strong>must be started</strong> before the command-line application is used. Start it with:</p>
-<pre><code class="hljs css language-bash">bloop server
-</code></pre>
-<blockquote>
-  <p>
-    Note that <code>bloop server</code> is a command-line alias for <code>$BLOOP_INSTALLATION_DIR/blp-server</code>.
-    If the server is not located in the same directory as the bloop CLI binary, pass in the server
-    location to the `--server-location` flag.
-  </p>
-</blockquote>
-<p>Then, verify your installation by running the command-line application:</p>
-<pre><code class="hljs">$ <span class="hljs-keyword">bloop </span>about
-<span class="hljs-keyword">bloop </span><span class="hljs-built_in">v1</span>.<span class="hljs-number">4</span>.<span class="hljs-number">0</span>-RC1
-
-Running on <span class="hljs-keyword">Scala </span>v2.<span class="hljs-number">12</span>.<span class="hljs-number">7</span> <span class="hljs-keyword">and </span>Zinc <span class="hljs-built_in">v1</span>.<span class="hljs-number">1</span>.<span class="hljs-number">0</span>
-Maintained <span class="hljs-keyword">by </span>the <span class="hljs-keyword">Scala </span>Center (Martin Duhem, <span class="hljs-keyword">Jorge </span>Vicente Cantero)
-</code></pre>
-<h3><a class="anchor" aria-hidden="true" id="running-the-server-in-the-background"></a><a href="#running-the-server-in-the-background" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Running the server in the background</h3>
-<p>Bloop's build server is a long-running process designed to provide the fastest compilation possible
-to users. As such, users are responsible for managing its lifecycle and minimizing the amount of
-times it's restarted.</p>
-<p>We have seen how to manually start the server with <code>bloop server</code>. However, you may prefer an
-automatic solution that starts the server in the background when you log in and allows you to
-quickly restart it. There are several mechanisms to do so, read the <a href="docs/server-reference">Build Server
-Reference</a>.</p>
-<h3><a class="anchor" aria-hidden="true" id="command-line-completions"></a><a href="#command-line-completions" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Command-Line Completions</h3>
-<p>Bloop supports command-line completions in bash, zsh and fish. The use of command-line
-autocompletions is recommended as it significantly improves the user experience. The installation
-of autocompletions via <code>curl</code> requires you to configure the completions manually.</p>
-<blockquote>
-<p>Note that the following instructions assume that the bloop installation directory is the default
-<code>$HOME/.bloop</code>.</p>
-</blockquote>
-<h4><a class="anchor" aria-hidden="true" id="zsh-completions"></a><a href="#zsh-completions" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Zsh Completions</h4>
-<p>Add the following to your <code>~/.zshrc</code>:</p>
-<pre><code class="hljs css language-sh"><span class="hljs-built_in">autoload</span> -U compinit
-fpath=(<span class="hljs-variable">$HOME</span>/.bloop/zsh <span class="hljs-variable">$fpath</span>)
-compinit
-</code></pre>
-<h4><a class="anchor" aria-hidden="true" id="bash-completions"></a><a href="#bash-completions" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Bash Completions</h4>
-<p>Add the following to your <code>~/.bash_profile</code>:</p>
-<pre><code class="hljs css language-sh">. <span class="hljs-variable">$HOME</span>/.bloop/bash/bloop
-</code></pre>
-<h4><a class="anchor" aria-hidden="true" id="fish-completions"></a><a href="#fish-completions" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Fish Completions</h4>
-<p>Symlink the fish completions file in the Bloop installation directory to your local fish completions
-directory (usually <code>~/.config/fish/completions</code>).</p>
-<pre><code class="hljs css language-sh">ln -s <span class="hljs-variable">$HOME</span>/.bloop/fish/bloop.fish ~/.config/fish/completions/bloop.fish
-</code></pre>
-<blockquote>
-<p>Make sure that the target fish completions directory already exists.</p>
-</blockquote>
-<p>Bloop CLI completions will not work if the build server is not running when the shell is reloaded.
-Make sure that, before reloading the fish shell, the build server is started.</p>
-<p>If you still experience problems, reload the completion script:</p>
-<pre><code class="hljs css language-bash"><span class="hljs-built_in">source</span> <span class="hljs-variable">$HOME</span>/.bloop/fish/bloop.fish bloop.fish
-</code></pre>
-<p>Or, if you use <a href="https://github.com/oh-my-fish/oh-my-fish">Oh My Fish</a>:</p>
-<pre><code class="hljs css language-bash">omf reload
-</code></pre>
-</span></div></div></div><div id="build-tools" class="step-hidden step-setup"><h2><span class="step-no">4</span>Export your build</h2><div class="build-tools-group"><h5>Build tools</h5><button data-title="sbt" class="build-tools-button">Sbt</button><button data-title="maven" class="build-tools-button">Maven</button><button data-title="mill" class="build-tools-button">Mill</button><button data-title="gradle" class="build-tools-button">Gradle</button></div><div class="build-items" data-title="gradle"><div><span><p>Gradle 4.8.x uses a three years old version of Zinc (Scala's incremental compiler) which <a href="https://www.scala-lang.org/blog/2017/11/03/zinc-blog-1.0.html">misses out
-on a lot of improvements with regards to performance and correctness in
-1.x</a>. Installing bloop makes a big
-difference in Gradle builds.</p>
+</span></div></div></div></div><div class="step-setup"><h2 id="installation"><span class="step-no">3</span>Set up your build</h2><div><span><p>This section explains you how to export your build to Bloop manually.</p>
+<p>You can skip this section if:</p>
+<ul>
+<li><p>You are using a build tool that has built-in support for Bloop and exports
+the build automatically every time there is a change.</p></li>
+<li><p>You are using IDEs such as <a href="https://scalameta.org/metals">Metals</a> or
+IntelliJ. These tools have automatic support for exporting the build to Bloop through
+their &quot;Import Build&quot; or &quot;Import Project&quot; actions. If you are using or
+planning these IDEs, import the build in your IDE and skip this section.</p></li>
+</ul>
+<p>If you have your project build and want to try the CLI on it, click on the
+build tool you use and keep reading.</p>
+</span></div><div class="tools-group-all"><div class="tools-group"><h5>Build tools</h5><button data-title="sbt" class="tools-button">Sbt</button><button data-title="maven" class="tools-button">Maven</button><button data-title="mill" class="tools-button">Mill</button><button data-title="gradle" class="tools-button">Gradle</button></div></div><div class="step-hidden step-setup"><div class="items" data-title="gradle"><div><span><h2><a class="anchor" aria-hidden="true" id="requirements"></a><a href="#requirements" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Requirements</h2>
+<ul>
+<li>At least Gradle <code>v4.3</code>, latest (tested) supported version is <code>v6.1</code></li>
+</ul>
 <h2><a class="anchor" aria-hidden="true" id="install-the-plugin"></a><a href="#install-the-plugin" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Install the plugin</h2>
-<p>Install bloop in <code>build.gradle</code>:</p>
-<pre><code class="hljs css language-groovy">buildscript {
-  repositories {
+<p>Here is a list of the latest Bloop stable and development versions.</p>
+<table>
+      <thead>
+        <th>Version</th>
+        <th>Published</th>
+        <th>Resolver</th>
+      </thead>
+      <tbody>
+        <tr>
+          <td>1.4.0-RC1</td>
+          <td>18 Dec 2019 16:01</td>
+          <td><code>-r sonatype:releases</code></td>
+        </tr>
+        <tr>
+          <td>1.4.0-RC1-110-f7516a6f-20200322-2126</td>
+          <td>23 Mar 2020 01:52</td>
+          <td><code>-r sonatype:releases</code></td>
+        </tr>
+      </tbody>
+    </table>
+<p>Add bloop to your <code>build.gradle</code> with:</p>
+<pre><code class="hljs css language-gradle"><span class="hljs-keyword">buildscript</span> {
+  <span class="hljs-keyword">repositories</span> {
     <span class="hljs-comment">// Add here whatever repositories you're already using</span>
     mavenCentral()
   }
 
-  dependencies {
-    classpath <span class="hljs-string">'ch.epfl.scala:gradle-bloop_2.11:1.4.0-RC1'</span>
+  <span class="hljs-keyword">dependencies</span> {
+    <span class="hljs-keyword">classpath</span> <span class="hljs-string">'ch.epfl.scala:gradle-bloop_2.12:1.4.0-RC1'</span>
   }
 }
 </code></pre>
-<p>Then, apply the plugin to the build projects you use to use from bloop. You can do it for all the
-projects in the build (the most common use case).</p>
-<pre><code class="hljs css language-groovy">allprojects {
-  apply plugin <span class="hljs-string">'bloop'</span>
+<p>Then, enable bloop in all your Gradle projects with:</p>
+<pre><code class="hljs css language-gradle"><span class="hljs-keyword">allprojects</span> {
+  apply plugin: <span class="hljs-string">'bloop'</span>
 }
 </code></pre>
-<p>Or, selectively per project:</p>
-<pre><code class="hljs css language-groovy">apply plugin <span class="hljs-string">'bloop'</span>
-</code></pre>
-<h2><a class="anchor" aria-hidden="true" id="export-the-build"></a><a href="#export-the-build" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Export the build</h2>
+<p>For a more advanced configuration, read the <a href="#plugin-configuration">Plugin Configuration</a> below.</p>
+<h2><a class="anchor" aria-hidden="true" id="export-your-build"></a><a href="#export-your-build" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Export your build</h2>
 <p>The gradle command <code>bloopInstall</code> exports your gradle build to bloop.</p>
 <p>The gradle plugin generates a configuration file per <a href="https://docs.gradle.org/current/userguide/scala_plugin.html#sec:scala_source_set_properties">every source set in your build
 definition</a>.
@@ -294,10 +173,12 @@ Generated <span class="hljs-string">'/disk/foo/.bloop/foo-test.json'</span>.
 <li><code>foo</code> comes from the compile source set; and,</li>
 <li><code>foo-test</code> comes from the test source set and depends on <code>foo</code></li>
 </ol>
-<blockquote>
-<p>If you want to configure the installation step, head to <a href="build-tools/maven.md">the Bloop Maven documentation
-page</a>.</p>
-</blockquote>
+<p>If you have applied Bloop to all the projects in your build but some of your
+projects can't be understood by Bloop (for example, they are not Java or
+Scala projects), you will see the following log:</p>
+<pre><code class="hljs"><span class="hljs-attribute">Ignoring</span> <span class="hljs-string">'bloopInstall'</span> <span class="hljs-literal">on</span> non-Scala and non-Java project <span class="hljs-string">'<span class="hljs-variable">$NON_JVM_PROJECT</span>'</span>
+</code></pre>
+<p>You can safely ignore such messsages.</p>
 <h2><a class="anchor" aria-hidden="true" id="verify-installation-and-export"></a><a href="#verify-installation-and-export" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Verify installation and export</h2>
 <blockquote>
 <p>Remember that the build server must be running in the background, as suggested by the <a href="/setup">Setup
@@ -329,28 +210,41 @@ foo-test
 <li><code>bloop compile foo-test</code>: compiles foo's <code>src/main</code> and <code>src/test</code>.</li>
 <li><code>bloop test foo-test -w</code>: runs foo tests repeatedly with file watching enabled.</li>
 </ol>
-<h2><a class="anchor" aria-hidden="true" id="next-steps"></a><a href="#next-steps" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Next steps</h2>
-<p>Start using <a href="docs/usage">Bloop with the CLI</a> or <a href="docs/ides/overview">configure it with the supported IDEs</a>.</p>
-<p>If you want to configure the installation step or learn more about the integration, visit the
-<a href="docs/build-tools/gradle">Gradle documentation page</a>.</p>
-</span></div></div><div class="build-items" data-title="maven"><div><span><blockquote>
-<p>Despite having several happy Maven users, the Maven integration has a few issues that are not
-being actively worked on. If you're a Maven user and want to help out, say hi in our <a href="https://gitter.im/scalacenter/bloop">Gitter
-channel</a> and eyeball <a href="https://github.com/scalacenter/bloop/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc+label%3Amaven">open
-issues</a>.</p>
-</blockquote>
-<h2><a class="anchor" aria-hidden="true" id="generate-configuration-files"></a><a href="#generate-configuration-files" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Generate configuration files</h2>
-<p>The Maven command <code>bloopInstall</code> exports your Maven builds to bloop.</p>
-<p>The Maven plugin requires
-<a href="https://github.com/davidB/scala-maven-plugin/"><code>davidB/scala-maven-plugin</code></a> because it extracts
-Scala settings from its plugin-specific configuration. This plugin is the most popular Scala
-integration for Maven.</p>
-<p><code>maven-bloop</code> generates two configuration files per Maven project. One project for the main sources
-and another one for the tests. Bloop will skip config file generation for those projects that are
-not either Java or Scala.</p>
+</span></div></div><div class="items" data-title="maven"><div><span><h2><a class="anchor" aria-hidden="true" id="requirements"></a><a href="#requirements" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Requirements</h2>
+<ul>
+<li>Your build uses <a href="https://github.com/davidB/scala-maven-plugin/"><code>scala-maven-plugin</code></a></li>
+</ul>
+<h2><a class="anchor" aria-hidden="true" id="export-your-build"></a><a href="#export-your-build" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Export your build</h2>
+<p>The Bloop plugin for Maven doesn't need to be installed, you can run
+<code>bloopInstall</code>, the task to export your Maven builds to bloop, with the
+following command.</p>
 <pre><code class="hljs css language-bash">$ mvn ch.epfl.scala:maven-bloop_2.10:1.4.0-RC1:bloopInstall
 </code></pre>
-<p>For example, a build with a single Scala project <code>foo</code> generates two configuration files:</p>
+<p>Note that the following command uses the latest Bloop stable version
+1.4.0-RC1.</p>
+<p>Here is the list of the latest Bloop stable and development versions. If you
+want to be on the very latest at the cost of misbehaviors, replace the above
+question with the development version.</p>
+<table>
+      <thead>
+        <th>Version</th>
+        <th>Published</th>
+        <th>Resolver</th>
+      </thead>
+      <tbody>
+        <tr>
+          <td>1.4.0-RC1</td>
+          <td>18 Dec 2019 16:01</td>
+          <td><code>-r sonatype:releases</code></td>
+        </tr>
+        <tr>
+          <td>1.4.0-RC1-110-f7516a6f-20200322-2126</td>
+          <td>23 Mar 2020 01:52</td>
+          <td><code>-r sonatype:releases</code></td>
+        </tr>
+      </tbody>
+    </table>
+<p>To build with a single Scala project <code>foo</code> generates two configuration files:</p>
 <pre><code class="hljs css language-bash">$ mvn ch.epfl.scala:maven-bloop_2.10:1.4.0-RC1:bloopInstall
 (...)
 Generated <span class="hljs-string">'/disk/foo/.bloop/foo.json'</span>.
@@ -361,11 +255,10 @@ Generated <span class="hljs-string">'/disk/foo/.bloop/foo-test.json'</span>.
 <li><code>foo</code> defines the main project; and,</li>
 <li><code>foo-test</code> defines the test project and depends on <code>foo</code></li>
 </ol>
+<p><code>maven-bloop</code> generates two configuration files per Maven project. One
+project for the main sources and another one for the tests. Bloop will skip
+config file generation for those projects that are not either Java or Scala.</p>
 <h2><a class="anchor" aria-hidden="true" id="verify-installation-and-export"></a><a href="#verify-installation-and-export" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Verify installation and export</h2>
-<blockquote>
-<p>Remember that the build server must be running in the background, as suggested by the <a href="/setup">Setup
-page</a>.</p>
-</blockquote>
 <p>Verify your installation by running <code>bloop projects</code> in the root of the Maven workspace directory.</p>
 <pre><code class="hljs css language-bash">$ bloop projects
 foo
@@ -391,25 +284,20 @@ foo-test
 </ol>
 <p>After verifying the export, you can continue using Bloop's command-line application or any build
 client integrating with Bloop, such as <a href="https://scalameta.org/metals/">Metals</a>.</p>
-<h2><a class="anchor" aria-hidden="true" id="next-steps"></a><a href="#next-steps" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Next steps</h2>
-<p>Start using <a href="docs/usage">Bloop with the CLI</a> or <a href="docs/ides/overview">configure it with the supported
-IDEs</a>.</p>
-<p>If you want to configure the installation step or learn more about the integration, visit the
-<a href="docs/build-tools/maven">Maven documentation page</a>.</p>
-</span></div></div><div class="build-items" data-title="mill"><div><span><h2><a class="anchor" aria-hidden="true" id="install-the-plugin"></a><a href="#install-the-plugin" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Install the plugin</h2>
-<p>Install bloop in <code>build.sc</code>:</p>
+</span></div></div><div class="items" data-title="mill"><div><span><h2><a class="anchor" aria-hidden="true" id="requirements"></a><a href="#requirements" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Requirements</h2>
+<ul>
+<li>Your mill version needs to be &gt;= <code>0.4.0-2-4dbbce</code>.</li>
+</ul>
+<h2><a class="anchor" aria-hidden="true" id="install-the-plugin"></a><a href="#install-the-plugin" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Install the plugin</h2>
+<p>Install bloop in <code>build.sc</code> by replacing <code>$millVersion</code> in the following
+command:</p>
 <pre><code class="hljs css language-scala"><span class="hljs-keyword">import</span> $ivy.`com.lihaoyi::mill-contrib-bloop:$millVersion`
 </code></pre>
-<h3><a class="anchor" aria-hidden="true" id="requirements"></a><a href="#requirements" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Requirements</h3>
-<ul>
-<li><code>mill</code> &gt;= <code>0.4.0-2-4dbbce</code>.</li>
-</ul>
-<p>The bloop integration has been merged into <a href="http://www.lihaoyi.com/mill/page/contrib-modules.html#bloop">mill's codebase</a> as a contrib module.  This means that the lifecycle of that integration follows mill's, but is not packaged with it and needs to be manually depended on via <code>import</code>.</p>
-<h2><a class="anchor" aria-hidden="true" id="generate-configuration-files"></a><a href="#generate-configuration-files" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Generate configuration files</h2>
+<h2><a class="anchor" aria-hidden="true" id="export-your-build"></a><a href="#export-your-build" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Export your build</h2>
 <p>The mill command <code>mill mill.contrib.Bloop/install</code> exports your mill build to bloop.</p>
-<p>The mill plugin generates a configuration file per every compile and test sources in your build
-definition. For example, a build with a single Scala project <code>foo</code> generates two configuration files
-by default:</p>
+<p>The mill plugin generates a configuration file per every compile and test
+sources in your build definition. For example, a build with a single Scala
+project <code>foo</code> generates two configuration files by default:</p>
 <pre><code class="hljs css language-bash">$ mill mill.contrib.Bloop/install
 (...)
 info Generated <span class="hljs-string">'/disk/foo/.bloop/foo.json'</span>.
@@ -420,14 +308,9 @@ info Generated <span class="hljs-string">'/disk/foo/.bloop/foo-test.json'</span>
 <li><code>foo</code> comes from the compile source set; and,</li>
 <li><code>foo-test</code> comes from the test source set and depends on <code>foo</code></li>
 </ol>
-<blockquote>
-<p>If you want to configure the installation step, head to <a href="docs/build-tools/mill.md">the Bloop mill documentation
-page</a>.</p>
-</blockquote>
 <h2><a class="anchor" aria-hidden="true" id="verify-installation-and-export"></a><a href="#verify-installation-and-export" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Verify installation and export</h2>
 <blockquote>
-<p>Remember that the build server must be running in the background, as suggested by the <a href="/setup">Setup
-page</a>.</p>
+<p>If you haven't installed bloop and its CLI yet, <a href="/setup">follow these instructions</a> before proceeding.</p>
 </blockquote>
 <p>Verify your installation by running <code>bloop projects</code> in the root of the mill workspace directory.</p>
 <pre><code class="hljs css language-bash">$ bloop projects
@@ -452,19 +335,35 @@ foo-test
 <li><code>bloop compile foo-test</code>: compiles foo's <code>src/main</code> and <code>src/test</code>.</li>
 <li><code>bloop test foo-test -w</code>: runs foo tests repeatedly with file watching enabled.</li>
 </ol>
-<p>After verifying the export, you can continue using Bloop's command-line application or any build
-client integrating with Bloop, such as <a href="https://scalameta.org/metals/">Metals</a>.</p>
-<h2><a class="anchor" aria-hidden="true" id="next-steps"></a><a href="#next-steps" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Next steps</h2>
-<p>Start using <a href="docs/usage">Bloop with the CLI</a> or <a href="docs/ides/overview">configure it with the supported
-IDEs</a>.</p>
-<p>If you want to configure the installation step or learn more about the integration, visit the
-<a href="docs/build-tools/mill">Mill documentation page</a>.</p>
-</span></div></div><div class="build-items" data-title="sbt"><div><span><h2><a class="anchor" aria-hidden="true" id="install-the-plugin"></a><a href="#install-the-plugin" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Install the plugin</h2>
-<p>Install bloop in <code>project/plugins.sbt</code>:</p>
-<pre><code class="hljs css language-scala">addSbtPlugin(<span class="hljs-string">"ch.epfl.scala"</span> % <span class="hljs-string">"sbt-bloop"</span> % <span class="hljs-string">"1.4.0-RC1"</span>)
+<p>After verifying the export, you can continue using Bloop's command-line
+application or any build client integrating with Bloop, such as
+<a href="https://scalameta.org/metals/">Metals</a>.</p>
+</span></div></div><div class="items" data-title="sbt"><div><span><h2><a class="anchor" aria-hidden="true" id="install-the-plugin"></a><a href="#install-the-plugin" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Install the plugin</h2>
+<p>Here is a list of the latest Bloop stable and development versions for <code>sbt-bloop</code>.</p>
+<table>
+      <thead>
+        <th>Version</th>
+        <th>Published</th>
+        <th>Resolver</th>
+      </thead>
+      <tbody>
+        <tr>
+          <td>1.4.0-RC1</td>
+          <td>18 Dec 2019 16:01</td>
+          <td><code>-r sonatype:releases</code></td>
+        </tr>
+        <tr>
+          <td>1.4.0-RC1-110-f7516a6f-20200322-2126</td>
+          <td>23 Mar 2020 01:52</td>
+          <td><code>-r sonatype:releases</code></td>
+        </tr>
+      </tbody>
+    </table>
+<p>Install bloop by adding the following line to your <code>project/plugins.sbt</code>:</p>
+<pre><code class="hljs css language-sbt"><span class="hljs-function"><span class="hljs-title">addSbtPlugin</span><span class="hljs-params">(<span class="hljs-string">"ch.epfl.scala"</span> % <span class="hljs-string">"sbt-bloop"</span> % <span class="hljs-string">"1.4.0-RC1"</span>)</span></span>
 </code></pre>
-<p>And start up or reload your sbt shell to add the plugin to your working build.</p>
-<h2><a class="anchor" aria-hidden="true" id="generate-configuration-files"></a><a href="#generate-configuration-files" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Generate configuration files</h2>
+<p>After that, start up sbt or reload your sbt shell to load the plugin.</p>
+<h2><a class="anchor" aria-hidden="true" id="export-your-build"></a><a href="#export-your-build" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Export your build</h2>
 <p>The sbt command <code>bloopInstall</code> exports your sbt build to bloop.</p>
 <p>In bloop, an sbt project is represented as a pair of <code>(sbt project, sbt configuration)</code> and it's
 written to a configuration directory. The default location of this directory in your workspace is
@@ -511,12 +410,15 @@ foo-test
 <li><code>bloop compile foo-test</code>: compiles foo's <code>src/main</code> and <code>src/test</code>.</li>
 <li><code>bloop test foo-test -w</code>: runs foo tests repeatedly with file watching enabled.</li>
 </ol>
-<h2><a class="anchor" aria-hidden="true" id="next-steps"></a><a href="#next-steps" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Next steps</h2>
-<p>Start using <a href="docs/usage">Bloop with the CLI</a> or <a href="docs/ides/overview">configure it with the supported
-IDEs</a>.</p>
-<p>If you want to configure the installation step or learn more about the integration, visit the
-<a href="docs/build-tools/sbt">sbt documentation page</a>.</p>
-</span></div></div></div></div></div></div><script src="/bloop/scripts/tools.js?t=1584730416615"></script><script src="/bloop/scripts/build-tools.js?t=1584730416615"></script></div></div></div><script type="text/javascript" src="https://cdn.jsdelivr.net/docsearch.js/1/docsearch.min.js"></script><script>
+</span></div></div></div></div><div class="step-setup"><h2><span class="step-no">4</span>Use Bloop</h2><div><span><p>This is it! You already have Bloop and the Bloop CLI installed in your
+machine. Now, it's time to write Scala code and be productive.</p>
+<p>You can either use an IDE such as <a href="docs/ides/metals">Metals</a> or
+<a href="docs/ides/intellij">IntelliJ</a> to write code or play with the
+<a href="docs/cli/tutorial">CLI</a> if you want to explore what CLI options are
+available.</p>
+<p>If you need help, you can always come over our <a href="https://gitter.im/scalacenter/bloop">Gitter
+channel</a>.</p>
+</span></div></div></div></div></div><script src="/bloop/scripts/tools.js?t=1584924773602"></script><script src="/bloop/scripts/build-tools.js?t=1584924773602"></script></div></div><footer class="nav-footer" id="footer" style="background-color:rgb(17, 42, 68)"><section class="sitemap"><a href="/bloop/" class="nav-home"><img src="/bloop/img/impure-logo-bloop.svg" alt="Bloop" height="60"/></a><a href="/bloop/" class="nav-home"><img src="/bloop/img/frontpage/scala.png" alt="Bloop" height="60"/></a><div><h5>Overview</h5><a href="/bloop/docs/what-is-bloop">What is Bloop</a><a href="/bloop/docs/integration">Integrate with Bloop</a><a href="/bloop/docs/build-tools/overview">Build Tools</a><a href=" /bloop/docs/contributing-guide">Contributing</a></div><div><h5>Build Tools</h5><a href="/bloop/docs/build-tools/sbt">sbt</a><a href="/bloop/docs/build-tools/gradle">Gradle</a><a href="/bloop/docs/build-tools/maven">Maven</a><a href="/bloop/docs/build-tools/mill">Mill</a></div><div><h5>Social</h5><a href="https://github.com/scalacenter/bloop" target="_blank"><img src="https://img.shields.io/github/stars/scalacenter/bloop.svg?color=%23087e8b&amp;label=stars&amp;logo=github&amp;style=social"/></a><a href="https://discord.gg/vys6d43" target="_blank"><img src="https://img.shields.io/discord/632642981228314653?logo=discord&amp;style=social"/></a><a href="https://gitter.im/scalacenter/bloop" target="_blank"><img src="https://img.shields.io/gitter/room/scalacenter/bloop.svg?logo=gitter&amp;style=social"/></a><a href="https://twitter.com/jvican" target="_blank"><img src="https://img.shields.io/twitter/follow/jvican.svg?logo=twitter&amp;style=social"/></a></div></section><section class="copyright">Copyright © 2020 Bloop</section><section class="copyright">Credits to @freepik for svg icons</section><section class="copyright">Credits to Bazel, Babel and Metals for inspiring Bloop&#x27;s website design</section></footer></div><script type="text/javascript" src="https://cdn.jsdelivr.net/docsearch.js/1/docsearch.min.js"></script><script>
                 document.addEventListener('keyup', function(e) {
                   if (e.target !== document.body) {
                     return;
@@ -532,7 +434,6 @@ IDEs</a>.</p>
                 
                 apiKey: 'cf5bcb37b134346182da2be3f5e0a76b',
                 indexName: 'bloop_scala',
-                inputSelector: '#search_input_react',
-                algoliaOptions: {"facetFilters":["version:1.3.4"]}
+                inputSelector: '#search_input_react'
               });
             </script></body></html>
