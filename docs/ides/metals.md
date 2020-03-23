@@ -9,7 +9,6 @@ editors such as Visual Studio Code, `vim`, Sublime Text and Atom.
 
 |                              | Build import | Compile        | Test                  | Run                  | Debug                 |
 | ---------------------------- | ------------ | -------------- | --------------------- | -------------------- | --------------------- |
-| **IntelliJ BSP**             | ✅           | ✅             | 🚧 use IntelliJ test | 🚧 use IntelliJ test | 🚧 use IntelliJ test |
 | **Metals**                   | ✅           | ✅             | ✅                   | ✅                   | ✅                   |
 
 At the moment, the BSP integration only supports build import and compilation (with compiler
