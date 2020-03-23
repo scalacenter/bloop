@@ -109,8 +109,8 @@ const Hero = ({ language }) => (
               Build and test <b>Scala</b> code of any size <b>quickly</b>, from any editor, from any build tool
             </h2>
             <PromoSection>
-              <Button href="#try">Try It Out</Button>
-              <Button href={docUrl('doc1.html', language)}>Get Started</Button>
+              <Button href={pageUrl('setup', language)}>Try It Out</Button>
+              <Button href={docUrl('what-is-bloop', language)}>Get Started</Button>
             </PromoSection>
           </div>
           <div className="hero__logo" style={{ display: "flex", flexDirection: "column" }}>
@@ -131,7 +131,7 @@ class HomeSplash extends React.Component {
         <div className="inner">
           <ProjectTitle />
           <PromoSection>
-            <Button href="#try">Try It Out</Button>
+            <Button href="#try">Learn More</Button>
             <Button href={docUrl('doc1.html', language)}>Get Started</Button>
           </PromoSection>
         </div>
