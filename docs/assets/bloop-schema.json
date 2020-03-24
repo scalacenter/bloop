@@ -580,6 +580,25 @@
               "$ref": "#/definitions/nativePlatform"
             }
           ]
+        },
+        "tags": {
+          "$id": "/properties/project/properties/tags",
+          "type": "array",
+          "title": "The Tags Schema",
+          "description": "The tags associated with that project",
+          "examples": [
+              ["test"],
+              ["library", "cross-platform"]
+          ],
+          "items": {
+            "$id": "/properties/project/properties/tags/items",
+            "type": "string",
+            "title": "A tag associated with that project",
+            "examples": [
+              "test",
+              "library"
+            ]
+          }
         }
       }
     }
