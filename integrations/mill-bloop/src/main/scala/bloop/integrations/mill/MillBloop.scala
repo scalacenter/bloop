@@ -5,6 +5,7 @@ import _root_.mill.define._
 import _root_.mill.scalalib._
 import _root_.mill.eval.Evaluator
 import ammonite.ops._
+import bloop.config.Tag
 import bloop.config.util.ConfigUtil
 @deprecated("1.3.0", "See http://www.lihaoyi.com/mill/page/contrib-modules.html#bloop")
 object Bloop extends ExternalModule {
@@ -94,6 +95,7 @@ object Bloop extends ExternalModule {
 
     val classpath = T.task(transitiveClasspath(module)() ++ ivyDepsClasspath())
     val resources = T.task(module.resources().map(_.path.toNIO).toList)
+    val tags = module match { case _: TestModule => List(Tag.Test); case _ => List(Tag.Library) }
 
     val project = T.task {
       Config.Project(
@@ -113,7 +115,8 @@ object Bloop extends ExternalModule {
         sbt = None,
         test = testConfig(),
         platform = Some(platform()),
-        resolution = None
+        resolution = None,
+        tags = Some(tags)
       )
     }
 

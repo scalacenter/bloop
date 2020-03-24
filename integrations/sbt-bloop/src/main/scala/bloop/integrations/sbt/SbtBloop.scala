@@ -3,7 +3,7 @@ package bloop.integrations.sbt
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
 
-import bloop.config.Config
+import bloop.config.{Config, Tag}
 import bloop.config.util.ConfigUtil
 import bloop.integration.sbt.Feedback
 import sbt.{
@@ -866,6 +866,11 @@ object BloopDefaults {
     val hasConfigSettings = productDirectoriesUndeprecatedKey.?.value.isDefined
     val projectName = projectNameFromString(project.id, configuration, logger)
     val currentSbtUniverse = BloopKeys.bloopGlobalUniqueId.value
+    val tags = configuration match {
+      case IntegrationTest => List(Tag.IntegrationTest)
+      case Test => List(Tag.Test)
+      case _ => List(Tag.Library)
+    }
 
     lazy val generated = Option(targetNamesToConfigs.get(projectName))
     if (isMetaBuild && configuration == Test) inlinedTask[Option[File]](None)
@@ -1017,7 +1022,8 @@ object BloopDefaults {
 
             val sbt = None // Written by `postGenerate` instead
             val project = Config.Project(projectName, baseDirectory, Option(buildBaseDirectory.toPath), sources, None, None, dependenciesAndAggregates,
-              classpath, out, classesDir, resources, Some(`scala`), Some(java), sbt, Some(testOptions), Some(platform), resolution)
+              classpath, out, classesDir, resources, Some(`scala`), Some(java), sbt, Some(testOptions), Some(platform), resolution,
+              Some(tags))
             Config.File(Config.File.LatestVersion, project)
           }
           // format: ON

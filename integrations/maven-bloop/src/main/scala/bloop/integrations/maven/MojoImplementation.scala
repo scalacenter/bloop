@@ -3,7 +3,7 @@ package bloop.integrations.maven
 import java.io.File
 import java.nio.file.{Files, Path, Paths}
 import java.util
-import bloop.config.Config
+import bloop.config.{Config, Tag}
 import org.apache.maven.execution.MavenSession
 import org.apache.maven.model.Resource
 import org.apache.maven.plugin.logging.Log
@@ -120,6 +120,8 @@ object MojoImplementation {
         (projectDependencies.map(u => abs(new File(u))) ++ cp).toList
       }
 
+      val tags = if (configuration == "test") List(Tag.Test) else List(Tag.Library)
+
       // FORMAT: OFF
       val config = {
         val sbt = None
@@ -131,7 +133,7 @@ object MojoImplementation {
         val platform = Some(Config.Platform.Jvm(Config.JvmConfig(javaHome, launcher.getJvmArgs().toList), mainClass))
         // Resources in Maven require
         val resources = Some(resources0.asScala.toList.flatMap(a => Option(a.getTargetPath).toList).map(classesDir.resolve))
-        val project = Config.Project(name, baseDirectory, Some(root.toPath), sourceDirs, None, None, dependencyNames, classpath, out, classesDir, resources, `scala`, java, sbt, test, platform, resolution)
+        val project = Config.Project(name, baseDirectory, Some(root.toPath), sourceDirs, None, None, dependencyNames, classpath, out, classesDir, resources, `scala`, java, sbt, test, platform, resolution, Some(tags))
         Config.File(Config.File.LatestVersion, project)
       }
       // FORMAT: ON

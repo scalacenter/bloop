@@ -6,7 +6,7 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Paths}
 
 import bloop.cli.Commands
-import bloop.config.Config
+import bloop.config.{Config, Tag}
 import bloop.config.Config.{CompileSetup, JavaThenScala, Mixed, Platform}
 import bloop.engine.{Build, Run, State}
 import bloop.io.AbsolutePath
@@ -332,6 +332,15 @@ abstract class ConfigGenerationSuite {
     assertEquals(List("c"), configCTest.project.dependencies)
     assertEquals(List("b", "d"), configDTest.project.dependencies.sorted)
 
+    assert(hasTag(configA, Tag.Library))
+    assert(hasTag(configATest, Tag.Test))
+    assert(hasTag(configB, Tag.Library))
+    assert(hasTag(configBTest, Tag.Test))
+    assert(hasTag(configC, Tag.Library))
+    assert(hasTag(configCTest, Tag.Test))
+    assert(hasTag(configD, Tag.Library))
+    assert(hasTag(configDTest, Tag.Test))
+
     def assertSources(config: Config.File, entryName: String): Unit = {
       assertTrue(
         s"Resolution field for ${config.project.name} does not exist",
@@ -475,6 +484,10 @@ abstract class ConfigGenerationSuite {
     val configATest = readValidBloopConfig(bloopATest)
     val configBTest = readValidBloopConfig(bloopBTest)
 
+    assert(hasTag(configA, Tag.Library))
+    assert(hasTag(configB, Tag.Library))
+    assert(hasTag(configATest, Tag.Test))
+    assert(hasTag(configBTest, Tag.Test))
     assert(configA.project.dependencies.isEmpty)
     assert(configB.project.dependencies.isEmpty)
     assertEquals(List("a"), configATest.project.dependencies.sorted)
@@ -590,6 +603,10 @@ abstract class ConfigGenerationSuite {
     val configATest = readValidBloopConfig(bloopATest)
     val configBTest = readValidBloopConfig(bloopBTest)
 
+    assert(hasTag(configA, Tag.Library))
+    assert(hasTag(configB, Tag.Library))
+    assert(hasTag(configATest, Tag.Test))
+    assert(hasTag(configBTest, Tag.Test))
     assert(configA.project.dependencies.isEmpty)
     assert(configB.project.dependencies.isEmpty)
     assertEquals(List("a"), configATest.project.dependencies.sorted)
@@ -931,6 +948,8 @@ abstract class ConfigGenerationSuite {
     val configB = readValidBloopConfig(bloopB)
     val configBTest = readValidBloopConfig(bloopBTest)
     assert(configB.project.`scala`.exists(_.version == "2.12.6"))
+    assert(hasTag(configB, Tag.Library))
+    assert(hasTag(configBTest, Tag.Test))
     assertEquals(Nil, configB.project.dependencies)
     assertEquals(List("b"), configBTest.project.dependencies)
 
@@ -979,10 +998,12 @@ abstract class ConfigGenerationSuite {
     assert(!projectConfig.project.`scala`.isDefined)
     assert(projectConfig.project.dependencies.isEmpty)
     assert(projectConfig.project.classpath.isEmpty)
+    assert(hasTag(projectConfig, Tag.Library))
 
     val projectTestConfig = readValidBloopConfig(projectTestFile)
     assert(!projectConfig.project.`scala`.isDefined)
     assert(projectTestConfig.project.dependencies == List(projectName))
+    assert(hasTag(projectTestConfig, Tag.Test))
     assert(compileBloopProject(s"${projectName}-test", bloopDir).status.isOk)
   }
 
@@ -1408,8 +1429,10 @@ abstract class ConfigGenerationSuite {
     assertEquals(version, configFile.project.`scala`.get.version)
     assert(configFile.project.classpath.nonEmpty)
     assert(configFile.project.dependencies.isEmpty)
+    assert(hasTag(configFile, Tag.Library))
 
     assert(configTestFile.project.dependencies == List(projectName))
+    assert(hasTag(configTestFile, Tag.Test))
     assert(compileBloopProject(s"${projectName}-test", bloopDir).status.isOk)
   }
 
@@ -1493,6 +1516,10 @@ abstract class ConfigGenerationSuite {
   private def hasClasspathEntryName(config: Config.File, entryName: String): Boolean = {
     val pathValidEntryName = entryName.replace('/', File.separatorChar)
     config.project.classpath.exists(_.toString.contains(pathValidEntryName))
+  }
+
+  private def hasTag(config: Config.File, tag: String): Boolean = {
+    config.project.tags.getOrElse(Nil).contains(tag)
   }
 
   private def writeBuildScript(buildFile: File, contents: String): Unit = {
