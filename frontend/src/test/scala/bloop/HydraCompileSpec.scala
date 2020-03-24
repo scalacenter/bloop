@@ -19,7 +19,7 @@ object HydraCompileSpec extends BaseCompileSpec {
   private val TriplequoteResolver = MavenRepository(
     "https://repo.triplequote.com/artifactory/libs-release/"
   )
-  private val HydraVersion = "2.2.1"
+  private val HydraVersion = "2.2.2"
 
   object HydraTestProject extends bloop.util.BaseTestProject {
     override protected def mkScalaInstance(
