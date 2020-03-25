@@ -97,11 +97,12 @@ object ClasspathHasher {
                   Option(cacheMetadataJar.get(file)) match {
                     case Some((metadata, hashHit)) if metadata == currentMetadata => hashHit
                     case _ =>
-                      tracer.trace(s"computing hash ${filePath.toAbsolutePath.toString}")({ _ =>
-                        val newHash = FileHash.of(file, ByteHasher.hashFileContents(file))
-                        cacheMetadataJar.put(file, (currentMetadata, newHash))
-                        newHash
-                      }, verbose = true)
+                      tracer.traceVerbose(s"computing hash ${filePath.toAbsolutePath.toString}") {
+                        _ =>
+                          val newHash = FileHash.of(file, ByteHasher.hashFileContents(file))
+                          cacheMetadataJar.put(file, (currentMetadata, newHash))
+                          newHash
+                      }
                   }
                 }
               }
@@ -151,90 +152,81 @@ object ClasspathHasher {
       }
     }
 
-    tracer.traceTask("computing hashes")(
-      { tracer =>
-        val acquiredByOtherTasks = new mutable.ListBuffer[Task[Unit]]()
-        val acquiredByThisHashingProcess = new mutable.ListBuffer[AcquiredTask]()
+    tracer.traceTaskVerbose("computing hashes") { tracer =>
+      val acquiredByOtherTasks = new mutable.ListBuffer[Task[Unit]]()
+      val acquiredByThisHashingProcess = new mutable.ListBuffer[AcquiredTask]()
 
-        def acquireHashingEntry(entry: File, entryIdx: Int): Unit = {
-          if (isCancelled.get) ()
-          else {
-            val entryPromise = Promise[FileHash]()
-            val promise = hashingPromises.putIfAbsent(entry, entryPromise)
-            if (promise == null) { // The hashing is done by this process
-              acquiredByThisHashingProcess.+=(AcquiredTask(entry, entryIdx, entryPromise))
-            } else { // The hashing is acquired by another process, wait on its result
-              acquiredByOtherTasks.+=(
-                Task.fromFuture(promise.future).flatMap {
-                  hash =>
-                    if (hash == BloopStamps.cancelledHash) {
-                      if (cancelCompilation.isCompleted) Task.now(())
-                      else {
-                        // If the process that acquired it cancels the computation, try acquiring it again
-                        logger
-                          .warn(
-                            s"Unexpected hash computation of $entry was cancelled, restarting..."
-                          )
-                        Task.fork(Task.eval(acquireHashingEntry(entry, entryIdx)))
-                      }
-                    } else {
-                      Task.now {
-                        // Save the result hash in its index
-                        classpathHashes(entryIdx) = hash
-                        ()
-                      }
-                    }
+      def acquireHashingEntry(entry: File, entryIdx: Int): Unit = {
+        if (isCancelled.get) ()
+        else {
+          val entryPromise = Promise[FileHash]()
+          val promise = hashingPromises.putIfAbsent(entry, entryPromise)
+          if (promise == null) { // The hashing is done by this process
+            acquiredByThisHashingProcess.+=(AcquiredTask(entry, entryIdx, entryPromise))
+          } else { // The hashing is acquired by another process, wait on its result
+            acquiredByOtherTasks.+=(
+              Task.fromFuture(promise.future).flatMap { hash =>
+                if (hash == BloopStamps.cancelledHash) {
+                  if (cancelCompilation.isCompleted) Task.now(())
+                  else {
+                    // If the process that acquired it cancels the computation, try acquiring it again
+                    logger
+                      .warn(s"Unexpected hash computation of $entry was cancelled, restarting...")
+                    Task.fork(Task.eval(acquireHashingEntry(entry, entryIdx)))
+                  }
+                } else {
+                  Task.now {
+                    // Save the result hash in its index
+                    classpathHashes(entryIdx) = hash
+                    ()
+                  }
                 }
-              )
+              }
+            )
+          }
+        }
+      }
+
+      val initEntries = Task {
+        classpath.zipWithIndex.foreach {
+          case t @ (absoluteEntry, idx) =>
+            val entry = absoluteEntry.toFile
+            acquireHashingEntry(entry, idx)
+        }
+      }.doOnCancel(Task { isCancelled.compareAndSet(false, true); () })
+
+      // Let's first turn the obtained hash tasks into an observable, don't allow cancellation
+      val acquiredTask = Observable.fromIterable(acquiredByThisHashingProcess)
+
+      val cancelableAcquiredTask = Task.create[Unit] { (scheduler, cb) =>
+        val (out, consumerSubscription) = parallelConsumer.createSubscriber(cb, scheduler)
+        val _ = acquiredTask.subscribe(out)
+        Cancelable { () =>
+          isCancelled.compareAndSet(false, true); ()
+        }
+      }
+
+      initEntries.flatMap { _ =>
+        cancelableAcquiredTask
+          .doOnCancel(Task { isCancelled.compareAndSet(false, true); () })
+          .flatMap { _ =>
+            if (isCancelled.get || cancelCompilation.isCompleted) {
+              cancelCompilation.trySuccess(())
+              Task.now(Left(()))
+            } else {
+              Task.sequence(acquiredByOtherTasks.toList).map { _ =>
+                val hasCancelledHash = classpathHashes.exists(_.hash() == BloopStamps.cancelledHash)
+                if (hasCancelledHash || isCancelled.get || cancelCompilation.isCompleted) {
+                  cancelCompilation.trySuccess(())
+                  Left(())
+                } else {
+                  Right(classpathHashes.toVector)
+                }
+              }
             }
           }
-        }
-
-        val initEntries = Task {
-          classpath.zipWithIndex.foreach {
-            case t @ (absoluteEntry, idx) =>
-              val entry = absoluteEntry.toFile
-              acquireHashingEntry(entry, idx)
-          }
-        }.doOnCancel(Task { isCancelled.compareAndSet(false, true); () })
-
-        // Let's first turn the obtained hash tasks into an observable, don't allow cancellation
-        val acquiredTask = Observable.fromIterable(acquiredByThisHashingProcess)
-
-        val cancelableAcquiredTask = Task.create[Unit] { (scheduler, cb) =>
-          val (out, consumerSubscription) = parallelConsumer.createSubscriber(cb, scheduler)
-          val _ = acquiredTask.subscribe(out)
-          Cancelable { () =>
-            isCancelled.compareAndSet(false, true); ()
-          }
-        }
-
-        initEntries.flatMap {
-          _ =>
-            cancelableAcquiredTask
-              .doOnCancel(Task { isCancelled.compareAndSet(false, true); () })
-              .flatMap {
-                _ =>
-                  if (isCancelled.get || cancelCompilation.isCompleted) {
-                    cancelCompilation.trySuccess(())
-                    Task.now(Left(()))
-                  } else {
-                    Task.sequence(acquiredByOtherTasks.toList).map { _ =>
-                      val hasCancelledHash =
-                        classpathHashes.exists(_.hash() == BloopStamps.cancelledHash)
-                      if (hasCancelledHash || isCancelled.get || cancelCompilation.isCompleted) {
-                        cancelCompilation.trySuccess(())
-                        Left(())
-                      } else {
-                        Right(classpathHashes.toVector)
-                      }
-                    }
-                  }
-              }
-        }
-      },
-      verbose = true
-    )
+      }
+    }
   }
 
   private[this] val definedMacrosJarCache = new ConcurrentHashMap[File, (JarMetadata, Boolean)]()

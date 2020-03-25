@@ -26,10 +26,33 @@ final class BraveTracer private (
   }
 
   def trace[T](name: String, tags: (String, String)*)(
-      thunk: BraveTracer => T,
-      verbose: Boolean = false
+      thunk: BraveTracer => T
   ): T = {
-    if (!verbose || BraveTracer.verboseTrace) {
+    traceInternal(name, verbose = false, tags: _*)(thunk)
+  }
+
+  def traceVerbose[T](name: String, tags: (String, String)*)(
+      thunk: BraveTracer => T
+  ): T = {
+    traceInternal(name, verbose = true, tags: _*)(thunk)
+  }
+
+  def traceTask[T](name: String, tags: (String, String)*)(
+      thunk: BraveTracer => Task[T]
+  ): Task[T] = {
+    traceTaskInternal(name, verbose = false, tags: _*)(thunk)
+  }
+
+  def traceTaskVerbose[T](name: String, tags: (String, String)*)(
+      thunk: BraveTracer => Task[T]
+  ): Task[T] = {
+    traceTaskInternal(name, verbose = true, tags: _*)(thunk)
+  }
+
+  private def traceInternal[T](name: String, verbose: Boolean, tags: (String, String)*)(
+      thunk: BraveTracer => T
+  ): T = {
+    if (!verbose || BraveTracer.isVerboseTrace) {
       val newTracer = startNewChildTracer(name, tags: _*)
       try thunk(newTracer) // Don't catch and report errors in spans
       catch {
@@ -47,11 +70,10 @@ final class BraveTracer private (
     }
   }
 
-  def traceTask[T](name: String, tags: (String, String)*)(
-      thunk: BraveTracer => Task[T],
-      verbose: Boolean = false
+  private def traceTaskInternal[T](name: String, verbose: Boolean, tags: (String, String)*)(
+      thunk: BraveTracer => Task[T]
   ): Task[T] = {
-    if (!verbose || BraveTracer.verboseTrace) {
+    if (!verbose || BraveTracer.isVerboseTrace) {
       val newTracer = startNewChildTracer(name, tags: _*)
       thunk(newTracer)
         .doOnCancel(Task(newTracer.terminate()))
@@ -89,8 +111,8 @@ object BraveTracer {
   val zipkinServerUrl = Option(System.getProperty("zipkin.server.url")).getOrElse(
     "http://127.0.0.1:9411/api/v2/spans"
   )
-  val debugTrace = Properties.propOrFalse("zipkin.trace.debug")
-  val verboseTrace = Properties.propOrFalse("zipkin.trace.verbose")
+  val isDebugTrace = Properties.propOrFalse("bloop.trace.debug")
+  val isVerboseTrace = Properties.propOrFalse("bloop.trace.verbose")
 
   val sender = URLConnectionSender.create(zipkinServerUrl)
   val jsonVersion = if (zipkinServerUrl.contains("/api/v1")) {
@@ -114,7 +136,7 @@ object BraveTracer {
     val newParentTrace = ctx
       .map(c => tracer.newChild(c))
       .getOrElse(
-        if (debugTrace) {
+        if (isDebugTrace) {
           val c = TraceContext
             .newBuilder()
             .traceId(util.Random.nextLong())

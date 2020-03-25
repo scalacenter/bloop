@@ -334,7 +334,7 @@ object Compiler {
     val scalaInstance = compileInputs.scalaInstance
     val classpathOptions = compileInputs.classpathOptions
     val compilers = compileInputs.compilerCache.get(scalaInstance, compileInputs.javacBin)
-    val inputs = tracer.trace("creating zinc inputs")(_ => getInputs(compilers), verbose = true)
+    val inputs = tracer.traceVerbose("creating zinc inputs")(_ => getInputs(compilers))
 
     // We don't need nanosecond granularity, we're happy with milliseconds
     def elapsed: Long = ((System.nanoTime() - start).toDouble / 1e6).toLong
@@ -406,36 +406,33 @@ object Compiler {
               clientLogger: Logger
           ): Task[Unit] = Task.defer {
             val descriptionMsg = s"Updating external classes dir with read only $clientClassesDir"
-            clientTracer.traceTask(descriptionMsg)(
-              { _ =>
-                Task.defer {
-                  clientLogger.debug(descriptionMsg)
-                  val invalidatedClassFiles =
-                    allInvalidatedClassFilesForProject.iterator.map(_.toPath).toSet
-                  val invalidatedExtraProducts =
-                    allInvalidatedExtraCompileProducts.iterator.map(_.toPath).toSet
-                  val invalidatedInThisProject = invalidatedClassFiles ++ invalidatedExtraProducts
-                  val blacklist = invalidatedInThisProject ++ readOnlyCopyBlacklist.iterator
-                  val config =
-                    ParallelOps.CopyConfiguration(5, CopyMode.ReplaceIfMetadataMismatch, blacklist)
-                  val lastCopy = ParallelOps.copyDirectories(config)(
-                    readOnlyClassesDir,
-                    clientClassesDir.underlying,
-                    compileInputs.ioScheduler,
-                    compileInputs.logger,
-                    enableCancellation = false
-                  )
+            clientTracer.traceTaskVerbose(descriptionMsg) { _ =>
+              Task.defer {
+                clientLogger.debug(descriptionMsg)
+                val invalidatedClassFiles =
+                  allInvalidatedClassFilesForProject.iterator.map(_.toPath).toSet
+                val invalidatedExtraProducts =
+                  allInvalidatedExtraCompileProducts.iterator.map(_.toPath).toSet
+                val invalidatedInThisProject = invalidatedClassFiles ++ invalidatedExtraProducts
+                val blacklist = invalidatedInThisProject ++ readOnlyCopyBlacklist.iterator
+                val config =
+                  ParallelOps.CopyConfiguration(5, CopyMode.ReplaceIfMetadataMismatch, blacklist)
+                val lastCopy = ParallelOps.copyDirectories(config)(
+                  readOnlyClassesDir,
+                  clientClassesDir.underlying,
+                  compileInputs.ioScheduler,
+                  compileInputs.logger,
+                  enableCancellation = false
+                )
 
-                  lastCopy.map { fs =>
-                    clientLogger.debug(
-                      s"Finished copying classes from $readOnlyClassesDir to $clientClassesDir"
-                    )
-                    ()
-                  }
+                lastCopy.map { fs =>
+                  clientLogger.debug(
+                    s"Finished copying classes from $readOnlyClassesDir to $clientClassesDir"
+                  )
+                  ()
                 }
-              },
-              verbose = true
-            )
+              }
+            }
           }
 
           def persistAnalysis(analysis: CompileAnalysis, out: AbsolutePath): Task[Unit] = {

@@ -172,14 +172,11 @@ object CompileTask {
           }
 
           val waitOnReadClassesDir = {
-            compileProjectTracer.traceTask("wait on populating products")(
-              { _ =>
-                // This task is memoized and started by the compilation that created
-                // it, so this execution blocks until it's run or completes right away
-                lastSuccessful.populatingProducts
-              },
-              verbose = true
-            )
+            compileProjectTracer.traceTaskVerbose("wait on populating products") { _ =>
+              // This task is memoized and started by the compilation that created
+              // it, so this execution blocks until it's run or completes right away
+              lastSuccessful.populatingProducts
+            }
           }
 
           // Block on the task associated with this result that sets up the read-only classes dir
@@ -418,18 +415,15 @@ object CompileTask {
       // Blacklist ensure final dir doesn't contain class files that don't map to source files
       val blacklist = products.invalidatedCompileProducts.iterator.map(_.toPath).toSet
       val config = ParallelOps.CopyConfiguration(5, CopyMode.NoReplace, blacklist)
-      val task = tracer.traceTask("preparing new read-only classes directory")(
-        { _ =>
-          ParallelOps.copyDirectories(config)(
-            products.readOnlyClassesDir,
-            products.newClassesDir,
-            ExecutionContext.ioScheduler,
-            logger,
-            enableCancellation = false
-          )
-        },
-        verbose = true
-      )
+      val task = tracer.traceTaskVerbose("preparing new read-only classes directory") { _ =>
+        ParallelOps.copyDirectories(config)(
+          products.readOnlyClassesDir,
+          products.newClassesDir,
+          ExecutionContext.ioScheduler,
+          logger,
+          enableCancellation = false
+        )
+      }
 
       task.map(rs => ()).memoize
     }

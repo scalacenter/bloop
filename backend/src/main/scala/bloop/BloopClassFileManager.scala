@@ -182,24 +182,21 @@ final class BloopClassFileManager(
             clientReporter: Reporter,
             clientTracer: BraveTracer
         ) => {
-          clientTracer.traceTask("copy new products to external classes dir")(
-            { _ =>
-              val config = ParallelOps.CopyConfiguration(5, CopyMode.ReplaceExisting, Set.empty)
-              ParallelOps
-                .copyDirectories(config)(
-                  newClassesDir,
-                  clientExternalClassesDir.underlying,
-                  inputs.ioScheduler,
-                  inputs.logger,
-                  enableCancellation = false
-                )
-                .map { walked =>
-                  readOnlyCopyBlacklist.++=(walked.target)
-                  ()
-                }
-            },
-            verbose = true
-          )
+          clientTracer.traceTaskVerbose("copy new products to external classes dir") { _ =>
+            val config = ParallelOps.CopyConfiguration(5, CopyMode.ReplaceExisting, Set.empty)
+            ParallelOps
+              .copyDirectories(config)(
+                newClassesDir,
+                clientExternalClassesDir.underlying,
+                inputs.ioScheduler,
+                inputs.logger,
+                enableCancellation = false
+              )
+              .map { walked =>
+                readOnlyCopyBlacklist.++=(walked.target)
+                ()
+              }
+          }
         }
       )
     } else {
