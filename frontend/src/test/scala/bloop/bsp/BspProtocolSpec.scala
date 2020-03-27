@@ -127,7 +127,7 @@ class BspProtocolSpec(
           "BLOOP_OWNER",
           environmentItem.environmentVariables.keys.mkString("\n")
         )
-        assert(Paths.get(environmentItem.workingDirectory).getFileName.toString == "frontend")
+        assert(Paths.get(environmentItem.workingDirectory).getFileName.toString == "a")
         assert(
           environmentItem.classpath
             .exists(_.contains(s"target" + File.separator + s"${`A`.config.name}"))
