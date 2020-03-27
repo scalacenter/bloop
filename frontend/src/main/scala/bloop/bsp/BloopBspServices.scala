@@ -699,7 +699,7 @@ final class BloopBspServices(
             dag = state.build.getDagFor(project)
             fullClasspath = project.fullClasspath(dag, state.client).map(_.toString)
             environmentVariables = state.commonOptions.env.toMap
-            workingDirectory = state.commonOptions.workingDirectory
+            workingDirectory = project.workingDirectory.toString
             javaOptions <- project.platform match {
               case Platform.Jvm(config, _, _) => Some(config.javaOptions.toList)
               case _ => None
