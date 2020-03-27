@@ -41,10 +41,6 @@
         "title": "CLI --help",
         "sidebar_label": "CLI --help"
       },
-      "cli/cli-reference": {
-        "title": "CLI --help",
-        "sidebar_label": "CLI --help"
-      },
       "cli/reference": {
         "title": "CLI --help",
         "sidebar_label": "CLI --help"
@@ -141,9 +137,6 @@
       },
       "tools/universal/usage": {
         "title": "tools/universal/usage"
-      },
-      "usage-server": {
-        "title": "usage-server"
       },
       "usage": {
         "title": "Quickstart",

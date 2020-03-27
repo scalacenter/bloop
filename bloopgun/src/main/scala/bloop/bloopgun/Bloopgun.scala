@@ -4,6 +4,7 @@ import bloop.bloopgun.core.Shell
 import bloop.bloopgun.core.DependencyResolution
 import bloop.bloopgun.util.Environment
 import bloop.bloopgun.util.Feedback
+import bloop.bloopgun.util.GlobalSettings
 import bloop.bloopgun.core.AvailableAtPath
 import bloop.bloopgun.core.AvailableWithCommand
 import bloop.bloopgun.core.ListeningAndAvailableAt
@@ -62,7 +63,7 @@ import java.io.IOException
  * because it can affect already connected clients to the server instance.
  */
 class BloopgunCli(
-    bloopVersion: String,
+    baseBloopVersion: String,
     in: InputStream,
     out: PrintStream,
     err: PrintStream,
@@ -70,12 +71,12 @@ class BloopgunCli(
     cwd: Path
 ) {
   def this(
-      bloopVersion: String,
+      baseBloopVersion: String,
       in: InputStream,
       out: PrintStream,
       err: PrintStream,
       shell: Shell
-  ) = this(bloopVersion, in, out, err, shell, Environment.cwd)
+  ) = this(baseBloopVersion, in, out, err, shell, Environment.cwd)
   def run(args: Array[String]): Int = {
     var setServer: Boolean = false
     var setPort: Boolean = false
@@ -84,6 +85,15 @@ class BloopgunCli(
 
     val cliParser = {
       val builder = OParser.builder[BloopgunParams]
+      val bloopVersionOpt = builder
+        .opt[String]("fallback-bloop-version")
+        .action((fallbackBloopVersion, params) => {
+          params.copy(bloopVersion = fallbackBloopVersion)
+        })
+        .text(
+          "Specify the Bloop version to use for launching a new Bloop server when there is no running server. " +
+            "This option is ignored when there is a running server in the background."
+        )
       val nailgunServerOpt = builder
         .opt[String]("nailgun-server")
         .action((server, params) => { setServer = true; params.copy(nailgunServer = server) })
@@ -163,6 +173,7 @@ class BloopgunCli(
             s"""Bloopgun is a bloop CLI client that communicates with the Bloop server via Nailgun.
                |""".stripMargin
           ),
+          bloopVersionOpt,
           nailgunServerOpt,
           nailgunPortOpt,
           helpOpt,
@@ -188,7 +199,7 @@ class BloopgunCli(
 
     val (cliArgsToParse, extraArgsForServer) =
       if (args.contains("--")) args.span(_ == "--") else (args, Array.empty[String])
-    OParser.parse(cliParser, cliArgsToParse, BloopgunParams(), setup) match {
+    OParser.parse(cliParser, cliArgsToParse, BloopgunParams(baseBloopVersion), setup) match {
       case None => 1
       case Some(params0) =>
         val params = params0.copy(args = additionalCmdArgs ++ extraArgsForServer)
@@ -204,7 +215,7 @@ class BloopgunCli(
               fireCommand("about", Array.empty, params, config, logger)
             case _ =>
               // Fire server and wait until it exits, this is the default `bloop server` mode
-              fireServer(FireAndWaitForExit, params, config, bloopVersion, logger) match {
+              fireServer(FireAndWaitForExit, params, config, params.bloopVersion, logger) match {
                 case Some((cmd, status)) =>
                   logger.info(s"Command '$cmd' finished with ${status.code}, bye!"); 0
                 case None =>
@@ -277,7 +288,7 @@ class BloopgunCli(
           case _ =>
             // Attempt to start server here, move launcher logic
             logger.info(s"No server running at ${config}, let's fire one...")
-            fireServer(FireInBackground, params, config, bloopVersion, logger) match {
+            fireServer(FireInBackground, params, config, params.bloopVersion, logger) match {
               case Some(true) => executeCmd(client)
               case _ => logger.error(Feedback.serverCouldNotBeStarted(config)); 1
             }
@@ -417,15 +428,26 @@ class BloopgunCli(
     def cmdWithArgs(
         found: LocatedServer,
         extraJvmOpts: List[String],
-        javaBinary: List[String] = List("java")
+        javaBinary: List[String],
+        globalSettings: GlobalSettings
     ): (List[String], Boolean) = {
       var usedExtraJvmOpts = false
       def finalJvmOpts(jvmOpts: List[String]): List[String] = {
-        if (extraJvmOpts.forall(opt => jvmOpts.contains(opt))) jvmOpts
-        else {
-          usedExtraJvmOpts = true
-          jvmOpts ++ extraJvmOpts
+        val baseOptions =
+          if (extraJvmOpts.forall(opt => jvmOpts.contains(opt))) jvmOpts
+          else {
+            usedExtraJvmOpts = true
+            jvmOpts ++ extraJvmOpts
+          }
+        val globalOptions = globalSettings.javaOptions.getOrElse(Nil)
+        if (globalOptions.nonEmpty) {
+          logger.info(s"Picked up custom Java options $globalOptions")
         }
+        // NOTE: global options take precedence because `bloop.json` is the
+        // recommended way to customize the JVM options and users should be able
+        // use `bloop.json` without having to learn about caveats when it
+        // doesn't work.
+        baseOptions ++ globalOptions
       }
 
       def deriveCmdForPath(path: Path): List[String] = {
@@ -483,19 +505,30 @@ class BloopgunCli(
       }
 
       process.redirectErrorStream()
-      val started = process.start()
-      val is = started.getInputStream()
-      val code = started.waitFor()
-      val output = scala.io.Source.fromInputStream(is).mkString
-      StatusCommand(code, output)
+      try {
+        val started = process.start()
+        val is = started.getInputStream()
+        val code = started.waitFor()
+        val output = scala.io.Source.fromInputStream(is).mkString
+        StatusCommand(code, output)
+      } catch {
+        case e: IOException =>
+          logger.trace(e)
+          StatusCommand(
+            1,
+            s"Failed to start process '${cmd.mkString(" ")}'\nError: ${e.getMessage()}"
+          )
+      }
     }
 
     def sysprocWithJava(
         found: LocatedServer,
-        extraJvmOpts: List[String]
+        extraJvmOpts: List[String],
+        globalSettings: GlobalSettings
     ): (ExitServerStatus, Boolean) = {
       try {
-        val (cmd, usedExtraJvmOpts) = cmdWithArgs(found, extraJvmOpts)
+        val (cmd, usedExtraJvmOpts) =
+          cmdWithArgs(found, extraJvmOpts, List(globalSettings.javaBinary), globalSettings)
         val exitServerStatus = (cmd, sysproc(cmd))
         (exitServerStatus, usedExtraJvmOpts)
       } catch {
@@ -512,7 +545,8 @@ class BloopgunCli(
             case Some(java)
                 if e.getMessage().contains(javaErrorMessage) && e.getMessage.contains(errorCode) =>
               logger.info(s"Java executable was not available on PATH, retrying with $java")
-              val (cmd, usedExtraJvmOpts) = cmdWithArgs(found, extraJvmOpts, List(java))
+              val (cmd, usedExtraJvmOpts) =
+                cmdWithArgs(found, extraJvmOpts, List(java), globalSettings)
               val exitServerStatus = (cmd, sysproc(cmd))
               (exitServerStatus, usedExtraJvmOpts)
             case _ => throw e
@@ -520,30 +554,36 @@ class BloopgunCli(
       }
     }
 
-    val start = System.currentTimeMillis()
+    Environment.bloopGlobalSettings(logger) match {
+      case Left(errorMessage) =>
+        val status = StatusCommand(1, errorMessage)
+        val command = List(s"Parse JSON file ${Environment.bloopGlobalSettingsPath.toString}")
+        (command, status)
+      case Right(globalSettings) =>
+        val start = System.currentTimeMillis()
+        // Run bloop server with special performance-sensitive JVM options
+        val performanceSensitiveOpts = Environment.PerformanceSensitiveOptsForBloop
+        val (exitServerStatus, usedExtraJvmOpts) =
+          sysprocWithJava(serverToRun, performanceSensitiveOpts, globalSettings)
+        val (firstCmd, firstStatus) = exitServerStatus
+        val end = System.currentTimeMillis()
+        val elapsedFirstCmd = end - start
 
-    // Run bloop server with special performance-sensitive JVM options
-    val performanceSensitiveOpts = Environment.PerformanceSensitiveOptsForBloop
-    val (exitServerStatus, usedExtraJvmOpts) =
-      sysprocWithJava(serverToRun, performanceSensitiveOpts)
-    val (firstCmd, firstStatus) = exitServerStatus
-    val end = System.currentTimeMillis()
-    val elapsedFirstCmd = end - start
+        // Don't run server twice, exit was successful or user args already contain performance-sensitive args
+        if (firstStatus.code == 0 || !usedExtraJvmOpts) firstCmd -> firstStatus
+        else {
+          val isExitRelatedToPerformanceSensitiveOpts = {
+            performanceSensitiveOpts.exists(firstStatus.output.contains(_)) ||
+            // Output can be empty when `bloop server` bc it redirects streams; use timing as proxy
+            elapsedFirstCmd <= 8000 // Use large number because launching JVMs on Windows is expensive
+          }
 
-    // Don't run server twice, exit was successful or user args already contain performance-sensitive args
-    if (firstStatus.code == 0 || !usedExtraJvmOpts) firstCmd -> firstStatus
-    else {
-      val isExitRelatedToPerformanceSensitiveOpts = {
-        performanceSensitiveOpts.exists(firstStatus.output.contains(_)) ||
-        // Output can be empty when `bloop server` bc it redirects streams; use timing as proxy
-        elapsedFirstCmd <= 8000 // Use large number because launching JVMs on Windows is expensive
-      }
-
-      if (!isExitRelatedToPerformanceSensitiveOpts) firstCmd -> firstStatus
-      else {
-        val (exitServerStatus, _) = sysprocWithJava(serverToRun, Nil)
-        exitServerStatus
-      }
+          if (!isExitRelatedToPerformanceSensitiveOpts) firstCmd -> firstStatus
+          else {
+            val (exitServerStatus, _) = sysprocWithJava(serverToRun, Nil, globalSettings)
+            exitServerStatus
+          }
+        }
     }
   }
 

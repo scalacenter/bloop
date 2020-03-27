@@ -22,9 +22,8 @@ For example, `bloop server`:
 
 1. Finds the location of a bootstrapped jar automatically in the bloop installation
    directory
-1. Runs the server with the jvm options in the `.jvmopts` file in the bloop installation
-   directory. The `.jvmopts` file can contain the flags separated by either a new line or
-   a whitespace.
+1. Runs the server with the JVM options configured in `$HOME/.bloop/bloop.json`, see
+   [custom Java options](#custom-java-options).
 1. Provides a way to evolve the way the server is run and managed in the future, which
    makes it especially compatibility-friendly.
    
@@ -45,8 +44,8 @@ If you are integrating your tool with bloop and want to install and start the se
 * `NAILGUN_PORT` must be a free TCP port. For now, only ports in the localhost is
   supported.
 * `JVM_OPTS` must be valid JVM arguments prefixed with `-J`, used to pass in
-  temporary jvm options to the server. For a permanent solution, add the options in
-  `.jvmopts` file.
+  temporary jvm options to the server. For a permanent solution, add the options
+  to [`$HOME/.bloop/bloop.json`](#custom-java-options).
   
 #### Flags
 
@@ -54,6 +53,41 @@ If you are integrating your tool with bloop and want to install and start the se
   <dt><code>--server-location</code> (type: <code>path</code>)</dt>
   <dd><p>Use the server jar or script in the given path</p></dd>
 </dl>
+
+## Global settings for the server
+
+Use the `$HOME/.bloop/bloop.json` file to configure the Bloop server. The
+Bloop server must be restarted to pick up new configuration changes.
+
+### Custom Java options
+
+Update the `javaOptions` field to configure custom Java options that should
+be used when starting a new Bloop server. For example, use this to increase
+the memory to Bloop.
+
+```jsonc
+// $HOME/.bloop/bloop.json
+{
+  "javaOptions": ["-Xmx16G"]
+}
+```
+
+### Custom Java home
+
+Update the `javaHome` field declare what Java version the Bloop server should
+run on. For example, use this to declare that Bloop should compile with JDK
+11 or JDK 8.
+
+```jsonc
+// $HOME/.bloop/bloop.json
+{
+  "javaHome": "/Library/Java/JavaVirtualMachines/jdk1.8.0_111.jdk"
+}
+```
+
+The `java` binary should exist in `$JAVA_HOME/bin/java`. The Bloop server
+will not start correctly if the `javaHome` field points directly to the
+`java` binary.
 
 ## Automatic management of the server
 
@@ -88,8 +122,8 @@ Command examples:
 1. `brew services stop bloop`: stops the bloop server.
 1. `brew services restart bloop`: restarts the bloop server.
 
-JVM options in the optional `/usr/local/Cellar/bloop/$version/bin/.jvmopts` are respected.
-If you change the `.jvmopts` file you have to restart the server for the changes to make effect.
+JVM options in the optional [`$HOME/.bloop/bloop.json`](#custom-java-options) file are respected.
+If you change the `bloop.json` file you have to restart the server for the changes to make effect.
 
 ### via `systemd`
 

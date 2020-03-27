@@ -272,6 +272,8 @@ lazy val bloopgun: Project = project
       Dependencies.slf4jNop,
       Dependencies.coursier,
       Dependencies.coursierCache,
+      Dependencies.jsoniterCore,
+      Dependencies.jsoniterMacros % Provided,
       // Necessary to compile to native (see https://github.com/coursier/coursier/blob/0bf1c4f364ceff76892751a51361a41dfc478b8d/build.sbt#L376)
       "org.bouncycastle" % "bcprov-jdk15on" % "1.64",
       "org.bouncycastle" % "bcpkix-jdk15on" % "1.64"
@@ -346,6 +348,7 @@ def shadeSettingsForModule(moduleId: String, module: Reference) = List(
     "scopt",
     "macrocompat",
     "com.zaxxer.nuprocess",
+    "com.github.plokhotnyuk.jsoniter_scala",
     // Coursier direct and transitive deps
     "coursier",
     "shapeless",
