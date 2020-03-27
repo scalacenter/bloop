@@ -23,7 +23,6 @@ import bloop.io.{AbsolutePath, RelativePath}
 import bloop.logging.{BspServerLogger, DebugFilter, Logger}
 import bloop.reporter.{BspProjectReporter, ProblemPerPhase, ReporterConfig, ReporterInputs}
 import bloop.testing.{BspLoggingEventHandler, TestInternals}
-
 import ch.epfl.scala.bsp
 import ch.epfl.scala.bsp.ScalaBuildTarget.encodeScalaBuildTarget
 import ch.epfl.scala.bsp.{
@@ -889,12 +888,22 @@ final class BloopBspServices(
   ): BspEndpointResponse[bsp.WorkspaceBuildTargetsResult] = {
     // need a separate block so so that state is refreshed after regenerating project data
     val refreshTask = ifInitialized(None) { (state: State, logger: BspServerLogger) =>
-      val exitCode = state.client.refreshProjectsCommand
+      state.client.refreshProjectsCommand
         .map { command =>
-          Forker.run(cwd = state.build.origin, command, logger, state.commonOptions)
+          val cwd = state.build.origin
+          Forker.run(cwd = cwd, command, logger, state.commonOptions).map { exitCode =>
+            val status = Forker.exitStatus(exitCode)
+            if (!status.isOk) {
+              val message =
+                s"""Refresh projects command failed with exit code $exitCode.
+                   |Command run in $cwd: ${command.mkString(" ")}""".stripMargin
+              (state, Left(JsonRpcResponse.internalError(message)))
+            } else {
+              (state, Right(()))
+            }
+          }
         }
-        .getOrElse(Task.now(0))
-      exitCode.map(_ => (state, Right(())))
+        .getOrElse(Task.now((state, Right(()))))
     }
 
     val buildTargetsTask = ifInitialized(None) { (state: State, _: BspServerLogger) =>
@@ -944,7 +953,10 @@ final class BloopBspServices(
       }
     }
 
-    refreshTask.flatMap(_ => buildTargetsTask)
+    refreshTask.flatMap {
+      case Left(error) => Task.now(Left(error))
+      case Right(_) => buildTargetsTask
+    }
   }
 
   def sources(
