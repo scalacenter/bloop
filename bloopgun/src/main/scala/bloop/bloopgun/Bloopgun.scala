@@ -443,6 +443,10 @@ class BloopgunCli(
         if (globalOptions.nonEmpty) {
           logger.info(s"Picked up custom Java options $globalOptions")
         }
+        // NOTE: global options take precedence because `bloop.json` is the
+        // recommended way to customize the JVM options and users should be able
+        // use `bloop.json` without having to learn about caveats when it
+        // doesn't work.
         baseOptions ++ globalOptions
       }
 
@@ -509,7 +513,11 @@ class BloopgunCli(
         StatusCommand(code, output)
       } catch {
         case e: IOException =>
-          StatusCommand(1, e.getMessage())
+          logger.trace(e)
+          StatusCommand(
+            1,
+            s"Failed to start process '${cmd.mkString(" ")}'\nError: ${e.getMessage()}"
+          )
       }
     }
 
