@@ -107,7 +107,8 @@ class BspProtocolSpec(
       }
 
       val logger = new RecordingLogger(ansiCodesSupported = false)
-      val jvmOptions = List("-DSOME_OPTION=X")
+      val workingDirectory = AbsolutePath.workingDirectory.underlying.resolve("cwd")
+      val jvmOptions = List("-DSOME_OPTION=X", s"-Duser.dir=$workingDirectory")
       val jvmConfig = Some(Config.JvmConfig(None, jvmOptions))
       val `A` = TestProject(
         workspace,
@@ -127,7 +128,10 @@ class BspProtocolSpec(
           "BLOOP_OWNER",
           environmentItem.environmentVariables.keys.mkString("\n")
         )
-        assert(Paths.get(environmentItem.workingDirectory).getFileName.toString == "frontend")
+        assert(
+          Paths.get(environmentItem.workingDirectory).getFileName ==
+            workingDirectory.getFileName()
+        )
         assert(
           environmentItem.classpath
             .exists(_.contains(s"target" + File.separator + s"${`A`.config.name}"))
