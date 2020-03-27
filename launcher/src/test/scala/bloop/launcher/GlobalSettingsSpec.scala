@@ -5,7 +5,7 @@ import scala.concurrent.Promise
 import bloop.bloopgun.util.Environment
 import bloop.internal.build.BuildInfo
 
-object GlobalSettingsSpec extends LauncherBaseSuite("1.3.2", BuildInfo.bspVersion, 9014) {
+object GlobalSettingsSpec extends LauncherBaseSuite(BuildInfo.version, BuildInfo.bspVersion, 9014) {
   val launcherArguments = Array(bloopVersion, "--skip-bsp-connection")
 
   def writeJsonSettings(json: String): Unit = {
