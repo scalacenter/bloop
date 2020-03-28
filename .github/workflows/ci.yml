@@ -84,8 +84,51 @@ jobs:
               "benchmarks/jmh:run .*HotBloopBenchmark.* -wi 0 -i 1 -f1 -t1 -p project=with-tests -p projectName=with-tests"
         shell: bash
 
+  publish-binaries:
+    name: Publish binaries for ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    if: github.event_name == 'push'
+    strategy:
+      fail-fast: true
+      matrix:
+        os: [ubuntu-latest, windows-latest, macOS-latest]
+        jdk: [graalvm@19.2.1]
+        include:
+          - os: ubuntu-latest
+            artifact: bloop-linux
+          - os: windows-latest
+            artifact: bloop-windows
+          - os: macos-latest
+            artifact: bloop-macos
+    env:
+      CI: true
+      SKIP_TEST_RESOURCES_GENERATION: true
+      GITHUB_DEPLOY_KEY: ${{ secrets.GITHUB_DEPLOY_KEY }}
+      BLOOPOID_GITHUB_TOKEN: ${{ secrets.BLOOPOID_GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v1
+        with:
+          submodules: true
+      - uses: olafurpg/setup-scala@v7
+        with:
+          java-version: ${{ matrix.jdk }}
+      - name: Publish GraalVM Native artifacts
+        run: |
+          echo $JAVA_HOME
+          which gu
+          gu install native-image
+          ./bin/sbt-ci.sh "bloopgun/graalvm-native-image:packageBin"
+          cp bloopgun/target/graalvm-native-image/bloopgun-core bloop
+        shell: bash
+      - uses: actions/upload-artifact@master
+        with:
+          name: ${{ matrix.artifact }}
+          path: bloop
+      
+
   release:
     name: Publish on ${{ matrix.os }}
+    needs: publish-binaries
     runs-on: ${{ matrix.os }}
     if: github.event_name == 'push'
     strategy:
@@ -118,6 +161,10 @@ jobs:
       - uses: actions/setup-node@v1
         with:
           node-version: "10.x"
+      - name: Download built GraalVM binaries
+        uses: actions/download-artifact@v1
+        with:
+          name: bloop
       - name: Set up environment
         run: |
           curl -Lo coursier https://git.io/coursier-cli && chmod +x coursier && ./coursier --help
@@ -135,6 +182,7 @@ jobs:
           git config --global push.default simple
           echo "$PGP_PUBLIC_KEY" > "$HOME/.sbt/gpg/pubring.asc"
           echo "$PGP_PRIVATE_KEY" > "$HOME/.sbt/gpg/secring.asc"
+          mv bloop frontend/target/graalvm-binaries
           ./bin/sbt-ci-publish.sh "releaseBloop" "docs/docusaurusPublishGhpages"
         shell: bash
       - name: Cut GitHub release and update installers on ${{ matrix.os }}

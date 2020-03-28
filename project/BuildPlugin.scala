@@ -141,6 +141,7 @@ object BuildKeys {
     GHReleaseKeys.ghreleaseRepoOrg := "scalacenter",
     GHReleaseKeys.ghreleaseRepoName := "bloop",
     GHReleaseKeys.ghreleaseAssets += ReleaseUtils.versionedInstallScript.value,
+    GHReleaseKeys.ghreleaseAssets += Keys.target.value / "graalvm-binaries",
     createLocalHomebrewFormula := ReleaseUtils.createLocalHomebrewFormula.value,
     createLocalScoopFormula := ReleaseUtils.createLocalScoopFormula.value,
     createLocalArchPackage := ReleaseUtils.createLocalArchPackage.value,
