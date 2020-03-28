@@ -145,14 +145,14 @@ private final class BloopNameHashing(
       lookup: Lookup,
       output: Output
   )(implicit equivS: Equiv[XStamp]): InitialChanges = {
-    tracer.trace("detecting initial changes") { tracer =>
+    tracer.traceVerbose("detecting initial changes") { tracer =>
       // Copy pasting from IncrementalCommon to optimize/remove IO work
       import IncrementalCommon.{isBinaryModified, findExternalAnalyzedClass}
       val previous = previousAnalysis.stamps
       val previousRelations = previousAnalysis.relations
 
       val hashesMap = uniqueInputs.sources.map(kv => kv.source.toFile -> kv.hash).toMap
-      val sourceChanges = tracer.trace("source changes") { _ =>
+      val sourceChanges = tracer.traceVerbose("source changes") { _ =>
         lookup.changedSources(previousAnalysis).getOrElse {
           val previousSources = previous.allSources.toSet
           new UnderlyingChanges[File] {
@@ -174,7 +174,7 @@ private final class BloopNameHashing(
 
       // Unnecessary to compute removed products because we can ensure read-only classes dir is untouched
       val removedProducts = Set.empty[File]
-      val changedBinaries: Set[File] = tracer.trace("changed binaries") { _ =>
+      val changedBinaries: Set[File] = tracer.traceVerbose("changed binaries") { _ =>
         lookup.changedBinaries(previousAnalysis).getOrElse {
           val detectChange =
             isBinaryModified(false, lookup, previous, stamps, previousRelations, log)
@@ -182,11 +182,15 @@ private final class BloopNameHashing(
         }
       }
 
-      val externalApiChanges: APIChanges = tracer.trace("external api changes") { _ =>
+      val externalApiChanges: APIChanges = tracer.traceVerbose("external api changes") { _ =>
         val incrementalExternalChanges = {
           val previousAPIs = previousAnalysis.apis
           val externalFinder = findExternalAnalyzedClass(lookup) _
-          detectAPIChanges(previousAPIs.allExternals, previousAPIs.externalAPI, externalFinder)
+          detectAPIChanges(
+            previousAPIs.allExternals,
+            previousAPIs.externalAPI,
+            externalFinder
+          )
         }
 
         val changedExternalClassNames = incrementalExternalChanges.allModified.toSet

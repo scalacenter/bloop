@@ -95,7 +95,7 @@ object CompilerPluginWhitelist {
           // Use an array with the same indices to be able to update results in a thread-safe way
           val cachePluginResults = new Array[Boolean](pluginCompilerFlags.size)
 
-          tracer.traceTask("enabling plugin caching") { tracer =>
+          tracer.traceTaskVerbose("enabling plugin caching") { tracer =>
             // Consumers are processed with `foreachParallel`, so we side-effect on `cachePluginResults`
             val parallelConsumer = {
               Consumer.foreachParallelAsync[WorkItem](parallelUnits) {

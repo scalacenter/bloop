@@ -97,10 +97,11 @@ object ClasspathHasher {
                   Option(cacheMetadataJar.get(file)) match {
                     case Some((metadata, hashHit)) if metadata == currentMetadata => hashHit
                     case _ =>
-                      tracer.trace(s"computing hash ${filePath.toAbsolutePath.toString}") { _ =>
-                        val newHash = FileHash.of(file, ByteHasher.hashFileContents(file))
-                        cacheMetadataJar.put(file, (currentMetadata, newHash))
-                        newHash
+                      tracer.traceVerbose(s"computing hash ${filePath.toAbsolutePath.toString}") {
+                        _ =>
+                          val newHash = FileHash.of(file, ByteHasher.hashFileContents(file))
+                          cacheMetadataJar.put(file, (currentMetadata, newHash))
+                          newHash
                       }
                   }
                 }
@@ -151,7 +152,7 @@ object ClasspathHasher {
       }
     }
 
-    tracer.traceTask("computing hashes") { tracer =>
+    tracer.traceTaskVerbose("computing hashes") { tracer =>
       val acquiredByOtherTasks = new mutable.ListBuffer[Task[Unit]]()
       val acquiredByThisHashingProcess = new mutable.ListBuffer[AcquiredTask]()
 

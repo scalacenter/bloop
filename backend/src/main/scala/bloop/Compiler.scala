@@ -334,7 +334,7 @@ object Compiler {
     val scalaInstance = compileInputs.scalaInstance
     val classpathOptions = compileInputs.classpathOptions
     val compilers = compileInputs.compilerCache.get(scalaInstance, compileInputs.javacBin)
-    val inputs = tracer.trace("creating zinc inputs")(_ => getInputs(compilers))
+    val inputs = tracer.traceVerbose("creating zinc inputs")(_ => getInputs(compilers))
 
     // We don't need nanosecond granularity, we're happy with milliseconds
     def elapsed: Long = ((System.nanoTime() - start).toDouble / 1e6).toLong
@@ -406,7 +406,7 @@ object Compiler {
               clientLogger: Logger
           ): Task[Unit] = Task.defer {
             val descriptionMsg = s"Updating external classes dir with read only $clientClassesDir"
-            clientTracer.traceTask(descriptionMsg) { _ =>
+            clientTracer.traceTaskVerbose(descriptionMsg) { _ =>
               Task.defer {
                 clientLogger.debug(descriptionMsg)
                 val invalidatedClassFiles =

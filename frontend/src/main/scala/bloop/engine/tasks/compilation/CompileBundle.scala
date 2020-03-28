@@ -168,9 +168,9 @@ object CompileBundle {
       options: CommonOptions
   ): Task[CompileBundle] = {
     import inputs.{project, dag, dependentProducts}
-    tracer.traceTask(s"computing bundle ${project.name}") { tracer =>
+    tracer.traceTaskVerbose(s"computing bundle ${project.name}") { tracer =>
       val compileDependenciesData = {
-        tracer.trace("dependency classpath") { _ =>
+        tracer.traceVerbose("dependency classpath") { _ =>
           CompileDependenciesData.compute(
             project.rawClasspath.toArray,
             dependentProducts
@@ -186,7 +186,7 @@ object CompileBundle {
         .hash(dependencyClasspath, 10, cancelCompilation, ioScheduler, logger, tracer, out)
         .executeOn(ioScheduler)
 
-      val sourceHashesTask = tracer.traceTask("discovering and hashing sources") { _ =>
+      val sourceHashesTask = tracer.traceTaskVerbose("discovering and hashing sources") { _ =>
         bloop.io.SourceHasher
           .findAndHashSourcesInProject(project, 20, cancelCompilation, ioScheduler)
           .map(res => res.map(_.sortBy(_.source.syntax)))
