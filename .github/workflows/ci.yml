@@ -117,12 +117,13 @@ jobs:
           which gu
           gu install native-image
           ./bin/sbt-ci.sh "bloopgun/graalvm-native-image:packageBin"
-          cp bloopgun/target/graalvm-native-image/bloopgun-core $ARTIFACT_NAME
+          mkdir bloop-artifacts
+          cp bloopgun/target/graalvm-native-image/bloopgun-core bloop-artifacts/$ARTIFACT_NAME
         shell: bash
       - uses: actions/upload-artifact@master
         with:
-          name: bloop
-          path: ${{ matrix.artifact }}
+          name: bloop-artifacts
+          path: bloop-artifacts/${{ matrix.artifact }}
       
 
   release:
@@ -163,7 +164,7 @@ jobs:
       - name: Download built GraalVM binaries
         uses: actions/download-artifact@v1
         with:
-          name: bloop
+          name: bloop-artifacts
       - name: Set up environment
         run: |
           curl -Lo coursier https://git.io/coursier-cli && chmod +x coursier && ./coursier --help
@@ -181,7 +182,8 @@ jobs:
           git config --global push.default simple
           echo "$PGP_PUBLIC_KEY" > "$HOME/.sbt/gpg/pubring.asc"
           echo "$PGP_PRIVATE_KEY" > "$HOME/.sbt/gpg/secring.asc"
-          mv bloop frontend/target/graalvm-binaries
+          ls -l bloop-artifacts
+          mv bloop-artifacts frontend/target/graalvm-binaries
           ./bin/sbt-ci-publish.sh "releaseBloop" "docs/docusaurusPublishGhpages"
         shell: bash
       - name: Cut GitHub release and update installers on ${{ matrix.os }}
