@@ -103,6 +103,7 @@ jobs:
       SKIP_TEST_RESOURCES_GENERATION: true
       GITHUB_DEPLOY_KEY: ${{ secrets.GITHUB_DEPLOY_KEY }}
       BLOOPOID_GITHUB_TOKEN: ${{ secrets.BLOOPOID_GITHUB_TOKEN }}
+      ARTIFACT_NAME: ${{ matrix.artifact }}
     steps:
       - uses: actions/checkout@v1
         with:
@@ -116,12 +117,12 @@ jobs:
           which gu
           gu install native-image
           ./bin/sbt-ci.sh "bloopgun/graalvm-native-image:packageBin"
-          cp bloopgun/target/graalvm-native-image/bloopgun-core bloop
+          cp bloopgun/target/graalvm-native-image/bloopgun-core $ARTIFACT_NAME
         shell: bash
       - uses: actions/upload-artifact@master
         with:
-          name: ${{ matrix.artifact }}
-          path: bloop
+          name: bloop
+          path: ${{ matrix.artifact }}
       
 
   release:
