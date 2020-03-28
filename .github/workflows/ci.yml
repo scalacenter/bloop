@@ -89,15 +89,13 @@ jobs:
     runs-on: ${{ matrix.os }}
     if: github.event_name == 'push'
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macOS-latest]
+        os: [ubuntu-latest, macOS-latest]
         jdk: [graalvm@19.2.1]
         include:
           - os: ubuntu-latest
             artifact: bloop-linux
-          - os: windows-latest
-            artifact: bloop-windows
           - os: macos-latest
             artifact: bloop-macos
     env:
