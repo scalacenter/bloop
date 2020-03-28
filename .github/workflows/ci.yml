@@ -183,6 +183,7 @@ jobs:
           echo "$PGP_PUBLIC_KEY" > "$HOME/.sbt/gpg/pubring.asc"
           echo "$PGP_PRIVATE_KEY" > "$HOME/.sbt/gpg/secring.asc"
           ls -l bloop-artifacts
+          mkdir -p frontend/target
           mv bloop-artifacts frontend/target/graalvm-binaries
           ./bin/sbt-ci-publish.sh "releaseBloop" "docs/docusaurusPublishGhpages"
         shell: bash
