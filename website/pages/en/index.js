@@ -9,10 +9,10 @@ const React = require('react');
 const PropTypes = require("prop-types");
 
 const CompLibrary = require('../../core/CompLibrary.js');
-
-const MarkdownBlock = CompLibrary.MarkdownBlock; /* Used to read markdown */
+const MarkdownBlock = CompLibrary.MarkdownBlock;
 const Container = CompLibrary.Container;
-const GridBlock = CompLibrary.GridBlock;
+
+const GridBlock = require(process.cwd() + '/core/GridBlock.js');
 
 const siteConfig = require(`${process.cwd()}/siteConfig.js`);
 
