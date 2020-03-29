@@ -1,0 +1,181 @@
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>IntelliJ · Bloop</title><meta name="viewport" content="width=device-width"/><meta name="generator" content="Docusaurus"/><meta name="description" content="IntelliJ is the most widely used Scala and Java IDE. The BSP support that comes"/><meta name="docsearch:language" content="en"/><meta property="og:title" content="IntelliJ · Bloop"/><meta property="og:type" content="website"/><meta property="og:url" content="https://scalacenter.github.io/bloop/"/><meta property="og:description" content="IntelliJ is the most widely used Scala and Java IDE. The BSP support that comes"/><meta property="og:image" content="https://scalacenter.github.io/bloop/img/docusaurus.png"/><meta name="twitter:card" content="summary"/><meta name="twitter:image" content="https://scalacenter.github.io/bloop/img/docusaurus.png"/><link rel="shortcut icon" href="/bloop/img/favicon/favicon.ico"/><link rel="stylesheet" href="https://cdn.jsdelivr.net/docsearch.js/1/docsearch.min.css"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/mono-blue.min.css"/><link rel="alternate" type="application/atom+xml" href="https://scalacenter.github.io/bloop/blog/atom.xml" title="Bloop Blog ATOM Feed"/><link rel="alternate" type="application/rss+xml" href="https://scalacenter.github.io/bloop/blog/feed.xml" title="Bloop Blog RSS Feed"/><link rel="stylesheet" href="/bloop/css/code-block-buttons.css"/><script type="text/javascript" src="https://code.jquery.com/jquery-3.2.1.slim.min.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.0/clipboard.min.js"></script><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><script type="text/javascript" src="/bloop/scripts/code-block-buttons.js"></script><script src="/bloop/js/scrollSpy.js"></script><link rel="stylesheet" href="/bloop/css/main.css"/><script src="/bloop/js/codetabs.js"></script></head><body class="sideNavVisible separateOnPageNav"><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/bloop/"><img class="logo" src="/bloop/img/impure-logo-bloop.svg" alt="Bloop"/><h2 class="headerTitleWithLogo">Bloop</h2></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li class=""><a href="/bloop/setup" target="_self">Install</a></li><li class="siteNavGroupActive"><a href="/bloop/docs/what-is-bloop" target="_self">Docs</a></li><li class=""><a href="/bloop/blog/" target="_self">Blog</a></li><li class="navSearchWrapper reactNavSearchWrapper"><input type="text" id="search_input_react" placeholder="Search" title="Search"/></li><li class=""><a href="https://github.com/scalacenter/bloop" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div class="docMainWrapper wrapper"><div class="docsNavContainer" id="docsNav"><nav class="toc"><div class="toggleNav"><section class="navWrapper wrapper"><div class="navBreadcrumb wrapper"><div class="navToggle" id="navToggler"><div class="hamburger-menu"><div class="line1"></div><div class="line2"></div><div class="line3"></div></div></div><h2><i>›</i><span>IDEs</span></h2><div class="tocToggler" id="tocToggler"><i class="icon-toc"></i></div></div><div class="navGroups"><div class="navGroup"><h3 class="navGroupCategoryTitle">General</h3><ul class=""><li class="navListItem"><a class="navItem" href="/bloop/docs/what-is-bloop">What is Bloop</a></li><li class="navListItem"><a class="navItem" href="/bloop/docs/integration">Integration Guide</a></li></ul></div><div class="navGroup"><h3 class="navGroupCategoryTitle">CLI</h3><ul class=""><li class="navListItem"><a class="navItem" href="/bloop/docs/cli/tutorial">CLI tutorial</a></li><li class="navListItem"><a class="navItem" href="/bloop/docs/cli/reference">CLI --help</a></li></ul></div><div class="navGroup"><h3 class="navGroupCategoryTitle">Build Tools</h3><ul class=""><li class="navListItem"><a class="navItem" href="/bloop/docs/build-tools/overview">Overview</a></li><li class="navListItem"><a class="navItem" href="/bloop/docs/build-tools/sbt">sbt</a></li><li class="navListItem"><a class="navItem" href="/bloop/docs/build-tools/maven">Maven</a></li><li class="navListItem"><a class="navItem" href="/bloop/docs/build-tools/gradle">Gradle</a></li><li class="navListItem"><a class="navItem" href="/bloop/docs/build-tools/mill">Mill</a></li></ul></div><div class="navGroup"><h3 class="navGroupCategoryTitle">IDEs</h3><ul class=""><li class="navListItem"><a class="navItem" href="/bloop/docs/ides/overview">Overview</a></li><li class="navListItem navListItemActive"><a class="navItem" href="/bloop/docs/ides/intellij">IntelliJ</a></li><li class="navListItem"><a class="navItem" href="/bloop/docs/ides/metals">Metals</a></li></ul></div><div class="navGroup"><h3 class="navGroupCategoryTitle">References</h3><ul class=""><li class="navListItem"><a class="navItem" href="/bloop/docs/debugging-reference">Debugging Reference</a></li><li class="navListItem"><a class="navItem" href="/bloop/docs/performance-guide">Performance guide</a></li><li class="navListItem"><a class="navItem" href="/bloop/docs/server-reference">Build Server</a></li><li class="navListItem"><a class="navItem" href="/bloop/docs/launcher-reference">Built-in Launcher</a></li><li class="navListItem"><a class="navItem" href="/bloop/docs/configuration-format">JSON Configuration</a></li><li class="navListItem"><a class="navItem" href="/bloop/docs/contributing-guide">Contributing Guide</a></li></ul></div></div></section></div><script>
+            var coll = document.getElementsByClassName('collapsible');
+            var checkActiveCategory = true;
+            for (var i = 0; i < coll.length; i++) {
+              var links = coll[i].nextElementSibling.getElementsByTagName('*');
+              if (checkActiveCategory){
+                for (var j = 0; j < links.length; j++) {
+                  if (links[j].classList.contains('navListItemActive')){
+                    coll[i].nextElementSibling.classList.toggle('hide');
+                    coll[i].childNodes[1].classList.toggle('rotate');
+                    checkActiveCategory = false;
+                    break;
+                  }
+                }
+              }
+
+              coll[i].addEventListener('click', function() {
+                var arrow = this.childNodes[1];
+                arrow.classList.toggle('rotate');
+                var content = this.nextElementSibling;
+                content.classList.toggle('hide');
+              });
+            }
+
+            document.addEventListener('DOMContentLoaded', function() {
+              createToggler('#navToggler', '#docsNav', 'docsSliderActive');
+              createToggler('#tocToggler', 'body', 'tocActive');
+
+              var headings = document.querySelector('.toc-headings');
+              headings && headings.addEventListener('click', function(event) {
+                var el = event.target;
+                while(el !== headings){
+                  if (el.tagName === 'A') {
+                    document.body.classList.remove('tocActive');
+                    break;
+                  } else{
+                    el = el.parentNode;
+                  }
+                }
+              }, false);
+
+              function createToggler(togglerSelector, targetSelector, className) {
+                var toggler = document.querySelector(togglerSelector);
+                var target = document.querySelector(targetSelector);
+
+                if (!toggler) {
+                  return;
+                }
+
+                toggler.onclick = function(event) {
+                  event.preventDefault();
+
+                  target.classList.toggle(className);
+                };
+              }
+            });
+        </script></nav></div><div class="container mainContainer docsContainer"><div class="wrapper"><div class="post"><header class="postHeader"><a class="edit-page-link button" href="https://github.com/scalacenter/bloop/edit/master/docs/ides/intellij.md" target="_blank" rel="noreferrer noopener">Edit</a><h1 id="__docusaurus" class="postHeaderTitle">IntelliJ</h1></header><article><div><span><p>IntelliJ is the most widely used Scala and Java IDE. The BSP support that comes
+included with the IntelliJ Scala plugin makes it possible to use Bloop together
+with IntelliJ.</p>
+<table>
+<thead>
+<tr><th></th><th style="text-align:center">Build import</th><th style="text-align:center">Compile</th><th style="text-align:center">Test</th><th style="text-align:center">Run</th><th style="text-align:center">Debug</th></tr>
+</thead>
+<tbody>
+<tr><td><strong>IntelliJ BSP</strong></td><td style="text-align:center">✅</td><td style="text-align:center">✅</td><td style="text-align:center">✅</td><td style="text-align:center">✅</td><td style="text-align:center">✅</td></tr>
+</tbody>
+</table>
+<h2><a class="anchor" aria-hidden="true" id="installation-requirements"></a><a href="#installation-requirements" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Installation requirements</h2>
+<ol>
+<li>At least Bloop v1.1.0</li>
+<li>A build with at least one project in it</li>
+<li>You use a <a href="/bloop/docs/build-tools/overview">build tool supported by Bloop</a></li>
+<li>You have followed the <a href="/bloop/setup">Installation Guide</a>, which means:
+<ul>
+<li>The build server is running in the background.</li>
+<li>The <code>bloop</code> CLI tool is installed in your machine.</li>
+<li>You have exported your build to Bloop.</li>
+</ul></li>
+</ol>
+<h2><a class="anchor" aria-hidden="true" id="installation"></a><a href="#installation" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Installation</h2>
+<p>First, install the latest
+<a href="https://www.jetbrains.com/community/eap/">2020.1 IntelliJ IDEA EAP</a>. The 2020.1
+version includes several important fixes for the BSP integration that are not
+available in the 2019.3 version.</p>
+<p>Next, install the IntelliJ Scala plugin and restart IntelliJ. If everything is
+configured correctly, the Scala plugin should appear under the list of
+&quot;Downloaded&quot; plugins when you open <code>Preferences &gt; Plugins</code>.</p>
+<p><img src="https://i.imgur.com/hBq2DcS.png" alt="Screenshot of the Plugins view showing the Scala plugin is installed"></p>
+<p>At the time of this writing, the version of the Scala plugin is 2020.1.966.</p>
+<h2><a class="anchor" aria-hidden="true" id="export-a-bloop-build"></a><a href="#export-a-bloop-build" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Export a Bloop build</h2>
+<blockquote>
+<p>Skip this step if you use sbt since it's handled automatically by IntelliJ.</p>
+</blockquote>
+<p>If you use any other build tool than sbt, you first need to export a Bloop build
+following the instructions for your build tool. For an overview of supported
+build tools, see <a href="/bloop/docs/build-tools/overview">here</a>.</p>
+<h2><a class="anchor" aria-hidden="true" id="create-new-bsp-project"></a><a href="#create-new-bsp-project" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Create new BSP project</h2>
+<p>After you have exported a Bloop build, run the
+<code>File &gt; New &gt; Project from existing sources</code> action to create a new IntelliJ
+project.</p>
+<p><img src="https://i.imgur.com/HBnTnXg.png" alt="Screenshot of the &quot;Project from existing sources&quot; action"></p>
+<p>It's important to not use the &quot;open or import&quot; dialogue since it does not allow
+creating a BSP project.</p>
+<p>Select a directory that contains the exported Bloop build or root of your sbt
+build.</p>
+<p>Next, select &quot;BSP&quot; in the &quot;Import project&quot; dialogue.</p>
+<p><img src="https://i.imgur.com/tkKzs7F.png" alt="Screenshot of the &quot;Import project&quot; dialogue"></p>
+<p>If everything works correctly, your window should look like this after the BSP
+import is complete.</p>
+<p><img src="https://i.imgur.com/8fmdv0b.png" alt="Screenshot of IntelliJ UI after BSP import is complete"></p>
+<p>🚀 Congratulations, your build is now imported! If &quot;Build automatically on file
+save&quot; is not enabled, you can trigger a bloop compilation by clicking on &quot;Build
+| Build project&quot; or its associated keystroke.</p>
+<h2><a class="anchor" aria-hidden="true" id="compile-all-projects"></a><a href="#compile-all-projects" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Compile all projects</h2>
+<p>Run the &quot;Build project&quot; action to compile all Bloop projects.</p>
+<p><img src="https://i.imgur.com/qW7bCc9.gif" alt="Screen recording showing &quot;build project&quot; in action"></p>
+<p>Compile errors and warnings are displayed in the &quot;Build output&quot; view with
+clickable links to the source location.</p>
+<p><img src="https://i.imgur.com/TnNxKlX.png" alt="Screenshot of a compile error with a clickable link"></p>
+<h2><a class="anchor" aria-hidden="true" id="run-tests"></a><a href="#run-tests" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Run tests</h2>
+<p>Go to a test suite and click &quot;Run 'TEST SUITE NAME'&quot;.</p>
+<p><img src="https://i.imgur.com/RBz6EyG.png" alt="Screenshot showing 'Run TEST SUITE' dialogue"></p>
+<p>IntelliJ may prompt you to select the BSP target in case the source file belongs
+to multiple projects. Select the appropriate project if this prompt comes up. In
+most cases, IntelliJ is able to automatically choose the project.</p>
+<p><img src="https://i.imgur.com/8n9X5ZP.png" alt="Screenshot showing &quot;Choose BSP target&quot; prompt"></p>
+<p>IntelliJ respects the working directory, system property and other runtime
+configuration from Bloop. Note that it's not possible manually configure these
+options through the &quot;Edit configurations&quot; window. For example, manual changes
+the working directory in a run configuration will be ignored.</p>
+<h2><a class="anchor" aria-hidden="true" id="build-on-file-save"></a><a href="#build-on-file-save" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Build on file save</h2>
+<p>Enable the &quot;build automatically on file save&quot; option to trigger &quot;build project&quot;
+as soon as you save the file. First, open the BSP settings by opening the &quot;bsp&quot;
+panel on the right and click on the wrench icon.</p>
+<p><img src="https://i.imgur.com/QjXwA6o.png" alt="Screenshot of the &quot;BSP settings&quot; wrench icon"></p>
+<p>Next, check the &quot;build automatically on file save&quot; box and select &quot;Apply&quot; to
+save the setting.</p>
+<p><img src="https://i.imgur.com/XRwRvdM.png" alt="Screenshot of the &quot;BSP&quot; settings"></p>
+<p>This option is helpful to iterate quickly on changes across multiple files. By
+default, IntelliJ only shows compile errors in the file that you have open. With
+BSP &quot;build automatically on file save&quot;, you can see errors in unopened files as
+soon as you save the file.</p>
+<h2><a class="anchor" aria-hidden="true" id="refresh-project"></a><a href="#refresh-project" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Refresh project</h2>
+<p>Run the &quot;Reimport all BSP projects&quot; action to refresh the build. This step is
+for example needed when you make changes to <code>build.sbt</code> to add a new library
+dependency.</p>
+<h2><a class="anchor" aria-hidden="true" id="known-limitations"></a><a href="#known-limitations" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Known limitations</h2>
+<p>The IntelliJ BSP integration is work-in-progress and therefore has some
+well-known limitations.</p>
+<h3><a class="anchor" aria-hidden="true" id="no-sbt-file-support"></a><a href="#no-sbt-file-support" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>No sbt file support</h3>
+<p>Error highlighting, code completions and navigation don't work in <code>build.sbt</code>.</p>
+<p><img src="https://i.imgur.com/islEgDv.png" alt="Screenshot showing error highlighting in build.sbt"></p>
+<p>This functionality has not yet been implemented. There is no inherent limitation
+in Bloop or BSP that prevents this feature from becoming supported.</p>
+<h3><a class="anchor" aria-hidden="true" id="two-step-project-refresh-for-non-sbt-builds"></a><a href="#two-step-project-refresh-for-non-sbt-builds" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Two-step project refresh for non-sbt builds</h3>
+<p>The &quot;refresh all BSP projects&quot; action does not re-export the Bloop build for
+non-sbt builds. If you are using Gradle, Maven or Mill you need to first trigger
+the Bloop export before running the &quot;refresh all BSP projects&quot; action.</p>
+<p>The upcoming version of Bloop supports a new <code>&quot;refreshProjectsCommand&quot;</code> option
+in the Bloop JSON configuration files that makes it possible to re-export the
+Bloop build from IntelliJ in one step. Contributions are welcome to implement
+this functionality for build tools like Maven, Gradle or Mill.</p>
+</span></div></article></div><div class="docs-prevnext"><a class="docs-prev button" href="/bloop/docs/ides/overview"><span class="arrow-prev">← </span><span>Overview</span></a><a class="docs-next button" href="/bloop/docs/ides/metals"><span>Metals</span><span class="arrow-next"> →</span></a></div></div></div><nav class="onPageNav"><ul class="toc-headings"><li><a href="#installation-requirements">Installation requirements</a></li><li><a href="#installation">Installation</a></li><li><a href="#export-a-bloop-build">Export a Bloop build</a></li><li><a href="#create-new-bsp-project">Create new BSP project</a></li><li><a href="#compile-all-projects">Compile all projects</a></li><li><a href="#run-tests">Run tests</a></li><li><a href="#build-on-file-save">Build on file save</a></li><li><a href="#refresh-project">Refresh project</a></li><li><a href="#known-limitations">Known limitations</a><ul class="toc-headings"><li><a href="#no-sbt-file-support">No sbt file support</a></li><li><a href="#two-step-project-refresh-for-non-sbt-builds">Two-step project refresh for non-sbt builds</a></li></ul></li></ul></nav></div><footer class="nav-footer" id="footer" style="background-color:rgb(17, 42, 68)"><section class="sitemap"><a href="/bloop/" class="nav-home"><img src="/bloop/img/impure-logo-bloop.svg" alt="Bloop" height="60"/></a><a href="/bloop/" class="nav-home"><img src="/bloop/img/frontpage/scala.png" alt="Bloop" height="60"/></a><div><h5>Overview</h5><a href="/bloop/docs/what-is-bloop">What is Bloop</a><a href="/bloop/docs/integration">Integrate with Bloop</a><a href="/bloop/docs/build-tools/overview">Build Tools</a><a href=" /bloop/docs/contributing-guide">Contributing</a></div><div><h5>Build Tools</h5><a href="/bloop/docs/build-tools/sbt">sbt</a><a href="/bloop/docs/build-tools/gradle">Gradle</a><a href="/bloop/docs/build-tools/maven">Maven</a><a href="/bloop/docs/build-tools/mill">Mill</a></div><div><h5>Social</h5><a href="https://github.com/scalacenter/bloop" target="_blank"><img src="https://img.shields.io/github/stars/scalacenter/bloop.svg?color=%23087e8b&amp;label=stars&amp;logo=github&amp;style=social"/></a><a href="https://discord.gg/vys6d43" target="_blank"><img src="https://img.shields.io/discord/632642981228314653?logo=discord&amp;style=social"/></a><a href="https://gitter.im/scalacenter/bloop" target="_blank"><img src="https://img.shields.io/gitter/room/scalacenter/bloop.svg?logo=gitter&amp;style=social"/></a><a href="https://twitter.com/jvican" target="_blank"><img src="https://img.shields.io/twitter/follow/jvican.svg?logo=twitter&amp;style=social"/></a></div></section><section class="copyright">Copyright © 2020 Bloop</section><section class="copyright">Credits to @freepik for svg icons</section><section class="copyright">Credits to Bazel, Babel and Metals for inspiring Bloop&#x27;s website design</section></footer></div><script type="text/javascript" src="https://cdn.jsdelivr.net/docsearch.js/1/docsearch.min.js"></script><script>
+                document.addEventListener('keyup', function(e) {
+                  if (e.target !== document.body) {
+                    return;
+                  }
+                  // keyCode for '/' (slash)
+                  if (e.keyCode === 191) {
+                    const search = document.getElementById('search_input_react');
+                    search && search.focus();
+                  }
+                });
+              </script><script>
+              var search = docsearch({
+                
+                apiKey: 'cf5bcb37b134346182da2be3f5e0a76b',
+                indexName: 'bloop_scala',
+                inputSelector: '#search_input_react'
+              });
+            </script></body></html>

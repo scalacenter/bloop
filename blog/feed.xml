@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0">
+    <channel>
+        <title>Bloop Blog</title>
+        <link>https://scalacenter.github.io/bloop/blog</link>
+        <description>The best place to stay up-to-date with the latest Bloop news and events.</description>
+        <lastBuildDate>Thu, 25 Apr 2019 06:00:00 GMT</lastBuildDate>
+        <docs>http://blogs.law.harvard.edu/tech/rss</docs>
+        <generator>https://github.com/jpmonette/feed</generator>
+        <image>
+            <title>Bloop Blog</title>
+            <url>https://scalacenter.github.io/bloop/img/impure-logo-bloop.svg</url>
+            <link>https://scalacenter.github.io/bloop/blog</link>
+        </image>
+        <copyright>Copyright © 2020 Bloop</copyright>
+        <item>
+            <title><![CDATA[Introducing Docusaurus]]></title>
+            <link>https://scalacenter.github.io/bloop/blog/2019/04/25/Compiler-Isolation.html</link>
+            <guid>https://scalacenter.github.io/bloop/blog/2019/04/25/Compiler-Isolation.html</guid>
+            <pubDate>Thu, 25 Apr 2019 06:00:00 GMT</pubDate>
+            <description><![CDATA[<p>Lorem Ipsum...</p> ]]></description>
+        </item>
+    </channel>
+</rss>
