@@ -1,0 +1,7 @@
+{
+  "name": "bloop",
+  "repositories": [ "central" ],
+  "launcherType": "graalvm-native-image",
+  "prebuilt": "$PREBUILT",
+  "dependencies": [ "ch.epfl.scala::bloopgun:$VERSION" ]
+}

@@ -13,42 +13,36 @@ import GitUtils.GitAuth
 object ReleaseUtils {
 
   /** The path to our installation script */
-  private val installScript = Def.setting { BuildKeys.buildBase.value / "bin" / "install.py" }
+  private val bloopCoursierJsonPath = Def.setting {
+    BuildKeys.buildBase.value / "etc" / "bloop-coursier.json"
+  }
+
+  /** The path to the platform-specific GraalVM Native image binary */
+  private val bloopPrebuiltCliPath = Def.setting {
+    BuildKeys.buildBase.value / "bloopgun" / "target" / "graalvm-native-image" / "bloopgun-core"
+  }
 
   /**
-   * Creates a new installation script (based on the normal installation script) that has default
-   * values for the nailgun commit and version of Bloop to install.
-   *
-   * This lets us create an installation script that doesn't need any additional input to install
-   * the version of Bloop that we're releasing.
+   * Materializes a file-based Coursier channel to install a specific bloop version.
    */
-  val versionedInstallScript = Def.task {
+  val bloopCoursierJson = Def.task {
     val bloopVersion = Keys.version.value
-    val nailgunCommit = Dependencies.nailgunCommit
-    val coursierVersion = Dependencies.coursierVersion
     val target = Keys.target.value
     val log = Keys.streams.value.log
+
     val cacheDirectory = Keys.streams.value.cacheDirectory
-    val scriptTemplate = installScript.value
-    val scriptTarget = target / scriptTemplate.getName
+    val jsonPath = bloopCoursierJsonPath.value
+    val jsonTarget = target / jsonPath.getName
+    val bloopCliPath = "file://" + bloopPrebuiltCliPath.value.toString
 
-    val lines = IO.readLines(scriptTemplate)
-    val marker = "# INSERT_INSTALL_VARIABLES"
-    lines.span(_ != marker) match {
-      case (before, _ :: after) =>
-        val customizedVariables =
-          List(
-            s"""NAILGUN_COMMIT = "${nailgunCommit}"""",
-            s"""BLOOP_VERSION = "${bloopVersion}"""",
-            s"""COURSIER_VERSION = "${coursierVersion}""""
-          )
-        val newContent = before ::: customizedVariables ::: after
-        IO.writeLines(scriptTarget, newContent)
-        scriptTarget
+    val lines = IO.readLines(jsonPath)
+    val newContent = lines.map(
+      _.replace("$VERSION", bloopVersion)
+        .replace("$PREBUILT", bloopCliPath)
+    )
 
-      case _ =>
-        sys.error(s"Couldn't find '$marker' in '$scriptTemplate'.")
-    }
+    IO.writeLines(jsonTarget, newContent)
+    jsonTarget
   }
 
   val generateInstallationWitness = Def.task {
@@ -65,84 +59,46 @@ object ReleaseUtils {
   /**
    * The content of the Homebrew Formula to install the version of Bloop that we're releasing.
    *
-   * @param version The version of Bloop that we're releasing (usually `Keys.version.value`)
+   * @param version The version of Bloop that we're releasing.
    * @param origin The origin where we install the homebrew formula from.
-   * @param installSha The SHA-256 of the versioned installation script.
+   * @param sha The SHA-256 of the bloop coursier channel.
    */
   def generateHomebrewFormulaContents(
       version: String,
       origin: FormulaOrigin,
-      installSha: String,
+      sha: String,
       local: Boolean
   ): String = {
     val url = {
       origin match {
         case Left(f) => s"""url "file://${f.getAbsolutePath}""""
         case Right(tagName) =>
-          s"""url "https://github.com/scalacenter/bloop/releases/download/$tagName/install.py""""
-      }
-    }
-
-    val pythonInvocation = {
-      if (!local) """system "python3", "install.py", "--dest", "bin", "--version", version"""
-      else {
-        val cwd = sys.props("user.dir")
-        val ivyHome = new File(sys.props("user.home")) / ".ivy2/"
-        s"""system "python3", "install.py", "--dest", "bin", "--version", version, "--ivy-home", "$ivyHome", "--bloop-home", "$cwd""""
+          s"""url "https://github.com/scalacenter/bloop/releases/download/$tagName/bloop-coursier.json""""
       }
     }
 
     s"""class Bloop < Formula
-       |  desc "Bloop is a build server to compile, test and run Scala fast"
+       |  desc "Installs the Bloop CLI for Bloop, a build server to compile, test and run Scala fast"
        |  homepage "https://github.com/scalacenter/bloop"
        |  version "$version"
        |  $url
-       |  sha256 "$installSha"
+       |  sha256 "$sha"
        |  bottle :unneeded
        |
        |  depends_on "bash-completion"
-       |  depends_on "python3"
+       |  depends_on "coursier/formulas/coursier"
        |  depends_on :java => "1.8+"
        |
        |  def install
        |      mkdir "bin"
-       |      ${pythonInvocation}
+       |      mkdir "channel"
+       |      mv "bloop-coursier.json", "channel/bloop.json"
+       |      system "coursier", "install", "--install-dir", "bin", "--default-channels=false", "--channel", "channel", "bloop"
        |      zsh_completion.install "bin/zsh/_bloop"
        |      bash_completion.install "bin/bash/bloop"
        |      fish_completion.install "bin/fish/bloop.fish"
-       |
-       |      # We need to create these files manually here, because otherwise launchd
-       |      # will create them with owner set to `root` (see the plist file below).
-       |      FileUtils.mkdir_p("log/bloop/")
-       |      FileUtils.touch("log/bloop/bloop.out.log")
-       |      FileUtils.touch("log/bloop/bloop.err.log")
-       |
        |      prefix.install "bin"
-       |      prefix.install "log"
        |  end
-       |
-       |  def plist; <<~EOS
-       |<?xml version="1.0" encoding="UTF-8"?>
-       |<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-       |<plist version="1.0">
-       |<dict>
-       |    <key>Label</key>
-       |    <string>#{plist_name}</string>
-       |    <key>ProgramArguments</key>
-       |    <array>
-       |        <string>#{bin}/bloop</string>
-       |        <string>server</string>
-       |    </array>
-       |    <key>KeepAlive</key>
-       |    <true/>
-       |    <key>StandardOutPath</key>
-       |    <string>#{prefix}/log/bloop/bloop.out.log</string>
-       |    <key>StandardErrorPath</key>
-       |    <string>#{prefix}/log/bloop/bloop.err.log</string>
-       |</dict>
-       |</plist>
-       |          EOS
-       |      end
        |
        |  test do
        |  end
@@ -154,9 +110,9 @@ object ReleaseUtils {
     val version = Keys.version.value
     val versionDir = Keys.target.value / version
     val targetLocalFormula = versionDir / "Bloop.rb"
-    val installScript = versionedInstallScript.value
-    val installSha = sha256(installScript)
-    val contents = generateHomebrewFormulaContents(version, Left(installScript), installSha, true)
+    val coursierChannel = bloopCoursierJson.value
+    val channelSha = sha256(coursierChannel)
+    val contents = generateHomebrewFormulaContents(version, Left(coursierChannel), channelSha, true)
     if (!versionDir.exists()) IO.createDirectory(versionDir)
     IO.write(targetLocalFormula, contents)
     logger.info(s"Local Homebrew formula created in ${targetLocalFormula.getAbsolutePath}")
@@ -166,12 +122,12 @@ object ReleaseUtils {
   val updateHomebrewFormula = Def.task {
     val repository = "https://github.com/scalacenter/homebrew-bloop.git"
     val buildBase = BuildKeys.buildBase.value
-    val installSha = sha256(versionedInstallScript.value)
+    val channelSha = sha256(bloopCoursierJson.value)
     val version = Keys.version.value
     val token = GitUtils.authToken()
     cloneAndPush(repository, buildBase, version, token, true) { inputs =>
       val formulaFileName = "bloop.rb"
-      val contents = generateHomebrewFormulaContents(version, Right(inputs.tag), installSha, false)
+      val contents = generateHomebrewFormulaContents(version, Right(inputs.tag), channelSha, false)
       FormulaArtifact(inputs.base / formulaFileName, contents) :: Nil
     }
   }
@@ -206,12 +162,12 @@ object ReleaseUtils {
     val logger = Keys.streams.value.log
     val version = Keys.version.value
     val versionDir = Keys.target.value / version
-    val installScript = versionedInstallScript.value
-    val installSha = sha256(installScript)
+    val coursierChannel = bloopCoursierJson.value
+    val channelSha = sha256(coursierChannel)
 
     val formulaFileName = "bloop.json"
     val targetLocalFormula = versionDir / formulaFileName
-    val contents = generateScoopFormulaContents(version, installSha, Left(installScript))
+    val contents = generateScoopFormulaContents(version, channelSha, Left(coursierChannel))
 
     if (!versionDir.exists()) IO.createDirectory(versionDir)
     IO.write(targetLocalFormula, contents)
@@ -222,13 +178,13 @@ object ReleaseUtils {
     val repository = "https://github.com/scalacenter/scoop-bloop.git"
     val buildBase = BuildKeys.buildBase.value
     val version = Keys.version.value
-    val installScript = versionedInstallScript.value
-    val installSha = sha256(installScript)
+    val coursierChannel = bloopCoursierJson.value
+    val channelSha = sha256(coursierChannel)
     val token = GitUtils.authToken()
     cloneAndPush(repository, buildBase, version, token, true) { inputs =>
       val formulaFileName = "bloop.json"
       val url = s"https://github.com/scalacenter/bloop/releases/download/${inputs.tag}/install.py"
-      val contents = generateScoopFormulaContents(version, installSha, Right(inputs.tag))
+      val contents = generateScoopFormulaContents(version, channelSha, Right(inputs.tag))
       FormulaArtifact(inputs.base / formulaFileName, contents) :: Nil
     }
   }
@@ -241,7 +197,7 @@ object ReleaseUtils {
   def generateArchBuildContents(
       version: String,
       origin: FormulaOrigin,
-      installSha: String
+      channelSha: String
   ): String = {
     // Note: pkgver must only contain letters, numbers and periods to be valid
     val safeVersion = version.replace('-', '.').replace('+', '.').replace(' ', '.')
@@ -262,7 +218,7 @@ object ReleaseUtils {
        |license=('Apache')
        |depends=('java-environment>=8' 'python')
        |source=("$source")
-       |sha256sums=('$installSha')
+       |sha256sums=('$channelSha')
        |
        |build() {
        |  python ./$script --dest "$$srcdir/bloop"
@@ -305,7 +261,7 @@ object ReleaseUtils {
   def generateArchInfoContents(
       version: String,
       origin: FormulaOrigin,
-      installSha: String
+      channelSha: String
   ): String = {
     val source = archPackageSource(origin)
     s"""pkgbase = bloop
@@ -318,7 +274,7 @@ object ReleaseUtils {
        |depends = java-environment>=8
        |depends = python
        |source = $source
-       |sha256sums = $installSha
+       |sha256sums = $channelSha
        |pkgname = bloop
        |""".stripMargin
   }
@@ -333,10 +289,10 @@ object ReleaseUtils {
     val versionDir = Keys.target.value / version
     val targetBuild = versionDir / "PKGBUILD"
     val targetInfo = versionDir / ".SRCINFO"
-    val installScript = versionedInstallScript.value
-    val installSha = sha256(installScript)
-    val pkgbuild = generateArchBuildContents(version, Left(installScript), installSha)
-    val srcinfo = generateArchInfoContents(version, Left(installScript), installSha)
+    val coursierChannel = bloopCoursierJson.value
+    val channelSha = sha256(coursierChannel)
+    val pkgbuild = generateArchBuildContents(version, Left(coursierChannel), channelSha)
+    val srcinfo = generateArchInfoContents(version, Left(coursierChannel), channelSha)
     if (!versionDir.exists()) IO.createDirectory(versionDir)
     IO.write(targetBuild, pkgbuild)
     IO.write(targetInfo, srcinfo)
@@ -346,14 +302,14 @@ object ReleaseUtils {
   val updateArchPackage = Def.task {
     val repository = "ssh://aur@aur.archlinux.org/bloop.git"
     val buildBase = BuildKeys.buildBase.value
-    val installSha = sha256(versionedInstallScript.value)
+    val channelSha = sha256(bloopCoursierJson.value)
     val version = Keys.version.value
     val sshKey = GitUtils.authSshKey()
     cloneAndPush(repository, buildBase, version, sshKey, false) { inputs =>
       val buildFile = inputs.base / "PKGBUILD"
       val infoFile = inputs.base / ".SRCINFO"
-      val buildContents = generateArchBuildContents(version, Right(inputs.tag), installSha)
-      val infoContents = generateArchInfoContents(version, Right(inputs.tag), installSha)
+      val buildContents = generateArchBuildContents(version, Right(inputs.tag), channelSha)
+      val infoContents = generateArchInfoContents(version, Right(inputs.tag), channelSha)
       FormulaArtifact(buildFile, buildContents) :: FormulaArtifact(infoFile, infoContents) :: Nil
     }
   }
