@@ -26,6 +26,7 @@ import scala.collection.JavaConverters._
  * - change "gradlePluginBuildSettings" "Keys.fork in Test" in BuildPlugin.scala to "false"
  * - scala-library-2-18.1.jar disappears from classpath when fork=false.  Add manually for now to getClasspath output
  * - add ".withDebug(true)" to the GradleRunner in the particular test to debug
+ * - run tests under gradleBloop212 project
  */
 
 // minimum supported version
@@ -109,6 +110,75 @@ abstract class ConfigGenerationSuite {
 
   @Test def worksWithScala213Project(): Unit = {
     worksWithGivenScalaVersion("2.13.1")
+  }
+
+  @Test def worksWithDotty21(): Unit = {
+    worksWithDotty("0.21.0-RC1")
+  }
+
+  @Test def worksWithDottyLatest(): Unit = {
+    worksWithDotty("Latest")
+  }
+
+  def worksWithDotty(version: String): Unit = {
+    val buildFile = testProjectDir.newFile("build.gradle")
+    testProjectDir.newFolder("src", "main", "scala")
+    writeBuildScript(
+      buildFile,
+      s"""
+        |plugins {
+        |  id 'bloop'
+        |}
+        |
+        |apply plugin: 'scala'
+        |apply plugin: 'bloop'
+        |
+        |bloop {
+        |  dottyVersion = "$version"
+        |}
+        |
+        |repositories {
+        |  mavenCentral()
+        |}
+        |
+        |dependencies {
+        |  compile 'org.scala-lang:scala-library:2.13.1'
+        |}
+      """.stripMargin
+    )
+
+    createHelloWorldScalaSource(testProjectDir.getRoot)
+
+    GradleRunner
+      .create()
+      .withGradleVersion(gradleVersion)
+      .withProjectDir(testProjectDir.getRoot)
+      .withPluginClasspath(getClasspath)
+      .withArguments("bloopInstall", "-Si")
+      .build()
+
+    val projectName = testProjectDir.getRoot.getName
+    val bloopDir = new File(testProjectDir.getRoot, ".bloop")
+    val projectFile = new File(bloopDir, s"${projectName}.json")
+    val configFile = readValidBloopConfig(projectFile)
+
+    assert(configFile.project.`scala`.isDefined)
+
+    if (version.toUpperCase == "LATEST")
+      assertNotEquals(version, configFile.project.`scala`.get.version)
+    else
+      assertEquals(version, configFile.project.`scala`.get.version)
+    assertEquals("ch.epfl.lamp", configFile.project.`scala`.get.organization)
+    assert(configFile.project.`scala`.get.jars.exists(_.toString.contains("dotty-compiler")))
+    assert(hasClasspathEntryName(configFile, "dotty-library"))
+    assert(hasClasspathEntryName(configFile, "scala-library"))
+
+    val idxDottyLib = idxOfClasspathEntryName(configFile, "dotty-library")
+    val idxScalaLib = idxOfClasspathEntryName(configFile, "scala-library")
+
+    assert(idxDottyLib < idxScalaLib)
+
+    assert(hasTag(configFile, Tag.Library))
   }
 
   @Test def worksWithInputVariables(): Unit = {
@@ -1287,9 +1357,6 @@ abstract class ConfigGenerationSuite {
     val configD = readValidBloopConfig(bloopD)
     assertEquals(List("c", "a", "b"), configD.project.dependencies)
 
-    def idxOfClasspathEntryName(config: Config.File, entryName: String): Int =
-      config.project.classpath.takeWhile(!_.toString.contains(entryName)).size
-
     val idxA = idxOfClasspathEntryName(configD, "/a/build/classes")
     val idxB = idxOfClasspathEntryName(configD, "/b/build/classes")
     val idxC = idxOfClasspathEntryName(configD, "/c/build/classes")
@@ -1516,6 +1583,11 @@ abstract class ConfigGenerationSuite {
   private def hasClasspathEntryName(config: Config.File, entryName: String): Boolean = {
     val pathValidEntryName = entryName.replace('/', File.separatorChar)
     config.project.classpath.exists(_.toString.contains(pathValidEntryName))
+  }
+
+  private def idxOfClasspathEntryName(config: Config.File, entryName: String): Int = {
+    val pathValidEntryName = entryName.replace('/', File.separatorChar)
+    config.project.classpath.takeWhile(!_.toString.contains(pathValidEntryName)).size
   }
 
   private def hasTag(config: Config.File, tag: String): Boolean = {

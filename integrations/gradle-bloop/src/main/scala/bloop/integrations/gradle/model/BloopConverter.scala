@@ -31,6 +31,7 @@ import org.gradle.plugins.ide.internal.tooling.java.DefaultInstalledJdk
 
 import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
+import scala.io.Source
 
 /**
  * Define the conversion from Gradle's project model to Bloop's project model.
@@ -102,6 +103,44 @@ class BloopConverter(parameters: BloopParameters) {
       val allRuntimeProjectDependencies =
         getProjectDependenciesRecursively(runtimeClassPathConfiguration)
 
+      // download Dotty artifacts
+      val (dottyOrgName, dottyVersion, dottyArtifacts, dottyJars, dottyLibraryPaths) =
+        parameters.dottyVersion
+          .map(specifiedVersion => {
+            val version = if (specifiedVersion.toUpperCase == "LATEST") {
+              val source = Source.fromURL("https://dotty.epfl.ch/versions/latest-nightly-base")
+              val majorVersionFromWebsite = source.getLines().toSeq.head
+              source.close()
+              majorVersionFromWebsite
+            } else specifiedVersion
+            val dottyOrgName = "ch.epfl.lamp"
+            // handle major versions "0.24" and minor "0.24.0-bin-20200322-42932dc-NIGHTLY"
+            val firstSeparator = version.indexOf('.')
+            val lastSeparator = version.lastIndexOf('.')
+            val dependencyName = if (firstSeparator == lastSeparator) {
+              s"${dottyOrgName}:dotty_${version}:+"
+            } else {
+              val (major, minor) = version.splitAt(lastSeparator)
+              s"${dottyOrgName}:dotty_${major}:${major}${minor}"
+            }
+            val dottyLibraryDep = project.getDependencies.create(dependencyName)
+            val dottyConfiguration =
+              project.getConfigurations.detachedConfiguration(dottyLibraryDep)
+            val dottyCompilerClassPath = dottyConfiguration.resolve().asScala.map(_.toPath).toList
+            val dottyLibraryPaths =
+              dottyCompilerClassPath.filter(_.toString.contains("dotty-library"))
+            val resolvedDottyArtifacts =
+              dottyConfiguration.getResolvedConfiguration.getResolvedArtifacts.asScala.toList
+            (
+              Some(dottyOrgName),
+              Some(version),
+              resolvedDottyArtifacts,
+              Some(dottyCompilerClassPath),
+              dottyLibraryPaths
+            )
+          })
+          .getOrElse((None, None, List.empty[ResolvedArtifact], None, List.empty))
+
       // retrieve all artifacts (includes transitive?)
       val compileArtifacts: List[ResolvedArtifact] =
         compileClassPathConfiguration.getResolvedConfiguration.getResolvedArtifacts.asScala.toList
@@ -111,7 +150,9 @@ class BloopConverter(parameters: BloopParameters) {
       // get all configurations dependencies - these go into the resolutions as the user can create their own config dependencies (e.g. compiler plugin jar)
       // some configs aren't allowed to be resolved - hence the catch
       // this can bring too many artifacts into the resolution section (e.g. junit on main projects) but there's no way to know which artifact is required by which sourceset
+      // don't include zinc configuration (it's for compiling within Gradle)
       val additionalArtifacts = project.getConfigurations.asScala
+        .filter(_.getName != "zinc")
         .flatMap(c => {
           try {
             c.getResolvedConfiguration.getResolvedArtifacts.asScala.toSet
@@ -202,19 +243,29 @@ class BloopConverter(parameters: BloopParameters) {
 
       // tag runtime items to the end of the classpath until Bloop has separate compile and runtime paths
       val classpath: List[Path] =
-        (strictProjectDependencies.map(_.classesDir) ++ compileClasspathItems ++ runtimeClasspathItems ++
+        (strictProjectDependencies.map(_.classesDir) ++
+          dottyLibraryPaths ++
+          compileClasspathItems ++ runtimeClasspathItems ++
           compileClasspathFilesAsPaths ++ runtimeClasspathFilesAsPaths ++
           nonArtifactCompileClassPathFiles ++ nonArtifactRuntimeClassPathFiles).distinct
 
       val modules = (nonProjectDependencies.map(artifactToConfigModule(_, project)) ++
-        additionalArtifacts.map(artifactToConfigModule(_, project))).distinct
+        additionalArtifacts.map(artifactToConfigModule(_, project)) ++
+        dottyArtifacts.map(artifactToConfigModule(_, project))).distinct
 
       val tags =
         if (sourceSet.getName == SourceSet.TEST_SOURCE_SET_NAME) List(Tag.Test)
         else List(Tag.Library)
 
       for {
-        scalaConfig <- getScalaConfig(project, sourceSet, compileArtifacts)
+        scalaConfig <- getScalaConfig(
+          project,
+          sourceSet,
+          compileArtifacts,
+          dottyOrgName,
+          dottyVersion,
+          dottyJars
+        )
         resolution = Config.Resolution(modules)
         bloopProject = Config.Project(
           name = getProjectName(project, sourceSet),
@@ -613,7 +664,10 @@ class BloopConverter(parameters: BloopParameters) {
   private def getScalaConfig(
       project: Project,
       sourceSet: SourceSet,
-      artifacts: List[ResolvedArtifact]
+      artifacts: List[ResolvedArtifact],
+      dottyOrgName: Option[String],
+      dottyVersion: Option[String],
+      dottyJars: Option[List[Path]]
   ): Try[Option[Config.Scala]] = {
     def isJavaOnly: Boolean = {
       val allSourceFiles = sourceSet.getAllSource.getFiles.asScala.toList
@@ -623,13 +677,15 @@ class BloopConverter(parameters: BloopParameters) {
     // Finding the compiler group and version from the standard Scala library added as dependency
     artifacts.find(_.getName == parameters.stdLibName) match {
       case Some(stdLibArtifact) =>
-        val scalaVersion = stdLibArtifact.getModuleVersion.getId.getVersion
-        val scalaOrg = stdLibArtifact.getModuleVersion.getId.getGroup
         val scalaCompileTaskName = sourceSet.getCompileTaskName("scala")
         val scalaCompileTask = project.getTask[ScalaCompile](scalaCompileTaskName)
 
         if (scalaCompileTask != null) {
-          val scalaJars = scalaCompileTask.getScalaClasspath.asScala.map(_.toPath).toList
+          val scalaVersion =
+            dottyVersion.getOrElse(stdLibArtifact.getModuleVersion.getId.getVersion)
+          val scalaOrg = dottyOrgName.getOrElse(stdLibArtifact.getModuleVersion.getId.getGroup)
+          val scalaJars =
+            dottyJars.getOrElse(scalaCompileTask.getScalaClasspath.asScala.map(_.toPath).toList)
           val opts = scalaCompileTask.getScalaCompileOptions
           val options = optionList(opts)
           val compilerName = parameters.compilerName
