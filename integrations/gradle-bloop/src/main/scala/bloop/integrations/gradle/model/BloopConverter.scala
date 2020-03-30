@@ -127,13 +127,14 @@ class BloopConverter(parameters: BloopParameters) {
             val dottyConfiguration =
               project.getConfigurations.detachedConfiguration(dottyLibraryDep)
             val dottyCompilerClassPath = dottyConfiguration.resolve().asScala.map(_.toPath).toList
-            val dottyLibraryPaths =
-              dottyCompilerClassPath.filter(_.toString.contains("dotty-library"))
             val resolvedDottyArtifacts =
               dottyConfiguration.getResolvedConfiguration.getResolvedArtifacts.asScala.toList
+            val dottyLibraryModule = resolvedDottyArtifacts.find(_.getName.toUpperCase.contains("DOTTY-LIBRARY"))
+            val dottyLibraryPaths = dottyLibraryModule.map(_.getFile.toPath).toList
+            val exactVersion = dottyLibraryModule.map(_.getModuleVersion.getId.getVersion).getOrElse(version)
             (
               Some(dottyOrgName),
-              Some(version),
+              Some(exactVersion),
               resolvedDottyArtifacts,
               Some(dottyCompilerClassPath),
               dottyLibraryPaths
