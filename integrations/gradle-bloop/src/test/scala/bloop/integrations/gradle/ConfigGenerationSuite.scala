@@ -44,6 +44,7 @@ abstract class ConfigGenerationSuite {
 
   // folder to put test build scripts and java/scala source files
   private val testProjectDir_ = new TemporaryFolder()
+
   @Rule def testProjectDir: TemporaryFolder = testProjectDir_
 
   @Test def pluginCanBeApplied(): Unit = {
@@ -126,24 +127,24 @@ abstract class ConfigGenerationSuite {
     writeBuildScript(
       buildFile,
       s"""
-        |plugins {
-        |  id 'bloop'
-        |}
-        |
-        |apply plugin: 'scala'
-        |apply plugin: 'bloop'
-        |
-        |bloop {
-        |  dottyVersion = "$version"
-        |}
-        |
-        |repositories {
-        |  mavenCentral()
-        |}
-        |
-        |dependencies {
-        |  compile 'org.scala-lang:scala-library:2.13.1'
-        |}
+         |plugins {
+         |  id 'bloop'
+         |}
+         |
+         |apply plugin: 'scala'
+         |apply plugin: 'bloop'
+         |
+         |bloop {
+         |  dottyVersion = "$version"
+         |}
+         |
+         |repositories {
+         |  mavenCentral()
+         |}
+         |
+         |dependencies {
+         |  compile 'org.scala-lang:scala-library:2.13.1'
+         |}
       """.stripMargin
     )
 
@@ -1440,10 +1441,10 @@ abstract class ConfigGenerationSuite {
   }
 
   private def compileBloopProject(
-      projectName: String,
-      bloopDir: File,
-      verbose: Boolean = false
-  ): State = {
+                                   projectName: String,
+                                   bloopDir: File,
+                                   verbose: Boolean = false
+                                 ): State = {
     val state0 = loadBloopState(bloopDir)
     val state = if (verbose) state0.copy(logger = state0.logger.asVerbose) else state0
     val action = Run(Commands.Compile(List(projectName)))
