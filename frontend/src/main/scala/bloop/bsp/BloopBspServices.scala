@@ -865,10 +865,13 @@ final class BloopBspServices(
     bsp.BuildTargetIdentifier(project.bspUri)
 
   private def toJvmBuildTarget(project: Project): bsp.JvmBuildTarget = {
-    val javaHome = Option(System.getProperty("java.home")).map(s => bsp.Uri(Paths.get(s).toUri))
-    val javaVersion = Option(System.getProperty("java.vm.specification.version"))
-
-    bsp.JvmBuildTarget(javaHome, javaVersion)
+    project.jdkConfig match {
+      case Some(jdk) =>
+        val javaHome = bsp.Uri(jdk.javaHome.toBspUri)
+        bsp.JvmBuildTarget(Some(javaHome), None)
+      case None =>
+        bsp.JvmBuildTarget(None, None)
+    }
   }
 
   def toScalaBuildTarget(project: Project, instance: ScalaInstance): bsp.ScalaBuildTarget = {
