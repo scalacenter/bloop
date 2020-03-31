@@ -4,7 +4,6 @@ final case class BloopgunParams(
     bloopVersion: String,
     nailgunServer: String = Defaults.Host,
     nailgunPort: Int = Defaults.Port,
-    help: Boolean = false,
     nailgunHelp: Boolean = false,
     verbose: Boolean = false,
     nailgunShowVersion: Boolean = false,

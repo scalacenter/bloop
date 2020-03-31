@@ -102,10 +102,6 @@ class BloopgunCli(
         .opt[Int]("nailgun-port")
         .action((port, params) => { setPort = true; params.copy(nailgunPort = port) })
         .text("Specify the port of the target Bloop server")
-      val helpOpt = builder
-        .opt[Unit]('h', "help")
-        .action((_, params) => params.copy(help = true))
-        .text("Print help of the Bloop server")
       val nailgunShowVersionOpt = builder
         .opt[Unit]("nailgun-showversion")
         .action((_, params) => params.copy(nailgunShowVersion = true))
@@ -176,7 +172,6 @@ class BloopgunCli(
           bloopVersionOpt,
           nailgunServerOpt,
           nailgunPortOpt,
-          helpOpt,
           nailgunHelpOpt,
           nailgunShowVersionOpt,
           nailgunVerboseOpt,
@@ -231,7 +226,6 @@ class BloopgunCli(
           )
 
           params.args match {
-            case Nil if params.help => fireCommand("help", Array.empty, params, config, logger)
             case Nil => logger.error("Missing CLI command for Bloop server!"); 1
             case cmd :: cmdArgs => fireCommand(cmd, cmdArgs.toArray, params, config, logger)
           }
@@ -587,6 +581,11 @@ class BloopgunCli(
     }
   }
 
+  private def helpRequested(cmd: String, cmdArgs: Array[String]): Boolean = {
+    val isHelp = Set("-h", "help", "-help", "--help")
+    isHelp(cmd) || cmdArgs.exists(isHelp)
+  }
+
   private def runAfterCommand(
       cmd: String,
       cmdArgs: Array[String],
@@ -594,7 +593,7 @@ class BloopgunCli(
       exitCode: Int,
       logger: SnailgunLogger
   ): Int = {
-    if (exitCode == 0 && cmdArgs.contains("--help")) {
+    if (exitCode == 0 && helpRequested(cmd, cmdArgs)) {
       logger.info("Type `--nailgun-help` for help on the Nailgun CLI tool.")
     }
 
