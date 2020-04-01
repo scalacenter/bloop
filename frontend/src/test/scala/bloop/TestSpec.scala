@@ -392,3 +392,25 @@ object JvmTestSpec extends BaseTestSpec("test-project-test", "cross-test-build-s
     }
   }
 }
+
+object NoTestFrameworksSpec extends ProjectBaseSuite("no-test-frameworks") {
+  testProject("must have frameworks in test project", runOnlyOnJava8 = false) { (build, logger) =>
+    val project = build.projectFor("myProject")
+    val testState = build.state.test(project)
+    try {
+      assert(!testState.status.isOk)
+      assert(logger.errors.contains("Missing configured test frameworks in myProject-test"))
+    } catch { case err: AssertionError => logger.dump(); throw err }
+  }
+
+  testProject("non-test projects can have empty frameworks", runOnlyOnJava8 = false) {
+    (rawBuild, logger) =>
+      val build = rawBuild.filterProjectsByName(!_.endsWith("-test"))
+      val project = build.projectFor("myProject")
+      val testState = build.state.test(project)
+      try {
+        assert(testState.status.isOk)
+        assert(logger.warnings.contains("Missing configured test frameworks in myProject"))
+      } catch { case err: AssertionError => logger.dump(); throw err }
+  }
+}

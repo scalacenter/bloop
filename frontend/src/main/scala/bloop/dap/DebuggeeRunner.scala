@@ -85,7 +85,6 @@ private final class TestSuiteDebugAdapter(
       Nil,
       filter,
       handler,
-      failIfNoTestFrameworks = true,
       runInParallel = false,
       mode = RunMode.Debug
     )
