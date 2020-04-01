@@ -1,6 +1,7 @@
 package bloop.bsp
 
 import java.io.File
+import java.net.URI
 
 import bloop.engine.State
 import bloop.config.Config
@@ -134,7 +135,10 @@ class BspProtocolSpec(
         )
         assert(
           environmentItem.classpath
-            .exists(_.contains(s"target" + File.separator + s"${`A`.config.name}"))
+            .exists(_.contains(s"target/${`A`.config.name}"))
+        )
+        assert(
+          environmentItem.classpath.forall(new URI(_).getScheme == "file")
         )
         assert(environmentItem.jvmOptions == jvmOptions)
       }
