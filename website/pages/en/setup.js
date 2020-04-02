@@ -127,7 +127,7 @@ const ExportBuild = () => {
       <div className="tools-group-all">
         {showCase}
       </div>
-      <div className="step-hidden step-setup">
+      <div id="build-tools" className="step-hidden step-setup">
         {markdownsElement}
       </div>
     </div>

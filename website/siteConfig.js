@@ -8,9 +8,10 @@ function findMarkDownSync(startPath) {
   files.forEach(val => {
     const fPath = path.join(startPath, val);
     const stats = fs.statSync(fPath);
-    if (stats.isDirectory()) {
+    if (stats.isDirectory() || path.extname(fPath).endsWith(".md")) {
+      const title = stats.isDirectory() ? val : path.basename(val, ".md");
       result.push({
-        title: val,
+        title: title,
         path: fPath,
       });
     }
@@ -48,7 +49,7 @@ toolsMD.forEach(tool => {
 
 const buildToolsMD = findMarkDownSync("../out/build-tools/");
 buildToolsMD.forEach(buildTool => {
-  buildTool.guide = loadBuildToolMD(`${buildTool.path}.md`);
+  buildTool.guide = loadBuildToolMD(buildTool.path);
 });
 
 const releaseTableMD = loadMD("../out/release-table.md")
