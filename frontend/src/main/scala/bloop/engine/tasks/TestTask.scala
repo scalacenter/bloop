@@ -46,9 +46,8 @@ object TestTask {
       mode: RunMode
   ): Task[Int] = {
     import state.logger
-    val isTestProject = project.tags.contains(Tag.Test) || project.tags.contains(
-      Tag.IntegrationTest
-    )
+    val isTestProject = project.tags.contains(Tag.Test) ||
+      project.tags.contains(Tag.IntegrationTest)
     def handleEmptyTestFrameworks: Task[Int] = {
       if (isTestProject) {
         logger.error(s"Missing configured test frameworks in ${project.name}")
