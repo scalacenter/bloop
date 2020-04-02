@@ -44,7 +44,6 @@ abstract class ConfigGenerationSuite {
 
   // folder to put test build scripts and java/scala source files
   private val testProjectDir_ = new TemporaryFolder()
-
   @Rule def testProjectDir: TemporaryFolder = testProjectDir_
 
   @Test def pluginCanBeApplied(): Unit = {
@@ -1441,10 +1440,10 @@ abstract class ConfigGenerationSuite {
   }
 
   private def compileBloopProject(
-                                   projectName: String,
-                                   bloopDir: File,
-                                   verbose: Boolean = false
-                                 ): State = {
+      projectName: String,
+      bloopDir: File,
+      verbose: Boolean = false
+  ): State = {
     val state0 = loadBloopState(bloopDir)
     val state = if (verbose) state0.copy(logger = state0.logger.asVerbose) else state0
     val action = Run(Commands.Compile(List(projectName)))
