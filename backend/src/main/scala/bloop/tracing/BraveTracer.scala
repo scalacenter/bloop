@@ -115,6 +115,7 @@ object BraveTracer {
   )
   val isDebugTrace = Properties.propOrFalse("bloop.trace.debug")
   val isVerboseTrace = Properties.propOrFalse("bloop.trace.verbose")
+  val zipkinServiceName = Properties.propOrElse("bloop.trace.localServiceName", "bloop")
 
   val sender = URLConnectionSender.create(zipkinServerUrl)
   val jsonVersion = if (zipkinServerUrl.contains("/api/v1")) {
@@ -131,7 +132,7 @@ object BraveTracer {
     import java.util.concurrent.TimeUnit
     val tracing = Tracing
       .newBuilder()
-      .localServiceName("bloop")
+      .localServiceName(zipkinServiceName)
       .spanReporter(spanReporter)
       .build()
     val tracer = tracing.tracer()
