@@ -90,7 +90,6 @@ object Tasks {
       userTestOptions: List[String],
       testFilter: String => Boolean,
       testEventHandler: TestSuiteEventHandler,
-      failIfNoTestFrameworks: Boolean,
       runInParallel: Boolean = false,
       mode: RunMode
   ): Task[State] = {
@@ -121,7 +120,6 @@ object Tasks {
         userTestOptions,
         testFilter,
         failureHandler,
-        failIfNoTestFrameworks,
         mode
       )
     }

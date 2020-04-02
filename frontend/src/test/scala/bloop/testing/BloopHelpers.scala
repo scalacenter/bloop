@@ -45,6 +45,12 @@ trait BloopHelpers {
     def withLogger(logger: Logger): TestBuild = {
       TestBuild(state = state.withLogger(logger), projects)
     }
+    def filterProjectsByName(filter: String => Boolean): TestBuild = {
+      val newBuild = state.state.build
+        .copy(loadedProjects = state.state.build.loadedProjects.filter(p => filter(p.project.name)))
+      val newProjects = projects.filter(p => filter(p.config.name))
+      TestBuild(new TestState(state.state.copy(build = newBuild)), newProjects)
+    }
   }
 
   def populateWorkspace(build: TestBuild, projects: List[TestProject]): AbsolutePath = {

@@ -1,7 +1,7 @@
 package bloop.engine.tasks
 
 import bloop.cli.ExitStatus
-import bloop.config.Config
+import bloop.config.{Config, Tag}
 import bloop.data.{Platform, Project}
 import bloop.engine.{Dag, Feedback, State}
 import bloop.engine.tasks.toolchains.ScalaJsToolchain
@@ -43,12 +43,13 @@ object TestTask {
       rawTestOptions: List[String],
       testFilter: String => Boolean,
       handler: LoggingEventHandler,
-      failIfNoTestFrameworks: Boolean,
       mode: RunMode
   ): Task[Int] = {
     import state.logger
+    val isTestProject = project.tags.contains(Tag.Test) ||
+      project.tags.contains(Tag.IntegrationTest)
     def handleEmptyTestFrameworks: Task[Int] = {
-      if (failIfNoTestFrameworks) {
+      if (isTestProject) {
         logger.error(s"Missing configured test frameworks in ${project.name}")
         Task.now(1)
       } else {
@@ -65,7 +66,7 @@ object TestTask {
         logger.warn(s"Skipping test for ${project.name} because compiler result is empty")
         Task.now(0)
       } else {
-        if (failIfNoTestFrameworks) {
+        if (isTestProject) {
           logger.error(s"Missing compilation to test ${project.name}")
           Task.now(1)
         } else {

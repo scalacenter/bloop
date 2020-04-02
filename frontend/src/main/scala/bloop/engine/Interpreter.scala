@@ -337,17 +337,17 @@ object Interpreter {
     if (lookup.missing.nonEmpty) Task.now(reportMissing(lookup.missing, state))
     else {
       // Projects to test != projects that need compiling
-      val userDefinedProjects = lookup.found
+      val userSelectedProjects = lookup.found
       val (projectsToCompile, projectsToTest) = {
         if (!cmd.cascade) {
           val projectsToTest = {
-            if (!cmd.includeDependencies) userDefinedProjects
-            else userDefinedProjects.flatMap(p => Dag.dfs(state.build.getDagFor(p)))
+            if (!cmd.includeDependencies) userSelectedProjects
+            else userSelectedProjects.flatMap(p => Dag.dfs(state.build.getDagFor(p)))
           }
 
-          (userDefinedProjects, projectsToTest)
+          (userSelectedProjects, projectsToTest)
         } else {
-          val result = Dag.inverseDependencies(state.build.dags, userDefinedProjects)
+          val result = Dag.inverseDependencies(state.build.dags, userSelectedProjects)
           (result.reduced, result.allCascaded)
         }
       }
@@ -365,8 +365,6 @@ object Interpreter {
             )(DebugFilter.Test)
 
             val handler = new LoggingEventHandler(state.logger)
-            val failIfNoFrameworks: Boolean =
-              userDefinedProjects.size == projectsToTest.size
 
             Tasks.test(
               state,
@@ -374,7 +372,6 @@ object Interpreter {
               cmd.args,
               testFilter,
               handler,
-              failIfNoFrameworks,
               cmd.parallel,
               RunMode.Normal
             )

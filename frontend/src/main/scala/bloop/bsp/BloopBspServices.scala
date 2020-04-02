@@ -645,7 +645,7 @@ final class BloopBspServices(
     ): Task[State] = {
       val testFilter = TestInternals.parseFilters(Nil) // Don't support test only for now
       val handler = new BspLoggingEventHandler(id, state.logger, client)
-      Tasks.test(state, List(project), Nil, testFilter, handler, false, mode = RunMode.Normal)
+      Tasks.test(state, List(project), Nil, testFilter, handler, mode = RunMode.Normal)
     }
 
     val originId = params.originId
