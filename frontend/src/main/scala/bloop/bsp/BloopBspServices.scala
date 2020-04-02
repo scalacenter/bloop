@@ -2,6 +2,7 @@ package bloop.bsp
 
 import java.io.InputStream
 import java.net.URI
+import java.nio.file.Paths
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import java.nio.file.{FileSystems, Files, Path}
@@ -862,6 +863,13 @@ final class BloopBspServices(
   private def toBuildTargetId(project: Project): bsp.BuildTargetIdentifier =
     bsp.BuildTargetIdentifier(project.bspUri)
 
+  private def toJvmBuildTarget(project: Project): Option[bsp.JvmBuildTarget] = {
+    project.jdkConfig.map { jdk =>
+      val javaHome = bsp.Uri(jdk.javaHome.toBspUri)
+      bsp.JvmBuildTarget(Some(javaHome), None)
+    }
+  }
+
   def toScalaBuildTarget(project: Project, instance: ScalaInstance): bsp.ScalaBuildTarget = {
     def toBinaryScalaVersion(version: String): String = {
       version.split('.').take(2).mkString(".")
@@ -879,7 +887,8 @@ final class BloopBspServices(
       scalaVersion = instance.version,
       scalaBinaryVersion = toBinaryScalaVersion(instance.version),
       platform = platform,
-      jars = jars
+      jars = jars,
+      jvmBuildTarget = toJvmBuildTarget(project)
     )
   }
 
