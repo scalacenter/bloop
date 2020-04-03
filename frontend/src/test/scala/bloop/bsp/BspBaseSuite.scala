@@ -14,11 +14,9 @@ import bloop.io.{AbsolutePath, RelativePath}
 import bloop.logging.{BspClientLogger, RecordingLogger}
 import bloop.testing.BaseSuite
 import bloop.util.{TestProject, TestUtil}
-
 import ch.epfl.scala.bsp
-import ch.epfl.scala.bsp.{Uri, endpoints}
+import ch.epfl.scala.bsp.{JvmTestEnvironmentResult, Uri, endpoints}
 import io.circe.Json
-
 import monix.eval.Task
 import monix.execution.atomic.AtomicInt
 import monix.execution.{CancelableFuture, Scheduler}
@@ -380,21 +378,41 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
       }
     }
 
+    def jvmRunEnvironment(
+        project: TestProject,
+        originId: Option[String]
+    ): (ManagedBspTestState, bsp.JvmRunEnvironmentResult) = {
+      val jvmEnvironmentTask = runAfterTargets(project) { target =>
+        endpoints.BuildTarget.jvmRunEnvironment
+          .request(bsp.JvmRunEnvironmentParams(List(target), originId))
+          .map {
+            case Left(error) => fail(s"Received error ${error}")
+            case Right(jvmEnvironment) => jvmEnvironment
+          }
+      }
+
+      awaitForTask(jvmEnvironmentTask)
+    }
+
     def jvmTestEnvironment(
         project: TestProject,
         originId: Option[String]
     ): (ManagedBspTestState, bsp.JvmTestEnvironmentResult) = {
-      val scalacOptionsTask = runAfterTargets(project) { target =>
+      val jvmEnvironmentTask = runAfterTargets(project) { target =>
         endpoints.BuildTarget.jvmTestEnvironment
           .request(bsp.JvmTestEnvironmentParams(List(target), originId))
           .map {
             case Left(error) => fail(s"Received error ${error}")
-            case Right(options) => options
+            case Right(jvmEnvironment) => jvmEnvironment
           }
       }
 
+      awaitForTask(jvmEnvironmentTask)
+    }
+
+    private def awaitForTask[T](jvmEnvironmentTask: Task[T]): (ManagedBspTestState, T) = {
       TestUtil.await(FiniteDuration(5, "s")) {
-        scalacOptionsTask.flatMap { result =>
+        jvmEnvironmentTask.flatMap { result =>
           serverStates.headL.map { state =>
             val latestServerState = new ManagedBspTestState(
               state,
