@@ -1,5 +1,7 @@
 package bloop.tracing
 
+import bloop.tracing.BraveTracer.traceEndAnnotation
+import bloop.tracing.BraveTracer.traceStartAnnotation
 import brave.{Span, Tracer}
 import brave.propagation.SamplingFlags
 import brave.propagation.TraceContext
@@ -24,7 +26,11 @@ final class BraveTracer private (
     }
 
     span.start()
-    new BraveTracer(tracer, span, () => span.finish())
+    traceStartAnnotation.foreach(span.annotate)
+    new BraveTracer(tracer, span, () => {
+      traceEndAnnotation.foreach(span.annotate)
+      span.finish()
+    })
   }
 
   def trace[T](name: String, tags: (String, String)*)(
@@ -115,6 +121,9 @@ object BraveTracer {
   )
   val isDebugTrace = Properties.propOrFalse("bloop.trace.debug")
   val isVerboseTrace = Properties.propOrFalse("bloop.trace.verbose")
+  val localServiceName = Properties.propOrElse("bloop.trace.localServiceName", "bloop")
+  val traceStartAnnotation = Properties.propOrNone("bloop.trace.traceStartAnnotation")
+  val traceEndAnnotation = Properties.propOrNone("bloop.trace.traceEndAnnotation")
 
   val sender = URLConnectionSender.create(zipkinServerUrl)
   val jsonVersion = if (zipkinServerUrl.contains("/api/v1")) {
@@ -131,7 +140,7 @@ object BraveTracer {
     import java.util.concurrent.TimeUnit
     val tracing = Tracing
       .newBuilder()
-      .localServiceName("bloop")
+      .localServiceName(localServiceName)
       .spanReporter(spanReporter)
       .build()
     val tracer = tracing.tracer()
@@ -148,7 +157,9 @@ object BraveTracer {
       case (span, (tagKey, tagValue)) => span.tag(tagKey, tagValue)
     }
     rootSpan.start()
+    traceStartAnnotation.foreach(rootSpan.annotate)
     val closeEverything = () => {
+      traceEndAnnotation.foreach(rootSpan.annotate)
       rootSpan.finish()
       tracing.close()
       spanReporter.flush()
