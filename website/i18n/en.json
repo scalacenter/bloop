@@ -9,22 +9,13 @@
         "title": "Gradle",
         "sidebar_label": "Gradle"
       },
-      "build-tools/gradle/export": {
-        "title": "build-tools/gradle/export"
-      },
       "build-tools/maven": {
         "title": "Maven",
         "sidebar_label": "Maven"
       },
-      "build-tools/maven/export": {
-        "title": "build-tools/maven/export"
-      },
       "build-tools/mill": {
         "title": "Mill",
         "sidebar_label": "Mill"
-      },
-      "build-tools/mill/export": {
-        "title": "build-tools/mill/export"
       },
       "build-tools/overview": {
         "title": "Overview",
@@ -33,17 +24,6 @@
       "build-tools/sbt": {
         "title": "sbt",
         "sidebar_label": "sbt"
-      },
-      "build-tools/sbt/export": {
-        "title": "build-tools/sbt/export"
-      },
-      "cli-reference": {
-        "title": "CLI --help",
-        "sidebar_label": "CLI --help"
-      },
-      "cli/cli-reference": {
-        "title": "CLI --help",
-        "sidebar_label": "CLI --help"
       },
       "cli/reference": {
         "title": "CLI --help",
@@ -124,12 +104,6 @@
       "tools/homebrew/usage": {
         "title": "tools/homebrew/usage"
       },
-      "tools/nix/install": {
-        "title": "tools/nix/install"
-      },
-      "tools/nix/usage": {
-        "title": "tools/nix/usage"
-      },
       "tools/scoop/install": {
         "title": "tools/scoop/install"
       },
@@ -141,13 +115,6 @@
       },
       "tools/universal/usage": {
         "title": "tools/universal/usage"
-      },
-      "usage-server": {
-        "title": "usage-server"
-      },
-      "usage": {
-        "title": "Quickstart",
-        "sidebar_label": "Quickstart"
       },
       "what-is-bloop": {
         "title": "What is Bloop",
