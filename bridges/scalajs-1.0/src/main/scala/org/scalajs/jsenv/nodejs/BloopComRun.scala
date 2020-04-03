@@ -10,8 +10,10 @@ package org.scalajs.jsenv.nodejs
 
 import java.io._
 import java.net._
+import java.nio.charset.StandardCharsets
+import java.nio.file.{Files, Path}
 
-import org.scalajs.io.{VirtualBinaryFile, MemVirtualBinaryFile}
+import com.google.common.jimfs.Jimfs
 import org.scalajs.jsenv._
 
 import scala.concurrent._
@@ -180,8 +182,8 @@ private final class BloopComRun(
     try {
       comSocket = serverSocket.accept()
       serverSocket.close() // we don't need it anymore.
-      jvm2js = new DataOutputStream(new BufferedOutputStream(comSocket.getOutputStream()))
-      js2jvm = new DataInputStream(new BufferedInputStream(comSocket.getInputStream()))
+      jvm2js = new DataOutputStream(new BufferedOutputStream(comSocket.getOutputStream))
+      js2jvm = new DataInputStream(new BufferedInputStream(comSocket.getInputStream))
 
       onConnected(Connected(comSocket, jvm2js, js2jvm))
     } catch {
@@ -214,11 +216,11 @@ object BloopComRun {
    *  @param config Configuration for the run.
    *  @param onMessage callback upon message reception.
    *  @param startRun [[JSRun]] launcher. Gets passed a
-   *      [[org.scalajs.io.VirtualBinaryFile VirtualBinaryFile]] that
-   *      initializes `scalaJSCom` on `global`. Requires Node.js libraries.
+   *      [[java.nio.file.Path Path]] that initializes `scalaJSCom` on
+   *      `global`. Requires Node.js libraries.
    */
   def start(config: RunConfig, onMessage: String => Unit)(
-      startRun: VirtualBinaryFile => JSRun
+      startRun: Path => JSRun
   ): JSComRun = {
     try {
       val serverSocket =
@@ -257,9 +259,9 @@ object BloopComRun {
     s.writeChars(msg)
   }
 
-  private def setupFile(port: Int): VirtualBinaryFile = {
-    MemVirtualBinaryFile.fromStringUTF8(
-      "comSetup.js",
+  private def setupFile(port: Int): Path = {
+    Files.write(
+      Jimfs.newFileSystem().getPath("comSetup.js"),
       s"""
          |(function() {
          |  // The socket for communication
@@ -272,7 +274,7 @@ object BloopComRun {
          |  var inMessages = [];
          |
          |  // The callback where received messages go
-         |  var recvCallback = function(msg) { inMessages.push(msg); };
+         |  var onMessage = null;
          |
          |  socket.on('data', function(data) {
          |    inBuffer = Buffer.concat([inBuffer, data]);
@@ -289,7 +291,8 @@ object BloopComRun {
          |
          |      inBuffer = inBuffer.slice(byteLen);
          |
-         |      recvCallback(res);
+         |      if (inMessages !== null) inMessages.push(res);
+         |      else onMessage(res);
          |    }
          |  });
          |
@@ -301,12 +304,14 @@ object BloopComRun {
          |  socket.on('close', function() { process.exit(0); });
          |
          |  global.scalajsCom = {
-         |    init: function(recvCB) {
-         |      if (inMessages === null) throw new Error("Com already initialized");
-         |      for (var i = 0; i < inMessages.length; ++i)
-         |        recvCB(inMessages[i]);
-         |      inMessages = null;
-         |      recvCallback = recvCB;
+         |    init: function(onMsg) {
+         |      if (onMessage !== null) throw new Error("Com already initialized");
+         |      onMessage = onMsg;
+         |      process.nextTick(function() {
+         |        for (var i = 0; i < inMessages.length; ++i)
+         |          onMessage(inMessages[i]);
+         |        inMessages = null;
+         |      });
          |    },
          |    send: function(msg) {
          |      var len = msg.length;
@@ -318,7 +323,7 @@ object BloopComRun {
          |    }
          |  }
          |}).call(this);
-        """.stripMargin
+        """.stripMargin.getBytes(StandardCharsets.UTF_8)
     )
   }
 }

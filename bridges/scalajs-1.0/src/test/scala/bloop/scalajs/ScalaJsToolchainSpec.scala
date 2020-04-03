@@ -51,7 +51,7 @@ class ScalaJsToolchainSpec {
     val resultingState = TestUtil.blockingExecute(action, state, maxDuration * 2)
 
     assertTrue(s"Linking failed: ${logger.getMessages.mkString("\n")}", resultingState.status.isOk)
-    logger.getMessages.assertContain("Inc. optimizer: Batch mode: true", atLevel = "debug")
+    logger.getMessages.assertContain("Optimizer: Batch mode: true", atLevel = "debug")
   }
 
   @Test def canRunScalaJsProject(): Unit = {

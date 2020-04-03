@@ -24,6 +24,7 @@ import org.scalajs.core.tools.sem.Semantics
 import org.scalajs.jsenv.jsdomnodejs.JSDOMNodeJSEnv
 import org.scalajs.jsenv.nodejs.NodeJSEnv
 import org.scalajs.testadapter.TestAdapter
+import scala.concurrent.ExecutionContext
 
 object JsBridge {
   private class Logger(logger: BloopLogger) extends JsLogger {
@@ -57,7 +58,8 @@ object JsBridge {
       runMain: java.lang.Boolean,
       mainClass: Option[String],
       target: Path,
-      logger: BloopLogger
+      logger: BloopLogger,
+      executionContext: ExecutionContext
   ): Unit = {
     val classpathIrFiles = classpath
       .filter(Files.isDirectory(_))
@@ -113,7 +115,7 @@ object JsBridge {
       jsPath: Path,
       baseDirectory: Path,
       logger: BloopLogger,
-      jsdom: java.lang.Boolean,
+      jsConfig: JsConfig,
       env: Map[String, String]
   ): (List[sbt.testing.Framework], () => Unit) = {
     implicit val debugFilter: DebugFilter = DebugFilter.Test
@@ -129,7 +131,7 @@ object JsBridge {
     val fullEnv = Map("NODE_PATH" -> nodeModules) ++ env
 
     val nodeEnv = {
-      if (!jsdom) {
+      if (!jsConfig.jsdom.contains(true)) {
         new CustomNodeEnv(
           NodeJSEnv.Config().withEnv(fullEnv).withExecutable(nodePath),
           customScripts

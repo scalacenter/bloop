@@ -5,7 +5,7 @@ import bloop.cli.{ExitStatus, OptimizerConfig}
 import bloop.config.Config
 import bloop.data.{Platform, Project}
 import bloop.engine.tasks.toolchains.{ScalaJsToolchain, ScalaNativeToolchain}
-import bloop.engine.{Feedback, State}
+import bloop.engine.{ExecutionContext, Feedback, State}
 import bloop.io.AbsolutePath
 import monix.eval.Task
 
@@ -28,7 +28,9 @@ object LinkTask {
             val fullClasspath = project.fullRuntimeClasspath(dag, state.client).map(_.underlying)
             val config = config0.copy(mode = getOptimizerMode(cmd.optimize, config0.mode))
             toolchain
-              .link(config, project, fullClasspath, true, Some(mainClass), target, state.logger)
+              .link(config, project, fullClasspath, true, Some(mainClass), target, state.logger)(
+                ExecutionContext.ioScheduler
+              )
               .map {
                 case scala.util.Success(_) =>
                   state.withInfo(s"Generated JavaScript file '${target.syntax}'")

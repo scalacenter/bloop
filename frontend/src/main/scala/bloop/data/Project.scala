@@ -235,6 +235,8 @@ object Project {
         }
       }
 
+    var classpathAdditions = List[Path]()
+
     val setup = project.`scala`.flatMap(_.setup).getOrElse(Config.CompileSetup.empty)
     val compileClasspath = project.classpath.map(AbsolutePath.apply)
     val compileResources = project.resources.toList.flatten.map(AbsolutePath.apply)
@@ -255,6 +257,7 @@ object Project {
         )
       case Some(platform: Config.Platform.Js) =>
         val toolchain = Try(ScalaJsToolchain.resolveToolchain(platform, logger)).toOption
+        classpathAdditions = ScalaJsToolchain.resolveTestArtifacts(platform, logger)
         Platform.Js(platform.config, toolchain, platform.mainClass)
       case Some(platform: Config.Platform.Native) =>
         val toolchain = Try(ScalaNativeToolchain.resolveToolchain(platform, logger)).toOption
@@ -280,7 +283,7 @@ object Project {
       project.workspaceDir.map(AbsolutePath.apply),
       project.dependencies,
       instance,
-      compileClasspath,
+      compileClasspath ++ classpathAdditions.map(AbsolutePath.apply),
       compileResources,
       setup,
       AbsolutePath(project.classesDir),

@@ -3,7 +3,7 @@ package bloop.engine.tasks
 import bloop.cli.ExitStatus
 import bloop.config.{Config, Tag}
 import bloop.data.{Platform, Project}
-import bloop.engine.{Dag, Feedback, State}
+import bloop.engine.{Dag, ExecutionContext, Feedback, State}
 import bloop.engine.tasks.toolchains.ScalaJsToolchain
 import bloop.exec.{Forker, JvmProcessForker}
 import bloop.io.AbsolutePath
@@ -176,7 +176,9 @@ object TestTask {
             val fullClasspath =
               project.fullRuntimeClasspath(dag, state.client).map(_.underlying)
             toolchain
-              .link(config, project, fullClasspath, false, userMainClass, target, state.logger)
+              .link(config, project, fullClasspath, false, userMainClass, target, state.logger)(
+                ExecutionContext.ioScheduler
+              )
               .map {
                 case Success(_) =>
                   logger.info(s"Generated JavaScript file '${target.syntax}'")

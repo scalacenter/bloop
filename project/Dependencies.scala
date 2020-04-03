@@ -43,8 +43,8 @@ object Dependencies {
   val shapelessVersion = "2.3.3-lower-priority-coproduct"
   val scalaNative03Version = "0.3.9"
   val scalaNative04Version = "0.4.0-M2"
-  val scalaJs06Version = "0.6.28"
-  val scalaJs10Version = "1.0.0-M5"
+  val scalaJs06Version = "0.6.32"
+  val scalaJs10Version = "1.0.1"
   val millVersion = "0.3.6"
   val xxHashVersion = "1.3.0"
   val ztVersion = "1.13"
@@ -118,10 +118,9 @@ object Dependencies {
   val scalaJsEnvs06 = "org.scala-js" %% "scalajs-js-envs" % scalaJs06Version % Provided
 
   val scalaJsLinker10 = "org.scala-js" %% "scalajs-linker" % scalaJs10Version % Provided
-  val scalaJsIO10 = "org.scala-js" %% "scalajs-io" % scalaJs10Version % Provided
   val scalaJsEnvs10 = "org.scala-js" %% "scalajs-js-envs" % scalaJs10Version % Provided
   val scalaJsEnvNode10 = "org.scala-js" %% "scalajs-env-nodejs" % scalaJs10Version % Provided
-  val scalaJsEnvJsdomNode10 = "org.scala-js" %% "scalajs-env-jsdom-nodejs" % scalaJs10Version % Provided
+  val scalaJsEnvJsdomNode10 = "org.scala-js" %% "scalajs-env-jsdom-nodejs" % "1.0.0" % Provided
   val scalaJsSbtTestAdapter10 = "org.scala-js" %% "scalajs-sbt-test-adapter" % scalaJs10Version % Provided
   val scalaJsLogging10 = "org.scala-js" %% "scalajs-logging" % scalaJs10Version % Provided
 

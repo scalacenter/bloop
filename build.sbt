@@ -683,7 +683,6 @@ lazy val jsBridge10 = project
     libraryDependencies ++= List(
       Dependencies.scalaJsLinker10,
       Dependencies.scalaJsLogging10,
-      Dependencies.scalaJsIO10,
       Dependencies.scalaJsEnvs10,
       Dependencies.scalaJsEnvNode10,
       Dependencies.scalaJsEnvJsdomNode10,
