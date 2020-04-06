@@ -13,7 +13,7 @@ object Dependencies {
   val nailgunCommit = "a2520c1e"
 
   val zincVersion = "1.3.0-M4+32-b1accb96"
-  val bspVersion = "2.0.0-M9"
+  val bspVersion = "2.0.0-M10"
   val javaDebugVersion = "0.21.0+1-7f1080f1"
 
   val scalazVersion = "7.2.20"

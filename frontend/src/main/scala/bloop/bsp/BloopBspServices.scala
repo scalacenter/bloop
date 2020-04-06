@@ -697,7 +697,9 @@ final class BloopBspServices(
           val environmentEntries = for {
             (id, project) <- projects.toList
             dag = state.build.getDagFor(project)
-            fullClasspath = project.fullClasspath(dag, state.client).map(_.toString)
+            fullClasspath = project
+              .fullClasspath(dag, state.client)
+              .map(_.toBspUri.toString)
             environmentVariables = state.commonOptions.env.toMap
             workingDirectory = project.workingDirectory.toString
             javaOptions <- project.platform match {
