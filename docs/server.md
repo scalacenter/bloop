@@ -26,7 +26,7 @@ For example, `bloop server`:
    [custom Java options](#custom-java-options).
 1. Provides a way to evolve the way the server is run and managed in the future, which
    makes it especially compatibility-friendly.
-   
+
 The bloop installation directory is the directory where `bloop` is located. In Unix-based
 systems, the bloop installation directory can be found by running `which bloop`.
 
@@ -41,12 +41,12 @@ If you are integrating your tool with bloop and want to install and start the se
 
 **Synopsis**: `bloop [FLAGS...] server [JVM_OPTS...] NAILGUN_PORT`
 
-* `NAILGUN_PORT` must be a free TCP port. For now, only ports in the localhost is
+* `NAILGUN_PORT` must be a free TCP port. For now, only ports on localhost are
   supported.
 * `JVM_OPTS` must be valid JVM arguments prefixed with `-J`, used to pass in
   temporary jvm options to the server. For a permanent solution, add the options
   to [`$HOME/.bloop/bloop.json`](#custom-java-options).
-  
+
 #### Flags
 
 <dl>
@@ -91,7 +91,7 @@ will not start correctly if the `javaHome` field points directly to the
 
 ## Automatic management of the server
 
-It is generally a good practice to have a way to manage the lifecycle of the server. 
+It is generally a good practice to have a way to manage the lifecycle of the server.
 Depending on your operating system, there exist several solutions that allow you to
 start, stop, restart and inspect the status of the build server at any time.
 
@@ -105,7 +105,7 @@ Bloop supports the following mechanisms out-of-the-box:
 > lifecycle management has to be manual. Do you want to help improve the situation?
 > Check this [ticket](https://github.com/scalacenter/bloop/issues/766).
 
-If you are using a SDK manager, you should ensure that the managed bloop server has 
+If you are using a SDK manager, you should ensure that the managed bloop server has
 access to a `java` binary from the `$PATH` environment variable.
 
 ### via `brew services`

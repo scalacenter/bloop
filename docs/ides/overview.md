@@ -12,9 +12,8 @@ accurate compilation diagnostics in text editors and IDEs.
 There are two main IDE integrations:
 
 1. [IntelliJ](ides/intellij.md), the most popular Scala and Java IDE.
-1. [Metals](ides/metals.md), a work-in-progress Scala language server that
-   supports text editors such as Visual Studio Code, `vim`, Sublime Text and
-   Atom.
+1. [Metals](ides/metals.md), a Scala language server that supports text editors
+   such as Visual Studio Code, Vim, Emacs, Eclipse, Sublime Text and Atom.
 
 These IDE integrations support the following BSP actions:
 
