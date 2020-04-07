@@ -70,8 +70,8 @@
           <td><code>-r sonatype:releases</code></td>
         </tr>
         <tr>
-          <td>1.4.0-RC1-181-b975461d</td>
-          <td>03 Apr 2020 10:24</td>
+          <td>1.4.0-RC1-185-d13246c0</td>
+          <td>07 Apr 2020 07:34</td>
           <td><code>-r sonatype:releases</code></td>
         </tr>
       </tbody>
@@ -133,7 +133,7 @@ foo-test
 <a href="docs/ides/intellij">IntelliJ</a> to write code or play with the
 <a href="docs/cli/tutorial">CLI</a> if you want to explore what CLI options are
 available.</p>
-<p>If you need help, you can always come over our <a href="https://gitter.im/scalacenter/bloop">Gitter
+<p>If you need help, you can always come over to our <a href="https://gitter.im/scalacenter/bloop">Gitter
 channel</a>.</p>
 <h2><a class="anchor" aria-hidden="true" id="plugin-configuration"></a><a href="#plugin-configuration" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Plugin Configuration</h2>
 <h3><a class="anchor" aria-hidden="true" id="dont-export-certain-targets"></a><a href="#dont-export-certain-targets" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Don't export certain targets</h3>
@@ -247,10 +247,10 @@ configured to skip project compilations to make the export process fast. If comp
 triggered, then it means your build adds certain runtime dependencies in your build graph.</p>
 <blockquote>
 <p>For example, your build may be forcing the <code>publishLocal</code> of a project <code>a</code> whenever the classpath of
-<code>b</code> is computed. Identify this kind of dependencies and prune them.</p>
+<code>b</code> is computed. Identify these kinds of dependencies and prune them.</p>
 </blockquote>
 <p>Another rule of thumb is to make sure that source and resource generators added to your build by
-either you or sbt plugin are incremental and complete as soon as possible.</p>
+either you or an sbt plugin are incremental and complete as soon as possible.</p>
 <p>Lastly, make sure you keep a hot sbt session around as much time as possible. Running <code>bloopInstall</code>
 a second time in the sbt session is <em>really</em> fast.</p>
 </span></div></article></div><div class="docs-prevnext"><a class="docs-prev button" href="/bloop/docs/build-tools/overview"><span class="arrow-prev">← </span><span>Overview</span></a><a class="docs-next button" href="/bloop/docs/build-tools/maven"><span>Maven</span><span class="arrow-next"> →</span></a></div></div></div><nav class="onPageNav"><ul class="toc-headings"><li><a href="#install-the-plugin">Install the plugin</a></li><li><a href="#export-your-build">Export your build</a></li><li><a href="#verify-installation-and-export">Verify installation and export</a></li><li><a href="#next-steps-after-installation">Next steps after installation</a></li><li><a href="#plugin-configuration">Plugin Configuration</a><ul class="toc-headings"><li><a href="#dont-export-certain-targets">Don't export certain targets</a></li><li><a href="#enable-custom-configurations">Enable custom configurations</a></li><li><a href="#enable-sbt-project-references">Enable sbt project references</a></li><li><a href="#download-dependencies-sources">Download dependencies sources</a></li><li><a href="#export-main-class-from-sbt">Export main class from sbt</a></li><li><a href="#speeding-up-build-export">Speeding up build export</a></li></ul></li></ul></nav></div><footer class="nav-footer" id="footer" style="background-color:rgb(17, 42, 68)"><section class="sitemap"><a href="/bloop/" class="nav-home"><img src="/bloop/img/impure-logo-bloop.svg" alt="Bloop" height="60"/></a><a href="/bloop/" class="nav-home"><img src="/bloop/img/frontpage/scala.png" alt="Bloop" height="60"/></a><div><h5>Overview</h5><a href="/bloop/docs/what-is-bloop">What is Bloop</a><a href="/bloop/docs/integration">Integrate with Bloop</a><a href="/bloop/docs/build-tools/overview">Build Tools</a><a href=" /bloop/docs/contributing-guide">Contributing</a></div><div><h5>Build Tools</h5><a href="/bloop/docs/build-tools/sbt">sbt</a><a href="/bloop/docs/build-tools/gradle">Gradle</a><a href="/bloop/docs/build-tools/maven">Maven</a><a href="/bloop/docs/build-tools/mill">Mill</a></div><div><h5>Social</h5><a href="https://github.com/scalacenter/bloop" target="_blank"><img src="https://img.shields.io/github/stars/scalacenter/bloop.svg?color=%23087e8b&amp;label=stars&amp;logo=github&amp;style=social"/></a><a href="https://discord.gg/vys6d43" target="_blank"><img src="https://img.shields.io/discord/632642981228314653?logo=discord&amp;style=social"/></a><a href="https://gitter.im/scalacenter/bloop" target="_blank"><img src="https://img.shields.io/gitter/room/scalacenter/bloop.svg?logo=gitter&amp;style=social"/></a><a href="https://twitter.com/jvican" target="_blank"><img src="https://img.shields.io/twitter/follow/jvican.svg?logo=twitter&amp;style=social"/></a></div></section><section class="copyright">Copyright © 2020 Bloop</section><section class="copyright">Credits to @freepik for svg icons</section><section class="copyright">Credits to Bazel, Babel and Metals for inspiring Bloop&#x27;s website design</section></footer></div><script type="text/javascript" src="https://cdn.jsdelivr.net/docsearch.js/1/docsearch.min.js"></script><script>
