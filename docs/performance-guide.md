@@ -17,7 +17,7 @@ only used during development but by users wishing to keep their build
 performance in check.
 
 This guide explains the tools Bloop provides users to:
-  
+
 1. Get familiar with the performance characteristics of project builds
 1. Compare the performance of Bloop with that of other tools compiling Scala code
 1. Modify a complicated build to optimize build times
@@ -30,7 +30,7 @@ future, it will be expanded to cover testing and running.
 Before analyzing performance numbers analytically, let's build a precise
 model of the structure of your build, its characteristics and the
 consequences of those in the overall build performance. A quick way to build
-such model is to use our [Zipkin](https://zipkin.apache.org) integration.
+such model is to use our [Zipkin](https://zipkin.io/) integration.
 
 ### Analyze build traces in Zipkin
 

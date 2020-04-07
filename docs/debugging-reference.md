@@ -21,7 +21,7 @@ space so drop by our [Gitter channel][gitter] to help out make it better.
 ## Debugging via an editor
 
 If you want to debug your code with Bloop via *an editor* such as VS Code,
-vim, Sublime or emacs you can use [Metals][metals].
+Vim or Emacs you can use [Metals][metals].
 
 If you use *IntelliJ*, use the built-in debugger. This debugger is great for
 debugging applications but less ideal to debug tests because the test

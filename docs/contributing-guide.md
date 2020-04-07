@@ -6,7 +6,7 @@ sidebar_label: Contributing Guide
 
 ## Requirements
 
-1. Install Java 8 and sbt in your machine.
+1. Install Java 8 and sbt on your machine.
 1. Read and abide by the [Scala Code of Conduct](https://www.scala-lang.org/conduct/).
 
 ## Project structure
@@ -30,7 +30,7 @@ tooling infrastructure.
 bsp/cli connection to it.
 1. `nailgun` is a git submodule of `scalacenter/nailgun`, a fork of `facebook/nailgun`.
 1. `sockets` is a library to use Unix Domain sockets and Named Pipes in Windows.
-1. `website` contains the [Docusaurus](https://docusaurus.io/) code of our website. 
+1. `website` contains the [Docusaurus](https://docusaurus.io/) code of our website.
 1. `zinc` is a git submodule to the version of Zinc that bloop master is using.
 
 ## Set the repository up
@@ -140,7 +140,7 @@ local Python script to override your installation in `$HOME/.bloop`:
 1. Run script with `./$BLOOP_REPO/frontend/target/install.py`.
 
 You will roughly see something like this:
-  
+
 ```
 Downloading Bloop's coursier version, this may take some seconds...
 Installed bloop server in '/home/user/.bloop/blp-server'
@@ -148,7 +148,7 @@ Installed bloop client in '/home/user/.bloop/bloop'
 HTTP Error 404: Not Found
 Couldn't download https://raw.githubusercontent.com/scalacenter/bloop/v1.2.5+464-0159c1c3+20190529-1423/etc/zsh/_bloop, please try again.
 ```
-  
+
 You can safely ignore the HTTP error and **restart the bloop server** to
 pick up the new installed version.
 
