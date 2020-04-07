@@ -93,7 +93,7 @@ Use an IDE such as [Metals](docs/ides/metals) or
 [CLI](docs/cli/tutorial) if you want to explore what CLI options are
 available.
 
-If you need help, you can always come over our [Gitter
+If you need help, you can always come over to our [Gitter
 channel](https://gitter.im/scalacenter/bloop).
 
 ## Plugin Configuration
@@ -243,10 +243,10 @@ configured to skip project compilations to make the export process fast. If comp
 triggered, then it means your build adds certain runtime dependencies in your build graph.
 
 > For example, your build may be forcing the `publishLocal` of a project `a` whenever the classpath of
-`b` is computed. Identify this kind of dependencies and prune them.
+`b` is computed. Identify these kinds of dependencies and prune them.
 
 Another rule of thumb is to make sure that source and resource generators added to your build by
-either you or sbt plugin are incremental and complete as soon as possible.
+either you or an sbt plugin are incremental and complete as soon as possible.
 
 Lastly, make sure you keep a hot sbt session around as much time as possible. Running `bloopInstall`
 a second time in the sbt session is *really* fast.
