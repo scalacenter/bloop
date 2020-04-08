@@ -699,31 +699,6 @@ final class BloopBspServices(
   def jvmEnvironment(
       targets: Seq[BuildTargetIdentifier]
   ): BspEndpointResponse[List[bsp.JvmEnvironmentItem]] = {
-    def jvmEnvironment(
-        state: State,
-        projects: Seq[(BuildTargetIdentifier, Project)]
-    ): Seq[JvmEnvironmentItem] = {
-      for {
-        (id, project) <- projects.toList
-        dag = state.build.getDagFor(project)
-        fullClasspath = project.fullClasspath(dag, state.client).map(_.toBspUri.toString)
-        environmentVariables = state.commonOptions.env.toMap
-        workingDirectory = project.workingDirectory.toString
-        javaOptions <- project.platform match {
-          case Platform.Jvm(config, _, _) => Some(config.javaOptions.toList)
-          case _ => None
-        }
-      } yield {
-        bsp.JvmEnvironmentItem(
-          id,
-          fullClasspath.toList,
-          javaOptions,
-          workingDirectory,
-          environmentVariables
-        )
-      }
-    }
-
     ifInitialized(None) { (state: State, logger: BspServerLogger) =>
       mapToProjects(targets, state) match {
         case Left(error) =>
@@ -731,7 +706,25 @@ final class BloopBspServices(
           Task.now((state, Left(JsonRpcResponse.invalidRequest(error))))
 
         case Right(projects) =>
-          val environmentEntries = jvmEnvironment(state, projects).toList
+          val environmentEntries = (for {
+            (id, project) <- projects.toList
+            dag = state.build.getDagFor(project)
+            fullClasspath = project.fullClasspath(dag, state.client).map(_.toBspUri.toString)
+            environmentVariables = state.commonOptions.env.toMap
+            workingDirectory = project.workingDirectory.toString
+            javaOptions <- project.platform match {
+              case Platform.Jvm(config, _, _) => Some(config.javaOptions.toList)
+              case _ => None
+            }
+          } yield {
+            bsp.JvmEnvironmentItem(
+              id,
+              fullClasspath.toList,
+              javaOptions,
+              workingDirectory,
+              environmentVariables
+            )
+          }).toList
           Task.now((state, Right(environmentEntries)))
       }
     }
