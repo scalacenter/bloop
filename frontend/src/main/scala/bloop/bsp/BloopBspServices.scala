@@ -26,7 +26,13 @@ import bloop.reporter.{BspProjectReporter, ProblemPerPhase, ReporterConfig, Repo
 import bloop.testing.{BspLoggingEventHandler, TestInternals}
 import ch.epfl.scala.bsp
 import ch.epfl.scala.bsp.ScalaBuildTarget.encodeScalaBuildTarget
-import ch.epfl.scala.bsp.{BuildTargetIdentifier, MessageType, ShowMessageParams, endpoints}
+import ch.epfl.scala.bsp.{
+  BuildTargetIdentifier,
+  JvmEnvironmentItem,
+  MessageType,
+  ShowMessageParams,
+  endpoints
+}
 
 import scala.meta.jsonrpc.{JsonRpcClient, Response => JsonRpcResponse, Services => JsonRpcServices}
 import monix.eval.Task
@@ -680,57 +686,53 @@ final class BloopBspServices(
     }
   }
 
-  private def jvmEnvironment(state: State, projects: Seq[(BuildTargetIdentifier, Project)]) = {
-    for {
-      (id, project) <- projects.toList
-      dag = state.build.getDagFor(project)
-      fullClasspath = project.fullClasspath(dag, state.client).map(_.toBspUri.toString)
-      environmentVariables = state.commonOptions.env.toMap
-      workingDirectory = project.workingDirectory.toString
-      javaOptions <- project.platform match {
-        case Platform.Jvm(config, _, _) => Some(config.javaOptions.toList)
-        case _ => None
-      }
-    } yield {
-      bsp.JvmEnvironmentItem(
-        id,
-        fullClasspath.toList,
-        javaOptions,
-        workingDirectory,
-        environmentVariables
-      )
-    }
-  }
-
   def jvmRunEnvironment(
       params: bsp.JvmRunEnvironmentParams
-  ): BspEndpointResponse[bsp.JvmRunEnvironmentResult] = {
-    ifInitialized(None) { (state: State, logger: BspServerLogger) =>
-      mapToProjects(params.targets, state) match {
-        case Left(error) =>
-          logger.error(error)
-          Task.now((state, Left(JsonRpcResponse.invalidRequest(error))))
+  ): BspEndpointResponse[bsp.JvmRunEnvironmentResult] =
+    jvmEnvironment(params.targets).map(_.map(new bsp.JvmRunEnvironmentResult(_)))
 
-        case Right(projects) =>
-          val environmentEntries = jvmEnvironment(state, projects)
-          val resp = new bsp.JvmRunEnvironmentResult(environmentEntries)
-          Task.now((state, Right(resp)))
-      }
-    }
-  }
   def jvmTestEnvironment(
       params: bsp.JvmTestEnvironmentParams
-  ): BspEndpointResponse[bsp.JvmTestEnvironmentResult] = {
+  ): BspEndpointResponse[bsp.JvmTestEnvironmentResult] =
+    jvmEnvironment(params.targets).map(_.map(new bsp.JvmTestEnvironmentResult(_)))
+
+  def jvmEnvironment(
+      targets: Seq[BuildTargetIdentifier]
+  ): BspEndpointResponse[List[bsp.JvmEnvironmentItem]] = {
+    def jvmEnvironment(
+        state: State,
+        projects: Seq[(BuildTargetIdentifier, Project)]
+    ): Seq[JvmEnvironmentItem] = {
+      for {
+        (id, project) <- projects.toList
+        dag = state.build.getDagFor(project)
+        fullClasspath = project.fullClasspath(dag, state.client).map(_.toBspUri.toString)
+        environmentVariables = state.commonOptions.env.toMap
+        workingDirectory = project.workingDirectory.toString
+        javaOptions <- project.platform match {
+          case Platform.Jvm(config, _, _) => Some(config.javaOptions.toList)
+          case _ => None
+        }
+      } yield {
+        bsp.JvmEnvironmentItem(
+          id,
+          fullClasspath.toList,
+          javaOptions,
+          workingDirectory,
+          environmentVariables
+        )
+      }
+    }
+
     ifInitialized(None) { (state: State, logger: BspServerLogger) =>
-      mapToProjects(params.targets, state) match {
+      mapToProjects(targets, state) match {
         case Left(error) =>
           logger.error(error)
           Task.now((state, Left(JsonRpcResponse.invalidRequest(error))))
 
         case Right(projects) =>
-          val environmentEntries = jvmEnvironment(state, projects)
-          val resp = new bsp.JvmTestEnvironmentResult(environmentEntries)
-          Task.now((state, Right(resp)))
+          val environmentEntries = jvmEnvironment(state, projects).toList
+          Task.now((state, Right(environmentEntries)))
       }
     }
   }
