@@ -97,7 +97,7 @@ class BspProtocolSpec(
     }
   }
 
-  private def testEnivronmentFetching(
+  private def testEnvironmentFetching(
       workspace: AbsolutePath,
       extractor: (ManagedBspTestState, TestProject) => (
           ManagedBspTestState,
@@ -154,7 +154,7 @@ class BspProtocolSpec(
 
   test("check the correct contents of jvm test environment") {
     TestUtil.withinWorkspace { workspace =>
-      testEnivronmentFetching(
+      testEnvironmentFetching(
         workspace,
         (state: ManagedBspTestState, project: TestProject) => {
           val (stateA, result) = state.jvmTestEnvironment(project, None)
@@ -167,7 +167,7 @@ class BspProtocolSpec(
 
   test("check the correct contents of jvm run environment") {
     TestUtil.withinWorkspace { workspace =>
-      testEnivronmentFetching(
+      testEnvironmentFetching(
         workspace,
         (state: ManagedBspTestState, project: TestProject) => {
           val (stateA, result) = state.jvmRunEnvironment(project, None)
