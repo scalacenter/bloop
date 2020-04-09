@@ -117,7 +117,8 @@ class BspConnectionSpec(
           |      "dependencySourcesProvider" : true,
           |      "resourcesProvider" : true,
           |      "buildTargetChangedProvider" : false,
-          |      "jvmTestEnvironmentProvider" : true
+          |      "jvmTestEnvironmentProvider" : true,
+          |      "jvmRunEnvironmentProvider" : true
           |    },
           |    "data" : null
           |  },

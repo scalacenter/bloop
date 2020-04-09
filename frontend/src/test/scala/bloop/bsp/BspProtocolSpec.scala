@@ -14,10 +14,9 @@ import java.nio.file.{Files, Path, Paths}
 import java.util.stream.Collectors
 
 import scala.collection.JavaConverters._
-import ch.epfl.scala.bsp.ScalacOptionsItem
+import ch.epfl.scala.bsp.{JvmEnvironmentItem, ScalacOptionsItem, Uri}
 import bloop.bsp.BloopBspDefinitions.BloopExtraBuildParams
 import io.circe.Json
-import ch.epfl.scala.bsp.Uri
 import bloop.testing.DiffAssertions.TestFailedException
 import bloop.data.SourcesGlobs
 
@@ -98,50 +97,84 @@ class BspProtocolSpec(
     }
   }
 
-  test("check the correct contents of jvm test environment") {
-    TestUtil.withinWorkspace { workspace =>
-      object Sources {
-        val `A.scala` =
-          """/A.scala
-            |object A
+  private def testEnvironmentFetching(
+      workspace: AbsolutePath,
+      extractor: (ManagedBspTestState, TestProject) => (
+          ManagedBspTestState,
+          List[JvmEnvironmentItem]
+      )
+  ) = {
+    object Sources {
+      val `A.scala` =
+        """/A.scala
+          |object A
           """.stripMargin
-      }
+    }
 
-      val logger = new RecordingLogger(ansiCodesSupported = false)
-      val workingDirectory = AbsolutePath.workingDirectory.underlying.resolve("cwd")
-      val jvmOptions = List("-DSOME_OPTION=X", s"-Duser.dir=$workingDirectory")
-      val jvmConfig = Some(Config.JvmConfig(None, jvmOptions))
-      val `A` = TestProject(
-        workspace,
-        "a",
-        List(Sources.`A.scala`),
-        jvmConfig = jvmConfig
+    val logger = new RecordingLogger(ansiCodesSupported = false)
+    val workingDirectory = AbsolutePath.workingDirectory.underlying.resolve("cwd")
+    val jvmOptions = List("-DSOME_OPTION=X", s"-Duser.dir=$workingDirectory")
+    val jvmConfig = Some(Config.JvmConfig(None, jvmOptions))
+    val `A` = TestProject(
+      workspace,
+      "a",
+      List(Sources.`A.scala`),
+      jvmConfig = jvmConfig
+    )
+
+    val projects = List(`A`)
+
+    loadBspState(workspace, projects, logger) { state =>
+      val (stateA: ManagedBspTestState, environmentItems: List[JvmEnvironmentItem]) =
+        extractor(state, `A`)
+      assert(environmentItems.size == 1)
+      assert(stateA.status == ExitStatus.Ok)
+
+      val environmentItem = environmentItems.head
+      assert(environmentItem.environmentVariables.contains("BLOOP_OWNER"))
+      assertNoDiff(
+        "BLOOP_OWNER",
+        environmentItem.environmentVariables.keys.mkString("\n")
+      )
+      assert(
+        Paths.get(environmentItem.workingDirectory).getFileName ==
+          workingDirectory.getFileName()
+      )
+      assert(
+        environmentItem.classpath
+          .exists(_.contains(s"target/${`A`.config.name}"))
+      )
+      assert(
+        environmentItem.classpath.forall(new URI(_).getScheme == "file")
       )
 
-      val projects = List(`A`)
-      loadBspState(workspace, projects, logger) { state =>
-        val (stateA, result) = state.jvmTestEnvironment(`A`, None)
-        assert(stateA.status == ExitStatus.Ok)
-        val environmentItem = result.items.head
-        assert(result.items.size == 1)
-        assert(environmentItem.environmentVariables.contains("BLOOP_OWNER"))
-        assertNoDiff(
-          "BLOOP_OWNER",
-          environmentItem.environmentVariables.keys.mkString("\n")
-        )
-        assert(
-          Paths.get(environmentItem.workingDirectory).getFileName ==
-            workingDirectory.getFileName()
-        )
-        assert(
-          environmentItem.classpath
-            .exists(_.contains(s"target/${`A`.config.name}"))
-        )
-        assert(
-          environmentItem.classpath.forall(new URI(_).getScheme == "file")
-        )
-        assert(environmentItem.jvmOptions == jvmOptions)
-      }
+      assert(environmentItem.jvmOptions == jvmOptions)
+    }
+  }
+
+  test("check the correct contents of jvm test environment") {
+    TestUtil.withinWorkspace { workspace =>
+      testEnvironmentFetching(
+        workspace,
+        (state: ManagedBspTestState, project: TestProject) => {
+          val (stateA, result) = state.jvmTestEnvironment(project, None)
+          val environmentItems = result.items
+          (stateA, environmentItems)
+        }
+      )
+    }
+  }
+
+  test("check the correct contents of jvm run environment") {
+    TestUtil.withinWorkspace { workspace =>
+      testEnvironmentFetching(
+        workspace,
+        (state: ManagedBspTestState, project: TestProject) => {
+          val (stateA, result) = state.jvmRunEnvironment(project, None)
+          val environmentItems = result.items
+          (stateA, environmentItems)
+        }
+      )
     }
   }
 
