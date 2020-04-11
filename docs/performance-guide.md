@@ -48,7 +48,7 @@ integrates with Zipkin because it:
 #### Install and run zipkin
 
 To install Zipkin, follow the installation steps in the [Zipkin Quickstart
-guide](http://zipkin.apache.org/pages/quickstart.html). After following the
+guide](https://zipkin.io/pages/quickstart). After following the
 guide, you should have a live Zipkin instance running at
 `http://localhost:9411/zipkin/`.
 
