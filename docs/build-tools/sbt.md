@@ -27,6 +27,8 @@ After that, start up sbt or reload your sbt shell to load the plugin.
 
 The sbt command `bloopInstall` exports your sbt build to bloop.
 
+If you have multiple projects, you should run bloopInstall in the projects that aren't dependant on other projects first. For example:  acme-core-server references acme-shared-lib.  So in the acme-shared-lib project run sbt bloopInstall first and then in the acme-core-server run sbt bloopInstall second.
+
 In bloop, an sbt project is represented as a pair of `(sbt project, sbt configuration)` and it's
 written to a configuration directory. The default location of this directory in your workspace is
 `.bloop/` (you may want to add `.bloop/` to your `.gitignore` file).
