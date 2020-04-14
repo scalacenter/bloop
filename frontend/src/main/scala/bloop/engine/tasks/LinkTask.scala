@@ -25,7 +25,7 @@ object LinkTask {
           case Some(msg) => Task.now(state.withError(msg, ExitStatus.LinkingError))
           case None =>
             val dag = state.build.getDagFor(project)
-            val fullClasspath = project.fullClasspath(dag, state.client).map(_.underlying)
+            val fullClasspath = project.fullRuntimeClasspath(dag, state.client).map(_.underlying)
             val config = config0.copy(mode = getOptimizerMode(cmd.optimize, config0.mode))
             toolchain
               .link(config, project, fullClasspath, true, Some(mainClass), target, state.logger)
@@ -59,7 +59,7 @@ object LinkTask {
           case Some(msg) => Task.now(state.withError(msg, ExitStatus.LinkingError))
           case None =>
             val dag = state.build.getDagFor(project)
-            val fullClasspath = project.fullClasspath(dag, state.client).map(_.underlying)
+            val fullClasspath = project.fullRuntimeClasspath(dag, state.client).map(_.underlying)
             val config = config0.copy(mode = getOptimizerMode(cmd.optimize, config0.mode))
             toolchain.link(config, project, fullClasspath, mainClass, target, state.logger) map {
               case scala.util.Success(_) =>

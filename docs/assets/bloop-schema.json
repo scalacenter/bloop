@@ -52,6 +52,35 @@
               "your.app.Main"
             ]
           }
+        },
+        "classpath": {
+          "$id": "/properties/project/properties/jvmPlatform/properties/classpath",
+          "type": "array",
+          "items": {
+            "$id": "/properties/project/properties/jvmPlatform/properties/classpath/items",
+            "type": "string",
+            "title": "An example of a runtime JVM classpath item",
+            "default": "",
+            "examples": [
+              "/home/user/.ivy/cache/jsoniter-scala.jar",
+              "/home/user/.ivy/cache/cats.jar",
+              "/home/user/.ivy/cache/monix.jar"
+            ]
+          }
+        },
+        "resources": {
+          "$id": "/properties/project/properties/jvmPlatform/properties/resources",
+          "type": "array",
+          "items": {
+            "$id": "/properties/project/properties/jvmPlatform/properties/mainClass/resources",
+            "type": "string",
+            "title": "An example of a runtime JVM resource item",
+            "default": "",
+            "examples": [
+              "/home/user/my-project/resources/log4j2.properties",
+              "/home/user/my-project/resources/logback.xml"
+            ]
+          }
         }
       }
     },

@@ -359,7 +359,8 @@ object TestUtil {
   ): Project = {
     val origin = syntheticOriginFor(baseDir)
     val baseDirectory = projectDir(baseDir.underlying, name)
-    val ProjectArchetype(srcs, out, _, classes) = createProjectArchetype(baseDir.underlying, name)
+    val ProjectArchetype(srcs, out, _, classes, _) =
+      createProjectArchetype(baseDir.underlying, name)
     val tempDir = baseDirectory.resolve("tmp")
     Files.createDirectories(tempDir)
     Files.createDirectories(classes.underlying)
@@ -393,7 +394,7 @@ object TestUtil {
       testOptions = Config.TestOptions.empty,
       out = out,
       analysisOut = out.resolve(Config.Project.analysisFileName(name)),
-      platform = Project.defaultPlatform(logger, Some(jdkConfig)),
+      platform = Project.defaultPlatform(logger, classpath, Nil, Some(jdkConfig)),
       sbt = None,
       resolution = None,
       tags = Nil,
@@ -405,7 +406,8 @@ object TestUtil {
       sourceDir: AbsolutePath,
       targetDir: AbsolutePath,
       resourcesDir: AbsolutePath,
-      classesDir: AbsolutePath
+      classesDir: AbsolutePath,
+      runtimeResourcesDir: AbsolutePath
   )
 
   def createProjectArchetype(base: Path, name: String): ProjectArchetype = {
@@ -413,15 +415,18 @@ object TestUtil {
     val target = targetDir(base, name)
     val resourcesDir = base.resolve("resources")
     val classes = classesDir(base, name)
+    val runtimeResources = base.resolve("runtime-resources")
     Files.createDirectories(sourceDir)
     Files.createDirectories(target)
     Files.createDirectories(resourcesDir)
     Files.createDirectories(classes)
+    Files.createDirectories(runtimeResources)
     ProjectArchetype(
       AbsolutePath(sourceDir),
       AbsolutePath(target),
       AbsolutePath(resourcesDir),
-      AbsolutePath(classes)
+      AbsolutePath(classes),
+      AbsolutePath(runtimeResources)
     )
   }
 

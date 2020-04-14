@@ -709,11 +709,11 @@ final class BloopBspServices(
           val environmentEntries = (for {
             (id, project) <- projects.toList
             dag = state.build.getDagFor(project)
-            fullClasspath = project.fullClasspath(dag, state.client).map(_.toBspUri.toString)
+            fullClasspath = project.fullRuntimeClasspath(dag, state.client).map(_.toBspUri.toString)
             environmentVariables = state.commonOptions.env.toMap
             workingDirectory = project.workingDirectory.toString
             javaOptions <- project.platform match {
-              case Platform.Jvm(config, _, _) => Some(config.javaOptions.toList)
+              case Platform.Jvm(config, _, _, _, _) => Some(config.javaOptions.toList)
               case _ => None
             }
           } yield {
@@ -792,7 +792,7 @@ final class BloopBspServices(
           Task.now(sys.error(s"Failed to run main class in $project due to: ${error.getMessage}"))
         case Right(mainClass) =>
           project.platform match {
-            case Platform.Jvm(config0, _, _) =>
+            case Platform.Jvm(config0, _, _, _, _) =>
               val mainArgs = mainClass.arguments.toArray
               val config = JdkConfig(config0.javaHome, config0.javaOptions ++ mainClass.jvmOptions)
               Tasks.runJVM(
@@ -1034,7 +1034,7 @@ final class BloopBspServices(
       val response = bsp.ResourcesResult(
         projects.iterator.map {
           case (target, project) =>
-            val resources = project.resources.flatMap { s =>
+            val resources = project.runtimeResources.flatMap { s =>
               if (s.exists) {
                 val resources = Files.walk(s.underlying).collect(Collectors.toList[Path]).asScala
                 resources.map(r => bsp.Uri(r.toUri()))

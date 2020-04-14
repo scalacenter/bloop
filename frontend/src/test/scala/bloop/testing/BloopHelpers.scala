@@ -162,6 +162,11 @@ trait BloopHelpers {
       TestUtil.interpreterTask(runTask, state).map(new TestState(_))
     }
 
+    def run(project: TestProject, watch: Boolean = false): TestState = {
+      val runTask = Run(Commands.Run(List(project.config.name), watch = watch))
+      new TestState(TestUtil.blockingExecute(runTask, state))
+    }
+
     def console(project: TestProject, args: List[String]): TestState = {
       val compileTask = Run(Commands.Console(List(project.config.name), args = args))
       new TestState(TestUtil.blockingExecute(compileTask, state))

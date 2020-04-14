@@ -165,7 +165,12 @@ object ConfigCodecs {
   }
 
   private sealed trait JsoniterPlatform
-  private case class jvm(config: Config.JvmConfig, mainClass: MainClass) extends JsoniterPlatform
+  private case class jvm(
+      config: Config.JvmConfig,
+      mainClass: MainClass,
+      classpath: Option[List[Path]],
+      resources: Option[List[Path]]
+  ) extends JsoniterPlatform
   private case class js(config: Config.JsConfig, mainClass: MainClass) extends JsoniterPlatform
   private case class native(config: Config.NativeConfig, mainClass: MainClass)
       extends JsoniterPlatform
@@ -183,7 +188,8 @@ object ConfigCodecs {
       def encodeValue(x: Config.Platform, out: JsonWriter): Unit = {
         codec.encodeValue(
           x match {
-            case Config.Platform.Jvm(config, mainClass) => jvm(config, MainClass(mainClass))
+            case Config.Platform.Jvm(config, mainClass, classpath, resources) =>
+              jvm(config, MainClass(mainClass), resources, classpath)
             case Config.Platform.Js(config, mainClass) => js(config, MainClass(mainClass))
             case Config.Platform.Native(config, mainClass) => native(config, MainClass(mainClass))
           },
@@ -192,7 +198,13 @@ object ConfigCodecs {
       }
       def decodeValue(in: JsonReader, default: Config.Platform): Config.Platform = {
         codec.decodeValue(in, null) match {
-          case jvm(config, mainClass) => Config.Platform.Jvm(config, mainClass.mainClass)
+          case jvm(config, mainClass, classpath, resources) =>
+            Config.Platform.Jvm(
+              config,
+              mainClass.mainClass,
+              classpath,
+              resources
+            )
           case js(config, mainClass) => Config.Platform.Js(config, mainClass.mainClass)
           case native(config, mainClass) => Config.Platform.Native(config, mainClass.mainClass)
         }

@@ -103,7 +103,7 @@ object Config {
   }
 
   object Platform {
-    val default: Platform = Jvm(JvmConfig.empty, None)
+    val default: Platform = Jvm(JvmConfig.empty, None, None, None)
 
     object Js { val name: String = "js" }
     case class Js(override val config: JsConfig, override val mainClass: Option[String])
@@ -112,8 +112,12 @@ object Config {
     }
 
     object Jvm { val name: String = "jvm" }
-    case class Jvm(override val config: JvmConfig, override val mainClass: Option[String])
-        extends Platform(Jvm.name) {
+    case class Jvm(
+        override val config: JvmConfig,
+        override val mainClass: Option[String],
+        classpath: Option[List[Path]],
+        resources: Option[List[Path]]
+    ) extends Platform(Jvm.name) {
       type Config = JvmConfig
     }
 
@@ -282,9 +286,17 @@ object Config {
       val classesDir = Files.createTempFile("classes", "test")
       classesDir.toFile.deleteOnExit()
 
+      val classpath = List(scalaLibraryJar)
+      val resources = Some(List(outDir.resolve("resource1.xml")))
+
       val platform = {
         val jdkPath = Paths.get("/usr/lib/jvm/java-8-jdk")
-        Platform.Jvm(JvmConfig(Some(jdkPath), Nil), Some("module.Main"))
+        Platform.Jvm(
+          JvmConfig(Some(jdkPath), Nil),
+          Some("module.Main"),
+          Some(classpath),
+          resources
+        )
       }
 
       val project = Project(
@@ -295,10 +307,10 @@ object Config {
         None,
         None,
         List("dummy-2"),
-        List(scalaLibraryJar),
+        classpath,
         outDir,
         classesDir,
-        Some(List(outDir.resolve("resource1.xml"))),
+        resources,
         Some(
           Scala(
             "org.scala-lang",

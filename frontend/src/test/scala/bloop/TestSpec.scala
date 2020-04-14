@@ -414,3 +414,44 @@ object NoTestFrameworksSpec extends ProjectBaseSuite("no-test-frameworks") {
       } catch { case err: AssertionError => logger.dump(); throw err }
   }
 }
+
+object TestResourcesSpec extends bloop.testing.BaseSuite {
+  test("test sees runtime resources") {
+    TestUtil.withinWorkspace { workspace =>
+      object Sources {
+        val `a/A.scala` =
+          """/a/A.scala
+            |class A {
+            |  @org.junit.Test
+            |  def myTest(): Unit = {
+            |    val res = getClass.getClassLoader.getResourceAsStream("resource.txt")
+            |    val content = scala.io.Source.fromInputStream(res).mkString
+            |    org.junit.Assert.assertEquals("goodbye", content)
+            |  }
+            |}""".stripMargin
+      }
+      object Resources {
+        val `a/compile-resources/resource.txt` =
+          """/resource.txt
+            |hello""".stripMargin
+        val `a/run-resources/resource.txt` =
+          """/resource.txt
+            |goodbye""".stripMargin
+      }
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val `A` = TestProject(
+        workspace,
+        "a",
+        List(Sources.`a/A.scala`),
+        enableTests = true,
+        jars = bloop.internal.build.BuildTestInfo.junitTestJars.map(AbsolutePath.apply).toArray,
+        resources = List(Resources.`a/compile-resources/resource.txt`),
+        runtimeResources = Some(List(Resources.`a/run-resources/resource.txt`))
+      )
+      val projects = List(`A`)
+      val state = loadState(workspace, projects, logger)
+      val runState = state.test(`A`)
+      assertEquals(ExitStatus.Ok, runState.status)
+    }
+  }
+}
