@@ -129,7 +129,7 @@ object DebugServerSpec extends DebugBspBaseSuite {
     }
   }
 
-  test("accepts argumetns and jvm options") {
+  test("accepts arguments and jvm options") {
     TestUtil.withinWorkspace { workspace =>
       val main =
         """|/main/scala/Main.scala
