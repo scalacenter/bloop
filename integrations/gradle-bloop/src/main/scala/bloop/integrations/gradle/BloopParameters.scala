@@ -19,6 +19,7 @@ import syntax._
  *   stdLibName = "scala-library"
  *   includeSources = true
  *   includeJavaDoc = false
+ *   dottyVersion = "latest"
  * }
  * }}}
  */
@@ -36,6 +37,12 @@ case class BloopParametersExtension(project: Project) {
   // name of Scala library
   private val stdLibName_ : Property[String] = project.getObjects.property(classOf[String])
   @Input @Optional def getStdLibName: Property[String] = stdLibName_
+
+  // Dotty override
+  private val dottyVersion_ : Property[String] = project.getObjects.property(classOf[String])
+  @Input @Optional def getDottyVersion: Property[String] = dottyVersion_
+  private def getDottyVersionOption: Option[String] =
+    if (dottyVersion_.isPresent) Some(dottyVersion_.get) else None
 
   // include the source artifacts
   // In Gradle 4.3 the default property for Boolean is false (not null) so default has to be set here
@@ -57,7 +64,8 @@ case class BloopParametersExtension(project: Project) {
       compilerName_.getOrElse("scala-compiler"),
       stdLibName_.getOrElse("scala-library"),
       includeSources_.get,
-      includeJavadoc_.get
+      includeJavadoc_.get,
+      getDottyVersionOption
     )
 }
 
@@ -66,5 +74,6 @@ case class BloopParameters(
     compilerName: String,
     stdLibName: String,
     includeSources: Boolean,
-    includeJavadoc: Boolean
+    includeJavadoc: Boolean,
+    dottyVersion: Option[String]
 )
