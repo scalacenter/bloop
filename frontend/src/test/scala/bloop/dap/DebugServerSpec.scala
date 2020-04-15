@@ -129,6 +129,56 @@ object DebugServerSpec extends DebugBspBaseSuite {
     }
   }
 
+  test("accepts argumetns and jvm options") {
+    TestUtil.withinWorkspace { workspace =>
+      val main =
+        """|/main/scala/Main.scala
+           |object Main {
+           |  def main(args: Array[String]): Unit = {
+           |    println(args(0))
+           |    println(sys.props("world"))
+           |  }
+           |}
+           |""".stripMargin
+
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val project = TestProject(workspace, "r", List(main))
+
+      loadBspState(workspace, List(project), logger) { state =>
+        val runner = mainRunner(
+          project,
+          state,
+          arguments = List("hello"),
+          jvmOptions = List("-J-Dworld=world")
+        )
+
+        startDebugServer(runner) { server =>
+          val test = for {
+            client <- server.startConnection
+            _ <- client.initialize()
+            _ <- client.launch()
+            _ <- client.configurationDone()
+            _ <- client.exited
+            _ <- client.terminated
+            _ <- Task.fromFuture(client.closedPromise.future)
+            output <- client.takeCurrentOutput
+          } yield {
+            assert(client.socket.isClosed)
+            assertNoDiff(
+              output.linesIterator
+                .filterNot(_.contains("ERROR: JDWP Unable to get JNI 1.2 environment"))
+                .filterNot(_.contains("JDWP exit error AGENT_ERROR_NO_JNI_ENV"))
+                .mkString(System.lineSeparator),
+              "hello\nworld"
+            )
+          }
+
+          TestUtil.await(FiniteDuration(60, SECONDS), ExecutionContext.ioScheduler)(test)
+        }
+      }
+    }
+  }
+
   test("supports scala and java breakpoints") {
     TestUtil.withinWorkspace { workspace =>
       object Sources {
@@ -513,12 +563,14 @@ object DebugServerSpec extends DebugBspBaseSuite {
 
   private def mainRunner(
       project: TestProject,
-      state: DebugServerSpec.ManagedBspTestState
+      state: DebugServerSpec.ManagedBspTestState,
+      arguments: List[String] = Nil,
+      jvmOptions: List[String] = Nil
   ): DebuggeeRunner = {
     val testState = state.compile(project).toTestState
     DebuggeeRunner.forMainClass(
       Seq(testState.getProjectFor(project)),
-      new ScalaMainClass("Main", Nil, Nil),
+      new ScalaMainClass("Main", arguments, jvmOptions),
       testState.state
     ) match {
       case Right(value) => value

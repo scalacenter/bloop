@@ -46,7 +46,7 @@ private final class MainClassDebugAdapter(
       env,
       workingDir,
       mainClass.`class`,
-      mainClass.arguments.toArray,
+      (mainClass.arguments ++ mainClass.jvmOptions).toArray,
       skipJargs = false,
       RunMode.Debug
     )
