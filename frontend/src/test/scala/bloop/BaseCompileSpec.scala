@@ -1637,4 +1637,95 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
       assertValidCompilationState(newState, projects)
     }
   }
+
+  test("compile uses the compilation classpath") {
+    TestUtil.withinWorkspace { workspace =>
+      object Sources {
+        val `a/pkg1/A.scala` =
+          """/a/pkg1/A.scala
+            |package pkg1
+            |object A""".stripMargin
+        val `b/pkg2/B.scala` =
+          """/b/pkg2/B.scala
+            |package pkg2
+            |object B""".stripMargin
+        val `c/C.scala` =
+          """/c/C.scala
+            |object C {
+            |  val a = pkg1.A
+            |  val b = pkg2.B
+            |}""".stripMargin
+
+      }
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val `A` = TestProject(workspace, "a", List(Sources.`a/pkg1/A.scala`))
+      val `B` = TestProject(workspace, "b", List(Sources.`b/pkg2/B.scala`), List(`A`))
+      val `C` =
+        TestProject(workspace, "c", List(Sources.`c/C.scala`), List(`B`), strictDependencies = true)
+      val `D` = TestProject(workspace, "d", List(Sources.`c/C.scala`), List(`B`))
+      val projects = List(`A`, `B`, `C`, `D`)
+      val state = loadState(workspace, projects, logger)
+
+      // Compiling `C` fails because only `B` is on the classpath during compilation
+      val failedState = state.compile(`C`)
+      assertExitStatus(failedState, ExitStatus.CompilationError)
+
+      // Compiling `D` succeeds because both `A` and `B` are on the classpath.
+      val compiledState = state.compile(`D`)
+      assertExitStatus(compiledState, ExitStatus.Ok)
+    }
+  }
+
+  test("compile sees compile-time resources") {
+    TestUtil.withinWorkspace { workspace =>
+      object Sources {
+        val `a/Macro.scala` =
+          """/a/Macro.scala
+            |package a
+            |import scala.io.Source
+            |import scala.language.experimental.macros
+            |import scala.reflect.macros.blackbox.Context
+            |object M {
+            |  def m(ctx: Context)(): ctx.Tree = {
+            |    val res = getClass.getClassLoader.getResourceAsStream("resource.txt")
+            |    val content = Source.fromInputStream(res).mkString
+            |    assert(content == "hello")
+            |    import ctx.universe._
+            |    q"()"
+            |  }
+            |  def check(): Unit = macro m
+            |}""".stripMargin
+        val `b/B.scala` =
+          """/b/B.scala
+            |package b
+            |object B {
+            |  a.M.check()
+            |}""".stripMargin
+      }
+      object Resources {
+        val `b/compile-resources/resource.txt` =
+          """/resource.txt
+            |hello""".stripMargin
+        val `b/run-resources/resource.txt` =
+          """/resource.txt
+            |goodbye""".stripMargin
+      }
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val `A` = TestProject(workspace, "a", List(Sources.`a/Macro.scala`))
+      val `B` = TestProject(
+        workspace,
+        "b",
+        List(Sources.`b/B.scala`),
+        List(`A`),
+        resources = List(Resources.`b/compile-resources/resource.txt`),
+        runtimeResources = Some(List(Resources.`b/run-resources/resource.txt`))
+      )
+
+      val projects = List(`A`, `B`)
+      val state = loadState(workspace, projects, logger)
+
+      val compiledState = state.compile(`B`)
+      assertExitStatus(compiledState, ExitStatus.Ok)
+    }
+  }
 }

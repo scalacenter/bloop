@@ -158,9 +158,9 @@ object TestTask {
     import state.logger
     implicit val logContext: DebugFilter = DebugFilter.Test
     project.platform match {
-      case Platform.Jvm(env, _, _) =>
+      case Platform.Jvm(env, _, _, _, _) =>
         val dag = state.build.getDagFor(project)
-        val classpath = project.fullClasspath(dag, state.client)
+        val classpath = project.fullRuntimeClasspath(dag, state.client)
         val forker = JvmProcessForker(env, classpath, mode)
         val testLoader = forker.newClassLoader(Some(TestInternals.filteredLoader))
         val frameworks = project.testFrameworks.flatMap(
@@ -173,7 +173,8 @@ object TestTask {
         toolchain match {
           case Some(toolchain) =>
             val dag = state.build.getDagFor(project)
-            val fullClasspath = project.fullClasspath(dag, state.client).map(_.underlying)
+            val fullClasspath =
+              project.fullRuntimeClasspath(dag, state.client).map(_.underlying)
             toolchain
               .link(config, project, fullClasspath, false, userMainClass, target, state.logger)
               .map {

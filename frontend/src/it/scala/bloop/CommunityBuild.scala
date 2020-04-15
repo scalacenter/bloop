@@ -141,7 +141,7 @@ abstract class CommunityBuild(val buildpressHomeDir: AbsolutePath) {
         testOptions = Config.TestOptions.empty,
         out = dummyClassesDir,
         analysisOut = analysisOut,
-        platform = Project.defaultPlatform(initialState.logger),
+        platform = Project.defaultPlatform(initialState.logger, Nil, Nil),
         sbt = None,
         resolution = None,
         tags = Nil,

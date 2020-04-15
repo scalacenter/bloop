@@ -6,6 +6,7 @@ import java.nio.file.{Files, Path}
 import bloop.ScalaInstance
 import bloop.bsp.ProjectUris
 import bloop.config.Config
+import bloop.config.Config.Platform
 import bloop.data.JdkConfig
 import bloop.io.{AbsolutePath, Paths, RelativePath}
 import bloop.logging.{Logger, NoopLogger}
@@ -60,12 +61,20 @@ final case class TestProject(
 
   def rewriteProject(
       changeScala: Config.Scala => Config.Scala = identity[Config.Scala],
-      changeClasspath: List[Path] => List[Path] = identity[List[Path]]
+      changeCompileClasspath: List[Path] => List[Path] = identity[List[Path]],
+      changeRuntimeClasspath: Option[List[Path]] => Option[List[Path]] =
+        identity[Option[List[Path]]]
   ): TestProject = {
     val newScala = changeScala(config.scala.get)
-    val newClasspath = changeClasspath(config.classpath)
+    val newCompileClasspath = changeCompileClasspath(config.classpath)
+    val newPlatform = config.platform.map {
+      case jvm: Platform.Jvm =>
+        jvm.copy(classpath = changeRuntimeClasspath(jvm.classpath))
+      case other => other
+    }
     val newConfig = config.copy(
-      classpath = newClasspath,
+      classpath = newCompileClasspath,
+      platform = newPlatform,
       scala = Some(newScala)
     )
     new TestProject(newConfig, this.deps)
@@ -86,12 +95,14 @@ abstract class BaseTestProject {
       name: String,
       sources: List[String],
       directDependencies: List[TestProject] = Nil,
+      strictDependencies: Boolean = false,
       enableTests: Boolean = false,
       scalacOptions: List[String] = Nil,
       scalaOrg: Option[String] = None,
       scalaCompiler: Option[String] = None,
       scalaVersion: Option[String] = None,
       resources: List[String] = Nil,
+      runtimeResources: Option[List[String]] = None,
       jvmConfig: Option[Config.JvmConfig] = None,
       order: Config.CompileOrder = Config.Mixed,
       jars: Array[AbsolutePath] = Array(),
@@ -99,7 +110,7 @@ abstract class BaseTestProject {
   ): TestProject = {
     val projectBaseDir = Files.createDirectories(baseDir.underlying.resolve(name))
     val origin = TestUtil.syntheticOriginFor(baseDir)
-    val ProjectArchetype(sourceDir, outDir, resourceDir, classes) =
+    val ProjectArchetype(sourceDir, outDir, resourceDir, classes, runtimeResourceDir) =
       TestUtil.createProjectArchetype(baseDir.underlying, name)
 
     def classpathDeps(p: TestProject): List[AbsolutePath] = {
@@ -116,8 +127,20 @@ abstract class BaseTestProject {
       mkScalaInstance(finalScalaOrg, finalScalaCompiler, scalaVersion, jars.toList, NoopLogger)
 
     val allJars = instance.allJars.map(AbsolutePath.apply)
-    val depsTargets = directDependencies.flatMap(d => classpathDeps(d))
-    val classpath = (depsTargets ++ allJars ++ jars).map(_.underlying)
+    val (compileClasspath, runtimeClasspath) = {
+      val transitiveClasspath =
+        (directDependencies.flatMap(classpathDeps) ++ allJars ++ jars).map(_.underlying)
+      val directClasspath =
+        (directDependencies.map(p => AbsolutePath(p.config.classesDir)) ++ allJars ++ jars)
+          .map(_.underlying)
+      if (strictDependencies) (directClasspath, transitiveClasspath)
+      else (transitiveClasspath, transitiveClasspath)
+    }
+    val compileResourcesList = Some(List(resourceDir.underlying))
+    val runtimeResourcesList = runtimeResources match {
+      case None => compileResourcesList
+      case Some(_) => Some(List(runtimeResourceDir.underlying))
+    }
     val javaConfig = jvmConfig.getOrElse(JdkConfig.toConfig(JdkConfig.default))
     val setup = Config.CompileSetup.empty.copy(order = order)
     val scalaConfig = Config.Scala(
@@ -132,13 +155,19 @@ abstract class BaseTestProject {
 
     val frameworks = if (enableTests) Config.TestFramework.DefaultFrameworks else Nil
     val testConfig = Config.Test(frameworks, Config.TestOptions.empty)
-    val platform = Config.Platform.Jvm(javaConfig, None)
+    val platform = Config.Platform.Jvm(
+      javaConfig,
+      None,
+      Some(runtimeClasspath),
+      runtimeResourcesList
+    )
 
     def toMap(xs: List[String]): Map[RelativePath, String] =
       xs.map(TestUtil.parseFile(_)).map(pf => pf.relativePath -> pf.contents).toMap
 
     TestUtil.writeFilesToBase(sourceDir, toMap(sources))
     TestUtil.writeFilesToBase(resourceDir, toMap(resources))
+    runtimeResources.foreach(res => TestUtil.writeFilesToBase(runtimeResourceDir, toMap(res)))
 
     val config = Config.Project(
       name,
@@ -149,10 +178,10 @@ abstract class BaseTestProject {
       else Some(sourcesGlobs),
       None,
       directDependencies.map(_.config.name),
-      classpath,
+      compileClasspath,
       outDir.underlying,
       classes.underlying,
-      resources = Some(List(resourceDir.underlying)),
+      resources = compileResourcesList,
       scala = Some(scalaConfig),
       java = None,
       sbt = None,

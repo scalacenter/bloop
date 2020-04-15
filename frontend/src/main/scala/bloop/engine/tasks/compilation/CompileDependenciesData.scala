@@ -23,7 +23,7 @@ case class CompileDependenciesData(
   ): Array[AbsolutePath] = {
     // Important: always place new classes dir before read-only classes dir
     val classesDirs = Array(newClassesDir, readOnlyClassesDir)
-    val resources = project.pickValidResources
+    val resources = Project.pickValidResources(project.resources)
     resources ++ classesDirs ++ dependencyClasspath
   }
 }
@@ -59,11 +59,12 @@ object CompileDependenciesData {
           if (newClassesDir == readOnlyClassesDir) Array(newClassesDir)
           else Array(newClassesDir, readOnlyClassesDir)
         }
+        val resources = Project.pickValidResources(project.resources)
 
         dependentClassesDir.put(genericClassesDir, classesDirs.map(AbsolutePath(_)))
         dependentInvalidatedClassFiles.++=(products.invalidatedCompileProducts)
         dependentGeneratedClassFilePaths.++=(products.generatedRelativeClassFilePaths.iterator)
-        dependentResources.put(genericClassesDir, project.pickValidResources)
+        dependentResources.put(genericClassesDir, resources)
     }
 
     val addedResources = new mutable.HashSet[AbsolutePath]()

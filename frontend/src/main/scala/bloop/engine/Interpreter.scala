@@ -297,7 +297,7 @@ object Interpreter {
                     scalaVersion
                   )
 
-                  val classpath = project.fullClasspath(dag, state.client)
+                  val classpath = project.fullRuntimeClasspath(dag, state.client)
                   val coursierClasspathArgs =
                     classpath.flatMap(elem => Seq("--extra-jars", elem.syntax))
 
@@ -529,7 +529,7 @@ object Interpreter {
                 val target = ScalaJsToolchain.linkTargetFrom(project, config)
                 LinkTask.linkMainWithJs(cmd, project, state, mainClass, target, platform)
 
-              case Platform.Jvm(_, _, _) =>
+              case _: Platform.Jvm =>
                 val msg = Feedback.noLinkFor(project)
                 Task.now(state.withError(msg, ExitStatus.InvalidCommandLineOption))
             }
@@ -578,7 +578,7 @@ object Interpreter {
                     if (!state.status.isOk) Task.now(state)
                     else Tasks.runNativeOrJs(state, project, cwd, mainClass, args)
                 }
-              case Platform.Jvm(javaEnv, _, _) =>
+              case Platform.Jvm(javaEnv, _, _, _, _) =>
                 Tasks.runJVM(
                   state,
                   project,

@@ -39,7 +39,7 @@ object ConsoleSpec extends BaseSuite {
 
       val projectB = state.getProjectFor(`B`)
       val dagB = state.getDagFor(`B`)
-      val classpathB = projectB.fullClasspath(dagB, state.client)
+      val classpathB = projectB.fullRuntimeClasspath(dagB, state.client)
       val coursierClasspathArgs =
         classpathB.flatMap(elem => Seq("--extra-jars", elem.syntax))
       val expectedCommand =

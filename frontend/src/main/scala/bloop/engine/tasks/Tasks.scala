@@ -55,7 +55,7 @@ object Tasks {
     project.scalaInstance match {
       case Some(instance) =>
         val dag = state.build.getDagFor(project)
-        val classpath = project.fullClasspath(dag, state.client)
+        val classpath = project.fullRuntimeClasspath(dag, state.client)
         val entries = classpath.map(_.underlying.toFile).toSeq
         logger.debug(s"Setting up the console classpath with ${entries.mkString(", ")}")(
           DebugFilter.All
@@ -164,7 +164,7 @@ object Tasks {
       mode: RunMode
   ): Task[State] = {
     val dag = state.build.getDagFor(project)
-    val classpath = project.fullClasspath(dag, state.client)
+    val classpath = project.fullRuntimeClasspath(dag, state.client)
     val forker = JvmProcessForker(config, classpath, mode)
     val runTask =
       forker.runMain(cwd, fqn, args, skipJargs, state.logger, state.commonOptions)

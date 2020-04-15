@@ -7,7 +7,7 @@ import bloop.logging.{DebugFilter, Logger}
 import bloop.ScalaInstance
 import bloop.bsp.ProjectUris
 import bloop.config.Config
-import bloop.engine.Dag
+import bloop.engine.{Build, Dag}
 import bloop.engine.caches.SemanticDBCache
 import bloop.engine.tasks.toolchains.{JvmToolchain, ScalaJsToolchain, ScalaNativeToolchain}
 import bloop.io.ByteHasher
@@ -123,12 +123,17 @@ final case class Project(
     }
   }
 
-  def pickValidResources: Array[AbsolutePath] = {
-    // Only add those resources that exist at the moment of creating the classpath
-    resources.iterator.filter(_.exists).toArray
+  def runtimeResources: List[AbsolutePath] = platform match {
+    case jvm: Platform.Jvm => jvm.resources
+    case _ => resources
   }
 
-  def fullClasspath(dag: Dag[Project], client: ClientInfo): Array[AbsolutePath] = {
+  private def fullClasspath(
+      dag: Dag[Project],
+      client: ClientInfo,
+      rawClasspath: List[AbsolutePath],
+      pickValidResources: Project => Array[AbsolutePath]
+  ): Array[AbsolutePath] = {
     val addedResources = new mutable.HashSet[AbsolutePath]()
     val cp = (this.genericClassesDir :: rawClasspath).toBuffer
 
@@ -137,7 +142,7 @@ final case class Project(
       val genericClassesDir = p.genericClassesDir
       val uniqueClassesDir = client.getUniqueClassesDirFor(p, forceGeneration = true)
       val index = cp.indexOf(genericClassesDir)
-      val newResources = p.pickValidResources.filterNot(r => addedResources.contains(r))
+      val newResources = pickValidResources(p).filterNot(r => addedResources.contains(r))
       newResources.foreach(r => addedResources.add(r))
       if (index == -1) {
         // Not found? Weird. Let's add resources to end just in case
@@ -153,6 +158,23 @@ final case class Project(
     cp.toArray
   }
 
+  def fullClasspath(dag: Dag[Project], client: ClientInfo): Array[AbsolutePath] = {
+    fullClasspath(dag, client, rawClasspath, p => Project.pickValidResources(p.resources))
+  }
+
+  def fullRuntimeClasspath(dag: Dag[Project], client: ClientInfo): Array[AbsolutePath] = {
+    val rawRuntimeClasspath = platform match {
+      case jvm: Platform.Jvm => jvm.classpath
+      case _ => rawClasspath
+    }
+    fullClasspath(
+      dag,
+      client,
+      rawRuntimeClasspath,
+      p => Project.pickValidResources(p.runtimeResources)
+    )
+  }
+
   /**
    * Defines a project-specific path under which Bloop will create all bsp
    * client-owned classes directories. These directories host compile products
@@ -164,7 +186,7 @@ final case class Project(
 
   def jdkConfig: Option[JdkConfig] = {
     platform match {
-      case Platform.Jvm(config, _, _) => Some(config)
+      case Platform.Jvm(config, _, _, _, _) => Some(config)
       case _ => None
     }
   }
@@ -214,18 +236,30 @@ object Project {
       }
 
     val setup = project.`scala`.flatMap(_.setup).getOrElse(Config.CompileSetup.empty)
+    val compileClasspath = project.classpath.map(AbsolutePath.apply)
+    val compileResources = project.resources.toList.flatten.map(AbsolutePath.apply)
     val platform = project.platform match {
       case Some(platform: Config.Platform.Jvm) =>
         val javaEnv = JdkConfig.fromConfig(platform.config)
         val toolchain = JvmToolchain.resolveToolchain(platform, logger)
-        Platform.Jvm(javaEnv, toolchain, platform.mainClass)
+        val runtimeClasspath =
+          platform.classpath.map(_.map(AbsolutePath.apply)).getOrElse(compileClasspath)
+        val runtimeResources =
+          platform.resources.map(_.map(AbsolutePath.apply)).getOrElse(compileResources)
+        Platform.Jvm(
+          javaEnv,
+          toolchain,
+          platform.mainClass,
+          runtimeClasspath,
+          runtimeResources
+        )
       case Some(platform: Config.Platform.Js) =>
         val toolchain = Try(ScalaJsToolchain.resolveToolchain(platform, logger)).toOption
         Platform.Js(platform.config, toolchain, platform.mainClass)
       case Some(platform: Config.Platform.Native) =>
         val toolchain = Try(ScalaNativeToolchain.resolveToolchain(platform, logger)).toOption
         Platform.Native(platform.config, toolchain, platform.mainClass)
-      case None => defaultPlatform(logger)
+      case None => defaultPlatform(logger, compileClasspath, compileResources)
     }
 
     val sbt = project.sbt
@@ -235,7 +269,6 @@ object Project {
     val analysisOut = scala
       .flatMap(_.analysis.map(AbsolutePath.apply))
       .getOrElse(out.resolve(Config.Project.analysisFileName(project.name)))
-    val resources = project.resources.toList.flatten.map(AbsolutePath.apply)
 
     val sourceRoots = project.sourceRoots.map(_.map(AbsolutePath.apply))
 
@@ -247,8 +280,8 @@ object Project {
       project.workspaceDir.map(AbsolutePath.apply),
       project.dependencies,
       instance,
-      project.classpath.map(AbsolutePath.apply),
-      resources,
+      compileClasspath,
+      compileResources,
       setup,
       AbsolutePath(project.classesDir),
       scala.map(_.options).getOrElse(Nil),
@@ -268,11 +301,21 @@ object Project {
     )
   }
 
-  def defaultPlatform(logger: Logger, jdkConfig: Option[JdkConfig] = None): Platform = {
-    val platform = Config.Platform.Jvm(Config.JvmConfig.empty, None)
+  def defaultPlatform(
+      logger: Logger,
+      classpath: List[AbsolutePath],
+      resources: List[AbsolutePath],
+      jdkConfig: Option[JdkConfig] = None
+  ): Platform = {
+    val platform = Config.Platform.Jvm(
+      Config.JvmConfig.empty,
+      None,
+      Some(classpath.map(_.underlying)),
+      Some(resources.map(_.underlying))
+    )
     val env = jdkConfig.getOrElse(JdkConfig.fromConfig(platform.config))
     val toolchain = JvmToolchain.resolveToolchain(platform, logger)
-    Platform.Jvm(env, toolchain, platform.mainClass)
+    Platform.Jvm(env, toolchain, platform.mainClass, classpath, resources)
   }
 
   /**
@@ -412,4 +455,10 @@ object Project {
     val newScalacOptions = newScalacOptionsBuf.toList
     project.copy(scalacOptions = newScalacOptions)
   }
+
+  def pickValidResources(resources: List[AbsolutePath]): Array[AbsolutePath] = {
+    // Only add those resources that exist at the moment of creating the classpath
+    resources.iterator.filter(_.exists).toArray
+  }
+
 }

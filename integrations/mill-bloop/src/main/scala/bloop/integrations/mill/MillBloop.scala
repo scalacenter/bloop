@@ -59,7 +59,9 @@ object Bloop extends ExternalModule {
           home = T.ctx().env.get("JAVA_HOME").map(s => Path(s).toNIO),
           options = module.forkArgs().toList
         ),
-        mainClass = module.mainClass()
+        mainClass = module.mainClass(),
+        classpath = None,
+        resources = None
       )
     }
 

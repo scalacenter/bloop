@@ -288,7 +288,7 @@ class BloopConverter(parameters: BloopParameters) {
       }
 
     val jdkPath = projectJdkPath.orElse(defaultJdkPath)
-    Some(Platform.Jvm(JvmConfig(jdkPath, projectJvmOptions), mainClass))
+    Some(Platform.Jvm(JvmConfig(jdkPath, projectJvmOptions), mainClass, None, None))
   }
 
   def getTestConfig(sourceSet: SourceSet): Option[Config.Test] = {

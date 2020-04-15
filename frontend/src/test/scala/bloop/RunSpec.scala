@@ -6,13 +6,15 @@ import java.nio.file.Files
 import java.util.concurrent.TimeUnit
 
 import bloop.bsp.BspServer
-import bloop.cli.Commands
+import bloop.cli.{Commands, ExitStatus}
+import bloop.config.Config.JvmConfig
 import bloop.data.JdkConfig
 import bloop.logging.RecordingLogger
-import bloop.util.TestUtil
+import bloop.util.{TestProject, TestUtil}
 import bloop.util.TestUtil.{checkAfterCleanCompilation, getProject, loadTestProject, runAndCheck}
 import bloop.engine.tasks.Tasks
 import bloop.engine.{Dag, ExecutionContext, Run, State}
+import bloop.testing.BloopHelpers
 import org.junit.Assert.{assertEquals, assertTrue}
 import org.junit.experimental.categories.Category
 import org.junit.{Assert, Test}
@@ -22,7 +24,7 @@ import scala.concurrent.duration.Duration
 import scala.util.control.NonFatal
 
 @Category(Array(classOf[bloop.FastTests]))
-class RunSpec {
+class RunSpec extends BloopHelpers {
   private val packageName = "foo.bar"
   private val mainClassName0 = "Main0"
   private val mainClassName1 = "Main1"
@@ -157,7 +159,7 @@ class RunSpec {
             else Files.createDirectories(resource.underlying)
           }
 
-          val fullClasspath = rootWithAggregation.fullClasspath(dag, state.client).toList
+          val fullClasspath = rootWithAggregation.fullRuntimeClasspath(dag, state.client).toList
           Assert.assertFalse(dependentResources.isEmpty)
           dependentResources.foreach { r =>
             Assert.assertTrue(s"Missing $r in $fullClasspath", fullClasspath.contains(r))
@@ -369,4 +371,102 @@ class RunSpec {
       TestUtil.ensureCompilationInAllTheBuild(state)
     }
   }
+
+  @Test
+  def runUsesRuntimeClasspath(): Unit = {
+    TestUtil.withinWorkspace { workspace =>
+      object Sources {
+        val `a/foo/A.scala` =
+          """/a/foo/A.scala
+            |package foo
+            |class A""".stripMargin
+        val `b/foo/bar/A.scala` =
+          """/b/foo/bar/A.scala
+            |package foo.bar
+            |class A""".stripMargin
+        val `c/pkg/Main.scala` =
+          """/c/pkg/Main.scala
+            |package pkg
+            |import foo._
+            |import bar._
+            |object Main {
+            |  def main(args: Array[String]): Unit = {
+            |    val a = new A // Would be ambiguous if project a was on the compilation classpath
+            |    val fooA = getClass.getClassLoader.loadClass("foo.A")
+            |    println("Compile-time: " + a.getClass)
+            |    println("Reflection: " + fooA)
+            |  }
+            |}""".stripMargin
+      }
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val `A` = TestProject(workspace, "a", List(Sources.`a/foo/A.scala`))
+      val `B` = TestProject(workspace, "b", List(Sources.`b/foo/bar/A.scala`), List(`A`))
+      val `C` = TestProject(
+        workspace,
+        "c",
+        List(Sources.`c/pkg/Main.scala`),
+        List(`B`),
+        strictDependencies = false
+      )
+      val `D` = TestProject(
+        workspace,
+        "d",
+        List(Sources.`c/pkg/Main.scala`),
+        List(`B`),
+        strictDependencies = true
+      )
+      val projects = List(`A`, `B`, `C`, `D`)
+      val state = loadState(workspace, projects, logger)
+
+      val failedCompile = state.compile(`C`) // Will fail because `new A` is ambiguous
+      assertEquals(ExitStatus.CompilationError, failedCompile.status)
+
+      val compiledState = failedCompile.compile(`D`)
+      assertEquals(ExitStatus.Ok, compiledState.status)
+
+      val runState = compiledState.run(`D`)
+      assertEquals(ExitStatus.Ok, runState.status)
+      assertTrue(logger.infos.contains("Compile-time: class foo.bar.A"))
+      assertTrue(logger.infos.contains("Reflection: class foo.A"))
+    }
+  }
+
+  @Test
+  def runSeesRuntimeResources(): Unit = {
+    TestUtil.withinWorkspace { workspace =>
+      object Sources {
+        val `a/A.scala` =
+          """/a/A.scala
+            |object A {
+            |  def main(args: Array[String]): Unit = {
+            |    val res = getClass.getClassLoader.getResourceAsStream("resource.txt")
+            |    val content = scala.io.Source.fromInputStream(res).mkString
+            |    assert("goodbye" == content)
+            |  }
+            |}""".stripMargin
+      }
+      object Resources {
+        val `a/compile-resources/resource.txt` =
+          """/resource.txt
+            |hello""".stripMargin
+        val `a/run-resources/resource.txt` =
+          """/resource.txt
+            |goodbye""".stripMargin
+      }
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val `A` = TestProject(
+        workspace,
+        "a",
+        List(Sources.`a/A.scala`),
+        resources = List(Resources.`a/compile-resources/resource.txt`),
+        runtimeResources = Some(List(Resources.`a/run-resources/resource.txt`))
+      )
+
+      val projects = List(`A`)
+      val state = loadState(workspace, projects, logger)
+      val runState = state.run(`A`)
+      assertEquals(ExitStatus.Ok, runState.status)
+    }
+  }
+
 }
