@@ -207,7 +207,7 @@ object ReleaseUtils {
        |  "url": "${artifacts.bloopCoursier.url}",
        |  "hash": "sha256:${artifacts.bloopCoursier.sha}",
        |  "depends": "coursier",
-       |  "bin": "bloop.cmd",
+       |  "bin": "bloop",
        |  "env_add_path": "$$dir",
        |  "env_set": {
        |    "BLOOP_HOME": "$$dir",
@@ -260,10 +260,14 @@ object ReleaseUtils {
     val safeVersion = version.replace('-', '.').replace('+', '.').replace(' ', '.')
 
     // Use unique names to avoid conflicts with cache and old package versions
-    val coursierChannel = s"bloop-coursier-channel-$safeVersion::${artifacts.bloopCoursier.name}"
-    val bashResourceName = s"bloop-bash-$safeVersion::${artifacts.bashAutocompletions.name}"
-    val zshResourceName = s"bloop-zsh-$safeVersion::${artifacts.zshAutocompletions.name}"
-    val fishResourceName = s"bloop-fish-$safeVersion::${artifacts.fishAutocompletions.name}"
+    val coursierChannelName = s"bloop-coursier-channel-$safeVersion"
+    val bashResourceName = s"bloop-bash-$safeVersion"
+    val zshResourceName = s"bloop-zsh-$safeVersion"
+    val fishResourceName = s"bloop-fish-$safeVersion"
+    val coursierChannelRef = s"$coursierChannelName::${artifacts.bloopCoursier.url}"
+    val bashResourceRef = s"$bashResourceName::${artifacts.bashAutocompletions.url}"
+    val zshResourceRef = s"$zshResourceName::${artifacts.zshAutocompletions.url}"
+    val fishResourceRef = s"$fishResourceName::${artifacts.fishAutocompletions.url}"
 
     s"""# Maintainer: Guillaume Raffin <theelectronwill@gmail.com>
        |# Generator: Bloop release utilities <https://github.com/scalacenter/bloop>
@@ -275,16 +279,18 @@ object ReleaseUtils {
        |url="https://scalacenter.github.io/bloop/"
        |license=('Apache')
        |depends=('java-environment>=8' 'coursier>=2.0.0_RC6_7')
-       |source=('$coursierChannel' '$bashResourceName' '$zshResourceName' '$fishResourceName')
+       |source=('$coursierChannelRef' '$bashResourceRef' '$zshResourceRef' '$fishResourceRef')
        |sha256sums=('${artifacts.bloopCoursier.sha}' '${artifacts.bashAutocompletions.sha}' '${artifacts.zshAutocompletions.sha}' '${artifacts.fishAutocompletions.sha}')
        |
        |build() {
        |  mkdir channel
-       |  mv "$coursierChannel" "channel/bloop.json"
+       |  mv "$coursierChannelName" "channel/bloop.json"
        |  coursier install --install-dir "$$srcdir" --default-channels=false --channel channel bloop
        |}
        |
        |package() {
+       |  cd "$$srcdir"
+       |
        |  ## binaries
        |  # we use /usr/lib/bloop so that we can add a .jvmopts file in it
        |  install -Dm755 bloop "$$pkgdir"/usr/lib/bloop/bloop
