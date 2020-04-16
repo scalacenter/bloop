@@ -47,13 +47,10 @@ object Interpreter {
             execute(printAction, Task.now(state))
           case Run(cmd: Commands.ValidatedBsp, next) =>
             execute(next, runBsp(cmd, state))
-          case Run(Commands.About(_), next) =>
-            execute(next, printAbout(state))
+          case Run(cmd: Commands.About, next) =>
+            notHandled("about", cmd.cliOptions, state)
           case Run(cmd: Commands.Help, next) =>
-            val msg = "The handling of `help` does not happen in the `Interpreter`"
-            val printAction =
-              Print(msg, cmd.cliOptions.common, Exit(ExitStatus.UnexpectedError))
-            execute(printAction, Task.now(state))
+            notHandled("help", cmd.cliOptions, state)
           case Run(cmd: Commands.Command, next) =>
             // We validate for almost all commands coming from the CLI except for BSP and about,help
             Validate.validateBuildForCLICommands(state, state.logger.error(_)).flatMap { state =>
@@ -89,35 +86,15 @@ object Interpreter {
     execute(action, stateTask)
   }
 
+  private def notHandled(command: String, cliOptions: CliOptions, state: State): Task[State] = {
+    val msg = s"The handling of `$command` does not happen in the `Interpreter`"
+    val printAction =
+      Print(msg, cliOptions.common, Exit(ExitStatus.UnexpectedError))
+    execute(printAction, Task.now(state))
+  }
+
   private final val t = "    "
   private final val line = System.lineSeparator()
-  private def printAbout(state: State): Task[State] = Task {
-    import state.logger
-    val bloopName = bloop.internal.build.BuildInfo.bloopName
-    val bloopVersion = bloop.internal.build.BuildInfo.version
-    val scalaVersion = bloop.internal.build.BuildInfo.scalaVersion
-    val zincVersion = bloop.internal.build.BuildInfo.zincVersion
-    val developers = bloop.internal.build.BuildInfo.developers.mkString(", ")
-    val javaVersion = JavaRuntime.version
-    val javaHome = JavaRuntime.home
-    val jdiStatus = {
-      if (JavaRuntime.loadJavaDebugInterface.isSuccess)
-        "Supports debugging user code, Java Debug Interface (JDI) is available."
-      else
-        "Doesn't support debugging user code, runtime doesn't implement Java Debug Interface (JDI)."
-    }
-
-    val runtimeInfo = s"Detected Java ${JavaRuntime.current} runtime $jdiStatus"
-
-    logger.info(s"$bloopName v$bloopVersion")
-    logger.info("")
-    logger.info(s"Using Scala v$scalaVersion and Zinc v$zincVersion")
-    logger.info(s"Running on Java ${JavaRuntime.current} v$javaVersion ($javaHome)")
-    logger.info(s"  -> $jdiStatus")
-    logger.info(s"Maintained by the Scala Center ($developers)")
-
-    state.mergeStatus(ExitStatus.Ok)
-  }
 
   private def getProjectsDag(projects: List[Project], state: State): Dag[Project] =
     Aggregate(projects.map(p => state.build.getDagFor(p)))
