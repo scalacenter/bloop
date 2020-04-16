@@ -3,9 +3,10 @@ package bloop.integrations.gradle
 import java.io.File
 import java.net.URLClassLoader
 import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, Paths}
+import java.nio.file.{Files, Path, Paths}
 
 import bloop.cli.Commands
+import bloop.config.Config.Platform.Jvm
 import bloop.config.{Config, Tag}
 import bloop.config.Config.{CompileSetup, JavaThenScala, Mixed, Platform}
 import bloop.engine.{Build, Run, State}
@@ -170,8 +171,8 @@ abstract class ConfigGenerationSuite {
       assertEquals(version, configFile.project.`scala`.get.version)
     assertEquals("ch.epfl.lamp", configFile.project.`scala`.get.organization)
     assert(configFile.project.`scala`.get.jars.exists(_.toString.contains("dotty-compiler")))
-    assert(hasClasspathEntryName(configFile, "dotty-library"))
-    assert(hasClasspathEntryName(configFile, "scala-library"))
+    assert(hasBothClasspathsEntryName(configFile, "dotty-library"))
+    assert(hasBothClasspathsEntryName(configFile, "scala-library"))
 
     val idxDottyLib = idxOfClasspathEntryName(configFile, "dotty-library")
     val idxScalaLib = idxOfClasspathEntryName(configFile, "scala-library")
@@ -295,7 +296,7 @@ abstract class ConfigGenerationSuite {
          |dependencies {
          |  implementation 'org.typelevel:cats-core_2.12:1.2.0'
          |  compile project(':a')
-         |  implementation(project(':c'))
+         |  compile project(':c')
          |}
       """.stripMargin
     )
@@ -430,36 +431,36 @@ abstract class ConfigGenerationSuite {
       }
     }
 
-    assert(hasClasspathEntryName(configA, "scala-library"))
+    assert(hasBothClasspathsEntryName(configA, "scala-library"))
     assertSources(configA, "scala-library")
-    assert(hasClasspathEntryName(configB, "scala-library"))
+    assert(hasBothClasspathsEntryName(configB, "scala-library"))
     assertSources(configB, "scala-library")
-    assert(hasClasspathEntryName(configC, "scala-library"))
+    assert(hasBothClasspathsEntryName(configC, "scala-library"))
     assertSources(configC, "scala-library")
-    assert(hasClasspathEntryName(configATest, "scala-library"))
+    assert(hasBothClasspathsEntryName(configATest, "scala-library"))
     assertSources(configATest, "scala-library")
-    assert(hasClasspathEntryName(configBTest, "scala-library"))
+    assert(hasBothClasspathsEntryName(configBTest, "scala-library"))
     assertSources(configBTest, "scala-library")
-    assert(hasClasspathEntryName(configCTest, "scala-library"))
+    assert(hasBothClasspathsEntryName(configCTest, "scala-library"))
     assertSources(configCTest, "scala-library")
-    assert(hasClasspathEntryName(configATest, "/a/build/classes"))
-    assert(hasClasspathEntryName(configCTest, "/c/build/classes"))
-    assert(hasClasspathEntryName(configB, "cats-core"))
+    assert(hasBothClasspathsEntryName(configATest, "/a/build/classes"))
+    assert(hasBothClasspathsEntryName(configCTest, "/c/build/classes"))
+    assert(hasBothClasspathsEntryName(configB, "cats-core"))
     assertSources(configB, "cats-core")
-    assert(hasClasspathEntryName(configB, "/a/build/classes"))
-    assert(hasClasspathEntryName(configB, "/c/build/classes"))
-    assert(hasClasspathEntryName(configBTest, "cats-core"))
+    assert(hasBothClasspathsEntryName(configB, "/a/build/classes"))
+    assert(hasBothClasspathsEntryName(configB, "/c/build/classes"))
+    assert(hasBothClasspathsEntryName(configBTest, "cats-core"))
     assertSources(configBTest, "cats-core")
-    assert(hasClasspathEntryName(configBTest, "/a/build/classes"))
-    assert(hasClasspathEntryName(configBTest, "/b/build/classes"))
-    assert(hasClasspathEntryName(configBTest, "/c/build/classes"))
-    assert(hasClasspathEntryName(configD, "/a/build/classes"))
-    assert(hasClasspathEntryName(configD, "/b/build/classes"))
-    assert(hasClasspathEntryName(configD, "/c/build/classes"))
-    assert(hasClasspathEntryName(configDTest, "/a/build/classes"))
-    assert(hasClasspathEntryName(configDTest, "/b/build/classes"))
-    assert(hasClasspathEntryName(configDTest, "/c/build/classes"))
-    assert(hasClasspathEntryName(configDTest, "/d/build/classes"))
+    assert(hasBothClasspathsEntryName(configBTest, "/a/build/classes"))
+    assert(hasBothClasspathsEntryName(configBTest, "/b/build/classes"))
+    assert(hasBothClasspathsEntryName(configBTest, "/c/build/classes"))
+    assert(hasBothClasspathsEntryName(configD, "/a/build/classes"))
+    assert(hasBothClasspathsEntryName(configD, "/b/build/classes"))
+    assert(hasBothClasspathsEntryName(configD, "/c/build/classes"))
+    assert(hasBothClasspathsEntryName(configDTest, "/a/build/classes"))
+    assert(hasBothClasspathsEntryName(configDTest, "/b/build/classes"))
+    assert(hasBothClasspathsEntryName(configDTest, "/c/build/classes"))
+    assert(hasBothClasspathsEntryName(configDTest, "/d/build/classes"))
 
     assert(compileBloopProject("b", bloopDir).status.isOk)
     assert(compileBloopProject("d", bloopDir).status.isOk)
@@ -563,11 +564,14 @@ abstract class ConfigGenerationSuite {
     assertEquals(List("a"), configATest.project.dependencies.sorted)
     assertEquals(List("a-test", "b"), configBTest.project.dependencies.sorted)
 
-    assert(!hasClasspathEntryName(configB, "/a/build/classes"))
-    assert(!hasClasspathEntryName(configB, "/a-test/build/classes"))
-    assert(!hasClasspathEntryName(configBTest, "/a/build/classes"))
-    assert(hasClasspathEntryName(configBTest, "/b/build/classes"))
-    assert(hasClasspathEntryName(configBTest, "/a-test/build/classes"))
+    assert(!hasCompileClasspathEntryName(configB, "/a/build/classes"))
+    assert(!hasRuntimeClasspathEntryName(configB, "/a/build/classes"))
+    assert(!hasCompileClasspathEntryName(configB, "/a-test/build/classes"))
+    assert(!hasRuntimeClasspathEntryName(configB, "/a-test/build/classes"))
+    assert(!hasCompileClasspathEntryName(configBTest, "/a/build/classes"))
+    assert(!hasRuntimeClasspathEntryName(configBTest, "/a/build/classes"))
+    assert(hasBothClasspathsEntryName(configBTest, "/b/build/classes"))
+    assert(hasBothClasspathsEntryName(configBTest, "/a-test/build/classes"))
 
     assert(compileBloopProject("b", bloopDir).status.isOk)
   }
@@ -682,10 +686,12 @@ abstract class ConfigGenerationSuite {
     assertEquals(List("a"), configATest.project.dependencies.sorted)
     assertEquals(List("a-test", "b"), configBTest.project.dependencies.sorted)
 
-    assert(!hasClasspathEntryName(configB, "/a/build/classes"))
-    assert(!hasClasspathEntryName(configB, "/a-test/build/classes"))
-    assert(hasClasspathEntryName(configBTest, "/a-test/build/classes"))
-    assert(hasClasspathEntryName(configBTest, "/b/build/classes"))
+    assert(!hasCompileClasspathEntryName(configB, "/a/build/classes"))
+    assert(!hasRuntimeClasspathEntryName(configB, "/a/build/classes"))
+    assert(!hasCompileClasspathEntryName(configB, "/a-test/build/classes"))
+    assert(!hasRuntimeClasspathEntryName(configB, "/a-test/build/classes"))
+    assert(hasBothClasspathsEntryName(configBTest, "/a-test/build/classes"))
+    assert(hasBothClasspathsEntryName(configBTest, "/b/build/classes"))
 
     assert(compileBloopProject("b-test", bloopDir).status.isOk)
   }
@@ -1023,11 +1029,12 @@ abstract class ConfigGenerationSuite {
     assertEquals(Nil, configB.project.dependencies)
     assertEquals(List("b"), configBTest.project.dependencies)
 
-    assert(hasClasspathEntryName(configB, "scala-library"))
-    assert(hasClasspathEntryName(configBTest, "scala-library"))
-    assert(hasClasspathEntryName(configB, "cats-core"))
-    assert(hasClasspathEntryName(configBTest, "cats-core"))
-    assert(hasClasspathEntryName(configBTest, "tools.jar"))
+    assert(hasBothClasspathsEntryName(configB, "scala-library"))
+    assert(hasBothClasspathsEntryName(configBTest, "scala-library"))
+    assert(hasBothClasspathsEntryName(configB, "cats-core"))
+    assert(hasBothClasspathsEntryName(configBTest, "cats-core"))
+    assert(!hasCompileClasspathEntryName(configBTest, "tools.jar"))
+    assert(hasRuntimeClasspathEntryName(configBTest, "tools.jar"))
 
     assert(compileBloopProject("b", bloopDir).status.isOk)
   }
@@ -1366,6 +1373,150 @@ abstract class ConfigGenerationSuite {
     assert(idxB < configD.project.classpath.size)
   }
 
+  @Test def handlesCompileAndRuntimeClassPath(): Unit = {
+    val buildSettings = testProjectDir.newFile("settings.gradle")
+    val buildDirA = testProjectDir.newFolder("a")
+    val buildDirB = testProjectDir.newFolder("b")
+    val buildDirC = testProjectDir.newFolder("c")
+    val buildDirD = testProjectDir.newFolder("d")
+    val buildDirE = testProjectDir.newFolder("e")
+    val buildDirF = testProjectDir.newFolder("f")
+    val buildFileA = new File(buildDirA, "build.gradle")
+    val buildFileB = new File(buildDirB, "build.gradle")
+    val buildFileC = new File(buildDirC, "build.gradle")
+    val buildFileD = new File(buildDirD, "build.gradle")
+    val buildFileE = new File(buildDirE, "build.gradle")
+    val buildFileF = new File(buildDirF, "build.gradle")
+
+    writeBuildScript(
+      buildFileA,
+      """
+        |plugins {
+        |  id 'bloop'
+        |}
+        |
+        |apply plugin: 'java'
+        |apply plugin: 'bloop'
+      """.stripMargin
+    )
+
+    writeBuildScript(
+      buildFileB,
+      """
+        |plugins {
+        |  id 'bloop'
+        |}
+        |
+        |apply plugin: 'java'
+        |apply plugin: 'bloop'
+      """.stripMargin
+    )
+
+    writeBuildScript(
+      buildFileC,
+      """
+        |plugins {
+        |  id 'bloop'
+        |}
+        |
+        |apply plugin: 'java'
+        |apply plugin: 'bloop'
+      """.stripMargin
+    )
+
+    writeBuildScript(
+      buildFileD,
+      """
+        |plugins {
+        |  id 'bloop'
+        |}
+        |
+        |apply plugin: 'java'
+        |apply plugin: 'bloop'
+      """.stripMargin
+    )
+    writeBuildScript(
+      buildFileE,
+      """
+        |plugins {
+        |  id 'bloop'
+        |}
+        |
+        |apply plugin: 'java-library'
+        |apply plugin: 'bloop'
+        |
+        |dependencies {
+        |  api project(':a')
+        |  implementation project(':b')
+        |  compileOnly project(':c')
+        |  runtimeOnly project(':d')
+        |}
+      """.stripMargin
+    )
+
+    writeBuildScript(
+      buildFileF,
+      """
+        |plugins {
+        |  id 'bloop'
+        |}
+        |
+        |apply plugin: 'java'
+        |apply plugin: 'bloop'
+        |
+        |repositories {
+        |  mavenCentral()
+        |}
+        |
+        |dependencies {
+        |  compile project(':e')
+        |}
+      """.stripMargin
+    )
+
+    writeBuildScript(
+      buildSettings,
+      """
+        |rootProject.name = 'scala-multi-projects'
+        |include 'a'
+        |include 'b'
+        |include 'c'
+        |include 'd'
+        |include 'e'
+        |include 'f'
+      """.stripMargin
+    )
+
+    GradleRunner
+      .create()
+      .withGradleVersion(gradleVersion)
+      .withProjectDir(testProjectDir.getRoot)
+      .withPluginClasspath(getClasspath)
+      .withArguments("bloopInstall", "-Si")
+      .build()
+
+    val bloopDir = new File(testProjectDir.getRoot, ".bloop")
+    val bloopE = new File(bloopDir, "e.json")
+    val bloopF = new File(bloopDir, "f.json")
+    val configE = readValidBloopConfig(bloopE)
+    val configF = readValidBloopConfig(bloopF)
+
+    assert(hasBothClasspathsEntryName(configE, "/a/build/classes"))
+    assert(hasBothClasspathsEntryName(configE, "/b/build/classes"))
+    assert(hasCompileClasspathEntryName(configE, "/c/build/classes"))
+    assert(!hasRuntimeClasspathEntryName(configE, "/c/build/classes"))
+    assert(hasRuntimeClasspathEntryName(configE, "/d/build/classes"))
+    assert(!hasCompileClasspathEntryName(configE, "/d/build/classes"))
+
+    assert(hasBothClasspathsEntryName(configF, "/a/build/classes"))
+    assert(!hasCompileClasspathEntryName(configF, "/b/build/classes"))
+    assert(hasRuntimeClasspathEntryName(configF, "/b/build/classes"))
+    assert(!hasCompileClasspathEntryName(configF, "/c/build/classes"))
+    assert(!hasRuntimeClasspathEntryName(configF, "/c/build/classes"))
+    assert(!hasCompileClasspathEntryName(configF, "/d/build/classes"))
+    assert(hasRuntimeClasspathEntryName(configF, "/d/build/classes"))
+  }
+
   @Test def compilerPluginsGeneratedCorrectly(): Unit = {
     val buildFile = testProjectDir.newFile("build.gradle")
     testProjectDir.newFolder("src", "main", "scala")
@@ -1580,9 +1731,25 @@ abstract class ConfigGenerationSuite {
       .asJava
   }
 
-  private def hasClasspathEntryName(config: Config.File, entryName: String): Boolean = {
+  private def hasClasspathEntryName(entryName: String, classpath: List[Path]): Boolean = {
     val pathValidEntryName = entryName.replace('/', File.separatorChar)
-    config.project.classpath.exists(_.toString.contains(pathValidEntryName))
+    classpath.exists(_.toString.contains(pathValidEntryName))
+  }
+
+  private def hasRuntimeClasspathEntryName(config: Config.File, entryName: String): Boolean = {
+    config.project.platform.exists {
+      case platform: Jvm => platform.classpath.exists(hasClasspathEntryName(entryName, _))
+      case _ => false
+    }
+  }
+
+  private def hasCompileClasspathEntryName(config: Config.File, entryName: String): Boolean = {
+    hasClasspathEntryName(entryName, config.project.classpath)
+  }
+
+  private def hasBothClasspathsEntryName(config: Config.File, entryName: String): Boolean = {
+    hasCompileClasspathEntryName(config, entryName) &&
+    hasRuntimeClasspathEntryName(config, entryName)
   }
 
   private def idxOfClasspathEntryName(config: Config.File, entryName: String): Int = {
