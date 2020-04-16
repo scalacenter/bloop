@@ -189,7 +189,7 @@ object ConfigCodecs {
         codec.encodeValue(
           x match {
             case Config.Platform.Jvm(config, mainClass, classpath, resources) =>
-              jvm(config, MainClass(mainClass), resources, classpath)
+              jvm(config, MainClass(mainClass), classpath, resources)
             case Config.Platform.Js(config, mainClass) => js(config, MainClass(mainClass))
             case Config.Platform.Native(config, mainClass) => native(config, MainClass(mainClass))
           },
