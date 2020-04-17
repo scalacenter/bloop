@@ -373,7 +373,10 @@ final class ConcurrentAnalysisCallback(
     }
   }
 
-  override def apiPhaseCompleted(): Unit = ()
+  override def apiPhaseCompleted(): Unit = {
+    // See [[BloopAnalysisCallback.apiPhaseCompleted]]
+    manager.generated(classToSource.keysIterator.toArray)
+  }
   override def dependencyPhaseCompleted(): Unit = ()
   override def classesInOutputJar(): java.util.Set[String] = ju.Collections.emptySet()
 

@@ -1543,6 +1543,78 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
     }
   }
 
+  test("recompile entire mixed project") {
+    TestUtil.withinWorkspace { workspace =>
+      object Sources {
+        val `Dummy1.scala` =
+          """/foo/Dummy1.scala
+            |class Dummy1""".stripMargin
+        val `Dummy2.scala` =
+          """/foo/Dummy2.scala
+            |class Dummy2""".stripMargin
+        val `Dummy3.scala` =
+          """/foo/Dummy3.scala
+            |class Dummy3""".stripMargin
+        val `Dummy4.scala` =
+          """/foo/Dummy4.scala
+            |class Dummy4""".stripMargin
+        val `Dummy1-changed.scala` =
+          """/foo/Dummy1.scala
+            |class Dummy1 // changed""".stripMargin
+        val `Dummy2-changed.scala` =
+          """/foo/Dummy2.scala
+            |class Dummy2 // changed""".stripMargin
+        val `Dummy3-changed.scala` =
+          """/foo/Dummy3.scala
+            |class Dummy3 // changed""".stripMargin
+        val `Dummy4-changed.scala` =
+          """/foo/Dummy4.scala
+            |class Dummy4 // changed""".stripMargin
+        val `A.java` =
+          """/foo/A.java
+            |package foo;
+            |public class A {
+            |  public B b;
+            |}""".stripMargin
+        val `B.scala` =
+          """/foo/B.scala
+            |package foo
+            |class B {
+            |  var a: A = _
+            |}""".stripMargin
+      }
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val `A` = TestProject(
+        workspace,
+        "a",
+        List(
+          Sources.`A.java`,
+          Sources.`B.scala`,
+          Sources.`Dummy1.scala`,
+          Sources.`Dummy2.scala`,
+          Sources.`Dummy3.scala`,
+          Sources.`Dummy4.scala`
+        )
+      )
+
+      val projects = List(`A`)
+      val state = loadState(workspace, projects, logger)
+      val compiledState = state.compile(`A`)
+      assertExitStatus(compiledState, ExitStatus.Ok)
+      assertValidCompilationState(compiledState, projects)
+
+      // Change enough sources to force recompiling the whole project.
+      writeFile(`A`.srcFor("/foo/Dummy1.scala"), Sources.`Dummy1-changed.scala`)
+      writeFile(`A`.srcFor("/foo/Dummy2.scala"), Sources.`Dummy2-changed.scala`)
+      writeFile(`A`.srcFor("/foo/Dummy3.scala"), Sources.`Dummy3-changed.scala`)
+      writeFile(`A`.srcFor("/foo/Dummy4.scala"), Sources.`Dummy4-changed.scala`)
+
+      val newState = compiledState.compile(`A`)
+      assertExitStatus(newState, ExitStatus.Ok)
+      assertValidCompilationState(newState, projects)
+    }
+  }
+
   test("compile Scala class after renaming a static member in a Java class") {
     TestUtil.withinWorkspace { workspace =>
       object Sources {
