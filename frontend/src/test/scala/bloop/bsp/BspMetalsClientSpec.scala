@@ -337,7 +337,7 @@ class BspMetalsClientSpec(
         workspace,
         "A",
         dummyFooSources,
-        scalaVersion = Some("0.23.0-bin-20200210-0dc07b0-NIGHTLY"),
+        scalaVersion = Some("0.23.0-RC1"),
         scalaOrg = Some("ch.epfl.lamp"),
         scalaCompiler = Some("dotty-compiler_0.23")
       )
@@ -365,7 +365,7 @@ class BspMetalsClientSpec(
         workspace,
         "A",
         dummyFooSources,
-        scalaVersion = Some("0.23.0-bin-20200210-0dc07b0-NIGHTLY"),
+        scalaVersion = Some("0.23.0-RC1"),
         scalaOrg = Some("ch.epfl.lamp"),
         scalaCompiler = Some("dotty-compiler_0.23")
       )
@@ -378,6 +378,38 @@ class BspMetalsClientSpec(
         assertValidCompilationState(compiledState, projects)
         assertSuccessfulCompilation(compiledState, projects, isNoOp = false)
         assertNoSemanticdbFileFor("Foo.scala", compiledState)
+      }
+    }
+  }
+
+  test("compile producing Semanticdb with scala3 when -Ysemanticdb setting is already present") {
+    TestUtil.withinWorkspace { workspace =>
+      val defaultScalacOptions = List(
+        "-Ysemanticdb"
+      )
+      val `A` = TestProject(
+        workspace,
+        "A",
+        dummyFooSources,
+        scalaVersion = Some("0.23.0-RC1"),
+        scalacOptions = defaultScalacOptions,
+        scalaOrg = Some("ch.epfl.lamp"),
+        scalaCompiler = Some("dotty-compiler_0.23")
+      )
+      val projects = List(`A`)
+      val configDir = TestProject.populateWorkspace(workspace, projects)
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      WorkspaceSettings.writeToFile(
+        configDir,
+        WorkspaceSettings.fromSemanticdbSettings("4.3.0", List()),
+        logger
+      )
+      loadBspState(workspace, projects, logger) { state =>
+        val compiledState = state.compile(`A`).toTestState
+        assertExitStatus(compiledState, ExitStatus.Ok)
+        assertValidCompilationState(compiledState, projects)
+        assertSemanticdbFileFor("Foo.scala", compiledState)
+        assertSuccessfulCompilation(compiledState, projects, isNoOp = false)
       }
     }
   }
