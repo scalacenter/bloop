@@ -29,6 +29,8 @@ final class AbsolutePath private (val underlying: Path) extends AnyVal {
 object AbsolutePath {
   implicit def workingDirectory: AbsolutePath =
     new AbsolutePath(NioPaths.get(sys.props("user.dir")))
+  def homeDirectory: AbsolutePath =
+    new AbsolutePath(NioPaths.get(sys.props("user.home")))
   def apply(uri: URI): AbsolutePath = apply(NioPaths.get(uri))
   def apply(file: File)(implicit cwd: AbsolutePath): AbsolutePath = apply(file.toPath)(cwd)
   def apply(path: String)(implicit cwd: AbsolutePath): AbsolutePath = apply(NioPaths.get(path))(cwd)
