@@ -364,7 +364,7 @@ object Project {
       val ysemanticdb = if (!options.contains("-Ysemanticdb")) List("-Ysemanticdb") else Nil
       val sourceRoot =
         if (!options.contains("-sourceroot")) List("-sourceroot", workspaceDir.toString()) else Nil
-      ysemanticdb ++ sourceRoot
+      options ++ ysemanticdb ++ sourceRoot
     }
 
     def enableRangePositions(options: List[String]): List[String] = {
@@ -378,13 +378,11 @@ object Project {
     val options = projectWithRangePositions.scalacOptions
 
     semanticDBPlugin match {
+      case _ if isDotty =>
+        val optionsWithSemanticDB = enableDottySemanticdb(options)
+        projectWithRangePositions.copy(scalacOptions = optionsWithSemanticDB)
       case None =>
-        if (isDotty) {
-          val optionsWithSemanticDB = enableDottySemanticdb(options)
-          projectWithRangePositions.copy(scalacOptions = optionsWithSemanticDB)
-        } else {
-          projectWithRangePositions
-        }
+        projectWithRangePositions
       case Some(pluginPath) =>
         val optionsWithSemanticDB = enableSemanticdb(options, pluginPath)
         projectWithRangePositions.copy(scalacOptions = optionsWithSemanticDB)
