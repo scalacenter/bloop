@@ -244,13 +244,19 @@ class BloopConverter(parameters: BloopParameters) {
       val classesDir = getClassesDir(targetDir, project, sourceSet)
       val outDir = getOutDir(targetDir, project, sourceSet)
 
-      // tag runtime items to the end of the classpath until Bloop has separate compile and runtime paths
-      val classpath: List[Path] =
+      val compileClasspath: List[Path] =
         (strictProjectDependencies.map(_.classesDir) ++
           dottyLibraryPaths ++
-          compileClasspathItems ++ runtimeClasspathItems ++
-          compileClasspathFilesAsPaths ++ runtimeClasspathFilesAsPaths ++
-          nonArtifactCompileClassPathFiles ++ nonArtifactRuntimeClassPathFiles).distinct
+          compileClasspathItems ++
+          compileClasspathFilesAsPaths ++
+          nonArtifactCompileClassPathFiles).distinct
+
+      val runtimeClasspath: List[Path] =
+        (strictProjectDependencies.map(_.classesDir) ++
+          dottyLibraryPaths ++
+          runtimeClasspathItems ++
+          runtimeClasspathFilesAsPaths ++
+          nonArtifactRuntimeClassPathFiles).distinct
 
       val modules = (nonProjectDependencies.map(artifactToConfigModule(_, project)) ++
         additionalArtifacts.map(artifactToConfigModule(_, project)) ++
@@ -278,7 +284,7 @@ class BloopConverter(parameters: BloopParameters) {
           sourcesGlobs = None,
           sourceRoots = None,
           dependencies = allDependencies,
-          classpath = classpath,
+          classpath = compileClasspath,
           out = outDir,
           classesDir = classesDir,
           resources = if (resources.isEmpty) None else Some(resources),
@@ -286,7 +292,7 @@ class BloopConverter(parameters: BloopParameters) {
           java = getJavaConfig(project, sourceSet),
           sbt = None,
           test = getTestConfig(sourceSet),
-          platform = getPlatform(project, sourceSet, isTestSourceSet),
+          platform = getPlatform(project, sourceSet, isTestSourceSet, runtimeClasspath),
           resolution = Some(resolution),
           tags = Some(tags)
         )
@@ -306,7 +312,8 @@ class BloopConverter(parameters: BloopParameters) {
   def getPlatform(
       project: Project,
       sourceSet: SourceSet,
-      isTestSourceSet: Boolean
+      isTestSourceSet: Boolean,
+      runtimeClasspath: List[Path]
   ): Option[Platform] = {
     val forkOptions = getJavaCompileOptions(project, sourceSet).getForkOptions
     val projectJdkPath = Option(forkOptions.getJavaHome).map(_.toPath)
@@ -342,7 +349,9 @@ class BloopConverter(parameters: BloopParameters) {
       }
 
     val jdkPath = projectJdkPath.orElse(defaultJdkPath)
-    Some(Platform.Jvm(JvmConfig(jdkPath, projectJvmOptions), mainClass, None, None))
+    Some(
+      Platform.Jvm(JvmConfig(jdkPath, projectJvmOptions), mainClass, Some(runtimeClasspath), None)
+    )
   }
 
   def getTestConfig(sourceSet: SourceSet): Option[Config.Test] = {
