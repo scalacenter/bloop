@@ -6,6 +6,7 @@ import java.nio.file.Files
 import bloop.bsp.BspServer
 import bloop.io.AbsolutePath
 import bloop.util.CrossPlatform
+import bloop.util.Environment
 import bloop.engine.{Action, Exit, Feedback, Print, Run, State}
 
 import monix.eval.Task
@@ -78,7 +79,8 @@ object Validate {
    */
   def validateBuildForCLICommands(state: State, report: String => Unit): Task[State] = {
     val configDirectory = state.build.origin
-    if (state.build.origin.isDirectory) {
+    if (state.build.origin.isDirectory &&
+        state.build.origin != Environment.defaultBloopDirectory) {
       state.build.traces match {
         case Nil => Task.now(state)
         case x :: xs =>

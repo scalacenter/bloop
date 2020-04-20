@@ -65,7 +65,7 @@ object Feedback {
   }
 
   def missingConfigDirectory(configDirectory: AbsolutePath): String =
-    s"""Missing configuration directory in $configDirectory.
+    s"""Missing valid Bloop build in $configDirectory.
        |
        |  1. Did you run bloop outside of the working directory of your build?
        |     If so, change your current directory or point directly to your `.bloop` directory via `--config-dir`.

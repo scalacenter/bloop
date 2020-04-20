@@ -9,6 +9,7 @@ import bloop.cli.CommonOptions
 import bloop.engine.{Build, BuildLoader, State, ClientPool}
 import bloop.io.AbsolutePath
 import bloop.cli.ExitStatus
+import bloop.util.Environment
 
 import monix.eval.Task
 
@@ -91,6 +92,7 @@ final class StateCache(cache: ConcurrentHashMap[AbsolutePath, StateCache.CachedS
       clientSettings: Option[WorkspaceSettings]
   ): Task[State] = {
     val empty = Build(from, Nil)
+    if (from == Environment.defaultBloopDirectory) return Task.now(createState(empty))
     val previousState = getStateFor(from, client, pool, commonOptions, logger)
     val build = previousState.map(_.build).getOrElse(empty)
 

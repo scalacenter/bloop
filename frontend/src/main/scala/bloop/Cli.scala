@@ -124,6 +124,29 @@ object Cli {
      """.stripMargin
   }
 
+  private def aboutAsked: String = {
+    val bloopName = bloop.internal.build.BuildInfo.bloopName
+    val bloopVersion = bloop.internal.build.BuildInfo.version
+    val scalaVersion = bloop.internal.build.BuildInfo.scalaVersion
+    val zincVersion = bloop.internal.build.BuildInfo.zincVersion
+    val developers = bloop.internal.build.BuildInfo.developers.mkString(", ")
+    val javaVersion = JavaRuntime.version
+    val javaHome = JavaRuntime.home
+    val jdiStatus = {
+      if (JavaRuntime.loadJavaDebugInterface.isSuccess)
+        "Supports debugging user code, Java Debug Interface (JDI) is available."
+      else
+        "Doesn't support debugging user code, runtime doesn't implement Java Debug Interface (JDI)."
+    }
+    s"""$bloopName v$bloopVersion
+       |
+       |Using Scala v$scalaVersion and Zinc v$zincVersion
+       |Running on Java ${JavaRuntime.current} v$javaVersion ($javaHome)
+       |  -> $jdiStatus
+       |Maintained by the Scala Center ($developers)
+       |""".stripMargin
+  }
+
   private def commandUsageAsked(command: String): String =
     CommandsMessages.messagesMap(command).usageMessage(beforeCommandMessages.progName, command)
 
@@ -170,10 +193,8 @@ object Cli {
               case Left(err) => printErrorAndExit(err, commonOptions)
               case Right(v: Commands.Help) =>
                 Print(helpAsked, commonOptions, Exit(ExitStatus.Ok))
-              case Right(v: Commands.About) =>
-                val newCommand = v.copy(cliOptions = v.cliOptions.copy(common = commonOptions))
-                // Disabling version here if user defines it because it has the same semantics
-                run(newCommand, newCommand.cliOptions.copy(version = false))
+              case Right(_: Commands.About) =>
+                Print(aboutAsked, commonOptions, Exit(ExitStatus.Ok))
               case Right(c: Commands.Bsp) =>
                 val newCommand = c.copy(cliOptions = c.cliOptions.copy(common = commonOptions))
                 Validate.bsp(newCommand, CrossPlatform.isWindows)
@@ -286,6 +307,25 @@ object Cli {
       !(cliOptions.noColor || commonOpts.env.containsKey("NO_COLOR")),
       debugFilter
     )
+
+    action match {
+      case Print(msg, commonOptions, Exit(exitStatus)) =>
+        logger.info(msg)
+        exitStatus
+      case _ =>
+        runWithState(action, pool, cancel, configDirectory, cliOptions, commonOpts, logger)
+    }
+  }
+
+  private def runWithState(
+      action: Action,
+      pool: ClientPool,
+      cancel: CompletableFuture[java.lang.Boolean],
+      configDirectory: AbsolutePath,
+      cliOptions: CliOptions,
+      commonOpts: CommonOptions,
+      logger: Logger
+  ): ExitStatus = {
 
     // Set the proxy settings right before loading the state of the build
     bloop.util.ProxySetup.updateProxySettings(commonOpts.env.toMap, logger)
