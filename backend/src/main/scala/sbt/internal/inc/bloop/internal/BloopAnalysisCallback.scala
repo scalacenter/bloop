@@ -354,7 +354,14 @@ final class BloopAnalysisCallback(
     }
   }
 
-  override def apiPhaseCompleted(): Unit = ()
+  override def apiPhaseCompleted(): Unit = {
+    /*
+     * Inform the class file manager of the generated Scala classes as soon as
+     * the Zinc API phase has run and collected them so that the class file
+     * invalidation registers these files before compiling Java files incrementally.
+     */
+    manager.generated(classToSource.keysIterator.toArray)
+  }
   override def dependencyPhaseCompleted(): Unit = ()
   override def classesInOutputJar(): java.util.Set[String] = ju.Collections.emptySet()
 
