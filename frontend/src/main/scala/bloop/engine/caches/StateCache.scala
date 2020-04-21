@@ -91,7 +91,7 @@ final class StateCache(cache: ConcurrentHashMap[AbsolutePath, StateCache.CachedS
       createState: Build => State,
       clientSettings: Option[WorkspaceSettings]
   ): Task[State] = {
-    val empty = Build(from, Nil)
+    val empty = Build(from, Nil, None)
     if (from == Environment.defaultBloopDirectory) return Task.now(createState(empty))
     val previousState = getStateFor(from, client, pool, commonOptions, logger)
     val build = previousState.map(_.build).getOrElse(empty)
@@ -127,7 +127,7 @@ final class StateCache(cache: ConcurrentHashMap[AbsolutePath, StateCache.CachedS
                 val newBuild = state.build.copy(loadedProjects = untouched ++ newProjects)
                 state.copy(build = newBuild)
               // Create a new state since there was no previous one
-              case None => createState(Build(from, newProjects))
+              case None => createState(Build(from, newProjects, settings))
             }
             cache.put(from, StateCache.CachedState.fromState(newState))
             newState

@@ -2,7 +2,7 @@ package bloop
 
 import bloop.tracing.BraveTracer
 import bloop.testing.BaseSuite
-
+import bloop.tracing.TraceProperties
 import monix.eval.Task
 
 object TracerSpec extends BaseSuite {
@@ -21,7 +21,10 @@ object TracerSpec extends BaseSuite {
         Thread.sleep(250)
       }
       Thread.sleep(750)
-      val tracer2 = tracer.toIndependentTracer(s"independent encode ${id}")
+      val tracer2 = tracer.toIndependentTracer(
+        s"independent encode ${id}",
+        TraceProperties.Global.properties
+      )
       tracer.terminate()
       tracer2.trace(s"previous independent child ${id}") { _ =>
         Thread.sleep(750)

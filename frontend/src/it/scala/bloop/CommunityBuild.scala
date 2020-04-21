@@ -3,11 +3,12 @@ package bloop
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
 import java.nio.file.attribute.FileTime
+
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 import bloop.cli.{Commands, ExitStatus}
 import bloop.config.Config
-import bloop.data.{Origin, Project, LoadedProject}
+import bloop.data.{LoadedProject, Origin, Project, WorkspaceSettings}
 import bloop.engine.{
   Action,
   Build,
@@ -92,7 +93,8 @@ abstract class CommunityBuild(val buildpressHomeDir: AbsolutePath) {
   def loadStateForBuild(configDirectory: AbsolutePath, logger: Logger): State = {
     assert(configDirectory.exists, "Does not exist: " + configDirectory)
     val loadedProjects = BuildLoader.loadSynchronously(configDirectory, logger)
-    val build = Build(configDirectory, loadedProjects)
+    val workspaceSettings = WorkspaceSettings.readFromFile(configDirectory, logger)
+    val build = Build(configDirectory, loadedProjects, workspaceSettings)
     val state = State.forTests(build, compilerCache, logger)
     state.copy(results = ResultsCache.emptyForTests)
   }

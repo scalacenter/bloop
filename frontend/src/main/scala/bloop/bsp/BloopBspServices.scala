@@ -1,60 +1,43 @@
 package bloop.bsp
 
-import java.io.InputStream
 import java.net.URI
-import java.nio.file.Paths
-import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicInteger
 import java.nio.file.{FileSystems, Files, Path}
-import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.{ConcurrentHashMap, TimeUnit}
 import java.util.stream.Collectors
-
-import bloop.io.ServerHandle
-import bloop.util.JavaRuntime
 import bloop.bsp.BloopBspDefinitions.BloopExtraBuildParams
-import bloop.{CompileMode, Compiler, ScalaInstance}
 import bloop.cli.{Commands, ExitStatus, Validate}
 import bloop.dap.{DebugServer, DebuggeeRunner, StartedDebugServer}
-import bloop.data.{ClientInfo, JdkConfig, Platform, Project, WorkspaceSettings}
-import bloop.engine.{Aggregate, Dag, Interpreter, State}
-import bloop.engine.tasks.{CompileTask, RunMode, Tasks, TestTask}
+import bloop.data.ClientInfo.BspClientInfo
+import bloop.data._
+import bloop.engine._
+import bloop.engine.tasks.compilation.CompileClientStore
 import bloop.engine.tasks.toolchains.{ScalaJsToolchain, ScalaNativeToolchain}
+import bloop.engine.tasks.{CompileTask, RunMode, Tasks, TestTask}
+import bloop.exec.Forker
 import bloop.internal.build.BuildInfo
 import bloop.io.{AbsolutePath, RelativePath}
-import bloop.logging.{BspServerLogger, DebugFilter, Logger}
+import bloop.logging.{BloopLogger, BspServerLogger, DebugFilter}
 import bloop.reporter.{BspProjectReporter, ProblemPerPhase, ReporterConfig, ReporterInputs}
 import bloop.testing.{BspLoggingEventHandler, TestInternals}
+import bloop.tracing.TraceProperties
+import bloop.util.JavaRuntime
+import bloop.{Compiler, ScalaInstance}
 import ch.epfl.scala.bsp
 import ch.epfl.scala.bsp.ScalaBuildTarget.encodeScalaBuildTarget
-import ch.epfl.scala.bsp.{
-  BuildTargetIdentifier,
-  JvmEnvironmentItem,
-  MessageType,
-  ShowMessageParams,
-  endpoints
-}
-
-import scala.meta.jsonrpc.{JsonRpcClient, Response => JsonRpcResponse, Services => JsonRpcServices}
+import ch.epfl.scala.bsp.{BuildTargetIdentifier, MessageType, ShowMessageParams, endpoints}
+import io.circe.{Decoder, Json}
 import monix.eval.Task
-import monix.reactive.Observer
-import monix.execution.Scheduler
-import monix.execution.atomic.AtomicInt
-import monix.execution.atomic.AtomicBoolean
-
+import monix.execution.atomic.{AtomicBoolean, AtomicInt}
+import monix.execution.{Cancelable, Scheduler}
+import monix.reactive.subjects.BehaviorSubject
+import scala.collection.JavaConverters._
 import scala.collection.concurrent.TrieMap
 import scala.collection.mutable
-import scala.collection.JavaConverters._
 import scala.concurrent.Promise
 import scala.concurrent.duration.FiniteDuration
-import scala.util.{Failure, Success, Try}
-import monix.execution.Cancelable
-import io.circe.{Decoder, Json}
-import bloop.engine.Feedback
-import monix.reactive.subjects.BehaviorSubject
-import bloop.engine.tasks.compilation.CompileClientStore
-import bloop.data.ClientInfo.BspClientInfo
-import bloop.exec.Forker
-import bloop.logging.BloopLogger
+import scala.meta.jsonrpc.{JsonRpcClient, Response => JsonRpcResponse, Services => JsonRpcServices}
+import scala.util.{Failure, Success}
 
 final class BloopBspServices(
     callSiteState: State,
@@ -217,6 +200,9 @@ final class BloopBspServices(
     val currentWorkspaceSettings = WorkspaceSettings.readFromFile(configDir, callSiteState.logger)
     val currentRefreshProjectsCommand: Option[List[String]] =
       currentWorkspaceSettings.flatMap(_.refreshProjectsCommand)
+    val currentTraceProperties = currentWorkspaceSettings
+      .map(_.traceProperties)
+      .getOrElse(TraceProperties.Global.properties)
 
     val isMetals = params.displayName.contains("Metals")
     val isIntelliJ = params.displayName.contains("IntelliJ")
@@ -256,7 +242,8 @@ final class BloopBspServices(
             WorkspaceSettings(
               Some(semanticDBVersion),
               Some(supportedScalaVersions),
-              currentRefreshProjectsCommand
+              currentRefreshProjectsCommand,
+              currentTraceProperties
             )
           }
       }
@@ -390,6 +377,7 @@ final class BloopBspServices(
       originId: Option[String],
       logger: BspServerLogger
   ): BspResult[bsp.CompileResult] = {
+    val workspaceSettings = WorkspaceSettings.readFromFile(state.build.origin, logger)
     val cancelCompilation = Promise[Unit]()
     def reportError(p: Project, problems: List[ProblemPerPhase], elapsedMs: Long): String = {
       // Don't show warnings in this "final report", we're handling them in the reporter

@@ -1,53 +1,31 @@
 package bloop.engine.tasks
 
-import bloop.{
-  CompileInputs,
-  CompileMode,
-  Compiler,
-  CompileOutPaths,
-  CompileProducts,
-  CompileBackgroundTasks,
-  CompileExceptions
-}
-import bloop.io.{Paths => BloopPaths}
+import bloop.Compiler.Result.Success
 import bloop.cli.ExitStatus
 import bloop.data.Project
-import bloop.engine.{State, Dag, ExecutionContext, Feedback}
-import bloop.engine.caches.{ResultsCache, LastSuccessfulResult}
+import bloop.engine.caches.LastSuccessfulResult
 import bloop.engine.tasks.compilation.{FinalCompileResult, _}
-import bloop.io.{AbsolutePath, ParallelOps}
+import bloop.engine.{Dag, ExecutionContext, Feedback, State}
 import bloop.io.ParallelOps.CopyMode
+import bloop.io.{ParallelOps, Paths => BloopPaths}
+import bloop.logging.{DebugFilter, Logger, LoggerAction, ObservedLogger}
+import bloop.reporter.{ObservedReporter, Reporter, ReporterAction, ReporterInputs}
 import bloop.tracing.BraveTracer
-import bloop.logging.{DebugFilter, Logger, ObservedLogger, LoggerAction}
-import bloop.reporter.{
-  Reporter,
-  ReporterAction,
-  ReporterConfig,
-  ReporterInputs,
-  LogReporter,
-  ObservedReporter
+import bloop.tracing.TraceProperties
+import bloop.{
+  CompileBackgroundTasks,
+  CompileExceptions,
+  CompileInputs,
+  CompileMode,
+  CompileOutPaths,
+  CompileProducts,
+  Compiler
 }
-
-import java.util.UUID
-import java.nio.file.Files
-import java.util.concurrent.ConcurrentHashMap
-
 import monix.eval.Task
 import monix.execution.CancelableFuture
-import monix.reactive.{Observer, Observable, MulticastStrategy}
-
-import sbt.internal.inc.AnalyzingCompiler
-import xsbti.compile.{PreviousResult, CompileAnalysis, MiniSetup}
-
-import scala.concurrent.Promise
-import bloop.io.Paths
+import monix.reactive.{MulticastStrategy, Observable}
 import scala.collection.mutable
-import bloop.Compiler.Result.GlobalError
-import bloop.Compiler.Result.Empty
-import bloop.Compiler.Result.Success
-import bloop.Compiler.Result.Failed
-import bloop.Compiler.Result.Cancelled
-import bloop.Compiler.Result.Blocked
+import scala.concurrent.Promise
 
 object CompileTask {
   private implicit val logContext: DebugFilter = DebugFilter.Compilation
@@ -71,8 +49,11 @@ object CompileTask {
       case bspClient: ClientInfo.BspClientInfo => bspClient.uniqueId
     }
 
+    val traceProperties = state.build.workspaceSettings.map(_.traceProperties)
+
     val rootTracer = BraveTracer(
       s"compile $topLevelTargets (transitively)",
+      traceProperties.getOrElse(TraceProperties.Global.properties),
       "bloop.version" -> BuildInfo.version,
       "zinc.version" -> BuildInfo.zincVersion,
       "build.uri" -> originUri.syntax,
@@ -82,6 +63,7 @@ object CompileTask {
 
     val bgTracer = rootTracer.toIndependentTracer(
       s"background IO work after compiling $topLevelTargets (transitively)",
+      traceProperties.getOrElse(TraceProperties.Global.properties),
       "bloop.version" -> BuildInfo.version,
       "zinc.version" -> BuildInfo.zincVersion,
       "build.uri" -> originUri.syntax,

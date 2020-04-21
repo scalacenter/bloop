@@ -3,6 +3,7 @@ package bloop.bsp
 import bloop.cli.BspProtocol
 import bloop.data.WorkspaceSettings
 import bloop.logging.RecordingLogger
+import bloop.tracing.TraceProperties
 import bloop.util.{CrossPlatform, TestProject, TestUtil}
 import ch.epfl.scala.bsp.WorkspaceBuildTargetsResult
 
@@ -50,7 +51,12 @@ class BspIntellijClientSpec(
       }
 
       val workspaceSettings =
-        WorkspaceSettings(None, None, refreshProjectsCommand = Some(refreshProjectsCommand))
+        WorkspaceSettings(
+          None,
+          None,
+          refreshProjectsCommand = Some(refreshProjectsCommand),
+          TraceProperties.default
+        )
       WorkspaceSettings.writeToFile(configDir, workspaceSettings, logger)
 
       loadBspState(workspace, initialProjects, logger, bspClientName = "IntelliJ") { state =>

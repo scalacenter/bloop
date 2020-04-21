@@ -56,7 +56,13 @@ class BspMetalsClientSpec(
              |    "semanticDBVersion": "4.2.0",
              |    "supportedScalaVersions": [
              |        "2.12.8"
-             |    ]
+             |    ],
+             |    "traceProperties": {
+             |        "zipkinServerUrl": "http://127.0.0.1:9411/api/v2/spans",
+             |        "debug": false,
+             |        "verbose": false,
+             |        "localServiceName": "bloop"
+             |    }
              |}
              |""".stripMargin
         )
@@ -96,7 +102,13 @@ class BspMetalsClientSpec(
              |    "semanticDBVersion": "4.2.0",
              |    "supportedScalaVersions": [
              |        "2.12.8"
-             |    ]
+             |    ],
+             |    "traceProperties": {
+             |        "zipkinServerUrl": "http://127.0.0.1:9411/api/v2/spans",
+             |        "debug": false,
+             |        "verbose": false,
+             |        "localServiceName": "bloop"
+             |    }
              |}
              |""".stripMargin
         )
@@ -143,7 +155,13 @@ class BspMetalsClientSpec(
              |    "semanticDBVersion": "4.2.0",
              |    "supportedScalaVersions": [
              |        "2.12.8"
-             |    ]
+             |    ],
+             |    "traceProperties": {
+             |        "zipkinServerUrl": "http://127.0.0.1:9411/api/v2/spans",
+             |        "debug": false,
+             |        "verbose": false,
+             |        "localServiceName": "bloop"
+             |    }
              |}
              |""".stripMargin
         )
@@ -193,7 +211,13 @@ class BspMetalsClientSpec(
              |    "semanticDBVersion": "4.2.0",
              |    "supportedScalaVersions": [
              |        "2.12.8"
-             |    ]
+             |    ],
+             |    "traceProperties": {
+             |        "zipkinServerUrl": "http://127.0.0.1:9411/api/v2/spans",
+             |        "debug": false,
+             |        "verbose": false,
+             |        "localServiceName": "bloop"
+             |    }
              |}
              |""".stripMargin
         )

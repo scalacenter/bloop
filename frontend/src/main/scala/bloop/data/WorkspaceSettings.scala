@@ -4,15 +4,13 @@ import bloop.logging.Logger
 import bloop.logging.DebugFilter
 import bloop.io.AbsolutePath
 import bloop.io.RelativePath
-
 import scala.util.Try
 import scala.util.Failure
 import scala.util.Success
-
 import java.nio.file.Files
-
+import bloop.tracing.TraceProperties
 import com.github.plokhotnyuk.jsoniter_scala.core.{JsonValueCodec, WriterConfig}
-import com.github.plokhotnyuk.jsoniter_scala.macros.{JsonCodecMaker, CodecMakerConfig}
+import com.github.plokhotnyuk.jsoniter_scala.macros.{CodecMakerConfig, JsonCodecMaker}
 
 /**
  * Defines the settings of a given workspace. A workspace is a URI that has N
@@ -38,7 +36,8 @@ import com.github.plokhotnyuk.jsoniter_scala.macros.{JsonCodecMaker, CodecMakerC
 case class WorkspaceSettings(
     semanticDBVersion: Option[String],
     supportedScalaVersions: Option[List[String]],
-    refreshProjectsCommand: Option[List[String]]
+    refreshProjectsCommand: Option[List[String]],
+    traceProperties: TraceProperties
 ) {
   def withSemanticdbSettings: Option[(WorkspaceSettings, SemanticdbSettings)] =
     (semanticDBVersion, supportedScalaVersions) match {
@@ -54,7 +53,12 @@ object WorkspaceSettings {
       semanticDBVersion: String,
       supportedScalaVersions: List[String]
   ): WorkspaceSettings = {
-    WorkspaceSettings(Some(semanticDBVersion), Some(supportedScalaVersions), None)
+    WorkspaceSettings(
+      Some(semanticDBVersion),
+      Some(supportedScalaVersions),
+      None,
+      TraceProperties.Global.properties
+    )
   }
 
   /** Represents the supported changes in the workspace. */

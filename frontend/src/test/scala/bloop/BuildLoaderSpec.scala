@@ -2,7 +2,6 @@ package bloop
 
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
-
 import bloop.engine.{Build, BuildLoader, State}
 import bloop.io.{AbsolutePath, Paths}
 import bloop.logging.{Logger, RecordingLogger}
@@ -10,7 +9,7 @@ import bloop.util.TestUtil
 import bloop.testing.BaseSuite
 import bloop.data.WorkspaceSettings
 import bloop.internal.build.BuildInfo
-
+import bloop.tracing.TraceProperties
 import monix.eval.Task
 import com.github.plokhotnyuk.jsoniter_scala.core.JsonReaderException
 import scala.util.Try
@@ -244,6 +243,33 @@ object BuildLoaderSpec extends BaseSuite {
       val failedState = Try(TestUtil.loadTestProject(state.build.origin.underlying, logger))
       assert(failedState.isFailure)
       assert(failedState.failed.get.getMessage.contains("Failed to load project from"))
+    }
+  }
+
+  test("build respects different trace properties in separate workspaces") {
+    TestUtil.withinWorkspace { workspace1 =>
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val settings1 = WorkspaceSettings(
+        None,
+        None,
+        None,
+        TraceProperties(
+          zipkinServerUrl = Some("http://127.0.0.2"),
+          debug = Some(false),
+          verbose = Some(false),
+          localServiceName = Some("42"),
+          traceStartAnnotation = Some("start"),
+          traceEndAnnotation = Some("end")
+        )
+      )
+      val state1 = loadState(workspace1, Nil, logger, Some(settings1))
+      TestUtil.withinWorkspace { workspace2 =>
+        val settings2 = settings1.copy(traceProperties = TraceProperties.default)
+        val state2 = loadState(workspace2, Nil, logger, Some(settings2))
+        assert(state1.build.workspaceSettings.isDefined)
+        assert(state2.build.workspaceSettings.isDefined)
+        assert(state1.build.workspaceSettings.get != state2.build.workspaceSettings.get)
+      }
     }
   }
 

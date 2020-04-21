@@ -1,26 +1,16 @@
 package bloop
 
-import bloop.data.ClientInfo
+import _root_.monix.eval.Task
+import bloop.cli.CliParsers.cliParser
 import bloop.cli.{CliOptions, Commands, ExitStatus}
-import bloop.cli.CliParsers.{
-  OptionsParser,
-  cliParser,
-  coParser,
-  inputStreamRead,
-  pathParser,
-  printStreamRead,
-  propertiesParser
-}
-import bloop.engine.{Action, Build, BuildLoader, Exit, Interpreter, NoPool, Print, Run, State}
-import bloop.engine.tasks.Tasks
+import bloop.data.{ClientInfo, WorkspaceSettings}
+import bloop.engine._
 import bloop.io.AbsolutePath
 import bloop.logging.BloopLogger
 import caseapp.{CaseApp, RemainingArgs}
 import jline.console.ConsoleReader
-import _root_.monix.eval.Task
 
 import scala.annotation.tailrec
-import scala.concurrent.Promise
 
 object Bloop extends CaseApp[CliOptions] {
   private val reader = consoleReader()
@@ -36,7 +26,8 @@ object Bloop extends CaseApp[CliOptions] {
     logger.warn("Please refer to our documentation for more information.")
     val client = ClientInfo.CliClientInfo(useStableCliDirs = true, () => true)
     val loadedProjects = BuildLoader.loadSynchronously(configDirectory, logger)
-    val build = Build(configDirectory, loadedProjects)
+    val workspaceSettings = WorkspaceSettings.readFromFile(configDirectory, logger)
+    val build = Build(configDirectory, loadedProjects, workspaceSettings)
     val state = State(build, client, NoPool, options.common, logger)
     run(state, options)
   }
