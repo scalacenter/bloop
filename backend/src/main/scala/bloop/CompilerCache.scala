@@ -63,7 +63,7 @@ final class CompilerCache(
       getScalaCompiler(_, componentProvider)
     )
 
-    val javaCompiler = javaCompilerCache.computeIfAbsent(javacBin, getJavaCompiler(_))
+    val javaCompiler = javaCompilerCache.computeIfAbsent(javacBin, getJavaCompiler(logger, _))
 
     val javaDoc = Javadoc.local.getOrElse(Javadoc.fork())
     val javaTools = JavaTools(javaCompiler, javaDoc)
@@ -82,9 +82,9 @@ final class CompilerCache(
     )
   }
 
-  def getJavaCompiler(javacBin: Option[AbsolutePath]): JavaCompiler = {
+  def getJavaCompiler(logger: Logger, javacBin: Option[AbsolutePath]): JavaCompiler = {
     javacBin match {
-      case Some(bin) if JavaRuntime.javac.contains(bin) =>
+      case Some(bin) if JavaRuntime.javac.exists(isSameCompiler(logger, _, bin)) =>
         // Same bin as the one derived from this VM? Prefer built-in compiler if JDK
         JavaRuntime.javaCompiler match {
           case Some(compiler) => new BloopJavaCompiler(compiler)
@@ -325,6 +325,21 @@ final class CompilerCache(
         }
         super.isSameFile(unwrap(a), unwrap(b))
       }
+    }
+  }
+
+  /**
+   * Equivalent to `path1.isSameFile(path2)`, but will log and return false if an exception is thrown.
+   */
+  private def isSameCompiler(logger: Logger, path1: AbsolutePath, path2: AbsolutePath): Boolean = {
+    try path1.isSameFile(path2)
+    catch {
+      case ex: IOException =>
+        logger.warn(
+          s"Couldn't compare `$path1` and `$path2`; assuming they're different Java compilers."
+        )
+        logger.trace(ex)
+        false
     }
   }
 }
