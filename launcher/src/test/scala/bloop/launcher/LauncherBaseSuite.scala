@@ -21,7 +21,6 @@ import java.io.ByteArrayInputStream
 import bloop.bloopgun.BloopgunCli
 import java.io.PrintStream
 import bloop.bloopgun.ServerConfig
-import bloop.launcher.core.Installer
 import bloop.bloopgun.core.ServerStatus
 import snailgun.logging.SnailgunLogger
 
@@ -48,7 +47,6 @@ abstract class LauncherBaseSuite(
   val bloopBinDirectory = AbsolutePath(Files.createTempDirectory("bsp-bin"))
 
   protected val shellWithPython = new Shell(true, true)
-  protected val bloopInstallerURL = installpyURL(bloopVersion)
 
   // Init code acting as beforeAll()
   stopServer(complainIfError = false)
@@ -68,54 +66,27 @@ abstract class LauncherBaseSuite(
   assertIsFile(hijackedBloop)
   assertIsFile(hijackedBloopServer)
 
-  private def isStable(bloopVersion: String): Boolean = !bloopVersion.contains("-")
-  private def shouldSkipTestSuite(bloopVersion: String): Boolean = {
-    import java.io.File
-    import java.io.IOException
-    try {
-      val f = new File(bloopInstallerURL.toURI())
-      val witnessInstalledFile = new File(f.getParentFile(), "installed.txt")
-      if (!witnessInstalledFile.exists()) true
-      else {
-        val contents = new String(
-          Files.readAllBytes(witnessInstalledFile.toPath),
-          StandardCharsets.UTF_8
-        )
-
-        !contents.contains(bloopVersion)
-      }
-    } catch {
-      // URL is not a file, so it's GitHub hosted for a stable version
-      case _: IllegalArgumentException => false
-    }
-  }
-
-  val skipTestSuite = shouldSkipTestSuite(bloopVersion)
   override def test(name: String)(fun: => Any): Unit = {
-    if (skipTestSuite) {
-      super.ignore(name)(fun)
-    } else {
-      val newCwd = AbsolutePath(Files.createTempDirectory("cwd-test"))
-      val newHome = AbsolutePath(Files.createTempDirectory("home-test"))
+    val newCwd = AbsolutePath(Files.createTempDirectory("cwd-test"))
+    val newHome = AbsolutePath(Files.createTempDirectory("home-test"))
 
-      val newFun = () => {
-        try {
-          stopServer(complainIfError = false)
-          System.setProperty("user.dir", newCwd.syntax)
-          System.setProperty("user.home", newHome.syntax)
-          fun
-        } finally {
-          stopServer(complainIfError = true)
-          System.setProperty("user.dir", oldCwd.syntax)
-          System.setProperty("user.home", oldHomeDir.syntax)
-          Paths.delete(newCwd)
-          Paths.delete(newHome)
-          ()
-        }
+    val newFun = () => {
+      try {
+        stopServer(complainIfError = false)
+        System.setProperty("user.dir", newCwd.syntax)
+        System.setProperty("user.home", newHome.syntax)
+        fun
+      } finally {
+        stopServer(complainIfError = true)
+        System.setProperty("user.dir", oldCwd.syntax)
+        System.setProperty("user.home", oldHomeDir.syntax)
+        Paths.delete(newCwd)
+        Paths.delete(newHome)
+        ()
       }
-
-      super.test(name)(newFun())
     }
+
+    super.test(name)(newFun())
   }
 
   def stopServer(complainIfError: Boolean): Unit = {
@@ -422,40 +393,5 @@ abstract class LauncherBaseSuite(
         )
       }
     }
-  }
-
-  def installpyURL(version: String): java.net.URL = {
-    // Assumes non-stable releases will always have a dash inside its version
-    if (isStable(version)) {
-      // Use GitHub-hosted installation script for stable releases
-      new java.net.URL(
-        s"https://github.com/scalacenter/bloop/releases/download/v${version}/install.py"
-      )
-    } else {
-      BuildTestInfo.versionedInstallScript.toPath.toUri().toURL()
-    }
-  }
-
-  def detectServerState(bloopVersion: String, shell: Shell): Option[ServerStatus] = {
-    val out = new ByteArrayOutputStream()
-    val logger = new SnailgunLogger("launcher", new PrintStream(out), false)
-    ServerStatus.findServerToRun(bloopVersion, None, shell, logger)
-    /*
-    shell.detectBloopInSystemPath(List("bloop") ++ bloopAdditionalCliArgs, out).orElse {
-      // The binary is not available in the classpath
-      val homeBloopDir = Environment.defaultBloopDirectory
-      if (!Files.exists(homeBloopDir)) None
-      else {
-        // This is the nailgun script that we can use to run bloop
-        val binaryName = if (Environment.isWindows) "bloop.cmd" else "bloop"
-        val pybloop = homeBloopDir.resolve(binaryName)
-        if (!Files.exists(pybloop)) None
-        else {
-          val binaryInHome = pybloop.normalize.toAbsolutePath.toString
-          shell.detectBloopInSystemPath(List(binaryInHome) ++ bloopAdditionalCliArgs, out)
-        }
-      }
-    }
-   */
   }
 }

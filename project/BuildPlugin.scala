@@ -96,7 +96,7 @@ object BuildKeys {
   val createLocalHomebrewFormula = Def.taskKey[Unit]("Create local Homebrew formula")
   val createLocalScoopFormula = Def.taskKey[Unit]("Create local Scoop formula")
   val createLocalArchPackage = Def.taskKey[Unit]("Create local ArchLinux package build files")
-  val versionedInstallScript = Def.taskKey[File]("Generate a versioned install script")
+  val bloopCoursierJson = Def.taskKey[File]("Generate a versioned install script")
   val releaseEarlyAllModules = Def.taskKey[Unit]("Release early all modules")
   val publishLocalAllModules = Def.taskKey[Unit]("Publish all modules locally")
   val generateInstallationWitness =
@@ -140,7 +140,7 @@ object BuildKeys {
     },
     GHReleaseKeys.ghreleaseRepoOrg := "scalacenter",
     GHReleaseKeys.ghreleaseRepoName := "bloop",
-    GHReleaseKeys.ghreleaseAssets += ReleaseUtils.versionedInstallScript.value,
+    GHReleaseKeys.ghreleaseAssets += ReleaseUtils.bloopCoursierJson.value,
     GHReleaseKeys.ghreleaseAssets += Keys.target.value / "graalvm-binaries",
     createLocalHomebrewFormula := ReleaseUtils.createLocalHomebrewFormula.value,
     createLocalScoopFormula := ReleaseUtils.createLocalScoopFormula.value,
@@ -544,7 +544,7 @@ object BuildImplementation {
 
     val frontendTestBuildSettings: Seq[Def.Setting[_]] = {
       sbtbuildinfo.BuildInfoPlugin.buildInfoScopedSettings(Test) ++ List(
-        BuildKeys.versionedInstallScript := ReleaseUtils.versionedInstallScript.value,
+        BuildKeys.bloopCoursierJson := ReleaseUtils.bloopCoursierJson.value,
         BuildInfoKeys.buildInfoKeys in Test := {
           import sbtbuildinfo.BuildInfoKey
           val junitTestJars = BuildInfoKey.map(Keys.externalDependencyClasspath in Test) {
@@ -554,7 +554,7 @@ object BuildImplementation {
               "junitTestJars" -> junitJars
           }
 
-          List(junitTestJars, BuildKeys.versionedInstallScript, Keys.baseDirectory in ThisBuild)
+          List(junitTestJars, BuildKeys.bloopCoursierJson, Keys.baseDirectory in ThisBuild)
         },
         BuildInfoKeys.buildInfoPackage in Test := "bloop.internal.build",
         BuildInfoKeys.buildInfoObject in Test := "BuildTestInfo"

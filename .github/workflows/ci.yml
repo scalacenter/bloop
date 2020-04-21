@@ -68,6 +68,9 @@ jobs:
       - name: Run launcher tests
         if: matrix.jdk == 'graalvm@19.2.1'
         run: |
+          echo $JAVA_HOME
+          which gu
+          gu install native-image
           ./bin/sbt-ci.sh "install" "launcher/test"
         shell: bash
       - name: Run build tool + native tests

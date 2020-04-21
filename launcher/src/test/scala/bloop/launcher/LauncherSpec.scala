@@ -4,7 +4,6 @@ import java.io._
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 
-import bloop.launcher.core.Installer
 import bloop.internal.build.BuildInfo
 import bloop.bloopgun.util.Environment
 import bloop.logging.{BspClientLogger, RecordingLogger}
@@ -53,83 +52,6 @@ class LauncherSpec(bloopVersion: String)
       val args = Array("1.0.0")
       val status = run.launcher.cli(args)
       assert(status == LauncherStatus.FailedToInstallBloop)
-    }
-  }
-
-  test("don't detect installed bloop if there's one installed in the machine running launcher") {
-    setUpLauncher(shellWithPython) { setup =>
-      // We should not detect the server state unless we have installed it via the launcher
-      val status = detectServerState(bloopVersion, setup.launcher.shell)
-      assert(None == status)
-    }
-  }
-
-  /**
-   * Defines a test that starts from an environment where bloop is installed and the
-   * server is not running. The following invariants are tested:
-   *
-   * 1. A bsp launcher execution is executed. This run starts a bloop server and then
-   *    uses the nailgun script to open a bsp connection. The bsp initialization handhake
-   *    completes successfully.
-   *
-   * 2. Another bsp launcher execution is executed, but this time the server is running
-   *    in the background. This run detects the server and uses the nailgun script to
-   *    open a bsp connection. The bsp initialization handhake completes successfully.
-   */
-  test("run bsp server when bloop is installed but not running") {
-    setUpLauncher(shellWithPython) { run =>
-      // Install the launcher via `install.py`, which is the preferred installation method
-      val launcher = run.launcher
-      val state = Installer.installBloopBinaryInHomeDir(
-        bloopBinDirectory.underlying,
-        Environment.defaultBloopDirectory,
-        bloopVersion,
-        launcher.out,
-        detectServerState(_, launcher.shell),
-        launcher.shell,
-        bloopInstallerURL
-      )
-
-      run.output.reset()
-
-      // We should detect the bloop binary in the place where we installed it!
-      val bloopDir = Environment.defaultBloopDirectory.toAbsolutePath().toRealPath()
-      state match {
-        case Some(AvailableAtPath(path))
-            if path.toAbsolutePath().toRealPath().getParent == bloopDir =>
-          // After installing, let's run the launcher in an environment where bloop is available
-          val result1 = runBspLauncherWithEnvironment(Array(bloopVersion), shellWithPython)
-          val expectedLogs1 = List(
-            BloopgunFeedback.resolvingDependency(bloopDependency),
-            BloopgunFeedback.startingBloopServer(defaultConfig),
-            LauncherFeedback.openingBspConnection(Nil)
-          )
-
-          val prohibitedLogs1 = List(
-            LauncherFeedback.installingBloop(bloopVersion),
-            BloopgunFeedback.DetectedBloopInstallation
-          )
-
-          result1.throwIfFailed
-          assertLogsContain(expectedLogs1, result1.launcherLogs, prohibitedLogs1)
-
-          val expectedLogs2 = List(
-            LauncherFeedback.openingBspConnection(Nil)
-          )
-
-          val prohibitedLogs2 = List(
-            BloopgunFeedback.DetectedBloopInstallation,
-            LauncherFeedback.installingBloop(bloopVersion),
-            BloopgunFeedback.resolvingDependency(bloopDependency),
-            BloopgunFeedback.startingBloopServer(defaultConfig)
-          )
-
-          // Now, the server should be running, check we can open a connection again
-          val result2 = runBspLauncherWithEnvironment(Array(bloopVersion), shellWithPython)
-          result2.throwIfFailed
-          assertLogsContain(expectedLogs2, result2.launcherLogs, prohibitedLogs2)
-        case _ => fail(s"Obtained unexpected ${state}")
-      }
     }
   }
 

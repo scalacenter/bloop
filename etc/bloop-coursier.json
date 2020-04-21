@@ -1,0 +1,14 @@
+{
+  "name": "bloop",
+  "repositories": [
+    "central",
+    "ivy2local",
+    "bintray:scalacenter/releases",
+    "https://oss.sonatype.org/content/repositories/staging"
+  ],
+  "launcherType": "graalvm-native-image",
+  "prebuilt": "$PREBUILT",
+  "dependencies": [
+    "ch.epfl.scala:bloopgun_2.12:$VERSION"
+  ]
+}

@@ -18,7 +18,7 @@ import bloop.launcher.LauncherStatus.{
   SuccessfulRun
 }
 import bloop.launcher.bsp.{BspBridge, BspConnection}
-import bloop.launcher.core.{Feedback, Installer}
+import bloop.launcher.core.Feedback
 import bloop.bloopgun.util.Environment
 import bloop.bloopgun.core.{Shell, ServerStatus}
 import bloop.bloopgun.BloopgunCli
