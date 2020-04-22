@@ -877,8 +877,11 @@ object BloopDefaults {
     else if (!hasConfigSettings) inlinedTask[Option[File]](None)
     else if (generated.isDefined && generated.get.fromSbtUniverseId == currentSbtUniverse) {
       Def.task {
+        // Force source generators on this task manually
+        Keys.managedSources.value
+
         // Force classpath to force side-effects downstream to fully simulate `bloopGenerate`
-        val _ = emulateDependencyClasspath.value.map(_.toPath.toAbsolutePath).toList
+        val _ = emulateDependencyClasspath.value
         generated.map(_.outPath.toFile)
       }
     } else {
