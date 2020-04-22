@@ -173,29 +173,30 @@ object TestTask {
         toolchain match {
           case Some(toolchain) =>
             val dag = state.build.getDagFor(project)
-            val fullClasspath =
-              project.fullRuntimeClasspath(dag, state.client).map(_.underlying)
-            toolchain
-              .link(config, project, fullClasspath, false, userMainClass, target, state.logger)(
-                ExecutionContext.ioScheduler
-              )
-              .map {
-                case Success(_) =>
-                  logger.info(s"Generated JavaScript file '${target.syntax}'")
-                  val fnames = project.testFrameworks.map(_.names)
-                  logger.debug(s"Resolving test frameworks: $fnames")
-                  val baseDir = project.baseDirectory
-                  val env = state.commonOptions.env.toMap
-                  Some(
-                    toolchain.discoverTestFrameworks(project, fnames, target, logger, config, env)
-                  )
+            val fullClasspath = project.fullRuntimeClasspath(dag, state.client).map(_.underlying)
 
-                case Failure(ex) =>
-                  ex.printStackTrace()
-                  logger.trace(ex)
-                  logger.error(s"JavaScript linking failed with '${ex.getMessage}'")
-                  None
-              }
+            // Pass in the default scheduler used by this task to the linker
+            Task.deferAction { s =>
+              toolchain
+                .link(config, project, fullClasspath, false, userMainClass, target, s, logger)
+                .map {
+                  case Success(_) =>
+                    logger.info(s"Generated JavaScript file '${target.syntax}'")
+                    val fnames = project.testFrameworks.map(_.names)
+                    logger.debug(s"Resolving test frameworks: $fnames")
+                    val baseDir = project.baseDirectory
+                    val env = state.commonOptions.env.toMap
+                    Some(
+                      toolchain.discoverTestFrameworks(project, fnames, target, logger, config, env)
+                    )
+
+                  case Failure(ex) =>
+                    ex.printStackTrace()
+                    logger.trace(ex)
+                    logger.error(s"JavaScript linking failed with '${ex.getMessage}'")
+                    None
+                }
+            }
 
           case None =>
             val artifactName = ScalaJsToolchain.artifactNameFrom(config.version)

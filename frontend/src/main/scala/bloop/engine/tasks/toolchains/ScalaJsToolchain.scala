@@ -15,6 +15,7 @@ import monix.eval.Task
 
 import scala.concurrent.ExecutionContext
 import scala.util.Try
+import monix.execution.Scheduler
 
 /**
  * Defines a set of tasks that the Scala.js toolchain can execute.
@@ -50,24 +51,16 @@ final class ScalaJsToolchain private (bridgeClassLoader: ClassLoader) {
       fullClasspath: Array[Path],
       runMain: java.lang.Boolean,
       mainClass: Option[String],
-      target: AbsolutePath,
+      targetDir: AbsolutePath,
+      scheduler: Scheduler,
       logger: Logger
-  )(implicit executionContext: ExecutionContext): Task[Try[Unit]] = {
+  ): Task[Try[Unit]] = {
     val bridgeClazz = bridgeClassLoader.loadClass("bloop.scalajs.JsBridge")
     val method = bridgeClazz.getMethod("link", paramTypesLink: _*)
+    val target = targetDir.underlying
     val linkage = Task(
       method
-        .invoke(
-          null,
-          config,
-          project,
-          fullClasspath,
-          runMain,
-          mainClass,
-          target.underlying,
-          logger,
-          executionContext
-        )
+        .invoke(null, config, project, fullClasspath, runMain, mainClass, target, logger, scheduler)
         .asInstanceOf[Unit]
     ).materialize
     linkage.map {
@@ -157,26 +150,6 @@ object ScalaJsToolchain extends ToolchainCompanion[ScalaJsToolchain] {
       )
   }
 
-  private def scalaJsTestArtifacts(
-      platformVersion: String,
-      scalaVersion: String
-  ): List[DependencyResolution.Artifact] = {
-    // Needed for platformVersion >= 0.6.29
-    val testBridge =
-      DependencyResolution.Artifact(
-        "org.scala-js",
-        s"scalajs-test-bridge_$scalaVersion",
-        platformVersion
-      )
-
-    val needTestBridge =
-      platformVersion.startsWith("1.") ||
-        (platformVersion.startsWith("0.6") && Try(platformVersion.split('.').toList.last.toInt).toOption
-          .exists(_ >= 29))
-
-    if (!needTestBridge) List() else List(testBridge)
-  }
-
   override def getPlatformData(platform: Platform): Option[PlatformData] = {
     val platformVersion = platform.config.version
     val artifactName = artifactNameFrom(platformVersion)
@@ -188,9 +161,8 @@ object ScalaJsToolchain extends ToolchainCompanion[ScalaJsToolchain] {
       DependencyResolution
         .Artifact("org.scala-js", s"scalajs-js-envs_$scalaVersion", platformVersion)
     )
-    val artifacts = sharedArtifacts ++ scalaJsArtifacts(platformVersion, scalaVersion)
-    val testArtifacts = scalaJsTestArtifacts(platformVersion, scalaVersion)
 
-    Some(PlatformData(artifacts, testArtifacts, platform.config.toolchain))
+    val artifacts = sharedArtifacts ++ scalaJsArtifacts(platformVersion, scalaVersion)
+    Some(PlatformData(artifacts, platform.config.toolchain))
   }
 }

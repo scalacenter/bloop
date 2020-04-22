@@ -82,7 +82,7 @@ object ScalaNativeToolchain extends ToolchainCompanion[ScalaNativeToolchain] {
       DependencyResolution.Artifact("org.scala-native", s"tools_$scalaVersion", platformVersion)
     )
 
-    Some(PlatformData(artifacts, List(), platform.config.toolchain))
+    Some(PlatformData(artifacts, platform.config.toolchain))
   }
 
   def linkTargetFrom(project: Project, config: NativeConfig): AbsolutePath = {

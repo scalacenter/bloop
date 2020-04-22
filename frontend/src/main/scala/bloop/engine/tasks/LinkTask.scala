@@ -18,6 +18,7 @@ object LinkTask {
       target: AbsolutePath,
       platform: Platform.Js
   ): Task[State] = {
+    import state.logger
     val config0 = platform.config
     platform.toolchain match {
       case Some(toolchain) =>
@@ -27,17 +28,19 @@ object LinkTask {
             val dag = state.build.getDagFor(project)
             val fullClasspath = project.fullRuntimeClasspath(dag, state.client).map(_.underlying)
             val config = config0.copy(mode = getOptimizerMode(cmd.optimize, config0.mode))
-            toolchain
-              .link(config, project, fullClasspath, true, Some(mainClass), target, state.logger)(
-                ExecutionContext.ioScheduler
-              )
-              .map {
-                case scala.util.Success(_) =>
-                  state.withInfo(s"Generated JavaScript file '${target.syntax}'")
-                case scala.util.Failure(t) =>
-                  val msg = Feedback.failedToLink(project, ScalaJsToolchain.name, t)
-                  state.withError(msg, ExitStatus.LinkingError).withTrace(t)
-              }
+
+            // Pass in the default scheduler used by this task to the linker
+            Task.deferAction { s =>
+              toolchain
+                .link(config, project, fullClasspath, true, Some(mainClass), target, s, logger)
+                .map {
+                  case scala.util.Success(_) =>
+                    state.withInfo(s"Generated JavaScript file '${target.syntax}'")
+                  case scala.util.Failure(t) =>
+                    val msg = Feedback.failedToLink(project, ScalaJsToolchain.name, t)
+                    state.withError(msg, ExitStatus.LinkingError).withTrace(t)
+                }
+            }
         }
       case None =>
         val artifactName = ScalaJsToolchain.artifactNameFrom(config0.version)

@@ -26,8 +26,7 @@ abstract class ToolchainCompanion[Toolchain] {
    * @param testArtifacts Additional artifacts to inject when linking test modules
    */
   case class PlatformData(
-      toolchainArtifacts: List[DependencyResolution.Artifact],
-      testArtifacts: List[DependencyResolution.Artifact],
+      artifacts: List[DependencyResolution.Artifact],
       classpath: List[Path]
   )
 
@@ -47,9 +46,8 @@ abstract class ToolchainCompanion[Toolchain] {
 
   private[this] val instancesById =
     new ConcurrentHashMap[List[DependencyResolution.Artifact], Toolchain]
-  private[this] val instancesByJar: ConcurrentHashMap[List[Path], Toolchain] = new ConcurrentHashMap
-  private[this] val testArtifactsById =
-    new ConcurrentHashMap[List[DependencyResolution.Artifact], List[Path]]
+  private[this] val instancesByJar =
+    new ConcurrentHashMap[List[Path], Toolchain]
 
   /**
    * Returns a toolchain instance resolving it if necessary.
@@ -60,21 +58,14 @@ abstract class ToolchainCompanion[Toolchain] {
   def resolveToolchain(platform: Platform, logger: Logger): Toolchain = {
     getPlatformData(platform) match {
       case None => apply(getClass.getClassLoader)
-      case Some(PlatformData(toolchainArtifacts, _, toolchain)) =>
+      case Some(PlatformData(artifacts, toolchain)) =>
         if (toolchain.nonEmpty) toToolchain(toolchain)
-        else
+        else {
           instancesById.computeIfAbsent(
-            toolchainArtifacts,
+            artifacts,
             a => toToolchain(resolveJars(a, logger))
           )
-    }
-  }
-
-  def resolveTestArtifacts(platform: Platform, logger: Logger): List[Path] = {
-    getPlatformData(platform) match {
-      case None => List()
-      case Some(PlatformData(_, testArtifacts, _)) =>
-        testArtifactsById.computeIfAbsent(testArtifacts, a => resolveJars(a, logger))
+        }
     }
   }
 
