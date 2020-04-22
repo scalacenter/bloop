@@ -21,6 +21,7 @@ final class AbsolutePath private (val underlying: Path) extends AnyVal {
   def exists: Boolean = Files.exists(underlying)
   def isFile: Boolean = Files.isRegularFile(underlying)
   def isDirectory: Boolean = Files.isDirectory(underlying)
+  def isSameFile(other: AbsolutePath): Boolean = Files.isSameFile(underlying, other.underlying)
   def readAllBytes: Array[Byte] = Files.readAllBytes(underlying)
   def toFile: File = underlying.toFile
   def toBspUri: URI = underlying.toUri
