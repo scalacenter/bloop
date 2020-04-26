@@ -2,11 +2,12 @@ package bloop.scalajs.jsenv
 
 import java.io.{File, InputStream}
 import java.net.URI
-import java.nio.file.{Files, StandardCopyOption}
+import java.nio.charset.StandardCharsets
+import java.nio.file.{Files, Path, StandardCopyOption}
 
 import bloop.logging.Logger
-import org.scalajs.io.{FileVirtualFile, JSUtils, MemVirtualBinaryFile, VirtualBinaryFile}
-import org.scalajs.jsenv.nodejs.{BloopComRun, ComRun, Support}
+import com.google.common.jimfs.Jimfs
+import org.scalajs.jsenv.nodejs.BloopComRun
 import org.scalajs.jsenv.{
   ExternalJSRun,
   Input,
@@ -16,6 +17,7 @@ import org.scalajs.jsenv.{
   RunConfig,
   UnsupportedInputException
 }
+import org.scalajs.jsenv.JSUtils.escapeJS
 
 import scala.util.control.NonFatal
 
@@ -25,103 +27,138 @@ import scala.util.control.NonFatal
  * Adapted from `jsdom-nodejs-env/src/main/scala/org/scalajs/jsenv/jsdomnodejs/JSDOMNodeJSEnv.scala`.
  */
 class JsDomNodeJsEnv(logger: Logger, config: NodeJSConfig) extends JSEnv {
-  val name: String = "Node.js with JSDOM"
+  private lazy val validator = ExternalJSRun.supports(RunConfig.Validator())
 
-  def start(input: Input, runConfig: RunConfig): JSRun = {
+  val name: String = "Node.js with jsdom"
+
+  def start(input: Seq[Input], runConfig: RunConfig): JSRun = {
     JsDomNodeJsEnv.validator.validate(runConfig)
+    val scripts = validateInput(input)
     try {
-      NodeJSEnv.internalStart(logger, config, env)(
-        initFiles ++ codeWithJSDOMContext(input),
-        runConfig
-      )
+      internalStart(codeWithJSDOMContext(scripts), runConfig)
     } catch {
       case NonFatal(t) =>
         JSRun.failed(t)
     }
   }
 
-  def startWithCom(input: Input, runConfig: RunConfig, onMessage: String => Unit): JSComRun = {
-    JsDomNodeJsEnv.validator.validate(runConfig)
+  def startWithCom(input: Seq[Input], runConfig: RunConfig, onMessage: String => Unit): JSComRun = {
+    validator.validate(runConfig)
+    val scripts = validateInput(input)
     BloopComRun.start(runConfig, onMessage) { comLoader =>
-      val files = initFiles ::: (comLoader :: codeWithJSDOMContext(input))
-      NodeJSEnv.internalStart(logger, config, env)(files, runConfig)
+      internalStart(comLoader :: codeWithJSDOMContext(scripts), runConfig)
     }
   }
 
-  private def initFiles: List[VirtualBinaryFile] =
-    List(NodeJSEnv.runtimeEnv, Support.fixPercentConsole)
+  private def validateInput(input: Seq[Input]): List[Path] = {
+    input.map {
+      case Input.Script(script) =>
+        script
+
+      case _ =>
+        throw new UnsupportedInputException(input)
+    }.toList
+  }
+
+  private def internalStart(files: List[Path], runConfig: RunConfig): JSRun =
+    NodeJSEnv.internalStart(logger, config, env)(
+      NodeJSEnv.write(files.map(Input.Script)),
+      runConfig
+    )
 
   private def env: Map[String, String] =
     Map("NODE_MODULE_CONTEXTS" -> "0") ++ config.env
 
-  private def scriptFiles(input: Input): List[VirtualBinaryFile] = input match {
-    case Input.ScriptsToLoad(scripts) => scripts
-    case _ => throw new UnsupportedInputException(input)
-  }
-
-  private def codeWithJSDOMContext(input: Input): List[VirtualBinaryFile] = {
-    val scriptsURIs = scriptFiles(input).map(JsDomNodeJsEnv.materialize)
+  private def codeWithJSDOMContext(scripts: List[Path]): List[Path] = {
+    val scriptsURIs = scripts.map(JsDomNodeJsEnv.materialize)
     val scriptsURIsAsJSStrings =
-      scriptsURIs.map(uri => '"' + JSUtils.escapeJS(uri.toASCIIString) + '"')
+      scriptsURIs.map(uri => "\"" + escapeJS(uri.toASCIIString) + "\"")
+    val scriptsURIsJSArray = scriptsURIsAsJSStrings.mkString("[", ", ", "]")
     val jsDOMCode = {
       s"""
+         |
          |(function () {
-         |  var jsdom;
-         |  try {
-         |    jsdom = require("jsdom/lib/old-api.js"); // jsdom >= 10.x
-         |  } catch (e) {
-         |    jsdom = require("jsdom"); // jsdom <= 9.x
-         |  }
+         |  var jsdom = require("jsdom");
          |
-         |  var virtualConsole = jsdom.createVirtualConsole()
-         |    .sendTo(console, { omitJsdomErrors: true });
-         |  virtualConsole.on("jsdomError", function (error) {
-         |    /* This inelegant if + console.error is the only way I found
-         |     * to make sure the stack trace of the original error is
-         |     * printed out.
-         |     */
-         |    if (error.detail && error.detail.stack)
-         |      console.error(error.detail.stack);
-         |
-         |    // Throw the error anew to make sure the whole execution fails
-         |    throw error;
-         |  });
-         |
-         |  /* Work around the fast that scalajsCom.init() should delay already
-         |   * received messages to the next tick. Here we cannot tell whether
-         |   * the receive callback is called for already received messages or
-         |   * not, so we dealy *all* messages to the next tick.
-         |   */
-         |  var scalajsCom = global.scalajsCom;
-         |  var scalajsComWrapper = scalajsCom === (void 0) ? scalajsCom : ({
-         |    init: function(recvCB) {
-         |      scalajsCom.init(function(msg) {
-         |        process.nextTick(recvCB, msg);
-         |      });
-         |    },
-         |    send: function(msg) {
-         |      scalajsCom.send(msg);
-         |    }
-         |  });
-         |
-         |  jsdom.env({
-         |    html: "",
-         |    url: "http://localhost/",
-         |    virtualConsole: virtualConsole,
-         |    created: function (error, window) {
-         |      if (error == null) {
-         |        window["__ScalaJSEnv"] = __ScalaJSEnv;
-         |        window["scalajsCom"] = scalajsComWrapper;
-         |      } else {
-         |        throw error;
+         |  if (typeof jsdom.JSDOM === "function") {
+         |    // jsdom >= 10.0.0
+         |    var virtualConsole = new jsdom.VirtualConsole()
+         |      .sendTo(console, { omitJSDOMErrors: true });
+         |    virtualConsole.on("jsdomError", function (error) {
+         |      try {
+         |        // Display as much info about the error as possible
+         |        if (error.detail && error.detail.stack) {
+         |          console.error("" + error.detail);
+         |          console.error(error.detail.stack);
+         |        } else {
+         |          console.error(error);
+         |        }
+         |      } finally {
+         |        // Whatever happens, kill the process so that the run fails
+         |        process.exit(1);
          |      }
-         |    },
-         |    scripts: [${scriptsURIsAsJSStrings.mkString(", ")}]
-         |  });
+         |    });
+         |
+         |    var dom = new jsdom.JSDOM("", {
+         |      virtualConsole: virtualConsole,
+         |      url: "http://localhost/",
+         |
+         |      /* Allow unrestricted <script> tags. This is exactly as
+         |       * "dangerous" as the arbitrary execution of script files we
+         |       * do in the non-jsdom Node.js env.
+         |       */
+         |      resources: "usable",
+         |      runScripts: "dangerously"
+         |    });
+         |
+         |    var window = dom.window;
+         |    window["scalajsCom"] = global.scalajsCom;
+         |
+         |    var scriptsSrcs = $scriptsURIsJSArray;
+         |    for (var i = 0; i < scriptsSrcs.length; i++) {
+         |      var script = window.document.createElement("script");
+         |      script.src = scriptsSrcs[i];
+         |      window.document.body.appendChild(script);
+         |    }
+         |  } else {
+         |    // jsdom v9.x
+         |    var virtualConsole = jsdom.createVirtualConsole()
+         |      .sendTo(console, { omitJsdomErrors: true });
+         |    virtualConsole.on("jsdomError", function (error) {
+         |      /* This inelegant if + console.error is the only way I found
+         |       * to make sure the stack trace of the original error is
+         |       * printed out.
+         |       */
+         |      if (error.detail && error.detail.stack)
+         |        console.error(error.detail.stack);
+         |
+         |      // Throw the error anew to make sure the whole execution fails
+         |      throw error;
+         |    });
+         |
+         |    jsdom.env({
+         |      html: "",
+         |      virtualConsole: virtualConsole,
+         |      url: "http://localhost/",
+         |      created: function (error, window) {
+         |        if (error == null) {
+         |          window["scalajsCom"] = global.scalajsCom;
+         |        } else {
+         |          throw error;
+         |        }
+         |      },
+         |      scripts: $scriptsURIsJSArray
+         |    });
+         |  }
          |})();
          |""".stripMargin
     }
-    List(MemVirtualBinaryFile.fromStringUTF8("codeWithJSDOMContext.js", jsDOMCode))
+    List(
+      Files.write(
+        Jimfs.newFileSystem().getPath("codeWithJSDOMContext.js"),
+        jsDOMCode.getBytes(StandardCharsets.UTF_8)
+      )
+    )
   }
 }
 
@@ -148,10 +185,12 @@ object JsDomNodeJsEnv {
     }
   }
 
-  private def materialize(file: VirtualBinaryFile): URI = {
-    file match {
-      case file: FileVirtualFile => file.file.toURI
-      case f => tmpFile(f.path, f.inputStream)
+  private def materialize(path: Path): URI = {
+    try {
+      path.toFile.toURI
+    } catch {
+      case _: UnsupportedOperationException =>
+        tmpFile(path.toString, Files.newInputStream(path))
     }
   }
 }

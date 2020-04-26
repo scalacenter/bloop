@@ -1,7 +1,6 @@
 package bloop.engine.tasks.toolchains
 
 import java.lang.reflect.InvocationTargetException
-import java.net.URLClassLoader
 import java.nio.file.Path
 
 import bloop.DependencyResolution
@@ -11,10 +10,12 @@ import bloop.data.Project
 import bloop.internal.build.BuildInfo
 import bloop.io.AbsolutePath
 import bloop.logging.Logger
-import bloop.testing.{DiscoveredTestFrameworks, TestInternals}
+import bloop.testing.DiscoveredTestFrameworks
 import monix.eval.Task
 
+import scala.concurrent.ExecutionContext
 import scala.util.Try
+import monix.execution.Scheduler
 
 /**
  * Defines a set of tasks that the Scala.js toolchain can execute.
@@ -50,14 +51,16 @@ final class ScalaJsToolchain private (bridgeClassLoader: ClassLoader) {
       fullClasspath: Array[Path],
       runMain: java.lang.Boolean,
       mainClass: Option[String],
-      target: AbsolutePath,
+      targetDir: AbsolutePath,
+      scheduler: Scheduler,
       logger: Logger
   ): Task[Try[Unit]] = {
     val bridgeClazz = bridgeClassLoader.loadClass("bloop.scalajs.JsBridge")
     val method = bridgeClazz.getMethod("link", paramTypesLink: _*)
+    val target = targetDir.underlying
     val linkage = Task(
       method
-        .invoke(null, config, project, fullClasspath, runMain, mainClass, target.underlying, logger)
+        .invoke(null, config, project, fullClasspath, runMain, mainClass, target, logger, scheduler)
         .asInstanceOf[Unit]
     ).materialize
     linkage.map {
@@ -89,18 +92,17 @@ final class ScalaJsToolchain private (bridgeClassLoader: ClassLoader) {
     val baseDir = project.baseDirectory.underlying
     val bridgeClazz = bridgeClassLoader.loadClass("bloop.scalajs.JsBridge")
     val method = bridgeClazz.getMethod("discoverTestFrameworks", paramTypesTestFrameworks: _*)
-    val dom = Boolean.box(config.jsdom.getOrElse(false))
     val node = config.nodePath.map(_.toAbsolutePath.toString).getOrElse("node")
     val (frameworks, closeResources) = method
-      .invoke(null, frameworkNames, node, linkedFile.underlying, baseDir, logger, dom, env)
+      .invoke(null, frameworkNames, node, linkedFile.underlying, baseDir, logger, config, env)
       .asInstanceOf[(List[sbt.testing.Framework], ScalaJsToolchain.CloseResources)]
 
     DiscoveredTestFrameworks.Js(frameworks, closeResources)
   }
 
   // format: OFF
-  private val paramTypesLink = classOf[JsConfig] :: classOf[Project] :: classOf[Array[Path]] :: classOf[java.lang.Boolean] :: classOf[Option[String]] :: classOf[Path] :: classOf[Logger] :: Nil
-  private val paramTypesTestFrameworks = classOf[List[List[String]]] :: classOf[String] :: classOf[Path] :: classOf[Path] :: classOf[Logger] :: classOf[java.lang.Boolean] :: classOf[Map[String, String]] :: Nil
+  private val paramTypesLink = classOf[JsConfig] :: classOf[Project] :: classOf[Array[Path]] :: classOf[java.lang.Boolean] :: classOf[Option[String]] :: classOf[Path] :: classOf[Logger] :: classOf[ExecutionContext] :: Nil
+  private val paramTypesTestFrameworks = classOf[List[List[String]]] :: classOf[String] :: classOf[Path] :: classOf[Path] :: classOf[Logger] :: classOf[JsConfig] :: classOf[Map[String, String]] :: Nil
   // format: ON
 }
 
@@ -128,21 +130,39 @@ object ScalaJsToolchain extends ToolchainCompanion[ScalaJsToolchain] {
     else sys.error(s"Expected compatible Scala.js version [0.6, 1.0], $version given")
   }
 
-  override def getPlatformData(platform: Platform): Option[PlatformData] = {
-    val artifactName = artifactNameFrom(platform.config.version)
-    val platformVersion = platform.config.version
-    val scalaVersion = DependencyResolution.majorMinorVersion(BuildInfo.scalaVersion)
+  /** Determine additional version-specific artefacts */
+  private def scalaJsArtifacts(
+      platformVersion: String,
+      scalaVersion: String
+  ): List[DependencyResolution.Artifact] = {
+    if (platformVersion.startsWith("0.6")) List()
+    else
+      List(
+        DependencyResolution
+          .Artifact("org.scala-js", s"scalajs-linker_$scalaVersion", platformVersion),
+        DependencyResolution
+          .Artifact("org.scala-js", s"scalajs-env-nodejs_$scalaVersion", platformVersion),
+        // See https://github.com/scala-js/scala-js-env-jsdom-nodejs/issues/41
+        DependencyResolution
+          .Artifact("org.scala-js", s"scalajs-env-jsdom-nodejs_$scalaVersion", "1.0.0"),
+        DependencyResolution
+          .Artifact("org.scala-js", s"scalajs-logging_$scalaVersion", platformVersion)
+      )
+  }
 
-    val artifacts = List(
+  override def getPlatformData(platform: Platform): Option[PlatformData] = {
+    val platformVersion = platform.config.version
+    val artifactName = artifactNameFrom(platformVersion)
+    val scalaVersion = DependencyResolution.majorMinorVersion(BuildInfo.scalaVersion)
+    val sharedArtifacts = List(
       DependencyResolution.Artifact(BuildInfo.organization, artifactName, BuildInfo.version),
-      DependencyResolution
-        .Artifact("org.scala-js", s"scalajs-tools_$scalaVersion", platformVersion),
       DependencyResolution
         .Artifact("org.scala-js", s"scalajs-sbt-test-adapter_$scalaVersion", platformVersion),
       DependencyResolution
         .Artifact("org.scala-js", s"scalajs-js-envs_$scalaVersion", platformVersion)
     )
 
+    val artifacts = sharedArtifacts ++ scalaJsArtifacts(platformVersion, scalaVersion)
     Some(PlatformData(artifacts, platform.config.toolchain))
   }
 }

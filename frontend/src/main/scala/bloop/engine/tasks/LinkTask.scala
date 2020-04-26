@@ -5,7 +5,7 @@ import bloop.cli.{ExitStatus, OptimizerConfig}
 import bloop.config.Config
 import bloop.data.{Platform, Project}
 import bloop.engine.tasks.toolchains.{ScalaJsToolchain, ScalaNativeToolchain}
-import bloop.engine.{Feedback, State}
+import bloop.engine.{ExecutionContext, Feedback, State}
 import bloop.io.AbsolutePath
 import monix.eval.Task
 
@@ -18,6 +18,7 @@ object LinkTask {
       target: AbsolutePath,
       platform: Platform.Js
   ): Task[State] = {
+    import state.logger
     val config0 = platform.config
     platform.toolchain match {
       case Some(toolchain) =>
@@ -27,15 +28,19 @@ object LinkTask {
             val dag = state.build.getDagFor(project)
             val fullClasspath = project.fullRuntimeClasspath(dag, state.client).map(_.underlying)
             val config = config0.copy(mode = getOptimizerMode(cmd.optimize, config0.mode))
-            toolchain
-              .link(config, project, fullClasspath, true, Some(mainClass), target, state.logger)
-              .map {
-                case scala.util.Success(_) =>
-                  state.withInfo(s"Generated JavaScript file '${target.syntax}'")
-                case scala.util.Failure(t) =>
-                  val msg = Feedback.failedToLink(project, ScalaJsToolchain.name, t)
-                  state.withError(msg, ExitStatus.LinkingError).withTrace(t)
-              }
+
+            // Pass in the default scheduler used by this task to the linker
+            Task.deferAction { s =>
+              toolchain
+                .link(config, project, fullClasspath, true, Some(mainClass), target, s, logger)
+                .map {
+                  case scala.util.Success(_) =>
+                    state.withInfo(s"Generated JavaScript file '${target.syntax}'")
+                  case scala.util.Failure(t) =>
+                    val msg = Feedback.failedToLink(project, ScalaJsToolchain.name, t)
+                    state.withError(msg, ExitStatus.LinkingError).withTrace(t)
+                }
+            }
         }
       case None =>
         val artifactName = ScalaJsToolchain.artifactNameFrom(config0.version)

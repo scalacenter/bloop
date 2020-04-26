@@ -22,9 +22,12 @@ abstract class ToolchainCompanion[Toolchain] {
   type Platform <: Config.Platform
   type Config <: Config.PlatformConfig
 
+  /**
+   * @param testArtifacts Additional artifacts to inject when linking test modules
+   */
   case class PlatformData(
       artifacts: List[DependencyResolution.Artifact],
-      toolchainClasspath: List[Path]
+      classpath: List[Path]
   )
 
   /** The artifact name of this toolchain. */
@@ -43,7 +46,8 @@ abstract class ToolchainCompanion[Toolchain] {
 
   private[this] val instancesById =
     new ConcurrentHashMap[List[DependencyResolution.Artifact], Toolchain]
-  private[this] val instancesByJar: ConcurrentHashMap[List[Path], Toolchain] = new ConcurrentHashMap
+  private[this] val instancesByJar =
+    new ConcurrentHashMap[List[Path], Toolchain]
 
   /**
    * Returns a toolchain instance resolving it if necessary.
@@ -56,7 +60,12 @@ abstract class ToolchainCompanion[Toolchain] {
       case None => apply(getClass.getClassLoader)
       case Some(PlatformData(artifacts, toolchain)) =>
         if (toolchain.nonEmpty) toToolchain(toolchain)
-        else instancesById.computeIfAbsent(artifacts, a => toToolchain(resolveJars(a, logger)))
+        else {
+          instancesById.computeIfAbsent(
+            artifacts,
+            a => toToolchain(resolveJars(a, logger))
+          )
+        }
     }
   }
 

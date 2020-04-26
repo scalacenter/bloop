@@ -7,15 +7,12 @@ import bloop.exec.Forker
 import bloop.logging.{DebugFilter, Logger}
 import com.zaxxer.nuprocess.{NuAbstractProcessHandler, NuProcess}
 import monix.execution.atomic.AtomicBoolean
-import org.scalajs.io.{FileVirtualBinaryFile, JSUtils, VirtualBinaryFile}
 
 import scala.concurrent.Promise
 
-final class NodeJsHandler(logger: Logger, exit: Promise[Unit], files: List[VirtualBinaryFile])
+final class NodeJsHandler(logger: Logger, exit: Promise[Unit], write: ByteBuffer => Unit)
     extends NuAbstractProcessHandler {
   implicit val debugFilter: DebugFilter = DebugFilter.Link
-  private val buffer = new Array[Byte](NuProcess.BUFFER_CAPACITY)
-  private var currentFileIndex: Int = 0
   private var currentStream: Option[InputStream] = None
 
   private var process: Option[NuProcess] = None
@@ -27,43 +24,10 @@ final class NodeJsHandler(logger: Logger, exit: Promise[Unit], files: List[Virtu
 
   /** @return false if we have nothing else to write */
   override def onStdinReady(output: ByteBuffer): Boolean = {
-    if (currentFileIndex < files.length) {
-      files(currentFileIndex) match {
-        case f: FileVirtualBinaryFile =>
-          logger.debug(s"Sending js file $f...")
-          val path = f.file.getAbsolutePath
-          val str = s"""require("${JSUtils.escapeJS(path)}");"""
-          output.put(str.getBytes("UTF-8"))
-          currentFileIndex += 1
-
-        case f =>
-          val in = currentStream.getOrElse {
-            logger.debug(s"Sending js file $f...")
-            f.inputStream
-          }
-          currentStream = Some(in)
-
-          if (in.available() != 0) {
-            val read = in.read(buffer)
-            output.put(buffer, 0, read)
-          } else {
-            output.put('\n'.toByte)
-
-            in.close()
-            currentStream = None
-            currentFileIndex += 1
-          }
-      }
-
-      output.flip()
-    }
-
-    if (currentFileIndex == files.length) {
-      logger.debug(s"Closing stdin stream (all js files have been sent)")
-      process.get.closeStdin(false)
-    }
-
-    currentFileIndex < files.length
+    write(output)
+    logger.debug(s"Closing stdin stream (all JavaScript inputs have been sent)")
+    process.get.closeStdin(false)
+    false
   }
 
   val outBuilder = StringBuilder.newBuilder

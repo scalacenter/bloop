@@ -242,10 +242,13 @@ object Project {
       case Some(platform: Config.Platform.Jvm) =>
         val javaEnv = JdkConfig.fromConfig(platform.config)
         val toolchain = JvmToolchain.resolveToolchain(platform, logger)
-        val runtimeClasspath =
-          platform.classpath.map(_.map(AbsolutePath.apply)).getOrElse(compileClasspath)
-        val runtimeResources =
-          platform.resources.map(_.map(AbsolutePath.apply)).getOrElse(compileResources)
+        val runtimeClasspath = platform.classpath
+          .map(_.map(AbsolutePath.apply))
+          .getOrElse(compileClasspath)
+        val runtimeResources = platform.resources
+          .map(_.map(AbsolutePath.apply))
+          .getOrElse(compileResources)
+
         Platform.Jvm(
           javaEnv,
           toolchain,
@@ -253,12 +256,15 @@ object Project {
           runtimeClasspath,
           runtimeResources
         )
+
       case Some(platform: Config.Platform.Js) =>
         val toolchain = Try(ScalaJsToolchain.resolveToolchain(platform, logger)).toOption
         Platform.Js(platform.config, toolchain, platform.mainClass)
+
       case Some(platform: Config.Platform.Native) =>
         val toolchain = Try(ScalaNativeToolchain.resolveToolchain(platform, logger)).toOption
         Platform.Native(platform.config, toolchain, platform.mainClass)
+
       case None => defaultPlatform(logger, compileClasspath, compileResources)
     }
 
