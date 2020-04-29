@@ -67,14 +67,6 @@ object ReleaseUtils {
     )
   }
 
-  val generateInstallationWitness = Def.task {
-    val target = Keys.target.value
-    val bloopVersion = Keys.version.value
-    val witnessFile = target / "installed.txt"
-    IO.writeLines(witnessFile, List(bloopVersion))
-    witnessFile
-  }
-
   case class Artifact(name: String, url: String, sha: String)
 
   object Artifact {
