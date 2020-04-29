@@ -99,8 +99,6 @@ object BuildKeys {
   val bloopCoursierJson = Def.taskKey[File]("Generate a versioned install script")
   val releaseEarlyAllModules = Def.taskKey[Unit]("Release early all modules")
   val publishLocalAllModules = Def.taskKey[Unit]("Publish all modules locally")
-  val generateInstallationWitness =
-    Def.taskKey[File]("Generate a witness file to know which version is installed locally")
 
   val gradleIntegrationDirs = sbt.AttributeKey[List[File]]("gradleIntegrationDirs")
   val fetchGradleApi = Def.taskKey[Unit]("Fetch Gradle API artifact")
@@ -145,7 +143,6 @@ object BuildKeys {
     createLocalHomebrewFormula := ReleaseUtils.createLocalHomebrewFormula.value,
     createLocalScoopFormula := ReleaseUtils.createLocalScoopFormula.value,
     createLocalArchPackage := ReleaseUtils.createLocalArchPackage.value,
-    generateInstallationWitness := ReleaseUtils.generateInstallationWitness.value,
     updateHomebrewFormula := ReleaseUtils.updateHomebrewFormula.value,
     updateScoopFormula := ReleaseUtils.updateScoopFormula.value,
     updateArchPackage := ReleaseUtils.updateArchPackage.value

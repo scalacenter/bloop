@@ -845,17 +845,19 @@ val bloop = project
 
 // Runs the scripted tests to setup integration tests
 // ! This is used by the benchmarks too !
+val isWindows = scala.util.Properties.isWin
 addCommandAlias(
   "install",
   Seq(
     "publishLocalAllModules",
-    "bloopgun/graalvm-native-image:packageBin",
+    // Don't generate graalvm image if running in Windows
+    if (isWindows) "" else "bloopgun/graalvm-native-image:packageBin",
     s"${frontend.id}/test:compile",
     "createLocalHomebrewFormula",
     "createLocalScoopFormula",
-    "createLocalArchPackage",
-    "generateInstallationWitness"
-  ).mkString(";", ";", "")
+    "createLocalArchPackage"
+  ).filter(!_.isEmpty)
+    .mkString(";", ";", "")
 )
 
 val allReleaseActions = List("releaseEarlyAllModules", "sonatypeBundleRelease")
