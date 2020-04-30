@@ -37,7 +37,7 @@ case class WorkspaceSettings(
     semanticDBVersion: Option[String],
     supportedScalaVersions: Option[List[String]],
     refreshProjectsCommand: Option[List[String]],
-    traceProperties: TraceProperties
+    traceSettings: Option[TraceSettings]
 ) {
   def withSemanticdbSettings: Option[(WorkspaceSettings, SemanticdbSettings)] =
     (semanticDBVersion, supportedScalaVersions) match {
@@ -45,10 +45,18 @@ case class WorkspaceSettings(
         Some(this -> SemanticdbSettings(semanticDBVersion, supportedScalaVersions))
       case _ => None
     }
+
 }
 
 object WorkspaceSettings {
+  def tracePropertiesFrom(settings: Option[WorkspaceSettings]): TraceProperties = {
+    settings
+      .flatMap(_.traceSettings)
+      .map(TraceSettings.toProperties(_))
+      .getOrElse(TraceProperties.default)
+  }
 
+  // TODO: Come back to this
   def fromSemanticdbSettings(
       semanticDBVersion: String,
       supportedScalaVersions: List[String]
@@ -57,7 +65,7 @@ object WorkspaceSettings {
       Some(semanticDBVersion),
       Some(supportedScalaVersions),
       None,
-      TraceProperties.Global.properties
+      None //TraceProperties.Global.properties
     )
   }
 
@@ -72,6 +80,7 @@ object WorkspaceSettings {
     JsonCodecMaker.make[WorkspaceSettings](
       CodecMakerConfig.withTransientEmpty(false).withRequireCollectionFields(true)
     )
+
   import com.github.plokhotnyuk.jsoniter_scala.{core => jsoniter}
   def readFromFile(configPath: AbsolutePath, logger: Logger): Option[WorkspaceSettings] = {
     val settingsPath = configPath.resolve(settingsFileName)

@@ -200,19 +200,12 @@ final class BloopBspServices(
     val currentWorkspaceSettings = WorkspaceSettings.readFromFile(configDir, callSiteState.logger)
     val currentRefreshProjectsCommand: Option[List[String]] =
       currentWorkspaceSettings.flatMap(_.refreshProjectsCommand)
-    val currentTraceProperties = currentWorkspaceSettings
-      .map(_.traceProperties)
-      .getOrElse(TraceProperties.Global.properties)
+    val currentTraceSettings = currentWorkspaceSettings.flatMap(_.traceSettings)
 
     val isMetals = params.displayName.contains("Metals")
     val isIntelliJ = params.displayName.contains("IntelliJ")
+    val refreshProjectsCommand = if (isIntelliJ) currentRefreshProjectsCommand else None
 
-    val refreshProjectsCommand =
-      if (isIntelliJ) {
-        currentRefreshProjectsCommand
-      } else {
-        None
-      }
     val client = ClientInfo.BspClientInfo(
       params.displayName,
       params.version,
@@ -243,7 +236,7 @@ final class BloopBspServices(
               Some(semanticDBVersion),
               Some(supportedScalaVersions),
               currentRefreshProjectsCommand,
-              currentTraceProperties
+              currentTraceSettings
             )
           }
       }

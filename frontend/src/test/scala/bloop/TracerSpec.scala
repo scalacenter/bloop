@@ -8,7 +8,7 @@ import monix.eval.Task
 object TracerSpec extends BaseSuite {
   test("forty clients can send zipkin traces concurrently") {
     def sendTrace(id: String): Unit = {
-      val tracer = BraveTracer(s"encode ${id}")
+      val tracer = BraveTracer(s"encode ${id}", TraceProperties.default)
       Thread.sleep(700)
       tracer.trace(s"previous child ${id}") { tracer =>
         Thread.sleep(500)
@@ -23,7 +23,7 @@ object TracerSpec extends BaseSuite {
       Thread.sleep(750)
       val tracer2 = tracer.toIndependentTracer(
         s"independent encode ${id}",
-        TraceProperties.Global.properties
+        TraceProperties.default
       )
       tracer.terminate()
       tracer2.trace(s"previous independent child ${id}") { _ =>

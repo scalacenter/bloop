@@ -15,7 +15,7 @@ final class BraveTracer private (
     tracer: Tracer,
     val currentSpan: Span,
     closeCurrentSpan: () => Unit,
-    traceProperties: TraceProperties
+    properties: TraceProperties
 ) {
   def startNewChildTracer(name: String, tags: (String, String)*): BraveTracer = {
     val span = tags.foldLeft(tracer.newChild(currentSpan.context).name(name)) {
@@ -23,11 +23,13 @@ final class BraveTracer private (
     }
 
     span.start()
-    TraceProperties.TraceStartAnnotation.getOrGlobal(traceProperties).foreach(span.annotate)
-    new BraveTracer(tracer, span, () => {
-      TraceProperties.TraceEndAnnotation.getOrGlobal(traceProperties).foreach(span.annotate)
+    properties.traceStartAnnotation.foreach(span.annotate)
+    val closeHandler = () => {
+      properties.traceEndAnnotation.foreach(span.annotate)
       span.finish()
-    }, traceProperties)
+    }
+
+    new BraveTracer(tracer, span, closeHandler, properties)
   }
 
   def trace[T](name: String, tags: (String, String)*)(
@@ -57,7 +59,7 @@ final class BraveTracer private (
   private def traceInternal[T](name: String, verbose: Boolean, tags: (String, String)*)(
       thunk: BraveTracer => T
   ): T = {
-    if (!verbose || TraceProperties.Verbose.getOrGlobal(traceProperties)) {
+    if (!verbose || properties.verbose) {
       val newTracer = startNewChildTracer(name, tags: _*)
       try thunk(newTracer) // Don't catch and report errors in spans
       catch {
@@ -78,7 +80,7 @@ final class BraveTracer private (
   private def traceTaskInternal[T](name: String, verbose: Boolean, tags: (String, String)*)(
       thunk: BraveTracer => Task[T]
   ): Task[T] = {
-    if (!verbose || TraceProperties.Verbose.getOrGlobal(traceProperties)) {
+    if (!verbose || properties.verbose) {
       val newTracer = startNewChildTracer(name, tags: _*)
       thunk(newTracer)
         .doOnCancel(Task(newTracer.terminate()))
@@ -117,60 +119,52 @@ object BraveTracer {
   import zipkin2.reporter.AsyncReporter
   import zipkin2.reporter.urlconnection.URLConnectionSender
 
-  def apply(name: String, tags: (String, String)*): BraveTracer = {
-    BraveTracer(name, TraceProperties.Global.properties, None, tags: _*)
+  def apply(name: String, properties: TraceProperties, tags: (String, String)*): BraveTracer = {
+    BraveTracer(name, properties, None, tags: _*)
   }
 
   def apply(
       name: String,
-      traceProperties: TraceProperties,
-      tags: (String, String)*
-  ): BraveTracer = {
-    BraveTracer(name, traceProperties, None, tags: _*)
-  }
-
-  def apply(
-      name: String,
-      traceProperties: TraceProperties,
+      properties: TraceProperties,
       ctx: Option[TraceContext],
       tags: (String, String)*
   ): BraveTracer = {
 
-    val url = TraceProperties.ZipkinServerUrl.getOrGlobal(traceProperties)
+    val url = properties.serverUrl
     val sender = URLConnectionSender.create(url)
-    val jsonVersion = if (url.contains("/api/v1")) {
-      JSON_V1
-    } else {
-      JSON_V2
-    }
+    val jsonVersion = if (url.contains("/api/v1")) JSON_V1 else JSON_V2
     val spanReporter = AsyncReporter.builder(sender).build(jsonVersion)
 
     val tracing = Tracing
       .newBuilder()
-      .localServiceName(TraceProperties.LocalServiceName.getOrGlobal(traceProperties))
+      .localServiceName(properties.localServiceName)
       .spanReporter(spanReporter)
       .build()
+
     val tracer = tracing.tracer()
     val newParentTrace = ctx
       .map(c => tracer.newChild(c))
       .getOrElse(
-        if (TraceProperties.Debug.getOrGlobal(traceProperties)) {
+        if (properties.debug) {
           tracer.nextSpan(TraceContextOrSamplingFlags.create(SamplingFlags.DEBUG))
         } else {
           tracer.newTrace()
         }
       )
+
     val rootSpan = tags.foldLeft(newParentTrace.name(name)) {
       case (span, (tagKey, tagValue)) => span.tag(tagKey, tagValue)
     }
+
     rootSpan.start()
-    TraceProperties.TraceStartAnnotation.getOrGlobal(traceProperties).foreach(rootSpan.annotate)
+    properties.traceStartAnnotation.foreach(rootSpan.annotate)
     val closeEverything = () => {
-      TraceProperties.TraceEndAnnotation.getOrGlobal(traceProperties).foreach(rootSpan.annotate)
+      properties.traceEndAnnotation.foreach(rootSpan.annotate)
       rootSpan.finish()
       tracing.close()
       spanReporter.flush()
     }
-    new BraveTracer(tracer, rootSpan, closeEverything, traceProperties)
+
+    new BraveTracer(tracer, rootSpan, closeEverything, properties)
   }
 }

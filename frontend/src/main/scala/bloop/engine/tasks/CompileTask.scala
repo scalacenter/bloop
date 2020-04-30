@@ -26,6 +26,7 @@ import monix.execution.CancelableFuture
 import monix.reactive.{MulticastStrategy, Observable}
 import scala.collection.mutable
 import scala.concurrent.Promise
+import bloop.data.WorkspaceSettings
 
 object CompileTask {
   private implicit val logContext: DebugFilter = DebugFilter.Compilation
@@ -49,11 +50,11 @@ object CompileTask {
       case bspClient: ClientInfo.BspClientInfo => bspClient.uniqueId
     }
 
-    val traceProperties = state.build.workspaceSettings.map(_.traceProperties)
+    val traceProperties = WorkspaceSettings.tracePropertiesFrom(state.build.workspaceSettings)
 
     val rootTracer = BraveTracer(
       s"compile $topLevelTargets (transitively)",
-      traceProperties.getOrElse(TraceProperties.Global.properties),
+      traceProperties,
       "bloop.version" -> BuildInfo.version,
       "zinc.version" -> BuildInfo.zincVersion,
       "build.uri" -> originUri.syntax,
@@ -63,7 +64,7 @@ object CompileTask {
 
     val bgTracer = rootTracer.toIndependentTracer(
       s"background IO work after compiling $topLevelTargets (transitively)",
-      traceProperties.getOrElse(TraceProperties.Global.properties),
+      traceProperties,
       "bloop.version" -> BuildInfo.version,
       "zinc.version" -> BuildInfo.zincVersion,
       "build.uri" -> originUri.syntax,

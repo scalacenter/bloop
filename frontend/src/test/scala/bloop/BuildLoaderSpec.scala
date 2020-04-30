@@ -13,6 +13,7 @@ import bloop.tracing.TraceProperties
 import monix.eval.Task
 import com.github.plokhotnyuk.jsoniter_scala.core.JsonReaderException
 import scala.util.Try
+import bloop.data.TraceSettings
 
 object BuildLoaderSpec extends BaseSuite {
   testLoad("don't reload if nothing changes") { (testBuild, logger) =>
@@ -253,18 +254,26 @@ object BuildLoaderSpec extends BaseSuite {
         None,
         None,
         None,
-        TraceProperties(
-          zipkinServerUrl = Some("http://127.0.0.2"),
-          debug = Some(false),
-          verbose = Some(false),
-          localServiceName = Some("42"),
-          traceStartAnnotation = Some("start"),
-          traceEndAnnotation = Some("end")
+        Some(
+          TraceSettings(
+            serverUrl = Some("http://127.0.0.2"),
+            debug = Some(false),
+            verbose = Some(false),
+            localServiceName = Some("42"),
+            traceStartAnnotation = Some("start"),
+            traceEndAnnotation = Some("end")
+          )
         )
       )
+
       val state1 = loadState(workspace1, Nil, logger, Some(settings1))
       TestUtil.withinWorkspace { workspace2 =>
-        val settings2 = settings1.copy(traceProperties = TraceProperties.default)
+        val settings2 = settings1.copy(
+          traceSettings = Some(
+            TraceSettings.fromProperties(TraceProperties.default)
+          )
+        )
+
         val state2 = loadState(workspace2, Nil, logger, Some(settings2))
         assert(state1.build.workspaceSettings.isDefined)
         assert(state2.build.workspaceSettings.isDefined)
