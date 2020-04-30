@@ -75,8 +75,9 @@ object CompilerPluginWhitelist {
       logger: Logger,
       tracer: BraveTracer,
       parallelUnits: Int
-  ): Task[List[String]] = {
+  ): Task[List[String]] = Task.defer {
     case class WorkItem(pluginFlag: String, idx: Int, result: Promise[Boolean])
+
     val actualScalaVersion = scalaVersion.split('-').headOption
     val blacklistedVersions = scalaVersionBlacklist.find { v =>
       actualScalaVersion.exists { userVersion =>

@@ -348,7 +348,7 @@ object Cli {
       val session = runTaskWithCliClient(configDirectory, action, taskToInterpret, pool, logger)
       val exitSession = Task.defer {
         handleCliClientExit(configDir, session, logger)
-        cleanUpNonStableCliDirectories(configDir, session.client, logger)
+        cleanUpNonStableCliDirectories(configDir, session.client, cliOptions.common.ngout)
       }
 
       session.task
@@ -407,17 +407,22 @@ object Cli {
   }
 
   def handleCliClientExit(configDir: Path, session: CliSession, logger: Logger): Unit = {
-    activeCliSessions.compute(
+    var sessionsIsNull = false
+    val result = activeCliSessions.compute(
       configDir,
       (_: Path, sessions: List[CliSession]) => {
         if (sessions != null) {
           sessions.filterNot(_ == session)
         } else {
-          logger.debug(s"Unexpected counter for $configDir is null, report upstream!")
+          sessionsIsNull = false
           Nil
         }
       }
     )
+
+    if (sessionsIsNull) {
+      logger.debug(s"Unexpected counter for $configDir is null, report upstream!")
+    }
 
     ()
   }
@@ -425,13 +430,16 @@ object Cli {
   def cleanUpNonStableCliDirectories(
       configDir: Path,
       client: CliClientInfo,
-      logger: Logger
+      out: PrintStream
   ): Task[Unit] = {
     if (client.useStableCliDirs) Task.unit
     else {
       val deleteTasks = client.getCreatedCliDirectories.map { freshDir =>
         if (!freshDir.exists) Task.unit
-        else Task.eval(Paths.delete(freshDir)).executeWithFork
+        else {
+          out.println(s"Preparing to delete dir ${freshDir}")
+          Task.eval(Paths.delete(freshDir)).executeWithFork
+        }
       }
 
       val groups = deleteTasks
