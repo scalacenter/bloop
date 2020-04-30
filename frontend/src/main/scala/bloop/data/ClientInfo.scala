@@ -280,26 +280,28 @@ object ClientInfo {
           case Some(Right(bspClientClassesDir)) =>
             try {
               Paths.list(bspClientClassesDir).foreach { clientDir =>
-                val dirName = clientDir.underlying.getFileName().toString
-                val attrs = Files.readAttributes(clientDir.underlying, classOf[BasicFileAttributes])
-                val isOldDir = attrs.creationTime.toInstant.isBefore(deletionThresholdInstant)
-                val isWhitelisted = CliClientInfo.isStableDirName(dirName) ||
-                  connectedBspClientIds.exists(clientId => dirName.endsWith(s"-$clientId"))
+                try {
+                  val dirName = clientDir.underlying.getFileName().toString
+                  val attrs =
+                    Files.readAttributes(clientDir.underlying, classOf[BasicFileAttributes])
+                  val isOldDir = attrs.creationTime.toInstant.isBefore(deletionThresholdInstant)
+                  val isWhitelisted = CliClientInfo.isStableDirName(dirName) ||
+                    connectedBspClientIds.exists(clientId => dirName.endsWith(s"-$clientId"))
 
-                if (isWhitelisted || !isOldDir) ()
-                else {
-                  try {
+                  if (isWhitelisted || !isOldDir) ()
+                  else {
                     out.println(s"Deleting orphan directory ${clientDir}")
                     bloop.io.Paths.delete(clientDir)
-                  } catch {
-                    case _: NoSuchFileException => ()
-                    case NonFatal(t) =>
-                      err.println(s"Failed to delete unused client directory $clientDir")
-                      t.printStackTrace(err)
                   }
+                } catch {
+                  case _: NoSuchFileException => ()
+                  case NonFatal(t) =>
+                    err.println(s"Failed to delete unused client directory $clientDir")
+                    t.printStackTrace(err)
                 }
               }
             } catch {
+              case _: NoSuchFileException => ()
               // Catch errors so that we process the rest of projects
               case NonFatal(t) =>
                 err.println(s"Couldn't prune orphan classes directory for ${project.name}")

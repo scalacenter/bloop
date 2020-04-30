@@ -14,6 +14,7 @@ import monix.eval.Task
 import bloop.engine.ExecutionContext
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.FiniteDuration
+import java.time.Instant
 
 object TcpBspCompileSpec extends BspCompileSpec(BspProtocol.Tcp)
 object LocalBspCompileSpec extends BspCompileSpec(BspProtocol.Local)
@@ -252,6 +253,8 @@ class BspCompileSpec(
       val orphanClientClassesDir =
         bspClientsRootDir.resolve(s"$orphanClientClassesDirName-test-123aAfd12i23")
       Files.createDirectories(orphanClientClassesDir.underlying)
+      val fileTime = FileTime.from(Instant.now().minusSeconds(120))
+      Files.setLastModifiedTime(orphanClientClassesDir.underlying, fileTime)
 
       loadBspState(workspace, projects, logger) { bspState =>
         // Ask for scala options to force client to create a client classes dir for `A`
