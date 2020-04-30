@@ -286,7 +286,7 @@ object ClientInfo {
                 val isWhitelisted = CliClientInfo.isStableDirName(dirName) ||
                   connectedBspClientIds.exists(clientId => dirName.endsWith(s"-$clientId"))
 
-                if (isWhitelisted && !isOldDir) ()
+                if (isWhitelisted || !isOldDir) ()
                 else {
                   try {
                     out.println(s"Deleting orphan directory ${clientDir}")
