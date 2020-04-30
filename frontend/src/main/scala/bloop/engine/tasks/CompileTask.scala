@@ -60,7 +60,7 @@ object CompileTask {
       cancelCompilation: Promise[Unit],
       store: CompileClientStore,
       rawLogger: UseSiteLogger
-  ): Task[State] = {
+  ): Task[State] = Task.defer {
     import bloop.data.ClientInfo
     import bloop.internal.build.BuildInfo
     val originUri = state.build.origin

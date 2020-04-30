@@ -17,6 +17,9 @@ import bloop.logging.Logger
 import bloop.tracing.BraveTracer
 import bloop.logging.DebugFilter
 import java.nio.file.NoSuchFileException
+import bloop.cli.CommonOptions
+import java.nio.file.attribute.BasicFileAttributes
+import java.time.Instant
 
 sealed trait ClientInfo {
 
@@ -106,7 +109,7 @@ object ClientInfo {
     private val id: String = "bloop-cli"
 
     def generateDirName(useStableName: Boolean): String =
-      if (useStableName) CliClientInfo.id
+      if (useStableName) id
       else s"${CliClientInfo.id}-${UUIDUtil.randomUUID}"
 
     def isStableDirName(dirName: String): Boolean =
@@ -247,100 +250,62 @@ object ClientInfo {
   }
 
   def deleteOrphanClientBspDirectories(
-      currentBspClients: () => Traversable[BspClientInfo],
-      logger: Logger,
-      currentAttempts: Int = 0
+      currentBspClients: => Traversable[BspClientInfo],
+      out: PrintStream,
+      err: PrintStream
   ): Unit = {
-    if (currentAttempts >= 5) {
-      // Give up cleanup temporarily if clients map is constantly changing and cannot be done safely
-      ()
-    } else {
-      import scala.collection.JavaConverters._
-      val initialBspConnectedClients = currentBspClients()
-      val connectedBspClientIds = new mutable.ListBuffer[String]()
-      val projectsToVisit = new mutable.HashMap[Project, BspClientInfo]()
-      initialBspConnectedClients.foreach { client =>
-        if (client.hasAnActiveConnection)
-          connectedBspClientIds.+=(client.uniqueId)
-        client.uniqueDirs.keySet.asScala.iterator.foreach { project =>
-          projectsToVisit.+=(project -> client)
-        }
-      }
+    import scala.collection.JavaConverters._
+    val deletionThresholdInstant = Instant.now().minusSeconds(45)
+    val currentBspConnectedClients = currentBspClients
+    val connectedBspClientIds = new mutable.ListBuffer[String]()
+    val projectsToVisit = new mutable.HashMap[Project, BspClientInfo]()
 
-      /*
-       * The deletion of orphan client directories is implemented with the
-       * following constraints:
-       *
-       *  1. It can be run in parallel by any new client connection.
-       *  2. It must not delete directories owned by active clients under any
-       *     circumstances. This includes protecting us from race conditions, which
-       *     can happen in the following scenarios:
-       *       * New client directories for a project are created in the file system
-       *         but they are not yet added to `client.uniqueDirs`. We fix this
-       *         condition by filtering the existing paths based on the unique id of
-       *         the client info rather than using the in-memory paths contained in
-       *         `uniqueDirs`.
-       *       * A new client connects right after we obtain current clients and
-       *         starts creating new client directories in projects, which would be
-       *         incorrectly removed by our logic if we didn't check the clients we
-       *         obtained initially and those that exist after listing all client
-       *         directories is the same. When it's not the same, we retry the task
-       *         again up to a limit of 5 times. If the fifth attempt doesn't work, we
-       *         give up and let the cleanup for a moment where there is less
-       *         connection activity in the server.
-       *
-       * We also protect ourselves from typical IO exceptions in case the file
-       * system doesn't allow the bloop server to run operations on these
-       * directories. This could happen if for example these directories are
-       * owned by another user than the one running the bloop server.
-       */
-      projectsToVisit.foreach { kv =>
-        val (project, client) = kv
+    // Collect projects that were touched by the current bsp clients
+    currentBspConnectedClients.foreach { client =>
+      if (client.hasAnActiveConnection)
+        connectedBspClientIds.+=(client.uniqueId)
+      client.uniqueDirs.keySet.asScala.iterator.foreach { project =>
+        projectsToVisit.+=(project -> client)
+      }
+    }
+
+    projectsToVisit.foreach {
+      case (project, client) =>
         client.parentForClientClassesDirectories(project) match {
-          case None => () // If owns build files, original generic classes dirs are used
+          case None =>
+            () // If owns build files, original generic classes dirs are used
           case Some(Left(unmanagedDir)) =>
             () // If unmanaged, it's managed by BSP client, do nothing
+
           case Some(Right(bspClientClassesDir)) =>
             try {
-              val currentBspConnectedClients = currentBspClients()
-              if (currentBspConnectedClients != initialBspConnectedClients) {
-                deleteOrphanClientBspDirectories(
-                  currentBspClients,
-                  logger,
-                  currentAttempts = currentAttempts + 1
-                )
-              } else {
-                Paths.list(bspClientClassesDir).foreach { existingDir =>
-                  val dirName = existingDir.underlying.getFileName().toString
-                  // Whitelist those that are owned by clients that are active in the server
-                  val isWhitelisted =
-                    connectedBspClientIds.exists(clientId => dirName.endsWith(s"-$clientId"))
-                  if (isWhitelisted) ()
-                  else {
-                    try {
-                      logger.debug(s"Deleting orphan directory ${existingDir}")(DebugFilter.All)
-                      bloop.io.Paths.delete(existingDir)
-                    } catch {
-                      case _: NoSuchFileException => ()
-                      case NonFatal(t) =>
-                        logger.debug(
-                          s"Unexpected error when deleting unused client directory $existingDir"
-                        )(DebugFilter.Bsp)
-                        logger.trace(t)
-                    }
+              Paths.list(bspClientClassesDir).foreach { clientDir =>
+                val dirName = clientDir.underlying.getFileName().toString
+                val attrs = Files.readAttributes(clientDir.underlying, classOf[BasicFileAttributes])
+                val isOldDir = attrs.creationTime.toInstant.isBefore(deletionThresholdInstant)
+                val isWhitelisted = CliClientInfo.isStableDirName(dirName) ||
+                  connectedBspClientIds.exists(clientId => dirName.endsWith(s"-$clientId"))
+
+                if (isWhitelisted && !isOldDir) ()
+                else {
+                  try {
+                    out.println(s"Deleting orphan directory ${clientDir}")
+                    bloop.io.Paths.delete(clientDir)
+                  } catch {
+                    case _: NoSuchFileException => ()
+                    case NonFatal(t) =>
+                      err.println(s"Failed to delete unused client directory $clientDir")
+                      t.printStackTrace(err)
                   }
                 }
               }
             } catch {
               // Catch errors so that we process the rest of projects
               case NonFatal(t) =>
-                logger.debug(
-                  s"Unexpected error when processing unused client directories for ${project.name}"
-                )(DebugFilter.Bsp)
-                logger.trace(t)
+                err.println(s"Couldn't prune orphan classes directory for ${project.name}")
+                t.printStackTrace(err)
             }
         }
-      }
     }
   }
 }

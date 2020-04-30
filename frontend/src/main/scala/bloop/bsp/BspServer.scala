@@ -143,10 +143,9 @@ object BspServer {
               TimeUnit.MILLISECONDS,
               new Runnable {
                 override def run(): Unit = {
-                  ClientInfo.deleteOrphanClientBspDirectories(
-                    () => askCurrentBspClients,
-                    logger
-                  )
+                  val ngout = state.commonOptions.ngout
+                  val ngerr = state.commonOptions.ngerr
+                  ClientInfo.deleteOrphanClientBspDirectories(askCurrentBspClients, ngout, ngerr)
                 }
               }
             )

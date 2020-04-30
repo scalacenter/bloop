@@ -74,7 +74,7 @@ object ParallelOps {
       scheduler: Scheduler,
       logger: Logger,
       enableCancellation: Boolean
-  ): Task[FileWalk] = {
+  ): Task[FileWalk] = Task.defer {
     val isCancelled = AtomicBoolean(false)
 
     import scala.collection.mutable
