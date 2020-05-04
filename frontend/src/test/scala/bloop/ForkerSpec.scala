@@ -62,6 +62,7 @@ class ForkerSpec {
           mainClass,
           args,
           skipJargs = false,
+          envVars = Nil,
           logger.asVerbose,
           opts,
           extraClasspath

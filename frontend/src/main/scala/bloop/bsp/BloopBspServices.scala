@@ -734,7 +734,7 @@ final class BloopBspServices(
     def findMainClasses(state: State, project: Project): List[bsp.ScalaMainClass] =
       for {
         className <- Tasks.findMainClasses(state, project)
-      } yield bsp.ScalaMainClass(className, Nil, Nil)
+      } yield bsp.ScalaMainClass(className, Nil, Nil, Nil)
 
     ifInitialized(params.originId) { (state: State, logger: BspServerLogger) =>
       mapToProjects(params.targets, state) match {
@@ -770,7 +770,7 @@ final class BloopBspServices(
           val cmd = Commands.Run(List(project.name))
           Interpreter.getMainClass(state, project, cmd.main) match {
             case Right(name) =>
-              Right(new bsp.ScalaMainClass(name, cmd.args, Nil))
+              Right(new bsp.ScalaMainClass(name, cmd.args, Nil, Nil))
             case Left(_) =>
               Left(new IllegalStateException(s"Main class for project $project not found"))
           }
@@ -801,6 +801,7 @@ final class BloopBspServices(
                 mainClass.`class`,
                 mainArgs,
                 skipJargs = false,
+                mainClass.environmentVariables,
                 RunMode.Normal
               )
             case platform @ Platform.Native(config, _, _) =>

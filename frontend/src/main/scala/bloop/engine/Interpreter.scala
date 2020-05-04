@@ -571,6 +571,7 @@ object Interpreter {
                   mainClass,
                   cmd.args.toArray,
                   cmd.skipJargs,
+                  envVars = Nil,
                   RunMode.Normal
                 )
             }

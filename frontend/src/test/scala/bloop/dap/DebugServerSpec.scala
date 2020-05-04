@@ -129,14 +129,15 @@ object DebugServerSpec extends DebugBspBaseSuite {
     }
   }
 
-  test("accepts arguments and jvm options") {
+  test("accepts arguments and jvm options and environment variables") {
     TestUtil.withinWorkspace { workspace =>
       val main =
         """|/main/scala/Main.scala
            |object Main {
            |  def main(args: Array[String]): Unit = {
            |    println(args(0))
-           |    println(sys.props("world"))
+           |    print(sys.props("world"))
+           |    print(sys.env("EXCL"))
            |  }
            |}
            |""".stripMargin
@@ -149,7 +150,8 @@ object DebugServerSpec extends DebugBspBaseSuite {
           project,
           state,
           arguments = List("hello"),
-          jvmOptions = List("-J-Dworld=world")
+          jvmOptions = List("-J-Dworld=world"),
+          environmentVariables = List("EXCL=!")
         )
 
         startDebugServer(runner) { server =>
@@ -169,7 +171,7 @@ object DebugServerSpec extends DebugBspBaseSuite {
                 .filterNot(_.contains("ERROR: JDWP Unable to get JNI 1.2 environment"))
                 .filterNot(_.contains("JDWP exit error AGENT_ERROR_NO_JNI_ENV"))
                 .mkString(System.lineSeparator),
-              "hello\nworld"
+              "hello\nworld!"
             )
           }
 
@@ -565,12 +567,13 @@ object DebugServerSpec extends DebugBspBaseSuite {
       project: TestProject,
       state: DebugServerSpec.ManagedBspTestState,
       arguments: List[String] = Nil,
-      jvmOptions: List[String] = Nil
+      jvmOptions: List[String] = Nil,
+      environmentVariables: List[String] = Nil
   ): DebuggeeRunner = {
     val testState = state.compile(project).toTestState
     DebuggeeRunner.forMainClass(
       Seq(testState.getProjectFor(project)),
-      new ScalaMainClass("Main", arguments, jvmOptions),
+      new ScalaMainClass("Main", arguments, jvmOptions, environmentVariables),
       testState.state
     ) match {
       case Right(value) => value

@@ -250,7 +250,7 @@ object TestUtil {
     if (!emptyResults) state1 else state1.copy(results = ResultsCache.emptyForTests)
   }
 
-  private[bloop] final val runAndTestProperties = {
+  private[bloop] def runAndTestProperties = {
     val props = new bloop.cli.CommonOptions.PrettyProperties()
     props.put("BLOOP_OWNER", "owner")
     props

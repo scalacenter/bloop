@@ -48,6 +48,7 @@ private final class MainClassDebugAdapter(
       mainClass.`class`,
       (mainClass.arguments ++ mainClass.jvmOptions).toArray,
       skipJargs = false,
+      mainClass.environmentVariables,
       RunMode.Debug
     )
 
