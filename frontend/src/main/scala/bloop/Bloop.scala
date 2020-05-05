@@ -1,16 +1,26 @@
 package bloop
 
-import _root_.monix.eval.Task
-import bloop.cli.CliParsers.cliParser
+import bloop.data.ClientInfo
 import bloop.cli.{CliOptions, Commands, ExitStatus}
-import bloop.data.{ClientInfo, WorkspaceSettings}
-import bloop.engine._
+import bloop.cli.CliParsers.{
+  cliParser,
+  coParser,
+  inputStreamRead,
+  pathParser,
+  printStreamRead,
+  propertiesParser,
+  OptionsParser
+}
+import bloop.engine.{Action, Build, BuildLoader, Exit, Interpreter, NoPool, Print, Run, State}
+import bloop.engine.tasks.Tasks
 import bloop.io.AbsolutePath
 import bloop.logging.BloopLogger
 import caseapp.{CaseApp, RemainingArgs}
 import jline.console.ConsoleReader
-
+import _root_.monix.eval.Task
+import bloop.data.WorkspaceSettings
 import scala.annotation.tailrec
+import scala.concurrent.Promise
 
 object Bloop extends CaseApp[CliOptions] {
   private val reader = consoleReader()

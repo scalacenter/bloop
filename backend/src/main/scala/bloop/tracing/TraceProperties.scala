@@ -4,6 +4,8 @@ import scala.util.Properties
 
 case class TraceProperties(
     serverUrl: String,
+    // Note: `debug` corresponds to a sampling flag sent to Zipkin server,
+    // while `verbose` determines if we send certain spans marked as verbose spans
     debug: Boolean,
     verbose: Boolean,
     localServiceName: String,
