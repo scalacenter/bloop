@@ -91,90 +91,14 @@ will not start correctly if the `javaHome` field points directly to the
 
 ## Automatic management of the server
 
-It is generally a good practice to have a way to manage the lifecycle of the server.
 Depending on your operating system, there exist several solutions that allow you to
 start, stop, restart and inspect the status of the build server at any time.
 
-Bloop supports the following mechanisms out-of-the-box:
+Both the bloop CLI and the launcher, the tool used by build clients to connect
+to Bloop via BSP, will start the server if it's not running and connect to it.
 
-1. `brew services` in OSX systems
-1. `systemd` in Linux systems
-1. Desktop Entries in systems that follow the [XDG Desktop Entry Specification](https://standards.freedesktop.org/desktop-entry-spec/latest/)
-
-> Windows users do not have a way of starting the server via Windows Services, so the
-> lifecycle management has to be manual. Do you want to help improve the situation?
-> Check this [ticket](https://github.com/scalacenter/bloop/issues/766).
-
-If you are using a SDK manager, you should ensure that the managed bloop server has
-access to a `java` binary from the `$PATH` environment variable.
-
-### via `brew services`
-
-Brew services are powered by `launchd` and need a macOS property list (`plist`) that explains how to
-start the Bloop server and under which conditions. The property list is installed by default in the
-[Homebrew](../setup#homebrew) installation and doesn't require any extra steps to use it.
-
-Command examples:
-
-1. `cat /usr/local/Cellar/bloop/$version/log/bloop/bloop.out.log`: check the build server logs via stdout.
-1. `cat /usr/local/Cellar/bloop/$version/log/bloop/bloop.err.log`: check the build server logs via stderr.
-1. `brew services start bloop`: starts up the bloop server.
-1. `brew services stop bloop`: stops the bloop server.
-1. `brew services restart bloop`: restarts the bloop server.
-
-JVM options in the optional [`$HOME/.bloop/bloop.json`](#custom-java-options) file are respected.
-If you change the `bloop.json` file you have to restart the server for the changes to make effect.
-
-### via `systemd`
-
-To have the Bloop server be automatically managed by systemd, install Bloop's systemd service:
-
-```bash
-$ systemctl --user enable $HOME/.bloop/systemd/bloop.service
-$ systemctl --user daemon-reload
-```
-
-The build server will be started whenever you log in your computer and killed whenever your session
-is closed.
-
-<blockquote>
-<p>
-It is also possible to only kill the build server when the machine is shut down. Please refer to <a
-href="https://wiki.archlinux.org/index.php/Systemd/Users">Systemd's documentation about user
-services</a> for advanced configuration.
-</p>
-</blockquote>
-
-Command examples:
-
-1. `journalctl --user-unit bloop`: check the build server logs.
-1. `systemctl --user status bloop`: checks the status of the build server.
-1. `systemctl --user start bloop`: starts up the bloop server.
-1. `systemctl --user stop bloop`: stops the bloop server.
-1. `systemctl --user restart bloop`: restarts the build server.
-
-
-
-### via Desktop Entries
-
-A desktop entry is a `bloop.desktop` file which your desktop environment recognizes as a launcher if
-it supports the [freedesktop.org Desktop Entry
-specification](https://specifications.freedesktop.org/desktop-entry-spec/desktop-entry-spec-latest.html).
-For example, Ubuntu recognizes and displays desktop entries in the application menu next to an icon.
-
-Install a desktop entry with:
-
-```bash
-$ mkdir -p $HOME/.local/share/applications
-$ ln -s $HOME/.bloop/xdg/bloop.desktop $HOME/.local/share/applications/
-```
-
-If you want to start the server automatically, add the desktop entry to `autostart`:
-
-```bash
-$ mkdir -p $HOME/.config/autostart
-$ ln -s $HOME/.bloop/xdg/bloop.desktop $HOME/.config/autostart/
-```
+You can exit the server by running `bloop exit` from the CLI. You can also kill
+it with `kill`, the Activity Monitor in your machine or `htop`.
 
 ## Ignore exceptions in server logs
 
