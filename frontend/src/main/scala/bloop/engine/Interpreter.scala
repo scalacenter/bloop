@@ -110,20 +110,29 @@ object Interpreter {
       f: State => Task[State]
   ): Task[State] = {
     val reachable = Dag.dfs(getProjectsDag(projects, state))
-    val allSources = reachable.iterator.flatMap(_.sources.toList).map(_.underlying)
-    val watcher = SourceWatcher(projects.map(_.name), allSources.toList, state.logger)
-    val fg = (state: State) => {
-      val newState = State.stateCache.getUpdatedStateFrom(state).getOrElse(state)
-      f(newState).map { state =>
-        watcher.notifyWatch()
-        State.stateCache.updateBuild(state)
-      }
-    }
+    val projectsSourcesAndDirs = reachable.map(_.allSourceFilesAndDirectories)
+    val groupTasks =
+      projectsSourcesAndDirs.grouped(8).map(group => Task.gatherUnordered(group)).toList
+    Task
+      .sequence(groupTasks)
+      .map(fp => fp.flatten.flatten.map(_.underlying))
+      .flatMap { allSources =>
+        val watcher = SourceWatcher(projects.map(_.name), allSources, state.logger)
+        val fg = (state: State) => {
+          val newState = State.stateCache.getUpdatedStateFrom(state).getOrElse(state)
+          f(newState).map { state =>
+            watcher.notifyWatch()
+            State.stateCache.updateBuild(state)
+          }
+        }
 
-    if (!bloop.util.CrossPlatform.isWindows)
-      state.logger.info("\u001b[H\u001b[2J")
-    // Force the first execution before relying on the file watching task
-    fg(state).flatMap(newState => watcher.watch(newState, fg))
+        if (!bloop.util.CrossPlatform.isWindows)
+          state.logger.info("\u001b[H\u001b[2J")
+
+        // Force the first execution before relying on the file watching task
+        fg(state).flatMap(newState => watcher.watch(newState, fg))
+
+      }
   }
 
   private def runCompile(
