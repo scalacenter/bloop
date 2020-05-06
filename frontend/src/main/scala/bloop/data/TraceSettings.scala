@@ -4,7 +4,7 @@ import bloop.tracing.TraceProperties
 
 case class TraceSettings(
     serverUrl: Option[String],
-    debug: Option[Boolean],
+    debugTracing: Option[Boolean],
     verbose: Option[Boolean],
     localServiceName: Option[String],
     traceStartAnnotation: Option[String],
@@ -16,7 +16,7 @@ object TraceSettings {
     val default = TraceProperties.default
     TraceProperties(
       settings.serverUrl.getOrElse(default.serverUrl),
-      settings.debug.getOrElse(default.debug),
+      settings.debugTracing.getOrElse(default.debugTracing),
       settings.verbose.getOrElse(default.verbose),
       settings.localServiceName.getOrElse(default.localServiceName),
       settings.traceStartAnnotation.orElse(default.traceStartAnnotation),
@@ -27,7 +27,7 @@ object TraceSettings {
   def fromProperties(properties: TraceProperties): TraceSettings = {
     TraceSettings(
       serverUrl = Some(properties.serverUrl),
-      debug = Some(properties.debug),
+      debugTracing = Some(properties.debugTracing),
       verbose = Some(properties.verbose),
       localServiceName = Some(properties.localServiceName),
       traceStartAnnotation = properties.traceStartAnnotation,

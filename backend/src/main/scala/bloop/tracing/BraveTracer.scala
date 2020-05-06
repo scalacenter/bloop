@@ -145,7 +145,7 @@ object BraveTracer {
     val newParentTrace = ctx
       .map(c => tracer.newChild(c))
       .getOrElse(
-        if (properties.debug) {
+        if (properties.debugTracing) {
           tracer.nextSpan(TraceContextOrSamplingFlags.create(SamplingFlags.DEBUG))
         } else {
           tracer.newTrace()

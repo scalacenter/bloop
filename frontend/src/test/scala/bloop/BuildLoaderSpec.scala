@@ -257,7 +257,7 @@ object BuildLoaderSpec extends BaseSuite {
         Some(
           TraceSettings(
             serverUrl = Some("http://127.0.0.2"),
-            debug = Some(false),
+            debugTracing = Some(false),
             verbose = Some(false),
             localServiceName = Some("42"),
             traceStartAnnotation = Some("start"),

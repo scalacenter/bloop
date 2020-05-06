@@ -4,9 +4,7 @@ import scala.util.Properties
 
 case class TraceProperties(
     serverUrl: String,
-    // Note: `debug` corresponds to a sampling flag sent to Zipkin server,
-    // while `verbose` determines if we send certain spans marked as verbose spans
-    debug: Boolean,
+    debugTracing: Boolean,
     verbose: Boolean,
     localServiceName: String,
     traceStartAnnotation: Option[String],
@@ -15,20 +13,20 @@ case class TraceProperties(
 
 object TraceProperties {
   val default: TraceProperties = {
-    val debug = Properties.propOrFalse("bloop.trace.debug")
-    val verbose = Properties.propOrFalse("bloop.trace.verbose")
-    val localServiceName = Properties.propOrElse("bloop.trace.localServiceName", "bloop")
-    val traceStartAnnotation = Properties.propOrNone("bloop.trace.traceStartAnnotation")
-    val traceEndAnnotation = Properties.propOrNone("bloop.trace.traceEndAnnotation")
+    val verbose = Properties.propOrFalse("bloop.tracing.verbose")
+    val debugTracing = Properties.propOrFalse("bloop.tracing.debug")
+    val localServiceName = Properties.propOrElse("bloop.tracing.localServiceName", "bloop")
+    val traceStartAnnotation = Properties.propOrNone("bloop.tracing.traceStartAnnotation")
+    val traceEndAnnotation = Properties.propOrNone("bloop.tracing.traceEndAnnotation")
 
     val traceServerUrl = Properties.propOrElse(
       "zipkin.server.url",
-      Properties.propOrElse("bloop.trace.server.url", "http://127.0.0.1:9411/api/v2/spans")
+      Properties.propOrElse("bloop.tracing.server.url", "http://127.0.0.1:9411/api/v2/spans")
     )
 
     TraceProperties(
       traceServerUrl,
-      debug,
+      debugTracing,
       verbose,
       localServiceName,
       traceStartAnnotation,
