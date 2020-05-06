@@ -263,7 +263,7 @@ class BspCompileSpec(
 
       // Wait until the extra directory is finally deleted at the end of the bsp session
       TestUtil.await(
-        FiniteDuration(2, TimeUnit.SECONDS),
+        FiniteDuration(10, TimeUnit.SECONDS),
         bloop.engine.ExecutionContext.ioScheduler
       ) {
         Task {
@@ -274,7 +274,7 @@ class BspCompileSpec(
             Thread.sleep(100)
           }
         }.timeoutTo(
-          FiniteDuration(2, TimeUnit.SECONDS),
+          FiniteDuration(5, TimeUnit.SECONDS),
           Task(sys.error(s"Expected deletion of $orphanClientClassesDir"))
         )
       }
