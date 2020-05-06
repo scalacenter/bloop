@@ -14,6 +14,7 @@ import scala.concurrent.Promise
 import monix.eval.Task
 
 import sbt.internal.inc.bloop.internal.BloopStamps
+import bloop.tracing.TraceProperties
 
 object ClasspathHasherSpec extends bloop.testing.BaseSuite {
   ignore("cancellation works OK") {
@@ -21,7 +22,7 @@ object ClasspathHasherSpec extends bloop.testing.BaseSuite {
     val logger = new RecordingLogger()
     val cancelPromise = Promise[Unit]()
     val cancelPromise2 = Promise[Unit]()
-    val tracer = BraveTracer("cancels-correctly-test")
+    val tracer = BraveTracer("cancels-correctly-test", TraceProperties.default)
     val jars =
       Array(
         DependencyResolution.Artifact("org.apache.spark", "spark-core_2.11", "2.4.4"),

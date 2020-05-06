@@ -217,16 +217,12 @@ final class BloopBspServices(
     val currentWorkspaceSettings = WorkspaceSettings.readFromFile(configDir, callSiteState.logger)
     val currentRefreshProjectsCommand: Option[List[String]] =
       currentWorkspaceSettings.flatMap(_.refreshProjectsCommand)
+    val currentTraceSettings = currentWorkspaceSettings.flatMap(_.traceSettings)
 
     val isMetals = params.displayName.contains("Metals")
     val isIntelliJ = params.displayName.contains("IntelliJ")
+    val refreshProjectsCommand = if (isIntelliJ) currentRefreshProjectsCommand else None
 
-    val refreshProjectsCommand =
-      if (isIntelliJ) {
-        currentRefreshProjectsCommand
-      } else {
-        None
-      }
     val client = ClientInfo.BspClientInfo(
       params.displayName,
       params.version,
@@ -256,7 +252,8 @@ final class BloopBspServices(
             WorkspaceSettings(
               Some(semanticDBVersion),
               Some(supportedScalaVersions),
-              currentRefreshProjectsCommand
+              currentRefreshProjectsCommand,
+              currentTraceSettings
             )
           }
       }
@@ -390,6 +387,7 @@ final class BloopBspServices(
       originId: Option[String],
       logger: BspServerLogger
   ): BspResult[bsp.CompileResult] = {
+    val workspaceSettings = WorkspaceSettings.readFromFile(state.build.origin, logger)
     val cancelCompilation = Promise[Unit]()
     def reportError(p: Project, problems: List[ProblemPerPhase], elapsedMs: Long): String = {
       // Don't show warnings in this "final report", we're handling them in the reporter

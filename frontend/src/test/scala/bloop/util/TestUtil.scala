@@ -243,7 +243,8 @@ object TestUtil {
           settings
         )
     }
-    val build = Build(configDirectory, transformedProjects)
+    val workspaceSettings = WorkspaceSettings.readFromFile(configDirectory, logger)
+    val build = Build(configDirectory, transformedProjects, workspaceSettings)
     val state = State.forTests(build, TestUtil.getCompilerCache(logger), logger)
     val state1 = state.copy(commonOptions = state.commonOptions.copy(env = runAndTestProperties))
     if (!emptyResults) state1 else state1.copy(results = ResultsCache.emptyForTests)
@@ -320,7 +321,7 @@ object TestUtil {
           makeProject(temp, name, sources, deps, instance1, jdkConfig, logger, order, extraJars)
       }
       val loaded = projects.map(p => LoadedProject.RawProject(p))
-      val build = Build(temp, loaded.toList)
+      val build = Build(temp, loaded.toList, None)
       val state = State.forTests(build, TestUtil.getCompilerCache(logger), logger)
       try op(state)
       catch {

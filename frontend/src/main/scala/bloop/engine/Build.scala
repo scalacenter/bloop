@@ -1,21 +1,20 @@
 package bloop.engine
 
-import bloop.data.{Origin, Project, LoadedProject, WorkspaceSettings}
+import bloop.data.{LoadedProject, Origin, Project, WorkspaceSettings}
 import bloop.engine.Dag.DagResult
-import bloop.io.AbsolutePath
+import bloop.io.{AbsolutePath, ByteHasher}
 import bloop.logging.Logger
 import bloop.util.CacheHashCode
-import bloop.io.ByteHasher
-import bloop.logging.DebugFilter
+import monix.eval.Task
 
 import scala.collection.mutable
 
-import monix.eval.Task
-
 final case class Build private (
     origin: AbsolutePath,
-    loadedProjects: List[LoadedProject]
+    loadedProjects: List[LoadedProject],
+    workspaceSettings: Option[WorkspaceSettings]
 ) extends CacheHashCode {
+
   private val stringToProjects: Map[String, Project] =
     loadedProjects.map(lp => lp.project.name -> lp.project).toMap
   private[bloop] val DagResult(dags, missingDeps, traces) = Dag.fromMap(stringToProjects)

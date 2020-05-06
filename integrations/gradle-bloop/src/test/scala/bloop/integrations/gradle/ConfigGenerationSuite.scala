@@ -4,11 +4,11 @@ import java.io.File
 import java.net.URLClassLoader
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths}
-
 import bloop.cli.Commands
 import bloop.config.Config.Platform.Jvm
 import bloop.config.{Config, Tag}
 import bloop.config.Config.{CompileSetup, JavaThenScala, Mixed, Platform}
+import bloop.data.WorkspaceSettings
 import bloop.engine.{Build, Run, State}
 import bloop.io.AbsolutePath
 import bloop.logging.BloopLogger
@@ -19,7 +19,6 @@ import org.junit._
 import org.junit.Assert._
 import org.junit.rules.TemporaryFolder
 import bloop.engine.BuildLoader
-
 import scala.collection.JavaConverters._
 
 /*
@@ -1586,7 +1585,8 @@ abstract class ConfigGenerationSuite {
     assert(Files.exists(configDir.toPath), "Does not exist: " + configDir)
     val configDirectory = AbsolutePath(configDir)
     val loadedProjects = BuildLoader.loadSynchronously(configDirectory, logger)
-    val build = Build(configDirectory, loadedProjects)
+    val workspaceSettings = WorkspaceSettings.readFromFile(configDirectory, logger)
+    val build = Build(configDirectory, loadedProjects, workspaceSettings)
     State.forTests(build, TestUtil.getCompilerCache(logger), logger)
   }
 
