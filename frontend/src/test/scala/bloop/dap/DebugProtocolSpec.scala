@@ -141,7 +141,7 @@ object DebugProtocolSpec extends DebugBspBaseSuite {
     }
   }
 
-  test("starts test suites") {
+  flakyTest("starts test suites", 3) {
     TestUtil.withinWorkspace { workspace =>
       val logger = new RecordingLogger(ansiCodesSupported = false)
       loadBspBuildFromResources("cross-test-build-scalajs-1.0", workspace, logger) { build =>
