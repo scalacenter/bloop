@@ -230,7 +230,9 @@ class BspCompileSpec(
     }
   }
 
-  test("create orphan client classes directory and make sure loading a BSP session cleans it up") {
+  testNonWindows(
+    "create orphan client classes directory and make sure loading a BSP session cleans it up"
+  ) {
     TestUtil.withinWorkspace { workspace =>
       val sources = List(
         """/main/scala/Foo.scala
@@ -263,7 +265,7 @@ class BspCompileSpec(
 
       // Wait until the extra directory is finally deleted at the end of the bsp session
       TestUtil.await(
-        FiniteDuration(2, TimeUnit.SECONDS),
+        FiniteDuration(10, TimeUnit.SECONDS),
         bloop.engine.ExecutionContext.ioScheduler
       ) {
         Task {
@@ -274,7 +276,7 @@ class BspCompileSpec(
             Thread.sleep(100)
           }
         }.timeoutTo(
-          FiniteDuration(2, TimeUnit.SECONDS),
+          FiniteDuration(5, TimeUnit.SECONDS),
           Task(sys.error(s"Expected deletion of $orphanClientClassesDir"))
         )
       }

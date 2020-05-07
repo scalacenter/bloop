@@ -38,6 +38,8 @@ import bloop.CompileBackgroundTasks
 import ch.epfl.scala.bsp.{StatusCode => BspStatusCode}
 import bloop.logging.CompilationEvent
 import bloop.reporter.Reporter
+import java.io.StringWriter
+import java.io.PrintWriter
 
 object CompileGraph {
   private implicit val filter: DebugFilter = DebugFilter.Compilation
@@ -146,21 +148,36 @@ object CompileGraph {
   )(
       compile: SuccessfulCompileBundle => CompileTraversal
   ): CompileTraversal = {
+    def partialFailure(
+        errorMsg: String,
+        err: Option[Throwable]
+    ): Task[Dag[PartialCompileResult]] = {
+      val errInfo = err.map(e => s": ${errorToString(e)}").getOrElse("")
+      val finalErrorMsg = s"$errorMsg$errInfo"
+      val failedResult = Compiler.Result.GlobalError(errorMsg)
+      val failed = Task.now(ResultBundle(failedResult, None, None))
+      Task.now(Leaf(PartialFailure(inputs.project, FailedOrCancelledPromise, failed)))
+    }
+
     implicit val filter = DebugFilter.Compilation
     def withBundle(f: SuccessfulCompileBundle => CompileTraversal): CompileTraversal = {
       setup(inputs).materialize.flatMap {
-        case Success(bundle: SuccessfulCompileBundle) => f(bundle)
+        case Success(bundle: SuccessfulCompileBundle) =>
+          f(bundle).materialize.flatMap {
+            case Success(result) => Task.now(result)
+            case Failure(err) =>
+              val msg = s"Unexpected exception when compiling ${inputs.project}"
+              bundle.logger.trace(err)
+              partialFailure(msg, Some(err))
+          }
+
         case Success(CancelledCompileBundle) =>
           val result = Compiler.Result.Cancelled(Nil, 0L, CompileBackgroundTasks.empty)
           val failed = Task.now(ResultBundle(result, None, None))
           Task.now(Leaf(PartialFailure(inputs.project, FailedOrCancelledPromise, failed)))
-        case Failure(t) =>
-          val failedResult = Compiler.Result.GlobalError(
-            s"Unexpected exception when computing compile inputs ${t.getMessage()}"
-          )
-
-          val failed = Task.now(ResultBundle(failedResult, None, None))
-          Task.now(Leaf(PartialFailure(inputs.project, FailedOrCancelledPromise, failed)))
+        case Failure(err) =>
+          val msg = s"Unexpected exception when computing compile inputs for ${inputs.project}"
+          partialFailure(msg, Some(err))
       }
     }
 
@@ -736,5 +753,12 @@ object CompileGraph {
             JavaSignal.FailFastCompilation(ps ::: ps2)
         }
       }
+  }
+
+  private def errorToString(err: Throwable): String = {
+    val sw = new StringWriter()
+    val pw = new PrintWriter(sw)
+    err.printStackTrace(pw)
+    sw.toString
   }
 }
