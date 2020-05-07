@@ -230,7 +230,9 @@ class BspCompileSpec(
     }
   }
 
-  test("create orphan client classes directory and make sure loading a BSP session cleans it up") {
+  testNonWindows(
+    "create orphan client classes directory and make sure loading a BSP session cleans it up"
+  ) {
     TestUtil.withinWorkspace { workspace =>
       val sources = List(
         """/main/scala/Foo.scala

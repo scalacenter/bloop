@@ -486,6 +486,14 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
     }
   }
 
+  def testNonWindows(name: String)(fun: => Any): Unit = {
+    if (isWindows) {
+      super.ignore(name, "DISABLED")(fun)
+    } else {
+      super.test(name)(fun)
+    }
+  }
+
   private final lazy val tempDir = Files.createTempDirectory("temp-sockets")
   tempDir.toFile.deleteOnExit()
 
