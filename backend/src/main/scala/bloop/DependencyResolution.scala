@@ -62,7 +62,7 @@ object DependencyResolution {
       val moduleName = coursier.ModuleName(module)
       val attributes =
         if (!resolveSources) Attributes() else Attributes(Type.empty, Classifier.sources)
-      Dependency.of(Module(org, moduleName), version).withAttributes(attributes)
+      Dependency(Module(org, moduleName), version).withAttributes(attributes)
     }
     resolveDependenciesWithErrors(dependencies, logger, resolveSources, additionalRepositories)
   }
