@@ -191,4 +191,5 @@ jobs:
         shell: bash
       - name: Cut GitHub release and update installers on ${{ matrix.os }}
         run: |
+          bin/ci-setup-bloopoid-keys.sh
           ./bin/sbt-ci-release.sh "frontend/updateHomebrewFormula" "frontend/updateScoopFormula" "frontend/updateArchPackage" "frontend/githubRelease"
