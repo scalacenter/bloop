@@ -1,9 +1,8 @@
 - name: Universal Installation
   items:
-    universal: curl (Default)
+    universal: coursier (Default)
 - name: Package Managers
   items:
     homebrew: Homebrew (macOS)
     scoop: Scoop (Windows)
-    nix: Nix
     aur: AUR (Arch Linux)

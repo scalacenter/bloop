@@ -23,17 +23,40 @@ object ReleaseUtils {
     BuildKeys.buildBase.value / "bloopgun" / "target" / "graalvm-native-image" / "bloopgun-core"
   }
 
-  /**
-   * Materializes a file-based Coursier channel to install a specific bloop version.
-   */
   val bloopCoursierJson = Def.task {
     val bloopVersion = Keys.version.value
     val target = Keys.target.value
     val log = Keys.streams.value.log
 
-    val cacheDirectory = Keys.streams.value.cacheDirectory
     val jsonPath = bloopCoursierJsonPath.value
-    val jsonTarget = target / jsonPath.getName
+    IO.createDirectory(target / "stable")
+    val jsonTarget = target / "stable" / jsonPath.getName
+
+    // Interpolated variables are replaced by coursier itself
+    val bloopCliPath =
+      "https://github.com/scalacenter/bloop/releases/download/v${version}/bloop-${platform}"
+
+    val lines = IO.readLines(jsonPath)
+    val newContent = lines.map(
+      _.replace("$VERSION", bloopVersion)
+        .replace("$PREBUILT", bloopCliPath)
+    )
+
+    IO.writeLines(jsonTarget, newContent)
+    jsonTarget
+  }
+
+  /**
+   * Materializes a file-based Coursier channel to install a specific bloop version.
+   */
+  val bloopLocalCoursierJson = Def.task {
+    val bloopVersion = Keys.version.value
+    val target = Keys.target.value
+    val log = Keys.streams.value.log
+
+    val jsonPath = bloopCoursierJsonPath.value
+    IO.createDirectory(target / "local")
+    val jsonTarget = target / "local" / jsonPath.getName
     val bloopCliPath = "file://" + bloopPrebuiltCliPath.value.toString
 
     val lines = IO.readLines(jsonPath)
@@ -47,7 +70,7 @@ object ReleaseUtils {
   }
 
   def installationArtifacts(
-      bloopCoursierJson: File,
+      coursierJson: File,
       buildBase: File,
       remoteTag: Option[String]
   ): Artifacts = {
@@ -60,7 +83,7 @@ object ReleaseUtils {
     val zsh = buildBase / "etc" / "zsh" / "_bloop"
     val fish = buildBase / "etc" / "fish" / "bloop.fish"
     Artifacts(
-      artifact(bloopCoursierJson, "coursier-channel"),
+      artifact(coursierJson, "coursier-channel"),
       artifact(bash, "bash-completions"),
       artifact(zsh, "zsh-completions"),
       artifact(fish, "fish-completions")
@@ -83,11 +106,11 @@ object ReleaseUtils {
         if (label == "coursier-channel")
           s"https://github.com/scalacenter/bloop/releases/download/$tagName/$name.json"
         else if (label == "bash-completions")
-          s"https://raw.githubusercontent.com/scalacenter/bloop/$tagName/etc/bash/bloop"
+          s"https://raw.githubusercontent.com/scalacenter/bloop/$tagName/bash-completions"
         else if (label == "zsh-completions")
-          s"https://raw.githubusercontent.com/scalacenter/bloop/$tagName/etc/zsh/_bloop"
+          s"https://raw.githubusercontent.com/scalacenter/bloop/$tagName/zsh-completions"
         else if (label == "fish-completions")
-          s"https://raw.githubusercontent.com/scalacenter/bloop/$tagName/etc/fish/bloop.fish"
+          s"https://raw.githubusercontent.com/scalacenter/bloop/$tagName/fish-completions"
         else sys.error("Unrecognized label for artifact, can't create remote artifact!")
       }
 
@@ -149,9 +172,9 @@ object ReleaseUtils {
        |      mv "${artifacts.bloopCoursier.name}", "channel/bloop.json"
        |      system "coursier", "install", "--install-dir", "bin", "--default-channels=false", "--channel", "channel", "bloop", "-J-Divy.home=$ivyHome"
        |
-       |      resource("bash_completions").stage { bash_completion.install "bloop" }
-       |      resource("zsh_completions").stage { zsh_completion.install "_bloop" }
-       |      resource("fish_completions").stage { fish_completion.install "bloop.fish" }
+       |      resource("bash_completions").stage { bash_completion.install "bash-completions" }
+       |      resource("zsh_completions").stage { zsh_completion.install "zsh-completions" }
+       |      resource("fish_completions").stage { fish_completion.install "fish-completions" }
        |
        |      prefix.install "bin"
        |  end
@@ -167,7 +190,7 @@ object ReleaseUtils {
     val versionDir = Keys.target.value / version
     val targetLocalFormula = versionDir / "Bloop.rb"
 
-    val coursierChannel = bloopCoursierJson.value
+    val coursierChannel = bloopLocalCoursierJson.value
     val artifacts = installationArtifacts(coursierChannel, BuildKeys.buildBase.value, None)
     val contents = generateHomebrewFormulaContents(version, artifacts)
 
@@ -182,7 +205,6 @@ object ReleaseUtils {
     val buildBase = BuildKeys.buildBase.value
 
     val coursierChannel = bloopCoursierJson.value
-
     val version = Keys.version.value
     val token = GitUtils.authToken()
     cloneAndPush(repository, buildBase, version, token, true) { inputs =>
@@ -216,7 +238,7 @@ object ReleaseUtils {
     val logger = Keys.streams.value.log
     val version = Keys.version.value
     val versionDir = Keys.target.value / version
-    val coursierChannel = bloopCoursierJson.value
+    val coursierChannel = bloopLocalCoursierJson.value
     val artifacts = installationArtifacts(coursierChannel, BuildKeys.buildBase.value, None)
 
     val formulaFileName = "bloop.json"
@@ -238,7 +260,6 @@ object ReleaseUtils {
     cloneAndPush(repository, buildBase, version, token, true) { inputs =>
       val formulaFileName = "bloop.json"
       val artifacts = installationArtifacts(coursierChannel, buildBase, Some(inputs.tag))
-      val url = s"https://github.com/scalacenter/bloop/releases/download/${inputs.tag}/install.py"
       val contents = generateScoopFormulaContents(version, artifacts)
       FormulaArtifact(inputs.base / formulaFileName, contents) :: Nil
     }
@@ -329,7 +350,7 @@ object ReleaseUtils {
     val versionDir = Keys.target.value / version
     val targetBuild = versionDir / "PKGBUILD"
     val targetInfo = versionDir / ".SRCINFO"
-    val coursierChannel = bloopCoursierJson.value
+    val coursierChannel = bloopLocalCoursierJson.value
     val artifacts = installationArtifacts(coursierChannel, BuildKeys.buildBase.value, None)
     val pkgbuild = generateArchBuildContents(version, artifacts)
     val srcinfo = generateArchInfoContents(version, artifacts)
