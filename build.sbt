@@ -352,7 +352,10 @@ def shadeSettingsForModule(moduleId: String, module: Reference) = List(
     // Coursier direct and transitive deps
     "coursier",
     "shapeless",
-    "argonaut"
+    "argonaut",
+    "io.github.alexarchambault.windowsansi",
+    "org.fusesource.hawtjni",
+    "org.fusesource.jansi"
   )
 )
 
@@ -509,7 +512,10 @@ def shadeSbtSettingsForModule(
       "com.google.errorprone",
       "org.codehaus",
       "ch.epfl.scala.bsp4j",
-      "org.eclipse"
+      "org.eclipse",
+      "io.github.alexarchambault.windowsansi",
+      "org.fusesource.hawtjni",
+      "org.fusesource.jansi"
     )
   )
 }
