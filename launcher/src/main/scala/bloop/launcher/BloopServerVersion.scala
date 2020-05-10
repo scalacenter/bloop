@@ -12,13 +12,13 @@ case class BloopServerVersion(
 object BloopServerVersion {
   def apply(serverVersion: String, out: PrintStream): Option[BloopServerVersion] = {
     Version(serverVersion).items.toList match {
-      case Version.Number(major) :: Version.Number(minor) :: rest =>
+      case (major: Version.Number) :: (minor: Version.Number) :: rest =>
         val patchNumber = rest match {
-          case Version.Number(patch) :: _ => patch
-          case _ => 0
+          case (patch: Version.Number) :: _ => patch
+          case _ => Version.Number(0)
         }
 
-        Some(BloopServerVersion(major, minor, patchNumber))
+        Some(BloopServerVersion(major.value, minor.value, patchNumber.value))
       case unexpectedItems =>
         printError(
           s"Expected major and minor version numbers in ${serverVersion}, obtained $unexpectedItems",
