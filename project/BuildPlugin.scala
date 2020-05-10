@@ -565,11 +565,7 @@ object BuildImplementation {
         BuildKeys.fetchGradleApi := {
           val logger = Keys.streams.value.log
           val targetDir = (Keys.baseDirectory in Compile).value / "lib"
-          if (!System.getProperty("java.specification.version").startsWith("1.")) ()
-          else {
-            // TODO: we may want to fetch it to a custom unmanaged lib directory under build
-            GradleIntegration.fetchGradleApi(Dependencies.gradleVersion, targetDir, logger)
-          }
+          GradleIntegration.fetchGradleApi(Dependencies.gradleVersion, targetDir, logger)
         },
         // Only generate for tests (they are not published and can contain user-dependent data)
         BuildInfoKeys.buildInfo in Compile := Nil,
