@@ -30,11 +30,6 @@ import scala.collection.JavaConverters._
  */
 
 // minimum supported version
-class ConfigGenerationSuite431 extends ConfigGenerationSuite {
-  protected val gradleVersion: String = "4.3.1"
-}
-
-// maximum supported version
 class ConfigGenerationSuite601 extends ConfigGenerationSuite {
   protected val gradleVersion: String = "6.0.1"
 }

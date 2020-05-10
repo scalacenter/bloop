@@ -32,8 +32,7 @@ object Dependencies {
   val mavenApiVersion = "3.6.1"
   val mavenAnnotationsVersion = "3.5"
   val mavenScalaPluginVersion = "3.2.2"
-  val gradleVersion =
-    if (!System.getProperty("java.specification.version").startsWith("1.")) "6.4.0" else "4.3.1"
+  val gradleVersion = "6.0.1"
   val groovyVersion = "2.5.0"
   val ipcsocketVersion = "1.0.1"
   val monixVersion = "2.3.3"
