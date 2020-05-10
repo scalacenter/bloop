@@ -270,7 +270,7 @@ object ReleaseUtils {
        |arch=(any)
        |url="https://scalacenter.github.io/bloop/"
        |license=('Apache')
-       |depends=('java-environment>=8' 'coursier>=2.0.0_RC6_7')
+       |depends=('java-environment>=8' 'coursier>=2.0.0_RC6_13')
        |source=('$coursierChannelRef' '$bashResourceRef' '$zshResourceRef' '$fishResourceRef')
        |sha256sums=('${artifacts.bloopCoursier.sha}' '${artifacts.bashAutocompletions.sha}' '${artifacts.zshAutocompletions.sha}' '${artifacts.fishAutocompletions.sha}')
        |
@@ -284,12 +284,7 @@ object ReleaseUtils {
        |  cd "$$srcdir"
        |
        |  ## binaries
-       |  # we use /usr/lib/bloop so that we can add a .jvmopts file in it
-       |  install -Dm755 bloop "$$pkgdir"/usr/lib/bloop/bloop
-       |
-       |  # links in /usr/bin
-       |  mkdir -p "$$pkgdir/usr/bin"
-       |  ln -s /usr/lib/bloop/bloop "$$pkgdir"/usr/bin/bloop
+       |  install -Dm755 bloop "$$pkgdir"/usr/bin/bloop
        |
        |  # shell completion
        |  install -Dm644 $bashResourceName "$$pkgdir"/etc/bash_completion.d/bloop
@@ -311,7 +306,7 @@ object ReleaseUtils {
        |arch = any
        |license = Apache
        |depends = java-environment>=8
-       |depends = coursier>=2.0.0_RC6_7
+       |depends = coursier>=2.0.0_RC6_13
        |source = ${artifacts.bloopCoursier.url}
        |sha256sums = ${artifacts.bloopCoursier.sha}
        |source = ${artifacts.bashAutocompletions.url}
