@@ -192,4 +192,5 @@ jobs:
       - name: Cut GitHub release and update installers on ${{ matrix.os }}
         run: |
           . bin/ci-setup-bloopoid-keys.sh
+          export GITHUB_TOKEN="$BLOOPOID_GITHUB_TOKEN"
           ./bin/sbt-ci-release.sh "frontend/updateHomebrewFormula" "frontend/updateScoopFormula" "frontend/githubRelease"
