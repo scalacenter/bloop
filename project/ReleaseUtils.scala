@@ -104,13 +104,13 @@ object ReleaseUtils {
     def remote(name: String, tagName: String, sha: String, label: String): Artifact = {
       val url = {
         if (label == "coursier-channel")
-          s"https://github.com/scalacenter/bloop/releases/download/$tagName/$name.json"
+          s"https://github.com/scalacenter/bloop/releases/download/$tagName/$name"
         else if (label == "bash-completions")
-          s"https://raw.githubusercontent.com/scalacenter/bloop/releases/download/$tagName/bash-completions"
+          s"https://github.com/scalacenter/bloop/releases/download/$tagName/bash-completions"
         else if (label == "zsh-completions")
-          s"https://raw.githubusercontent.com/scalacenter/bloop/releases/download/$tagName/zsh-completions"
+          s"https://github.com/scalacenter/bloop/releases/download$tagName/zsh-completions"
         else if (label == "fish-completions")
-          s"https://raw.githubusercontent.com/scalacenter/bloop/releases/download/$tagName/fish-completions"
+          s"https://github.com/scalacenter/bloop/releases/download/$tagName/fish-completions"
         else sys.error("Unrecognized label for artifact, can't create remote artifact!")
       }
 

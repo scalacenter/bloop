@@ -1,30 +1,31 @@
 
-```sh
-curl -L https://github.com/scalacenter/bloop/releases/download/v@VERSION@/install.py | python
-```
-
-Bloop installs under the standard `$HOME/.bloop` directory.
-
 ### Requirements
 
-1. **Java 8 or higher**
-1. **Python 2 or 3** (installation script and CLI client are written in Python)
+- **Java 8 or higher**
+- Coursier >= `2.0.0-RC6-13`
 
 ### Installation options
 
-<blockquote>
-<p>
-Skip this sub-section if you're not interested in customizing the installation.
-</p>
-</blockquote>
-
-```
-usage: install.py [-h] [-d DEST] -v VERSION -n NAILGUN -c COURSIER
-                  [--ivy-home IVY_HOME] [--bloop-home BLOOP_HOME]
+```sh
+coursier install bloop --only-prebuilt=true
 ```
 
-The installation scripts places the bloop installation in `$HOME/.bloop` by default.
-If you want to change the location to, say, `/opt/bloop`, then:
+Coursier will install bloop in its installation directory. When installing, you
+might get a log similar to this:
 
-1. Use `--dest /opt/bloop`; and,
-2. Add `/opt/bloop` to your `$PATH` in all your live terminals.
+```
+➜  ~ ➜  ~ coursier install bloop
+https://repo1.maven.org/maven2/io/get-coursier/apps/maven-metadata.xml
+  100.0% [##########] 993 B (20.2 KiB / s)
+https://repo1.maven.org/maven2/io/get-coursier/apps/maven-metadata.xml
+  No new update since 2020-05-11 10:44:44
+https://repo1.maven.org/maven2/io/get-coursier/apps/0.0.23/apps-0.0.23.pom
+  100.0% [##########] 1.3 KiB (12.9 KiB / s)
+https://repo1.maven.org/maven2/org/scala-lang/scala-library/maven-metadata.xml
+  No new update since 2020-04-23 06:26:04
+Wrote bloop
+Warning: /Users/jvicentecantero/Library/Application Support/Coursier/bin is not in your PATH
+To fix that, add the following line to ~/.zshrc
+```
+
+Make sure you add the `Coursier` binary directory to your `$PATH`.
