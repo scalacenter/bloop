@@ -57,29 +57,30 @@ scoop search bloop
 <li><strong>Java 8 or higher</strong></li>
 <li><strong>Python 2 or 3</strong> (installation script and CLI client are written in Python)</li>
 </ol>
-</span></div></div><div class="items" data-title="universal"><div><span><pre><code class="hljs css language-sh">curl -L https://github.com/scalacenter/bloop/releases/download/v1.4.0-RC3/install.py | python
-</code></pre>
-<p>Bloop installs under the standard <code>$HOME/.bloop</code> directory.</p>
-<h3><a class="anchor" aria-hidden="true" id="requirements"></a><a href="#requirements" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Requirements</h3>
-<ol>
+</span></div></div><div class="items" data-title="universal"><div><span><h3><a class="anchor" aria-hidden="true" id="requirements"></a><a href="#requirements" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Requirements</h3>
+<ul>
 <li><strong>Java 8 or higher</strong></li>
-<li><strong>Python 2 or 3</strong> (installation script and CLI client are written in Python)</li>
-</ol>
+<li>Coursier &gt;= <code>2.0.0-RC6-13</code></li>
+</ul>
 <h3><a class="anchor" aria-hidden="true" id="installation-options"></a><a href="#installation-options" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Installation options</h3>
-<blockquote>
-<p>
-Skip this sub-section if you're not interested in customizing the installation.
-</p>
-</blockquote>
-<pre><code class="hljs"><span class="hljs-selector-tag">usage</span>: <span class="hljs-selector-tag">install</span><span class="hljs-selector-class">.py</span> <span class="hljs-selector-attr">[-h]</span> <span class="hljs-selector-attr">[-d DEST]</span> <span class="hljs-selector-tag">-v</span> <span class="hljs-selector-tag">VERSION</span> <span class="hljs-selector-tag">-n</span> <span class="hljs-selector-tag">NAILGUN</span> <span class="hljs-selector-tag">-c</span> <span class="hljs-selector-tag">COURSIER</span>
-                  <span class="hljs-selector-attr">[--ivy-home IVY_HOME]</span> <span class="hljs-selector-attr">[--bloop-home BLOOP_HOME]</span>
+<pre><code class="hljs css language-sh">coursier install bloop --only-prebuilt=<span class="hljs-literal">true</span>
 </code></pre>
-<p>The installation scripts places the bloop installation in <code>$HOME/.bloop</code> by default.
-If you want to change the location to, say, <code>/opt/bloop</code>, then:</p>
-<ol>
-<li>Use <code>--dest /opt/bloop</code>; and,</li>
-<li>Add <code>/opt/bloop</code> to your <code>$PATH</code> in all your live terminals.</li>
-</ol>
+<p>Coursier will install bloop in its installation directory. When installing, you
+might get a log similar to this:</p>
+<pre><code class="hljs">➜  ~ ➜  ~ <span class="hljs-string">coursier </span><span class="hljs-string">install </span><span class="hljs-string">bloop
+</span><span class="hljs-string">https:</span>//<span class="hljs-string">repo1.</span><span class="hljs-string">maven.</span><span class="hljs-string">org/</span><span class="hljs-string">maven2/</span><span class="hljs-string">io/</span><span class="hljs-built_in">get-coursier/apps/maven-metadata.xml</span>
+  <span class="hljs-string">100.</span>0% [<span class="hljs-comment">##########] 993 B (20.2 KiB / s)</span>
+<span class="hljs-string">https:</span>//<span class="hljs-string">repo1.</span><span class="hljs-string">maven.</span><span class="hljs-string">org/</span><span class="hljs-string">maven2/</span><span class="hljs-string">io/</span><span class="hljs-built_in">get-coursier/apps/maven-metadata.xml</span>
+  <span class="hljs-string">No </span><span class="hljs-string">new </span><span class="hljs-string">update </span><span class="hljs-string">since </span><span class="hljs-string">2020-05-</span><span class="hljs-string">11 </span><span class="hljs-string">10:44:</span><span class="hljs-string">44
+</span><span class="hljs-string">https:</span>//<span class="hljs-string">repo1.</span><span class="hljs-string">maven.</span><span class="hljs-string">org/</span><span class="hljs-string">maven2/</span><span class="hljs-string">io/</span><span class="hljs-built_in">get-coursier/apps/0.0.23/apps-0.0.23.pom</span>
+  <span class="hljs-string">100.</span>0% [<span class="hljs-comment">##########] 1.3 KiB (12.9 KiB / s)</span>
+<span class="hljs-string">https:</span>//<span class="hljs-string">repo1.</span><span class="hljs-string">maven.</span><span class="hljs-string">org/</span><span class="hljs-string">maven2/</span><span class="hljs-string">org/</span><span class="hljs-string">scala-lang/</span><span class="hljs-string">scala-library/</span><span class="hljs-string">maven-metadata.</span><span class="hljs-string">xml
+</span>  <span class="hljs-string">No </span><span class="hljs-string">new </span><span class="hljs-string">update </span><span class="hljs-string">since </span><span class="hljs-string">2020-04-</span><span class="hljs-string">23 </span><span class="hljs-string">06:26:</span><span class="hljs-string">04
+</span><span class="hljs-string">Wrote </span><span class="hljs-string">bloop
+</span><span class="hljs-string">Warning:</span> /<span class="hljs-string">Users/</span><span class="hljs-string">jvicentecantero/</span><span class="hljs-string">Library/</span><span class="hljs-string">Application </span><span class="hljs-string">Support/</span><span class="hljs-string">Coursier/</span><span class="hljs-string">bin </span><span class="hljs-string">is </span><span class="hljs-string">not </span><span class="hljs-string">in </span><span class="hljs-string">your </span><span class="hljs-string">PATH
+</span><span class="hljs-string">To </span><span class="hljs-string">fix </span><span class="hljs-string">that,</span> <span class="hljs-string">add </span><span class="hljs-string">the </span><span class="hljs-string">following </span><span class="hljs-string">line </span><span class="hljs-string">to </span>~/.<span class="hljs-string">zshrc
+</span></code></pre>
+<p>Make sure you add the <code>Coursier</code> binary directory to your <code>$PATH</code>.</p>
 </span></div></div></div></div><div class="step-setup"><h2 id="installation"><span class="step-no">3</span>Set up your build</h2><div><span><p>This section explains you how to export your build to Bloop manually.</p>
 <p>You can skip this section if:</p>
 <ul>
@@ -111,8 +112,8 @@ build tool you use and keep reading.</p>
           <td><code>-r sonatype:releases</code></td>
         </tr>
         <tr>
-          <td>1.4.0-RC3</td>
-          <td>11 May 2020 12:39</td>
+          <td>1.4.0</td>
+          <td>11 May 2020 13:42</td>
           <td><code>-r sonatype:releases</code></td>
         </tr>
       </tbody>
@@ -219,8 +220,8 @@ question with the development version.</p>
           <td><code>-r sonatype:releases</code></td>
         </tr>
         <tr>
-          <td>1.4.0-RC3</td>
-          <td>11 May 2020 12:39</td>
+          <td>1.4.0</td>
+          <td>11 May 2020 13:42</td>
           <td><code>-r sonatype:releases</code></td>
         </tr>
       </tbody>
@@ -374,8 +375,8 @@ toolchain with minimum interference in their current workflow.</p>
           <td><code>-r sonatype:releases</code></td>
         </tr>
         <tr>
-          <td>1.4.0-RC3</td>
-          <td>11 May 2020 12:39</td>
+          <td>1.4.0</td>
+          <td>11 May 2020 13:42</td>
           <td><code>-r sonatype:releases</code></td>
         </tr>
       </tbody>
@@ -439,7 +440,7 @@ machine. Now, it's time to write Scala code and be productive.</p>
 available.</p>
 <p>If you need help, you can always come over our <a href="https://gitter.im/scalacenter/bloop">Gitter
 channel</a>.</p>
-</span></div></div></div></div></div><script src="/bloop/scripts/tools.js?t=1589200790512"></script><script src="/bloop/scripts/build-tools.js?t=1589200790512"></script></div></div><footer class="nav-footer" id="footer" style="background-color:rgb(17, 42, 68)"><section class="sitemap"><a href="/bloop/" class="nav-home"><img src="/bloop/img/impure-logo-bloop.svg" alt="Bloop" height="60"/></a><a href="/bloop/" class="nav-home"><img src="/bloop/img/frontpage/scala.png" alt="Bloop" height="60"/></a><div><h5>Overview</h5><a href="/bloop/docs/what-is-bloop">What is Bloop</a><a href="/bloop/docs/integration">Integrate with Bloop</a><a href="/bloop/docs/build-tools/overview">Build Tools</a><a href=" /bloop/docs/contributing-guide">Contributing</a></div><div><h5>Build Tools</h5><a href="/bloop/docs/build-tools/sbt">sbt</a><a href="/bloop/docs/build-tools/gradle">Gradle</a><a href="/bloop/docs/build-tools/maven">Maven</a><a href="/bloop/docs/build-tools/mill">Mill</a></div><div><h5>Social</h5><a href="https://github.com/scalacenter/bloop" target="_blank"><img src="https://img.shields.io/github/stars/scalacenter/bloop.svg?color=%23087e8b&amp;label=stars&amp;logo=github&amp;style=social"/></a><a href="https://discord.gg/vys6d43" target="_blank"><img src="https://img.shields.io/discord/632642981228314653?logo=discord&amp;style=social"/></a><a href="https://gitter.im/scalacenter/bloop" target="_blank"><img src="https://img.shields.io/gitter/room/scalacenter/bloop.svg?logo=gitter&amp;style=social"/></a><a href="https://twitter.com/jvican" target="_blank"><img src="https://img.shields.io/twitter/follow/jvican.svg?logo=twitter&amp;style=social"/></a></div></section><section class="copyright">Copyright © 2020 Bloop</section><section class="copyright">Credits to @freepik for svg icons</section><section class="copyright">Credits to Bazel, Babel and Metals for inspiring Bloop&#x27;s website design</section></footer></div><script type="text/javascript" src="https://cdn.jsdelivr.net/docsearch.js/1/docsearch.min.js"></script><script>
+</span></div></div></div></div></div><script src="/bloop/scripts/tools.js?t=1589204559963"></script><script src="/bloop/scripts/build-tools.js?t=1589204559963"></script></div></div><footer class="nav-footer" id="footer" style="background-color:rgb(17, 42, 68)"><section class="sitemap"><a href="/bloop/" class="nav-home"><img src="/bloop/img/impure-logo-bloop.svg" alt="Bloop" height="60"/></a><a href="/bloop/" class="nav-home"><img src="/bloop/img/frontpage/scala.png" alt="Bloop" height="60"/></a><div><h5>Overview</h5><a href="/bloop/docs/what-is-bloop">What is Bloop</a><a href="/bloop/docs/integration">Integrate with Bloop</a><a href="/bloop/docs/build-tools/overview">Build Tools</a><a href=" /bloop/docs/contributing-guide">Contributing</a></div><div><h5>Build Tools</h5><a href="/bloop/docs/build-tools/sbt">sbt</a><a href="/bloop/docs/build-tools/gradle">Gradle</a><a href="/bloop/docs/build-tools/maven">Maven</a><a href="/bloop/docs/build-tools/mill">Mill</a></div><div><h5>Social</h5><a href="https://github.com/scalacenter/bloop" target="_blank"><img src="https://img.shields.io/github/stars/scalacenter/bloop.svg?color=%23087e8b&amp;label=stars&amp;logo=github&amp;style=social"/></a><a href="https://discord.gg/vys6d43" target="_blank"><img src="https://img.shields.io/discord/632642981228314653?logo=discord&amp;style=social"/></a><a href="https://gitter.im/scalacenter/bloop" target="_blank"><img src="https://img.shields.io/gitter/room/scalacenter/bloop.svg?logo=gitter&amp;style=social"/></a><a href="https://twitter.com/jvican" target="_blank"><img src="https://img.shields.io/twitter/follow/jvican.svg?logo=twitter&amp;style=social"/></a></div></section><section class="copyright">Copyright © 2020 Bloop</section><section class="copyright">Credits to @freepik for svg icons</section><section class="copyright">Credits to Bazel, Babel and Metals for inspiring Bloop&#x27;s website design</section></footer></div><script type="text/javascript" src="https://cdn.jsdelivr.net/docsearch.js/1/docsearch.min.js"></script><script>
                 document.addEventListener('keyup', function(e) {
                   if (e.target !== document.body) {
                     return;
