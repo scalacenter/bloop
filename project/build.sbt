@@ -15,7 +15,7 @@ val `bloop-build` = project
   .settings(
     exportJars := true,
     addSbtPlugin("com.dwijnand" % "sbt-dynver" % "4.0.0"),
-    addSbtPlugin("ohnosequences" % "sbt-github-release" % "0.6.0"),
+    addSbtPlugin("ohnosequences" % "sbt-github-release" % "0.7.0"),
     addSbtPlugin("org.scalameta" % "sbt-scalafmt" % "2.0.4"),
     addSbtPlugin("com.eed3si9n" % "sbt-buildinfo" % "0.7.0"),
     addSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.3.3"),
