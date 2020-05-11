@@ -106,11 +106,11 @@ object ReleaseUtils {
         if (label == "coursier-channel")
           s"https://github.com/scalacenter/bloop/releases/download/$tagName/$name.json"
         else if (label == "bash-completions")
-          s"https://raw.githubusercontent.com/scalacenter/bloop/$tagName/bash-completions"
+          s"https://raw.githubusercontent.com/scalacenter/bloop/releases/download/$tagName/bash-completions"
         else if (label == "zsh-completions")
-          s"https://raw.githubusercontent.com/scalacenter/bloop/$tagName/zsh-completions"
+          s"https://raw.githubusercontent.com/scalacenter/bloop/releases/download/$tagName/zsh-completions"
         else if (label == "fish-completions")
-          s"https://raw.githubusercontent.com/scalacenter/bloop/$tagName/fish-completions"
+          s"https://raw.githubusercontent.com/scalacenter/bloop/releases/download/$tagName/fish-completions"
         else sys.error("Unrecognized label for artifact, can't create remote artifact!")
       }
 
