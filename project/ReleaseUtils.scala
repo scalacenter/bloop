@@ -108,7 +108,7 @@ object ReleaseUtils {
         else if (label == "bash-completions")
           s"https://github.com/scalacenter/bloop/releases/download/$tagName/bash-completions"
         else if (label == "zsh-completions")
-          s"https://github.com/scalacenter/bloop/releases/download$tagName/zsh-completions"
+          s"https://github.com/scalacenter/bloop/releases/download/$tagName/zsh-completions"
         else if (label == "fish-completions")
           s"https://github.com/scalacenter/bloop/releases/download/$tagName/fish-completions"
         else sys.error("Unrecognized label for artifact, can't create remote artifact!")
