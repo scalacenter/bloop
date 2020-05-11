@@ -20,6 +20,7 @@ import org.junit.Assert._
 import org.junit.rules.TemporaryFolder
 import bloop.engine.BuildLoader
 import scala.collection.JavaConverters._
+import io.github.classgraph.ClassGraph
 
 /*
  * To remote debug the ConfigGenerationSuite...
@@ -30,8 +31,13 @@ import scala.collection.JavaConverters._
  */
 
 // minimum supported version
-class ConfigGenerationSuite601 extends ConfigGenerationSuite {
-  protected val gradleVersion: String = "6.0.1"
+class ConfigGenerationSuite50 extends ConfigGenerationSuite {
+  protected val gradleVersion: String = "5.0"
+}
+
+// maximum supported version
+class ConfigGenerationSuite64 extends ConfigGenerationSuite {
+  protected val gradleVersion: String = "6.4"
 }
 
 abstract class ConfigGenerationSuite {
@@ -805,18 +811,10 @@ abstract class ConfigGenerationSuite {
       ),
       resultConfig.project.`scala`.get.options
     )
-    assertEquals(
-      List(
-        "-source",
-        "1.2",
-        "-target",
-        "1.3",
-        "-g",
-        "-sourcepath",
-        "-XDuseUnsharedTable=true"
-      ),
-      resultConfig.project.java.get.options
-    )
+    val expectedOptions =
+      List("-source", "1.2", "-target", "1.3", "-g", "-sourcepath", "-XDuseUnsharedTable=true")
+    val obtainedOptions = resultConfig.project.java.get.options
+    assert(expectedOptions.forall(opt => obtainedOptions.contains(opt)))
   }
 
   @Test def doesNotCreateEmptyProjects(): Unit = {
@@ -963,25 +961,25 @@ abstract class ConfigGenerationSuite {
 
     writeBuildScript(
       buildFileB,
-      s"""
-         |import org.gradle.internal.jvm.Jvm
-         |
-         |plugins {
-         |  id 'bloop'
-         |}
-         |
-         |apply plugin: 'scala'
-         |apply plugin: 'bloop'
-         |
-         |repositories {
-         |  mavenCentral()
-         |}
-         |
-         |dependencies {
-         |  compile 'org.typelevel:cats-core_2.12:1.2.0'
-         |  compile(project(path: ':a',  configuration: 'foo'))
-         |  testRuntime files(Jvm.current().toolsJar)
-         |}
+      """
+        |import org.gradle.internal.jvm.Jvm
+        |
+        |plugins {
+        |  id 'bloop'
+        |}
+        |
+        |apply plugin: 'scala'
+        |apply plugin: 'bloop'
+        |
+        |repositories {
+        |  mavenCentral()
+        |}
+        |
+        |dependencies {
+        |  compile 'org.typelevel:cats-core_2.12:1.2.0'
+        |  compile(project(path: ':a',  configuration: 'foo'))
+        |  testRuntime files("${System.properties['java.home']}/../lib/tools.jar")
+        |}
       """.stripMargin
     )
 
@@ -1718,12 +1716,7 @@ abstract class ConfigGenerationSuite {
   }
 
   private def getClasspath: java.lang.Iterable[File] = {
-    classOf[BloopPlugin].getClassLoader
-      .asInstanceOf[URLClassLoader]
-      .getURLs
-      .toList
-      .map(url => new File(url.getFile))
-      .asJava
+    new ClassGraph().getClasspathFiles()
   }
 
   private def hasClasspathEntryName(entryName: String, classpath: List[Path]): Boolean = {

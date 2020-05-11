@@ -32,8 +32,8 @@ object Dependencies {
   val mavenApiVersion = "3.6.1"
   val mavenAnnotationsVersion = "3.5"
   val mavenScalaPluginVersion = "3.2.2"
-  val gradleVersion = "6.0.1"
-  val groovyVersion = "2.5.0"
+  val gradleVersion = "5.0"
+  val groovyVersion = "2.5.4"
   val ipcsocketVersion = "1.0.1"
   val monixVersion = "2.3.3"
   val circeVersion = "0.9.3"
@@ -97,8 +97,8 @@ object Dependencies {
   val mavenPluginAnnotations = "org.apache.maven.plugin-tools" % "maven-plugin-annotations" % mavenAnnotationsVersion % Provided
   val mavenScalaPlugin = "net.alchim31.maven" % "scala-maven-plugin" % mavenScalaPluginVersion
 
-  val gradleCore = "org.gradle" % "gradle-core" % gradleVersion % Provided
-  val gradleWorkers = "org.gradle" % "gradle-workers" % gradleVersion % Provided
+  val gradleCore = "org.gradle" % "gradle-core" % gradleVersion // % Provided
+  val gradleWorkers = "org.gradle" % "gradle-workers" % gradleVersion // % Provided
   val gradleDependencyManagement = "org.gradle" % "gradle-dependency-management" % gradleVersion % Provided
   val gradleToolingApi = "org.gradle" % "gradle-tooling-api" % gradleVersion % Provided
   val groovy = "org.codehaus.groovy" % "groovy" % groovyVersion % Provided
@@ -123,6 +123,8 @@ object Dependencies {
   val scalaJsEnvJsdomNode10 = "org.scala-js" %% "scalajs-env-jsdom-nodejs" % "1.0.0" % Provided
   val scalaJsSbtTestAdapter10 = "org.scala-js" %% "scalajs-sbt-test-adapter" % scalaJs10Version % Provided
   val scalaJsLogging10 = "org.scala-js" %% "scalajs-logging" % scalaJs10Version % Provided
+
+  val classgraph = "io.github.classgraph" % "classgraph" % "4.8.78"
 
   val mill = "com.lihaoyi" %% "mill-scalalib" % millVersion % Provided
   val xxHashLibrary = "net.jpountz.lz4" % "lz4" % xxHashVersion
