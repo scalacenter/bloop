@@ -192,4 +192,4 @@ jobs:
       - name: Cut GitHub release and update installers on ${{ matrix.os }}
         run: |
           . bin/ci-setup-bloopoid-keys.sh
-          ./bin/sbt-ci-release.sh "frontend/updateArchPackage" "frontend/updateHomebrewFormula" "frontend/updateScoopFormula" "frontend/githubRelease"
+          ./bin/sbt-ci-release.sh "frontend/updateHomebrewFormula" "frontend/updateScoopFormula" "frontend/githubRelease"
