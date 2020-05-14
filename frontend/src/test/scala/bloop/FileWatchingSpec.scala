@@ -18,6 +18,7 @@ import java.util.concurrent.TimeUnit
 
 import scala.concurrent.duration.FiniteDuration
 import monix.execution.misc.NonFatal
+import bloop.data.SourcesGlobs
 
 object FileWatchingSpec extends BaseSuite {
   System.setProperty("file-watcher-batch-window-ms", "100")
@@ -183,6 +184,78 @@ object FileWatchingSpec extends BaseSuite {
             firstWatchedState.getLastSuccessfulResultFor(`C`) !=
               thirdWatchedState.getLastSuccessfulResultFor(`C`)
           )
+        }
+      }
+    }
+  }
+
+  flakyTest("support globs", 3) {
+    TestUtil.withinWorkspace { workspace =>
+      import ExecutionContext.ioScheduler
+      object Sources {
+        val `A.scala` =
+          """/A.scala
+            |class A
+          """.stripMargin
+
+        val `A2.scala` =
+          """/A.scala
+            |class A { val foo = 0 }
+          """.stripMargin
+      }
+
+      val baseProject = TestProject(workspace, "a", sources = List(Sources.`A.scala`))
+      val globDirectory = baseProject.config.directory.resolve("src")
+      val `A` = baseProject.copy(
+        config = baseProject.config.copy(
+          sources = Nil,
+          sourcesGlobs = Some(
+            List(
+              Config.SourcesGlobs(
+                globDirectory,
+                walkDepth = None,
+                includes = List("glob:*.scala"),
+                excludes = Nil
+              )
+            )
+          )
+        )
+      )
+      val projects = List(`A`)
+
+      val initialState = loadState(workspace, projects, new RecordingLogger())
+      val compiledState = initialState.compile(`A`)
+      assert(compiledState.status == ExitStatus.Ok)
+      assertValidCompilationState(compiledState, projects)
+
+      val (logObserver, logsObservable) =
+        Observable.multicast[(String, String)](MulticastStrategy.replay)(ioScheduler)
+      val logger = new PublisherLogger(logObserver, debug = true, DebugFilter.All)
+
+      val futureWatchedCompiledState =
+        compiledState.withLogger(logger).compileHandle(`A`, watch = true)
+
+      val HasIterationStoppedMsg = s"Watching ${numberDirsOf(compiledState.getDagFor(`A`))}"
+      def waitUntilIteration(totalIterations: Int, duration: Option[Long] = None): Task[Unit] =
+        waitUntilWatchIteration(logsObservable, totalIterations, HasIterationStoppedMsg, duration)
+
+      def testValidLatestState: TestState = {
+        val state = compiledState.getLatestSavedStateGlobally()
+        assert(state.status == ExitStatus.Ok)
+        assertValidCompilationState(state, projects)
+        state
+      }
+
+      TestUtil.await(FiniteDuration(20, TimeUnit.SECONDS), ExecutionContext.ioScheduler) {
+        for {
+          _ <- waitUntilIteration(1)
+          initialWatchedState <- Task(testValidLatestState)
+          _ <- Task(writeFile(AbsolutePath(globDirectory.resolve("A.scala")), Sources.`A2.scala`))
+          _ <- waitUntilIteration(2, Some(6000L))
+          finalWatchedState <- Task(testValidLatestState)
+        } yield {
+          assert(initialWatchedState.status == ExitStatus.Ok)
+          assert(finalWatchedState.status == ExitStatus.Ok)
         }
       }
     }
