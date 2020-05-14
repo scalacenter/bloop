@@ -172,9 +172,20 @@ object ReleaseUtils {
        |      mv "${artifacts.bloopCoursier.name}", "channel/bloop.json"
        |      system "coursier", "install", "--install-dir", "bin", "--default-channels=false", "--channel", "channel", "bloop", "-J-Divy.home=$ivyHome"
        |
-       |      resource("bash_completions").stage { bash_completion.install "bash-completions" }
-       |      resource("zsh_completions").stage { zsh_completion.install "zsh-completions" }
-       |      resource("fish_completions").stage { fish_completion.install "fish-completions" }
+       |      resource("bash_completions").stage {
+       |        mv "bash-completions", "bloop"
+       |        bash_completion.install "bloop"
+       |      }
+       |
+       |      resource("zsh_completions").stage {
+       |        mv "zsh-completions", "_bloop"
+       |        zsh_completion.install "_bloop"
+       |      }
+       |
+       |      resource("fish_completions").stage {
+       |        mv "fish-completions", "bloop.fish"
+       |        fish_completion.install "bloop.fish"
+       |      }
        |
        |      prefix.install "bin"
        |  end

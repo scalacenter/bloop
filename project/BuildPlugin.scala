@@ -143,8 +143,7 @@ object BuildKeys {
       val baseDir = Keys.baseDirectory.in(ThisBuild).value
       val releaseTargetDir = Keys.target.value / "ghrelease-assets"
 
-      // Windows is prebuilt manually, linux and macos are built by previous build jobs in GitHub Actions
-      val originBloopWindowsBinary = baseDir / "etc" / "bloopgun-windows-1.4.0.exe"
+      val originBloopWindowsBinary = Keys.target.value / "graalvm-binaries" / "bloop-windows"
       val originBloopLinuxBinary = Keys.target.value / "graalvm-binaries" / "bloop-linux"
       val originBloopMacosBinary = Keys.target.value / "graalvm-binaries" / "bloop-macos"
       val targetBloopLinuxBinary = releaseTargetDir / "bloop-x86_64-pc-linux"
