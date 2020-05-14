@@ -129,7 +129,7 @@ jobs:
       
 
   release:
-    name: Publish on ${{ matrix.os }}
+    name: Release version on ${{ matrix.os }}
     needs: publish-binaries
     runs-on: ${{ matrix.os }}
     if: github.event_name == 'push'
@@ -137,7 +137,7 @@ jobs:
       fail-fast: true
       matrix:
         os: [ubuntu-latest]
-        jdk: [graalvm@20.0.0]
+        jdk: [adopt@1.8]
     env:
       CI: true
       SKIP_TEST_RESOURCES_GENERATION: true
