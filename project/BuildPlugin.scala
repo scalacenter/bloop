@@ -164,9 +164,6 @@ object BuildKeys {
       IO.copyFile(originZshCompletions, targetZshCompletions)
       IO.copyFile(originFishCompletions, targetFishCompletions)
 
-      val originBloopWindowsBinaryDll = baseDir / "etc" / "vcruntime140.dll"
-      val targetBloopWindowsBinaryDll = releaseTargetDir / "vcruntime140.dll"
-      IO.copyFile(originBloopWindowsBinaryDll, targetBloopWindowsBinaryDll)
       val coursierJson = ReleaseUtils.bloopCoursierJson.value
       List(
         coursierJson,
@@ -175,8 +172,7 @@ object BuildKeys {
         targetFishCompletions,
         targetBloopLinuxBinary,
         targetBloopMacosBinary,
-        targetBloopWindowsBinary,
-        targetBloopWindowsBinaryDll
+        targetBloopWindowsBinary
       )
     },
     createLocalHomebrewFormula := ReleaseUtils.createLocalHomebrewFormula.value,
