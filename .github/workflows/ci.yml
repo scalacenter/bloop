@@ -182,7 +182,9 @@ jobs:
 
   release:
     name: Release version on ${{ matrix.os }}
-    needs: publish-binaries
+    needs:
+      - publish-binaries
+      - publish-binaries-windows
     runs-on: ${{ matrix.os }}
     if: github.event_name == 'push'
     strategy:
