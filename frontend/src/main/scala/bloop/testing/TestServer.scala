@@ -11,7 +11,7 @@ import bloop.logging.{DebugFilter, Logger}
 import monix.eval.Task
 import monix.execution.misc.NonFatal
 import sbt.{ForkConfiguration, ForkTags}
-import sbt.testing.{Event, TaskDef}
+import sbt.testing.{Event, Framework, TaskDef}
 
 import scala.concurrent.Promise
 
@@ -24,7 +24,7 @@ final class TestServer(
     logger: Logger,
     eventHandler: TestSuiteEventHandler,
     classLoader: ClassLoader,
-    discoveredTests: Map[sbt.testing.Framework, List[TaskDef]],
+    discoveredTests: Map[Framework, List[TaskDef]],
     args: List[Config.TestArgument],
     opts: CommonOptions
 ) {
@@ -32,10 +32,15 @@ final class TestServer(
   private implicit val logContext: DebugFilter = DebugFilter.Test
 
   private val server = new ServerSocket(0)
-  private val (frameworks, tasks) = {
+  private val (runners, tasks) = {
+    def getRunner(framework: Framework) = {
+      val frameworkClass = framework.getClass.getName
+      val fargs = args.filter(_.framework.forall(_.names.contains(frameworkClass)))
+      frameworkClass -> TestInternals.getRunner(framework, fargs, classLoader)
+    }
     // Return frameworks and tasks in order to ensure a deterministic test execution
-    val sortedDiscovery = discoveredTests.toList.sortBy(_._1.name())
-    (sortedDiscovery.map(_._1), sortedDiscovery.flatMap(_._2.sortBy(_.fullyQualifiedName())))
+    val sorted = discoveredTests.toList.sortBy(_._1.name())
+    (sorted.map(_._1).map(getRunner), sorted.flatMap(_._2.sortBy(_.fullyQualifiedName())))
   }
 
   case class TestOrchestrator(startServer: Task[Unit], reporter: Task[Unit])
@@ -79,26 +84,18 @@ final class TestServer(
         os.writeObject(config)
         val taskDefs = tasks.map(forkFingerprint)
         os.writeObject(taskDefs.toArray)
-        os.writeInt(frameworks.size)
+        os.writeInt(runners.size)
         taskDefs.foreach { taskDef =>
           taskDef.fingerprint()
         }
 
         logger.debug(s"Sent task defs to test server: ${taskDefs.map(_.fullyQualifiedName())}")
-        frameworks.foreach { framework =>
-          val frameworkClass = framework.getClass.getName
-          val fargs = args.filter { arg =>
-            arg.framework match {
-              case Some(f) => f.names.contains(frameworkClass)
-              case None => true
-            }
-          }
-
-          val runner = TestInternals.getRunner(framework, fargs, classLoader)
-          logger.debug(s"Sending runner to test server: ${frameworkClass} ${runner.args.toList}")
-          os.writeObject(Array(frameworkClass))
-          os.writeObject(runner.args)
-          os.writeObject(runner.remoteArgs)
+        runners.foreach {
+          case (frameworkClass, runner) =>
+            logger.debug(s"Sending runner to test server: ${frameworkClass} ${runner.args.toList}")
+            os.writeObject(Array(frameworkClass))
+            os.writeObject(runner.args)
+            os.writeObject(runner.remoteArgs)
         }
 
         os.flush()
@@ -150,6 +147,8 @@ final class TestServer(
           logger.trace(e)
         case _ =>
       }
+
+      runners.foreach(_._2.done())
 
       server.close()
       // Do both just in case the logger streams have been closed by nailgun
