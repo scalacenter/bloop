@@ -1,0 +1,1 @@
+sbt bloopgun/graalvm-native-image:packageBin

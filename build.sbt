@@ -279,6 +279,11 @@ lazy val bloopgun: Project = project
       "org.bouncycastle" % "bcpkix-jdk15on" % "1.64"
     ),
     mainClass in GraalVMNativeImage := Some("bloop.bloopgun.Bloopgun"),
+    graalVMNativeImageCommand := {
+      val oldPath = graalVMNativeImageCommand.value
+      if (!scala.util.Properties.isWin) oldPath
+      else "C:/Users/runneradmin/.jabba/jdk/graalvm@20.0.0/bin/native-image.cmd"
+    },
     graalVMNativeImageOptions ++= {
       val reflectionFile = Keys.sourceDirectory.in(Compile).value./("graal")./("reflection.json")
       val securityOverridesFile =

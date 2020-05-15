@@ -126,10 +126,62 @@ jobs:
         with:
           name: bloop-artifacts
           path: bloop-artifacts/${{ matrix.artifact }}
+
+  publish-binaries-windows:
+    name: Publish binaries for ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    if: github.event_name == 'push'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest]
+        jdk: [graalvm@20.0.0]
+        include:
+          - os: windows-latest
+            artifact: bloop-windows
+    env:
+      CI: true
+      SKIP_TEST_RESOURCES_GENERATION: true
+      GITHUB_DEPLOY_KEY: ${{ secrets.GITHUB_DEPLOY_KEY }}
+      BLOOPOID_GITHUB_TOKEN: ${{ secrets.BLOOPOID_GITHUB_TOKEN }}
+      ARTIFACT_NAME: ${{ matrix.artifact }}
+    steps:
+      - name: Configure Pagefile
+        uses: al-cheb/configure-pagefile-action@v1.2
+      - name: Refresh Pagefile
+        run: |
+              (Get-CimInstance Win32_PageFileUsage).AllocatedBaseSize
+      - uses: actions/checkout@v1
+        with:
+          submodules: true
+      - uses: olafurpg/setup-scala@v7
+        with:
+          java-version: ${{ matrix.jdk }}
+      - name: Install GraalVM Native Image
+        run: |
+          echo $JAVA_HOME
+          "$JAVA_HOME\bin\gu.cmd" install native-image
+        shell: bash
+      - name: Publish GraalVM Native artifacts
+        run: >-
+          "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvars64.bat" &&
+          "%CD%"\bin\sbt-ci-release.bat
+        shell: cmd
+      - name: Prepare generated Windows GraalVM binary
+        run: |
+          echo $ARTIFACT_NAME
+          ls bloopgun/target/graalvm-native-image/bloopgun-core.exe
+          mkdir bloop-artifacts
+          cp bloopgun/target/graalvm-native-image/bloopgun-core.exe bloop-artifacts/$ARTIFACT_NAME
+        shell: bash
+      - uses: actions/upload-artifact@master
+        with:
+          name: bloop-artifacts
+          path: bloop-artifacts/${{ matrix.artifact }}
       
 
   release:
-    name: Publish on ${{ matrix.os }}
+    name: Release version on ${{ matrix.os }}
     needs: publish-binaries
     runs-on: ${{ matrix.os }}
     if: github.event_name == 'push'
@@ -137,7 +189,7 @@ jobs:
       fail-fast: true
       matrix:
         os: [ubuntu-latest]
-        jdk: [graalvm@20.0.0]
+        jdk: [adopt@1.8]
     env:
       CI: true
       SKIP_TEST_RESOURCES_GENERATION: true
