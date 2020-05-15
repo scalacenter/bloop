@@ -99,6 +99,7 @@ object BuildKeys {
   val bloopCoursierJson = Def.taskKey[File]("Generate a versioned install script")
   val bloopLocalCoursierJson = Def.taskKey[File]("Generate a versioned install script")
   val releaseEarlyAllModules = Def.taskKey[Unit]("Release early all modules")
+  val releaseSonatypeBundle = Def.taskKey[Unit]("Release sonatype bundle, do nothing if no release")
   val publishLocalAllModules = Def.taskKey[Unit]("Publish all modules locally")
 
   val gradleIntegrationDirs = sbt.AttributeKey[List[File]]("gradleIntegrationDirs")

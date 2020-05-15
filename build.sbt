@@ -1,5 +1,6 @@
 import _root_.bloop.integrations.sbt.BloopDefaults
 import build.BuildImplementation.BuildDefaults
+import xerial.sbt.Sonatype.SonatypeKeys
 
 useGpg in Global := false
 
@@ -843,6 +844,19 @@ val bloop = project
         )
         .value
     },
+    releaseSonatypeBundle := {
+      Def.taskDyn {
+        val bundleDir = SonatypeKeys.sonatypeBundleDirectory.value
+        // Do nothing if sonatype bundle doesn't exist
+        if (!bundleDir.exists) Def.task(())
+        else {
+          Def.task {
+            SonatypeKeys.sonatypeBundleRelease.value
+            ()
+          }
+        }
+      }.value
+    },
     exportCommunityBuild := {
       build.BuildImplementation
         .exportCommunityBuild(
@@ -873,5 +887,5 @@ addCommandAlias(
     .mkString(";", ";", "")
 )
 
-val allReleaseActions = List("releaseEarlyAllModules", "sonatypeBundleRelease")
+val allReleaseActions = List("releaseEarlyAllModules", "releaseSonatypeBundle")
 addCommandAlias("releaseBloop", allReleaseActions.mkString(";", ";", ""))
