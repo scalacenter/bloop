@@ -154,9 +154,9 @@ object BuildKeys {
       IO.copyFile(originBloopLinuxBinary, targetBloopLinuxBinary)
       IO.copyFile(originBloopMacosBinary, targetBloopMacosBinary)
 
-      val originBashCompletions = baseDir / "etc" / "bash" / "bloop"
-      val originZshCompletions = baseDir / "etc" / "zsh" / "_bloop"
-      val originFishCompletions = baseDir / "etc" / "fish" / "bloop.fish"
+      val originBashCompletions = baseDir / "etc" / "bash-completions"
+      val originZshCompletions = baseDir / "etc" / "zsh-completions"
+      val originFishCompletions = baseDir / "etc" / "fish-completions"
       val targetBashCompletions = releaseTargetDir / "bash-completions"
       val targetZshCompletions = releaseTargetDir / "zsh-completions"
       val targetFishCompletions = releaseTargetDir / "fish-completions"

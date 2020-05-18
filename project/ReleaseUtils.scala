@@ -74,49 +74,25 @@ object ReleaseUtils {
       buildBase: File,
       remoteTag: Option[String]
   ): Artifacts = {
-    def artifact(f: File, label: String) = remoteTag match {
-      case Some(tag) => Artifact.remote(f.getName(), tag, sha256(f), label)
-      case None => Artifact.local(f.getName, f, sha256(f))
+    def artifact(f: File) = {
+      def localUrl =
+        if (!scala.util.Properties.isWin) s"file://${f.getAbsolutePath}"
+        else f.toPath.toUri.toString.replace("\\", "\\\\")
+
+      def remoteUrl(tag: String) =
+        s"https://github.com/scalacenter/bloop/releases/download/$tag/${f.name}"
+
+      val url = remoteTag.fold(localUrl)(remoteUrl)
+      Artifact(f.getName, url, sha256(f))
     }
 
-    val bash = buildBase / "etc" / "bash" / "bloop"
-    val zsh = buildBase / "etc" / "zsh" / "_bloop"
-    val fish = buildBase / "etc" / "fish" / "bloop.fish"
-    Artifacts(
-      artifact(coursierJson, "coursier-channel"),
-      artifact(bash, "bash-completions"),
-      artifact(zsh, "zsh-completions"),
-      artifact(fish, "fish-completions")
-    )
+    val bash = buildBase / "etc" / "bash-completions"
+    val zsh = buildBase / "etc" / "zsh-completions"
+    val fish = buildBase / "etc" / "fish-completions"
+    Artifacts(artifact(coursierJson), artifact(bash), artifact(zsh), artifact(fish))
   }
 
   case class Artifact(name: String, url: String, sha: String)
-
-  object Artifact {
-    def local(name: String, source: File, sha: String): Artifact = {
-      // Scoop (Win) doesn't accept file URIs, only regular file paths
-      val url =
-        if (!scala.util.Properties.isWin) s"file://${source.getAbsolutePath}"
-        else source.toPath.toUri.toString.replace("\\", "\\\\")
-      Artifact(name, url, sha)
-    }
-
-    def remote(name: String, tagName: String, sha: String, label: String): Artifact = {
-      val url = {
-        if (label == "coursier-channel")
-          s"https://github.com/scalacenter/bloop/releases/download/$tagName/$name"
-        else if (label == "bash-completions")
-          s"https://github.com/scalacenter/bloop/releases/download/$tagName/bash-completions"
-        else if (label == "zsh-completions")
-          s"https://github.com/scalacenter/bloop/releases/download/$tagName/zsh-completions"
-        else if (label == "fish-completions")
-          s"https://github.com/scalacenter/bloop/releases/download/$tagName/fish-completions"
-        else sys.error("Unrecognized label for artifact, can't create remote artifact!")
-      }
-
-      Artifact(name, url, sha)
-    }
-  }
 
   case class Artifacts(
       bloopCoursier: Artifact,
@@ -173,17 +149,17 @@ object ReleaseUtils {
        |      system "coursier", "install", "--install-dir", "bin", "--default-channels=false", "--channel", "channel", "bloop", "-J-Divy.home=$ivyHome"
        |
        |      resource("bash_completions").stage {
-       |        mv "bash-completions", "bloop"
+       |        mv "${artifacts.bashAutocompletions.name}", "bloop"
        |        bash_completion.install "bloop"
        |      }
        |
        |      resource("zsh_completions").stage {
-       |        mv "zsh-completions", "_bloop"
+       |        mv "${artifacts.zshAutocompletions.name}", "_bloop"
        |        zsh_completion.install "_bloop"
        |      }
        |
        |      resource("fish_completions").stage {
-       |        mv "fish-completions", "bloop.fish"
+       |        mv "${artifacts.fishAutocompletions.name}", "bloop.fish"
        |        fish_completion.install "bloop.fish"
        |      }
        |
