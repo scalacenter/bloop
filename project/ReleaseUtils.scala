@@ -309,14 +309,23 @@ object ReleaseUtils {
        |build() {
        |  mkdir channel
        |  mv "$coursierChannelName" "channel/bloop.json"
-       |  coursier install --install-dir "$$srcdir" --default-channels=false --channel channel bloop
+       |  coursier install --install-dir "$$srcdir" --default-channels=false --channel channel --only-prebuilt=true bloop
        |}
        |
        |package() {
        |  cd "$$srcdir"
        |
-       |  ## binaries
-       |  install -Dm755 bloop "$$pkgdir"/usr/bin/bloop
+       |  # patch the bloop launcher so that it works when symlinked from /usr/bin
+       |  sed 's|$$(dirname "$$0")|/usr/lib/bloop|' -i bloop
+       |
+       |  # install to /usr/lib/bloop
+       |  # NOTE: bloop is just a launcher, the actual program is .bloop.aux
+       |  install -Dm755 bloop "$$pkgdir"/usr/lib/bloop/bloop
+       |  install -Dm755 .bloop.aux "$$pkgdir"/usr/lib/bloop/.bloop.aux
+       |
+       |  # add link to /usr/bin
+       |  mkdir -p "$$pkgdir"/usr/bin
+       |  ln -s /usr/lib/bloop/bloop "$$pkgdir"/usr/bin/bloop
        |
        |  # shell completion
        |  install -Dm644 $bashResourceName "$$pkgdir"/etc/bash_completion.d/bloop
