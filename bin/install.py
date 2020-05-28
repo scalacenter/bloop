@@ -95,9 +95,9 @@ else:
         ETC_VERSION = "master"
 
 NAILGUN_CLIENT_URL = "https://raw.githubusercontent.com/scalacenter/nailgun/%s/pynailgun/ng.py" % NAILGUN_COMMIT
-ZSH_COMPLETION_URL = "https://raw.githubusercontent.com/scalacenter/bloop/%s/etc/zsh/_bloop" % ETC_VERSION
-BASH_COMPLETION_URL = "https://raw.githubusercontent.com/scalacenter/bloop/%s/etc/bash/bloop" % ETC_VERSION
-FISH_COMPLETION_URL = "https://raw.githubusercontent.com/scalacenter/bloop/%s/etc/fish/bloop.fish" % ETC_VERSION
+ZSH_COMPLETION_URL = "https://raw.githubusercontent.com/scalacenter/bloop/%s/etc/zsh-completions" % ETC_VERSION
+BASH_COMPLETION_URL = "https://raw.githubusercontent.com/scalacenter/bloop/%s/etc/bash-completions" % ETC_VERSION
+FISH_COMPLETION_URL = "https://raw.githubusercontent.com/scalacenter/bloop/%s/etc/fish-completions" % ETC_VERSION
 SYSTEMD_SERVICE_URL = "https://raw.githubusercontent.com/scalacenter/bloop/%s/etc/systemd/bloop.service" % ETC_VERSION
 XDG_APPLICATION_URL = "https://raw.githubusercontent.com/scalacenter/bloop/%s/etc/xdg/bloop.desktop" % ETC_VERSION
 XDG_ICON_URL = "https://raw.githubusercontent.com/scalacenter/bloop/%s/etc/xdg/bloop.png" % ETC_VERSION
@@ -291,9 +291,9 @@ if is_local:
         sys.exit(1)
 
     # The bloop rb is created under the relative path 'frontend/target/Bloop.rb'
-    local_zsh = join(join(join(args.bloop_home, "etc"), "zsh"), "_bloop")
-    local_bash = join(join(join(args.bloop_home, "etc"), "bash"), "bloop")
-    local_fish = join(join(join(args.bloop_home, "etc"), "fish"), "bloop.fish")
+    local_zsh = join(join(args.bloop_home, "etc"), "zsh-completions")
+    local_bash = join(join(args.bloop_home, "etc"), "bash-completions")
+    local_fish = join(join(args.bloop_home, "etc"), "fish-completions")
 
     copy_and_install(local_zsh, ZSH_COMPLETION_TARGET, 0o755)
     print("Installed zsh completion in '%s'" % ZSH_COMPLETION_TARGET)
