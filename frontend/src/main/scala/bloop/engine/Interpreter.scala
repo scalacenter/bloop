@@ -8,11 +8,11 @@ import bloop.cli.completion.{Case, Mode}
 import bloop.io.{AbsolutePath, RelativePath, SourceWatcher}
 import bloop.logging.{DebugFilter, Logger, NoopLogger}
 import bloop.testing.{LoggingEventHandler, TestInternals}
-import bloop.engine.tasks.{CompileTask, LinkTask, Tasks, TestTask, RunMode}
+import bloop.engine.tasks.{CompileTask, LinkTask, RunMode, Tasks, TestTask}
 import bloop.cli.Commands.CompilingCommand
 import bloop.cli.Validate
 import bloop.util.JavaRuntime
-import bloop.data.{ClientInfo, Platform, Project, JdkConfig}
+import bloop.data.{ClientInfo, JdkConfig, Platform, Project}
 import bloop.engine.Feedback.XMessageString
 import bloop.engine.tasks.toolchains.{ScalaJsToolchain, ScalaNativeToolchain}
 import bloop.reporter.{LogReporter, ReporterInputs}
@@ -22,10 +22,14 @@ import monix.eval.Task
 import scala.concurrent.Promise
 import java.nio.file.Files
 import java.nio.charset.StandardCharsets
+
 import bloop.ScalaInstance
+
 import scala.collection.immutable.Nil
 import scala.annotation.tailrec
 import java.io.IOException
+
+import bloop.engine.Dag.DagResult
 
 object Interpreter {
   // This is stack-safe because of Monix's trampolined execution
@@ -189,12 +193,15 @@ object Interpreter {
   private def showProjects(cmd: Commands.Projects, state: State): Task[State] = Task {
     import state.logger
     if (cmd.dotGraph) {
-      val contents = Dag.toDotGraph(state.build.dags)
+      val stringToMainProjects =
+        state.build.mainOnlyProjects.map(lp => lp.project.name -> lp.project).toMap
+      val DagResult(dags, _, _) = Dag.fromMap(stringToMainProjects)
+      val contents = Dag.toDotGraph(dags)
       logger.info(contents)
     } else {
       val configDirectory = state.build.origin.syntax
       logger.debug(s"Projects loaded from '$configDirectory':")(DebugFilter.All)
-      state.build.loadedProjects.map(_.project.name).sorted.foreach(logger.info)
+      state.build.mainOnlyProjects.map(_.project.name).sorted.foreach(logger.info)
     }
 
     state.mergeStatus(ExitStatus.Ok)
@@ -409,7 +416,7 @@ object Interpreter {
       case Mode.Projects =>
         Task {
           for {
-            loadedProject <- state.build.loadedProjects
+            loadedProject <- state.build.mainOnlyProjects
             project = loadedProject.project
             completion <- cmd.format.showProject(project)
           } state.logger.info(completion)

@@ -14,6 +14,7 @@ import bloop.util.JavaRuntime
 import bloop.bsp.BloopBspDefinitions.BloopExtraBuildParams
 import bloop.{CompileMode, Compiler, ScalaInstance}
 import bloop.cli.{Commands, ExitStatus, Validate}
+import bloop.config.Config
 import bloop.dap.{DebugServer, DebuggeeRunner, StartedDebugServer}
 import bloop.data.{ClientInfo, JdkConfig, Platform, Project, WorkspaceSettings}
 import bloop.engine.{Aggregate, Dag, Interpreter, State}
@@ -26,6 +27,7 @@ import bloop.reporter.{BspProjectReporter, ProblemPerPhase, ReporterConfig, Repo
 import bloop.testing.{BspLoggingEventHandler, TestInternals}
 import ch.epfl.scala.bsp
 import ch.epfl.scala.bsp.ScalaBuildTarget.encodeScalaBuildTarget
+import ch.epfl.scala.bsp.SbtBuildTarget.encodeSbtBuildTarget
 import ch.epfl.scala.bsp.{
   BuildTargetIdentifier,
   JvmEnvironmentItem,
@@ -900,6 +902,17 @@ final class BloopBspServices(
     )
   }
 
+  def toSbtBuildTarget(sbt: Config.Sbt, scala: bsp.ScalaBuildTarget): bsp.SbtBuildTarget = {
+    bsp.SbtBuildTarget(
+      sbtVersion = sbt.sbtVersion,
+      autoImports = sbt.autoImports,
+      scalaBuildTarget = scala,
+      // is threre a way to get info about parent, children ??
+      parent = None,
+      children = List.empty
+    )
+  }
+
   def buildTargets(
       request: bsp.WorkspaceBuildTargetsRequest
   ): BspEndpointResponse[bsp.WorkspaceBuildTargetsResult] = {
@@ -941,7 +954,20 @@ final class BloopBspServices(
             projects.map { p =>
               val id = toBuildTargetId(p)
               val deps = p.dependencies.iterator.flatMap(build.getProjectFor(_).toList)
-              val extra = p.scalaInstance.map(i => encodeScalaBuildTarget(toScalaBuildTarget(p, i)))
+
+              val (extra, dataKind) = (p.scalaInstance, p.sbt) match {
+                case (Some(i), None) =>
+                  Some(encodeScalaBuildTarget(toScalaBuildTarget(p, i))) -> Some(
+                    bsp.BuildTargetDataKind.Scala
+                  )
+                case (Some(i), Some(sbt)) =>
+                  val scalaTarget = toScalaBuildTarget(p, i)
+                  val sbtTarget = toSbtBuildTarget(sbt, scalaTarget)
+                  Some(encodeSbtBuildTarget(sbtTarget)) -> Some(bsp.BuildTargetDataKind.Sbt)
+                case _ =>
+                  None -> None
+              }
+
               val capabilities = bsp.BuildTargetCapabilities(
                 canCompile = true,
                 canTest = true,
@@ -959,7 +985,7 @@ final class BloopBspServices(
                 languageIds = languageIds,
                 dependencies = deps.map(toBuildTargetId).toList,
                 capabilities = capabilities,
-                dataKind = Some(bsp.BuildTargetDataKind.Scala),
+                dataKind = dataKind,
                 data = extra
               )
             }
