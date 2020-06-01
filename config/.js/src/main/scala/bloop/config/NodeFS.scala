@@ -11,4 +11,9 @@ object NodeFS extends js.Object {
   def mkdtempSync(prefix: String, encoding: String): String = js.native
   def openSync(path: String, flags: String): Int = js.native
   def closeSync(fd: Int): Unit = js.native
+  def rmdirSync(path: String, options: RmDirOptions): Unit = js.native
+
+  trait RmDirOptions extends js.Object {
+    val recursive: Boolean
+  }
 }

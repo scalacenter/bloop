@@ -1,11 +1,9 @@
 package bloop.config
 
-import java.nio.charset.Charset
-
 object TargetPlatform {
   type Path = String
   val emptyPath: Path = getPath("")
-  def getPath(path: String): Path = NodePath.resolve(path)
+  def getPath(path: String): Path = path
 
   def userDir: Path = NodePath.resolve(".")
 
@@ -14,6 +12,12 @@ object TargetPlatform {
     val path = NodePath.join(tmpDir, prefix + suffix)
     NodeFS.closeSync(NodeFS.openSync(path, "w"))
     path
+  }
+
+  def deleteTempFile(path: Path): Unit = {
+    NodeFS.rmdirSync(NodePath.dirname(path), new NodeFS.RmDirOptions {
+      override val recursive = true
+    })
   }
 
   def resolve(parent: Path, child: String): Path =

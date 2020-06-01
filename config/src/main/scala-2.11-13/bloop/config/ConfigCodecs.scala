@@ -4,7 +4,6 @@ import TargetPlatform.Path
 
 import scala.util.Try
 import java.nio.charset.StandardCharsets
-import java.io.ByteArrayOutputStream
 import scala.util.Failure
 import scala.util.Success
 

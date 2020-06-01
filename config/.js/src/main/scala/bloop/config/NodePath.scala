@@ -8,4 +8,5 @@ import scala.scalajs.js.annotation.JSImport
 object NodePath extends js.Object {
   def join(paths: String*): String = js.native
   def resolve(paths: String*): String = js.native
+  def dirname(path: String): String = js.native
 }

@@ -9,11 +9,11 @@ object TargetPlatform {
 
   def userDir: Path = getPath(System.getProperty("user.dir"))
 
-  def createTempFile(prefix: String, suffix: String): Path = {
-    val path = Files.createTempFile(prefix, suffix)
-    path.toFile.deleteOnExit()
-    path
-  }
+  def createTempFile(prefix: String, suffix: String): Path =
+    Files.createTempFile(prefix, suffix)
+
+  def deleteTempFile(path: Path): Unit =
+    Files.delete(path)
 
   def resolve(parent: Path, child: String): Path =
     parent.resolve(child)

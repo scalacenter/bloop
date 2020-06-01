@@ -1,13 +1,17 @@
 package bloop.config
 
 import bloop.config.Config.File
-import org.junit.{Assert, Test}
-import java.nio.file.Paths
-import java.nio.file.Files
+import org.junit.{AfterClass, Assert, BeforeClass, Test}
 import java.nio.charset.StandardCharsets
-import java.io.BufferedReader
-import java.io.InputStreamReader
-import scala.io.Source
+
+object ConfigCodecsSpec {
+  val dummyFile = File.dummyForTests
+
+  @AfterClass def afterClass(): Unit = {
+    val filesToDelete = dummyFile.project.classpath ++ dummyFile.project.sources :+ dummyFile.project.classesDir :+ dummyFile.project.out
+    filesToDelete.foreach(TargetPlatform.deleteTempFile)
+  }
+}
 
 class ConfigCodecsSpec {
   import bloop.config.ConfigCodecs._
@@ -29,7 +33,7 @@ class ConfigCodecsSpec {
   }
 
   @Test def testSimpleConfigJson(): Unit = {
-    parseFile(File.dummyForTests)
+    parseFile(ConfigCodecsSpec.dummyFile)
   }
 
   @Test def testIdea(): Unit = {
@@ -60,12 +64,7 @@ class ConfigCodecsSpec {
   }
 
   @Test def testRealWorldJsonFile(): Unit = {
-    val contents = bytes(TestPlatform.getResourceAsStream("real-world-config.json"))
-    parseConfig(contents.mkString)
+    parseConfig(TestPlatform.getResourceAsString("real-world-config.json"))
     ()
   }
-
-  def bytes(inputStream: java.io.InputStream): Array[Byte] =
-    Iterator.continually(inputStream.read()).takeWhile(_ != -1).map(_.toByte).toArray
-
 }

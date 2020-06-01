@@ -1,6 +1,6 @@
 package bloop.config
 
 object TestPlatform {
-  def getResourceAsStream(resource: String): java.io.InputStream =
-    getClass.getClassLoader.getResourceAsStream(resource)
+  def getResourceAsString(resource: String): String =
+    getClass.getClassLoader.getResourceAsStream(resource).readAllBytes().map(_.toChar).mkString
 }
