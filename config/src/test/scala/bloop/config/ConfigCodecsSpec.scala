@@ -1,7 +1,7 @@
 package bloop.config
 
 import bloop.config.Config.File
-import org.junit.{AfterClass, Assert, BeforeClass, Test}
+import org.junit.{AfterClass, Assert, Test}
 import java.nio.charset.StandardCharsets
 
 object ConfigCodecsSpec {
@@ -15,8 +15,13 @@ object ConfigCodecsSpec {
 
 class ConfigCodecsSpec {
   import bloop.config.ConfigCodecs._
-  def parseConfig(contents: String): Config.File =
-    bloop.config.read(contents.getBytes(StandardCharsets.UTF_8)).right.get
+  def parseConfig(contents: String): Config.File = {
+    bloop.config.read(contents.getBytes(StandardCharsets.UTF_8)) match {
+      case Right(file) => file
+      case Left(throwable) => throw throwable
+    }
+  }
+
   def parseFile(configFile: File): Unit = {
     val jsonConfig = bloop.config.write(configFile)
     val parsedConfig = parseConfig(jsonConfig)
