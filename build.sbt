@@ -598,7 +598,7 @@ lazy val gradleBloop211 = project
   .settings(BuildInfoPlugin.buildInfoScopedSettings(Test))
   .settings(scalaVersion := Keys.scalaVersion.in(jsonConfig211).value)
   .settings(
-    libraryDependencies += Dependencies.classgraph,
+    libraryDependencies += Dependencies.classgraph % Test,
     target := (file("integrations") / "gradle-bloop" / "target" / "gradle-bloop-2.11").getAbsoluteFile
   )
   .settings(
@@ -623,7 +623,7 @@ lazy val gradleBloop212 = project
     target := (file("integrations") / "gradle-bloop" / "target" / "gradle-bloop-2.12").getAbsoluteFile
   )
   .settings(
-    libraryDependencies += Dependencies.classgraph,
+    libraryDependencies += Dependencies.classgraph % Test,
     publishLocal := publishLocal.dependsOn(publishLocal.in(jsonConfig212)).value
   )
 

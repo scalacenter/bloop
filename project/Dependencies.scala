@@ -97,8 +97,8 @@ object Dependencies {
   val mavenPluginAnnotations = "org.apache.maven.plugin-tools" % "maven-plugin-annotations" % mavenAnnotationsVersion % Provided
   val mavenScalaPlugin = "net.alchim31.maven" % "scala-maven-plugin" % mavenScalaPluginVersion
 
-  val gradleCore = "org.gradle" % "gradle-core" % gradleVersion // % Provided
-  val gradleWorkers = "org.gradle" % "gradle-workers" % gradleVersion // % Provided
+  val gradleCore = "org.gradle" % "gradle-core" % gradleVersion % Provided
+  val gradleWorkers = "org.gradle" % "gradle-workers" % gradleVersion % Provided
   val gradleDependencyManagement = "org.gradle" % "gradle-dependency-management" % gradleVersion % Provided
   val gradleToolingApi = "org.gradle" % "gradle-tooling-api" % gradleVersion % Provided
   val groovy = "org.codehaus.groovy" % "groovy" % groovyVersion % Provided
