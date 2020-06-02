@@ -1,6 +1,6 @@
 package bloop.config
 
-import TargetPlatform.Path
+import PlatformFiles.Path
 
 import scala.util.Try
 import java.nio.charset.StandardCharsets
@@ -17,12 +17,12 @@ import com.github.plokhotnyuk.jsoniter_scala.macros._
 object ConfigCodecs {
 
   implicit val codecPath: JsonValueCodec[Path] = new JsonValueCodec[Path] {
-    val nullValue: Path = TargetPlatform.emptyPath
+    val nullValue: Path = PlatformFiles.emptyPath
     def encodeValue(x: Path, out: JsonWriter): Unit = out.writeVal(x.toString)
     def decodeValue(in: JsonReader, default: Path): Path =
       if (in.isNextToken('"')) {
         in.rollbackToken()
-        Try(TargetPlatform.getPath(in.readString(""))).toOption.getOrElse(nullValue)
+        Try(PlatformFiles.getPath(in.readString(""))).toOption.getOrElse(nullValue)
       } else {
         in.rollbackToken()
         nullValue
@@ -221,7 +221,7 @@ object ConfigCodecs {
     )
 
   def read(configDir: Path): Either[Throwable, Config.File] = {
-    read(TargetPlatform.readAllBytes(configDir))
+    read(PlatformFiles.readAllBytes(configDir))
   }
 
   def read(bytes: Array[Byte]): Either[Throwable, Config.File] = {

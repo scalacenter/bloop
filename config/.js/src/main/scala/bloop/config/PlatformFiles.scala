@@ -1,6 +1,6 @@
 package bloop.config
 
-object TargetPlatform {
+object PlatformFiles {
   type Path = String
   val emptyPath: Path = getPath("")
   def getPath(path: String): Path = path

@@ -1,9 +1,9 @@
 package bloop.config
 
-import TargetPlatform.Path
+import PlatformFiles.Path
+import PlatformFiles.emptyPath
 
 object Config {
-  private final val emptyPath: Path = TargetPlatform.emptyPath
   case class Java(options: List[String])
 
   case class TestFramework(names: List[String])
@@ -268,24 +268,24 @@ object Config {
     private[bloop] val empty = File(LatestVersion, Project.empty)
 
     private[bloop] def dummyForTests: File = {
-      val workingDirectory = TargetPlatform.userDir
-      val sourceFile = TargetPlatform.createTempFile("Foo", ".scala")
+      val workingDirectory = PlatformFiles.userDir
+      val sourceFile = PlatformFiles.createTempFile("Foo", ".scala")
 
       // Just add one classpath with the scala library in it
-      val scalaLibraryJar = TargetPlatform.createTempFile("scala-library", ".jar")
+      val scalaLibraryJar = PlatformFiles.createTempFile("scala-library", ".jar")
 
       // This is like `target` in sbt.
-      val outDir = TargetPlatform.createTempFile("out", "test")
+      val outDir = PlatformFiles.createTempFile("out", "test")
 
-      val outAnalysisFile = TargetPlatform.resolve(outDir, "out-analysis.bin")
+      val outAnalysisFile = PlatformFiles.resolve(outDir, "out-analysis.bin")
 
-      val classesDir = TargetPlatform.createTempFile("classes", "test")
+      val classesDir = PlatformFiles.createTempFile("classes", "test")
 
       val classpath = List(scalaLibraryJar)
-      val resources = Some(List(TargetPlatform.resolve(outDir, "resource1.xml")))
+      val resources = Some(List(PlatformFiles.resolve(outDir, "resource1.xml")))
 
       val platform = {
-        val jdkPath = TargetPlatform.getPath("/usr/lib/jvm/java-8-jdk")
+        val jdkPath = PlatformFiles.getPath("/usr/lib/jvm/java-8-jdk")
         Platform.Jvm(
           JvmConfig(Some(jdkPath), Nil),
           Some("module.Main"),

@@ -2,7 +2,7 @@ package bloop.config
 
 import java.nio.file.{Files, Paths}
 
-object TargetPlatform {
+object PlatformFiles {
   type Path = java.nio.file.Path
   val emptyPath: Path = Paths.get("")
   def getPath(path: String): Path = Paths.get(path)
