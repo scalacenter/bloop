@@ -14,6 +14,8 @@ val `bloop-build` = project
   .dependsOn(`bloop-shaded-plugin`)
   .settings(
     exportJars := true,
+    addSbtPlugin("org.portable-scala" % "sbt-scalajs-crossproject" % "1.0.0"),
+    addSbtPlugin("org.scala-js" % "sbt-scalajs" % "1.1.0"),
     addSbtPlugin("com.dwijnand" % "sbt-dynver" % "4.0.0"),
     addSbtPlugin("ohnosequences" % "sbt-github-release" % "0.7.0"),
     addSbtPlugin("org.scalameta" % "sbt-scalafmt" % "2.0.4"),

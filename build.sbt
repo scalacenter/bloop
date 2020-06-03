@@ -88,37 +88,64 @@ val publishJsonModuleSettings = List(
   publishLocal := publishLocal.dependsOn(publishM2).value
 )
 
-lazy val jsonConfig210 = project
+val testJSSettings = List(
+  testOptions += Tests.Argument(TestFrameworks.JUnit, "-v", "-a"),
+  scalaJSLinkerConfig ~= (_.withModuleKind(ModuleKind.CommonJSModule)),
+  libraryDependencies ++= List(
+    "com.github.plokhotnyuk.jsoniter-scala" %%% "jsoniter-scala-core" % Dependencies.jsoniterVersion,
+    "com.github.plokhotnyuk.jsoniter-scala" %%% "jsoniter-scala-macros" % Dependencies.jsoniterVersion % Provided
+  )
+)
+
+val testResourceSettings = {
+  // FIXME: Shared resource directory is ignored, see https://github.com/portable-scala/sbt-crossproject/issues/74
+  Seq(Test).flatMap(inConfig(_) {
+    unmanagedResourceDirectories ++= {
+      unmanagedSourceDirectories.value
+        .map(src => (src / ".." / "resources").getCanonicalFile)
+        .filterNot(unmanagedResourceDirectories.value.contains)
+        .distinct
+    }
+  })
+}
+
+lazy val jsonConfig210 = crossProject(JVMPlatform)
+  .crossType(CrossType.Pure)
   .in(file("config"))
   .disablePlugins(ScriptedPlugin)
-  .settings(testSettings)
   .settings(publishJsonModuleSettings)
   .settings(
     name := "bloop-config",
-    target := (file("config") / "target" / "json-config-2.10").getAbsoluteFile,
     scalaVersion := Scala210Version,
-    libraryDependencies ++= {
-      List(
-        Dependencies.circeParser,
-        Dependencies.circeCore,
-        Dependencies.circeGeneric,
-        compilerPlugin("org.scalamacros" % "paradise" % "2.1.1" cross CrossVersion.full),
-        Dependencies.scalacheck % Test
-      )
-    }
+    libraryDependencies +=
+      compilerPlugin("org.scalamacros" % "paradise" % "2.1.1" cross CrossVersion.full),
+    testResourceSettings
+  )
+  .jvmSettings(
+    testSettings,
+    target := (file("config") / "target" / "json-config-2.10" / "jvm").getAbsoluteFile,
+    libraryDependencies ++= Seq(
+      Dependencies.circeParser,
+      Dependencies.circeCore,
+      Dependencies.circeGeneric
+    )
   )
 
-lazy val jsonConfig211 = project
+lazy val jsonConfig211 = crossProject(JSPlatform, JVMPlatform)
+  .crossType(CrossType.Pure)
   .in(file("config"))
   .disablePlugins(ScriptedPlugin)
-  .settings(testSettings)
   .settings(publishJsonModuleSettings)
   .settings(
     name := "bloop-config",
-    target := (file("config") / "target" / "json-config-2.11").getAbsoluteFile,
     scalaVersion := Scala211Version,
     unmanagedSourceDirectories in Compile +=
-      Keys.baseDirectory.value./("src")./("main")./("scala-2.11-13"),
+      Keys.baseDirectory.value / ".." / "src" / "main" / "scala-2.11-13",
+    testResourceSettings
+  )
+  .jvmSettings(
+    testSettings,
+    target := (file("config") / "target" / "json-config-2.11" / "jvm").getAbsoluteFile,
     libraryDependencies ++= {
       List(
         Dependencies.jsoniterCore,
@@ -127,22 +154,31 @@ lazy val jsonConfig211 = project
       )
     }
   )
+  .jsConfigure(_.enablePlugins(ScalaJSJUnitPlugin))
+  .jsSettings(
+    testJSSettings,
+    target := (file("config") / "target" / "json-config-2.11" / "js").getAbsoluteFile
+  )
 
 // Needs to be called `jsonConfig` because of naming conflict with sbt universe...
-lazy val jsonConfig212 = project
+lazy val jsonConfig212 = crossProject(JSPlatform, JVMPlatform)
+  .crossType(CrossType.Pure)
   .in(file("config"))
   .disablePlugins(ScriptedPlugin)
-  .settings(testSettings)
   .settings(publishJsonModuleSettings)
   .settings(
     name := "bloop-config",
     unmanagedSourceDirectories in Compile +=
-      Keys.baseDirectory.value./("src")./("main")./("scala-2.11-13"),
-    target := (file("config") / "target" / "json-config-2.12").getAbsoluteFile,
+      Keys.baseDirectory.value / ".." / "src" / "main" / "scala-2.11-13",
     scalaVersion := Keys.scalaVersion.in(backend).value,
     scalacOptions := {
       scalacOptions.value.filterNot(opt => opt == "-deprecation"),
     },
+    testResourceSettings
+  )
+  .jvmSettings(
+    testSettings,
+    target := (file("config") / "target" / "json-config-2.12" / "jvm").getAbsoluteFile,
     libraryDependencies ++= {
       List(
         Dependencies.jsoniterCore,
@@ -151,28 +187,40 @@ lazy val jsonConfig212 = project
       )
     }
   )
+  .jsConfigure(_.enablePlugins(ScalaJSJUnitPlugin))
+  .jsSettings(
+    testJSSettings,
+    target := (file("config") / "target" / "json-config-2.12" / "js").getAbsoluteFile
+  )
 
-lazy val jsonConfig213 = project
+lazy val jsonConfig213 = crossProject(JSPlatform, JVMPlatform)
+  .crossType(CrossType.Pure)
   .in(file("config"))
   .disablePlugins(ScriptedPlugin)
-  .settings(testSettings)
   .settings(publishJsonModuleSettings)
   .settings(
     name := "bloop-config",
     unmanagedSourceDirectories in Compile +=
-      Keys.baseDirectory.value./("src")./("main")./("scala-2.11-13"),
-    target := (file("config") / "target" / "json-config-2.13").getAbsoluteFile,
+      Keys.baseDirectory.value / ".." / "src" / "main" / "scala-2.11-13",
     scalaVersion := "2.13.1",
     scalacOptions := {
       scalacOptions.value
         .filterNot(opt => opt == "-deprecation" || opt == "-Yno-adapted-args"),
     },
-    libraryDependencies ++= {
-      List(
-        Dependencies.jsoniterCore,
-        Dependencies.jsoniterMacros % Provided
-      )
-    }
+    testResourceSettings
+  )
+  .jvmSettings(
+    testSettings,
+    target := (file("config") / "target" / "json-config-2.13" / "jvm").getAbsoluteFile,
+    libraryDependencies ++= List(
+      Dependencies.jsoniterCore,
+      Dependencies.jsoniterMacros % Provided
+    )
+  )
+  .jsConfigure(_.enablePlugins(ScalaJSJUnitPlugin))
+  .jsSettings(
+    testJSSettings,
+    target := (file("config") / "target" / "json-config-2.13" / "js").getAbsoluteFile
   )
 
 lazy val sockets: Project = project
@@ -193,7 +241,7 @@ lazy val frontend: Project = project
     bloopShared,
     backend,
     backend % "test->test",
-    jsonConfig212,
+    jsonConfig212.jvm,
     buildpressConfig % "it->compile"
   )
   .disablePlugins(ScriptedPlugin)
@@ -417,7 +465,7 @@ lazy val launcherShaded = project
 
 lazy val bloop4j = project
   .disablePlugins(ScriptedPlugin)
-  .dependsOn(jsonConfig212)
+  .dependsOn(jsonConfig212.jvm)
   .settings(
     name := "bloop4j",
     fork in run := true,
@@ -549,7 +597,7 @@ def defineShadedSbtPlugin(
 }
 
 lazy val sbtBloop10: Project = project
-  .dependsOn(jsonConfig212, launcher, bloop4j)
+  .dependsOn(jsonConfig212.jvm, launcher, bloop4j)
   .enablePlugins(ScriptedPlugin)
   .in(integrations / "sbt-bloop")
   .settings(BuildDefaults.scriptedSettings)
@@ -568,7 +616,7 @@ lazy val sbtBloop10Shaded: Project =
   )
 
 lazy val sbtBloop013 = project
-  .dependsOn(jsonConfig210)
+  .dependsOn(jsonConfig210.jvm)
   // Let's remove scripted for 0.13, we only test 1.0
   .disablePlugins(ScriptedPlugin)
   .in(integrations / "sbt-bloop")
@@ -584,7 +632,7 @@ lazy val sbtBloop013Shaded =
 lazy val mavenBloop = project
   .in(integrations / "maven-bloop")
   .disablePlugins(ScriptedPlugin)
-  .dependsOn(jsonConfig212)
+  .dependsOn(jsonConfig212.jvm)
   .settings(name := "maven-bloop", scalaVersion := Scala212Version)
   .settings(BuildDefaults.mavenPluginBuildSettings)
 
@@ -592,18 +640,18 @@ lazy val gradleBloop211 = project
   .in(file("integrations") / "gradle-bloop")
   .enablePlugins(BuildInfoPlugin)
   .disablePlugins(ScriptedPlugin)
-  .dependsOn(jsonConfig211)
+  .dependsOn(jsonConfig211.jvm)
   .settings(name := "gradle-bloop")
   .settings(BuildDefaults.gradlePluginBuildSettings)
   .settings(BuildInfoPlugin.buildInfoScopedSettings(Test))
-  .settings(scalaVersion := Keys.scalaVersion.in(jsonConfig211).value)
+  .settings(scalaVersion := Keys.scalaVersion.in(jsonConfig211.jvm).value)
   .settings(
     libraryDependencies += Dependencies.classgraph % Test,
     target := (file("integrations") / "gradle-bloop" / "target" / "gradle-bloop-2.11").getAbsoluteFile
   )
   .settings(
     sourceDirectories in Test := Nil,
-    publishLocal := publishLocal.dependsOn(publishLocal.in(jsonConfig211)).value,
+    publishLocal := publishLocal.dependsOn(publishLocal.in(jsonConfig211.jvm)).value,
     bloopGenerate in Test := None,
     test in Test := Def.task {
       Keys.streams.value.log.error("Run 'gradleBloopTests/test' instead to test the gradle plugin.")
@@ -615,22 +663,22 @@ lazy val gradleBloop212 = project
   .enablePlugins(BuildInfoPlugin)
   .disablePlugins(ScriptedPlugin)
   .settings(name := "gradle-bloop")
-  .dependsOn(jsonConfig212, frontend % "test->test")
+  .dependsOn(jsonConfig212.jvm, frontend % "test->test")
   .settings(BuildDefaults.gradlePluginBuildSettings, testSettings)
   .settings(BuildInfoPlugin.buildInfoScopedSettings(Test))
-  .settings(scalaVersion := Keys.scalaVersion.in(jsonConfig212).value)
+  .settings(scalaVersion := Keys.scalaVersion.in(jsonConfig212.jvm).value)
   .settings(
     target := (file("integrations") / "gradle-bloop" / "target" / "gradle-bloop-2.12").getAbsoluteFile
   )
   .settings(
     libraryDependencies += Dependencies.classgraph % Test,
-    publishLocal := publishLocal.dependsOn(publishLocal.in(jsonConfig212)).value
+    publishLocal := publishLocal.dependsOn(publishLocal.in(jsonConfig212.jvm)).value
   )
 
 lazy val millBloop = project
   .in(integrations / "mill-bloop")
   .disablePlugins(ScriptedPlugin)
-  .dependsOn(jsonConfig212)
+  .dependsOn(jsonConfig212.jvm)
   .settings(name := "mill-bloop")
   .settings(BuildDefaults.millModuleBuildSettings)
 
@@ -745,10 +793,13 @@ val allProjects = Seq(
   backend,
   benchmarks,
   frontend,
-  jsonConfig210,
-  jsonConfig211,
-  jsonConfig212,
-  jsonConfig213,
+  jsonConfig210.jvm,
+  jsonConfig211.jvm,
+  jsonConfig211.js,
+  jsonConfig212.jvm,
+  jsonConfig212.js,
+  jsonConfig213.jvm,
+  jsonConfig213.js,
   sbtBloop013,
   sbtBloop10,
   mavenBloop,
@@ -783,10 +834,13 @@ val bloop = project
             bloopShared,
             backend,
             frontend,
-            jsonConfig210,
-            jsonConfig211,
-            jsonConfig212,
-            jsonConfig213,
+            jsonConfig210.jvm,
+            jsonConfig211.js,
+            jsonConfig211.jvm,
+            jsonConfig212.js,
+            jsonConfig212.jvm,
+            jsonConfig213.js,
+            jsonConfig213.jvm,
             sbtBloop013,
             sbtBloop10,
             sbtBloop013Shaded,
@@ -817,10 +871,13 @@ val bloop = project
             bloopShared,
             backend,
             frontend,
-            jsonConfig210,
-            jsonConfig211,
-            jsonConfig212,
-            jsonConfig213,
+            jsonConfig210.jvm,
+            jsonConfig211.js,
+            jsonConfig211.jvm,
+            jsonConfig212.js,
+            jsonConfig212.jvm,
+            jsonConfig213.js,
+            jsonConfig213.jvm,
             sbtBloop013,
             sbtBloop10,
             sbtBloop013Shaded,
@@ -861,8 +918,8 @@ val bloop = project
       build.BuildImplementation
         .exportCommunityBuild(
           buildpress,
-          jsonConfig210,
-          jsonConfig212,
+          jsonConfig210.jvm,
+          jsonConfig212.jvm,
           sbtBloop013,
           sbtBloop10
         )

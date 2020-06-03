@@ -105,6 +105,7 @@ val sbtBloopBuildShadedJar = project
       val pluginMainDir = baseDir / "integrations" / "sbt-bloop" / "src" / "main"
       List(
         baseDir / "project" / "project",
+        baseDir / "config" / ".jvm" / "src" / "main" / "scala",
         baseDir / "config" / "src" / "main" / "scala",
         baseDir / "config" / "src" / "main" / "scala-2.11-13",
         baseDir / "sockets" / "src" / "main" / "java",

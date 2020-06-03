@@ -24,7 +24,7 @@ tooling infrastructure.
 
 1. `bridges` contains Scala code written against Scala.js and Scala Native tooling APIs in a version-agnostic way.
 1. `buildpress` is an application that given a list of `(project-name, vcs-uri)` will export a build to bloop.
-1. `config` contains Scala 2.10 and 2.12 module to read and write configuration files.
+1. `config` contains a Scala 2.10 and 2.11-2.13 module to read and write configuration files.
 1. `docs` and `docs-gen` define our docs infrastructure.
 1. `benchmark-bridge` and `benchmarks` define our compiler benchmark infrastructure.
 1. `launcher` is an application to spawn a bloop server and establish a

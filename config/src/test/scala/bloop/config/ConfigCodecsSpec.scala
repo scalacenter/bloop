@@ -60,10 +60,12 @@ class ConfigCodecsSpec {
   }
 
   @Test def testRealWorldJsonFile(): Unit = {
-    val contents = Source.fromInputStream(
-      this.getClass.getClassLoader.getResourceAsStream("real-world-config.json")
-    )
+    val contents = bytes(TestPlatform.getResourceAsStream("real-world-config.json"))
     parseConfig(contents.mkString)
     ()
   }
+
+  def bytes(inputStream: java.io.InputStream): Array[Byte] =
+    Iterator.continually(inputStream.read()).takeWhile(_ != -1).map(_.toByte).toArray
+
 }
