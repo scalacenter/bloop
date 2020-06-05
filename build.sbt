@@ -584,8 +584,8 @@ lazy val sbtBloop013Shaded =
 lazy val mavenBloop = project
   .in(integrations / "maven-bloop")
   .disablePlugins(ScriptedPlugin)
-  .dependsOn(jsonConfig210)
-  .settings(name := "maven-bloop", scalaVersion := Scala210Version)
+  .dependsOn(jsonConfig212)
+  .settings(name := "maven-bloop", scalaVersion := Scala212Version)
   .settings(BuildDefaults.mavenPluginBuildSettings)
 
 lazy val gradleBloop211 = project
