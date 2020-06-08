@@ -7,6 +7,7 @@ sidebar_label: Contributing Guide
 ## Requirements
 
 1. Install Java 8 and sbt on your machine.
+1. Follow the [Scala Native environment setup guide](https://scala-native.readthedocs.io/en/v0.3.9-docs/user/setup.html)
 1. Read and abide by the [Scala Code of Conduct](https://www.scala-lang.org/conduct/).
 
 ## Project structure
