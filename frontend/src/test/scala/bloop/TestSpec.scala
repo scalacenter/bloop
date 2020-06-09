@@ -455,3 +455,21 @@ object TestResourcesSpec extends bloop.testing.BaseSuite {
     }
   }
 }
+
+object TestCompileErrorExitCode extends bloop.testing.BaseSuite {
+  test("exit code reflects compilation errors in tests") {
+    TestUtil.withinWorkspace { workspace =>
+      object Sources {
+        val `a/A.scala` =
+          """/a/A.scala
+            |invalid source file""".stripMargin
+      }
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val `A` = TestProject(workspace, "a", List(Sources.`a/A.scala`))
+      val projects = List(`A`)
+      val state = loadState(workspace, projects, logger)
+      val testState = state.test(`A`)
+      assertEquals(ExitStatus.CompilationError, testState.status)
+    }
+  }
+}
