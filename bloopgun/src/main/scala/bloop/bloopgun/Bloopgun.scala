@@ -499,20 +499,11 @@ class BloopgunCli(
       }
 
       process.redirectErrorStream()
-      try {
-        val started = process.start()
-        val is = started.getInputStream()
-        val code = started.waitFor()
-        val output = scala.io.Source.fromInputStream(is).mkString
-        StatusCommand(code, output)
-      } catch {
-        case e: IOException =>
-          logger.trace(e)
-          StatusCommand(
-            1,
-            s"Failed to start process '${cmd.mkString(" ")}'\nError: ${e.getMessage()}"
-          )
-      }
+      val started = process.start()
+      val is = started.getInputStream()
+      val code = started.waitFor()
+      val output = scala.io.Source.fromInputStream(is).mkString
+      StatusCommand(code, output)
     }
 
     def sysprocWithJava(
@@ -520,9 +511,9 @@ class BloopgunCli(
         extraJvmOpts: List[String],
         globalSettings: GlobalSettings
     ): (ExitServerStatus, Boolean) = {
+      val (cmd, usedExtraJvmOpts) =
+        cmdWithArgs(found, extraJvmOpts, List(globalSettings.javaBinary), globalSettings)
       try {
-        val (cmd, usedExtraJvmOpts) =
-          cmdWithArgs(found, extraJvmOpts, List(globalSettings.javaBinary), globalSettings)
         val exitServerStatus = (cmd, sysproc(cmd))
         (exitServerStatus, usedExtraJvmOpts)
       } catch {
@@ -543,7 +534,16 @@ class BloopgunCli(
                 cmdWithArgs(found, extraJvmOpts, List(java), globalSettings)
               val exitServerStatus = (cmd, sysproc(cmd))
               (exitServerStatus, usedExtraJvmOpts)
-            case _ => throw e
+            case _ =>
+              logger.trace(e)
+              val errorExitStatus = (
+                cmd,
+                StatusCommand(
+                  1,
+                  s"Failed to start process '${cmd.mkString(" ")}'\nError: ${e.getMessage()}"
+                )
+              )
+              (errorExitStatus, usedExtraJvmOpts)
           }
       }
     }
