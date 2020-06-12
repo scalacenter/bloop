@@ -213,7 +213,7 @@ object Interpreter {
       else {
         val projectsString = projects.mkString(", ")
         Task.now(
-          state.withDebug(s"Failed compilation for $projectsString. Skipping $nextAction...")(
+          compiled.withDebug(s"Failed compilation for $projectsString. Skipping $nextAction...")(
             DebugFilter.Compilation
           )
         )
