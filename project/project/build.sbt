@@ -31,8 +31,8 @@ val sbtBloopBuildShadedJar = project
       (scalacOptions in Compile).value.filterNot(_ == "-deprecation"),
     libraryDependencies ++= directDependencies,
     libraryDependencies ++= List(
-      "com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-core" % "2.0.0",
-      "com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-macros" % "2.0.0",
+      "com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-core" % "2.4.0",
+      "com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-macros" % "2.4.0",
       "org.zeroturnaround" % "zt-exec" % "1.11",
       "me.vican.jorge" %% "snailgun-cli" % "0.3.1",
       "io.get-coursier" %% "coursier" % "2.0.0-RC3-4",

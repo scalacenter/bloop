@@ -115,32 +115,22 @@ object ConfigCodecs {
   }
 
   implicit val codecJvmConfig: JsonValueCodec[Config.JvmConfig] =
-    JsonCodecMaker.make[Config.JvmConfig](
-      CodecMakerConfig.withTransientEmpty(false).withRequireCollectionFields(true)
-    )
+    JsonCodecMaker.makeWithRequiredCollectionFields[Config.JvmConfig]
 
   implicit val codecJsConfig: JsonValueCodec[Config.JsConfig] =
-    JsonCodecMaker.make[Config.JsConfig](
-      CodecMakerConfig.withTransientEmpty(false).withRequireCollectionFields(true)
-    )
+    JsonCodecMaker.makeWithRequiredCollectionFields[Config.JsConfig]
 
   implicit val codecNativeConfig: JsonValueCodec[Config.NativeConfig] =
-    JsonCodecMaker.make[Config.NativeConfig](
-      CodecMakerConfig.withTransientEmpty(false).withRequireCollectionFields(true)
-    )
+    JsonCodecMaker.makeWithRequiredCollectionFields[Config.NativeConfig]
 
   private case class MainClass(mainClass: Option[String])
   private implicit val codecMainClass: JsonValueCodec[MainClass] = {
     new JsonValueCodec[MainClass] {
       val nullValue: MainClass = null.asInstanceOf[MainClass]
       val codecOption: JsonValueCodec[Option[String]] =
-        JsonCodecMaker.make[Option[String]](
-          CodecMakerConfig.withTransientEmpty(false).withRequireCollectionFields(true)
-        )
+        JsonCodecMaker.makeWithRequiredCollectionFields[Option[String]]
       val codecList: JsonValueCodec[List[String]] =
-        JsonCodecMaker.make[List[String]](
-          CodecMakerConfig.withTransientEmpty(false).withRequireCollectionFields(true)
-        )
+        JsonCodecMaker.makeWithRequiredCollectionFields[List[String]]
       def encodeValue(x: MainClass, out: JsonWriter): Unit = {
         //codecOption.encodeValue(x.mainClass, out)
         codecList.encodeValue(x.mainClass.toList, out)
@@ -177,12 +167,8 @@ object ConfigCodecs {
   implicit val codecPlatform: JsonValueCodec[Config.Platform] =
     new JsonValueCodec[Config.Platform] {
       val codec: JsonValueCodec[JsoniterPlatform] =
-        JsonCodecMaker.make[JsoniterPlatform](
-          CodecMakerConfig
-            .withDiscriminatorFieldName(Some("name"))
-            .withTransientEmpty(false)
-            .withRequireCollectionFields(true)
-        )
+        JsonCodecMaker
+          .makeWithRequiredCollectionFieldsAndNameAsDiscriminatorFieldName[JsoniterPlatform]
       val nullValue: Config.Platform = null.asInstanceOf[Config.Platform]
       def encodeValue(x: Config.Platform, out: JsonWriter): Unit = {
         codec.encodeValue(
@@ -211,14 +197,10 @@ object ConfigCodecs {
     }
 
   implicit val codecProject: JsonValueCodec[Config.Project] =
-    JsonCodecMaker.make[Config.Project](
-      CodecMakerConfig.withTransientEmpty(false).withRequireCollectionFields(true)
-    )
+    JsonCodecMaker.makeWithRequiredCollectionFields[Config.Project]
 
   implicit val codecFile: JsonValueCodec[Config.File] =
-    JsonCodecMaker.make[Config.File](
-      CodecMakerConfig.withTransientEmpty(false).withRequireCollectionFields(true)
-    )
+    JsonCodecMaker.makeWithRequiredCollectionFields[Config.File]
 
   def read(configDir: Path): Either[Throwable, Config.File] = {
     read(PlatformFiles.readAllBytes(configDir))
