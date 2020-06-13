@@ -28,9 +28,7 @@ case class GlobalSettings(
 
 object GlobalSettings {
   private implicit val codecSettings: JsonValueCodec[GlobalSettings] =
-    JsonCodecMaker.make[GlobalSettings](
-      CodecMakerConfig.withTransientEmpty(false).withRequireCollectionFields(true)
-    )
+    JsonCodecMaker.makeWithRequiredCollectionFields[GlobalSettings]
 
   def readFromFile(settingsPath: Path, logger: Logger): Either[String, GlobalSettings] = {
     if (!Files.isReadable(settingsPath))

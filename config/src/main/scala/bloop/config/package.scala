@@ -1,15 +1,14 @@
 package bloop
 
 import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, Path}
 
-import scala.util.Try
 import bloop.config.Config.File
+import bloop.config.PlatformFiles.Path
 
 package object config {
   def write(all: File): String = ConfigCodecs.toStr(all)
   def write(all: File, target: Path): Unit = {
-    Files.write(target, write(all).getBytes(StandardCharsets.UTF_8))
+    PlatformFiles.write(target, write(all).getBytes(StandardCharsets.UTF_8))
     ()
   }
 

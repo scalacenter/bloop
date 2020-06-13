@@ -1,9 +1,9 @@
 package bloop.config
 
-import java.nio.file.{Files, Path, Paths}
+import PlatformFiles.Path
+import PlatformFiles.emptyPath
 
 object Config {
-  private final val emptyPath = Paths.get("")
   case class Java(options: List[String])
 
   case class TestFramework(names: List[String])
@@ -268,29 +268,24 @@ object Config {
     private[bloop] val empty = File(LatestVersion, Project.empty)
 
     private[bloop] def dummyForTests: File = {
-      val workingDirectory = Paths.get(System.getProperty("user.dir"))
-      val sourceFile = Files.createTempFile("Foo", ".scala")
-      sourceFile.toFile.deleteOnExit()
+      val workingDirectory = PlatformFiles.userDir
+      val sourceFile = PlatformFiles.createTempFile("Foo", ".scala")
 
       // Just add one classpath with the scala library in it
-      val scalaLibraryJar = Files.createTempFile("scala-library", ".jar")
-      scalaLibraryJar.toFile.deleteOnExit()
+      val scalaLibraryJar = PlatformFiles.createTempFile("scala-library", ".jar")
 
       // This is like `target` in sbt.
-      val outDir = Files.createTempFile("out", "test")
-      outDir.toFile.deleteOnExit()
+      val outDir = PlatformFiles.createTempFile("out", "test")
 
-      val outAnalysisFile = outDir.resolve("out-analysis.bin")
-      outAnalysisFile.toFile.deleteOnExit()
+      val outAnalysisFile = PlatformFiles.resolve(outDir, "out-analysis.bin")
 
-      val classesDir = Files.createTempFile("classes", "test")
-      classesDir.toFile.deleteOnExit()
+      val classesDir = PlatformFiles.createTempFile("classes", "test")
 
       val classpath = List(scalaLibraryJar)
-      val resources = Some(List(outDir.resolve("resource1.xml")))
+      val resources = Some(List(PlatformFiles.resolve(outDir, "resource1.xml")))
 
       val platform = {
-        val jdkPath = Paths.get("/usr/lib/jvm/java-8-jdk")
+        val jdkPath = PlatformFiles.getPath("/usr/lib/jvm/java-8-jdk")
         Platform.Jvm(
           JvmConfig(Some(jdkPath), Nil),
           Some("module.Main"),

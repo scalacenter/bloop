@@ -1,18 +1,27 @@
 package bloop.config
 
 import bloop.config.Config.File
-import org.junit.{Assert, Test}
-import java.nio.file.Paths
-import java.nio.file.Files
+import org.junit.{AfterClass, Assert, Test}
 import java.nio.charset.StandardCharsets
-import java.io.BufferedReader
-import java.io.InputStreamReader
-import scala.io.Source
+
+object ConfigCodecsSpec {
+  val dummyFile = File.dummyForTests
+
+  @AfterClass def afterClass(): Unit = {
+    val filesToDelete = dummyFile.project.classpath ++ dummyFile.project.sources :+ dummyFile.project.classesDir :+ dummyFile.project.out
+    filesToDelete.foreach(PlatformFiles.deleteTempFile)
+  }
+}
 
 class ConfigCodecsSpec {
   import bloop.config.ConfigCodecs._
-  def parseConfig(contents: String): Config.File =
-    bloop.config.read(contents.getBytes(StandardCharsets.UTF_8)).right.get
+  def parseConfig(contents: String): Config.File = {
+    bloop.config.read(contents.getBytes(StandardCharsets.UTF_8)) match {
+      case Right(file) => file
+      case Left(throwable) => throw throwable
+    }
+  }
+
   def parseFile(configFile: File): Unit = {
     val jsonConfig = bloop.config.write(configFile)
     val parsedConfig = parseConfig(jsonConfig)
@@ -29,7 +38,7 @@ class ConfigCodecsSpec {
   }
 
   @Test def testSimpleConfigJson(): Unit = {
-    parseFile(File.dummyForTests)
+    parseFile(ConfigCodecsSpec.dummyFile)
   }
 
   @Test def testIdea(): Unit = {
@@ -60,10 +69,7 @@ class ConfigCodecsSpec {
   }
 
   @Test def testRealWorldJsonFile(): Unit = {
-    val contents = Source.fromInputStream(
-      this.getClass.getClassLoader.getResourceAsStream("real-world-config.json")
-    )
-    parseConfig(contents.mkString)
+    parseConfig(TestPlatform.getResourceAsString("real-world-config.json"))
     ()
   }
 }

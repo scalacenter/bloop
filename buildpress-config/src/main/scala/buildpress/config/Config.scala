@@ -46,17 +46,13 @@ object Config {
   case class RepoCacheEntries(repos: List[RepoCacheEntry])
   object RepoCacheEntries {
     implicit val codecSettings: JsonValueCodec[RepoCacheEntries] =
-      JsonCodecMaker.make[RepoCacheEntries](
-        CodecMakerConfig.withTransientEmpty(false).withRequireCollectionFields(true)
-      )
+      JsonCodecMaker.makeWithRequiredCollectionFields[RepoCacheEntries]
   }
 
   case class HashedPath(path: Path, hash: Int)
   object HashedPath {
     implicit val codecSettings: JsonValueCodec[HashedPath] =
-      JsonCodecMaker.make[HashedPath](
-        CodecMakerConfig.withTransientEmpty(false).withRequireCollectionFields(true)
-      )
+      JsonCodecMaker.makeWithRequiredCollectionFields[HashedPath]
   }
 
   final case class BuildSettingsHashes(individual: List[HashedPath]) {
@@ -79,17 +75,13 @@ object Config {
   }
   object BuildSettingsHashes {
     implicit val codecSettings: JsonValueCodec[BuildSettingsHashes] =
-      JsonCodecMaker.make[BuildSettingsHashes](
-        CodecMakerConfig.withTransientEmpty(false).withRequireCollectionFields(true)
-      )
+      JsonCodecMaker.makeWithRequiredCollectionFields[BuildSettingsHashes]
   }
 
   case class RepoCacheEntry(id: String, uri: URI, localPath: Path, hashes: BuildSettingsHashes)
   object RepoCacheEntry {
     implicit val codecSettings: JsonValueCodec[RepoCacheEntry] =
-      JsonCodecMaker.make[RepoCacheEntry](
-        CodecMakerConfig.withTransientEmpty(false).withRequireCollectionFields(true)
-      )
+      JsonCodecMaker.makeWithRequiredCollectionFields[RepoCacheEntry]
   }
 
   case class RepoCacheFile(version: String, cache: RepoCacheEntries)
@@ -99,9 +91,7 @@ object Config {
     final val LatestVersion = "1.0.0"
 
     implicit val codecSettings: JsonValueCodec[RepoCacheFile] =
-      JsonCodecMaker.make[RepoCacheFile](
-        CodecMakerConfig.withTransientEmpty(false).withRequireCollectionFields(true)
-      )
+      JsonCodecMaker.makeWithRequiredCollectionFields[RepoCacheFile]
   }
 
   def write(all: RepoCacheFile, target: Path): Unit = {

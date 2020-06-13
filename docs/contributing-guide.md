@@ -8,6 +8,7 @@ sidebar_label: Contributing Guide
 
 1. Install Java 8 and sbt on your machine.
 1. Follow the [Scala Native environment setup guide](https://scala-native.readthedocs.io/en/v0.3.9-docs/user/setup.html)
+1. Check that you have Node v12.10.0 or newer by running `node -v`
 1. Read and abide by the [Scala Code of Conduct](https://www.scala-lang.org/conduct/).
 
 ## Project structure
@@ -24,7 +25,7 @@ tooling infrastructure.
 
 1. `bridges` contains Scala code written against Scala.js and Scala Native tooling APIs in a version-agnostic way.
 1. `buildpress` is an application that given a list of `(project-name, vcs-uri)` will export a build to bloop.
-1. `config` contains Scala 2.10 and 2.12 module to read and write configuration files.
+1. `config` contains a Scala 2.10 and 2.11-2.13 module to read and write configuration files.
 1. `docs` and `docs-gen` define our docs infrastructure.
 1. `benchmark-bridge` and `benchmarks` define our compiler benchmark infrastructure.
 1. `launcher` is an application to spawn a bloop server and establish a
