@@ -4,11 +4,11 @@ import java.net.Socket
 import java.net.ServerSocket
 import java.util.Locale
 
-import bloop.cli.Commands
+import bloop.cli.{Commands, ExitStatus}
 import bloop.data.ClientInfo
 import bloop.engine.{ExecutionContext, State}
 import bloop.io.{AbsolutePath, RelativePath, ServerHandle}
-import bloop.logging.{BspClientLogger, DebugFilter}
+import bloop.logging.{BspClientLogger, DebugFilter, Logger}
 import bloop.sockets.UnixDomainServerSocket
 import bloop.sockets.Win32NamedPipeServerSocket
 import monix.eval.Task
@@ -28,16 +28,19 @@ import scala.concurrent.Promise
 import scala.meta.jsonrpc.{BaseProtocolMessage, LanguageClient, LanguageServer}
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
+
 import monix.execution.cancelables.AssignableCancelable
 import java.nio.file.NoSuchFileException
+
+import io.circe.Decoder.state
 import monix.reactive.subjects.BehaviorSubject
 
 object BspServer {
   private implicit val logContext: DebugFilter = DebugFilter.Bsp
 
   import Commands.ValidatedBsp
-  private def initServer(handle: ServerHandle, state: State): Task[ServerSocket] = {
-    state.logger.debug(s"Waiting for a connection at $handle...")
+  private def initServer(handle: ServerHandle, logger: Logger): Task[ServerSocket] = {
+    logger.debug(s"Waiting for a connection at $handle...")
     val openSocket = handle.server
     Task(openSocket).doOnCancel(Task(openSocket.close()))
   }
@@ -50,13 +53,36 @@ object BspServer {
       state: State,
       config: RelativePath,
       promiseWhenStarted: Option[Promise[Unit]],
-      externalObserver: Option[BehaviorSubject[State]],
+      externalObserver: Option[BehaviorSubject[BspState]],
       scheduler: Scheduler,
       ioScheduler: Scheduler
   ): Task[State] = {
+
+    val initialState = BspState(main = state, List.empty)
+    run(cmd, initialState, config, promiseWhenStarted, externalObserver, scheduler, ioScheduler)
+      .map { bspState =>
+        // TODO
+        // Do we need to cache meta builds here?
+        // bloop.Bloop run the same thing on exit but for a now it works only with main State
+        bspState.meta.foreach { s =>
+          State.stateCache.updateBuild(s.copy(status = ExitStatus.Ok))
+        }
+        bspState.main
+      }
+  }
+
+  def run(
+      cmd: ValidatedBsp,
+      state: BspState,
+      config: RelativePath,
+      promiseWhenStarted: Option[Promise[Unit]],
+      externalObserver: Option[BehaviorSubject[BspState]],
+      scheduler: Scheduler,
+      ioScheduler: Scheduler
+  ): Task[BspState] = {
     import state.logger
 
-    def listenToConnection(handle: ServerHandle, serverSocket: ServerSocket): Task[State] = {
+    def listenToConnection(handle: ServerHandle, serverSocket: ServerSocket): Task[BspState] = {
       val isCommunicationActive = Atomic(true)
       val connectionURI = handle.uri
 
@@ -75,6 +101,7 @@ object BspServer {
       val client = new BloopLanguageClient(out, bspLogger)
       val messages = BaseProtocolMessage.fromInputStream(in, bspLogger)
       val stopBspConnection = AssignableCancelable.single()
+
       val provider = new BloopBspServices(state, client, config, stopBspConnection, externalObserver, isCommunicationActive, connectedBspClients, scheduler, ioScheduler)
       val server = new BloopLanguageServer(messages, client, provider.services, ioScheduler, bspLogger)
       // FORMAT: ON
@@ -151,7 +178,7 @@ object BspServer {
             )
 
             // The code above should not throw, but move this code to a finalizer to be 100% sure
-            closeCommunication(externalObserver, latestState, socket, serverSocket)
+            closeCommunication(latestState, socket, serverSocket)
             ()
           }
         }
@@ -252,20 +279,23 @@ object BspServer {
         ServerHandle.Tcp(address, portNumber, backlog = 10)
     }
 
-    initServer(handle, state).materialize.flatMap {
+    initServer(handle, state.logger).materialize.flatMap {
       case scala.util.Success(socket: ServerSocket) =>
-        listenToConnection(handle, socket).onErrorRecoverWith {
-          case t => Task.now(state.withError(s"Exiting BSP server with ${t.getMessage}", t))
-        }
+        listenToConnection(handle, socket)
+          .onErrorHandleWith { t =>
+            val mainWithError = state.main.withError(s"Exiting BSP server with ${t.getMessage}", t)
+            Task.now(state.copy(main = mainWithError))
+          }
       case scala.util.Failure(t: Throwable) =>
         promiseWhenStarted.foreach(p => if (!p.isCompleted) p.failure(t))
-        Task.now(state.withError(s"BSP server failed to open a socket: '${t.getMessage}'", t))
+        val mainWithError =
+          state.main.withError(s"BSP server failed to open a socket: '${t.getMessage}'", t)
+        Task.now(state.copy(main = mainWithError))
     }
   }
 
   def closeCommunication(
-      externalObserver: Option[BehaviorSubject[State]],
-      latestState: State,
+      latestState: BspState,
       socket: Socket,
       serverSocket: ServerSocket
   ): Unit = {
@@ -278,7 +308,8 @@ object BspServer {
       }
     } finally {
       // Guarantee that we always schedule the external classes directories deletion
-      val deleteExternalDirsTasks = latestState.build.loadedProjects.map { loadedProject =>
+      val allProjects = latestState.allBuildStates.flatMap(_.build.loadedProjects)
+      val deleteExternalDirsTasks = allProjects.map { loadedProject =>
         import bloop.io.Paths
         val project = loadedProject.project
         try {

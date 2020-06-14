@@ -249,13 +249,13 @@ object BspServerLogger {
   private[bloop] final val counter: AtomicInteger = new AtomicInteger(0)
 
   def apply(
-      state: State,
+      logger: Logger,
       client: JsonRpcClient,
       taskIdCounter: AtomicInt,
       ansiCodesSupported: Boolean
   ): BspServerLogger = {
     val name: String = s"bsp-logger-${BspServerLogger.counter.incrementAndGet()}"
-    new BspServerLogger(name, state.logger, client, taskIdCounter, ansiCodesSupported, None)
+    new BspServerLogger(name, logger, client, taskIdCounter, ansiCodesSupported, None)
   }
 
   /**

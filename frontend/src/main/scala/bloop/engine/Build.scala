@@ -2,13 +2,11 @@ package bloop.engine
 
 import bloop.data.{LoadedProject, Origin, Project, WorkspaceSettings}
 import bloop.engine.Dag.DagResult
-import bloop.io.Paths.AttributedPath
 import bloop.io.{AbsolutePath, ByteHasher}
 import bloop.logging.Logger
 import bloop.util.CacheHashCode
 import monix.eval.Task
 
-import scala.annotation.tailrec
 import scala.collection.mutable
 
 final case class Build private (
@@ -29,9 +27,6 @@ final case class Build private (
 
   def hasMissingDependencies(project: Project): Option[List[String]] =
     missingDeps.get(project)
-
-  def mainOnlyProjects: List[LoadedProject] =
-    loadedProjects.filter(_.project.sbt.isEmpty)
 
   /**
    * Detect changes in the build definition since the last time it was loaded
@@ -59,22 +54,7 @@ final case class Build private (
       origin.path -> origin.toAttributedPath
     }.toMap
 
-    @tailrec
-    def sbtFilesRecursively(p: AbsolutePath, files: List[AttributedPath]): List[AttributedPath] = {
-      val projectDir = p.resolve("project")
-      val sbtDir = projectDir.resolve(".bloop")
-      if (sbtDir.exists && sbtDir.isDirectory) {
-        val newFiles = BuildLoader.readConfigurationFilesInBase(sbtDir, logger)
-        sbtFilesRecursively(projectDir, newFiles ++ files)
-      } else files
-    }
-
-    val newFiles = {
-      val main = BuildLoader.readConfigurationFilesInBase(origin, logger).toSet
-      val sbt = sbtFilesRecursively(origin.getParent, List.empty).toSet
-      main ++ sbt
-    }
-
+    val newFiles = BuildLoader.readConfigurationFilesInBase(origin, logger).toSet
     val newToAttributed = newFiles.iterator.map(ap => ap.path -> ap).toMap
 
     val currentSettings = WorkspaceSettings.readFromFile(origin, logger)

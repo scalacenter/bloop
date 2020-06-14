@@ -10,7 +10,46 @@ import ch.epfl.scala.bsp.Uri
 
 import scala.util.Try
 
+case class ParsedProjectUri(
+    path: AbsolutePath,
+    name: String
+)
+
 object ProjectUris {
+
+  def parseUri(projectUri: String): Either[String, ParsedProjectUri] = {
+
+    def invalidFormatMessage: String =
+      s"URI '${projectUri}' has invalid format. Example: ${ProjectUris.Example}"
+
+    def findName(uri: URI): Either[String, String] = {
+      val kv = uri.getRawQuery.split("&")
+      val maybeName = kv
+        .map(_.split("="))
+        .find {
+          case Array("id", _) => true
+          case _ => false
+        }
+        .map(arr => arr(1))
+
+      maybeName match {
+        case Some(name) => Right(name)
+        case None => Left(invalidFormatMessage)
+      }
+    }
+
+    if (projectUri.isEmpty) Left("URI cannot be empty.")
+    else {
+      Try(new URI(projectUri)).toEither.left
+        .map(_ => invalidFormatMessage)
+        .flatMap(
+          uri =>
+            findName(uri)
+              .map(name => ParsedProjectUri(AbsolutePath.completelyUnsafe(uri.getPath), name))
+        )
+    }
+  }
+
   def getProjectDagFromUri(projectUri: String, state: State): Either[String, Option[Project]] = {
     if (projectUri.isEmpty) Left("URI cannot be empty.")
     else {

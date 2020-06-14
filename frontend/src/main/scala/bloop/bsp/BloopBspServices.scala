@@ -59,11 +59,11 @@ import bloop.exec.Forker
 import bloop.logging.BloopLogger
 
 final class BloopBspServices(
-    callSiteState: State,
+    callSiteState: BspState,
     client: JsonRpcClient,
     relativeConfigPath: RelativePath,
     stopBspServer: Cancelable,
-    observer: Option[BehaviorSubject[State]],
+    observer: Option[BehaviorSubject[BspState]],
     isClientConnected: AtomicBoolean,
     connectedBspClients: ConcurrentHashMap[ClientInfo.BspClientInfo, AbsolutePath],
     computationScheduler: Scheduler,
@@ -77,10 +77,10 @@ final class BloopBspServices(
   private type BspEndpointResponse[T] = Task[BspResponse[T]]
 
   /** The return type of intermediate BSP computations */
-  private type BspResult[T] = Task[(State, BspResponse[T])]
+  private type BspResult[T] = Task[(BspState, BspResponse[T])]
 
   /** The return type of a bsp computation wrapped by `ifInitialized` */
-  private type BspComputation[T] = (State, BspServerLogger) => BspResult[T]
+  private type BspComputation[T] = (BspState, BspServerLogger) => BspResult[T]
 
   /**
    * Schedule the async response handlers to run on the default computation
@@ -95,7 +95,8 @@ final class BloopBspServices(
 
   // Disable ansi codes for now so that the BSP clients don't get unescaped color codes
   private val taskIdCounter: AtomicInt = AtomicInt(0)
-  private val baseBspLogger = BspServerLogger(callSiteState, client, taskIdCounter, false)
+  private val baseBspLogger =
+    BspServerLogger(callSiteState.main.logger, client, taskIdCounter, false)
 
   final val services = JsonRpcServices
     .empty(baseBspLogger)
@@ -120,29 +121,31 @@ final class BloopBspServices(
     .notificationAsync(BloopBspDefinitions.stopClientCaching)(p => stopClientCaching(p))
 
   // Internal state, initial value defaults to
-  @volatile private var currentState: State = callSiteState
+  @volatile private var currentState: BspState = callSiteState
 
   /** Returns the final state after BSP commands that can be cached by bloop. */
-  def stateAfterExecution: State = {
+  def stateAfterExecution: BspState = {
     // Use logger of the initial state instead of the bsp forwarder logger
-    val nextState0 = currentState.copy(logger = callSiteState.logger)
+    val nextState0 = currentState.updateLogger(logger = callSiteState.main.logger)
     clientInfo.future.value match {
-      case Some(scala.util.Success(clientInfo)) => nextState0.copy(client = clientInfo)
+      case Some(scala.util.Success(clientInfo)) => nextState0.updateClient(clientInfo)
       case _ => nextState0
     }
   }
 
-  private val previouslyFailedCompilations = new TrieMap[Project, Compiler.Result.Failed]()
+  private val previouslyFailedCompilations =
+    new TrieMap[(AbsolutePath, Project), Compiler.Result.Failed]()
   private def reloadState(
       config: AbsolutePath,
       clientInfo: ClientInfo,
       clientSettings: Option[WorkspaceSettings],
       bspLogger: BspServerLogger
-  ): Task[State] = {
+  ): Task[BspState] = {
     val pool = currentState.pool
     val defaultOpts = currentState.commonOptions
     bspLogger.debug(s"Reloading bsp state for ${config.syntax}")
-    State
+
+    BspState
       .loadActiveStateFor(config, clientInfo, pool, defaultOpts, bspLogger, clientSettings)
       .map { state0 =>
         /* Create a new state that has the previously compiled results in this BSP
@@ -151,27 +154,25 @@ final class BloopBspServices(
          * happen in other clients, the previous result does not contain the list of
          * previous problems (that tracks where we reported diagnostics) that this client
          * had and therefore we can fail to reset diagnostics. */
-        val newState = {
-          val previous = previouslyFailedCompilations.toMap
-          state0.copy(
-            results = state0.results.replacePreviousResults(previous),
-            client = clientInfo
-          )
-        }
 
+        val newState =
+          state0
+            .replacePreviousResults(previouslyFailedCompilations.toMap)
+            .updateClient(clientInfo)
         currentState = newState
         newState
       }
   }
 
-  private def saveState(state: State, bspLogger: BspServerLogger): Task[Unit] = {
+  private def saveState(state: BspState, bspLogger: BspServerLogger): Task[Unit] = {
     Task {
-      val configDir = state.build.origin
-      bspLogger.debug(s"Saving bsp state for ${configDir.syntax}")
-      // Save the state globally so that it can be accessed by other clients
-      State.stateCache.updateBuild(state)
-      publishStateInObserver(state)
-    }.flatten
+      state.allBuildStates.map { state =>
+        val configDir = state.build.origin
+        bspLogger.debug(s"Saving bsp state for ${configDir.syntax}")
+        // Save the state globally so that it can be accessed by other clients
+        State.stateCache.updateBuild(state)
+      }
+    }.flatMap(_ => publishStateInObserver(state))
   }
 
   // Completed whenever the initialization happens, used in `initialized`
@@ -191,7 +192,7 @@ final class BloopBspServices(
       case Some(client) =>
         client match {
           case Success(client) =>
-            val configDir = currentState.build.origin
+            val configDir = currentState.main.build.origin
             connectedBspClients.remove(client, configDir)
             Some(client)
           case Failure(_) => None
@@ -265,7 +266,7 @@ final class BloopBspServices(
       callSiteState.logger.info(s"request received: build/initialize")
       clientInfo.success(client)
       connectedBspClients.put(client, configDir)
-      publishStateInObserver(state.copy(client = client)).map { _ =>
+      publishStateInObserver(state.updateClient(client)).map { _ =>
         Right(
           bsp.InitializeBuildResult(
             BuildInfo.bloopName,
@@ -289,7 +290,7 @@ final class BloopBspServices(
     }
   }
 
-  private def publishStateInObserver(state: State): Task[Unit] = {
+  private def publishStateInObserver(state: BspState): Task[Unit] = {
     observer match {
       case None => Task.unit
       case Some(observer) => Task.fromFuture(observer.onNext(state)).map(_ => ())
@@ -333,40 +334,83 @@ final class BloopBspServices(
       .flatMap {
         case Left(e) => Task.now(Left(e))
         case Right(clientInfo) =>
-          reloadState(currentState.build.origin, clientInfo, None, bspLogger).flatMap { state =>
-            compute(state, bspLogger).flatMap {
-              case (state, e) => saveState(state, bspLogger).map(_ => e)
-            }
+          reloadState(currentState.main.build.origin, clientInfo, None, bspLogger).flatMap {
+            state =>
+              compute(state, bspLogger).flatMap {
+                case (state, e) => saveState(state, bspLogger).map(_ => e)
+              }
           }
       }
   }
 
-  def mapToProject(
+  case class ProjectMapping(
+      id: bsp.BuildTargetIdentifier,
+      project: Project
+  )
+  case class MappingGroup(
+      buildState: State,
+      mappings: List[ProjectMapping],
+      isMain: Boolean
+  )
+
+  private def projectMappingFromUri(
       target: bsp.BuildTargetIdentifier,
-      state: State
-  ): Either[String, ProjectMapping] = {
+      bspState: BspState
+  ): Either[String, (State, ProjectMapping)] = {
     val uri = target.uri
-    ProjectUris.getProjectDagFromUri(uri.value, state) match {
+
+    ProjectUris.parseUri(uri.value) match {
       case Left(errorMsg) => Left(errorMsg)
-      case Right(Some(project)) => Right((target, project))
-      case Right(None) => Left(s"No project associated with $uri")
+      case Right(parsed) =>
+        val out =
+          for {
+            st <- bspState.buildStateByBaseDirectory(parsed.path)
+            project <- st.build.getProjectFor(parsed.name)
+          } yield (st, ProjectMapping(target, project))
+
+        out.toRight(s"No project associated with $uri")
     }
   }
 
-  type ProjectMapping = (bsp.BuildTargetIdentifier, Project)
-  private def mapToProjects(
+  private def mapToGroups(
       targets: Seq[bsp.BuildTargetIdentifier],
-      state: State
-  ): Either[String, Seq[ProjectMapping]] = {
+      bspState: BspState
+  ): Either[String, List[MappingGroup]] = {
     if (targets.isEmpty) {
       Left("Empty build targets. Expected at least one build target identifier.")
     } else {
-      val zero: Either[String, List[ProjectMapping]] = Right(Nil)
-      targets.foldLeft(zero) { (acc, t) =>
-        acc.flatMap(ms => mapToProject(t, state).map(m => m :: ms))
-      }
+
+      val zero: Either[String, Map[AbsolutePath, (State, List[ProjectMapping])]] = Right(Map.empty)
+      targets
+        .foldLeft(zero) { (acc, t) =>
+          acc.flatMap(pathToMappings => {
+            projectMappingFromUri(t, bspState)
+              .map {
+                case (st, pm) =>
+                  val path = st.build.origin
+                  val (_, mappingsToSt) =
+                    pathToMappings.getOrElse(path, (st, List.empty[ProjectMapping]))
+                  val next = pm :: mappingsToSt
+
+                  pathToMappings.updated(path, (st, next))
+              }
+          })
+        }
+        .map { groups =>
+          groups.values.map {
+            case (st, mappings) =>
+              val isMain = st.build.origin == bspState.main.build.origin
+              MappingGroup(st, mappings, isMain)
+          }.toList
+        }
     }
   }
+
+  private def toMainOnlyMappingGroup(
+      targets: Seq[bsp.BuildTargetIdentifier],
+      bspState: BspState
+  ): Either[String, Option[MappingGroup]] =
+    mapToGroups(targets, bspState).map(_.find(_.isMain))
 
   /**
    * Keep track of those projects that were compiled at least once so that we can
@@ -382,27 +426,95 @@ final class BloopBspServices(
     Task.fork(Task.eval { originToCompileStores.remove(params.originId); () })
   }
 
-  def compileProjects(
-      userProjects: Seq[ProjectMapping],
-      state: State,
+  def compileGroups(
+      groups: List[MappingGroup],
+      bspState: BspState,
       compileArgs: List[String],
       originId: Option[String],
       logger: BspServerLogger
   ): BspResult[bsp.CompileResult] = {
-    val workspaceSettings = WorkspaceSettings.readFromFile(state.build.origin, logger)
     val cancelCompilation = Promise[Unit]()
     def reportError(p: Project, problems: List[ProblemPerPhase], elapsedMs: Long): String = {
       // Don't show warnings in this "final report", we're handling them in the reporter
       val count = bloop.reporter.Problem.count(problems)
       s"${p.name} [${elapsedMs}ms] (errors ${count.errors})"
     }
+    val groupsCompilation = groups
+      .sortBy(_.buildState.build.origin.toString)
+      .map(
+        group =>
+          compileProjectGroup(
+            group,
+            compileArgs,
+            originId,
+            cancelCompilation,
+            logger
+          ).map(newState => (group.buildState, newState))
+      )
+
+    Task
+      .sequence(groupsCompilation)
+      .map(results => {
+
+        val init = (List.empty[State], List.empty[String])
+        val (updatedStates, errors) = results.foldLeft(init) {
+          case ((statesAcc, errorsAcc), (prevState, updatedState)) =>
+            val compiledResults = prevState.results.diffLatest(updatedState.results)
+            val errorMsgs = compiledResults.flatMap {
+              case (p, result) =>
+                result match {
+                  case Compiler.Result.Empty => Nil
+                  case Compiler.Result.Blocked(_) => Nil
+                  case Compiler.Result.Success(_, _, _, _, _, _, _) =>
+                    previouslyFailedCompilations.remove((updatedState.build.origin, p))
+                    Nil
+                  case Compiler.Result.GlobalError(problem) => List(problem)
+                  case Compiler.Result.Cancelled(problems, elapsed, _) =>
+                    List(reportError(p, problems, elapsed))
+                  case f @ Compiler.Result.Failed(problems, t, elapsed, _) =>
+                    previouslyFailedCompilations.put((updatedState.build.origin, p), f)
+                    val acc = List(reportError(p, problems, elapsed))
+                    t match {
+                      case Some(t) =>
+                        s"Bloop error when compiling ${p.name}: '${t.getMessage}'" :: acc
+                      case None => acc
+                    }
+                }
+            }
+
+            val nextErrors = errorsAcc ++ errorMsgs
+            (updatedState :: statesAcc, nextErrors)
+        }
+
+        val newState = bspState.updateBuildStates(updatedStates)
+        val response: Either[ProtocolError, bsp.CompileResult] = {
+          if (cancelCompilation.isCompleted)
+            Right(bsp.CompileResult(originId, bsp.StatusCode.Cancelled, None, None))
+          else {
+            errors match {
+              case Nil => Right(bsp.CompileResult(originId, bsp.StatusCode.Ok, None, None))
+              case xs => Right(bsp.CompileResult(originId, bsp.StatusCode.Error, None, None))
+            }
+          }
+        }
+
+        (newState, response)
+      })
+  }
+
+  def compileProjectGroup(
+      group: MappingGroup,
+      compileArgs: List[String],
+      originId: Option[String],
+      cancelCompilation: Promise[Unit],
+      logger: BspServerLogger
+  ): Task[State] = {
 
     val isPipeline = compileArgs.exists(_ == "--pipeline")
     def compile(projects: List[Project]): Task[State] = {
-      val cwd = state.build.origin.getParent
       val config = ReporterConfig.defaultFormat.copy(reverseOrder = false)
 
-      val isSbtClient = state.client match {
+      val isSbtClient = group.buildState.client match {
         case info: BspClientInfo if info.name == "sbt" => true
         case _ => false
       }
@@ -427,7 +539,7 @@ final class BloopBspServices(
         )
       }
 
-      val dag = Aggregate(projects.map(p => state.build.getDagFor(p)))
+      val dag = Aggregate(projects.map(p => group.buildState.build.getDagFor(p)))
       val store = {
         if (!isSbtClient) CompileClientStore.NoStore
         else {
@@ -444,7 +556,7 @@ final class BloopBspServices(
       }
 
       CompileTask.compile(
-        state,
+        group.buildState,
         dag,
         createReporter,
         isPipeline,
@@ -456,82 +568,67 @@ final class BloopBspServices(
     }
 
     val projects: List[Project] = {
-      val projects0 = Dag.reduce(state.build.dags, userProjects.map(_._2).toSet).toList
+      val projects0 =
+        Dag.reduce(group.buildState.build.dags, group.mappings.map(_.project).toSet).toList
       if (!compileArgs.exists(_ == "--cascade")) projects0
-      else Dag.inverseDependencies(state.build.dags, projects0).reduced
+      else Dag.inverseDependencies(group.buildState.build.dags, projects0).reduced
     }
 
-    compile(projects).map { newState =>
-      val compiledResults = state.results.diffLatest(newState.results)
-      val errorMsgs = compiledResults.flatMap {
-        case (p, result) =>
-          result match {
-            case Compiler.Result.Empty => Nil
-            case Compiler.Result.Blocked(_) => Nil
-            case Compiler.Result.Success(_, _, _, _, _, _, _) =>
-              previouslyFailedCompilations.remove(p)
-              Nil
-            case Compiler.Result.GlobalError(problem) => List(problem)
-            case Compiler.Result.Cancelled(problems, elapsed, _) =>
-              List(reportError(p, problems, elapsed))
-            case f @ Compiler.Result.Failed(problems, t, elapsed, _) =>
-              previouslyFailedCompilations.put(p, f)
-              val acc = List(reportError(p, problems, elapsed))
-              t match {
-                case Some(t) => s"Bloop error when compiling ${p.name}: '${t.getMessage}'" :: acc
-                case None => acc
-              }
-          }
-      }
-
-      val response: Either[ProtocolError, bsp.CompileResult] = {
-        if (cancelCompilation.isCompleted)
-          Right(bsp.CompileResult(originId, bsp.StatusCode.Cancelled, None, None))
-        else {
-          errorMsgs match {
-            case Nil => Right(bsp.CompileResult(originId, bsp.StatusCode.Ok, None, None))
-            case xs => Right(bsp.CompileResult(originId, bsp.StatusCode.Error, None, None))
-          }
-        }
-      }
-
-      (newState, response)
-    }
+    compile(projects)
   }
 
   def compile(params: bsp.CompileParams): BspEndpointResponse[bsp.CompileResult] = {
-    ifInitialized(params.originId) { (state: State, logger0: BspServerLogger) =>
-      mapToProjects(params.targets, state) match {
+    ifInitialized(params.originId) { (state: BspState, logger0: BspServerLogger) =>
+      mapToGroups(params.targets, state) match {
         case Left(error) =>
           // Log the mapping error to the user via a log event + an error status code
           logger0.error(error)
           Task.now((state, Right(bsp.CompileResult(None, bsp.StatusCode.Error, None, None))))
-        case Right(mappings) =>
+        case Right(groups) =>
           val compileArgs = params.arguments.getOrElse(Nil)
           val isVerbose = compileArgs.exists(_ == "--verbose")
           val logger = logger0.asBspServerVerbose
-          compileProjects(mappings, state, compileArgs, params.originId, logger)
+          compileGroups(groups, state, compileArgs, params.originId, logger)
       }
     }
   }
 
   def clean(params: bsp.CleanCacheParams): BspEndpointResponse[bsp.CleanCacheResult] = {
-    ifInitialized(None) { (state: State, logger: BspServerLogger) =>
-      mapToProjects(params.targets, state) match {
+    ifInitialized(None) { (state: BspState, logger: BspServerLogger) =>
+      mapToGroups(params.targets, state) match {
         case Left(error) =>
           // Log the mapping error to the user via a log event + an error status code
           logger.error(error)
           val msg = s"Couldn't map all targets to clean to projects in the build: $error"
           Task.now((state, Right(bsp.CleanCacheResult(Some(msg), cleaned = false))))
-        case Right(mappings) =>
-          val projectsToClean = mappings.map(_._2).toList
-          Tasks.clean(state, projectsToClean, includeDeps = false).materialize.map {
-            case Success(state) => (state, Right(bsp.CleanCacheResult(None, cleaned = true)))
-            case Failure(exception) =>
-              val t = BloopLogger.prettyPrintException(exception)
-              val msg = s"Unexpected error when cleaning build targets!${System.lineSeparator}$t"
-              state -> Right(bsp.CleanCacheResult(Some(msg), cleaned = false))
-          }
+        case Right(groups) =>
+          val groupsClean = groups.map(group => {
+            val projectsToClean = group.mappings.map(_.project)
+            Tasks
+              .clean(group.buildState, projectsToClean, includeDeps = false)
+              .materialize
+              .map(r => r -> group.buildState)
+          })
+
+          Task
+            .gatherUnordered(groupsClean)
+            .map(results => {
+              val init = (List.empty[State], List.empty[String])
+              val (states, errors) = results.foldLeft(init) {
+                case ((stAcc, errAcc), (Success(newSt), _)) => (newSt :: stAcc, errAcc)
+                case ((stAcc, errAcc), (Failure(e), st)) =>
+                  val t = BloopLogger.prettyPrintException(e)
+                  val msg =
+                    s"Unexpected error when cleaning build targets!${System.lineSeparator}$t"
+                  (st :: stAcc, msg :: errAcc)
+              }
+
+              val newState = state.updateBuildStates(states)
+              val errorsResult =
+                if (errors.nonEmpty) Some(errors.mkString(System.lineSeparator)) else None
+              val isCleaned = errorsResult.isEmpty
+              newState -> Right(bsp.CleanCacheResult(errorsResult, cleaned = isCleaned))
+            })
       }
     }
   }
@@ -539,17 +636,19 @@ final class BloopBspServices(
   def scalaTestClasses(
       params: bsp.ScalaTestClassesParams
   ): BspEndpointResponse[bsp.ScalaTestClassesResult] = {
-    ifInitialized(params.originId) { (state: State, logger: BspServerLogger) =>
-      mapToProjects(params.targets, state) match {
+    ifInitialized(params.originId) { (state: BspState, logger: BspServerLogger) =>
+      toMainOnlyMappingGroup(params.targets, state) match {
         case Left(error) =>
           logger.error(error)
           Task.now((state, Right(bsp.ScalaTestClassesResult(Nil))))
 
-        case Right(projects) =>
+        case Right(None) =>
+          Task.now((state, Right(bsp.ScalaTestClassesResult(Nil))))
+        case Right(Some(group)) =>
           val subTasks = for {
-            (id, project) <- projects.toList
-            task = TestTask.findFullyQualifiedTestNames(project, state)
-            item = task.map(classes => bsp.ScalaTestClassesItem(id, classes))
+            mapping <- group.mappings
+            task = TestTask.findFullyQualifiedTestNames(mapping.project, group.buildState)
+            item = task.map(classes => bsp.ScalaTestClassesItem(mapping.id, classes))
           } yield item
 
           for {
@@ -600,14 +699,18 @@ final class BloopBspServices(
           Task.now((state, Left(JsonRpcResponse.internalError(message))))
 
         case Success(_) =>
-          mapToProjects(params.targets, state) match {
+          toMainOnlyMappingGroup(params.targets, state) match {
             case Left(error) =>
               // Log the mapping error to the user via a log event + an error status code
               logger.error(error)
               Task.now((state, Left(JsonRpcResponse.invalidRequest(error))))
-            case Right(mappings) =>
+            case Right(None) =>
+              val error = "Debug doesn't work for requested targets"
+              logger.error(error)
+              Task.now((state, Left(JsonRpcResponse.invalidRequest(error))))
+            case Right(Some(group)) =>
               // FIXME: Add origin id to DAP request
-              compileProjects(mappings, state, Nil, None, logger).flatMap {
+              compileGroups(List(group), state, Nil, None, logger).flatMap {
                 case (state, Left(error)) =>
                   Task.now((state, Left(error)))
                 case (state, Right(result)) if result.statusCode != bsp.StatusCode.Ok =>
@@ -615,8 +718,8 @@ final class BloopBspServices(
                     (state, Left(JsonRpcResponse.internalError("Compilation not successful")))
                   )
                 case (state, Right(_)) =>
-                  val projects = mappings.map(_._2)
-                  inferDebuggeeRunner(projects, state) match {
+                  val projects = group.mappings.map(_.project)
+                  inferDebuggeeRunner(projects, group.buildState) match {
                     case Right(runner) =>
                       val startedServer = DebugServer.start(runner, logger, ioScheduler)
                       val listenAndUnsubscribe = startedServer.listen
@@ -651,27 +754,35 @@ final class BloopBspServices(
     }
 
     val originId = params.originId
-    ifInitialized(originId) { (state: State, logger0: BspServerLogger) =>
-      mapToProjects(params.targets, state) match {
+    ifInitialized(originId) { (state: BspState, logger0: BspServerLogger) =>
+      toMainOnlyMappingGroup(params.targets, state) match {
         case Left(error) =>
           // Log the mapping error to the user via a log event + an error status code
           logger0.error(error)
           Task.now((state, Right(bsp.TestResult(originId, bsp.StatusCode.Error, None, None))))
-        case Right(mappings) =>
+        case Right(None) =>
+          Task.now((state, Right(bsp.TestResult(originId, bsp.StatusCode.Error, None, None))))
+        case Right(Some(group)) =>
           val args = params.arguments.getOrElse(Nil)
           val isVerbose = args.exists(_ == "--verbose")
           val logger = logger0.asBspServerVerbose
-          compileProjects(mappings, state, args, originId, logger).flatMap {
+          compileGroups(List(group), state, args, originId, logger).flatMap {
             case (newState, compileResult) =>
               compileResult match {
                 case Right(result) =>
-                  val sequentialTestExecution = mappings.foldLeft(Task.now(newState)) {
-                    case (taskState, (tid, p)) => taskState.flatMap(state => test(tid, p, state))
+                  val sequentialTestExecution = group.mappings.foldLeft(Task.now(newState.main)) {
+                    case (taskState, mapping) =>
+                      taskState.flatMap(
+                        state => test(mapping.id, mapping.project, group.buildState)
+                      )
                   }
 
                   sequentialTestExecution.materialize.map(_.toEither).map {
-                    case Right(newState) =>
-                      (newState, Right(bsp.TestResult(originId, bsp.StatusCode.Ok, None, None)))
+                    case Right(newMainBuildState) =>
+                      (
+                        newState.copy(main = newMainBuildState),
+                        Right(bsp.TestResult(originId, bsp.StatusCode.Ok, None, None))
+                      )
                     case Left(e) =>
                       //(newState, Right(bsp.TestResult(None, bsp.StatusCode.Error, None)))
                       val errorMessage =
@@ -699,16 +810,18 @@ final class BloopBspServices(
   def jvmEnvironment(
       targets: Seq[BuildTargetIdentifier]
   ): BspEndpointResponse[List[bsp.JvmEnvironmentItem]] = {
-    ifInitialized(None) { (state: State, logger: BspServerLogger) =>
-      mapToProjects(targets, state) match {
+    ifInitialized(None) { (state: BspState, logger: BspServerLogger) =>
+      mapToGroups(targets, state) match {
         case Left(error) =>
           logger.error(error)
           Task.now((state, Left(JsonRpcResponse.invalidRequest(error))))
 
-        case Right(projects) =>
+        case Right(groups) =>
           val environmentEntries = (for {
-            (id, project) <- projects.toList
-            dag = state.build.getDagFor(project)
+            group <- groups
+            mapping <- group.mappings
+            project = mapping.project
+            dag = group.buildState.build.getDagFor(project)
             fullClasspath = project.fullRuntimeClasspath(dag, state.client).map(_.toBspUri.toString)
             environmentVariables = state.commonOptions.env.toMap
             workingDirectory = project.workingDirectory.toString
@@ -718,7 +831,7 @@ final class BloopBspServices(
             }
           } yield {
             bsp.JvmEnvironmentItem(
-              id,
+              mapping.id,
               fullClasspath.toList,
               javaOptions,
               workingDirectory,
@@ -733,22 +846,23 @@ final class BloopBspServices(
   def scalaMainClasses(
       params: bsp.ScalaMainClassesParams
   ): BspEndpointResponse[bsp.ScalaMainClassesResult] = {
-    def findMainClasses(state: State, project: Project): List[bsp.ScalaMainClass] =
+    def findMainClasses(buildState: State, project: Project): List[bsp.ScalaMainClass] =
       for {
-        className <- Tasks.findMainClasses(state, project)
+        className <- Tasks.findMainClasses(buildState, project)
       } yield bsp.ScalaMainClass(className, Nil, Nil)
 
-    ifInitialized(params.originId) { (state: State, logger: BspServerLogger) =>
-      mapToProjects(params.targets, state) match {
+    ifInitialized(params.originId) { (state: BspState, logger: BspServerLogger) =>
+      toMainOnlyMappingGroup(params.targets, state) match {
         case Left(error) =>
           logger.error(error)
           Task.now((state, Right(bsp.ScalaMainClassesResult(Nil))))
-
-        case Right(projects) =>
+        case Right(None) =>
+          Task.now((state, Right(bsp.ScalaMainClassesResult(Nil))))
+        case Right(Some(group)) =>
           val items = for {
-            (id, project) <- projects.toList
-            mainClasses = findMainClasses(state, project)
-          } yield bsp.ScalaMainClassesItem(id, mainClasses)
+            mapping <- group.mappings
+            mainClasses = findMainClasses(group.buildState, mapping.project)
+          } yield bsp.ScalaMainClassesItem(mapping.id, mainClasses)
 
           val result = new bsp.ScalaMainClassesResult(items)
           Task.now((state, Right(result)))
@@ -829,22 +943,32 @@ final class BloopBspServices(
     }
 
     val originId = params.originId
-    ifInitialized(originId) { (state: State, logger0: BspServerLogger) =>
-      mapToProject(params.target, state) match {
+    ifInitialized(originId) { (state: BspState, logger0: BspServerLogger) =>
+      val mappingWithBuildState = toMainOnlyMappingGroup(Seq(params.target), state)
+        .flatMap { maybeGroup =>
+          val findTarget = maybeGroup.flatMap(
+            group =>
+              group.mappings.find(_.id == params.target).map(mapping => group.buildState -> mapping)
+          )
+          findTarget.toRight(s"Internal Error. Couldn't find state for ${params.target}")
+        }
+      mappingWithBuildState match {
         case Left(error) =>
           // Log the mapping error to the user via a log event + an error status code
           logger0.error(error)
           Task.now((state, Right(bsp.RunResult(originId, bsp.StatusCode.Error))))
-        case Right((tid, project)) =>
+        case Right((buildState, mapping)) =>
           val args = params.arguments.getOrElse(Nil)
           val isVerbose = args.exists(_ == "--verbose")
           val logger = logger0.asBspServerVerbose
-          compileProjects(List((tid, project)), state, args, originId, logger).flatMap {
+
+          val groupForCompile = MappingGroup(buildState, List(mapping), true)
+          compileGroups(List(groupForCompile), state, args, originId, logger).flatMap {
             case (newState, compileResult) =>
               compileResult match {
                 case Right(result) =>
                   var isCancelled: Boolean = false
-                  run(tid, project, newState)
+                  run(mapping.id, mapping.project, newState.main)
                     .doOnCancel(Task { isCancelled = true; () })
                     .materialize
                     .map(_.toEither)
@@ -852,7 +976,7 @@ final class BloopBspServices(
                       case Left(e) =>
                         val errorMsg =
                           JsonRpcResponse.internalError(s"Failed test execution: ${e.getMessage}")
-                        (state, Left(errorMsg))
+                        (newState, Left(errorMsg))
                       case Right(state) =>
                         val status = {
                           val exitStatus = state.status
@@ -860,7 +984,7 @@ final class BloopBspServices(
                           else if (exitStatus.isOk) bsp.StatusCode.Ok
                           else bsp.StatusCode.Error
                         }
-                        (state, Right(bsp.RunResult(originId, status)))
+                        (newState.copy(main = state), Right(bsp.RunResult(originId, status)))
                     }
 
                 case Left(error) => Task.now((state, Left(error)))
@@ -917,26 +1041,40 @@ final class BloopBspServices(
       request: bsp.WorkspaceBuildTargetsRequest
   ): BspEndpointResponse[bsp.WorkspaceBuildTargetsResult] = {
     // need a separate block so so that state is refreshed after regenerating project data
-    val refreshTask = ifInitialized(None) { (state: State, logger: BspServerLogger) =>
-      state.client.refreshProjectsCommand
-        .map { command =>
-          val cwd = state.build.origin
-          Forker.run(cwd = cwd, command, logger, state.commonOptions).map { exitCode =>
-            val status = Forker.exitStatus(exitCode)
-            if (!status.isOk) {
-              val message =
-                s"""Refresh projects command failed with exit code $exitCode.
-                   |Command run in $cwd: ${command.mkString(" ")}""".stripMargin
-              (state, Left(JsonRpcResponse.internalError(message)))
+    val refreshTask = ifInitialized(None) { (state: BspState, logger: BspServerLogger) =>
+      state.client.refreshProjectsCommand match {
+        case None => Task.now((state, Right(())))
+        case Some(command) =>
+          val refreshAll = state.allBuildStates.map { buildState =>
+            val cwd = buildState.build.origin
+            Forker.run(cwd = cwd, command, logger, buildState.commonOptions).map { exitCode =>
+              val status = Forker.exitStatus(exitCode)
+              if (!status.isOk) {
+                val message =
+                  s"""Refresh projects command failed with exit code $exitCode.
+                     |Command run in $cwd: ${command.mkString(" ")}""".stripMargin
+                Left(message)
+              } else {
+                Right(())
+              }
+            }
+          }
+          Task.gatherUnordered(refreshAll).map { results =>
+            val errors = results.foldLeft(List.empty[String]) {
+              case (acc, Right(_)) => acc
+              case (acc, Left(err)) => err :: acc
+            }
+
+            if (errors.nonEmpty) {
+              (state, Left(JsonRpcResponse.internalError(errors.mkString("; "))))
             } else {
               (state, Right(()))
             }
           }
-        }
-        .getOrElse(Task.now((state, Right(()))))
+      }
     }
 
-    val buildTargetsTask = ifInitialized(None) { (state: State, _: BspServerLogger) =>
+    val buildTargetsTask = ifInitialized(None) { (state: BspState, _: BspServerLogger) =>
       def reportBuildError(msg: String): Unit = {
         endpoints.Build.showMessage.notify(
           ShowMessageParams(MessageType.Error, None, None, msg)
@@ -944,13 +1082,13 @@ final class BloopBspServices(
         ()
       }
 
-      Validate.validateBuildForCLICommands(state, reportBuildError(_)).flatMap { state =>
-        if (state.status == ExitStatus.BuildDefinitionError)
-          Task.now((state, Right(bsp.WorkspaceBuildTargetsResult(Nil))))
-        else {
-          val build = state.build
-          val projects = build.loadedProjects.map(_.project)
-          val targets = bsp.WorkspaceBuildTargetsResult(
+      val targetsForStates = state.allBuildStates.map { buildState =>
+        Validate.validateBuildForCLICommands(buildState, reportBuildError).map { buildState =>
+          if (buildState.status == ExitStatus.BuildDefinitionError)
+            Nil
+          else {
+            val build = buildState.build
+            val projects = build.loadedProjects.map(_.project)
             projects.map { p =>
               val id = toBuildTargetId(p)
               val deps = p.dependencies.iterator.flatMap(build.getProjectFor(_).toList)
@@ -989,11 +1127,14 @@ final class BloopBspServices(
                 data = extra
               )
             }
-          )
-
-          Task.now((state, Right(targets)))
+          }
         }
       }
+
+      Task
+        .sequence(targetsForStates)
+        .map(_.flatten)
+        .map(allTargets => (state, Right(bsp.WorkspaceBuildTargetsResult(allTargets))))
     }
 
     refreshTask.flatMap {
@@ -1006,43 +1147,42 @@ final class BloopBspServices(
       request: bsp.SourcesParams
   ): BspEndpointResponse[bsp.SourcesResult] = {
     def sources(
-        projects: Seq[ProjectMapping],
-        state: State
-    ): BspResult[bsp.SourcesResult] = {
-      val sourcesItems = projects.iterator.map {
-        case (target, project) =>
-          project.allSourceFilesAndDirectories.map { sources =>
-            val items = sources.map { s =>
-              import bsp.SourceItemKind._
-              val uri = s.underlying.toUri()
-              val (bspUri, kind) = if (s.exists) {
-                (uri, if (s.isFile) File else Directory)
-              } else {
-                val fileMatcher = FileSystems.getDefault.getPathMatcher("glob:*.{scala, java}")
-                if (fileMatcher.matches(s.underlying.getFileName)) (uri, File)
-                // If path doesn't exist and its name doesn't look like a file, assume it's a dir
-                else (new URI(uri.toString + "/"), Directory)
-              }
-              // TODO(jvican): Don't default on false for generated, add this info to JSON fields
-              bsp.SourceItem(bsp.Uri(bspUri), kind, false)
+        projects: Seq[ProjectMapping]
+    ): Task[List[bsp.SourcesItem]] = {
+      val sourcesItems = projects.map { mapping =>
+        val project = mapping.project
+        project.allSourceFilesAndDirectories.map { sources =>
+          val items = sources.map { s =>
+            import bsp.SourceItemKind._
+            val uri = s.underlying.toUri()
+            val (bspUri, kind) = if (s.exists) {
+              (uri, if (s.isFile) File else Directory)
+            } else {
+              val fileMatcher = FileSystems.getDefault.getPathMatcher("glob:*.{scala, java}")
+              if (fileMatcher.matches(s.underlying.getFileName)) (uri, File)
+              // If path doesn't exist and its name doesn't look like a file, assume it's a dir
+              else (new URI(uri.toString + "/"), Directory)
             }
-            val roots = project.sourceRoots.map(_.map(p => bsp.Uri(p.toBspUri)))
-            bsp.SourcesItem(target, items, roots)
+            // TODO(jvican): Don't default on false for generated, add this info to JSON fields
+            bsp.SourceItem(bsp.Uri(bspUri), kind, false)
           }
+          val roots = project.sourceRoots.map(_.map(p => bsp.Uri(p.toBspUri)))
+          bsp.SourcesItem(mapping.id, items, roots)
+        }
       }.toList
 
-      Task.sequence(sourcesItems).map { items =>
-        (state, Right(bsp.SourcesResult(items)))
-      }
+      Task.sequence(sourcesItems)
     }
 
-    ifInitialized(None) { (state: State, logger: BspServerLogger) =>
-      mapToProjects(request.targets, state) match {
+    ifInitialized(None) { (state: BspState, logger: BspServerLogger) =>
+      mapToGroups(request.targets, state) match {
         case Left(error) =>
           // Log the mapping error to the user via a log event + an error status code
           logger.error(error)
           Task.now((state, Right(bsp.SourcesResult(Nil))))
-        case Right(mappings) => sources(mappings, state)
+        case Right(groups) =>
+          val allItems = Task.sequence(groups.map(group => sources(group.mappings))).map(_.flatten)
+          allItems.map(items => (state, Right(bsp.SourcesResult(items))))
       }
     }
   }
@@ -1051,35 +1191,30 @@ final class BloopBspServices(
       request: bsp.ResourcesParams
   ): BspEndpointResponse[bsp.ResourcesResult] = {
     def resources(
-        projects: Seq[ProjectMapping],
-        state: State
-    ): BspResult[bsp.ResourcesResult] = {
-
-      val response = bsp.ResourcesResult(
-        projects.iterator.map {
-          case (target, project) =>
-            val resources = project.runtimeResources.flatMap { s =>
-              if (s.exists) {
-                val resources = Files.walk(s.underlying).collect(Collectors.toList[Path]).asScala
-                resources.map(r => bsp.Uri(r.toUri()))
-              } else {
-                Seq.empty
-              }
-            }
-            bsp.ResourcesItem(target, resources)
-        }.toList
-      )
-
-      Task.now((state, Right(response)))
+        projects: Seq[ProjectMapping]
+    ): List[bsp.ResourcesItem] = {
+      projects.map { mapping =>
+        val resources = mapping.project.runtimeResources.flatMap { s =>
+          if (s.exists) {
+            val resources = Files.walk(s.underlying).collect(Collectors.toList[Path]).asScala
+            resources.map(r => bsp.Uri(r.toUri()))
+          } else {
+            Seq.empty
+          }
+        }
+        bsp.ResourcesItem(mapping.id, resources)
+      }.toList
     }
 
-    ifInitialized(None) { (state: State, logger: BspServerLogger) =>
-      mapToProjects(request.targets, state) match {
+    ifInitialized(None) { (state: BspState, logger: BspServerLogger) =>
+      mapToGroups(request.targets, state) match {
         case Left(error) =>
           // Log the mapping error to the user via a log event + an error status code
           logger.error(error)
           Task.now((state, Right(bsp.ResourcesResult(Nil))))
-        case Right(mappings) => resources(mappings, state)
+        case Right(groups) =>
+          val allItems = groups.flatMap(group => resources(group.mappings))
+          Task.now((state, Right(bsp.ResourcesResult(allItems))))
       }
     }
   }
@@ -1088,34 +1223,30 @@ final class BloopBspServices(
       request: bsp.DependencySourcesParams
   ): BspEndpointResponse[bsp.DependencySourcesResult] = {
     def sources(
-        projects: Seq[ProjectMapping],
-        state: State
-    ): BspResult[bsp.DependencySourcesResult] = {
-      val response = bsp.DependencySourcesResult(
-        projects.iterator.map {
-          case (target, project) =>
-            val sourceJars = project.resolution.toList.flatMap { res =>
-              res.modules.flatMap { m =>
-                m.artifacts.iterator
-                  .filter(a => a.classifier.toList.contains("sources"))
-                  .map(a => bsp.Uri(AbsolutePath(a.path).toBspUri))
-                  .toList
-              }
-            }.distinct
-            bsp.DependencySourcesItem(target, sourceJars)
-        }.toList
-      )
-
-      Task.now((state, Right(response)))
+        mappings: Seq[ProjectMapping]
+    ): List[bsp.DependencySourcesItem] = {
+      mappings.map { mapping =>
+        val sourceJars = mapping.project.resolution.toList.flatMap { res =>
+          res.modules.flatMap { m =>
+            m.artifacts.iterator
+              .filter(a => a.classifier.toList.contains("sources"))
+              .map(a => bsp.Uri(AbsolutePath(a.path).toBspUri))
+              .toList
+          }
+        }.distinct
+        bsp.DependencySourcesItem(mapping.id, sourceJars)
+      }.toList
     }
 
-    ifInitialized(None) { (state: State, logger: BspServerLogger) =>
-      mapToProjects(request.targets, state) match {
+    ifInitialized(None) { (state: BspState, logger: BspServerLogger) =>
+      mapToGroups(request.targets, state) match {
         case Left(error) =>
           // Log the mapping error to the user via a log event + an error status code
           logger.error(error)
           Task.now((state, Right(bsp.DependencySourcesResult(Nil))))
-        case Right(mappings) => sources(mappings, state)
+        case Right(groups) =>
+          val items = groups.flatMap(group => sources(group.mappings))
+          Task.now((state, Right(bsp.DependencySourcesResult(items))))
       }
     }
   }
@@ -1126,37 +1257,34 @@ final class BloopBspServices(
     def scalacOptions(
         projects: Seq[ProjectMapping],
         state: State
-    ): BspResult[bsp.ScalacOptionsResult] = {
+    ): List[bsp.ScalacOptionsItem] = {
       val uris = mutable.Map.empty[Path, bsp.Uri]
-      val response = bsp.ScalacOptionsResult(
-        projects.iterator.map {
-          case (target, project) =>
-            val dag = state.build.getDagFor(project)
-            val fullClasspath = project.fullClasspath(dag, state.client)
-            val classpath =
-              fullClasspath.map(e => uris.getOrElseUpdate(e.underlying, bsp.Uri(e.toBspUri))).toList
-            val classesDir =
-              state.client.getUniqueClassesDirFor(project, forceGeneration = true).toBspUri
-            bsp.ScalacOptionsItem(
-              target = target,
-              options = project.scalacOptions.toList,
-              classpath = classpath,
-              classDirectory = bsp.Uri(classesDir)
-            )
-        }.toList
-      )
-
-      Task.now((state, Right(response)))
+      projects.map { mapping =>
+        val dag = state.build.getDagFor(mapping.project)
+        val fullClasspath = mapping.project.fullClasspath(dag, state.client)
+        val classpath =
+          fullClasspath.map(e => uris.getOrElseUpdate(e.underlying, bsp.Uri(e.toBspUri))).toList
+        val classesDir =
+          state.client.getUniqueClassesDirFor(mapping.project, forceGeneration = true).toBspUri
+        bsp.ScalacOptionsItem(
+          target = mapping.id,
+          options = mapping.project.scalacOptions.toList,
+          classpath = classpath,
+          classDirectory = bsp.Uri(classesDir)
+        )
+      }.toList
     }
 
-    ifInitialized(None) { (state: State, logger: BspServerLogger) =>
-      mapToProjects(request.targets, state) match {
+    ifInitialized(None) { (state: BspState, logger: BspServerLogger) =>
+      mapToGroups(request.targets, state) match {
         case Left(error) =>
           // Log the mapping error to the user via a log event + an error status code
           logger.error(error)
           // TODO(jvican): Add status code to scalac options result
           Task.now((state, Right(bsp.ScalacOptionsResult(Nil))))
-        case Right(mappings) => scalacOptions(mappings, state)
+        case Right(groups) =>
+          val allItems = groups.flatMap(group => scalacOptions(group.mappings, group.buildState))
+          Task.now((state, Right(bsp.ScalacOptionsResult(allItems))))
       }
     }
   }

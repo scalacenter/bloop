@@ -36,15 +36,15 @@ import monix.reactive.subjects.BehaviorSubject
 
 abstract class BspBaseSuite extends BaseSuite with BspClientTest {
   final class UnmanagedBspTestState(
-      state: State,
+      state: BspState,
       closeServer: Task[Unit],
       closeStreamsForcibly: () => Unit,
       currentCompileIteration: AtomicInt,
       diagnostics: ConcurrentHashMap[bsp.BuildTargetIdentifier, StringBuilder],
       implicit val client: BloopLanguageClient,
-      private val serverStates: Observable[State]
+      private val serverStates: Observable[BspState]
   ) {
-    val status = state.status
+    val status = state.main.status
     def toUnsafeManagedState: ManagedBspTestState = {
       new ManagedBspTestState(
         state,
@@ -76,17 +76,17 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
   }
 
   final class ManagedBspTestState(
-      state: State,
+      state: BspState,
       lastBspStatus: bsp.StatusCode,
       currentCompileIteration: AtomicInt,
       val diagnostics: ConcurrentHashMap[bsp.BuildTargetIdentifier, StringBuilder],
       implicit val client0: BloopLanguageClient,
-      val serverStates: Observable[State]
+      val serverStates: Observable[BspState]
   ) {
     val underlying = state
     val client = state.client
-    val status = state.status
-    val results = state.results
+    val status = state.main.status
+    val results = state.main.results
 
     import endpoints.{BuildTarget, Workspace}
     def findBuildTarget(project: TestProject): bsp.BuildTarget = {
@@ -108,7 +108,7 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
       val workspaceTargetsTask = {
         Workspace.buildTargets.request(bsp.WorkspaceBuildTargetsRequest()).map {
           case Left(e) =>
-            fail(s"The request for build targets in ${state.build.origin} failed with $e!")
+            fail(s"The request for build targets in ${state.main.build.origin} failed with $e!")
           case Right(ts) => ts
         }
       }
@@ -126,6 +126,33 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
             case Some(target) => f(target)
             case None => fail(s"Target ${project.bspId} is missing in the workspace! Found ${ts}")
           }
+      }
+    }
+
+    def compileRaw(
+        targets: List[bsp.BuildTargetIdentifier],
+        clearDiagnostics: Boolean = true
+    ): ManagedBspTestState = {
+
+      if (clearDiagnostics) diagnostics.clear()
+      currentCompileIteration.increment(1)
+
+      TestUtil.await(FiniteDuration(30, "s")) {
+        BuildTarget.compile.request(bsp.CompileParams(targets, None, None)).flatMap {
+          case Right(r) =>
+            // `headL` returns latest saved state from bsp because source is behavior subject
+            serverStates.headL.map { state =>
+              new ManagedBspTestState(
+                state,
+                r.statusCode,
+                currentCompileIteration,
+                diagnostics,
+                client0,
+                serverStates
+              )
+            }
+          case Left(e) => fail(s"Compilation error for request ${e.id}:\n${e.error}")
+        }
       }
     }
 
@@ -365,7 +392,7 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
           serverStates.headL.map { state =>
             val latestServerState = new ManagedBspTestState(
               state,
-              toBspStatus(state.status),
+              toBspStatus(state.main.status),
               currentCompileIteration,
               diagnostics,
               client0,
@@ -416,7 +443,7 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
           serverStates.headL.map { state =>
             val latestServerState = new ManagedBspTestState(
               state,
-              toBspStatus(state.status),
+              toBspStatus(state.main.status),
               currentCompileIteration,
               diagnostics,
               client0,
@@ -434,10 +461,10 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
     }
 
     def backup: ManagedBspTestState = {
-      val newState = this.toTestState.backup.state
+      val newMainState = this.toTestState.backup.state
 
       new ManagedBspTestState(
-        newState,
+        state.copy(main = newMainState),
         this.lastBspStatus,
         this.currentCompileIteration,
         this.diagnostics,
@@ -446,11 +473,11 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
       )
     }
 
-    def toTestState: TestState = new TestState(state)
+    def toTestState: TestState = new TestState(state.main)
     def toTestStateFrom(origin: TestState): TestState = {
       val originState = origin.state
       new TestState(
-        state.copy(
+        state.main.copy(
           logger = originState.logger,
           client = originState.client,
           pool = originState.pool,
@@ -512,7 +539,7 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
       projects.find(_.config.name == name).get
     }
     def configFileFor(project: TestProject): AbsolutePath = {
-      rawState.build.getProjectFor(project.config.name).get.origin.path
+      rawState.main.build.getProjectFor(project.config.name).get.origin.path
     }
   }
 
@@ -580,14 +607,15 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
   ): UnmanagedBspTestState = {
     val compileIteration = AtomicInt(0)
     val readyToConnect = Promise[Unit]()
-    val subject = BehaviorSubject[State](state)
+    val bspState = BspState(main = state, List.empty)
+    val subject = BehaviorSubject[BspState](bspState)
     //val subject = ConcurrentSubject.behavior[State](state)(ExecutionContext.ioScheduler)
     val computationScheduler = userComputationScheduler.getOrElse(ExecutionContext.scheduler)
     val ioScheduler = userIOScheduler.getOrElse(bspDefaultScheduler)
     val path = RelativePath(configDirectory.underlying.getFileName)
     val bspServer = BspServer.run(
       cmd,
-      state,
+      bspState,
       path,
       Some(readyToConnect),
       Some(subject),
@@ -673,7 +701,7 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
       val (closeServer, closeStreamsForcibly, client, stateObservable) =
         Await.result(bspClient, FiniteDuration(30, "s"))
       new UnmanagedBspTestState(
-        state,
+        bspState,
         closeServer,
         closeStreamsForcibly,
         compileIteration,

@@ -282,34 +282,6 @@ object BuildLoaderSpec extends BaseSuite {
     }
   }
 
-  test("includes sbt meta builds") {
-    val out = TestUtil.withinWorkspace { workspace =>
-      import bloop.util.TestProject
-      val logger = new RecordingLogger(ansiCodesSupported = false)
-      val a = TestProject(workspace, "a", Nil)
-      TestProject.populateWorkspace(workspace, List(a))
-
-      val sbtProjectWorkspace = workspace.resolve("project")
-      val sbtBuildProject = TestProject(sbtProjectWorkspace, "build", Nil)
-      TestProject.populateWorkspace(sbtProjectWorkspace, List(sbtBuildProject))
-
-      val emptyBuild = Build(workspace.resolve(".bloop"), Nil, None)
-      val out = emptyBuild
-        .checkForChange(None, logger)
-        .map(actions => {
-
-          val readConfigurations = actions match {
-            case Build.ReturnPreviousState => List.empty
-            case update: Build.UpdateState =>
-              update.createdOrModified
-          }
-
-          assert(readConfigurations.size == 2)
-        })
-      TestUtil.blockOnTask(out, 5)
-    }
-  }
-
   def testLoad[T](name: String, settings: Option[WorkspaceSettings] = None)(
       fun: (TestBuild, RecordingLogger) => Task[T]
   ): Unit = {

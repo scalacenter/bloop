@@ -1,24 +1,19 @@
 package bloop.bsp
 
-import java.io.File
 import java.net.URI
-
-import bloop.engine.State
-import bloop.config.Config
-import bloop.io.AbsolutePath
-import bloop.cli.{BspProtocol, ExitStatus}
-import bloop.util.{TestProject, TestUtil}
-import bloop.logging.RecordingLogger
-import bloop.internal.build.BuildInfo
 import java.nio.file.{Files, Path, Paths}
 import java.util.stream.Collectors
 
-import scala.collection.JavaConverters._
-import ch.epfl.scala.bsp.{JvmEnvironmentItem, ScalacOptionsItem, Uri}
 import bloop.bsp.BloopBspDefinitions.BloopExtraBuildParams
-import io.circe.Json
+import bloop.cli.{BspProtocol, ExitStatus}
+import bloop.config.Config
+import bloop.io.{AbsolutePath, RelativePath}
+import bloop.logging.{BspClientLogger, RecordingLogger}
 import bloop.testing.DiffAssertions.TestFailedException
-import bloop.data.SourcesGlobs
+import bloop.util.{TestProject, TestUtil}
+import ch.epfl.scala.bsp.{BuildTarget, JvmEnvironmentItem, ScalacOptionsItem, Uri}
+
+import scala.collection.JavaConverters._
 
 object TcpBspProtocolSpec extends BspProtocolSpec(BspProtocol.Tcp)
 object LocalBspProtocolSpec extends BspProtocolSpec(BspProtocol.Local)
@@ -430,7 +425,7 @@ class BspProtocolSpec(
 
       val projects = List(`A`)
       loadBspState(workspace, projects, logger) { state =>
-        val project = state.underlying.build.loadedProjects.head
+        val project = state.underlying.main.build.loadedProjects.head
         def assertSourcesMatches(expected: String): Unit = {
           val obtained = for {
             item <- state.requestSources(`A`).items
@@ -530,6 +525,130 @@ class BspProtocolSpec(
         checkDependencySources(testJsProject)
         checkDependencySources(rootMain)
         checkDependencySources(rootTest)
+      }
+    }
+  }
+
+  test("sbt meta projects - workspace targets") {
+    TestUtil.withinWorkspace { workspace =>
+      import bloop.util.TestProject
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val a = TestProject(workspace, "a", Nil)
+      val rootDir = TestProject.populateWorkspace(workspace, List(a))
+
+      val sbtProjectWorkspace = workspace.resolve("project")
+      val sbtBuildProject = TestProject(sbtProjectWorkspace, "build", Nil)
+      TestProject.populateWorkspace(sbtProjectWorkspace, List(sbtBuildProject))
+
+      val bspLogger = new BspClientLogger(logger)
+      val bspCommand = createBspCommand(rootDir)
+
+      val state = loadState(rootDir, List.empty, logger, None).state
+      openBspConnection(state, bspCommand, rootDir, bspLogger).withinSession { bspState =>
+        val workspaceTargets = bspState.workspaceTargets.targets
+        assertEquals(workspaceTargets.size, 2)
+
+        def basePathForProject(name: String, all: List[BuildTarget]): AbsolutePath = {
+          val t = all.find(_.displayName.contains(name)).get
+          AbsolutePath(t.baseDirectory.get.toPath)
+        }
+
+        assertEquals(
+          basePathForProject("a", workspaceTargets),
+          workspace.resolve("a")
+        )
+        assertEquals(
+          basePathForProject("build", workspaceTargets),
+          sbtProjectWorkspace.resolve("build")
+        )
+      }
+    }
+  }
+
+  test("sbt meta projects - compile") {
+    TestUtil.withinWorkspace { workspace =>
+      object Sources {
+        val `Main.scala` =
+          """/a/scala/foo/Main.scala
+            |package foo
+            |object Main {
+            | def main(args: Array[String]): Unit = ???
+            |}
+          """.stripMargin
+
+        val `Deps1.scala` =
+          """/project/Deps.scala
+            |object Deps {
+            |  def foo(a: String): Int = a
+            |}
+          """.stripMargin
+
+        val `Deps2.scala` =
+          """/project/Deps.scala
+            |object Deps {
+            |  def foo(a: String): String = a
+            |}
+          """.stripMargin
+      }
+
+      import bloop.util.TestProject
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val `A` = TestProject(workspace, "a", List(Sources.`Main.scala`))
+      val rootDir = TestProject.populateWorkspace(workspace, List(`A`))
+
+      val sbtProjectWorkspace = workspace.resolve("project")
+      val `Build` = TestProject(sbtProjectWorkspace, "build", List(Sources.`Deps1.scala`))
+      TestProject.populateWorkspace(sbtProjectWorkspace, List(`Build`))
+
+      val bspLogger = new BspClientLogger(logger)
+      val bspCommand = createBspCommand(rootDir)
+
+      val state = loadState(rootDir, List.empty, logger, None).state
+      openBspConnection(state, bspCommand, rootDir, bspLogger).withinSession { bspState =>
+        val workspaceTargets = bspState.workspaceTargets.targets
+        assertEquals(workspaceTargets.size, 2)
+
+        def idByName(name: String, all: List[BuildTarget]): bsp.BuildTargetIdentifier = {
+          all.find(_.displayName.contains(name)).get.id
+        }
+
+        val aId = idByName("a", workspaceTargets)
+        val buildId = idByName("build", workspaceTargets)
+
+        val firstCompilation = bspState.compileRaw(List(aId, buildId))
+
+        assertNoDiff(
+          firstCompilation.lastDiagnostics(`Build`),
+          """#1: task start 2
+            |  -> Msg: Compiling build (1 Scala source)
+            |  -> Data kind: compile-task
+            |#1: project/build/src/project/Deps.scala
+            |  -> List(Diagnostic(Range(Position(1,28),Position(1,28)),Some(Error),Some(_),Some(_),type mismatch;  found   : String  required: Int,None))
+            |  -> reset = true
+            |#1: task finish 2
+            |  -> errors 1, warnings 0
+            |  -> Msg: Compiled 'build'
+            |  -> Data kind: compile-report
+            |""".stripMargin
+        )
+
+        writeFile(`Build`.srcFor("/project/Deps.scala"), Sources.`Deps2.scala`)
+
+        val secondCompilation = firstCompilation.compileRaw(List(aId, buildId))
+        assertNoDiff(
+          secondCompilation.lastDiagnostics(`Build`),
+          """#2: task start 4
+            |  -> Msg: Compiling build (1 Scala source)
+            |  -> Data kind: compile-task
+            |#2: project/build/src/project/Deps.scala
+            |  -> List()
+            |  -> reset = true
+            |#2: task finish 4
+            |  -> errors 0, warnings 0
+            |  -> Msg: Compiled 'build'
+            |  -> Data kind: compile-report
+            |""".stripMargin
+        )
       }
     }
   }

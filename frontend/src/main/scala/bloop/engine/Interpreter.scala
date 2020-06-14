@@ -193,15 +193,12 @@ object Interpreter {
   private def showProjects(cmd: Commands.Projects, state: State): Task[State] = Task {
     import state.logger
     if (cmd.dotGraph) {
-      val stringToMainProjects =
-        state.build.mainOnlyProjects.map(lp => lp.project.name -> lp.project).toMap
-      val DagResult(dags, _, _) = Dag.fromMap(stringToMainProjects)
-      val contents = Dag.toDotGraph(dags)
+      val contents = Dag.toDotGraph(state.build.dags)
       logger.info(contents)
     } else {
       val configDirectory = state.build.origin.syntax
       logger.debug(s"Projects loaded from '$configDirectory':")(DebugFilter.All)
-      state.build.mainOnlyProjects.map(_.project.name).sorted.foreach(logger.info)
+      state.build.loadedProjects.map(_.project.name).sorted.foreach(logger.info)
     }
 
     state.mergeStatus(ExitStatus.Ok)
@@ -416,7 +413,7 @@ object Interpreter {
       case Mode.Projects =>
         Task {
           for {
-            loadedProject <- state.build.mainOnlyProjects
+            loadedProject <- state.build.loadedProjects
             project = loadedProject.project
             completion <- cmd.format.showProject(project)
           } state.logger.info(completion)
