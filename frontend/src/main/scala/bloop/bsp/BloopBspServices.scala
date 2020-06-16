@@ -1032,13 +1032,8 @@ final class BloopBspServices(
       val response = bsp.ResourcesResult(
         projects.iterator.map {
           case (target, project) =>
-            val resources = project.runtimeResources.flatMap { s =>
-              if (s.exists) {
-                val resources = Files.walk(s.underlying).collect(Collectors.toList[Path]).asScala
-                resources.map(r => bsp.Uri(r.toUri()))
-              } else {
-                Seq.empty
-              }
+            val resources = project.runtimeResources.map { s =>
+              bsp.Uri(s.toBspUri)
             }
             bsp.ResourcesItem(target, resources)
         }.toList
