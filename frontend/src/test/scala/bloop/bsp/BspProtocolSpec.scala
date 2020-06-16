@@ -472,14 +472,7 @@ class BspProtocolSpec(
           assert(resourcesResult.items.size == 1)
           val resources = resourcesResult.items.head
           val resourcePaths = resources.resources.map(_.toPath).toSet
-          val expectedResources = project.config.resources
-            .getOrElse(Seq.empty)
-            .flatMap(
-              dir =>
-                if (Files.exists(dir)) Files.walk(dir).collect(Collectors.toList[Path]).asScala
-                else Seq.empty
-            )
-            .toSet
+          val expectedResources = project.config.resources.getOrElse(Seq.empty).toSet
           assert(resourcePaths == expectedResources)
         }
 
