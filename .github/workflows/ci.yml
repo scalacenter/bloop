@@ -162,6 +162,14 @@ jobs:
           echo $JAVA_HOME
           "$JAVA_HOME\bin\gu.cmd" install native-image
         shell: bash
+      - name: Pre-load sbt with bash
+        # FIXME: This step shouldn't be necessary, but sbt fails to find
+        # org.scala-lang.modules#scala-xml_2.12;1.2.0!scala-xml_2.12.jar when launched with
+        # cmd.
+        # Keep the sbt version in sync with `sbt-ci-release.bat`.
+        run: |
+          sbt -sbt-version 1.3.3 version
+        shell: bash
       - name: Publish GraalVM Native artifacts
         run: >-
           "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvars64.bat" &&
