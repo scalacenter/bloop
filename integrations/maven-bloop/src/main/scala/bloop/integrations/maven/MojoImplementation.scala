@@ -48,7 +48,10 @@ object MojoImplementation {
 
   def writeCompileAndTestConfiguration(mojo: BloopMojo, session: MavenSession, log: Log): Unit = {
     import scala.collection.JavaConverters._
-    def abs(file: File): Path = file.toPath().toRealPath().toAbsolutePath()
+    def abs(file: File): Path = {
+      file.mkdirs()
+      file.toPath().toRealPath().toAbsolutePath()
+    }
 
     val root = new File(session.getExecutionRootDirectory())
     val project = mojo.getProject()
