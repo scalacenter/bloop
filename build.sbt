@@ -905,7 +905,7 @@ val bloop = project
       Def.taskDyn {
         val bundleDir = SonatypeKeys.sonatypeBundleDirectory.value
         // Do nothing if sonatype bundle doesn't exist
-        if (!bundleDir.exists) Def.task(())
+        if (!bundleDir.exists) Def.task("")
         else SonatypeKeys.sonatypeBundleRelease
       }.value
     },
