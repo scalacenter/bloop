@@ -906,12 +906,7 @@ val bloop = project
         val bundleDir = SonatypeKeys.sonatypeBundleDirectory.value
         // Do nothing if sonatype bundle doesn't exist
         if (!bundleDir.exists) Def.task(())
-        else {
-          Def.task {
-            SonatypeKeys.sonatypeBundleRelease.value
-            ()
-          }
-        }
+        else SonatypeKeys.sonatypeBundleRelease
       }.value
     },
     exportCommunityBuild := {
