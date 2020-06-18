@@ -55,6 +55,12 @@ public class BloopMojo extends ExtendedScalaContinuousCompileMojo {
     @Parameter(property = "bloop.classpathOptions.filterLibrary", defaultValue = "true")
     private boolean classpathOptionsFilterLibrary;
 
+    @Parameter(property = "bloop.secondaryCacheDir", defaultValue = "${session.executionRootDirectory}/.bloop/cache")
+    private File secondaryCacheDir;
+
+    @Parameter(property = "skip", defaultValue = "false")
+    private boolean skip;
+
     @Parameter
     private AppLauncher[] launchers;
 
