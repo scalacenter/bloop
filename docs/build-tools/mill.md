@@ -18,11 +18,11 @@ Mill has built-in support for Bloop via `mill-contrib`, so follow the instructio
 
 ## Install the plugin
 
-Install bloop in `build.sc` by replacing `$millVersion` in the following
+Install bloop in `build.sc` by replacing `$MILL_VERSION` in the following
 command:
 
 ```scala
-import $ivy.`com.lihaoyi::mill-contrib-bloop:$millVersion`
+import $ivy.`com.lihaoyi::mill-contrib-bloop:$MILL_VERSION`
 ```
 
 ## Export your build
