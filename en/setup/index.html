@@ -107,13 +107,13 @@ build tool you use and keep reading.</p>
       </thead>
       <tbody>
         <tr>
-          <td>1.4.1</td>
-          <td>15 May 2020 10:42</td>
+          <td>1.4.2</td>
+          <td>19 Jun 2020 16:24</td>
           <td><code>-r sonatype:releases</code></td>
         </tr>
         <tr>
-          <td>1.4.2</td>
-          <td>19 Jun 2020 16:27</td>
+          <td>1.4.2-2-6c269f1d</td>
+          <td>20 Jun 2020 11:15</td>
           <td><code>-r sonatype:releases</code></td>
         </tr>
       </tbody>
@@ -126,7 +126,7 @@ build tool you use and keep reading.</p>
   }
 
   <span class="hljs-keyword">dependencies</span> {
-    <span class="hljs-keyword">classpath</span> <span class="hljs-string">'ch.epfl.scala:gradle-bloop_2.12:1.4.1'</span>
+    <span class="hljs-keyword">classpath</span> <span class="hljs-string">'ch.epfl.scala:gradle-bloop_2.12:1.4.2'</span>
   }
 }
 </code></pre>
@@ -200,10 +200,10 @@ foo-test
 <p>The Bloop plugin for Maven doesn't need to be installed, you can run
 <code>bloopInstall</code>, the task to export your Maven builds to bloop, with the
 following command.</p>
-<pre><code class="hljs css language-bash">$ mvn ch.epfl.scala:maven-bloop_2.10:1.4.1:bloopInstall
+<pre><code class="hljs css language-bash">$ mvn ch.epfl.scala:maven-bloop_2.10:1.4.2:bloopInstall
 </code></pre>
 <p>Note that the following command uses the latest Bloop stable version
-1.4.1.</p>
+1.4.2.</p>
 <p>Here is the list of the latest Bloop stable and development versions. If you
 want to be on the very latest at the cost of misbehaviors, replace the above
 question with the development version.</p>
@@ -215,19 +215,19 @@ question with the development version.</p>
       </thead>
       <tbody>
         <tr>
-          <td>1.4.1</td>
-          <td>15 May 2020 10:42</td>
+          <td>1.4.2</td>
+          <td>19 Jun 2020 16:24</td>
           <td><code>-r sonatype:releases</code></td>
         </tr>
         <tr>
-          <td>1.4.2</td>
-          <td>19 Jun 2020 16:27</td>
+          <td>1.4.2-2-6c269f1d</td>
+          <td>20 Jun 2020 11:15</td>
           <td><code>-r sonatype:releases</code></td>
         </tr>
       </tbody>
     </table>
 <p>To build with a single Scala project <code>foo</code> generates two configuration files:</p>
-<pre><code class="hljs css language-bash">$ mvn ch.epfl.scala:maven-bloop_2.10:1.4.1:bloopInstall
+<pre><code class="hljs css language-bash">$ mvn ch.epfl.scala:maven-bloop_2.10:1.4.2:bloopInstall
 (...)
 Generated <span class="hljs-string">'/disk/foo/.bloop/foo.json'</span>.
 Generated <span class="hljs-string">'/disk/foo/.bloop/foo-test.json'</span>.
@@ -271,9 +271,9 @@ client integrating with Bloop, such as <a href="https://scalameta.org/metals/">M
 <li>Your mill version needs to be &gt;= <code>0.4.0-2-4dbbce</code>.</li>
 </ul>
 <h2><a class="anchor" aria-hidden="true" id="install-the-plugin"></a><a href="#install-the-plugin" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Install the plugin</h2>
-<p>Install bloop in <code>build.sc</code> by replacing <code>$millVersion</code> in the following
+<p>Install bloop in <code>build.sc</code> by replacing <code>$MILL_VERSION</code> in the following
 command:</p>
-<pre><code class="hljs css language-scala"><span class="hljs-keyword">import</span> $ivy.`com.lihaoyi::mill-contrib-bloop:$millVersion`
+<pre><code class="hljs css language-scala"><span class="hljs-keyword">import</span> $ivy.`com.lihaoyi::mill-contrib-bloop:$<span class="hljs-type">MILL_VERSION</span>`
 </code></pre>
 <h2><a class="anchor" aria-hidden="true" id="export-your-build"></a><a href="#export-your-build" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Export your build</h2>
 <p>The mill command <code>mill mill.contrib.Bloop/install</code> exports your mill build to bloop.</p>
@@ -370,19 +370,19 @@ toolchain with minimum interference in their current workflow.</p>
       </thead>
       <tbody>
         <tr>
-          <td>1.4.1</td>
-          <td>15 May 2020 10:42</td>
+          <td>1.4.2</td>
+          <td>19 Jun 2020 16:24</td>
           <td><code>-r sonatype:releases</code></td>
         </tr>
         <tr>
-          <td>1.4.2</td>
-          <td>19 Jun 2020 16:27</td>
+          <td>1.4.2-2-6c269f1d</td>
+          <td>20 Jun 2020 11:15</td>
           <td><code>-r sonatype:releases</code></td>
         </tr>
       </tbody>
     </table>
 <p>Install bloop by adding the following line to your <code>project/plugins.sbt</code>:</p>
-<pre><code class="hljs css language-sbt"><span class="hljs-function"><span class="hljs-title">addSbtPlugin</span><span class="hljs-params">(<span class="hljs-string">"ch.epfl.scala"</span> % <span class="hljs-string">"sbt-bloop"</span> % <span class="hljs-string">"1.4.1"</span>)</span></span>
+<pre><code class="hljs css language-sbt"><span class="hljs-function"><span class="hljs-title">addSbtPlugin</span><span class="hljs-params">(<span class="hljs-string">"ch.epfl.scala"</span> % <span class="hljs-string">"sbt-bloop"</span> % <span class="hljs-string">"1.4.2"</span>)</span></span>
 </code></pre>
 <p>After that, start up sbt or reload your sbt shell to load the plugin.</p>
 <h2><a class="anchor" aria-hidden="true" id="export-your-build"></a><a href="#export-your-build" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Export your build</h2>
@@ -440,7 +440,7 @@ machine. Now, it's time to write Scala code and be productive.</p>
 available.</p>
 <p>If you need help, you can always come over our <a href="https://gitter.im/scalacenter/bloop">Gitter
 channel</a>.</p>
-</span></div></div></div></div></div><script src="/bloop/scripts/tools.js?t=1592584062598"></script><script src="/bloop/scripts/build-tools.js?t=1592584062598"></script></div></div><footer class="nav-footer" id="footer" style="background-color:rgb(17, 42, 68)"><section class="sitemap"><a href="/bloop/" class="nav-home"><img src="/bloop/img/impure-logo-bloop.svg" alt="Bloop" height="60"/></a><a href="/bloop/" class="nav-home"><img src="/bloop/img/frontpage/scala.png" alt="Bloop" height="60"/></a><div><h5>Overview</h5><a href="/bloop/docs/what-is-bloop">What is Bloop</a><a href="/bloop/docs/integration">Integrate with Bloop</a><a href="/bloop/docs/build-tools/overview">Build Tools</a><a href=" /bloop/docs/contributing-guide">Contributing</a></div><div><h5>Build Tools</h5><a href="/bloop/docs/build-tools/sbt">sbt</a><a href="/bloop/docs/build-tools/gradle">Gradle</a><a href="/bloop/docs/build-tools/maven">Maven</a><a href="/bloop/docs/build-tools/mill">Mill</a></div><div><h5>Social</h5><a href="https://github.com/scalacenter/bloop" target="_blank"><img src="https://img.shields.io/github/stars/scalacenter/bloop.svg?color=%23087e8b&amp;label=stars&amp;logo=github&amp;style=social"/></a><a href="https://discord.gg/vys6d43" target="_blank"><img src="https://img.shields.io/discord/632642981228314653?logo=discord&amp;style=social"/></a><a href="https://gitter.im/scalacenter/bloop" target="_blank"><img src="https://img.shields.io/gitter/room/scalacenter/bloop.svg?logo=gitter&amp;style=social"/></a><a href="https://twitter.com/jvican" target="_blank"><img src="https://img.shields.io/twitter/follow/jvican.svg?logo=twitter&amp;style=social"/></a></div></section><section class="copyright">Copyright © 2020 Bloop</section><section class="copyright">Credits to @freepik for svg icons</section><section class="copyright">Credits to Bazel, Babel and Metals for inspiring Bloop&#x27;s website design</section></footer></div><script type="text/javascript" src="https://cdn.jsdelivr.net/docsearch.js/1/docsearch.min.js"></script><script>
+</span></div></div></div></div></div><script src="/bloop/scripts/tools.js?t=1592651743524"></script><script src="/bloop/scripts/build-tools.js?t=1592651743524"></script></div></div><footer class="nav-footer" id="footer" style="background-color:rgb(17, 42, 68)"><section class="sitemap"><a href="/bloop/" class="nav-home"><img src="/bloop/img/impure-logo-bloop.svg" alt="Bloop" height="60"/></a><a href="/bloop/" class="nav-home"><img src="/bloop/img/frontpage/scala.png" alt="Bloop" height="60"/></a><div><h5>Overview</h5><a href="/bloop/docs/what-is-bloop">What is Bloop</a><a href="/bloop/docs/integration">Integrate with Bloop</a><a href="/bloop/docs/build-tools/overview">Build Tools</a><a href=" /bloop/docs/contributing-guide">Contributing</a></div><div><h5>Build Tools</h5><a href="/bloop/docs/build-tools/sbt">sbt</a><a href="/bloop/docs/build-tools/gradle">Gradle</a><a href="/bloop/docs/build-tools/maven">Maven</a><a href="/bloop/docs/build-tools/mill">Mill</a></div><div><h5>Social</h5><a href="https://github.com/scalacenter/bloop" target="_blank"><img src="https://img.shields.io/github/stars/scalacenter/bloop.svg?color=%23087e8b&amp;label=stars&amp;logo=github&amp;style=social"/></a><a href="https://discord.gg/vys6d43" target="_blank"><img src="https://img.shields.io/discord/632642981228314653?logo=discord&amp;style=social"/></a><a href="https://gitter.im/scalacenter/bloop" target="_blank"><img src="https://img.shields.io/gitter/room/scalacenter/bloop.svg?logo=gitter&amp;style=social"/></a><a href="https://twitter.com/jvican" target="_blank"><img src="https://img.shields.io/twitter/follow/jvican.svg?logo=twitter&amp;style=social"/></a></div></section><section class="copyright">Copyright © 2020 Bloop</section><section class="copyright">Credits to @freepik for svg icons</section><section class="copyright">Credits to Bazel, Babel and Metals for inspiring Bloop&#x27;s website design</section></footer></div><script type="text/javascript" src="https://cdn.jsdelivr.net/docsearch.js/1/docsearch.min.js"></script><script>
                 document.addEventListener('keyup', function(e) {
                   if (e.target !== document.body) {
                     return;
