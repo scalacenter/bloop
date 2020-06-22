@@ -316,7 +316,9 @@ object TestInternals {
         case _: OldFramework => logger.warn(s"Old frameworks are not supported: $fqn"); None
       }
     } catch {
-      case _: ClassNotFoundException => None
+      case _: ClassNotFoundException =>
+        logger.debug(s"Skipping test framework $fqn as the class not be found")
+        None
       case NonFatal(t) =>
         logger.report(s"Initialisation of test framework $fqn failed", t)
         None
