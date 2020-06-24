@@ -469,7 +469,7 @@ final class BloopBspServices(
             case Compiler.Result.Success(_, _, _, _, _, _, _) =>
               previouslyFailedCompilations.remove(p)
               Nil
-            case Compiler.Result.GlobalError(problem) => List(problem)
+            case Compiler.Result.GlobalError(problem, _) => List(problem)
             case Compiler.Result.Cancelled(problems, elapsed, _) =>
               List(reportError(p, problems, elapsed))
             case f @ Compiler.Result.Failed(problems, t, elapsed, _) =>

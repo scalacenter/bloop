@@ -107,7 +107,7 @@ final case class SuccessfulCompileBundle(
   def prepareSourcesAndInstance: Either[ResultBundle, CompileSourcesAndInstance] = {
     import monix.execution.CancelableFuture
     def earlyError(msg: String): ResultBundle =
-      ResultBundle(Compiler.Result.GlobalError(msg), None, None)
+      ResultBundle(Compiler.Result.GlobalError(msg, None), None, None)
     def empty: ResultBundle = {
       val last = Some(LastSuccessfulResult.empty(project))
       ResultBundle(Compiler.Result.Empty, last, None)

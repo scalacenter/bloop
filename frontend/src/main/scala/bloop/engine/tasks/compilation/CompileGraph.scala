@@ -154,7 +154,7 @@ object CompileGraph {
     ): Task[Dag[PartialCompileResult]] = {
       val errInfo = err.map(e => s": ${errorToString(e)}").getOrElse("")
       val finalErrorMsg = s"$errorMsg$errInfo"
-      val failedResult = Compiler.Result.GlobalError(errorMsg)
+      val failedResult = Compiler.Result.GlobalError(errorMsg, err)
       val failed = Task.now(ResultBundle(failedResult, None, None))
       Task.now(Leaf(PartialFailure(inputs.project, FailedOrCancelledPromise, failed)))
     }
@@ -331,7 +331,8 @@ object CompileGraph {
               case DeduplicationResult.DeduplicationError(t) =>
                 rawLogger.trace(t)
                 val failedDeduplicationResult = Compiler.Result.GlobalError(
-                  s"Unexpected error while deduplicating compilation for ${inputs.project.name}: ${t.getMessage}"
+                  s"Unexpected error while deduplicating compilation for ${inputs.project.name}: ${t.getMessage}",
+                  Some(t)
                 )
 
                 /*
