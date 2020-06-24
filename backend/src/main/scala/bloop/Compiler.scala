@@ -186,7 +186,9 @@ object Compiler {
   object Result {
     final case object Empty extends Result with CacheHashCode
     final case class Blocked(on: List[String]) extends Result with CacheHashCode
-    final case class GlobalError(problem: String) extends Result with CacheHashCode
+    final case class GlobalError(problem: String, err: Option[Throwable])
+        extends Result
+        with CacheHashCode
 
     final case class Success(
         inputs: UniqueCompileInputs,
@@ -223,7 +225,8 @@ object Compiler {
 
     object NotOk {
       def unapply(result: Result): Option[Result] = result match {
-        case f @ (Failed(_, _, _, _) | Cancelled(_, _, _) | Blocked(_) | GlobalError(_)) => Some(f)
+        case f @ (Failed(_, _, _, _) | Cancelled(_, _, _) | Blocked(_) | GlobalError(_, _)) =>
+          Some(f)
         case _ => None
       }
     }

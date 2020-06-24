@@ -130,8 +130,9 @@ object FinalNormalCompileResult {
       res.result.fromCompiler match {
         case Compiler.Result.Failed(_, Some(err), _, _) =>
           Some((res.project, Right(err)))
-        case Compiler.Result.GlobalError(problem) =>
-          Some((res.project, Left(problem)))
+        case Compiler.Result.GlobalError(problem, errOpt) =>
+          val err = errOpt.map(Right(_)).getOrElse(Left(problem))
+          Some((res.project, err))
         case _ => None
       }
     }
@@ -160,7 +161,7 @@ object FinalCompileResult {
 
               s"${projectName} (success$mode ${ms}ms)"
             case Compiler.Result.Blocked(on) => s"${projectName} (blocked on ${on.mkString(", ")})"
-            case Compiler.Result.GlobalError(problem) =>
+            case Compiler.Result.GlobalError(problem, _) =>
               s"${projectName} (failed with global error ${problem})"
             case Compiler.Result.Failed(problems, t, ms, _) =>
               val extra = t match {
