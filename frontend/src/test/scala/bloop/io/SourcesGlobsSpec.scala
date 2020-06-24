@@ -19,7 +19,8 @@ object SourcesGlobsSpec extends bloop.testing.BaseSuite {
       filenames: List[String],
       includeGlobs: List[String],
       excludeGlobs: List[String],
-      expectedFilenames: String
+      expectedFilenames: String,
+      walkDepth: Option[Int] = None
   )(implicit filename: sourcecode.File, line: sourcecode.Line): Unit =
     test(name) {
       TestUtil.withinWorkspace { workspace =>
@@ -37,7 +38,7 @@ object SourcesGlobsSpec extends bloop.testing.BaseSuite {
         val sourcesGlobs = SourcesGlobs.fromStrings(
           name,
           globDirectory,
-          None,
+          walkDepth,
           if (includeGlobs.isEmpty) List("glob:**")
           else includeGlobs,
           excludeGlobs,
@@ -158,4 +159,12 @@ object SourcesGlobsSpec extends bloop.testing.BaseSuite {
     )
   }
 
+  checkGlobs(
+    "file too deep",
+    List("src/main/scala/pkg/source.scala"),
+    List("glob:src/main/scala/*"),
+    Nil,
+    "",
+    Some(4)
+  )
 }

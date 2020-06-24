@@ -75,7 +75,8 @@ object SourceHasher {
       def visitFile(file: Path, attributes: BasicFileAttributes): FileVisitResult = {
         if (isCancelled.get) FileVisitResult.TERMINATE
         else {
-          if (!matches(file)) ()
+          // `visitFile` can be called on a directory if we reach the max depth.
+          if (attributes.isDirectory || !matches(file)) ()
           else observer.onNext(file)
           FileVisitResult.CONTINUE
         }
