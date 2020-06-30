@@ -109,7 +109,17 @@ object BloopComponentCompiler {
      * Note that this method cannot be defined in [[CompilerBridgeProvider]] because [[ModuleID]]
      * is a Scala-defined class to which the compiler bridge cannot depend on.
      */
-    private def compiledBridge(bridgeSources: ModuleID, scalaInstance: ScalaInstance): File = {
+    private def compiledBridge(bridgeSources0: ModuleID, scalaInstance: ScalaInstance): File = {
+      val scalaVersion = scalaInstance.version()
+      val requiresPrevZincVersion = bridgeSources0.revision == "1.3.0-M4+45-d4354be3" && {
+        scalaVersion.startsWith("2.13.0") ||
+        scalaVersion.startsWith("2.13.1") ||
+        scalaVersion.startsWith("2.13.2")
+      }
+
+      val bridgeSources =
+        if (!requiresPrevZincVersion) bridgeSources0
+        else bridgeSources0.withRevision("1.3.0-M4+42-5daa8ed7")
       val raw = new RawCompiler(scalaInstance, ClasspathOptionsUtil.auto, logger)
       val zinc = new BloopComponentCompiler(raw, manager, bridgeSources, logger, scheduler)
       logger.debug(s"Getting $bridgeSources for Scala ${scalaInstance.version}")(

@@ -342,9 +342,10 @@ object BuildImplementation {
     // Keys.triggeredMessage := Watched.clearWhenTriggered,
     Keys.resolvers := {
       val oldResolvers = Keys.resolvers.value
-      val scalacenterResolver = Resolver.bintrayRepo("scalacenter", "releases")
+      val sonatypeStaging = Resolver.sonatypeRepo("staging")
       val scalametaResolver = Resolver.bintrayRepo("scalameta", "maven")
-      (oldResolvers :+ scalametaResolver :+ scalacenterResolver).distinct
+      val scalacenterResolver = Resolver.bintrayRepo("scalacenter", "releases")
+      (oldResolvers :+ sonatypeStaging :+ scalametaResolver :+ scalacenterResolver).distinct
     },
     ReleaseEarlyKeys.releaseEarlyWith := {
       /*
