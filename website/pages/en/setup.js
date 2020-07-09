@@ -76,6 +76,7 @@ const SetupOptions = () => {
   const markdownsElement = toolsMD.map((tool, index) => (
     <div className="items" data-title={tool.title} key={index}>
       <MarkdownBlock key={index}>{tool["install"]}</MarkdownBlock>
+      <MarkdownBlock key={index}>{tool["usage"]}</MarkdownBlock>
     </div>
   ));
   return (
