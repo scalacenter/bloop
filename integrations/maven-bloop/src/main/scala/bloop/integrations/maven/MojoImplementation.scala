@@ -125,6 +125,10 @@ object MojoImplementation {
 
       val tags = if (configuration == "test") List(Tag.Test) else List(Tag.Library)
 
+      // add main dependency to test project
+      val fullDependencies =
+        if (configuration == "test") project.getArtifactId :: dependencyNames else dependencyNames
+
       // FORMAT: OFF
       val config = {
         val sbt = None
@@ -136,7 +140,7 @@ object MojoImplementation {
         val platform = Some(Config.Platform.Jvm(Config.JvmConfig(javaHome, launcher.getJvmArgs().toList), mainClass, None, None))
         // Resources in Maven require
         val resources = Some(resources0.asScala.toList.flatMap(a => Option(a.getTargetPath).toList).map(classesDir.resolve))
-        val project = Config.Project(name, baseDirectory, Some(root.toPath), sourceDirs, None, None, dependencyNames, classpath, out, classesDir, resources, `scala`, java, sbt, test, platform, resolution, Some(tags))
+        val project = Config.Project(name, baseDirectory, Some(root.toPath), sourceDirs, None, None, fullDependencies, classpath, out, classesDir, resources, `scala`, java, sbt, test, platform, resolution, Some(tags))
         Config.File(Config.File.LatestVersion, project)
       }
       // FORMAT: ON
