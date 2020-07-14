@@ -1,6 +1,6 @@
 package bloop.exec
 
-import java.io.{FileNotFoundException, IOException}
+import java.io.IOException
 import java.nio.ByteBuffer
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.TimeUnit
@@ -11,9 +11,10 @@ import bloop.engine.ExecutionContext
 import bloop.io.AbsolutePath
 import bloop.logging.{DebugFilter, Logger}
 import bloop.util.CrossPlatform
-import com.zaxxer.nuprocess.{NuAbstractProcessHandler, NuProcess, NuProcessBuilder}
+import com.zaxxer.nuprocess.{NuAbstractProcessHandler, NuProcess}
 import monix.eval.Task
 import monix.execution.Cancelable
+
 import scala.annotation.tailrec
 import scala.concurrent.duration.FiniteDuration
 
@@ -100,7 +101,7 @@ object Forker {
      *
      * The input gobble runs on a 50ms basis and it can process a maximum of 4096
      * bytes at a time. The rest that is not read will be read in the next 50ms. */
-    def gobbleInput(process: NuProcess): Task[Int] = {
+    def gobbleInput(process: Process): Task[Int] = {
       val duration = FiniteDuration(50, TimeUnit.MILLISECONDS)
       consumeInput = ExecutionContext.ioScheduler.scheduleWithFixedDelay(duration, duration) {
         val buffer = new Array[Byte](4096)
@@ -137,10 +138,7 @@ object Forker {
         consumeInput.cancel()
         try process.closeStdin(true)
         finally {
-          process.destroy(false)
-          process.waitFor(200, _root_.java.util.concurrent.TimeUnit.MILLISECONDS)
-          process.destroy(true)
-          process.waitFor(200, _root_.java.util.concurrent.TimeUnit.MILLISECONDS)
+          process.destroy()
           if (process.isRunning) {
             val msg = s"The cancellation could not destroy process ${process.getPID}"
             opts.ngout.println(msg)
@@ -154,39 +152,14 @@ object Forker {
       })
     }
 
-    run(cwd, cmd, new ProcessHandler(), opts.env.toMap)
+    Process
+      .run(cwd, cmd, new ProcessHandler(), opts.env.toMap)
       .flatMap(gobbleInput)
       .onErrorRecover {
         case error =>
           logger.error(error.getMessage)
           Forker.EXIT_ERROR
       }
-  }
-
-  /**
-   * Runs `cmd` in a new process and logs the results. The exit code is returned
-   *
-   * @param cwd    The directory in which to start the process
-   * @param cmd    The command to run
-   * @param env   The options to run the program with
-   * @return The exit code of the process
-   */
-  def run(
-      cwd: AbsolutePath,
-      cmd: Seq[String],
-      handler: NuAbstractProcessHandler,
-      env: Map[String, String]
-  ): Task[NuProcess] = {
-    import scala.collection.JavaConverters._
-    if (cwd.exists) {
-      val builder = new NuProcessBuilder(cmd.asJava, env.asJava)
-      builder.setProcessListener(handler)
-      builder.setCwd(cwd.underlying)
-      Task(builder.start())
-    } else {
-      val message = s"Working directory '$cwd' does not exist"
-      Task.raiseError(new FileNotFoundException(message))
-    }
   }
 
   /**
