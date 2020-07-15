@@ -3,6 +3,7 @@ package bloop.exec
 import java.io.{FileNotFoundException, IOException}
 import java.nio.ByteBuffer
 import java.nio.charset.StandardCharsets
+import java.nio.file.FileSystems
 import java.util.concurrent.TimeUnit
 
 import bloop.cli.{CommonOptions, ExitStatus}
@@ -11,9 +12,11 @@ import bloop.engine.ExecutionContext
 import bloop.io.AbsolutePath
 import bloop.logging.{DebugFilter, Logger}
 import bloop.util.CrossPlatform
+import com.zaxxer.nuprocess.internal.LibC
 import com.zaxxer.nuprocess.{NuAbstractProcessHandler, NuProcess, NuProcessBuilder}
 import monix.eval.Task
 import monix.execution.Cancelable
+
 import scala.annotation.tailrec
 import scala.concurrent.duration.FiniteDuration
 
@@ -37,6 +40,8 @@ object Forker {
     if (exitCode == EXIT_OK) ExitStatus.Ok
     else ExitStatus.RunError
   }
+
+  def isPosix = FileSystems.getDefault.supportedFileAttributeViews.contains("posix")
 
   /**
    * Runs `cmd` in a new process and logs the results. The exit code is returned
@@ -137,8 +142,11 @@ object Forker {
         consumeInput.cancel()
         try process.closeStdin(true)
         finally {
+          // If the process creates a new group, the whole group is killed. Otherwise, only a single process.
+          destroyProcessGroup(process.getPID, false)
           process.destroy(false)
           process.waitFor(200, _root_.java.util.concurrent.TimeUnit.MILLISECONDS)
+          destroyProcessGroup(process.getPID, true)
           process.destroy(true)
           process.waitFor(200, _root_.java.util.concurrent.TimeUnit.MILLISECONDS)
           if (process.isRunning) {
@@ -161,6 +169,11 @@ object Forker {
           logger.error(error.getMessage)
           Forker.EXIT_ERROR
       }
+  }
+
+  private def destroyProcessGroup(pgrp: Int, force: Boolean) = {
+    if (isPosix) LibC.kill(-pgrp, if (force) LibC.SIGTERM else LibC.SIGKILL)
+    ()
   }
 
   /**
