@@ -20,7 +20,6 @@ import org.gradle.api.internal.artifacts.publish.{ArchivePublishArtifact, Decora
 import org.gradle.api.internal.file.copy.DefaultCopySpec
 import org.gradle.api.internal.tasks.compile.{DefaultJavaCompileSpec, JavaCompilerArgumentsBuilder}
 import org.gradle.api.plugins.{ApplicationPluginConvention, JavaPluginConvention}
-import org.gradle.api.specs.Specs
 import org.gradle.api.tasks.bundling.AbstractArchiveTask
 import org.gradle.api.tasks.{AbstractCopyTask, SourceSet}
 import org.gradle.api.tasks.compile.{CompileOptions, JavaCompile}
@@ -217,9 +216,9 @@ class BloopConverter(parameters: BloopParameters) {
       val modules = (additionalModules ++
         dottyArtifacts.map(artifactToConfigModule(_, project))).distinct
 
-      val tags =
-        if (sourceSet.getName == SourceSet.TEST_SOURCE_SET_NAME) List(Tag.Test)
-        else List(Tag.Library)
+      // check paths of test tasks to check if this source set is to be tested
+      val testTask = getTestTask(project, sourceSet)
+      val tags = if (testTask.nonEmpty) List(Tag.Test) else List(Tag.Library)
 
       // retrieve all artifacts (includes transitive?)
       val compileArtifacts: List[ResolvedArtifact] =
@@ -250,8 +249,8 @@ class BloopConverter(parameters: BloopParameters) {
           `scala` = scalaConfig,
           java = getJavaConfig(project, sourceSet),
           sbt = None,
-          test = getTestConfig(sourceSet),
-          platform = getPlatform(project, sourceSet, isTestSourceSet, runtimeClasspath),
+          test = getTestConfig(testTask),
+          platform = getPlatform(project, sourceSet, testTask, runtimeClasspath),
           resolution = Some(resolution),
           tags = Some(tags)
         )
@@ -320,6 +319,18 @@ class BloopConverter(parameters: BloopParameters) {
     }
   }
 
+  private def getTestTask(project: Project, sourceSet: SourceSet): Option[Test] = {
+    // get the Test task associated with this sourceSet if there is one
+    val sourceSetOutputFiles = sourceSet.getOutput.getClassesDirs.getFiles.asScala
+    val testTasks = project.getTasks.asScala.collect {
+      case test: Test => test
+    }
+    testTasks.find(testTask => {
+      val testClassesDirs = testTask.getTestClassesDirs.asScala
+      testClassesDirs.exists(sourceSetOutputFiles.contains)
+    })
+  }
+
   private def getArchiveTask(pa: PublishArtifact): Iterable[AbstractArchiveTask] = {
     pa match {
       case apa: ArchivePublishArtifact => Iterable(apa.getArchiveTask)
@@ -362,55 +373,48 @@ class BloopConverter(parameters: BloopParameters) {
   private def getPlatform(
       project: Project,
       sourceSet: SourceSet,
-      isTestSourceSet: Boolean,
+      testTask: Option[Test],
       runtimeClasspath: List[Path]
   ): Option[Platform] = {
     val forkOptions = getJavaCompileOptions(project, sourceSet).getForkOptions
     val projectJdkPath = Option(forkOptions.getJavaHome).map(_.toPath)
 
-    lazy val compileJvmOptions =
-      Option(forkOptions.getMemoryInitialSize).map(mem => s"-Xms$mem").toList ++
-        Option(forkOptions.getMemoryMaximumSize).map(mem => s"-Xmx$mem").toList ++
-        forkOptions.getJvmArgs.asScala.toList
+    val projectJvmOptions = testTask
+      .map(task => {
+        val testProperties =
+          for ((name, value) <- task.getSystemProperties.asScala.toList)
+            yield s"-D$name=$value"
 
-    lazy val testTask = project.getTask[Test]("test")
-    lazy val testProperties =
-      for ((name, value) <- testTask.getSystemProperties.asScala.toList)
-        yield s"-D$name=$value"
+        Option(task.getMinHeapSize).map(mem => s"-Xms$mem").toList ++
+          Option(task.getMaxHeapSize).map(mem => s"-Xmx$mem").toList ++
+          task.getJvmArgs.asScala.toList ++
+          testProperties
+      })
+      .getOrElse(
+        Option(forkOptions.getMemoryInitialSize).map(mem => s"-Xms$mem").toList ++
+          Option(forkOptions.getMemoryMaximumSize).map(mem => s"-Xmx$mem").toList ++
+          forkOptions.getJvmArgs.asScala.toList
+      )
 
-    lazy val testJvmOptions =
-      Option(testTask.getMinHeapSize).map(mem => s"-Xms$mem").toList ++
-        Option(testTask.getMaxHeapSize).map(mem => s"-Xmx$mem").toList ++
-        testTask.getJvmArgs.asScala.toList ++
-        testProperties
-
-    val projectJvmOptions =
-      if (isTestSourceSet) testJvmOptions
-      else compileJvmOptions
-
-    val currentJDK = DefaultInstalledJdk.current()
-    val defaultJdkPath = Option(currentJDK).map(_.getJavaHome.toPath)
     val mainClass =
-      project.getConvention.findPlugin(classOf[ApplicationPluginConvention]) match {
-        case appPluginConvention: ApplicationPluginConvention if !isTestSourceSet =>
-          Option(appPluginConvention.getMainClassName)
-        case _ =>
-          None
-      }
+      if (testTask.isEmpty)
+        Option(project.getConvention.findPlugin(classOf[ApplicationPluginConvention]))
+          .map(_.getMainClassName)
+      else
+        None
 
-    val jdkPath = projectJdkPath.orElse(defaultJdkPath)
+    val jdkPath = projectJdkPath.orElse({
+      val currentJDK = DefaultInstalledJdk.current()
+      Option(currentJDK).map(_.getJavaHome.toPath)
+    })
     Some(
       Platform.Jvm(JvmConfig(jdkPath, projectJvmOptions), mainClass, Some(runtimeClasspath), None)
     )
   }
 
-  private def getTestConfig(sourceSet: SourceSet): Option[Config.Test] = {
-    if (sourceSet.getName == SourceSet.TEST_SOURCE_SET_NAME) {
-      // TODO: make this configurable?
-      Some(Config.Test.defaultConfiguration)
-    } else {
-      None
-    }
+  private def getTestConfig(testTask: Option[Test]): Option[Config.Test] = {
+    // TODO: make this configurable?
+    testTask.map(_ => Config.Test.defaultConfiguration)
   }
 
   def getProjectName(project: Project, sourceSet: SourceSet): String = {
