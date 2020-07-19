@@ -6,7 +6,7 @@ import java.nio.file.{Files, Path, Paths}
 import bloop.cli.Commands
 import bloop.config.Config.Platform.Jvm
 import bloop.config.{Config, Tag}
-import bloop.config.Config.{CompileSetup, JavaThenScala, Mixed, Platform}
+import bloop.config.Config.{CompileSetup, JavaThenScala, Mixed, Platform, TestFramework}
 import bloop.data.WorkspaceSettings
 import bloop.engine.{Build, Run, State}
 import bloop.io.AbsolutePath
@@ -2048,6 +2048,92 @@ abstract class ConfigGenerationSuite {
     }
   }
 
+  @Test def worksWithIntegrationTests(): Unit = {
+    val buildSettings = testProjectDir.newFile("settings.gradle")
+    val buildDir = testProjectDir.newFolder("a")
+    testProjectDir.newFolder("a", "src", "main", "scala")
+    testProjectDir.newFolder("a", "src", "test", "scala")
+    val buildFile = new File(buildDir, "build.gradle")
+
+    writeBuildScript(
+      buildFile,
+      s"""
+         |plugins {
+         |  id 'bloop'
+         |}
+         |
+         |apply plugin: 'scala'
+         |apply plugin: 'bloop'
+         |
+         |repositories {
+         |  mavenCentral()
+         |}
+         |
+         |sourceSets {
+         |  intTest {
+         |    compileClasspath += sourceSets.main.output
+         |    runtimeClasspath += sourceSets.main.output
+         |  }
+         |  noTests {
+         |    compileClasspath += sourceSets.main.output
+         |    runtimeClasspath += sourceSets.main.output
+         |  }
+         |}
+         |
+         |configurations {
+         |  intTestImplementation.extendsFrom implementation
+         |  intTestRuntimeOnly.extendsFrom runtimeOnly
+         |  noTestsImplementation.extendsFrom implementation
+         |  noTestsRuntimeOnly.extendsFrom runtimeOnly
+         |}
+         |
+         |task integrationTest(type: Test) {
+         |  testClassesDirs = sourceSets.intTest.output.classesDirs
+         |}
+         |
+         |dependencies {
+         |  compile 'org.scala-lang:scala-library:2.12.8'
+         |}
+      """.stripMargin
+    )
+
+    writeBuildScript(
+      buildSettings,
+      """
+        |rootProject.name = 'scala-multi-projects'
+        |include 'a'
+      """.stripMargin
+    )
+
+    GradleRunner
+      .create()
+      .withGradleVersion(gradleVersion)
+      .withProjectDir(testProjectDir.getRoot)
+      .withPluginClasspath(getClasspath)
+      .withArguments("bloopInstall", "-Si")
+      .build()
+
+    val bloopDir = new File(testProjectDir.getRoot, ".bloop")
+    val bloopA = new File(bloopDir, "a.json")
+    val bloopATest = new File(bloopDir, "a-test.json")
+    val bloopAIntegTest = new File(bloopDir, "a-intTest.json")
+    val bloopANoTests = new File(bloopDir, "a-noTests.json")
+
+    val configA = readValidBloopConfig(bloopA)
+    val configATest = readValidBloopConfig(bloopATest)
+    val configAIntegTest = readValidBloopConfig(bloopAIntegTest)
+    val configANoTests = readValidBloopConfig(bloopANoTests)
+
+    assert(hasTag(configA, Tag.Library))
+    assert(hasTag(configATest, Tag.Test))
+    assert(hasTag(configAIntegTest, Tag.Test))
+    assert(hasTag(configANoTests, Tag.Library))
+
+    assert(hasBothClasspathsEntryName(configAIntegTest, "/a/build/classes"))
+
+    assert(hasTestFramework(configAIntegTest, TestFramework.JUnit))
+  }
+
   private def loadBloopState(configDir: File): State = {
     val logger = BloopLogger.default(configDir.toString)
     assert(Files.exists(configDir.toPath), "Does not exist: " + configDir)
@@ -2222,6 +2308,10 @@ abstract class ConfigGenerationSuite {
   private def idxOfClasspathEntryName(config: Config.File, entryName: String): Int = {
     val pathValidEntryName = entryName.replace('/', File.separatorChar)
     config.project.classpath.takeWhile(!_.toString.contains(pathValidEntryName)).size
+  }
+
+  private def hasTestFramework(config: Config.File, framework: TestFramework): Boolean = {
+    config.project.test.map(_.frameworks).getOrElse(Nil).contains(framework)
   }
 
   private def hasTag(config: Config.File, tag: String): Boolean = {
