@@ -43,9 +43,9 @@ object MojoImplementation {
         val dom = Xpp3Dom.mergeXpp3Dom(currentConfig, scalaMavenConfig)
         Try {
           mojoExecution.setConfiguration(dom)
-            mavenPluginManager
-              .getConfiguredMojo(classOf[Mojo], session, mojoExecution)
-              .asInstanceOf[BloopMojo]
+          mavenPluginManager
+            .getConfiguredMojo(classOf[Mojo], session, mojoExecution)
+            .asInstanceOf[BloopMojo]
         } match {
           case Success(value) => Right(value)
           case Failure(e) => Left(s"Failed to init BloopMojo with conf:\n$dom\n${e.getMessage}")
