@@ -57,7 +57,7 @@ final class DebugSessionLogger(
     if (msg.startsWith(JDINotificationPrefix)) {
       if (initialized.compareAndSet(false, true)) {
         val port = Integer.parseInt(msg.drop(JDINotificationPrefix.length))
-        val address = new InetSocketAddress("localhost", port)
+        val address = new InetSocketAddress("127.0.0.1", port)
         listener(address)
       }
     } else {
