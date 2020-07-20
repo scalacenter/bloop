@@ -64,6 +64,9 @@ public class BloopMojo extends ExtendedScalaContinuousCompileMojo {
     @Parameter
     private AppLauncher[] launchers;
 
+    @Parameter(property = "sourceDir", defaultValue = "$mainSourceDir")
+    private String sourceDir;
+
     protected String mainClass;
 
     @Override
