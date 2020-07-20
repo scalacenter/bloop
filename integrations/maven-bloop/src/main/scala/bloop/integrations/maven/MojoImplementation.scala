@@ -3,6 +3,7 @@ package bloop.integrations.maven
 import java.io.File
 import java.nio.file.{Files, Path, Paths}
 import java.util
+
 import bloop.config.{Config, Tag}
 import org.apache.maven.execution.MavenSession
 import org.apache.maven.model.Resource
@@ -11,13 +12,17 @@ import org.apache.maven.plugin.{MavenPluginManager, Mojo, MojoExecution}
 import org.apache.maven.project.MavenProject
 import org.codehaus.plexus.util.xml.Xpp3Dom
 import scala_maven.AppLauncher
+
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 import org.apache.maven.artifact.Artifact
 import org.apache.maven.shared.invoker.DefaultInvocationRequest
 import java.{util => ju}
+
 import org.apache.maven.shared.invoker.DefaultInvoker
 import org.apache.maven.shared.invoker.InvocationResult
+
+import scala.util.{Failure, Success, Try}
 
 object MojoImplementation {
   private val ScalaMavenGroupArtifact = "net.alchim31.maven:scala-maven-plugin"
@@ -35,12 +40,16 @@ object MojoImplementation {
       case Some(scalaMavenPlugin) =>
         val currentConfig = mojoExecution.getConfiguration()
         val scalaMavenConfig = scalaMavenPlugin.getConfiguration().asInstanceOf[Xpp3Dom]
-        mojoExecution.setConfiguration(Xpp3Dom.mergeXpp3Dom(currentConfig, scalaMavenConfig))
-        Right(
-          mavenPluginManager
-            .getConfiguredMojo(classOf[Mojo], session, mojoExecution)
-            .asInstanceOf[BloopMojo]
-        )
+        val dom = Xpp3Dom.mergeXpp3Dom(currentConfig, scalaMavenConfig)
+        Try {
+          mojoExecution.setConfiguration(dom)
+            mavenPluginManager
+              .getConfiguredMojo(classOf[Mojo], session, mojoExecution)
+              .asInstanceOf[BloopMojo]
+        } match {
+          case Success(value) => Right(value)
+          case Failure(e) => Left(s"Failed to init BloopMojo with conf:\n$dom\n${e.getMessage}")
+        }
     }
   }
 
