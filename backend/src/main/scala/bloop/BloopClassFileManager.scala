@@ -217,14 +217,19 @@ final class BloopClassFileManager(
             clientExternalClassesDir: AbsolutePath,
             clientReporter: Reporter,
             clientTracer: BraveTracer
-        ) => {
-          clientTracer.traceTask("populate external classes dir as it's empty") { _ =>
-            Task {
-              if (!BloopPaths.isDirectoryEmpty(clientExternalClassesDir)) Task.unit
-              else {
-                if (BloopPaths.isDirectoryEmpty(outPaths.internalReadOnlyClassesDir)) {
-                  Task.unit
-                } else {
+        ) =>
+          Task.defer {
+            // Exclude dirs because process controlling external dir might have created empty dir layouts
+            val externalDirHasFiles =
+              !BloopPaths.isDirectoryEmpty(clientExternalClassesDir, excludeDirs = true)
+            val isInternalEmpty =
+              BloopPaths.isDirectoryEmpty(outPaths.internalReadOnlyClassesDir, excludeDirs = false)
+
+            if (externalDirHasFiles) Task.unit
+            else if (isInternalEmpty) Task.unit
+            else
+              clientTracer.traceTask("populate empty classes dir") {
+                _ =>
                   // Prepopulate external classes dir even though compilation failed
                   val config = ParallelOps.CopyConfiguration(1, CopyMode.NoReplace, Set.empty)
                   ParallelOps
@@ -236,11 +241,8 @@ final class BloopClassFileManager(
                       enableCancellation = false
                     )
                     .map(_ => ())
-                }
               }
-            }.flatten
           }
-        }
       )
     }
   }

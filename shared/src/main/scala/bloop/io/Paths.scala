@@ -171,7 +171,7 @@ object Paths {
     ()
   }
 
-  def isDirectoryEmpty(path: AbsolutePath): Boolean = {
+  def isDirectoryEmpty(path: AbsolutePath, excludeDirs: Boolean): Boolean = {
     var isEmpty: Boolean = true
     import java.nio.file.NoSuchFileException
     try {
@@ -187,7 +187,7 @@ object Paths {
               directory: Path,
               attributes: BasicFileAttributes
           ): FileVisitResult = {
-            if (path.underlying == directory) FileVisitResult.CONTINUE
+            if (excludeDirs || path.underlying == directory) FileVisitResult.CONTINUE
             else {
               isEmpty = false
               FileVisitResult.TERMINATE
