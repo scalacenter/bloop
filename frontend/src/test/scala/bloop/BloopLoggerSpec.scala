@@ -14,6 +14,7 @@ import org.junit.Assert.{assertEquals, assertFalse, assertTrue}
 import org.junit.Test
 import org.junit.experimental.categories.Category
 
+import scala.Console.{RED, RESET}
 import scala.collection.mutable
 
 @Category(Array(classOf[bloop.FastTests]))
@@ -200,6 +201,23 @@ class BloopLoggerSpec {
     }(DebugFilter.Compilation)
   }
 
+  @Test
+  def colorsAreKeptWhenEnabled(): Unit = {
+    val plainMessage = s"this is an info message"
+    val plainErrorPrefix = "[E] "
+    val coloredMessage = plainMessage.replaceAll("info", s"${RED}info${RESET}")
+    runAndCheck { _.info(coloredMessage) } { (outMsgs, errMsgs) =>
+      assertEquals(1, outMsgs.length.toLong)
+      assertEquals(coloredMessage, outMsgs.head)
+    }(enableColors = true)
+
+    runAndCheck { _.error(coloredMessage) } { (outMsgs, errMsgs) =>
+      assertEquals(1, errMsgs.length.toLong)
+      // Color should have been removed from the message
+      assertEquals(plainErrorPrefix + plainMessage, errMsgs.head)
+    }(enableColors = false)
+  }
+
   private def isWarn(msg: String): Boolean = msg.contains("[W]")
   private def isError(msg: String): Boolean = msg.contains("[E]")
   private def isDebug(msg: String): Boolean = msg.contains("[D]")
@@ -212,7 +230,7 @@ class BloopLoggerSpec {
       op: BloopLogger => Unit
   )(
       check: (Seq[String], Seq[String]) => Unit
-  )(implicit ctx: DebugFilter = DebugFilter.All): Unit = {
+  )(implicit ctx: DebugFilter = DebugFilter.All, enableColors: Boolean = false): Unit = {
     val outStream = new ByteArrayOutputStream
     val errStream = new ByteArrayOutputStream
 
@@ -220,7 +238,7 @@ class BloopLoggerSpec {
     val err = new PrintStream(errStream)
 
     val loggerName = UUIDUtil.randomUUID
-    val logger = BloopLogger.at(loggerName, out, err, false, ctx)
+    val logger = BloopLogger.at(loggerName, out, err, enableColors, ctx)
     op(logger)
 
     val outMessages = convertAndReadAllFrom(outStream)

@@ -3,6 +3,7 @@ package bloop.logging
 import java.io.PrintStream
 
 import scala.Console.{CYAN, GREEN, RED, RESET, YELLOW}
+import scala.util.matching.Regex
 
 /**
  * Creates a logger that writes to the given streams.
@@ -56,7 +57,8 @@ final class BloopLogger(
 
   private def print(msg: String, fn: String => Unit): Unit = {
     val lines = msg.split("\\r?\\n", -1)
-    lines.foreach(fn)
+    val printFn = if (colorOutput) fn else (str: String) => fn(BloopLogger.stripColors(str))
+    lines.foreach(printFn)
   }
 
   private def printInfo(line: String): Unit = {
@@ -144,4 +146,16 @@ object BloopLogger {
     t.printStackTrace(pw)
     sw.toString()
   }
+
+  private lazy val colorsRegex = "\u001b\\[[0-9;]*m".r
+
+  /**
+   * Remove the ANSI colors from `str`.
+   *
+   * Other ANSI escapes codes are left untouched.
+   */
+  private def stripColors(str: String): String = {
+    colorsRegex.replaceAllIn(str, "")
+  }
+
 }
