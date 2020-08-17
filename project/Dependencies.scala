@@ -86,6 +86,7 @@ object Dependencies {
   val junit = "com.novocode" % "junit-interface" % junitVersion
   val graphviz = "guru.nidi" % "graphviz-java" % graphvizVersion
   val directoryWatcher = "ch.epfl.scala" % "directory-watcher" % directoryWatcherVersion
+  val swovalFiles = "com.swoval" % "file-tree-views" % "2.1.4"
   val difflib = "com.googlecode.java-diff-utils" % "diffutils" % difflibVersion
   val junitSystemRules = "com.github.stefanbirkner" % "system-rules" % junitSystemRulesVersion
 

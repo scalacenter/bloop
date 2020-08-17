@@ -9,6 +9,12 @@ import bloop.util.monix.FoldLeftAsyncConsumer
 
 import scala.collection.JavaConverters._
 import scala.concurrent.duration.FiniteDuration
+import scala.util.Try
+
+import com.swoval.files.{FileTreeRepositories, FileTreeRepository, TypedPath}
+import com.swoval.logging.{Logger => SLogger, Loggers}
+import com.swoval.files.FileTreeDataViews.{CacheObserver, Entry}
+import com.swoval.files.FileTreeViews.Observer
 
 import io.methvin.watcher.DirectoryChangeEvent.EventType
 import io.methvin.watcher.{DirectoryChangeEvent, DirectoryChangeListener, DirectoryWatcher}
@@ -20,6 +26,7 @@ import monix.reactive.{MulticastStrategy, Observable}
 import monix.execution.misc.NonFatal
 import monix.execution.atomic.AtomicBoolean
 import monix.reactive.OverflowStrategy
+import java.io.IOException
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import java.nio.file.attribute.BasicFileAttributes
@@ -51,23 +58,32 @@ final class SourceWatcher private (
       )
 
     var watchingEnabled: Boolean = true
-    val listener = new DirectoryChangeListener {
-      override def isWatching: Boolean = watchingEnabled
+    val swovalObserver = new CacheObserver[TypedPath] {
 
       // Make sure that errors on the file watcher are reported back
-      override def onException(e: Exception): Unit = {
+      override def onError(e: IOException): Unit = {
         slf4jLogger.debug(s"File watching threw an exception: ${e.getMessage}")
         // Enable tracing when https://github.com/scalacenter/bloop/issues/433 is done
         //logger.trace(e)
       }
 
       private[this] val scheduledResubmissions = new ConcurrentHashMap[Path, Cancelable]()
-      override def onEvent(event: DirectoryChangeEvent): Unit = {
-        val targetFile = event.path()
-        val attrs = Files.readAttributes(targetFile, classOf[BasicFileAttributes])
+      override def onCreate(entry: Entry[TypedPath]): Unit =
+        if (watchingEnabled) onEvent(entry, DirectoryChangeEvent.EventType.CREATE)
+      override def onDelete(entry: Entry[TypedPath]): Unit =
+        if (watchingEnabled) onEvent(entry, DirectoryChangeEvent.EventType.DELETE)
+      override def onUpdate(previous: Entry[TypedPath], current: Entry[TypedPath]): Unit =
+        if (watchingEnabled) onEvent(current, DirectoryChangeEvent.EventType.MODIFY)
+      def onEvent(entry: Entry[TypedPath], kind: DirectoryChangeEvent.EventType): Unit = {
+        val targetFile = entry.getTypedPath.getPath()
+        val event = new DirectoryChangeEvent(kind, targetFile, 1)
 
-        if (attrs.isRegularFile && SourceHasher.matchSourceFile(targetFile)) {
-          if (attrs.size != 0L) {
+        if (entry.getTypedPath.isFile && SourceHasher.matchSourceFile(targetFile)) {
+          val defer =
+            if (kind == DirectoryChangeEvent.EventType.MODIFY)
+              Try(Files.size(targetFile)).getOrElse(0L) == 0L
+            else kind == DirectoryChangeEvent.EventType.DELETE
+          if (!defer) {
             val resubmission = scheduledResubmissions.remove(targetFile)
             if (resubmission != null) resubmission.cancel()
             observer.onNext(event)
@@ -100,7 +116,7 @@ final class SourceWatcher private (
               new Runnable {
                 def run(): Unit = {
                   scheduledResubmissions.remove(targetFile)
-                  if (Files.size(targetFile) == 0) {
+                  if (Try(Files.size(targetFile)).getOrElse(0L) == 0L) {
                     observer.onNext(event)
                   }
                   ()
@@ -114,42 +130,33 @@ final class SourceWatcher private (
       }
     }
 
-    val watcher = DirectoryWatcher
-      .builder()
-      .paths(dirs.asJava)
-      .files(files.asJava)
-      .logger(slf4jLogger)
-      .listener(listener)
-      .fileHashing(true)
-      .build();
+    val watcher = FileTreeRepositories.get(
+      tp => tp, // FileTreeRepositories cache data associated with a TypedPath
+      true, // follows symlinks
+      false, // disables automatic rescanning of directories if a root directory change is detected
+      new SLogger {
+        def debug(s: String): Unit = slf4jLogger.debug(s)
+        def error(s: String): Unit = slf4jLogger.error(s)
+        def info(s: String): Unit = slf4jLogger.info(s)
+        def getLevel(): Loggers.Level = Loggers.Level.DEBUG
+        def verbose(s: String): Unit = {}
+        def warn(s: String): Unit = slf4jLogger.warn(s)
+      }
+    )
+    val swovalHandle = watcher.addCacheObserver(swovalObserver)
+    def realPath(p: Path) = Try(p.toRealPath()).getOrElse(p)
+    dirs.foreach(p => watcher.register(realPath(p), Int.MaxValue)) // Int.MaxValue is a recursive watch
+    files.foreach(p => watcher.register(realPath(p), -1)) // -1 indicates only watch the file itself
 
     val watchLogId = s"File watching on '${projectNames.mkString("', '")}' and dependent projects"
     val isClosed = AtomicBoolean.apply(false)
-
-    // Use Java's completable future because we can stop/complete it from the cancelable
-    val watcherHandle = watcher.watchAsync(ExecutionContext.ioExecutor)
-    val watchController = Task {
-      try watcherHandle.get()
-      catch {
-        case NonFatal(t) => ()
-      } finally {
-        if (isClosed.compareAndSet(false, true)) {
-          watcher.close()
-        }
-      }
-      ngout.println(s"$watchLogId has been successfully closed")
-      logger.debug(s"$watchLogId has been successfully closed")
-    }
 
     val watchCancellation = Cancelable { () =>
       observer.onComplete()
       watchingEnabled = false
 
-      // Cancel the future to interrupt blocking event polling of file stream
-      watcherHandle.cancel(true)
-
-      // Complete future to force the controller to close the watcher
-      watcherHandle.complete(null)
+      watcher.removeObserver(swovalHandle)
+      watcher.close()
 
       // Force closing the file watcher in case it doesn't work
       if (isClosed.compareAndSet(false, true)) {

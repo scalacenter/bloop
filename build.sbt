@@ -71,6 +71,7 @@ lazy val backend = project
       Dependencies.sourcecode,
       Dependencies.monix,
       Dependencies.directoryWatcher,
+      Dependencies.swovalFiles,
       Dependencies.zt,
       Dependencies.brave,
       Dependencies.zipkinSender,
