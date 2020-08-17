@@ -76,7 +76,7 @@ val sbtBloopBuildShadedJar = project
 
     },
     shadingNamespace := "shaded.build",
-    shadeIgnoredNamespaces := Set("com.google.gson", "org.slf4j"),
+    shadeIgnoredNamespaces := Set("com.google.gson", "org.slf4j", "scala.xml"),
     shadeNamespaces := Set(
       "com.github.plokhotnyuk.jsoniter_scala",
       "machinist",

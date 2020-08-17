@@ -100,6 +100,7 @@ object ProjectUtils {
         lastStore = backing.get()
       lastStore
     }
+    override def unsafeGet: AnalysisContents = get.get
   }
 
   def inlinedTask[T](value: T): Def.Initialize[Task[T]] = Def.toITask(Def.value(value))
