@@ -473,3 +473,16 @@ object TestCompileErrorExitCode extends bloop.testing.BaseSuite {
     }
   }
 }
+
+object MultiFingerprintMatch extends BaseTestSpec("test-test", "custom-test-framework") {
+  val expectedFullTestsOutput: String =
+    """|Running task: foo.MyTest
+       |Execution took ???
+       |No test suite was run
+       |
+       |===============================================
+       |Total duration: ???
+       |
+       |===============================================
+       |""".stripMargin
+}

@@ -277,14 +277,23 @@ object TestTask {
     import scala.collection.mutable
     val (subclassPrints, annotatedPrints) = TestInternals.getFingerprints(frameworks)
     val definitions = TestInternals.potentialTests(analysis)
-    val discovered = Discovery(subclassPrints.map(_._1), annotatedPrints.map(_._1))(definitions)
+    val discovered =
+      Discovery(subclassPrints.map(_._1).toSet, annotatedPrints.map(_._1).toSet)(definitions)
     val tasks = mutable.Map.empty[Framework, mutable.Buffer[TaskDef]]
+    val seen = mutable.Set.empty[String]
     frameworks.foreach(tasks(_) = mutable.Buffer.empty)
     discovered.foreach {
       case (defn, discovered) =>
         TestInternals.matchingFingerprints(subclassPrints, annotatedPrints, discovered).foreach {
           case (_, _, framework, fingerprint) =>
-            tasks(framework) += new TaskDef(defn.name, fingerprint, false, Array(new SuiteSelector))
+            if (seen.add(defn.name)) {
+              tasks(framework) += new TaskDef(
+                defn.name,
+                fingerprint,
+                false,
+                Array(new SuiteSelector)
+              )
+            }
         }
     }
     tasks.mapValues(_.toList).toMap

@@ -236,9 +236,11 @@ object TestInternals {
 
   def getFingerprints(
       frameworks: Seq[Framework]
-  ): (Set[PrintInfo[SubclassFingerprint]], Set[PrintInfo[AnnotatedFingerprint]]) = {
-    val subclasses = mutable.Set.empty[PrintInfo[SubclassFingerprint]]
-    val annotated = mutable.Set.empty[PrintInfo[AnnotatedFingerprint]]
+  ): (List[PrintInfo[SubclassFingerprint]], List[PrintInfo[AnnotatedFingerprint]]) = {
+    // The tests need to be run with the first matching framework, so we use a LinkedHashSet
+    // to keep the ordering of `frameworks`.
+    val subclasses = mutable.LinkedHashSet.empty[PrintInfo[SubclassFingerprint]]
+    val annotated = mutable.LinkedHashSet.empty[PrintInfo[AnnotatedFingerprint]]
     for {
       framework <- frameworks
       fingerprint <- framework.fingerprints()
@@ -248,15 +250,15 @@ object TestInternals {
       case ann: AnnotatedFingerprint =>
         annotated += ((ann.annotationName, ann.isModule, framework, ann))
     }
-    (subclasses.toSet, annotated.toSet)
+    (subclasses.toList, annotated.toList)
   }
 
   // Slightly adapted from sbt/sbt
   def matchingFingerprints(
-      subclassPrints: Set[PrintInfo[SubclassFingerprint]],
-      annotatedPrints: Set[PrintInfo[AnnotatedFingerprint]],
+      subclassPrints: List[PrintInfo[SubclassFingerprint]],
+      annotatedPrints: List[PrintInfo[AnnotatedFingerprint]],
       d: Discovered
-  ): Set[PrintInfo[Fingerprint]] = {
+  ): List[PrintInfo[Fingerprint]] = {
     defined(subclassPrints, d.baseClasses, d.isModule) ++
       defined(annotatedPrints, d.annotations, d.isModule)
   }
@@ -302,10 +304,10 @@ object TestInternals {
 
   // Slightly adapted from sbt/sbt
   private def defined[T <: Fingerprint](
-      in: Set[PrintInfo[T]],
+      in: List[PrintInfo[T]],
       names: Set[String],
       IsModule: Boolean
-  ): Set[PrintInfo[T]] = {
+  ): List[PrintInfo[T]] = {
     in collect { case info @ (name, IsModule, _, _) if names(name) => info }
   }
 
