@@ -194,7 +194,7 @@ final class JvmForker(config: JdkConfig, classpath: Array[AbsolutePath]) extends
     // https://docs.oracle.com/javase/7/docs/technotes/guides/jar/jar.html
     val syntax = path.toBspUri.toURL.getPath
     val separatorAdded = {
-      if (syntax.endsWith(".jar")) {
+      if (syntax.endsWith(".jar") || syntax.endsWith(File.separator)) {
         syntax
       } else {
         syntax + File.separator
