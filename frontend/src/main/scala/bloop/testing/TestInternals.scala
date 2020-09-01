@@ -32,9 +32,9 @@ import scala.collection.mutable
 import scala.util.control.NonFatal
 
 object TestInternals {
-  private final val sbtOrg = "org.scala-sbt"
+  private final val sbtOrg = "ch.epfl.scala"
   private final val testAgentId = "test-agent"
-  private final val testAgentVersion = "1.2.8"
+  private final val testAgentVersion = "1.4.0-M2+31-debc9a28"
 
   private implicit val logContext: DebugFilter = DebugFilter.Test
 
