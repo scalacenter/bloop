@@ -242,7 +242,8 @@ lazy val frontend: Project = project
     backend,
     backend % "test->test",
     jsonConfig212.jvm,
-    buildpressConfig % "it->compile"
+    buildpressConfig % "it->compile",
+    testAgent
   )
   .disablePlugins(ScriptedPlugin)
   .enablePlugins(BuildInfoPlugin)
@@ -776,6 +777,20 @@ lazy val nativeBridge04 = project
     fork in Test := true
   )
 
+// Temporaryily publish a fork of sbt test-agent.
+// This version includes https://github.com/sbt/sbt/pull/5800
+// while we wait for the next release of sbt.
+lazy val testAgent = project
+  .disablePlugins(ScriptedPlugin)
+  .in(file("test-agent"))
+  .settings(
+    name := "test-agent",
+    crossPaths := false,
+    autoScalaLibrary := false,
+    libraryDependencies += Dependencies.sbtTestInterface,
+    libraryDependencies += Dependencies.sbtTestAgent
+  )
+
 /* This project has the only purpose of forcing the resolution of some artifacts that fail spuriously to be fetched.  */
 lazy val twitterIntegrationProjects = project
   .disablePlugins(BloopShadedPlugin)
@@ -812,7 +827,8 @@ val allProjects = Seq(
   jsBridge10,
   launcher,
   sockets,
-  bloopgun
+  bloopgun,
+  testAgent
 )
 
 val allProjectReferences = allProjects.map(p => LocalProject(p.id))
@@ -859,7 +875,8 @@ val bloop = project
             bloopgunShaded,
             launcherShaded,
             buildpressConfig,
-            buildpress
+            buildpress,
+            testAgent
           )
         )
         .value
@@ -896,7 +913,8 @@ val bloop = project
             bloopgunShaded,
             launcherShaded,
             buildpressConfig,
-            buildpress
+            buildpress,
+            testAgent
           )
         )
         .value

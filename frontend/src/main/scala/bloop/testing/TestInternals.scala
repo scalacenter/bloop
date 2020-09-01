@@ -8,6 +8,7 @@ import bloop.config.Config
 import bloop.config.Config.TestArgument
 import bloop.engine.ExecutionContext
 import bloop.exec.{Forker, JvmProcessForker}
+import bloop.internal.build.BuildInfo
 import bloop.io.AbsolutePath
 import bloop.logging.{DebugFilter, Logger}
 import monix.eval.Task
@@ -90,8 +91,12 @@ object TestInternals {
       case Some(paths) => paths
       case None =>
         import bloop.engine.ExecutionContext.ioScheduler
+        // Temporarily resolve our fork of test-agent which includes
+        // https://github.com/sbt/sbt/pull/5800
         val paths = DependencyResolution.resolve(
-          List(DependencyResolution.Artifact(sbtOrg, testAgentId, testAgentVersion)),
+          List(
+            DependencyResolution.Artifact(BuildInfo.organization, testAgentId, BuildInfo.version)
+          ),
           logger
         )
         testAgentFiles = Some(paths)
@@ -129,7 +134,7 @@ object TestInternals {
     val agentFiles = lazyTestAgents(logger)
 
     val server = new TestServer(logger, testEventHandler, classLoader, discovered, args, opts)
-    val forkMain = classOf[sbt.ForkMain].getCanonicalName
+    val forkMain = classOf[sbt.BloopForkMain].getCanonicalName
     val arguments = userJvmOptions.toArray ++ Array(server.port.toString)
     val testAgentJars = agentFiles.filter(_.underlying.toString.endsWith(".jar"))
     logger.debug("Test agent JARs: " + testAgentJars.mkString(", "))
