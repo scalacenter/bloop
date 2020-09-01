@@ -23,7 +23,7 @@ object Dependencies {
   val caseAppVersion = "1.2.0-faster-compile-time"
   val sourcecodeVersion = "0.1.4"
   val sbtTestInterfaceVersion = "1.0"
-  val sbtTestAgentVersion = "1.2.8"
+  val sbtTestAgentVersion = "1.4.0-M2+31-debc9a28"
   val junitVersion = "0.11"
   val junitSystemRulesVersion = "1.19.0"
   val graphvizVersion = "0.2.2"
@@ -74,7 +74,7 @@ object Dependencies {
   val caseApp = "ch.epfl.scala" %% "case-app" % caseAppVersion
   val sourcecode = "com.lihaoyi" %% "sourcecode" % sourcecodeVersion
   val sbtTestInterface = "org.scala-sbt" % "test-interface" % sbtTestInterfaceVersion
-  val sbtTestAgent = "org.scala-sbt" % "test-agent" % sbtTestAgentVersion
+  val sbtTestAgent = "ch.epfl.scala" % "test-agent" % sbtTestAgentVersion
   val snailgun = ("me.vican.jorge" %% "snailgun-cli" % snailgunVersion)
   val ztExec = "org.zeroturnaround" % "zt-exec" % ztExecVersion
   val slf4jNop = "org.slf4j" % "slf4j-nop" % "1.7.2"
