@@ -78,7 +78,7 @@ final case class Project(
   def workingDirectory: AbsolutePath = {
     val customWorkingDirectory = platform match {
       case jvm: Platform.Jvm =>
-        jvm.config.javaOptions.collectFirst {
+        jvm.config.javaOptions.reverseIterator.collectFirst {
           case option if option.startsWith("-Duser.dir=") =>
             AbsolutePath(option.stripPrefix("-Duser.dir="))
         }
