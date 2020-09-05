@@ -479,6 +479,115 @@ abstract class ConfigGenerationSuite {
     )
   }
 
+  @Test def doesntOverIncludeOnClasspath(): Unit = {
+    val buildSettings = testProjectDir.newFile("settings.gradle")
+    val buildDirA = testProjectDir.newFolder("a")
+    testProjectDir.newFolder("a", "src", "main", "scala")
+    testProjectDir.newFolder("a", "src", "test", "scala")
+    val buildDirB = testProjectDir.newFolder("b")
+    testProjectDir.newFolder("b", "src", "main", "scala")
+    testProjectDir.newFolder("b", "src", "test", "scala")
+    val buildFileA = new File(buildDirA, "build.gradle")
+    val buildFileB = new File(buildDirB, "build.gradle")
+
+    writeBuildScript(
+      buildFileA,
+      s"""
+         |plugins {
+         |  id 'bloop'
+         |}
+         |
+         |apply plugin: 'scala'
+         |apply plugin: 'bloop'
+         |
+         |repositories {
+         |  mavenCentral()
+         |}
+         |
+         |dependencies {
+         |  compile 'org.scala-lang:scala-library:2.12.8'
+         |}
+      """.stripMargin
+    )
+
+    writeBuildScript(
+      buildFileB,
+      s"""
+         |plugins {
+         |  id 'bloop'
+         |}
+         |
+         |apply plugin: 'scala'
+         |apply plugin: 'bloop'
+         |
+         |repositories {
+         |  mavenCentral()
+         |}
+         |
+         |dependencies {
+         |  compile project(':a')
+         |  compile 'org.scala-lang:scala-library:2.12.8'
+         |}
+      """.stripMargin
+    )
+
+    writeBuildScript(
+      buildSettings,
+      """
+        |rootProject.name = 'scala-multi-projects'
+        |include 'a'
+        |include 'b'
+      """.stripMargin
+    )
+
+    createHelloWorldScalaSource(buildDirA, "package x { trait A }")
+    createHelloWorldScalaTestSource(buildDirA, "package y { trait B }")
+    createHelloWorldScalaTestSource(buildDirB, "package z { trait C extends x.A { } }")
+
+    GradleRunner
+      .create()
+      .withGradleVersion(gradleVersion)
+      .withProjectDir(testProjectDir.getRoot)
+      .withPluginClasspath(getClasspath)
+      .withArguments("bloopInstall", "-Si")
+      .withDebug(true)
+      .build()
+
+    val projectName = testProjectDir.getRoot.getName
+    val bloopDir = new File(testProjectDir.getRoot, ".bloop")
+    val bloopNone = new File(bloopDir, s"${projectName}.json")
+    val bloopA = new File(bloopDir, "a.json")
+    val bloopB = new File(bloopDir, "b.json")
+    val bloopATest = new File(bloopDir, "a-test.json")
+    val bloopBTest = new File(bloopDir, "b-test.json")
+
+    assert(!bloopNone.exists())
+    val configA = readValidBloopConfig(bloopA)
+    val configB = readValidBloopConfig(bloopB)
+    val configATest = readValidBloopConfig(bloopATest)
+    val configBTest = readValidBloopConfig(bloopBTest)
+
+    assert(configA.project.dependencies.isEmpty)
+    assertEquals(List("a"), configATest.project.dependencies.sorted)
+    assertEquals(List("a"), configB.project.dependencies.sorted)
+    assertEquals(List("a", "b"), configBTest.project.dependencies.sorted)
+
+    assert(!hasRuntimeClasspathEntryName(configA, "/build/resources/main"))
+    assert(!hasRuntimeClasspathEntryName(configB, "/build/resources/main"))
+    assert(!hasRuntimeClasspathEntryName(configATest, "/build/resources/main"))
+    assert(!hasRuntimeClasspathEntryName(configBTest, "/build/resources/main"))
+
+    assert(!hasCompileClasspathEntryName(configA, "/build/resources/main"))
+    assert(!hasCompileClasspathEntryName(configB, "/build/resources/main"))
+    assert(!hasCompileClasspathEntryName(configATest, "/build/resources/main"))
+    assert(!hasCompileClasspathEntryName(configBTest, "/build/resources/main"))
+
+    assert(!hasRuntimeClasspathEntryName(configA, "/a/build/classes"))
+    assert(!hasRuntimeClasspathEntryName(configB, "/b/build/classes"))
+    assert(!hasRuntimeClasspathEntryName(configATest, "/a-test/build/classes"))
+    assert(!hasRuntimeClasspathEntryName(configBTest, "/b-test/build/classes"))
+  }
+
   @Test def worksWithDuplicateNestedProjectNames(): Unit = {
     val buildSettings = testProjectDir.newFile("settings.gradle")
     val buildDirA = testProjectDir.newFolder("a", "foo")
