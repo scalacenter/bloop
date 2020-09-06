@@ -278,9 +278,11 @@ class BloopConverter(parameters: BloopParameters) {
       .artifactView(new Action[ViewConfiguration] {
         override def execute(viewConfig: ViewConfiguration): Unit = {
           viewConfig.setLenient(true)
-          viewConfig.attributes((f: AttributeContainer) => {
-            f.attribute(artifactType, attributeType)
-            ()
+          viewConfig.attributes(new Action[AttributeContainer] {
+            override def execute(attributeContainer: AttributeContainer): Unit = {
+              attributeContainer.attribute(artifactType, attributeType)
+              ()
+            }
           })
           ()
         }
