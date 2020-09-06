@@ -11,8 +11,10 @@ import bloop.integrations.gradle.BloopParameters
 import bloop.integrations.gradle.syntax._
 import org.gradle.api.{GradleException, Project}
 import org.gradle.api.artifacts._
+import org.gradle.api.artifacts.ArtifactView.ViewConfiguration
 import org.gradle.api.artifacts.result.{ComponentArtifactsResult, ResolvedArtifactResult}
 import org.gradle.api.attributes.Attribute
+import org.gradle.api.attributes.AttributeContainer
 import org.gradle.api.component.Artifact
 import org.gradle.api.file.FileCollection
 import org.gradle.api.internal.artifacts.dsl.LazyPublishArtifact
@@ -273,9 +275,9 @@ class BloopConverter(parameters: BloopParameters) {
     val artifactType = Attribute.of("artifactType", classOf[String])
     val attributeType = "jar"
     configuration.getIncoming
-      .artifactView(viewConfig => {
+      .artifactView((viewConfig: ViewConfiguration) => {
         viewConfig.setLenient(true)
-        viewConfig.attributes(f => f.attribute(artifactType, attributeType))
+        viewConfig.attributes((f: AttributeContainer) => f.attribute(artifactType, attributeType))
       })
       .getArtifacts
       .asScala
