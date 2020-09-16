@@ -44,46 +44,27 @@ class BloopInstallTask extends DefaultTask with PluginUtils with TaskLogging {
       Files.createDirectory(targetDir.toPath)
     }
 
-    val mainSourceSet = project.getSourceSet(SourceSet.MAIN_SOURCE_SET_NAME)
-    val otherSourceSets = project.allSourceSets.filter(_.getName != SourceSet.MAIN_SOURCE_SET_NAME)
-
-    // The 'main' source set maps to the raw project name (as all integrations do)
-    val mainProjectName = converter.getProjectName(project, mainSourceSet)
-    generateBloopConfiguration(mainProjectName, Nil, mainSourceSet, targetDir, converter, true)
-
-    // Hardcode an implicit dependency for every source set to the main source set (compile) if it exists
-    val strictDependencies = List(
-      SourceSetDep(mainProjectName, converter.getClassesDir(targetDir, project, mainSourceSet))
-    )
-
-    // Generate the bloop configuration files for the rest of the source sets
-    for (sourceSet <- otherSourceSets) {
+    for (sourceSet <- project.allSourceSets) {
       val projectName = converter.getProjectName(project, sourceSet)
       generateBloopConfiguration(
         projectName,
-        strictDependencies,
         sourceSet,
         targetDir,
-        converter,
-        false
+        converter
       )
     }
   }
 
   private def generateBloopConfiguration(
       projectName: String,
-      projectDependencies: List[SourceSetDep],
       sourceSet: SourceSet,
       targetDir: File,
-      converter: BloopConverter,
-      mandatory: Boolean
+      converter: BloopConverter
   ): Unit = {
     val targetFile = targetDir / s"$projectName.json"
     // Let's keep the error message as similar to the one in the sbt plugin as possible
     info(s"Generated ${targetFile.getAbsolutePath}")
-    converter.toBloopConfig(projectDependencies, project, sourceSet, targetDir) match {
-      case Failure(reason) if mandatory =>
-        throw reason
+    converter.toBloopConfig(project, sourceSet, targetDir) match {
       case Failure(reason) =>
         info(s"Skipping ${project.getName}/${sourceSet.getName} because: $reason")
       case Success(bloopConfig) =>
