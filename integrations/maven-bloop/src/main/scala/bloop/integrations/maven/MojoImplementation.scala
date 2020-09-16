@@ -2,8 +2,6 @@ package bloop.integrations.maven
 
 import java.io.File
 import java.nio.file.{Files, Path, Paths}
-import java.util
-
 import bloop.config.{Config, Tag}
 import org.apache.maven.execution.MavenSession
 import org.apache.maven.model.Resource
@@ -12,13 +10,10 @@ import org.apache.maven.plugin.{MavenPluginManager, Mojo, MojoExecution}
 import org.apache.maven.project.MavenProject
 import org.codehaus.plexus.util.xml.Xpp3Dom
 import scala_maven.AppLauncher
-
 import scala.collection.JavaConverters._
-import scala.collection.mutable
 import org.apache.maven.artifact.Artifact
 import org.apache.maven.shared.invoker.DefaultInvocationRequest
 import java.{util => ju}
-
 import org.apache.maven.shared.invoker.DefaultInvoker
 import org.apache.maven.shared.invoker.InvocationResult
 
@@ -26,6 +21,7 @@ import scala.util.{Failure, Success, Try}
 
 object MojoImplementation {
   private val ScalaMavenGroupArtifact = "net.alchim31.maven:scala-maven-plugin"
+  private val JavaMavenGroupArtifact = "org.apache.maven.plugins:maven-compiler-plugin"
 
   def initializeMojo(
       project: MavenProject,
@@ -34,22 +30,37 @@ object MojoImplementation {
       mavenPluginManager: MavenPluginManager,
       encoding: String
   ): Either[String, BloopMojo] = {
-    Option(project.getBuild().getPluginsAsMap().get(ScalaMavenGroupArtifact)) match {
-      case None =>
-        Left(s"The plugin $ScalaMavenGroupArtifact could not be found.")
+    val buildPlugins = project.getBuild().getPluginsAsMap();
+
+    val (newConfig, moduleType) = Option(buildPlugins.get(ScalaMavenGroupArtifact)) match {
+      case None => (None, BloopMojo.ModuleType.JAVA)
       case Some(scalaMavenPlugin) =>
-        val currentConfig = mojoExecution.getConfiguration()
-        val scalaMavenConfig = scalaMavenPlugin.getConfiguration().asInstanceOf[Xpp3Dom]
-        val dom = Xpp3Dom.mergeXpp3Dom(currentConfig, scalaMavenConfig)
-        Try {
-          mojoExecution.setConfiguration(dom)
-          mavenPluginManager
-            .getConfiguredMojo(classOf[Mojo], session, mojoExecution)
-            .asInstanceOf[BloopMojo]
-        } match {
-          case Success(value) => Right(value)
-          case Failure(e) => Left(s"Failed to init BloopMojo with conf:\n$dom\n${e.getMessage}")
-        }
+        (Some(scalaMavenPlugin.getConfiguration.asInstanceOf[Xpp3Dom]), BloopMojo.ModuleType.SCALA)
+    }
+
+    val javaCompilerArgs: List[String] = Option(buildPlugins.get(JavaMavenGroupArtifact)) match {
+      case None => List()
+      case Some(javaMavenPlugin) =>
+        val javaConfig = javaMavenPlugin.getConfiguration.asInstanceOf[Xpp3Dom]
+        if (javaConfig != null) {
+          val compilerArgs = Option(javaConfig.getChild("compilerArgs"))
+          compilerArgs.map(_.getChildren.map(_.getValue).toList).getOrElse(Nil)
+        } else List()
+    }
+
+    val currentConfig = mojoExecution.getConfiguration
+    val dom = newConfig.map(nc => Xpp3Dom.mergeXpp3Dom(currentConfig, nc))
+    Try {
+      dom.foreach(mojoExecution.setConfiguration)
+      val mojo = mavenPluginManager
+        .getConfiguredMojo(classOf[Mojo], session, mojoExecution)
+        .asInstanceOf[BloopMojo]
+      mojo.setModuleType(moduleType)
+      mojo.setJavaCompilerArgs(javaCompilerArgs.asJava)
+      mojo
+    } match {
+      case Success(value) => Right(value)
+      case Failure(e) => Left(s"Failed to init BloopMojo with conf:\n$dom\n${e.getMessage}")
     }
   }
 

@@ -61,7 +61,12 @@ public class BloopMojo extends ExtendedScalaContinuousCompileMojo {
     @Parameter(property = "skip", defaultValue = "false")
     private boolean skip;
 
-    @Parameter
+    @Parameter(property = "compileOrder", defaultValue = "Mixed" )
+    private CompileOrder compileOrder;
+
+    private ModuleType moduleType;
+    private List<String> javaCompilerArgs;
+
     private AppLauncher[] launchers;
 
     @Parameter(property = "sourceDir", defaultValue = "$mainSourceDir")
@@ -82,12 +87,15 @@ public class BloopMojo extends ExtendedScalaContinuousCompileMojo {
     }
 
     public File[] getAllScalaJars() throws Exception {
-        File libraryJar = getLibraryJar();
-        File compilerJar = getCompilerJar();
-        File[] mainJars = new File[] {libraryJar, compilerJar};
-        List<File> extraJars = getCompilerDependencies();
-        extraJars.remove(libraryJar);
-        return (File[]) ArrayUtils.addAll(mainJars, extraJars.toArray());
+        if (moduleType == ModuleType.SCALA)
+        {
+            File libraryJar = getLibraryJar();
+            File compilerJar = getCompilerJar();
+            File[] mainJars = new File[]{libraryJar, compilerJar};
+            List<File> extraJars = getCompilerDependencies();
+            extraJars.remove( libraryJar );
+            return (File[]) ArrayUtils.addAll( mainJars, extraJars.toArray() );
+        } else return new File[0];
     }
 
     public File getBloopConfigDir() {
@@ -98,8 +106,23 @@ public class BloopMojo extends ExtendedScalaContinuousCompileMojo {
         return downloadSources;
     }
 
+    private Config.CompileOrder getCompileOrder() {
+        if ( this.moduleType == ModuleType.JAVA ) {
+            return Config.JavaThenScala$.MODULE$;
+        }
+        switch ( this.compileOrder ) {
+        case JavaThenScala:
+            return Config.JavaThenScala$.MODULE$;
+        case ScalaThenJava:
+            return Config.ScalaThenJava$.MODULE$;
+        default:
+            return Config.Mixed$.MODULE$;
+        }
+    }
+
     public Config.CompileSetup getCompileSetup() {
-        return new Config.CompileSetup(Config.Mixed$.MODULE$,
+
+        return new Config.CompileSetup(getCompileOrder(),
                                        classpathOptionsBootLibrary,
                                        classpathOptionsCompiler,
                                        classpathOptionsExtra,
@@ -124,5 +147,31 @@ public class BloopMojo extends ExtendedScalaContinuousCompileMojo {
     public AppLauncher[] getLaunchers() {
         if (launchers == null) return new AppLauncher[0];
         else return launchers;
+    }
+
+    public List<String> getJavacArgs() throws Exception {
+        List<String> args = super.getJavacOptions();
+        if (this.javaCompilerArgs != null) {
+            args.addAll( javaCompilerArgs );
+        }
+        return args;
+    }
+
+    public void setModuleType( ModuleType moduleType )
+    {
+        this.moduleType = moduleType;
+    }
+
+    public void setJavaCompilerArgs( List<String> javaCompilerArgs )
+    {
+        this.javaCompilerArgs = javaCompilerArgs;
+    }
+
+    public static enum ModuleType {
+        SCALA, JAVA;
+    }
+
+    public static enum CompileOrder {
+        Mixed, JavaThenScala, ScalaThenJava;
     }
 }
