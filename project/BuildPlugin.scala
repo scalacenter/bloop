@@ -403,7 +403,7 @@ object BuildImplementation {
       )
     },
     ReleaseEarlyKeys.releaseEarlyPublish := BuildDefaults.releaseEarlyPublish.value,
-    Keys.scalacOptions := reasonableCompileOptions,
+    Keys.scalacOptions := reasonableCompileOptions(Keys.scalaVersion.value),
     // Legal requirement: license and notice files must be in the published jar
     Keys.resources in Compile ++= BuildDefaults.getLicense.value,
     Keys.sources in (Compile, Keys.doc) := Nil,
@@ -423,11 +423,13 @@ object BuildImplementation {
       Keys.publishLocalConfiguration.value.withOverwrite(true)
   ) // ++ metalsSettings
 
-  final val reasonableCompileOptions = (
-    "-deprecation" :: "-encoding" :: "UTF-8" :: "-feature" :: "-language:existentials" ::
-      "-language:higherKinds" :: "-language:implicitConversions" :: "-unchecked" :: "-Yno-adapted-args" ::
-      "-Ywarn-numeric-widen" :: "-Ywarn-value-discard" :: "-Xfuture" :: Nil
-  )
+  final def reasonableCompileOptions(version: String) = {
+    val base = "-deprecation" :: "-encoding" :: "UTF-8" :: "-feature" :: "-language:existentials" ::
+      "-language:higherKinds" :: "-language:implicitConversions" :: "-unchecked" ::
+      "-Ywarn-numeric-widen" :: "-Ywarn-value-discard"  :: Nil
+
+    if(!version.startsWith("2.13")) "-Yno-adapted-args" :: "-Xfuture" :: base else base
+  }
 
   final val jvmOptions = "-Xmx3g" :: "-Xms1g" :: "-XX:ReservedCodeCacheSize=512m" :: "-XX:MaxInlineLevel=20" :: Nil
 

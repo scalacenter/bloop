@@ -4,6 +4,7 @@ object Dependencies {
   val Scala210Version = "2.10.7"
   val Scala211Version = "2.11.12"
   val Scala212Version = "2.12.8"
+  val Scala213Version = "2.13.1"
 
   val Sbt013Version = "0.13.18"
   val Sbt1Version = "1.3.3"
@@ -20,7 +21,7 @@ object Dependencies {
   val scalaXmlVersion = "1.2.0"
   val lmVersion = "1.0.0"
   val configDirsVersion = "10"
-  val caseAppVersion = "1.2.0-faster-compile-time"
+  val caseAppVersion = "2.0.4"//"1.2.0-faster-compile-time"
   val sourcecodeVersion = "0.1.4"
   val sbtTestInterfaceVersion = "1.0"
   val sbtTestAgentVersion = "1.4.0-M2+31-debc9a28"
@@ -52,7 +53,7 @@ object Dependencies {
   val zipkinSenderVersion = "2.7.15"
   val jnaVersion = "4.5.0"
   val asmVersion = "7.0"
-  val snailgunVersion = "0.3.1"
+  val snailgunVersion = "0.3.2+0-74993a9b+20200916-2139"//"0.3.1"
   val ztExecVersion = "1.11"
 
   import sbt.librarymanagement.syntax.stringToOrganization
@@ -71,7 +72,7 @@ object Dependencies {
   val coursierScalaz = "io.get-coursier" %% "coursier-scalaz-interop" % coursierVersion
   val scalaXml = "org.scala-lang.modules" %% "scala-xml" % scalaXmlVersion
   val shapeless = "ch.epfl.scala" %% "shapeless" % shapelessVersion
-  val caseApp = "ch.epfl.scala" %% "case-app" % caseAppVersion
+  val caseApp = "com.github.alexarchambault" %% "case-app" % caseAppVersion
   val sourcecode = "com.lihaoyi" %% "sourcecode" % sourcecodeVersion
   val sbtTestInterface = "org.scala-sbt" % "test-interface" % sbtTestInterfaceVersion
   val sbtTestAgent = "ch.epfl.scala" % "test-agent" % sbtTestAgentVersion
@@ -80,8 +81,8 @@ object Dependencies {
   val slf4jNop = "org.slf4j" % "slf4j-nop" % "1.7.2"
 
   val scalatest = "org.scalatest" % "scalatest_2.12" % "3.0.5"
-  val utest = "com.lihaoyi" %% "utest" % "0.6.6"
-  val pprint = "com.lihaoyi" %% "pprint" % "0.5.3"
+  val utest = "com.lihaoyi" %% "utest" % "0.7.2"
+  val pprint = "com.lihaoyi" %% "pprint" % "0.6.0"
   val scalacheck = "org.scalacheck" %% "scalacheck" % "1.13.4"
   val junit = "com.novocode" % "junit-interface" % junitVersion
   val graphviz = "guru.nidi" % "graphviz-java" % graphvizVersion
