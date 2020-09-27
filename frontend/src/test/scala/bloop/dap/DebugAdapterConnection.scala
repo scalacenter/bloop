@@ -100,6 +100,13 @@ private[dap] final class DebugAdapterConnection(
     adapter.request(Launch, arguments)
   }
 
+  def attach(hostName: String, port: Int): Task[Unit] = {
+    val arguments = new AttachArguments
+    arguments.hostName = hostName
+    arguments.port = port
+    adapter.request(Attach, arguments)
+  }
+
   def close(): Unit = {
     try socket.close()
     finally {

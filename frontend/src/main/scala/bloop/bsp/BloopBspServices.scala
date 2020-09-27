@@ -586,6 +586,9 @@ final class BloopBspServices(
           convert[bsp.ScalaMainClass](main => DebuggeeRunner.forMainClass(projects, main, state))
         case bsp.DebugSessionParamsDataKind.ScalaTestSuites =>
           convert[List[String]](filters => DebuggeeRunner.forTestSuite(projects, filters, state))
+        // TODO incorporate into BSP, maybe?
+        case "scala-attach-remote" =>
+          Right(DebuggeeRunner.forAttachRemote(state))
         case dataKind => Left(JsonRpcResponse.invalidRequest(s"Unsupported data kind: $dataKind"))
       }
     }

@@ -178,6 +178,9 @@ final class DebugSession(
         response.command = Command.LAUNCH.getName
         attachedPromise.success(())
         super.sendResponse(response)
+      case "attach" =>
+        attachedPromise.success(())
+        super.sendResponse(response)
       case "disconnect" =>
         // we are sending a response manually but the actual handler is also sending one so let's ignore it
         // because our disconnection must be successful as it is basically just cancelling the debuggee
