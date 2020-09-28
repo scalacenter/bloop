@@ -21,7 +21,6 @@ import org.gradle.api.internal.artifacts.dsl.LazyPublishArtifact
 import org.gradle.api.internal.artifacts.publish.{ArchivePublishArtifact, DecoratingPublishArtifact}
 import org.gradle.api.internal.file.copy.DefaultCopySpec
 import org.gradle.api.internal.tasks.compile.{DefaultJavaCompileSpec, JavaCompilerArgumentsBuilder}
-import org.gradle.api.plugins.{ApplicationPluginConvention, JavaPluginConvention}
 import org.gradle.api.tasks.bundling.AbstractArchiveTask
 import org.gradle.api.tasks.{AbstractCopyTask, SourceSet}
 import org.gradle.api.tasks.compile.{CompileOptions, JavaCompile}
@@ -324,7 +323,6 @@ class BloopConverter(parameters: BloopParameters) {
 
   private def getSourceSetProjectMap(rootProject: Project): Map[SourceSet, Project] = {
     rootProject.getAllprojects.asScala
-      .filter(isJavaProject)
       .flatMap(p => p.allSourceSets.map(_ -> p))
       .toMap
   }
@@ -373,7 +371,6 @@ class BloopConverter(parameters: BloopParameters) {
       sourceSets: Set[SourceSet]
   ): Map[File, SourceSet] = {
     rootProject.getAllprojects.asScala
-      .filter(isJavaProject)
       .flatMap(_.getConfigurations.asScala.flatMap(c => {
         val archiveTasks = c.getAllArtifacts.asScala.flatMap(getArchiveTask)
         val possibleArchiveSourceSets =
@@ -418,6 +415,10 @@ class BloopConverter(parameters: BloopParameters) {
           task.getJvmArgs.asScala.toList ++
           testProperties
       })
+      .orElse(
+        project.javaApplicationExt
+          .flatMap(f => Option(f.getApplicationDefaultJvmArgs).map(_.asScala.toList))
+      )
       .getOrElse(
         Option(forkOptions.getMemoryInitialSize).map(mem => s"-Xms$mem").toList ++
           Option(forkOptions.getMemoryMaximumSize).map(mem => s"-Xmx$mem").toList ++
@@ -426,8 +427,7 @@ class BloopConverter(parameters: BloopParameters) {
 
     val mainClass =
       if (testTask.isEmpty)
-        Option(project.getConvention.findPlugin(classOf[ApplicationPluginConvention]))
-          .map(_.getMainClassName)
+        project.javaApplicationExt.flatMap(f => Option(f.getMainClassName))
       else
         None
 
@@ -494,10 +494,6 @@ class BloopConverter(parameters: BloopParameters) {
     } catch {
       case _: NoSuchMethodException => None;
     }
-  }
-
-  private def isJavaProject(project: Project): Boolean = {
-    project.getConvention.findPlugin(classOf[JavaPluginConvention]) != null
   }
 
   private def getOutDir(targetDir: File, projectName: String): Path =
