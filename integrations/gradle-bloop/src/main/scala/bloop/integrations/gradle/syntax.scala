@@ -3,7 +3,8 @@ package bloop.integrations.gradle
 import java.io.File
 
 import org.gradle.api.artifacts.Configuration
-import org.gradle.api.plugins.JavaPluginConvention
+import org.gradle.api.tasks.SourceSetContainer
+import org.gradle.api.plugins.JavaApplication
 import org.gradle.api.tasks.SourceSet
 import org.gradle.api.{Project, Task, GradleException}
 
@@ -30,21 +31,14 @@ object syntax {
       configs.findByName(name)
     }
 
-    def getSourceSet(name: String): SourceSet = {
-      val plugins = project.getConvention.getPlugins
-      try {
-        project.getConvention.getPlugin(classOf[JavaPluginConvention]).getSourceSets.getByName(name)
-      } catch {
-        case NonFatal(e) =>
-          throw new GradleException(
-            s"Could not find java plugin convention for $name in $project with plugins $plugins",
-            e
-          )
-      }
+    def allSourceSets: Set[SourceSet] = {
+      Option(project.getExtensions.findByType(classOf[SourceSetContainer]))
+        .map(_.asScala.toSet)
+        .getOrElse(Set.empty)
     }
 
-    def allSourceSets: Set[SourceSet] = {
-      project.getConvention.getPlugin(classOf[JavaPluginConvention]).getSourceSets.asScala.toSet
+    def javaApplicationExt: Option[JavaApplication] = {
+      Option(project.getExtensions.findByType(classOf[JavaApplication]))
     }
 
     def createExtension[T](name: String, params: Object*)(implicit t: ClassTag[T]): Unit = {
