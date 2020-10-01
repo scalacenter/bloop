@@ -161,13 +161,14 @@ object Tasks {
       fqn: String,
       args: Array[String],
       skipJargs: Boolean,
+      envVars: List[String],
       mode: RunMode
   ): Task[State] = {
     val dag = state.build.getDagFor(project)
     val classpath = project.fullRuntimeClasspath(dag, state.client)
     val forker = JvmProcessForker(config, classpath, mode)
     val runTask =
-      forker.runMain(cwd, fqn, args, skipJargs, state.logger, state.commonOptions)
+      forker.runMain(cwd, fqn, args, skipJargs, envVars, state.logger, state.commonOptions)
     runTask.map { exitCode =>
       val exitStatus = Forker.exitStatus(exitCode)
       state.mergeStatus(exitStatus)
