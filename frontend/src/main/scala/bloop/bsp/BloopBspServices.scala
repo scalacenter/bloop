@@ -280,7 +280,8 @@ final class BloopBspServices(
               resourcesProvider = Some(true),
               buildTargetChangedProvider = Some(false),
               jvmTestEnvironmentProvider = Some(true),
-              jvmRunEnvironmentProvider = Some(true)
+              jvmRunEnvironmentProvider = Some(true),
+              canReload = Some(false)
             ),
             None
           )
@@ -586,8 +587,7 @@ final class BloopBspServices(
           convert[bsp.ScalaMainClass](main => DebuggeeRunner.forMainClass(projects, main, state))
         case bsp.DebugSessionParamsDataKind.ScalaTestSuites =>
           convert[List[String]](filters => DebuggeeRunner.forTestSuite(projects, filters, state))
-        // TODO incorporate into BSP, maybe?
-        case "scala-attach-remote" =>
+        case bsp.DebugSessionParamsDataKind.ScalaAttachRemote =>
           Right(DebuggeeRunner.forAttachRemote(state))
         case dataKind => Left(JsonRpcResponse.invalidRequest(s"Unsupported data kind: $dataKind"))
       }

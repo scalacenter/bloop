@@ -117,6 +117,8 @@ final class DebugSession(
     val requestId = request.seq
     request.command match {
       case "launch" =>
+        // launch request is implemented by spinning up a JVM
+        // and sending an attach request to the java DapServer
         launchedRequests.add(requestId)
         Task
           .fromFuture(debugAddress.future)
@@ -174,11 +176,13 @@ final class DebugSession(
     val requestId = response.request_seq
     response.command match {
       case "attach" if launchedRequests(requestId) =>
-        // Trick dap4j into thinking we're processing a launch instead of attach
+        // attach response from java DapServer is transformed into a launch response
+        // that is forwarded to the Bloop DAP client
         response.command = Command.LAUNCH.getName
         attachedPromise.success(())
         super.sendResponse(response)
       case "attach" =>
+        // a response to an actual attach request sent by a Bloop DAP client
         attachedPromise.success(())
         super.sendResponse(response)
       case "disconnect" =>
