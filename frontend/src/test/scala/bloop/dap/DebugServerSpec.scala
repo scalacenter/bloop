@@ -609,6 +609,7 @@ object DebugServerSpec extends DebugBspBaseSuite {
           "Main",
           Array.empty,
           skipJargs = false,
+          envVars = List.empty,
           RunMode.Debug
         )
 
