@@ -10,6 +10,7 @@ import monix.execution.misc.NonFatal
 import scala.util.Properties
 import zipkin2.codec.SpanBytesEncoder.JSON_V1
 import zipkin2.codec.SpanBytesEncoder.JSON_V2
+import java.util.concurrent.ConcurrentHashMap
 
 final class BraveTracer private (
     tracer: Tracer,
@@ -119,6 +120,16 @@ object BraveTracer {
   import zipkin2.reporter.AsyncReporter
   import zipkin2.reporter.urlconnection.URLConnectionSender
 
+  private val reporterCache = new ConcurrentHashMap[String, AsyncReporter[zipkin2.Span]]()
+  private def reporterFor(url: String): AsyncReporter[zipkin2.Span] = {
+    def newReporter(url: String): AsyncReporter[zipkin2.Span] = {
+      val sender = URLConnectionSender.create(url)
+      val jsonVersion = if (url.contains("/api/v1")) JSON_V1 else JSON_V2
+      AsyncReporter.builder(sender).build(jsonVersion)
+    }
+    reporterCache.computeIfAbsent(url, newReporter)
+  }
+
   def apply(name: String, properties: TraceProperties, tags: (String, String)*): BraveTracer = {
     BraveTracer(name, properties, None, tags: _*)
   }
@@ -131,9 +142,7 @@ object BraveTracer {
   ): BraveTracer = {
 
     val url = properties.serverUrl
-    val sender = URLConnectionSender.create(url)
-    val jsonVersion = if (url.contains("/api/v1")) JSON_V1 else JSON_V2
-    val spanReporter = AsyncReporter.builder(sender).build(jsonVersion)
+    val spanReporter = reporterFor(url)
 
     val tracing = Tracing
       .newBuilder()
