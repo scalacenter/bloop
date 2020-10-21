@@ -20,6 +20,17 @@ import com.microsoft.java.debug.core.protocol.Types.SourceBreakpoint
 import java.nio.file.Path
 import bloop.logging.Logger
 import bloop.logging.NoopLogger
+import monix.reactive.Observer
+import bloop.reporter.ReporterAction
+import bloop.logging.LoggerAction
+import bloop.logging.LoggerAction.LogInfoMessage
+import monix.execution.Ack
+import bloop.logging.ObservedLogger
+import scala.concurrent.Future
+import bloop.data.Platform
+import bloop.engine.tasks.Tasks
+import bloop.engine.tasks.RunMode
+import bloop.engine.State
 
 object DebugServerSpec extends DebugBspBaseSuite {
   private val ServerNotListening = new IllegalStateException("Server is not accepting connections")
@@ -543,6 +554,125 @@ object DebugServerSpec extends DebugBspBaseSuite {
 
       TestUtil.await(FiniteDuration(20, SECONDS), ExecutionContext.ioScheduler)(test)
     }
+  }
+
+  test("attaches to a remote process and sets breakpoint") {
+    TestUtil.withinWorkspace { workspace =>
+      val main =
+        """|/Main.scala
+           |object Main {
+           |  def main(args: Array[String]): Unit = {
+           |    println("Hello, World!")
+           |  }
+           |}
+           |""".stripMargin
+
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val project = TestProject(workspace, "r", List(main))
+
+      loadBspState(workspace, List(project), logger) { state =>
+        val testState = state.compile(project).toTestState
+        val buildProject = testState.getProjectFor(project)
+        def srcFor(srcName: String) =
+          buildProject.sources.map(_.resolve(srcName)).find(_.exists).get
+        val `Main.scala` = srcFor("Main.scala")
+
+        val breakpoints = {
+          val arguments = new SetBreakpointArguments()
+          val breakpoint = new SourceBreakpoint()
+          breakpoint.line = 3
+          arguments.source = new Types.Source(`Main.scala`.syntax, 0)
+          arguments.sourceModified = false
+          arguments.breakpoints = Array(breakpoint)
+          arguments
+        }
+
+        val attachPort = Promise[Int]()
+
+        val jdkConfig = buildProject.platform match {
+          case jvm: Platform.Jvm => jvm.config
+          case platform => throw new Exception(s"Unsupported platform $platform")
+        }
+
+        val debuggeeLogger = portListeningLogger(testState.state.logger, port => {
+          if (!attachPort.isCompleted) {
+            attachPort.success(port)
+            ()
+          }
+        })
+
+        val remoteProcess: Task[State] = Tasks.runJVM(
+          testState.state.copy(logger = debuggeeLogger),
+          buildProject,
+          jdkConfig,
+          testState.state.commonOptions.workingPath,
+          "Main",
+          Array.empty,
+          skipJargs = false,
+          envVars = List.empty,
+          RunMode.Debug
+        )
+
+        remoteProcess.runAsync(defaultScheduler)
+
+        val attachRemoteProcessRunner =
+          DebuggeeRunner.forAttachRemote(state.compile(project).toTestState.state)
+
+        startDebugServer(attachRemoteProcessRunner) { server =>
+          val test = for {
+            port <- Task.fromFuture(attachPort.future)
+            client <- server.startConnection
+            _ <- client.initialize()
+            _ <- client.attach("localhost", port)
+            breakpoints <- client.setBreakpoints(breakpoints)
+            _ = assert(breakpoints.breakpoints.forall(_.verified))
+            _ <- client.configurationDone()
+            stopped <- client.stopped
+            outputOnBreakpoint <- client.takeCurrentOutput
+            _ <- client.continue(stopped.threadId)
+            _ <- client.exited
+            _ <- client.terminated
+            finalOutput <- client.takeCurrentOutput
+            _ <- Task.fromFuture(client.closedPromise.future)
+          } yield {
+            assert(client.socket.isClosed)
+
+            assertNoDiff(outputOnBreakpoint, "")
+
+            assertNoDiff(
+              finalOutput,
+              ""
+            )
+          }
+
+          TestUtil.await(FiniteDuration(120, SECONDS), ExecutionContext.ioScheduler)(test)
+        }
+      }
+    }
+  }
+
+  private def portListeningLogger(underlying: Logger, listener: Int => Unit): Logger = {
+    val listeningObserver = new Observer[Either[ReporterAction, LoggerAction]] {
+      override def onNext(elem: Either[ReporterAction, LoggerAction]): Future[Ack] = elem match {
+        case Right(action) =>
+          action match {
+            case LogInfoMessage(msg) =>
+              println(msg)
+              if (msg.startsWith(DebugSessionLogger.JDINotificationPrefix)) {
+                val port =
+                  Integer.parseInt(msg.drop(DebugSessionLogger.JDINotificationPrefix.length))
+                listener(port)
+              }
+              Ack.Continue
+            case _ => Ack.Continue
+          }
+        case _ => Ack.Continue
+      }
+      override def onError(ex: Throwable): Unit = throw ex
+      override def onComplete(): Unit = ()
+    }
+
+    ObservedLogger(underlying, listeningObserver)
   }
 
   private def waitForServerEnd(server: TestServer): Task[Boolean] = {

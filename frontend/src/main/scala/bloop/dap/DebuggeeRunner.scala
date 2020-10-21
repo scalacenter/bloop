@@ -94,6 +94,21 @@ private final class TestSuiteDebugAdapter(
   }
 }
 
+private final class AttachRemoteDebugAdapter(state: State) extends DebuggeeRunner {
+  private lazy val allAnalysis = state.results.allAnalysis
+  override def logger: Logger = state.logger
+
+  override def run(logger: DebugSessionLogger): Task[ExitStatus] = Task(ExitStatus.Ok)
+
+  override def classFilesMappedTo(
+      origin: Path,
+      lines: Array[Int],
+      columns: Array[Int]
+  ): List[Path] = {
+    DebuggeeRunner.classFilesMappedTo(origin, lines, columns, allAnalysis)
+  }
+}
+
 object DebuggeeRunner {
   def forMainClass(
       projects: Seq[Project],
@@ -124,6 +139,9 @@ object DebuggeeRunner {
       case projects => Right(new TestSuiteDebugAdapter(projects, filters, state))
     }
   }
+
+  def forAttachRemote(state: State): DebuggeeRunner =
+    new AttachRemoteDebugAdapter(state)
 
   def classFilesMappedTo(
       origin: Path,
