@@ -469,4 +469,32 @@ class RunSpec extends BloopHelpers {
     }
   }
 
+  @Test
+  def runUsesRuntimeEnvironment(): Unit = {
+    TestUtil.withinWorkspace { workspace =>
+      object Sources {
+        val `a/A.scala` =
+          """/a/A.scala
+            |object A {
+            |  def main(args: Array[String]): Unit = {
+            |    assert("goodbye" == sys.props("test"))
+            |  }
+            |}""".stripMargin
+      }
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val `A` = TestProject(
+        workspace,
+        "a",
+        List(Sources.`a/A.scala`),
+        runtimeJvmConfig =
+          Some(JdkConfig.toConfig(JdkConfig.default.copy(javaOptions = Array("-Dtest=goodbye"))))
+      )
+
+      val projects = List(`A`)
+      val state = loadState(workspace, projects, logger)
+      val runState = state.run(`A`)
+      assertEquals(ExitStatus.Ok, runState.status)
+    }
+  }
+
 }

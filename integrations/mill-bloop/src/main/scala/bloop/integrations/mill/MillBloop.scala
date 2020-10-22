@@ -60,6 +60,7 @@ object Bloop extends ExternalModule {
           options = module.forkArgs().toList
         ),
         mainClass = module.mainClass(),
+        runtimeConfig = None,
         classpath = None,
         resources = None
       )

@@ -442,7 +442,8 @@ class BloopConverter(parameters: BloopParameters) {
       Option(currentJDK).map(_.getJavaHome.toPath)
     })
     Some(
-      Platform.Jvm(JvmConfig(jdkPath, projectJvmOptions), mainClass, Some(runtimeClasspath), None)
+      Platform
+        .Jvm(JvmConfig(jdkPath, projectJvmOptions), mainClass, None, Some(runtimeClasspath), None)
     )
   }
 

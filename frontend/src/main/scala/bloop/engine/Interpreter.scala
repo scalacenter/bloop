@@ -562,7 +562,8 @@ object Interpreter {
                     if (!state.status.isOk) Task.now(state)
                     else Tasks.runNativeOrJs(state, project, cwd, mainClass, args)
                 }
-              case Platform.Jvm(javaEnv, _, _, _, _) =>
+              case jvm: Platform.Jvm =>
+                val javaEnv = project.runtimeJdkConfig.getOrElse(jvm.config)
                 Tasks.runJVM(
                   state,
                   project,
