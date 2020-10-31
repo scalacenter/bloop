@@ -1,13 +1,13 @@
-With `yaourt`:
+With `yay` (replace by your favorite AUR helper):
 
 ```bash
-yaourt -S bloop
+yay -S bloop
 ```
 
-With `pacaur`:
+If you want to use the [Systemd service](usage.md), also install `bloop-systemd`:
 
 ```bash
-pacaur -S bloop
+yay -S bloop-systemd
 ```
 
 ### Requirements
