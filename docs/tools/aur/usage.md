@@ -4,8 +4,8 @@ command-line application is used.
 
 ### Running the server in the background
 
-The AUR formula installs a Systemd service in *your user configuration* to
-start up the Bloop server automatically when you log into your machine. This
+The AUR package `bloop-systemd` installs a Systemd service in *your user configuration*
+to start up the Bloop server automatically when you log into your machine. This
 service spares you from the cumbersome process of starting the build server
 before using any build client, enable it with:
 
