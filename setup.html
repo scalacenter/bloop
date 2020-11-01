@@ -23,11 +23,11 @@ next step. If none is true or you don't know if they are true or false, it is
 recommended you do not install Bloop directly in your machine.</p>
 <p>The following page explains how to get Bloop installed in your machine and
 how you can export your current project build to Bloop.</p>
-</span></div></div><div class="step-setup"><h2 id="installation"><span class="step-no">2</span>Pick your installation method</h2><div class="tools-group-all"><div class="tools-group"><h5>Universal Installation</h5><button data-title="universal" class="tools-button">coursier (Default)</button></div><div class="tools-group"><h5>Package Managers</h5><button data-title="homebrew" class="tools-button">Homebrew (macOS)</button><button data-title="scoop" class="tools-button">Scoop (Windows)</button><button data-title="aur" class="tools-button">AUR (Arch Linux)</button></div></div><div class="step-hidden step-setup"><div class="items" data-title="aur"><div><span><p>With <code>yaourt</code>:</p>
-<pre><code class="hljs css language-bash">yaourt -S bloop
+</span></div></div><div class="step-setup"><h2 id="installation"><span class="step-no">2</span>Pick your installation method</h2><div class="tools-group-all"><div class="tools-group"><h5>Universal Installation</h5><button data-title="universal" class="tools-button">coursier (Default)</button></div><div class="tools-group"><h5>Package Managers</h5><button data-title="homebrew" class="tools-button">Homebrew (macOS)</button><button data-title="scoop" class="tools-button">Scoop (Windows)</button><button data-title="aur" class="tools-button">AUR (Arch Linux)</button></div></div><div class="step-hidden step-setup"><div class="items" data-title="aur"><div><span><p>With <code>yay</code> (replace by your favorite AUR helper):</p>
+<pre><code class="hljs css language-bash">yay -S bloop
 </code></pre>
-<p>With <code>pacaur</code>:</p>
-<pre><code class="hljs css language-bash">pacaur -S bloop
+<p>If you want to use the <a href="usage.md">Systemd service</a>, also install <code>bloop-systemd</code>:</p>
+<pre><code class="hljs css language-bash">yay -S bloop-systemd
 </code></pre>
 <h3><a class="anchor" aria-hidden="true" id="requirements"></a><a href="#requirements" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Requirements</h3>
 <ol>
@@ -38,8 +38,8 @@ how you can export your current project build to Bloop.</p>
 application (CLI). The build server <strong>must be started</strong> before the
 command-line application is used.</p>
 <h3><a class="anchor" aria-hidden="true" id="running-the-server-in-the-background"></a><a href="#running-the-server-in-the-background" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Running the server in the background</h3>
-<p>The AUR formula installs a Systemd service in <em>your user configuration</em> to
-start up the Bloop server automatically when you log into your machine. This
+<p>The AUR package <code>bloop-systemd</code> installs a Systemd service in <em>your user configuration</em>
+to start up the Bloop server automatically when you log into your machine. This
 service spares you from the cumbersome process of starting the build server
 before using any build client, enable it with:</p>
 <pre><code class="hljs">systemctl --<span class="hljs-keyword">user</span> <span class="hljs-title">enable</span> bloop
@@ -248,8 +248,8 @@ build tool you use and keep reading.</p>
           <td><code>-r sonatype:releases</code></td>
         </tr>
         <tr>
-          <td>1.4.4-17-6e43cbfd</td>
-          <td>01 Oct 2020 10:20</td>
+          <td>1.4.4-25-7e876299</td>
+          <td>01 Nov 2020 12:55</td>
           <td><code>-r sonatype:releases</code></td>
         </tr>
       </tbody>
@@ -356,8 +356,8 @@ question with the development version.</p>
           <td><code>-r sonatype:releases</code></td>
         </tr>
         <tr>
-          <td>1.4.4-17-6e43cbfd</td>
-          <td>01 Oct 2020 10:20</td>
+          <td>1.4.4-25-7e876299</td>
+          <td>01 Nov 2020 12:55</td>
           <td><code>-r sonatype:releases</code></td>
         </tr>
       </tbody>
@@ -511,8 +511,8 @@ toolchain with minimum interference in their current workflow.</p>
           <td><code>-r sonatype:releases</code></td>
         </tr>
         <tr>
-          <td>1.4.4-17-6e43cbfd</td>
-          <td>01 Oct 2020 10:20</td>
+          <td>1.4.4-25-7e876299</td>
+          <td>01 Nov 2020 12:55</td>
           <td><code>-r sonatype:releases</code></td>
         </tr>
       </tbody>
@@ -576,7 +576,7 @@ machine. Now, it's time to write Scala code and be productive.</p>
 available.</p>
 <p>If you need help, you can always come over our <a href="https://gitter.im/scalacenter/bloop">Gitter
 channel</a>.</p>
-</span></div></div></div></div></div><script src="/bloop/scripts/tools.js?t=1601547661797"></script><script src="/bloop/scripts/build-tools.js?t=1601547661797"></script></div></div><footer class="nav-footer" id="footer" style="background-color:rgb(17, 42, 68)"><section class="sitemap"><a href="/bloop/" class="nav-home"><img src="/bloop/img/impure-logo-bloop.svg" alt="Bloop" height="60"/></a><a href="/bloop/" class="nav-home"><img src="/bloop/img/frontpage/scala.png" alt="Bloop" height="60"/></a><div><h5>Overview</h5><a href="/bloop/docs/what-is-bloop">What is Bloop</a><a href="/bloop/docs/integration">Integrate with Bloop</a><a href="/bloop/docs/build-tools/overview">Build Tools</a><a href=" /bloop/docs/contributing-guide">Contributing</a></div><div><h5>Build Tools</h5><a href="/bloop/docs/build-tools/sbt">sbt</a><a href="/bloop/docs/build-tools/gradle">Gradle</a><a href="/bloop/docs/build-tools/maven">Maven</a><a href="/bloop/docs/build-tools/mill">Mill</a></div><div><h5>Social</h5><a href="https://github.com/scalacenter/bloop" target="_blank"><img src="https://img.shields.io/github/stars/scalacenter/bloop.svg?color=%23087e8b&amp;label=stars&amp;logo=github&amp;style=social"/></a><a href="https://discord.gg/vys6d43" target="_blank"><img src="https://img.shields.io/discord/632642981228314653?logo=discord&amp;style=social"/></a><a href="https://gitter.im/scalacenter/bloop" target="_blank"><img src="https://img.shields.io/gitter/room/scalacenter/bloop.svg?logo=gitter&amp;style=social"/></a><a href="https://twitter.com/jvican" target="_blank"><img src="https://img.shields.io/twitter/follow/jvican.svg?logo=twitter&amp;style=social"/></a></div></section><section class="copyright">Copyright © 2020 Bloop</section><section class="copyright">Credits to @freepik for svg icons</section><section class="copyright">Credits to Bazel, Babel and Metals for inspiring Bloop&#x27;s website design</section></footer></div><script type="text/javascript" src="https://cdn.jsdelivr.net/docsearch.js/1/docsearch.min.js"></script><script>
+</span></div></div></div></div></div><script src="/bloop/scripts/tools.js?t=1604235347959"></script><script src="/bloop/scripts/build-tools.js?t=1604235347959"></script></div></div><footer class="nav-footer" id="footer" style="background-color:rgb(17, 42, 68)"><section class="sitemap"><a href="/bloop/" class="nav-home"><img src="/bloop/img/impure-logo-bloop.svg" alt="Bloop" height="60"/></a><a href="/bloop/" class="nav-home"><img src="/bloop/img/frontpage/scala.png" alt="Bloop" height="60"/></a><div><h5>Overview</h5><a href="/bloop/docs/what-is-bloop">What is Bloop</a><a href="/bloop/docs/integration">Integrate with Bloop</a><a href="/bloop/docs/build-tools/overview">Build Tools</a><a href=" /bloop/docs/contributing-guide">Contributing</a></div><div><h5>Build Tools</h5><a href="/bloop/docs/build-tools/sbt">sbt</a><a href="/bloop/docs/build-tools/gradle">Gradle</a><a href="/bloop/docs/build-tools/maven">Maven</a><a href="/bloop/docs/build-tools/mill">Mill</a></div><div><h5>Social</h5><a href="https://github.com/scalacenter/bloop" target="_blank"><img src="https://img.shields.io/github/stars/scalacenter/bloop.svg?color=%23087e8b&amp;label=stars&amp;logo=github&amp;style=social"/></a><a href="https://discord.gg/vys6d43" target="_blank"><img src="https://img.shields.io/discord/632642981228314653?logo=discord&amp;style=social"/></a><a href="https://gitter.im/scalacenter/bloop" target="_blank"><img src="https://img.shields.io/gitter/room/scalacenter/bloop.svg?logo=gitter&amp;style=social"/></a><a href="https://twitter.com/jvican" target="_blank"><img src="https://img.shields.io/twitter/follow/jvican.svg?logo=twitter&amp;style=social"/></a></div></section><section class="copyright">Copyright © 2020 Bloop</section><section class="copyright">Credits to @freepik for svg icons</section><section class="copyright">Credits to Bazel, Babel and Metals for inspiring Bloop&#x27;s website design</section></footer></div><script type="text/javascript" src="https://cdn.jsdelivr.net/docsearch.js/1/docsearch.min.js"></script><script>
                 document.addEventListener('keyup', function(e) {
                   if (e.target !== document.body) {
                     return;
