@@ -337,9 +337,9 @@ class BspMetalsClientSpec(
         workspace,
         "A",
         dummyFooSources,
-        scalaVersion = Some("3.0.0-M2-bin-20201031-1ab76c1-NIGHTLY"),
+        scalaVersion = Some("3.0.0-M1"),
         scalaOrg = Some("org.scala-lang"),
-        scalaCompiler = Some("scala3-compiler_3.0.0-M2")
+        scalaCompiler = Some("scala3-compiler_3.0.0-M1")
       )
       val projects = List(`A`)
       val configDir = TestProject.populateWorkspace(workspace, projects)
@@ -365,9 +365,9 @@ class BspMetalsClientSpec(
         workspace,
         "A",
         dummyFooSources,
-        scalaVersion = Some("3.0.0-M2-bin-20201031-1ab76c1-NIGHTLY"),
+        scalaVersion = Some("3.0.0-M1"),
         scalaOrg = Some("org.scala-lang"),
-        scalaCompiler = Some("scala3-compiler_3.0.0-M2")
+        scalaCompiler = Some("scala3-compiler_3.0.0-M1")
       )
       val projects = List(`A`)
       val configDir = TestProject.populateWorkspace(workspace, projects)
@@ -391,10 +391,10 @@ class BspMetalsClientSpec(
         workspace,
         "A",
         dummyFooSources,
-        scalaVersion = Some("3.0.0-M2-bin-20201031-1ab76c1-NIGHTLY"),
+        scalaVersion = Some("3.0.0-M1"),
         scalacOptions = defaultScalacOptions,
         scalaOrg = Some("org.scala-lang"),
-        scalaCompiler = Some("scala3-compiler_3.0.0-M2")
+        scalaCompiler = Some("scala3-compiler_3.0.0-M1")
       )
       val projects = List(`A`)
       val configDir = TestProject.populateWorkspace(workspace, projects)
