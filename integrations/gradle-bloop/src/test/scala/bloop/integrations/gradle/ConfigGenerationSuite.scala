@@ -112,15 +112,59 @@ abstract class ConfigGenerationSuite {
     worksWithGivenScalaVersion("2.13.1")
   }
 
-  @Test def worksWithDotty21(): Unit = {
-    worksWithDotty("0.21.0-RC1")
+  @Test def worksWithSpecificDottyA(): Unit = {
+    worksWithDotty("0.21.0-bin-20191101-3939747-NIGHTLY", "0.21.0-bin-20191101-3939747-NIGHTLY")
+  }
+  @Test def worksWithSpecificDottyB(): Unit = {
+    worksWithDotty("0.21.0-RC1", "0.21.0-RC1")
+  }
+  @Test def worksWithSpecificDottyC(): Unit = {
+    worksWithDotty("0.21.0", "0.21.0")
+  }
+  @Test def worksWithSpecificDottyD(): Unit = {
+    worksWithDotty("0.21", "0.21.0")
+  }
+  @Test def worksWithSpecificScala3A(): Unit = {
+    worksWithScala3(
+      "3.0.0-M1-bin-20201015-8c56525-NIGHTLY",
+      "3.0.0-M1-bin-20201015-8c56525-NIGHTLY"
+    )
+  }
+  @Test def worksWithSpecificScala3B(): Unit = {
+    worksWithScala3("3.0.0-M1", "3.0.0-M1")
+  }
+  @Test def worksWithScala3LatestNightly(): Unit = {
+    // newer releases mean we can't test for version
+    worksWithScala3("Latest", "")
   }
 
-  @Test def worksWithDottyLatest(): Unit = {
-    worksWithDotty("Latest")
+  private def worksWithScala3(suppliedVersion: String, expectedVersion: String): Unit = {
+    worksWithDottyOrScala3(
+      suppliedVersion,
+      expectedVersion,
+      "org.scala-lang",
+      "scala3-compiler",
+      "scala3-library"
+    )
   }
 
-  def worksWithDotty(version: String): Unit = {
+  private def worksWithDotty(suppliedVersion: String, expectedVersion: String): Unit = {
+    worksWithDottyOrScala3(
+      suppliedVersion,
+      expectedVersion,
+      "ch.epfl.lamp",
+      "dotty-compiler",
+      "dotty-library"
+    )
+  }
+
+  private def worksWithDottyOrScala3(
+      suppliedVersion: String,
+      expectedVersion: String,
+      expectedOrg: String,
+      compilerName: String,
+      libraryName: String
+  ): Unit = {
     val buildFile = testProjectDir.newFile("build.gradle")
     testProjectDir.newFolder("src", "main", "scala")
     writeBuildScript(
@@ -134,7 +178,7 @@ abstract class ConfigGenerationSuite {
          |apply plugin: 'bloop'
          |
          |bloop {
-         |  dottyVersion = "$version"
+         |  dottyVersion = "$suppliedVersion"
          |}
          |
          |repositories {
@@ -164,16 +208,16 @@ abstract class ConfigGenerationSuite {
 
     assert(configFile.project.`scala`.isDefined)
 
-    if (version.toUpperCase == "LATEST")
-      assertNotEquals(version, configFile.project.`scala`.get.version)
+    if (expectedVersion.isEmpty)
+      assertNotEquals(suppliedVersion, configFile.project.`scala`.get.version)
     else
-      assertEquals(version, configFile.project.`scala`.get.version)
-    assertEquals("ch.epfl.lamp", configFile.project.`scala`.get.organization)
-    assert(configFile.project.`scala`.get.jars.exists(_.toString.contains("dotty-compiler")))
-    assert(hasBothClasspathsEntryName(configFile, "dotty-library"))
+      assertEquals(expectedVersion, configFile.project.`scala`.get.version)
+    assertEquals(expectedOrg, configFile.project.`scala`.get.organization)
+    assert(configFile.project.`scala`.get.jars.exists(_.toString.contains(compilerName)))
+    assert(hasBothClasspathsEntryName(configFile, libraryName))
     assert(hasBothClasspathsEntryName(configFile, "scala-library"))
 
-    val idxDottyLib = idxOfClasspathEntryName(configFile, "dotty-library")
+    val idxDottyLib = idxOfClasspathEntryName(configFile, libraryName)
     val idxScalaLib = idxOfClasspathEntryName(configFile, "scala-library")
 
     assert(idxDottyLib < idxScalaLib)
@@ -181,7 +225,7 @@ abstract class ConfigGenerationSuite {
     assert(hasTag(configFile, Tag.Library))
 
     assertNoConfigsHaveAnyJars(List(configFile), List(s"$projectName", s"$projectName-test"))
-    assertAllConfigsMatchJarNames(List(configFile), List("dotty-library"))
+    assertAllConfigsMatchJarNames(List(configFile), List(libraryName))
   }
 
   @Test def worksWithInputVariables(): Unit = {

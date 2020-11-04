@@ -18,7 +18,7 @@ object ScalaVersionsSpec extends bloop.testing.BaseSuite {
     def compileProjectFor(scalaVersion: String): Task[Unit] = Task {
       TestUtil.withinWorkspace { workspace =>
         val (compilerOrg, compilerArtifact) = {
-          if (scalaVersion.startsWith("0.")) "ch.epfl.lamp" -> "dotty-compiler_0.20"
+          if (scalaVersion.startsWith("3.")) "org.scala-lang" -> "scala3-compiler_3.0.0-M1"
           else "org.scala-lang" -> "scala-compiler"
         }
 
@@ -30,7 +30,7 @@ object ScalaVersionsSpec extends bloop.testing.BaseSuite {
         }
 
         val source = {
-          if (compilerArtifact.contains("dotty-compiler")) {
+          if (compilerArtifact.contains("scala3-compiler")) {
             """/main/scala/Foo.scala
               |class Foo { val x: String | Int = 1 }
             """.stripMargin
@@ -69,7 +69,7 @@ object ScalaVersionsSpec extends bloop.testing.BaseSuite {
     val `2.12` = compileProjectFor("2.12.9")
     val `2.13` = compileProjectFor("2.13.2")
     val `2.13.3` = compileProjectFor("2.13.3")
-    val LatestDotty = compileProjectFor("0.20.0-bin-20191005-d67af24-NIGHTLY")
+    val LatestDotty = compileProjectFor("3.0.0-M1")
     val all = {
       if (TestUtil.isJdk8) List(`2.10`, `2.11`, `2.12`, `2.13`, `2.13.3`, LatestDotty)
       else List(`2.12`, `2.13`, `2.13.3`)

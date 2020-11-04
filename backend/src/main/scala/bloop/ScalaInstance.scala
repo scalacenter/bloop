@@ -42,7 +42,9 @@ final class ScalaInstance private (
   }
 
   /** Is this `ScalaInstance` using Dotty? */
-  def isDotty: Boolean = organization == "ch.epfl.lamp" && version.startsWith("0.")
+  def isDotty: Boolean =
+    (organization == "ch.epfl.lamp" && version.startsWith("0.")) ||
+      (organization == "org.scala-lang" && version.startsWith("3."))
 
   override lazy val loaderLibraryOnly: ClassLoader =
     new URLClassLoader(Array(libraryJar.toURI.toURL), ScalaInstance.bootClassLoader)
@@ -55,7 +57,8 @@ final class ScalaInstance private (
   import ScalaInstance.ScalacCompilerName
   private def isJar(filename: String): Boolean = filename.endsWith(".jar")
   private def hasScalaCompilerName(filename: String): Boolean =
-    filename.startsWith(ScalacCompilerName) || (isDotty && filename.startsWith("dotty-compiler"))
+    filename.startsWith(ScalacCompilerName) ||
+      (isDotty && (filename.startsWith("dotty-compiler") || filename.startsWith("scala3-compiler")))
   private def hasScalaLibraryName(filename: String): Boolean =
     filename.startsWith("scala-library")
 

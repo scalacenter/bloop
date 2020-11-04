@@ -145,24 +145,30 @@ class BloopConverter(parameters: BloopParameters) {
               source.close()
               majorVersionFromWebsite
             } else specifiedVersion
-            val dottyOrgName = "ch.epfl.lamp"
-            // handle major versions "0.24" and minor "0.24.0-bin-20200322-42932dc-NIGHTLY"
-            val firstSeparator = version.indexOf('.')
-            val lastSeparator = version.lastIndexOf('.')
-            val dependencyName = if (firstSeparator == lastSeparator) {
-              s"${dottyOrgName}:dotty_${version}:+"
-            } else {
-              val (major, minor) = version.splitAt(lastSeparator)
-              s"${dottyOrgName}:dotty_${major}:${major}${minor}"
+
+            val DottyVersion = raw"""0\.(\d+)(.*)""".r
+            val Scala3Version = raw"""3\.(\d+)\.(\d+)-(\w+)(.*)""".r
+            val (dottyOrgName, dottyLibrary, artifactAndVersion) = version match {
+              case DottyVersion(minor, patch) =>
+                val artifactID = s"dotty-compiler_0.$minor"
+                val artifactVersion = if (patch.isEmpty) "+" else s"0.$minor$patch"
+                ("ch.epfl.lamp", "DOTTY-LIBRARY", s"$artifactID:$artifactVersion")
+              case Scala3Version(minor, patch, milestone, remaining) =>
+                val artifactID = s"scala3-compiler_3.$minor.$patch-$milestone"
+                val artifactVersion =
+                  if (remaining.isEmpty) "+" else s"3.$minor.$patch-$milestone$remaining"
+                ("org.scala-lang", "SCALA3-LIBRARY", s"$artifactID:$artifactVersion")
             }
-            val dottyLibraryDep = project.getDependencies.create(dependencyName)
+
+            val compilerDependencyName = s"$dottyOrgName:$artifactAndVersion"
+            val dottyLibraryDep = project.getDependencies.create(compilerDependencyName)
             val dottyConfiguration =
               project.getConfigurations.detachedConfiguration(dottyLibraryDep)
             val dottyCompilerClassPath = dottyConfiguration.resolve().asScala.map(_.toPath).toList
             val resolvedDottyArtifacts = getConfigurationArtifacts(dottyConfiguration)
             val dottyLibraryModule =
               resolvedDottyArtifacts
-                .find(_.getId.getDisplayName.toUpperCase.contains("DOTTY-LIBRARY"))
+                .find(_.getId.getDisplayName.toUpperCase.contains(dottyLibrary))
             val dottyLibraryPaths = dottyLibraryModule.map(_.getFile.toPath).toList
             val exactVersion = dottyLibraryModule
               .map(_.getId)
