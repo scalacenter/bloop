@@ -3,7 +3,6 @@ package bloop.bsp
 import java.net.URI
 import java.nio.file.Files
 import java.util.concurrent.{ConcurrentHashMap, ExecutionException, TimeUnit}
-
 import bloop.TestSchedulers
 import bloop.bsp.BloopBspDefinitions.BloopExtraBuildParams
 import bloop.cli.{BspProtocol, Commands}
@@ -15,7 +14,7 @@ import bloop.logging.{BspClientLogger, RecordingLogger}
 import bloop.testing.BaseSuite
 import bloop.util.{TestProject, TestUtil}
 import ch.epfl.scala.bsp
-import ch.epfl.scala.bsp.{JvmTestEnvironmentResult, Uri, endpoints}
+import ch.epfl.scala.bsp.{JvmTestEnvironmentResult, ScalacOptionsResult, Uri, endpoints}
 import io.circe.Json
 import monix.eval.Task
 import monix.execution.atomic.AtomicInt
@@ -23,7 +22,6 @@ import monix.execution.{CancelableFuture, Scheduler}
 import monix.reactive.Observable
 import monix.execution.Scheduler
 import monix.reactive.subjects.ConcurrentSubject
-
 import scala.util.Try
 import scala.concurrent.Promise
 import scala.concurrent.duration.FiniteDuration
@@ -352,16 +350,9 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
       TestUtil.await(timeout)(session)
     }
 
-    def scalaOptions(project: TestProject): (ManagedBspTestState, bsp.ScalacOptionsResult) = {
-      val scalacOptionsTask = runAfterTargets(project) { target =>
-        endpoints.BuildTarget.scalacOptions.request(bsp.ScalacOptionsParams(List(target))).map {
-          case Left(error) => fail(s"Received error ${error}")
-          case Right(options) => options
-        }
-      }
-
+    def await[A](task: Task[A]) = {
       TestUtil.await(FiniteDuration(5, "s")) {
-        scalacOptionsTask.flatMap { result =>
+        task.flatMap { result =>
           serverStates.headL.map { state =>
             val latestServerState = new ManagedBspTestState(
               state,
@@ -376,6 +367,26 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
           }
         }
       }
+    }
+
+    def scalaOptions(project: TestProject): (ManagedBspTestState, bsp.ScalacOptionsResult) = {
+      val scalacOptionsTask: Task[ScalacOptionsResult] = runAfterTargets(project) { target =>
+        endpoints.BuildTarget.scalacOptions.request(bsp.ScalacOptionsParams(List(target))).map {
+          case Left(error) => fail(s"Received error ${error}")
+          case Right(options) => options
+        }
+      }
+      await(scalacOptionsTask)
+    }
+
+    def javacOptions(project: TestProject): (ManagedBspTestState, bsp.JavacOptionsResult) = {
+      val javacOptionsTask = runAfterTargets(project) { target =>
+        endpoints.BuildTarget.javacOptions.request(bsp.JavacOptionsParams(List(target))).map {
+          case Left(error) => fail(s"Received error ${error}")
+          case Right(options) => options
+        }
+      }
+      await(javacOptionsTask)
     }
 
     def jvmRunEnvironment(

@@ -8,7 +8,6 @@ import java.util.concurrent.atomic.AtomicInteger
 import java.nio.file.{FileSystems, Files, Path}
 import java.util.concurrent.ConcurrentHashMap
 import java.util.stream.Collectors
-
 import bloop.io.Environment.lineSeparator
 import bloop.io.ServerHandle
 import bloop.util.JavaRuntime
@@ -33,16 +32,15 @@ import ch.epfl.scala.bsp.{
   JvmEnvironmentItem,
   MessageType,
   ShowMessageParams,
+  Uri,
   endpoints
 }
-
 import scala.meta.jsonrpc.{JsonRpcClient, Response => JsonRpcResponse, Services => JsonRpcServices}
 import monix.eval.Task
 import monix.reactive.Observer
 import monix.execution.Scheduler
 import monix.execution.atomic.AtomicInt
 import monix.execution.atomic.AtomicBoolean
-
 import scala.collection.concurrent.TrieMap
 import scala.collection.mutable
 import scala.collection.JavaConverters._
@@ -108,6 +106,7 @@ final class BloopBspServices(
     .requestAsync(endpoints.BuildTarget.sources)(p => schedule(sources(p)))
     .requestAsync(endpoints.BuildTarget.resources)(p => schedule(resources(p)))
     .requestAsync(endpoints.BuildTarget.scalacOptions)(p => schedule(scalacOptions(p)))
+    .requestAsync(endpoints.BuildTarget.javacOptions)(p => schedule(javacOptions(p)))
     .requestAsync(endpoints.BuildTarget.compile)(p => schedule(compile(p)))
     .requestAsync(endpoints.BuildTarget.test)(p => schedule(test(p)))
     .requestAsync(endpoints.BuildTarget.run)(p => schedule(run(p)))
@@ -1118,6 +1117,19 @@ final class BloopBspServices(
     }
   }
 
+  private def getClasspath(state: State, project: Project): List[Uri] = {
+    val uris = mutable.Map.empty[Path, bsp.Uri]
+    val dag = state.build.getDagFor(project)
+    val fullClasspath = project.fullClasspath(dag, state.client)
+    val classpath =
+      fullClasspath.map(e => uris.getOrElseUpdate(e.underlying, bsp.Uri(e.toBspUri))).toList
+    classpath
+  }
+
+  private def getClassesDir(state: State, project: Project): bsp.Uri = {
+    bsp.Uri(state.client.getUniqueClassesDirFor(project, forceGeneration = true).toBspUri)
+  }
+
   def scalacOptions(
       request: bsp.ScalacOptionsParams
   ): BspEndpointResponse[bsp.ScalacOptionsResult] = {
@@ -1125,25 +1137,19 @@ final class BloopBspServices(
         projects: Seq[ProjectMapping],
         state: State
     ): BspResult[bsp.ScalacOptionsResult] = {
-      val uris = mutable.Map.empty[Path, bsp.Uri]
       val response = bsp.ScalacOptionsResult(
         projects.iterator.map {
           case (target, project) =>
-            val dag = state.build.getDagFor(project)
-            val fullClasspath = project.fullClasspath(dag, state.client)
-            val classpath =
-              fullClasspath.map(e => uris.getOrElseUpdate(e.underlying, bsp.Uri(e.toBspUri))).toList
-            val classesDir =
-              state.client.getUniqueClassesDirFor(project, forceGeneration = true).toBspUri
+            val classpath = getClasspath(state, project)
+            val classesDir = getClassesDir(state, project)
             bsp.ScalacOptionsItem(
               target = target,
               options = project.scalacOptions.toList,
               classpath = classpath,
-              classDirectory = bsp.Uri(classesDir)
+              classDirectory = classesDir
             )
         }.toList
       )
-
       Task.now((state, Right(response)))
     }
 
@@ -1155,6 +1161,41 @@ final class BloopBspServices(
           // TODO(jvican): Add status code to scalac options result
           Task.now((state, Right(bsp.ScalacOptionsResult(Nil))))
         case Right(mappings) => scalacOptions(mappings, state)
+      }
+    }
+  }
+
+  def javacOptions(
+      request: bsp.JavacOptionsParams
+  ): BspEndpointResponse[bsp.JavacOptionsResult] = {
+    def javacOptions(
+        projects: Seq[ProjectMapping],
+        state: State
+    ): BspResult[bsp.JavacOptionsResult] = {
+      val response = bsp.JavacOptionsResult(
+        projects.iterator.map {
+          case (target, project) =>
+            val classpath = getClasspath(state, project)
+            val classesDir = getClassesDir(state, project)
+            bsp.JavacOptionsItem(
+              target = target,
+              options = project.javacOptions.toList,
+              classpath = classpath,
+              classDirectory = classesDir
+            )
+        }.toList
+      )
+      Task.now((state, Right(response)))
+    }
+
+    ifInitialized(None) { (state: State, logger: BspServerLogger) =>
+      mapToProjects(request.targets, state) match {
+        case Left(error) =>
+          // Log the mapping error to the user via a log event + an error status code
+          logger.error(error)
+          // TODO(jvican): Add status code to scalac options result
+          Task.now((state, Right(bsp.JavacOptionsResult(Nil))))
+        case Right(mappings) => javacOptions(mappings, state)
       }
     }
   }
