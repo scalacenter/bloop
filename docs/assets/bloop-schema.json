@@ -53,6 +53,33 @@
             ]
           }
         },
+        "runtimeConfig": {
+          "$id": "/properties/project/properties/jvmPlatform/properties/runtimeConfig",
+          "type": "object",
+          "properties": {
+            "home": {
+              "$id": "/properties/project/properties/jvmPlatform/properties/runtimeConfig/properties/home",
+              "type": "string",
+              "title": "The Java Home Schema ",
+              "default": "",
+              "examples": [
+                "/usr/lib/jvm/java-8-jdk"
+              ]
+            },
+            "options": {
+              "$id": "/properties/project/properties/jvmPlatform/properties/runtimeConfig/properties/options",
+              "type": "array",
+              "title": "The JVM Options Schema",
+              "default": "",
+              "examples": [
+                "-Xms2g",
+                "-Xmx6g",
+                "-XX:MaxInlineLevel=20",
+                "-XX:ReservedCodeCacheSize=512m"
+              ]
+            }
+          }
+        },
         "classpath": {
           "$id": "/properties/project/properties/jvmPlatform/properties/classpath",
           "type": "array",

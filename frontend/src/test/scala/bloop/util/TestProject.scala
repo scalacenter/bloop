@@ -104,6 +104,7 @@ abstract class BaseTestProject {
       resources: List[String] = Nil,
       runtimeResources: Option[List[String]] = None,
       jvmConfig: Option[Config.JvmConfig] = None,
+      runtimeJvmConfig: Option[Config.JvmConfig] = None,
       order: Config.CompileOrder = Config.Mixed,
       jars: Array[AbsolutePath] = Array(),
       sourcesGlobs: List[Config.SourcesGlobs] = Nil
@@ -158,6 +159,7 @@ abstract class BaseTestProject {
     val platform = Config.Platform.Jvm(
       javaConfig,
       None,
+      runtimeJvmConfig,
       Some(runtimeClasspath),
       runtimeResourcesList
     )

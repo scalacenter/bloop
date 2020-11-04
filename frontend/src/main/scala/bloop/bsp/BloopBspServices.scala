@@ -715,10 +715,7 @@ final class BloopBspServices(
             fullClasspath = project.fullRuntimeClasspath(dag, state.client).map(_.toBspUri.toString)
             environmentVariables = state.commonOptions.env.toMap
             workingDirectory = project.workingDirectory.toString
-            javaOptions <- project.platform match {
-              case Platform.Jvm(config, _, _, _, _) => Some(config.javaOptions.toList)
-              case _ => None
-            }
+            javaOptions <- project.runtimeJdkConfig.map(_.javaOptions.toList)
           } yield {
             bsp.JvmEnvironmentItem(
               id,
@@ -795,7 +792,8 @@ final class BloopBspServices(
           Task.now(sys.error(s"Failed to run main class in $project due to: ${error.getMessage}"))
         case Right(mainClass) =>
           project.platform match {
-            case Platform.Jvm(config0, _, _, _, _) =>
+            case Platform.Jvm(compileConfig0, _, _, _, _, _) =>
+              val config0 = project.runtimeJdkConfig.getOrElse(compileConfig0)
               val mainArgs = mainClass.arguments.toArray
               val config = JdkConfig(config0.javaHome, config0.javaOptions ++ mainClass.jvmOptions)
               Tasks.runJVM(
@@ -878,7 +876,7 @@ final class BloopBspServices(
     bsp.BuildTargetIdentifier(project.bspUri)
 
   private def toJvmBuildTarget(project: Project): Option[bsp.JvmBuildTarget] = {
-    project.jdkConfig.map { jdk =>
+    project.compileJdkConfig.map { jdk =>
       val javaHome = bsp.Uri(jdk.javaHome.toBspUri)
       bsp.JvmBuildTarget(Some(javaHome), None)
     }

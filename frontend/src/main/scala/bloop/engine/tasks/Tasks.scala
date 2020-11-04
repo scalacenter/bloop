@@ -60,7 +60,7 @@ object Tasks {
         logger.debug(s"Setting up the console classpath with ${entries.mkString(", ")}")(
           DebugFilter.All
         )
-        val javacBin = project.jdkConfig.flatMap(_.javacBin)
+        val javacBin = project.runtimeJdkConfig.flatMap(_.javacBin)
         val loader = ClasspathUtilities.makeLoader(entries, instance)
         val compiler =
           state.compilerCache.get(instance, javacBin).scalac.asInstanceOf[AnalyzingCompiler]

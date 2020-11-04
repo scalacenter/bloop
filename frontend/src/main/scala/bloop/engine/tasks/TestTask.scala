@@ -158,7 +158,8 @@ object TestTask {
     import state.logger
     implicit val logContext: DebugFilter = DebugFilter.Test
     project.platform match {
-      case Platform.Jvm(env, _, _, _, _) =>
+      case Platform.Jvm(compileConfig, _, _, runtimeConfig, _, _) =>
+        val env = runtimeConfig.getOrElse(compileConfig)
         val dag = state.build.getDagFor(project)
         val classpath = project.fullRuntimeClasspath(dag, state.client)
         val forker = JvmProcessForker(env, classpath, mode)

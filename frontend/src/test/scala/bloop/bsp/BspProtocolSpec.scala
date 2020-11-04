@@ -113,13 +113,17 @@ class BspProtocolSpec(
 
     val logger = new RecordingLogger(ansiCodesSupported = false)
     val workingDirectory = AbsolutePath.workingDirectory.underlying.resolve("cwd")
-    val jvmOptions = List("-DSOME_OPTION=X", s"-Duser.dir=$workingDirectory")
+    val workingDirectoryOption = List(s"-Duser.dir=$workingDirectory")
+    val jvmOptions = List("-DSOME_OPTION=X") ++ workingDirectoryOption
     val jvmConfig = Some(Config.JvmConfig(None, jvmOptions))
+    val runtimeJvmOptions = List("-DOTHER_OPTION=Y") ++ workingDirectoryOption
+    val runtimeJvmConfig = Some(Config.JvmConfig(None, runtimeJvmOptions))
     val `A` = TestProject(
       workspace,
       "a",
       List(Sources.`A.scala`),
-      jvmConfig = jvmConfig
+      jvmConfig = jvmConfig,
+      runtimeJvmConfig = runtimeJvmConfig
     )
 
     val projects = List(`A`)
@@ -148,7 +152,7 @@ class BspProtocolSpec(
         environmentItem.classpath.forall(new URI(_).getScheme == "file")
       )
 
-      assert(environmentItem.jvmOptions == jvmOptions)
+      assert(environmentItem.jvmOptions == runtimeJvmOptions)
     }
   }
 

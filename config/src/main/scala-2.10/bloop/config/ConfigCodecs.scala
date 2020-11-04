@@ -103,16 +103,19 @@ object ConfigCodecs {
   private final val N = "name"
   private final val C = "config"
   private final val M = "mainClass"
+  private final val RC = "runtimeConfig"
   private final val CP = "classpath"
   private final val R = "resources"
 
   val OptionStringEncoder = implicitly[RootEncoder[Option[String]]]
   val OptionListPathEncoder = implicitly[RootEncoder[Option[List[Path]]]]
+  val OptionConfigEncoder = implicitly[RootEncoder[Option[JvmConfig]]]
   implicit val platformEncoder: RootEncoder[Platform] = new RootEncoder[Platform] {
     override final def apply(platform: Platform): Json = platform match {
-      case Platform.Jvm(config, mainClass, classpath, resources) =>
+      case Platform.Jvm(config, mainClass, runtimeConfig, classpath, resources) =>
         val configJson = jvmEncoder(config)
         val mainClassJson = OptionStringEncoder.apply(mainClass)
+        val runtimeConfigJson = OptionConfigEncoder.apply(runtimeConfig)
         val classpathJson = OptionListPathEncoder.apply(classpath)
         val resourcesJson = OptionListPathEncoder.apply(resources)
         Json.fromFields(
@@ -120,6 +123,7 @@ object ConfigCodecs {
             (N, Json.fromString(Platform.Jvm.name)),
             (C, configJson),
             (M, mainClassJson),
+            (RC, runtimeConfigJson),
             (CP, classpathJson),
             (R, resourcesJson)
           )
@@ -146,11 +150,13 @@ object ConfigCodecs {
           for {
             config <- c.get[JvmConfig](C)
             mainClass <- c.get[List[String]](M)
+            runtimeConfig <- c.get[Option[JvmConfig]](RC)
             classpath <- c.get[Option[List[Path]]](CP)
             resources <- c.get[Option[List[Path]]](R)
           } yield Platform.Jvm(
             config,
             mainClass.headOption,
+            runtimeConfig,
             classpath,
             resources
           )
