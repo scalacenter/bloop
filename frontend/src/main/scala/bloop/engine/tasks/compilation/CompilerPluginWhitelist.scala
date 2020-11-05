@@ -46,7 +46,8 @@ object CompilerPluginWhitelist {
   )
 
   /** A sequence of versions that are known not to support compiler plugin classloading. */
-  val scalaVersionBlacklist = List("2.10.", "2.11.", "2.12.1", "2.12.2", "2.12.3", "2.12.4", "0.")
+  val scalaVersionBlacklist =
+    List("2.10.", "2.11.", "2.12.1", "2.12.2", "2.12.3", "2.12.4", "0.", "3.")
 
   private implicit val debug = DebugFilter.Compilation
   private val emptyMap = java.util.Collections.emptyMap[String, String]()
