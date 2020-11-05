@@ -109,24 +109,24 @@ object ConfigCodecs {
 
   val OptionStringEncoder = implicitly[RootEncoder[Option[String]]]
   val OptionListPathEncoder = implicitly[RootEncoder[Option[List[Path]]]]
-  val OptionConfigEncoder = implicitly[RootEncoder[Option[JvmConfig]]]
   implicit val platformEncoder: RootEncoder[Platform] = new RootEncoder[Platform] {
     override final def apply(platform: Platform): Json = platform match {
       case Platform.Jvm(config, mainClass, runtimeConfig, classpath, resources) =>
         val configJson = jvmEncoder(config)
         val mainClassJson = OptionStringEncoder.apply(mainClass)
-        val runtimeConfigJson = OptionConfigEncoder.apply(runtimeConfig)
+        val runtimeConfigJson = runtimeConfig.map(cnf => (RC, jvmEncoder.apply(cnf))).toList
         val classpathJson = OptionListPathEncoder.apply(classpath)
         val resourcesJson = OptionListPathEncoder.apply(resources)
         Json.fromFields(
           List(
             (N, Json.fromString(Platform.Jvm.name)),
             (C, configJson),
-            (M, mainClassJson),
-            (RC, runtimeConfigJson),
-            (CP, classpathJson),
-            (R, resourcesJson)
-          )
+            (M, mainClassJson)
+          ) ::: runtimeConfigJson :::
+            List(
+              (CP, classpathJson),
+              (R, resourcesJson)
+            )
         )
       case Platform.Js(config, mainClass) =>
         val configJson = jsEncoder(config)
