@@ -1,5 +1,5 @@
 {
-  "$id": "https://scalacenter.github.io/bloop/docson/bloop-schema.json",
+  "$id": "https://scalacenter.github.io/bloop/docs/assets/bloop-schema.json",
   "type": "object",
   "title": "Bloop configuration file ",
   "description": "The JSON Schema for the bloop configuration file.",
