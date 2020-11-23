@@ -26,7 +26,7 @@ jobs:
       - uses: olafurpg/setup-scala@v10
         with:
           java-version: ${{ matrix.jdk }}
-      - uses: actions/setup-node@v1
+      - uses: actions/setup-node@v2.1.2
         with:
           node-version: "10.x"
       - name: Set up environment
@@ -222,7 +222,7 @@ jobs:
       - uses: olafurpg/setup-scala@v10
         with:
           java-version: ${{ matrix.jdk }}
-      - uses: actions/setup-node@v1
+      - uses: actions/setup-node@v2.1.2
         with:
           node-version: "10.x"
       - name: Download built GraalVM binaries
