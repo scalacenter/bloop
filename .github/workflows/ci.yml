@@ -226,7 +226,7 @@ jobs:
         with:
           node-version: "10.x"
       - name: Download built GraalVM binaries
-        uses: actions/download-artifact@v1
+        uses: actions/download-artifact@v2.0.6
         with:
           name: bloop-artifacts
       - name: Set up environment
