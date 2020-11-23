@@ -23,7 +23,7 @@ jobs:
       - uses: actions/checkout@v1
         with:
           submodules: true
-      - uses: olafurpg/setup-scala@v7
+      - uses: olafurpg/setup-scala@v10
         with:
           java-version: ${{ matrix.jdk }}
       - uses: actions/setup-node@v1
@@ -110,7 +110,7 @@ jobs:
       - uses: actions/checkout@v1
         with:
           submodules: true
-      - uses: olafurpg/setup-scala@v7
+      - uses: olafurpg/setup-scala@v10
         with:
           java-version: ${{ matrix.jdk }}
       - name: Publish GraalVM Native artifacts
@@ -154,7 +154,7 @@ jobs:
       - uses: actions/checkout@v1
         with:
           submodules: true
-      - uses: olafurpg/setup-scala@v7
+      - uses: olafurpg/setup-scala@v10
         with:
           java-version: ${{ matrix.jdk }}
       - name: Install GraalVM Native Image
@@ -219,7 +219,7 @@ jobs:
       - uses: actions/checkout@v1
         with:
           submodules: true
-      - uses: olafurpg/setup-scala@v7
+      - uses: olafurpg/setup-scala@v10
         with:
           java-version: ${{ matrix.jdk }}
       - uses: actions/setup-node@v1
