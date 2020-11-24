@@ -20,7 +20,7 @@ jobs:
     env:
       HYDRA_LICENSE: ${{ secrets.HYDRA_LICENSE }}
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v2.3.4
         with:
           submodules: true
       - uses: olafurpg/setup-scala@v10
@@ -107,7 +107,7 @@ jobs:
       BLOOPOID_GITHUB_TOKEN: ${{ secrets.BLOOPOID_GITHUB_TOKEN }}
       ARTIFACT_NAME: ${{ matrix.artifact }}
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v2.3.4
         with:
           submodules: true
       - uses: olafurpg/setup-scala@v10
@@ -151,7 +151,7 @@ jobs:
       - name: Refresh Pagefile
         run: |
               (Get-CimInstance Win32_PageFileUsage).AllocatedBaseSize
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v2.3.4
         with:
           submodules: true
       - uses: olafurpg/setup-scala@v10
@@ -216,7 +216,7 @@ jobs:
       BLOOPOID_SSH_PUBLIC_KEY: ${{ secrets.BLOOPOID_SSH_PUBLIC_KEY }}
       BLOOPOID_SSH_PRIVATE_KEY: ${{ secrets.BLOOPOID_SSH_PRIVATE_KEY }}
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v2.3.4
         with:
           submodules: true
       - uses: olafurpg/setup-scala@v10
