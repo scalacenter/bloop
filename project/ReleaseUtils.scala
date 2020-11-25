@@ -124,7 +124,7 @@ object ReleaseUtils {
        |
        |  depends_on "bash-completion"
        |  depends_on "coursier/formulas/coursier"
-       |  depends_on :java => "1.8+"
+       |  depends_on :java => "openjdk@8+"
        |
        |  resource "bash_completions" do
        |    url "${artifacts.bashAutocompletions.url}"
