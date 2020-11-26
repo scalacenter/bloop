@@ -229,6 +229,7 @@ jobs:
         uses: actions/download-artifact@v2.0.6
         with:
           name: bloop-artifacts
+          path: bloop-artifacts
       - name: Set up environment
         run: |
           curl -Lo coursier https://git.io/coursier-cli && chmod +x coursier && ./coursier --help
