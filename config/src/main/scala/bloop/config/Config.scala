@@ -146,7 +146,8 @@ object Config {
   object ModuleKindJS {
     case object NoModule extends ModuleKindJS("none")
     case object CommonJSModule extends ModuleKindJS("commonjs")
-    val All = List(NoModule.id, CommonJSModule.id)
+    case object ESModule extends ModuleKindJS("esmodule")
+    val All = List(NoModule.id, CommonJSModule.id, ESModule.id)
   }
 
   case class JsConfig(
