@@ -73,6 +73,7 @@ object ConfigCodecs {
     override final def apply(m: ModuleKindJS): Json = m match {
       case m @ ModuleKindJS.NoModule => Json.fromString(m.id)
       case m @ ModuleKindJS.CommonJSModule => Json.fromString(m.id)
+      case m @ ModuleKindJS.ESModule => Json.fromString(m.id)
     }
   }
 
@@ -81,6 +82,7 @@ object ConfigCodecs {
       c.as[String].flatMap {
         case ModuleKindJS.NoModule.id => Right(ModuleKindJS.NoModule)
         case ModuleKindJS.CommonJSModule.id => Right(ModuleKindJS.CommonJSModule)
+        case ModuleKindJS.ESModule.id => Right(ModuleKindJS.ESModule)
         case _ =>
           val msg = s"Expected module kind ${ModuleKindJS.All.map(s => s"'$s'").mkString(", ")})"
           Left(DecodingFailure(msg, c.history))

@@ -74,6 +74,7 @@ object JsBridge {
     val moduleKind = config.kind match {
       case ModuleKindJS.NoModule => ModuleKind.NoModule
       case ModuleKindJS.CommonJSModule => ModuleKind.CommonJSModule
+      case ModuleKindJS.ESModule => ModuleKind.ESModule
     }
 
     val enableOptimizer = config.mode == LinkerMode.Release

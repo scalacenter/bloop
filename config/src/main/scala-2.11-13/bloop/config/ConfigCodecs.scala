@@ -93,6 +93,7 @@ object ConfigCodecs {
         val str = x match {
           case Config.ModuleKindJS.CommonJSModule => Config.ModuleKindJS.CommonJSModule.id
           case Config.ModuleKindJS.NoModule => Config.ModuleKindJS.NoModule.id
+          case Config.ModuleKindJS.ESModule => Config.ModuleKindJS.ESModule.id
         }
         out.writeVal(str)
       }
@@ -102,6 +103,7 @@ object ConfigCodecs {
           in.readString(null) match {
             case Config.ModuleKindJS.CommonJSModule.id => Config.ModuleKindJS.CommonJSModule
             case Config.ModuleKindJS.NoModule.id => Config.ModuleKindJS.NoModule
+            case Config.ModuleKindJS.ESModule.id => Config.ModuleKindJS.ESModule
             case _ =>
               in.decodeError(
                 s"Expected linker mode ${Config.ModuleKindJS.All.mkString("'", "', '", "'")}"
