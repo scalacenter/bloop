@@ -103,6 +103,17 @@ object BloopComponentCompiler {
       scheduler: ExecutionContext
   ) extends CompilerBridgeProvider {
 
+    private def is213ThatNeedsPreviousZinc(scalaVersion: String): Boolean = {
+      scalaVersion.startsWith("2.13.0") ||
+      scalaVersion.startsWith("2.13.1") ||
+      scalaVersion.startsWith("2.13.2")
+    }
+
+    private def isTooRecentFor213Before3(bridgeSources: ModuleID): Boolean = {
+      bridgeSources.revision == "1.3.0-M4+45-d4354be3" ||
+      bridgeSources.revision == "1.3.0-M4+46-edbe573e"
+    }
+
     /**
      * Defines a richer interface for Scala users that want to pass in an explicit module id.
      *
@@ -111,12 +122,9 @@ object BloopComponentCompiler {
      */
     private def compiledBridge(bridgeSources0: ModuleID, scalaInstance: ScalaInstance): File = {
       val scalaVersion = scalaInstance.version()
-      val requiresPrevZincVersion = bridgeSources0.revision == "1.3.0-M4+45-d4354be3" && {
-        scalaVersion.startsWith("2.13.0") ||
-        scalaVersion.startsWith("2.13.1") ||
-        scalaVersion.startsWith("2.13.2")
-      }
-
+      val requiresPrevZincVersion = isTooRecentFor213Before3(bridgeSources0) && is213ThatNeedsPreviousZinc(
+        scalaVersion
+      )
       val bridgeSources =
         if (!requiresPrevZincVersion) bridgeSources0
         else bridgeSources0.withRevision("1.3.0-M4+42-5daa8ed7")
