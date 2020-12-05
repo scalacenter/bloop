@@ -125,9 +125,9 @@ object ScalaJsToolchain extends ToolchainCompanion[ScalaJsToolchain] {
 
   override def artifactNameFrom(version: String): String = {
     if (version.length == 3) sys.error("The full Scala.js version must be provided")
-    else if (version.startsWith("0.6")) BuildInfo.jsBridge06
-    else if (version.startsWith("1.0")) BuildInfo.jsBridge10
-    else sys.error(s"Expected compatible Scala.js version [0.6, 1.0], $version given")
+    else if (version.startsWith("0.6.")) BuildInfo.jsBridge06
+    else if (version.startsWith("1.")) BuildInfo.jsBridge1
+    else sys.error(s"Expected compatible Scala.js version [0.6, 1], $version given")
   }
 
   /** Determine additional version-specific artefacts */
@@ -135,18 +135,18 @@ object ScalaJsToolchain extends ToolchainCompanion[ScalaJsToolchain] {
       platformVersion: String,
       scalaVersion: String
   ): List[DependencyResolution.Artifact] = {
-    if (platformVersion.startsWith("0.6")) List()
+    if (platformVersion.startsWith("0.6.")) List()
     else
       List(
         DependencyResolution
           .Artifact("org.scala-js", s"scalajs-linker_$scalaVersion", platformVersion),
         DependencyResolution
-          .Artifact("org.scala-js", s"scalajs-env-nodejs_$scalaVersion", platformVersion),
+          .Artifact("org.scala-js", s"scalajs-env-nodejs_$scalaVersion", "1.1.1"),
         // See https://github.com/scala-js/scala-js-env-jsdom-nodejs/issues/41
         DependencyResolution
-          .Artifact("org.scala-js", s"scalajs-env-jsdom-nodejs_$scalaVersion", "1.0.0"),
+          .Artifact("org.scala-js", s"scalajs-env-jsdom-nodejs_$scalaVersion", "1.1.0"),
         DependencyResolution
-          .Artifact("org.scala-js", s"scalajs-logging_$scalaVersion", platformVersion)
+          .Artifact("org.scala-js", s"scalajs-logging_$scalaVersion", "1.1.1")
       )
   }
 
@@ -159,7 +159,7 @@ object ScalaJsToolchain extends ToolchainCompanion[ScalaJsToolchain] {
       DependencyResolution
         .Artifact("org.scala-js", s"scalajs-sbt-test-adapter_$scalaVersion", platformVersion),
       DependencyResolution
-        .Artifact("org.scala-js", s"scalajs-js-envs_$scalaVersion", platformVersion)
+        .Artifact("org.scala-js", s"scalajs-js-envs_$scalaVersion", "1.1.1")
     )
 
     val artifacts = sharedArtifacts ++ scalaJsArtifacts(platformVersion, scalaVersion)

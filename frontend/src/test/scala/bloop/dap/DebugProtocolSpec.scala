@@ -144,22 +144,26 @@ object DebugProtocolSpec extends DebugBspBaseSuite {
   flakyTest("starts test suites", 3) {
     TestUtil.withinWorkspace { workspace =>
       val logger = new RecordingLogger(ansiCodesSupported = false)
-      loadBspBuildFromResources("cross-test-build-scalajs-1.0", workspace, logger) { build =>
-        val project = build.projectFor("test-project-test")
-        val testFilters = List("hello.JUnitTest")
+      for (suffix <- Seq("0", "x")) {
+        loadBspBuildFromResources(s"cross-test-build-scalajs-1.$suffix", workspace, logger) {
+          build =>
+            val project = build.projectFor("test-project-test")
+            val testFilters = List("hello.JUnitTest")
 
-        val output = build.state.withDebugSession(project, testSuiteParams(testFilters)) { client =>
-          for {
-            _ <- client.initialize()
-            _ <- client.launch()
-            _ <- client.configurationDone()
-            _ <- client.terminated
-            output <- client.blockForAllOutput
-          } yield output
-        }
+            val output = build.state.withDebugSession(project, testSuiteParams(testFilters)) {
+              client =>
+                for {
+                  _ <- client.initialize()
+                  _ <- client.launch()
+                  _ <- client.configurationDone()
+                  _ <- client.terminated
+                  output <- client.blockForAllOutput
+                } yield output
+            }
 
-        testFilters.foreach { testSuite =>
-          assert(output.contains(s"All tests in $testSuite passed"))
+            testFilters.foreach { testSuite =>
+              assert(output.contains(s"All tests in $testSuite passed"))
+            }
         }
       }
     }

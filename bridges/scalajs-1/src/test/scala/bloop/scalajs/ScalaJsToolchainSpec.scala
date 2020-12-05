@@ -28,7 +28,7 @@ class ScalaJsToolchainSpec {
       p.copy(platform = platform)
     }
 
-    val configDir = TestUtil.getBloopConfigDir("cross-test-build-scalajs-1.0")
+    val configDir = TestUtil.getBloopConfigDir("cross-test-build-scalajs-1.x")
     val logger = bloop.logging.BloopLogger.default(configDir.toString())
     TestUtil.loadTestProject(configDir, logger, true, _.map(setUpScalajs))
   }

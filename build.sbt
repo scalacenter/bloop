@@ -281,7 +281,7 @@ lazy val frontend: Project = project
     mainClass in Compile in run := Some("bloop.Cli"),
     bloopMainClass in Compile in run := Some("bloop.Cli"),
     buildInfoPackage := "bloop.internal.build",
-    buildInfoKeys := bloopInfoKeys(nativeBridge03, nativeBridge04, jsBridge06, jsBridge10),
+    buildInfoKeys := bloopInfoKeys(nativeBridge03, nativeBridge04, jsBridge06, jsBridge1),
     javaOptions in run ++= jvmOptions,
     javaOptions in Test ++= jvmOptions,
     javaOptions in IntegrationTest ++= jvmOptions,
@@ -735,20 +735,20 @@ lazy val jsBridge06 = project
     )
   )
 
-lazy val jsBridge10 = project
+lazy val jsBridge1 = project
   .dependsOn(frontend % Provided, frontend % "test->test")
-  .in(file("bridges") / "scalajs-1.0")
+  .in(file("bridges") / "scalajs-1")
   .disablePlugins(ScriptedPlugin)
   .settings(testSettings)
   .settings(
-    name := "bloop-js-bridge-1.0",
+    name := "bloop-js-bridge-1",
     libraryDependencies ++= List(
-      Dependencies.scalaJsLinker10,
-      Dependencies.scalaJsLogging10,
-      Dependencies.scalaJsEnvs10,
-      Dependencies.scalaJsEnvNode10,
-      Dependencies.scalaJsEnvJsdomNode10,
-      Dependencies.scalaJsSbtTestAdapter10
+      Dependencies.scalaJsLinker1,
+      Dependencies.scalaJsLogging1,
+      Dependencies.scalaJsEnvs1,
+      Dependencies.scalaJsEnvNode1,
+      Dependencies.scalaJsEnvJsdomNode1,
+      Dependencies.scalaJsSbtTestAdapter1
     )
   )
 
@@ -809,7 +809,7 @@ val allProjects = Seq(
   nativeBridge03,
   nativeBridge04,
   jsBridge06,
-  jsBridge10,
+  jsBridge1,
   launcher,
   sockets,
   bloopgun
@@ -852,7 +852,7 @@ val bloop = project
             nativeBridge03,
             nativeBridge04,
             jsBridge06,
-            jsBridge10,
+            jsBridge1,
             sockets,
             bloopgun,
             launcher,
@@ -889,7 +889,7 @@ val bloop = project
             nativeBridge03,
             nativeBridge04,
             jsBridge06,
-            jsBridge10,
+            jsBridge1,
             sockets,
             bloopgun,
             launcher,
