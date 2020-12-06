@@ -267,6 +267,7 @@ object BloopDefaults {
 
   private final val NoJSModule = "NoModule"
   private final val CommonJSModule = "CommonJSModule"
+  private final val ESModule = "ESModule"
 
   /**
    * Create a "proxy" for a setting that will allow us to inspect its value even though
@@ -303,6 +304,7 @@ object BloopDefaults {
         stageSetting.value.toString match {
           case "Some(NoModule)" => Some(NoJSModule)
           case "Some(CommonJSModule)" => Some(CommonJSModule)
+          case "Some(ESModule)" => Some(ESModule)
           case _ => None
         }
       }
@@ -777,6 +779,7 @@ object BloopDefaults {
         val scalaJsModule = BloopKeys.bloopScalaJSModuleKind.value match {
           case Some(NoJSModule) => Config.ModuleKindJS.NoModule
           case Some(CommonJSModule) => Config.ModuleKindJS.CommonJSModule
+          case Some(ESModule) => Config.ModuleKindJS.ESModule
           case _ => emptyScalaJs.kind
         }
 
@@ -792,7 +795,7 @@ object BloopDefaults {
         val workingDir = if (isForkedExecution) Keys.baseDirectory.value else rootBaseDirectory
         val extraJavaOptions = List(s"-Duser.dir=${workingDir.getAbsolutePath}")
         val config = Config.JvmConfig(Some(javaHome.toPath), (extraJavaOptions ++ javaOptions).toList)
-        Config.Platform.Jvm(config, mainClass, None, None)
+        Config.Platform.Jvm(config, mainClass, None, None, None)
       }
     }
     // FORMAT: ON

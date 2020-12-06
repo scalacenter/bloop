@@ -280,7 +280,8 @@ final class BloopBspServices(
               resourcesProvider = Some(true),
               buildTargetChangedProvider = Some(false),
               jvmTestEnvironmentProvider = Some(true),
-              jvmRunEnvironmentProvider = Some(true)
+              jvmRunEnvironmentProvider = Some(true),
+              canReload = Some(false)
             ),
             None
           )
@@ -586,6 +587,8 @@ final class BloopBspServices(
           convert[bsp.ScalaMainClass](main => DebuggeeRunner.forMainClass(projects, main, state))
         case bsp.DebugSessionParamsDataKind.ScalaTestSuites =>
           convert[List[String]](filters => DebuggeeRunner.forTestSuite(projects, filters, state))
+        case bsp.DebugSessionParamsDataKind.ScalaAttachRemote =>
+          Right(DebuggeeRunner.forAttachRemote(state))
         case dataKind => Left(JsonRpcResponse.invalidRequest(s"Unsupported data kind: $dataKind"))
       }
     }
@@ -712,10 +715,7 @@ final class BloopBspServices(
             fullClasspath = project.fullRuntimeClasspath(dag, state.client).map(_.toBspUri.toString)
             environmentVariables = state.commonOptions.env.toMap
             workingDirectory = project.workingDirectory.toString
-            javaOptions <- project.platform match {
-              case Platform.Jvm(config, _, _, _, _) => Some(config.javaOptions.toList)
-              case _ => None
-            }
+            javaOptions <- project.runtimeJdkConfig.map(_.javaOptions.toList)
           } yield {
             bsp.JvmEnvironmentItem(
               id,
@@ -736,7 +736,7 @@ final class BloopBspServices(
     def findMainClasses(state: State, project: Project): List[bsp.ScalaMainClass] =
       for {
         className <- Tasks.findMainClasses(state, project)
-      } yield bsp.ScalaMainClass(className, Nil, Nil)
+      } yield bsp.ScalaMainClass(className, Nil, Nil, Nil)
 
     ifInitialized(params.originId) { (state: State, logger: BspServerLogger) =>
       mapToProjects(params.targets, state) match {
@@ -772,7 +772,7 @@ final class BloopBspServices(
           val cmd = Commands.Run(List(project.name))
           Interpreter.getMainClass(state, project, cmd.main) match {
             case Right(name) =>
-              Right(new bsp.ScalaMainClass(name, cmd.args, Nil))
+              Right(new bsp.ScalaMainClass(name, cmd.args, Nil, Nil))
             case Left(_) =>
               Left(new IllegalStateException(s"Main class for project $project not found"))
           }
@@ -792,7 +792,8 @@ final class BloopBspServices(
           Task.now(sys.error(s"Failed to run main class in $project due to: ${error.getMessage}"))
         case Right(mainClass) =>
           project.platform match {
-            case Platform.Jvm(config0, _, _, _, _) =>
+            case Platform.Jvm(compileConfig0, _, _, _, _, _) =>
+              val config0 = project.runtimeJdkConfig.getOrElse(compileConfig0)
               val mainArgs = mainClass.arguments.toArray
               val config = JdkConfig(config0.javaHome, config0.javaOptions ++ mainClass.jvmOptions)
               Tasks.runJVM(
@@ -803,6 +804,7 @@ final class BloopBspServices(
                 mainClass.`class`,
                 mainArgs,
                 skipJargs = false,
+                mainClass.environmentVariables,
                 RunMode.Normal
               )
             case platform @ Platform.Native(config, _, _) =>
@@ -874,7 +876,7 @@ final class BloopBspServices(
     bsp.BuildTargetIdentifier(project.bspUri)
 
   private def toJvmBuildTarget(project: Project): Option[bsp.JvmBuildTarget] = {
-    project.jdkConfig.map { jdk =>
+    project.compileJdkConfig.map { jdk =>
       val javaHome = bsp.Uri(jdk.javaHome.toBspUri)
       bsp.JvmBuildTarget(Some(javaHome), None)
     }

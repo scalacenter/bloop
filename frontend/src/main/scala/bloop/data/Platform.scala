@@ -13,6 +13,7 @@ object Platform {
       config: JdkConfig,
       toolchain: JvmToolchain,
       userMainClass: Option[String],
+      runtimeConfig: Option[JdkConfig],
       classpath: List[AbsolutePath],
       resources: List[AbsolutePath]
   ) extends Platform

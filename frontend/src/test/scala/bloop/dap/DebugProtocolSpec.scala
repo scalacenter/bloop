@@ -168,7 +168,7 @@ object DebugProtocolSpec extends DebugBspBaseSuite {
   def mainClassParams(mainClass: String): bsp.BuildTargetIdentifier => bsp.DebugSessionParams = {
     target =>
       val targets = List(target)
-      val data = bsp.ScalaMainClass(mainClass, Nil, Nil)
+      val data = bsp.ScalaMainClass(mainClass, Nil, Nil, Nil)
       val json = bsp.ScalaMainClass.encodeScalaMainClass(data)
       bsp.DebugSessionParams(targets, ScalaMainClass, json)
   }

@@ -110,11 +110,12 @@ final class BspBridge(
 
   private final val BspStartLog = "The server is listening for incoming connections at"
   def waitForOpenBsp(conn: RunningBspConnection, attempts: Int = 0): Option[BspConnection] = {
+    def printLogs = printQuoted(conn.logs.toList.mkString(System.lineSeparator()), out)
     if (attempts % 100 == 0) println("Waiting for the bsp connection to come up...", out)
     Thread.sleep(10)
     if (attempts == 3000) {
       printError("Giving up on waiting for a connection, printing embedded bloop logs:", out)
-      printQuoted(conn.logs.toList.mkString(System.lineSeparator()), out)
+      printLogs
       None
     } else if (conn.logs.exists(_.contains(BspStartLog))) {
       println(conn.logs.mkString(System.lineSeparator), out)
@@ -129,8 +130,7 @@ final class BspBridge(
           } else {
             printError(s"The command $cmd returned with an error", out)
           }
-
-          printQuoted(status.output, out)
+          printLogs
           None
       }
     }

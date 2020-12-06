@@ -12,6 +12,7 @@ import com.microsoft.java.debug.core.protocol.Responses.VariablesResponseBody
 private[dap] object DebugTestEndpoints {
   val Initialize = new Request[InitializeArguments, Types.Capabilities]("initialize")
   val Launch = new Request[LaunchArguments, Unit]("launch")
+  val Attach = new Request[AttachArguments, Unit]("attach")
   val Disconnect = new Request[DisconnectArguments, Unit]("disconnect")
   val SetBreakpoints =
     new Request[SetBreakpointArguments, SetBreakpointsResponseBody]("setBreakpoints")

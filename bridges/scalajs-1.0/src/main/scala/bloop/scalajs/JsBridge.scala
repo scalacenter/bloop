@@ -63,6 +63,7 @@ object JsBridge {
     val moduleKind = config.kind match {
       case ModuleKindJS.NoModule => ScalaJSModuleKind.NoModule
       case ModuleKindJS.CommonJSModule => ScalaJSModuleKind.CommonJSModule
+      case ModuleKindJS.ESModule => ScalaJSModuleKind.ESModule
     }
 
     val cache = StandardImpl.irFileCache().newCache
@@ -131,6 +132,7 @@ object JsBridge {
     val input = jsConfig.kind match {
       case ModuleKindJS.NoModule => Input.Script(jsPath)
       case ModuleKindJS.CommonJSModule => Input.CommonJSModule(jsPath)
+      case ModuleKindJS.ESModule => Input.ESModule(jsPath)
     }
 
     val testConfig = TestAdapter.Config().withLogger(new Logger(logger))

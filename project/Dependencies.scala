@@ -12,8 +12,11 @@ object Dependencies {
   val nailgunVersion = "ee3c4343"
   // Used to download the python client instead of resolving
   val nailgunCommit = "a2520c1e"
-  val zincVersion = "1.3.0-M4+45-d4354be3"
-  val bspVersion = "2.0.0-M11"
+
+  // Keep in sync in BloopComponentCompiler
+  val zincVersion = "1.3.0-M4+46-edbe573e"
+
+  val bspVersion = "2.0.0-M13"
   val javaDebugVersion = "0.21.0+1-7f1080f1"
 
   val scalazVersion = "7.2.20"
@@ -24,7 +27,7 @@ object Dependencies {
   val caseAppVersion = "2.0.4"//"1.2.0-faster-compile-time"
   val sourcecodeVersion = "0.1.4"
   val sbtTestInterfaceVersion = "1.0"
-  val sbtTestAgentVersion = "1.4.0-M2+31-debc9a28"
+  val sbtTestAgentVersion = "1.4.4"
   val junitVersion = "0.11"
   val junitSystemRulesVersion = "1.19.0"
   val graphvizVersion = "0.2.2"
@@ -75,7 +78,7 @@ object Dependencies {
   val caseApp = "com.github.alexarchambault" %% "case-app" % caseAppVersion
   val sourcecode = "com.lihaoyi" %% "sourcecode" % sourcecodeVersion
   val sbtTestInterface = "org.scala-sbt" % "test-interface" % sbtTestInterfaceVersion
-  val sbtTestAgent = "ch.epfl.scala" % "test-agent" % sbtTestAgentVersion
+  val sbtTestAgent = "org.scala-sbt" % "test-agent" % sbtTestAgentVersion
   val snailgun = ("me.vican.jorge" %% "snailgun-cli" % snailgunVersion)
   val ztExec = "org.zeroturnaround" % "zt-exec" % ztExecVersion
   val slf4jNop = "org.slf4j" % "slf4j-nop" % "1.7.2"

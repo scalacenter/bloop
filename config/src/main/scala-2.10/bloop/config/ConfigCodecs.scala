@@ -73,6 +73,7 @@ object ConfigCodecs {
     override final def apply(m: ModuleKindJS): Json = m match {
       case m @ ModuleKindJS.NoModule => Json.fromString(m.id)
       case m @ ModuleKindJS.CommonJSModule => Json.fromString(m.id)
+      case m @ ModuleKindJS.ESModule => Json.fromString(m.id)
     }
   }
 
@@ -81,6 +82,7 @@ object ConfigCodecs {
       c.as[String].flatMap {
         case ModuleKindJS.NoModule.id => Right(ModuleKindJS.NoModule)
         case ModuleKindJS.CommonJSModule.id => Right(ModuleKindJS.CommonJSModule)
+        case ModuleKindJS.ESModule.id => Right(ModuleKindJS.ESModule)
         case _ =>
           val msg = s"Expected module kind ${ModuleKindJS.All.map(s => s"'$s'").mkString(", ")})"
           Left(DecodingFailure(msg, c.history))
@@ -103,6 +105,7 @@ object ConfigCodecs {
   private final val N = "name"
   private final val C = "config"
   private final val M = "mainClass"
+  private final val RC = "runtimeConfig"
   private final val CP = "classpath"
   private final val R = "resources"
 
@@ -110,19 +113,22 @@ object ConfigCodecs {
   val OptionListPathEncoder = implicitly[RootEncoder[Option[List[Path]]]]
   implicit val platformEncoder: RootEncoder[Platform] = new RootEncoder[Platform] {
     override final def apply(platform: Platform): Json = platform match {
-      case Platform.Jvm(config, mainClass, classpath, resources) =>
+      case Platform.Jvm(config, mainClass, runtimeConfig, classpath, resources) =>
         val configJson = jvmEncoder(config)
         val mainClassJson = OptionStringEncoder.apply(mainClass)
+        val runtimeConfigJson = runtimeConfig.map(cnf => (RC, jvmEncoder.apply(cnf))).toList
         val classpathJson = OptionListPathEncoder.apply(classpath)
         val resourcesJson = OptionListPathEncoder.apply(resources)
         Json.fromFields(
           List(
             (N, Json.fromString(Platform.Jvm.name)),
             (C, configJson),
-            (M, mainClassJson),
-            (CP, classpathJson),
-            (R, resourcesJson)
-          )
+            (M, mainClassJson)
+          ) ::: runtimeConfigJson :::
+            List(
+              (CP, classpathJson),
+              (R, resourcesJson)
+            )
         )
       case Platform.Js(config, mainClass) =>
         val configJson = jsEncoder(config)
@@ -146,11 +152,13 @@ object ConfigCodecs {
           for {
             config <- c.get[JvmConfig](C)
             mainClass <- c.get[List[String]](M)
+            runtimeConfig <- c.get[Option[JvmConfig]](RC)
             classpath <- c.get[Option[List[Path]]](CP)
             resources <- c.get[Option[List[Path]]](R)
           } yield Platform.Jvm(
             config,
             mainClass.headOption,
+            runtimeConfig,
             classpath,
             resources
           )

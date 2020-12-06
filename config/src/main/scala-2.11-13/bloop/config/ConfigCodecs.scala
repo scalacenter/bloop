@@ -93,6 +93,7 @@ object ConfigCodecs {
         val str = x match {
           case Config.ModuleKindJS.CommonJSModule => Config.ModuleKindJS.CommonJSModule.id
           case Config.ModuleKindJS.NoModule => Config.ModuleKindJS.NoModule.id
+          case Config.ModuleKindJS.ESModule => Config.ModuleKindJS.ESModule.id
         }
         out.writeVal(str)
       }
@@ -102,6 +103,7 @@ object ConfigCodecs {
           in.readString(null) match {
             case Config.ModuleKindJS.CommonJSModule.id => Config.ModuleKindJS.CommonJSModule
             case Config.ModuleKindJS.NoModule.id => Config.ModuleKindJS.NoModule
+            case Config.ModuleKindJS.ESModule.id => Config.ModuleKindJS.ESModule
             case _ =>
               in.decodeError(
                 s"Expected linker mode ${Config.ModuleKindJS.All.mkString("'", "', '", "'")}"
@@ -157,6 +159,7 @@ object ConfigCodecs {
   private case class jvm(
       config: Config.JvmConfig,
       mainClass: MainClass,
+      runtimeConfig: Option[Config.JvmConfig],
       classpath: Option[List[Path]],
       resources: Option[List[Path]]
   ) extends JsoniterPlatform
@@ -173,8 +176,8 @@ object ConfigCodecs {
       def encodeValue(x: Config.Platform, out: JsonWriter): Unit = {
         codec.encodeValue(
           x match {
-            case Config.Platform.Jvm(config, mainClass, classpath, resources) =>
-              jvm(config, MainClass(mainClass), classpath, resources)
+            case Config.Platform.Jvm(config, mainClass, runtimeConfig, classpath, resources) =>
+              jvm(config, MainClass(mainClass), runtimeConfig, classpath, resources)
             case Config.Platform.Js(config, mainClass) => js(config, MainClass(mainClass))
             case Config.Platform.Native(config, mainClass) => native(config, MainClass(mainClass))
           },
@@ -183,10 +186,11 @@ object ConfigCodecs {
       }
       def decodeValue(in: JsonReader, default: Config.Platform): Config.Platform = {
         codec.decodeValue(in, null) match {
-          case jvm(config, mainClass, classpath, resources) =>
+          case jvm(config, mainClass, runtimeConfig, classpath, resources) =>
             Config.Platform.Jvm(
               config,
               mainClass.mainClass,
+              runtimeConfig,
               classpath,
               resources
             )

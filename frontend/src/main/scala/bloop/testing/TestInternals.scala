@@ -32,9 +32,9 @@ import scala.collection.mutable
 import scala.util.control.NonFatal
 
 object TestInternals {
-  private final val sbtOrg = "ch.epfl.scala"
+  private final val sbtOrg = "org.scala-sbt"
   private final val testAgentId = "test-agent"
-  private final val testAgentVersion = "1.4.0-M2+31-debc9a28"
+  private final val testAgentVersion = "1.4.4"
 
   private implicit val logContext: DebugFilter = DebugFilter.Test
 
@@ -138,7 +138,8 @@ object TestInternals {
 
     val listener = server.listenToTests
     val runner = {
-      val runTask = forker.runMain(cwd, forkMain, arguments, false, logger, opts, testAgentJars)
+      val runTask =
+        forker.runMain(cwd, forkMain, arguments, false, Nil, logger, opts, testAgentJars)
       runTask.map(exitCode => Forker.exitStatus(exitCode).code)
     }
 

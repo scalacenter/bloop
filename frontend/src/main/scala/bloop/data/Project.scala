@@ -184,10 +184,17 @@ final case class Project(
     this.out.resolve("bloop-bsp-clients-classes")
   }
 
-  def jdkConfig: Option[JdkConfig] = {
+  def compileJdkConfig: Option[JdkConfig] = {
     platform match {
-      case Platform.Jvm(config, _, _, _, _) => Some(config)
+      case jvm: Platform.Jvm => Some(jvm.config)
       case _ => None
+    }
+  }
+
+  def runtimeJdkConfig: Option[JdkConfig] = {
+    platform match {
+      case jvm: Platform.Jvm => jvm.runtimeConfig.orElse(compileJdkConfig)
+      case _ => compileJdkConfig
     }
   }
 }
@@ -240,7 +247,8 @@ object Project {
     val compileResources = project.resources.toList.flatten.map(AbsolutePath.apply)
     val platform = project.platform match {
       case Some(platform: Config.Platform.Jvm) =>
-        val javaEnv = JdkConfig.fromConfig(platform.config)
+        val compileEnv = JdkConfig.fromConfig(platform.config)
+        val runtimeEnv = platform.runtimeConfig.map(JdkConfig.fromConfig)
         val toolchain = JvmToolchain.resolveToolchain(platform, logger)
         val runtimeClasspath = platform.classpath
           .map(_.map(AbsolutePath.apply))
@@ -250,9 +258,10 @@ object Project {
           .getOrElse(compileResources)
 
         Platform.Jvm(
-          javaEnv,
+          compileEnv,
           toolchain,
           platform.mainClass,
+          runtimeEnv,
           runtimeClasspath,
           runtimeResources
         )
@@ -316,12 +325,13 @@ object Project {
     val platform = Config.Platform.Jvm(
       Config.JvmConfig.empty,
       None,
+      None,
       Some(classpath.map(_.underlying)),
       Some(resources.map(_.underlying))
     )
     val env = jdkConfig.getOrElse(JdkConfig.fromConfig(platform.config))
     val toolchain = JvmToolchain.resolveToolchain(platform, logger)
-    Platform.Jvm(env, toolchain, platform.mainClass, classpath, resources)
+    Platform.Jvm(env, toolchain, platform.mainClass, None, classpath, resources)
   }
 
   /**

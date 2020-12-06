@@ -21,7 +21,6 @@ import org.gradle.api.internal.artifacts.dsl.LazyPublishArtifact
 import org.gradle.api.internal.artifacts.publish.{ArchivePublishArtifact, DecoratingPublishArtifact}
 import org.gradle.api.internal.file.copy.DefaultCopySpec
 import org.gradle.api.internal.tasks.compile.{DefaultJavaCompileSpec, JavaCompilerArgumentsBuilder}
-import org.gradle.api.plugins.{ApplicationPluginConvention, JavaPluginConvention}
 import org.gradle.api.tasks.bundling.AbstractArchiveTask
 import org.gradle.api.tasks.{AbstractCopyTask, SourceSet}
 import org.gradle.api.tasks.compile.{CompileOptions, JavaCompile}
@@ -146,24 +145,30 @@ class BloopConverter(parameters: BloopParameters) {
               source.close()
               majorVersionFromWebsite
             } else specifiedVersion
-            val dottyOrgName = "ch.epfl.lamp"
-            // handle major versions "0.24" and minor "0.24.0-bin-20200322-42932dc-NIGHTLY"
-            val firstSeparator = version.indexOf('.')
-            val lastSeparator = version.lastIndexOf('.')
-            val dependencyName = if (firstSeparator == lastSeparator) {
-              s"${dottyOrgName}:dotty_${version}:+"
-            } else {
-              val (major, minor) = version.splitAt(lastSeparator)
-              s"${dottyOrgName}:dotty_${major}:${major}${minor}"
+
+            val DottyVersion = raw"""0\.(\d+)(.*)""".r
+            val Scala3Version = raw"""3\.(\d+)\.(\d+)-(\w+)(.*)""".r
+            val (dottyOrgName, dottyLibrary, artifactAndVersion) = version match {
+              case DottyVersion(minor, patch) =>
+                val artifactID = s"dotty-compiler_0.$minor"
+                val artifactVersion = if (patch.isEmpty) "+" else s"0.$minor$patch"
+                ("ch.epfl.lamp", "DOTTY-LIBRARY", s"$artifactID:$artifactVersion")
+              case Scala3Version(minor, patch, milestone, remaining) =>
+                val artifactID = s"scala3-compiler_3.$minor.$patch-$milestone"
+                val artifactVersion =
+                  if (remaining.isEmpty) "+" else s"3.$minor.$patch-$milestone$remaining"
+                ("org.scala-lang", "SCALA3-LIBRARY", s"$artifactID:$artifactVersion")
             }
-            val dottyLibraryDep = project.getDependencies.create(dependencyName)
+
+            val compilerDependencyName = s"$dottyOrgName:$artifactAndVersion"
+            val dottyLibraryDep = project.getDependencies.create(compilerDependencyName)
             val dottyConfiguration =
               project.getConfigurations.detachedConfiguration(dottyLibraryDep)
             val dottyCompilerClassPath = dottyConfiguration.resolve().asScala.map(_.toPath).toList
             val resolvedDottyArtifacts = getConfigurationArtifacts(dottyConfiguration)
             val dottyLibraryModule =
               resolvedDottyArtifacts
-                .find(_.getId.getDisplayName.toUpperCase.contains("DOTTY-LIBRARY"))
+                .find(_.getId.getDisplayName.toUpperCase.contains(dottyLibrary))
             val dottyLibraryPaths = dottyLibraryModule.map(_.getFile.toPath).toList
             val exactVersion = dottyLibraryModule
               .map(_.getId)
@@ -324,7 +329,6 @@ class BloopConverter(parameters: BloopParameters) {
 
   private def getSourceSetProjectMap(rootProject: Project): Map[SourceSet, Project] = {
     rootProject.getAllprojects.asScala
-      .filter(isJavaProject)
       .flatMap(p => p.allSourceSets.map(_ -> p))
       .toMap
   }
@@ -373,7 +377,6 @@ class BloopConverter(parameters: BloopParameters) {
       sourceSets: Set[SourceSet]
   ): Map[File, SourceSet] = {
     rootProject.getAllprojects.asScala
-      .filter(isJavaProject)
       .flatMap(_.getConfigurations.asScala.flatMap(c => {
         val archiveTasks = c.getAllArtifacts.asScala.flatMap(getArchiveTask)
         val possibleArchiveSourceSets =
@@ -418,6 +421,10 @@ class BloopConverter(parameters: BloopParameters) {
           task.getJvmArgs.asScala.toList ++
           testProperties
       })
+      .orElse(
+        project.javaApplicationExt
+          .flatMap(f => Option(f.getApplicationDefaultJvmArgs).map(_.asScala.toList))
+      )
       .getOrElse(
         Option(forkOptions.getMemoryInitialSize).map(mem => s"-Xms$mem").toList ++
           Option(forkOptions.getMemoryMaximumSize).map(mem => s"-Xmx$mem").toList ++
@@ -426,8 +433,7 @@ class BloopConverter(parameters: BloopParameters) {
 
     val mainClass =
       if (testTask.isEmpty)
-        Option(project.getConvention.findPlugin(classOf[ApplicationPluginConvention]))
-          .map(_.getMainClassName)
+        project.javaApplicationExt.flatMap(f => Option(f.getMainClassName))
       else
         None
 
@@ -436,7 +442,8 @@ class BloopConverter(parameters: BloopParameters) {
       Option(currentJDK).map(_.getJavaHome.toPath)
     })
     Some(
-      Platform.Jvm(JvmConfig(jdkPath, projectJvmOptions), mainClass, Some(runtimeClasspath), None)
+      Platform
+        .Jvm(JvmConfig(jdkPath, projectJvmOptions), mainClass, None, Some(runtimeClasspath), None)
     )
   }
 
@@ -494,10 +501,6 @@ class BloopConverter(parameters: BloopParameters) {
     } catch {
       case _: NoSuchMethodException => None;
     }
-  }
-
-  private def isJavaProject(project: Project): Boolean = {
-    project.getConvention.findPlugin(classOf[JavaPluginConvention]) != null
   }
 
   private def getOutDir(targetDir: File, projectName: String): Path =

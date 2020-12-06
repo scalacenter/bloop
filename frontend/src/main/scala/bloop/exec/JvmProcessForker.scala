@@ -50,6 +50,7 @@ trait JvmProcessForker {
       mainClass: String,
       args0: Array[String],
       skipJargs: Boolean,
+      envVars: List[String],
       logger: Logger,
       opts: CommonOptions,
       extraClasspath: Array[AbsolutePath] = Array.empty
@@ -58,7 +59,7 @@ trait JvmProcessForker {
       if (skipJargs) (Array.empty[String], args0)
       else args0.partition(_.startsWith("-J"))
 
-    runMain(cwd, mainClass, userArgs, userJvmOptions, logger, opts, extraClasspath)
+    runMain(cwd, mainClass, userArgs, userJvmOptions, envVars, logger, opts, extraClasspath)
   }
 
   def runMain(
@@ -66,6 +67,7 @@ trait JvmProcessForker {
       mainClass: String,
       args: Array[String],
       jargs: Array[String],
+      envVars: List[String],
       logger: Logger,
       opts: CommonOptions,
       extraClasspath: Array[AbsolutePath]
@@ -110,6 +112,7 @@ final class JvmForker(config: JdkConfig, classpath: Array[AbsolutePath]) extends
       mainClass: String,
       args: Array[String],
       jargs: Array[String],
+      envVars: List[String],
       logger: Logger,
       opts: CommonOptions,
       extraClasspath: Array[AbsolutePath]
@@ -118,6 +121,10 @@ final class JvmForker(config: JdkConfig, classpath: Array[AbsolutePath]) extends
     val jvmOptions = jargs.map(_.stripPrefix("-J")) ++ config.javaOptions
     val fullClasspath = classpath ++ extraClasspath
     val fullClasspathStr = fullClasspath.map(_.syntax).mkString(File.pathSeparator)
+    envVars.map(_.split("=")).collect {
+      case Array(key, value, _*) =>
+        opts.env.setProperty(key, value)
+    }
 
     // Windows max cmd line length is 32767, which seems to be the least of the common shells.
     val processCmdCharLimit = 30000
@@ -231,12 +238,13 @@ final class JvmDebuggingForker(underlying: JvmProcessForker) extends JvmProcessF
       mainClass: String,
       args: Array[String],
       jargs0: Array[String],
+      envVars: List[String],
       logger: Logger,
       opts: CommonOptions,
       extraClasspath: Array[AbsolutePath]
   ): Task[Int] = {
     val jargs = jargs0 :+ enableDebugInterface
-    underlying.runMain(cwd, mainClass, args, jargs, logger, opts, extraClasspath)
+    underlying.runMain(cwd, mainClass, args, jargs, envVars, logger, opts, extraClasspath)
   }
 
   private def enableDebugInterface: String = {

@@ -31,6 +31,9 @@ final class DebugTestClient(connect: () => DebugAdapterConnection) {
   def launch(): Task[Unit] =
     activeSession.launch()
 
+  def attach(hostName: String, port: Int): Task[Unit] =
+    activeSession.attach(hostName: String, port: Int)
+
   def exited: Task[Events.ExitedEvent] =
     activeSession.exited
 

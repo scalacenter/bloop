@@ -112,15 +112,59 @@ abstract class ConfigGenerationSuite {
     worksWithGivenScalaVersion("2.13.1")
   }
 
-  @Test def worksWithDotty21(): Unit = {
-    worksWithDotty("0.21.0-RC1")
+  @Test def worksWithSpecificDottyA(): Unit = {
+    worksWithDotty("0.21.0-bin-20191101-3939747-NIGHTLY", "0.21.0-bin-20191101-3939747-NIGHTLY")
+  }
+  @Test def worksWithSpecificDottyB(): Unit = {
+    worksWithDotty("0.21.0-RC1", "0.21.0-RC1")
+  }
+  @Test def worksWithSpecificDottyC(): Unit = {
+    worksWithDotty("0.21.0", "0.21.0")
+  }
+  @Test def worksWithSpecificDottyD(): Unit = {
+    worksWithDotty("0.21", "0.21.0")
+  }
+  @Test def worksWithSpecificScala3A(): Unit = {
+    worksWithScala3(
+      "3.0.0-M1-bin-20201015-8c56525-NIGHTLY",
+      "3.0.0-M1-bin-20201015-8c56525-NIGHTLY"
+    )
+  }
+  @Test def worksWithSpecificScala3B(): Unit = {
+    worksWithScala3("3.0.0-M1", "3.0.0-M1")
+  }
+  @Test def worksWithScala3LatestNightly(): Unit = {
+    // newer releases mean we can't test for version
+    worksWithScala3("Latest", "")
   }
 
-  @Test def worksWithDottyLatest(): Unit = {
-    worksWithDotty("Latest")
+  private def worksWithScala3(suppliedVersion: String, expectedVersion: String): Unit = {
+    worksWithDottyOrScala3(
+      suppliedVersion,
+      expectedVersion,
+      "org.scala-lang",
+      "scala3-compiler",
+      "scala3-library"
+    )
   }
 
-  def worksWithDotty(version: String): Unit = {
+  private def worksWithDotty(suppliedVersion: String, expectedVersion: String): Unit = {
+    worksWithDottyOrScala3(
+      suppliedVersion,
+      expectedVersion,
+      "ch.epfl.lamp",
+      "dotty-compiler",
+      "dotty-library"
+    )
+  }
+
+  private def worksWithDottyOrScala3(
+      suppliedVersion: String,
+      expectedVersion: String,
+      expectedOrg: String,
+      compilerName: String,
+      libraryName: String
+  ): Unit = {
     val buildFile = testProjectDir.newFile("build.gradle")
     testProjectDir.newFolder("src", "main", "scala")
     writeBuildScript(
@@ -134,7 +178,7 @@ abstract class ConfigGenerationSuite {
          |apply plugin: 'bloop'
          |
          |bloop {
-         |  dottyVersion = "$version"
+         |  dottyVersion = "$suppliedVersion"
          |}
          |
          |repositories {
@@ -164,16 +208,16 @@ abstract class ConfigGenerationSuite {
 
     assert(configFile.project.`scala`.isDefined)
 
-    if (version.toUpperCase == "LATEST")
-      assertNotEquals(version, configFile.project.`scala`.get.version)
+    if (expectedVersion.isEmpty)
+      assertNotEquals(suppliedVersion, configFile.project.`scala`.get.version)
     else
-      assertEquals(version, configFile.project.`scala`.get.version)
-    assertEquals("ch.epfl.lamp", configFile.project.`scala`.get.organization)
-    assert(configFile.project.`scala`.get.jars.exists(_.toString.contains("dotty-compiler")))
-    assert(hasBothClasspathsEntryName(configFile, "dotty-library"))
+      assertEquals(expectedVersion, configFile.project.`scala`.get.version)
+    assertEquals(expectedOrg, configFile.project.`scala`.get.organization)
+    assert(configFile.project.`scala`.get.jars.exists(_.toString.contains(compilerName)))
+    assert(hasBothClasspathsEntryName(configFile, libraryName))
     assert(hasBothClasspathsEntryName(configFile, "scala-library"))
 
-    val idxDottyLib = idxOfClasspathEntryName(configFile, "dotty-library")
+    val idxDottyLib = idxOfClasspathEntryName(configFile, libraryName)
     val idxScalaLib = idxOfClasspathEntryName(configFile, "scala-library")
 
     assert(idxDottyLib < idxScalaLib)
@@ -181,7 +225,7 @@ abstract class ConfigGenerationSuite {
     assert(hasTag(configFile, Tag.Library))
 
     assertNoConfigsHaveAnyJars(List(configFile), List(s"$projectName", s"$projectName-test"))
-    assertAllConfigsMatchJarNames(List(configFile), List("dotty-library"))
+    assertAllConfigsMatchJarNames(List(configFile), List(libraryName))
   }
 
   @Test def worksWithInputVariables(): Unit = {
@@ -550,7 +594,6 @@ abstract class ConfigGenerationSuite {
       .withProjectDir(testProjectDir.getRoot)
       .withPluginClasspath(getClasspath)
       .withArguments("bloopInstall", "-Si")
-      .withDebug(true)
       .build()
 
     val projectName = testProjectDir.getRoot.getName
@@ -1572,6 +1615,103 @@ abstract class ConfigGenerationSuite {
          |
          |mainClassName = 'org.main.name'
          |
+         |application {
+         |  applicationDefaultJvmArgs = ["-Dgreeting.language=en", "-Xmx16g"]
+         |}
+      """.stripMargin
+    )
+
+    createHelloWorldJavaSource(testProjectDir.getRoot)
+    createHelloWorldJavaTestSource(testProjectDir.getRoot)
+
+    GradleRunner
+      .create()
+      .withGradleVersion(gradleVersion)
+      .withProjectDir(testProjectDir.getRoot)
+      .withPluginClasspath(getClasspath)
+      .withArguments("bloopInstall", "-Si")
+      .build()
+
+    val projectName = testProjectDir.getRoot.getName
+    val bloopDir = new File(testProjectDir.getRoot, ".bloop")
+    val projectFile = new File(bloopDir, s"${projectName}.json")
+    val projectTestFile = new File(bloopDir, s"${projectName}-test.json")
+    val projectConfig = readValidBloopConfig(projectFile)
+    assert(projectConfig.project.`scala`.isEmpty)
+    assert(projectConfig.project.platform.nonEmpty)
+    assert(projectConfig.project.platform.get.mainClass.nonEmpty)
+    assertEquals("org.main.name", projectConfig.project.platform.get.mainClass.get)
+    val platform = projectConfig.project.platform
+    val config = platform.get.asInstanceOf[Platform.Jvm].config
+    assertEquals(Set("-Dgreeting.language=en", "-Xmx16g"), config.options.toSet)
+    assert(projectConfig.project.dependencies.isEmpty)
+    assert(projectConfig.project.classpath.isEmpty)
+    assert(hasTag(projectConfig, Tag.Library))
+
+    val projectTestConfig = readValidBloopConfig(projectTestFile)
+    assert(projectConfig.project.`scala`.isEmpty)
+    assertEquals(projectTestConfig.project.dependencies, List(projectName))
+    assert(hasTag(projectTestConfig, Tag.Test))
+    assert(compileBloopProject(s"${projectName}-test", bloopDir).status.isOk)
+  }
+
+  @Test def generateConfigFileForOtherMainClass(): Unit = {
+    if (gradleVersion >= "6.4") {
+      val buildFile = testProjectDir.newFile("build.gradle")
+      writeBuildScript(
+        buildFile,
+        s"""
+           |plugins {
+           |  id 'bloop'
+           |}
+           |apply plugin: 'application'
+           |apply plugin: 'java'
+           |apply plugin: 'bloop'
+           |
+           |application {
+           |  mainClass.set("org.main.name")
+           |  applicationDefaultJvmArgs = ["-Dgreeting.language=en", "-Xmx16g"]
+           |}
+           |
+      """.stripMargin
+      )
+
+      createHelloWorldJavaSource(testProjectDir.getRoot)
+
+      GradleRunner
+        .create()
+        .withGradleVersion(gradleVersion)
+        .withProjectDir(testProjectDir.getRoot)
+        .withPluginClasspath(getClasspath)
+        .withArguments("bloopInstall", "-Si")
+        .build()
+
+      val projectName = testProjectDir.getRoot.getName
+      val bloopDir = new File(testProjectDir.getRoot, ".bloop")
+      val projectFile = new File(bloopDir, s"${projectName}.json")
+      val projectTestFile = new File(bloopDir, s"${projectName}-test.json")
+      val projectConfig = readValidBloopConfig(projectFile)
+      assert(projectConfig.project.`scala`.isEmpty)
+      val platform = projectConfig.project.platform
+      assert(platform.isDefined)
+      assert(platform.get.isInstanceOf[Platform.Jvm])
+      assert(platform.get.mainClass.isDefined)
+      assertEquals("org.main.name", platform.get.mainClass.get)
+    }
+  }
+
+  @Test def generateConfigFileForNullMainClass(): Unit = {
+    val buildFile = testProjectDir.newFile("build.gradle")
+    writeBuildScript(
+      buildFile,
+      s"""
+         |plugins {
+         |  id 'bloop'
+         |}
+         |apply plugin: 'application'
+         |apply plugin: 'java'
+         |apply plugin: 'bloop'
+         |
       """.stripMargin
     )
 
@@ -1598,7 +1738,9 @@ abstract class ConfigGenerationSuite {
 
     val projectTestConfig = readValidBloopConfig(projectTestFile)
     assert(projectConfig.project.`scala`.isEmpty)
-    assert(projectTestConfig.project.dependencies == List(projectName))
+    assert(projectConfig.project.platform.nonEmpty)
+    assert(projectConfig.project.platform.get.mainClass.isEmpty)
+    assertEquals(projectTestConfig.project.dependencies, List(projectName))
     assert(hasTag(projectTestConfig, Tag.Test))
     assert(compileBloopProject(s"${projectName}-test", bloopDir).status.isOk)
   }
@@ -1644,7 +1786,7 @@ abstract class ConfigGenerationSuite {
     assert(platform.get.isInstanceOf[Platform.Jvm])
     val config = platform.get.asInstanceOf[Platform.Jvm].config
     if (!scala.util.Properties.isWin) assert(config.home.contains(Paths.get("/opt/jdk11")))
-    assert(config.options.toSet == Set("-XX:MaxMetaSpaceSize=512m", "-Xms1g", "-Xmx2g"))
+    assertEquals(Set("-XX:MaxMetaSpaceSize=512m", "-Xms1g", "-Xmx2g"), config.options.toSet)
   }
 
   @Test def importsTestSystemProperties(): Unit = {
@@ -1686,14 +1828,15 @@ abstract class ConfigGenerationSuite {
     assert(platform.isDefined)
     assert(platform.get.isInstanceOf[Platform.Jvm])
     val config = platform.get.asInstanceOf[Platform.Jvm].config
-    assert(
-      config.options.toSet == Set(
+    assertEquals(
+      Set(
         "-XX:+UseG1GC",
         "-verbose:gc",
         "-Xms1g",
         "-Xmx2g",
         "-Dproperty=value"
-      )
+      ),
+      config.options.toSet
     )
   }
 
@@ -1745,7 +1888,7 @@ abstract class ConfigGenerationSuite {
     )
 
     val setupA = getSetup(buildDirA)
-    assert(setupA.order == JavaThenScala)
+    assertEquals(JavaThenScala, setupA.order)
 
     val buildDirB = testProjectDir.newFolder("b")
     val buildFileB = new File(buildDirB, "build.gradle")
@@ -1777,7 +1920,7 @@ abstract class ConfigGenerationSuite {
     )
 
     val setupB = getSetup(buildDirB)
-    assert(setupB.order == Mixed)
+    assertEquals(Mixed, setupB.order)
   }
 
   @Test def maintainsClassPathOrder(): Unit = {
@@ -2312,7 +2455,7 @@ abstract class ConfigGenerationSuite {
     assert(configFile.project.dependencies.isEmpty)
     assert(hasTag(configFile, Tag.Library))
 
-    assert(configTestFile.project.dependencies == List(projectName))
+    assertEquals(List(projectName), configTestFile.project.dependencies)
     assert(hasTag(configTestFile, Tag.Test))
     assert(compileBloopProject(s"${projectName}-test", bloopDir).status.isOk)
     assertAllConfigsMatchJarNames(List(configFile, configTestFile), List("scala-library"))

@@ -103,7 +103,7 @@ object Config {
   }
 
   object Platform {
-    val default: Platform = Jvm(JvmConfig.empty, None, None, None)
+    val default: Platform = Jvm(JvmConfig.empty, None, None, None, None)
 
     object Js { val name: String = "js" }
     case class Js(override val config: JsConfig, override val mainClass: Option[String])
@@ -115,6 +115,7 @@ object Config {
     case class Jvm(
         override val config: JvmConfig,
         override val mainClass: Option[String],
+        runtimeConfig: Option[JvmConfig],
         classpath: Option[List[Path]],
         resources: Option[List[Path]]
     ) extends Platform(Jvm.name) {
@@ -145,7 +146,8 @@ object Config {
   object ModuleKindJS {
     case object NoModule extends ModuleKindJS("none")
     case object CommonJSModule extends ModuleKindJS("commonjs")
-    val All = List(NoModule.id, CommonJSModule.id)
+    case object ESModule extends ModuleKindJS("esmodule")
+    val All = List(NoModule.id, CommonJSModule.id, ESModule.id)
   }
 
   case class JsConfig(
@@ -285,10 +287,12 @@ object Config {
       val resources = Some(List(PlatformFiles.resolve(outDir, "resource1.xml")))
 
       val platform = {
-        val jdkPath = PlatformFiles.getPath("/usr/lib/jvm/java-8-jdk")
+        val jdk8Path = PlatformFiles.getPath("/usr/lib/jvm/java-8-jdk")
+        val jdk11Path = PlatformFiles.getPath("/usr/lib/jvm/java-11-jdk")
         Platform.Jvm(
-          JvmConfig(Some(jdkPath), Nil),
+          JvmConfig(Some(jdk8Path), Nil),
           Some("module.Main"),
+          Some(JvmConfig(Some(jdk11Path), Nil)),
           Some(classpath),
           resources
         )
