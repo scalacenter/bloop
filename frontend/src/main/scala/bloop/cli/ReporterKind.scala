@@ -1,7 +1,8 @@
 package bloop.cli
 
 import bloop.reporter.ReporterConfig
-import caseapp.core.ArgParser
+import caseapp.core.argparser.ArgParser
+import caseapp.core.argparser.SimpleArgParser
 
 /** Represents a reporter kind that users can pick to display compiler messages. */
 sealed abstract class ReporterKind(val name: String)
@@ -12,10 +13,10 @@ object ReporterKind {
   val reporters: List[ReporterKind] = List(ScalacReporter, BloopReporter)
 
   implicit val reporterKindRead: ArgParser[ReporterKind] = {
-    ArgParser.instance[ReporterKind]("reporter") { input =>
+    SimpleArgParser.from[ReporterKind]("reporter") { input =>
       reporters.find(_.name == input) match {
         case Some(reporter) => Right(reporter)
-        case None => Left(s"Unrecognized reporter: $input")
+        case None => Left(caseapp.core.Error.Other(s"Unrecognized reporter: $input"))
       }
     }
   }

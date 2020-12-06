@@ -24,7 +24,7 @@ object Dependencies {
   val scalaXmlVersion = "1.2.0"
   val lmVersion = "1.0.0"
   val configDirsVersion = "10"
-  val caseAppVersion = "2.0.4"//"1.2.0-faster-compile-time"
+  val caseAppVersion = "2.0.4"
   val sourcecodeVersion = "0.1.4"
   val sbtTestInterfaceVersion = "1.0"
   val sbtTestAgentVersion = "1.4.4"
@@ -56,7 +56,7 @@ object Dependencies {
   val zipkinSenderVersion = "2.7.15"
   val jnaVersion = "4.5.0"
   val asmVersion = "7.0"
-  val snailgunVersion = "0.3.2+0-74993a9b+20200916-2139"//"0.3.1"
+  val snailgunVersion = "0.4.0"
   val ztExecVersion = "1.11"
 
   import sbt.librarymanagement.syntax.stringToOrganization
