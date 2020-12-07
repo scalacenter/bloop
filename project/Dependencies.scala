@@ -48,7 +48,6 @@ object Dependencies {
   val scalaJs06Version = "0.6.32"
   val scalaJs1Version = "1.3.1"
   val scalaJsEnvsVersion = "1.1.1"
-  val scalaJsEnvJsdomNodejsVersion = "1.1.1"
   val millVersion = "0.3.6"
   val xxHashVersion = "1.3.0"
   val ztVersion = "1.13"
