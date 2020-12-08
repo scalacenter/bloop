@@ -124,7 +124,6 @@ object Tasks {
       )
     }
 
-    // For now, test execution is only sequential.
     val runAll: List[Task[Int]] => Task[List[Int]] =
       if (runInParallel) {
         Task.gather
