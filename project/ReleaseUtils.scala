@@ -101,9 +101,6 @@ object ReleaseUtils {
       fishAutocompletions: Artifact
   )
 
-  val cwd = sys.props("user.dir")
-  val ivyHome = new File(sys.props("user.home")) / ".ivy2/"
-
   /**
    * The content of the Homebrew Formula to install the version of Bloop that we're releasing.
    *
@@ -124,7 +121,7 @@ object ReleaseUtils {
        |
        |  depends_on "bash-completion"
        |  depends_on "coursier/formulas/coursier"
-       |  depends_on "openjdk@8+"
+       |  depends_on "openjdk"
        |
        |  resource "bash_completions" do
        |    url "${artifacts.bashAutocompletions.url}"
@@ -146,7 +143,7 @@ object ReleaseUtils {
        |      mkdir "channel"
        |
        |      mv "${artifacts.bloopCoursier.name}", "channel/bloop.json"
-       |      system "coursier", "install", "--install-dir", "bin", "--default-channels=false", "--channel", "channel", "bloop", "-J-Divy.home=$ivyHome"
+       |      system "coursier", "install", "--install-dir", "bin", "--default-channels=false", "--channel", "channel", "bloop"
        |
        |      resource("bash_completions").stage {
        |        mv "${artifacts.bashAutocompletions.name}", "bloop"
