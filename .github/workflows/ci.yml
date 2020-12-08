@@ -54,11 +54,11 @@ jobs:
               "backend/test" \
               "docs/compile" \
               "jsBridge06/publishLocal" \
-              "jsBridge10/publishLocal" \
+              "jsBridge1/publishLocal" \
               "frontend/testOnly bloop.ScalaVersionsSpec" \
               "frontend/testOnly -bloop.ScalaVersionsSpec" \
               "jsBridge06/test" \
-              "jsBridge10/test" \
+              "jsBridge1/test" \
               "frontend/runMain bloop.util.CommandsDocGenerator --test" \
               "frontend/runMain bloop.util.CommandsDocGenerator --out ../docs/cli/reference.md"
         shell: bash
