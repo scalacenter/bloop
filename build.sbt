@@ -675,13 +675,6 @@ lazy val gradleBloop212 = project
     publishLocal := publishLocal.dependsOn(publishLocal.in(jsonConfig212.jvm)).value
   )
 
-lazy val millBloop = project
-  .in(integrations / "mill-bloop")
-  .disablePlugins(ScriptedPlugin)
-  .dependsOn(jsonConfig212.jvm)
-  .settings(name := "mill-bloop")
-  .settings(BuildDefaults.millModuleBuildSettings)
-
 lazy val buildpressConfig = (project in file("buildpress-config"))
   .settings(
     scalaVersion := Scala212Version,
@@ -793,7 +786,6 @@ val allProjects = Seq(
   mavenBloop,
   gradleBloop211,
   gradleBloop212,
-  millBloop,
   nativeBridge04,
   jsBridge06,
   jsBridge1,
@@ -835,7 +827,6 @@ val bloop = project
             mavenBloop,
             gradleBloop211,
             gradleBloop212,
-            millBloop,
             nativeBridge04,
             jsBridge06,
             jsBridge1,
@@ -871,7 +862,6 @@ val bloop = project
             mavenBloop,
             gradleBloop211,
             gradleBloop212,
-            millBloop,
             nativeBridge04,
             jsBridge06,
             jsBridge1,
