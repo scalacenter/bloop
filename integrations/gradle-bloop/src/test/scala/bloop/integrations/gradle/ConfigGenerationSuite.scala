@@ -2525,7 +2525,7 @@ abstract class ConfigGenerationSuite {
         |
         |dependencies {
         |  compile group: 'org.scala-lang', name: 'scala-library', version: '2.12.8'
-        |  scalaCompilerPlugin "org.scalameta:semanticdb-scalac_2.12.8:4.1.9"
+        |  scalaCompilerPlugin "org.scalameta:semanticdb-scalac_2.12.12:4.4.1"
         |}
         |
         |tasks.withType(ScalaCompile) {
@@ -2556,7 +2556,7 @@ abstract class ConfigGenerationSuite {
 
     assert(resultConfig.project.resolution.nonEmpty)
     assert(
-      resultConfig.project.resolution.get.modules.exists(p => p.name == "semanticdb-scalac_2.12.8")
+      resultConfig.project.resolution.get.modules.exists(p => p.name == "semanticdb-scalac_2.12.12")
     )
 
     assert(
@@ -2565,7 +2565,7 @@ abstract class ConfigGenerationSuite {
     )
     assert(
       resultConfig.project.`scala`.get.options
-        .exists(p => p.startsWith("-Xplugin:") && p.contains("semanticdb-scalac_2.12.8"))
+        .exists(p => p.startsWith("-Xplugin:") && p.contains("semanticdb-scalac_2.12.12"))
     )
   }
 
@@ -2589,7 +2589,7 @@ abstract class ConfigGenerationSuite {
           |
           |dependencies {
           |  compile group: 'org.scala-lang', name: 'scala-library', version: '2.12.8'
-          |  scalaCompilerPlugins "org.scalameta:semanticdb-scalac_2.12.8:4.1.9"
+          |  scalaCompilerPlugins "org.scalameta:semanticdb-scalac_2.12.12:4.4.1"
           |}
           |
           """.stripMargin
@@ -2613,12 +2613,12 @@ abstract class ConfigGenerationSuite {
       assert(resultConfig.project.resolution.nonEmpty)
       assert(
         resultConfig.project.resolution.get.modules
-          .exists(p => p.name == "semanticdb-scalac_2.12.8")
+          .exists(p => p.name == "semanticdb-scalac_2.12.12")
       )
 
       assert(
         resultConfig.project.`scala`.get.options
-          .exists(p => p.startsWith("-Xplugin:") && p.contains("semanticdb-scalac_2.12.8"))
+          .exists(p => p.startsWith("-Xplugin:") && p.contains("semanticdb-scalac_2.12.12"))
       )
     }
   }
