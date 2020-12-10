@@ -36,7 +36,7 @@ object BuildLoaderSpec extends BaseSuite {
     }
   }
 
-  val sameSettings = WorkspaceSettings.fromSemanticdbSettings("4.2.0", List(BuildInfo.scalaVersion))
+  val sameSettings = WorkspaceSettings.fromSemanticdbSettings("4.4.1", List(BuildInfo.scalaVersion))
   testLoad("do not reload if same settings are added", Some(sameSettings)) { (testBuild, logger) =>
     testBuild.state.build.checkForChange(Some(sameSettings), logger).map {
       case Build.ReturnPreviousState => ()
