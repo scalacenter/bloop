@@ -597,12 +597,6 @@ object BuildImplementation {
       Def.task(unmanagedJarsTask.value)
     }
 
-    val millModuleBuildSettings: Seq[Def.Setting[_]] = List(
-      Keys.libraryDependencies ++= List(
-        Dependencies.mill
-      )
-    )
-
     import sbt.ScriptedPlugin.{autoImport => ScriptedKeys}
     val scriptedSettings: Seq[Def.Setting[_]] = List(
       ScriptedKeys.scriptedBufferLog := false,
