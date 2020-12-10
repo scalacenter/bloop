@@ -15,7 +15,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macOS-latest]
-        jdk: [graalvm-ce-java11@20.1.0, adopt@1.11]
+        jdk: [graalvm-ce-java11@20.2.0, adopt@1.11]
     name: Test ${{ matrix.os }} -- ${{ matrix.jdk }}
     env:
       HYDRA_LICENSE: ${{ secrets.HYDRA_LICENSE }}
@@ -66,14 +66,14 @@ jobs:
           ./bin/check-good-practices.sh
         shell: bash
       - name: Run launcher tests
-        if: matrix.jdk == 'graalvm-ce-java11@20.1.0'
+        if: matrix.jdk == 'graalvm-ce-java11@20.2.0'
         run: |
           echo $JAVA_HOME
           which gu && gu install native-image
           ./bin/sbt-ci.sh "install" "launcher/test"
         shell: bash
       - name: Run build tool + native tests
-        if: matrix.jdk == 'graalvm-ce-java11@20.1.0' && matrix.os != 'windows-latest'
+        if: matrix.jdk == 'graalvm-ce-java11@20.2.0' && matrix.os != 'windows-latest'
         run: |
           ./bin/sbt-ci.sh \
               "mavenBloop/compile" \
@@ -93,7 +93,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macOS-latest]
-        jdk: [graalvm-ce-java11@20.1.0]
+        jdk: [graalvm-ce-java11@20.2.0]
         include:
           - os: ubuntu-latest
             artifact: bloop-linux
@@ -135,7 +135,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [windows-latest]
-        jdk: [graalvm-ce-java11@20.1.0]
+        jdk: [graalvm-ce-java11@20.2.0]
         include:
           - os: windows-latest
             artifact: bloop-windows

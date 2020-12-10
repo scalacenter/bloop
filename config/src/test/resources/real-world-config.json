@@ -21,7 +21,7 @@
             "/Users/jvican/Code/bloop/.bloop/bloopShared/scala-2.12/classes",
             "/Users/jvican/Code/bloop/.bloop/backend/scala-2.12/classes",
             "/Users/jvican/Code/bloop/.bloop/jsonConfig212/scala-2.12/classes",
-            "/Library/Java/JavaVirtualMachines/graalvm-ee-19.0.2/Contents/Home/lib/tools.jar",
+            "/Library/Java/JavaVirtualMachines/graalvm-ee-20.2.0/Contents/Home/lib/tools.jar",
             "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/io/reactivex/rxjava2/rxjava/2.1.1/rxjava-2.1.1.jar",
             "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-sbt/launcher-interface/1.0.0/launcher-interface-1.0.0.jar",
             "/Users/jvican/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/io/get-coursier/coursier-core_2.12/1.1.0-M14-4/coursier-core_2.12-1.1.0-M14-4.jar",
