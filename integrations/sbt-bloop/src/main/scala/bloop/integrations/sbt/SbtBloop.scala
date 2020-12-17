@@ -161,7 +161,7 @@ object BloopDefaults {
       }
     },
     BloopKeys.bloopSupportedConfigurations := List(Compile, Test, IntegrationTest, Provided)
-  ) ++ Offloader.bloopCompileGlobalSettings
+  ) ++ Offloader.bloopCompileGlobalSettings ++ Compat.bloopCompatSettings
 
   // From the infamous https://stackoverflow.com/questions/40741244/in-sbt-how-to-execute-a-command-in-task
   def runCommandAndRemaining(command: String): State => State = { st: State =>

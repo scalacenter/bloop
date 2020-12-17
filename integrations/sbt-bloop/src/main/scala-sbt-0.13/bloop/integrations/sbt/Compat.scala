@@ -12,6 +12,8 @@ object Compat {
   val PluginDiscovery = sbt.PluginDiscovery
   val PluginManagement = sbt.PluginManagement
 
+  val bloopCompatSettings: Seq[Def.Setting[_]] = List()
+
   type CompileResult = sbt.Compiler.CompileResult
 
   implicit def fileToRichFile(file: File): sbt.RichFile = new sbt.RichFile(file)

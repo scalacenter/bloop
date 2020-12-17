@@ -2,7 +2,7 @@ package bloop.integrations.sbt
 
 import bloop.config.Config
 import sbt.io.syntax.File
-import sbt.{Artifact, Exec, Keys, SettingKey}
+import sbt.{Artifact, Exec, Keys, SettingKey, Def}
 import sbt.librarymanagement.ScalaModuleInfo
 
 object Compat {
@@ -35,6 +35,10 @@ object Compat {
   private final val anyWriter = implicitly[sbt.util.OptJsonWriter[AnyRef]]
   def toAnyRefSettingKey(id: String, m: Manifest[AnyRef]): SettingKey[AnyRef] =
     SettingKey(id)(m, anyWriter)
+
+  val bloopCompatSettings: Seq[Def.Setting[_]] = List(
+    Keys.reresolveSbtArtifacts := true
+  )
 
   import sbt.Task
   def cloneTask[T](task: Task[T]): Task[T] = {
