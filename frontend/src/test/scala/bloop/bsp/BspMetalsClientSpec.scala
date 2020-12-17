@@ -337,9 +337,9 @@ class BspMetalsClientSpec(
         workspace,
         "A",
         dummyFooSources,
-        scalaVersion = Some("3.0.0-M1"),
+        scalaVersion = Some("3.0.0-M3"),
         scalaOrg = Some("org.scala-lang"),
-        scalaCompiler = Some("scala3-compiler_3.0.0-M1")
+        scalaCompiler = Some("scala3-compiler_3.0.0-M3")
       )
       val projects = List(`A`)
       val configDir = TestProject.populateWorkspace(workspace, projects)
@@ -365,9 +365,9 @@ class BspMetalsClientSpec(
         workspace,
         "A",
         dummyFooSources,
-        scalaVersion = Some("3.0.0-M1"),
+        scalaVersion = Some("3.0.0-M3"),
         scalaOrg = Some("org.scala-lang"),
-        scalaCompiler = Some("scala3-compiler_3.0.0-M1")
+        scalaCompiler = Some("scala3-compiler_3.0.0-M3")
       )
       val projects = List(`A`)
       val configDir = TestProject.populateWorkspace(workspace, projects)
@@ -382,19 +382,19 @@ class BspMetalsClientSpec(
     }
   }
 
-  test("compile producing Semanticdb with scala3 when -Ysemanticdb setting is already present") {
+  test("compile producing Semanticdb with scala3 when -Xsemanticdb setting is already present") {
     TestUtil.withinWorkspace { workspace =>
       val defaultScalacOptions = List(
-        "-Ysemanticdb"
+        "-Xsemanticdb"
       )
       val `A` = TestProject(
         workspace,
         "A",
         dummyFooSources,
-        scalaVersion = Some("3.0.0-M1"),
+        scalaVersion = Some("3.0.0-M3"),
         scalacOptions = defaultScalacOptions,
         scalaOrg = Some("org.scala-lang"),
-        scalaCompiler = Some("scala3-compiler_3.0.0-M1")
+        scalaCompiler = Some("scala3-compiler_3.0.0-M3")
       )
       val projects = List(`A`)
       val configDir = TestProject.populateWorkspace(workspace, projects)
