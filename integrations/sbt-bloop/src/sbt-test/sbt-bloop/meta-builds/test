@@ -1,6 +1,4 @@
 > checkMetaBuildInfo
-$ exists project/.bloop/meta-builds-build.json
--$ exists project/.bloop/meta-builds-build-test.json
 $ copy-file changes/set-sources.sbt project/set-sources.sbt
 > reload
 > checkSourceJars
