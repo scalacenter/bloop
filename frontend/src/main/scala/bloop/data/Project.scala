@@ -360,6 +360,12 @@ object Project {
     val workspaceDir = project.workspaceDirectory.getOrElse(configDir.getParent)
     val isDotty = project.scalaInstance.exists(_.isDotty)
 
+    def isAtLeastScala3M3(version: String) = {
+      version.startsWith("3.") &&
+      version != "3.0.0-M1"
+      version != "3.0.0-M2"
+    }
+
     def enableSemanticdb(options: List[String], pluginPath: AbsolutePath): List[String] = {
       val baseSemanticdbOptions = List(
         "-P:semanticdb:failures:warning",
@@ -377,7 +383,14 @@ object Project {
     }
 
     def enableDottySemanticdb(options: List[String]) = {
-      val ysemanticdb = if (!options.contains("-Ysemanticdb")) List("-Ysemanticdb") else Nil
+      val semanticdbFlag =
+        if (project.scalaInstance.exists(instance => isAtLeastScala3M3(instance.version))) {
+          "-Xsemanticdb"
+        } else {
+          "-Ysemanticdb"
+        }
+
+      val ysemanticdb = if (!options.contains(semanticdbFlag)) List(semanticdbFlag) else Nil
       val sourceRoot =
         if (!options.contains("-sourceroot")) List("-sourceroot", workspaceDir.toString()) else Nil
       options ++ ysemanticdb ++ sourceRoot
