@@ -217,7 +217,8 @@ object BuildLoader {
     // Recognize 2.12.8-abdcddd as supported if 2.12.8 exists in supported versions
     val isUnsupportedVersion = !supportedScalaVersions.exists(scalaVersion.startsWith(_))
     if (isUnsupportedVersion) {
-      logger.debug(Feedback.skippedUnsupportedScalaMetals(scalaVersion))(DebugFilter.All)
+      if (!scalaVersion.startsWith("3."))
+        logger.debug(Feedback.skippedUnsupportedScalaMetals(scalaVersion))(DebugFilter.All)
       Coeval.now(enableMetals(None))
     } else {
       Coeval.eval {
