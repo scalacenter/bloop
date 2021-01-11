@@ -47,7 +47,7 @@ final class ScalaInstance private (
       (organization == "org.scala-lang" && version.startsWith("3."))
 
   override lazy val loaderLibraryOnly: ClassLoader =
-    new URLClassLoader(Array(libraryJar.toURI.toURL), ScalaInstance.bootClassLoader)
+    new URLClassLoader(Array(libraryJar.toURI.toURL), ScalaInstance.topClassLoader)
   override lazy val loader: ClassLoader = {
     // For some exceptionally weird reason, we need to load all jars for dotty here
     val jarsToLoad = if (isDotty) allJars else allJars.filterNot(_ == libraryJar)
@@ -114,6 +114,11 @@ object ScalaInstance {
           null
       }
     }
+  }
+
+  private[ScalaInstance] val topClassLoader: ClassLoader = {
+    val bloopClassLoader = getClass.getClassLoader
+    new ScalaInstanceTopLoader(bloopClassLoader, bootClassLoader)
   }
 
   private[ScalaInstance] final val ScalacCompilerName = "scala-compiler"
