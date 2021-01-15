@@ -25,7 +25,7 @@ import scala.collection.JavaConverters._
  * To remote debug the ConfigGenerationSuite...
  * - change "gradlePluginBuildSettings" "Keys.fork in Test" in BuildPlugin.scala to "false"
  * - scala-library-2.12.8.jar disappears from classpath when fork=false.  Add manually for now to getClasspath output
- * - add ".withDebug(true)" to the GradleRunner in the particular test to debug
+ * - add ".withDebug(true)" to the GradleRunner in the particular test to debug and ".forwardOutput()" to see println
  * - run tests under gradleBloop212 project
  */
 
@@ -432,7 +432,53 @@ abstract class ConfigGenerationSuite {
     assertAllConfigsMatchJarNames(List(configFile), List(libraryName))
   }
 
-  @Test def worksWithInputVariables(): Unit = {
+  @Test def failsOnMissingScalaLibrary(): Unit = {
+
+    val buildFile = testProjectDir.newFile("build.gradle")
+    testProjectDir.newFolder("src", "main", "scala")
+    writeBuildScript(
+      buildFile,
+      """
+        |plugins {
+        |  id 'bloop'
+        |}
+        |
+        |apply plugin: 'scala'
+        |apply plugin: 'bloop'
+        |
+        |bloop {
+        |  stdLibName = "testLibName"
+        |}
+        |
+        |repositories {
+        |  mavenCentral()
+        |}
+        |
+        |dependencies {
+        |  compile 'org.scala-lang:scala-library:2.12.8'
+        |}
+      """.stripMargin
+    )
+
+    createHelloWorldScalaSource(testProjectDir.getRoot)
+
+    GradleRunner
+      .create()
+      .withGradleVersion(gradleVersion)
+      .withProjectDir(testProjectDir.getRoot)
+      .withPluginClasspath(getClasspath)
+      .withArguments("bloopInstall", "-Si")
+      .build()
+
+    val projectName = testProjectDir.getRoot.getName
+    val bloopDir = new File(testProjectDir.getRoot, ".bloop")
+    val projectFile = new File(bloopDir, s"${projectName}.json")
+
+    // no Scala library should be found because it's checking against "testLibName" so don't create the project
+    assertFalse(projectFile.exists)
+  }
+
+  @Test def worksWithNoSourcesJavaDocs(): Unit = {
 
     val buildFile = testProjectDir.newFile("build.gradle")
     testProjectDir.newFolder("src", "main", "scala")
@@ -448,7 +494,6 @@ abstract class ConfigGenerationSuite {
         |
         |bloop {
         |  targetDir      = file("testDir")
-        |  stdLibName     = "testLibName"
         |  includeSources = false
         |  includeJavadoc = false
         |}
@@ -477,18 +522,92 @@ abstract class ConfigGenerationSuite {
     val bloop = new File(bloopDir, s"${projectName}.json")
 
     val config = readValidBloopConfig(bloop)
-    // no Scala library should be found because it's checking against "testLibName"
-    assert(config.project.`scala`.isEmpty)
-    // no source or JavaDoc artifacts should exist
+    // source and JavaDoc artifacts should not exist
     assert(config.project.resolution.nonEmpty)
-    assert(
-      !config.project.resolution.exists(
+    assertFalse(
+      config.project.resolution.exists(
         res =>
           res.modules
-            .exists(conf => conf.artifacts.exists(artifact => artifact.classifier.nonEmpty))
+            .exists(
+              conf => conf.artifacts.exists(artifact => artifact.classifier.contains("javadoc"))
+            )
       )
     )
-    assertNoConfigsHaveAnyJars(List(config), List(s"$projectName", s"$projectName-test"))
+    assertFalse(
+      config.project.resolution.exists(
+        res =>
+          res.modules
+            .exists(
+              conf => conf.artifacts.exists(artifact => artifact.classifier.contains("sources"))
+            )
+      )
+    )
+  }
+
+  @Test def worksWithSourcesJavaDocs(): Unit = {
+
+    val buildFile = testProjectDir.newFile("build.gradle")
+    testProjectDir.newFolder("src", "main", "scala")
+    writeBuildScript(
+      buildFile,
+      """
+        |plugins {
+        |  id 'bloop'
+        |}
+        |
+        |apply plugin: 'scala'
+        |apply plugin: 'bloop'
+        |
+        |bloop {
+        |  targetDir      = file("testDir")
+        |  includeSources = true
+        |  includeJavadoc = true
+        |}
+        |
+        |repositories {
+        |  mavenCentral()
+        |}
+        |
+        |dependencies {
+        |  compile 'org.scala-lang:scala-library:2.12.8'
+        |}
+      """.stripMargin
+    )
+
+    GradleRunner
+      .create()
+      .withGradleVersion(gradleVersion)
+      .withProjectDir(testProjectDir.getRoot)
+      .withPluginClasspath(getClasspath)
+      .withArguments("bloopInstall", "-Si")
+      .build()
+
+    val projectName = testProjectDir.getRoot.getName
+    // non-".bloop" dir
+    val bloopDir = new File(testProjectDir.getRoot, "testDir")
+    val bloop = new File(bloopDir, s"${projectName}.json")
+
+    val config = readValidBloopConfig(bloop)
+    // source and JavaDoc artifacts should exist
+    assert(config.project.resolution.nonEmpty)
+    assert(
+      config.project.resolution.exists(
+        res =>
+          res.modules
+            .exists(
+              conf => conf.artifacts.exists(artifact => artifact.classifier.contains("javadoc"))
+            )
+      )
+    )
+    assert(
+      config.project.resolution.exists(
+        res =>
+          res.modules
+            .exists(
+              conf => conf.artifacts.exists(artifact => artifact.classifier.contains("sources"))
+            )
+      )
+    )
   }
 
   @Test def worksWithTransientProjectDependencies(): Unit = {
@@ -2738,11 +2857,6 @@ abstract class ConfigGenerationSuite {
 
   private def getClasspath: java.lang.Iterable[File] = {
     new ClassGraph().getClasspathFiles()
-  }
-
-  private def hasClasspathEntryName(entryName: String, classpath: List[Path]): Boolean = {
-    val pathValidEntryName = entryName.replace('/', File.separatorChar)
-    classpath.exists(_.toString.contains(pathValidEntryName))
   }
 
   private def hasPathEntryName(entryName: String, paths: List[Path]): Boolean = {
