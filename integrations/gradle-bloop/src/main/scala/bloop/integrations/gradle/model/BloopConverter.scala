@@ -684,6 +684,8 @@ class BloopConverter(parameters: BloopParameters) {
     specs.setCompileOptions(opts)
     specs.setSourceCompatibility(compileTask.getSourceCompatibility)
     specs.setTargetCompatibility(compileTask.getTargetCompatibility)
+    if (opts.getAnnotationProcessorPath != null)
+      specs.setAnnotationProcessorPath(opts.getAnnotationProcessorPath.asScala.toList.asJava);
 
     val builder = new JavaCompilerArgumentsBuilder(specs)
       .includeMainOptions(true)

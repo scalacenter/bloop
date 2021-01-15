@@ -46,6 +46,90 @@ abstract class ConfigGenerationSuite {
   private val testProjectDir_ = new TemporaryFolder()
   @Rule def testProjectDir: TemporaryFolder = testProjectDir_
 
+  @Test def worksWithJavaCompilerAnnotationProcessor(): Unit = {
+    val buildFile = testProjectDir.newFile("build.gradle")
+    testProjectDir.newFolder("src", "main", "scala")
+    writeBuildScript(
+      buildFile,
+      """
+        |plugins {
+        |  id 'bloop'
+        |}
+        |
+        |apply plugin: 'scala'
+        |apply plugin: 'bloop'
+        |
+        |repositories {
+        |  mavenCentral()
+        |}
+        |
+        |dependencies {
+        |  compile group: 'org.scala-lang', name: 'scala-library', version: '2.12.8'
+        |  annotationProcessor "org.immutables:value:2.8.2"
+        |}
+        |
+        """.stripMargin
+    )
+
+    val annotatedSource =
+      """
+        |import java.util.List;
+        |import java.util.Set;
+        |import org.immutables.value.Value;
+
+        |@Value.Immutable
+        |public abstract class FoobarValue {
+        |  public abstract int foo();
+        |  public abstract String bar();
+        |  public abstract List<Integer> buz();
+        |  public abstract Set<Long> crux();
+        |}
+      """
+    val annotatedSourceUsage =
+      """
+        |import java.util.List;
+
+        |public class FoobarValueMain {
+        |  public static void main(String... args) {
+        |    FoobarValue value = ImmutableFoobarValue.builder()
+        |        .foo(2)
+        |        .bar("Bar")
+        |        .addBuz(1, 3, 4)
+        |        .build(); // FoobarValue{foo=2, bar=Bar, buz=[1, 3, 4], crux={}}
+
+        |    int foo = value.foo(); // 2
+
+        |    List<Integer> buz = value.buz(); // ImmutableList.of(1, 3, 4)
+        |  }
+        |}
+      """
+
+    createSource(testProjectDir.getRoot, annotatedSource, "main", "java")
+    createSource(testProjectDir.getRoot, annotatedSourceUsage, "main", "java")
+
+    GradleRunner
+      .create()
+      .withGradleVersion(gradleVersion)
+      .withProjectDir(testProjectDir.getRoot)
+      .withPluginClasspath(getClasspath)
+      .withArguments("bloopInstall", "-Si")
+      .build()
+
+    val projectName = testProjectDir.getRoot.getName
+    val bloopFile = new File(new File(testProjectDir.getRoot, ".bloop"), projectName + ".json")
+
+    val resultConfig = readValidBloopConfig(bloopFile)
+
+    assert(resultConfig.project.resolution.nonEmpty)
+    assert(!hasCompileClasspathEntryName(resultConfig, "org.immutables"))
+    assert(!hasRuntimeClasspathEntryName(resultConfig, "org.immutables"))
+    assert(resultConfig.project.java.isDefined)
+    val processorPath =
+      resultConfig.project.java.get.options.dropWhile(_ != "-processorpath").drop(1)
+    assert(processorPath.nonEmpty)
+    assert(processorPath.head.contains("value-2.8.2.jar"))
+  }
+
   @Test def pluginCanBeApplied(): Unit = {
     val buildFile = testProjectDir.newFile("build.gradle")
     testProjectDir.newFolder("src", "main", "scala")
