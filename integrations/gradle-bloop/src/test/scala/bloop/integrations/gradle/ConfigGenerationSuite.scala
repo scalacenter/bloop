@@ -25,7 +25,7 @@ import scala.collection.JavaConverters._
  * To remote debug the ConfigGenerationSuite...
  * - change "gradlePluginBuildSettings" "Keys.fork in Test" in BuildPlugin.scala to "false"
  * - scala-library-2.12.8.jar disappears from classpath when fork=false.  Add manually for now to getClasspath output
- * - add ".withDebug(true)" to the GradleRunner in the particular test to debug
+ * - add ".withDebug(true)" to the GradleRunner in the particular test to debug and ".forwardOutput()" to see println
  * - run tests under gradleBloop212 project
  */
 
@@ -45,6 +45,210 @@ abstract class ConfigGenerationSuite {
   // folder to put test build scripts and java/scala source files
   private val testProjectDir_ = new TemporaryFolder()
   @Rule def testProjectDir: TemporaryFolder = testProjectDir_
+
+  @Test def worksWithSourcesSetSourceNotEqualToResources(): Unit = {
+    val buildFile = testProjectDir.newFile("build.gradle")
+    testProjectDir.newFolder("src", "main", "scala")
+    writeBuildScript(
+      buildFile,
+      s"""
+         |plugins {
+         |  id 'bloop'
+         |}
+         |
+         |apply plugin: 'scala'
+         |apply plugin: 'bloop'
+         |
+         |repositories {
+         |  mavenCentral()
+         |}
+         |
+         |sourceSets.main {
+         |  java {
+         |    srcDirs = ['src/main/java']
+         |  }
+         |  scala {
+         |    srcDirs = ['src/main/scala']
+         |  }
+         |  resources {
+         |    srcDirs = ['src/main/resources']
+         |  }
+         |}
+         |
+         |dependencies {
+         |  compile group: 'org.scala-lang', name: 'scala-library', version: '2.12.8'
+         |}
+         |
+         |
+      """.stripMargin
+    )
+
+    createHelloWorldScalaSource(testProjectDir.getRoot)
+
+    GradleRunner
+      .create()
+      .withGradleVersion(gradleVersion)
+      .withProjectDir(testProjectDir.getRoot)
+      .withPluginClasspath(getClasspath)
+      .withArguments("bloopInstall", "-Si")
+      .build()
+
+    val projectName = testProjectDir.getRoot.getName
+    val bloopFile = new File(new File(testProjectDir.getRoot, ".bloop"), projectName + ".json")
+
+    val resultConfig = readValidBloopConfig(bloopFile)
+
+    assert(hasPathEntryName("src/main/java", resultConfig.project.sources))
+    assert(hasPathEntryName("src/main/scala", resultConfig.project.sources))
+    assert(!hasPathEntryName("src/main/resources", resultConfig.project.sources))
+    assert(resultConfig.project.sources.size == 2)
+    assert(resultConfig.project.resources.isDefined)
+    assert(hasPathEntryName("src/main/resources", resultConfig.project.resources.get))
+    assert(resultConfig.project.resources.get.size == 1)
+  }
+
+  @Test def worksWithSourcesSetSourceEqualToResources(): Unit = {
+    val buildFile = testProjectDir.newFile("build.gradle")
+    testProjectDir.newFolder("src", "main", "scala")
+    writeBuildScript(
+      buildFile,
+      s"""
+         |plugins {
+         |  id 'bloop'
+         |}
+         |
+         |apply plugin: 'scala'
+         |apply plugin: 'bloop'
+         |
+         |repositories {
+         |  mavenCentral()
+         |}
+         |
+         |sourceSets.main {
+         |  java {
+         |    srcDirs = ['src/main/scala']
+         |  }
+         |  scala {
+         |    srcDirs = ['src/main/scala']
+         |  }
+         |  resources {
+         |    srcDirs = ['src/main/scala']
+         |  }
+         |}
+         |
+         |dependencies {
+         |  compile group: 'org.scala-lang', name: 'scala-library', version: '2.12.8'
+         |}
+         |
+         |
+      """.stripMargin
+    )
+
+    createHelloWorldScalaSource(testProjectDir.getRoot)
+
+    GradleRunner
+      .create()
+      .withGradleVersion(gradleVersion)
+      .withProjectDir(testProjectDir.getRoot)
+      .withPluginClasspath(getClasspath)
+      .withArguments("bloopInstall", "-Si")
+      .build()
+
+    val projectName = testProjectDir.getRoot.getName
+    val bloopFile = new File(new File(testProjectDir.getRoot, ".bloop"), projectName + ".json")
+
+    val resultConfig = readValidBloopConfig(bloopFile)
+    assert(hasPathEntryName("src/main/scala", resultConfig.project.sources))
+    assert(!hasPathEntryName("src/main/resources", resultConfig.project.sources))
+    assert(resultConfig.project.sources.size == 1)
+    assert(resultConfig.project.resources.isDefined)
+    assert(hasPathEntryName("src/main/scala", resultConfig.project.resources.get))
+    assert(resultConfig.project.resources.get.size == 1)
+  }
+
+  @Test def worksWithJavaCompilerAnnotationProcessor(): Unit = {
+    val buildFile = testProjectDir.newFile("build.gradle")
+    testProjectDir.newFolder("src", "main", "scala")
+    writeBuildScript(
+      buildFile,
+      """
+        |plugins {
+        |  id 'bloop'
+        |}
+        |
+        |apply plugin: 'scala'
+        |apply plugin: 'bloop'
+        |
+        |repositories {
+        |  mavenCentral()
+        |}
+        |
+        |dependencies {
+        |  compile group: 'org.scala-lang', name: 'scala-library', version: '2.12.8'
+        |  annotationProcessor "org.immutables:value:2.8.2"
+        |}
+        |
+        """.stripMargin
+    )
+
+    val annotatedSource =
+      """
+        |import java.util.List;
+        |import java.util.Set;
+        |import org.immutables.value.Value;
+
+        |@Value.Immutable
+        |public abstract class FoobarValue {
+        |  public abstract int foo();
+        |  public abstract String bar();
+        |  public abstract List<Integer> buz();
+        |  public abstract Set<Long> crux();
+        |}
+      """
+    val annotatedSourceUsage =
+      """
+        |import java.util.List;
+
+        |public class FoobarValueMain {
+        |  public static void main(String... args) {
+        |    FoobarValue value = ImmutableFoobarValue.builder()
+        |        .foo(2)
+        |        .bar("Bar")
+        |        .addBuz(1, 3, 4)
+        |        .build(); // FoobarValue{foo=2, bar=Bar, buz=[1, 3, 4], crux={}}
+
+        |    int foo = value.foo(); // 2
+
+        |    List<Integer> buz = value.buz(); // ImmutableList.of(1, 3, 4)
+        |  }
+        |}
+      """
+
+    createSource(testProjectDir.getRoot, annotatedSource, "main", "java")
+    createSource(testProjectDir.getRoot, annotatedSourceUsage, "main", "java")
+
+    GradleRunner
+      .create()
+      .withGradleVersion(gradleVersion)
+      .withProjectDir(testProjectDir.getRoot)
+      .withPluginClasspath(getClasspath)
+      .withArguments("bloopInstall", "-Si")
+      .build()
+
+    val projectName = testProjectDir.getRoot.getName
+    val bloopFile = new File(new File(testProjectDir.getRoot, ".bloop"), projectName + ".json")
+
+    val resultConfig = readValidBloopConfig(bloopFile)
+
+    assert(resultConfig.project.resolution.nonEmpty)
+    assert(!hasCompileClasspathEntryName(resultConfig, "org.immutables"))
+    assert(!hasRuntimeClasspathEntryName(resultConfig, "org.immutables"))
+    assert(resultConfig.project.java.isDefined)
+    val processorPath =
+      resultConfig.project.java.get.options.dropWhile(_ != "-processorpath").drop(1)
+    assert(processorPath.nonEmpty)
+    assert(processorPath.head.contains("value-2.8.2.jar"))
+  }
 
   @Test def pluginCanBeApplied(): Unit = {
     val buildFile = testProjectDir.newFile("build.gradle")
@@ -228,7 +432,53 @@ abstract class ConfigGenerationSuite {
     assertAllConfigsMatchJarNames(List(configFile), List(libraryName))
   }
 
-  @Test def worksWithInputVariables(): Unit = {
+  @Test def failsOnMissingScalaLibrary(): Unit = {
+
+    val buildFile = testProjectDir.newFile("build.gradle")
+    testProjectDir.newFolder("src", "main", "scala")
+    writeBuildScript(
+      buildFile,
+      """
+        |plugins {
+        |  id 'bloop'
+        |}
+        |
+        |apply plugin: 'scala'
+        |apply plugin: 'bloop'
+        |
+        |bloop {
+        |  stdLibName = "testLibName"
+        |}
+        |
+        |repositories {
+        |  mavenCentral()
+        |}
+        |
+        |dependencies {
+        |  compile 'org.scala-lang:scala-library:2.12.8'
+        |}
+      """.stripMargin
+    )
+
+    createHelloWorldScalaSource(testProjectDir.getRoot)
+
+    GradleRunner
+      .create()
+      .withGradleVersion(gradleVersion)
+      .withProjectDir(testProjectDir.getRoot)
+      .withPluginClasspath(getClasspath)
+      .withArguments("bloopInstall", "-Si")
+      .build()
+
+    val projectName = testProjectDir.getRoot.getName
+    val bloopDir = new File(testProjectDir.getRoot, ".bloop")
+    val projectFile = new File(bloopDir, s"${projectName}.json")
+
+    // no Scala library should be found because it's checking against "testLibName" so don't create the project
+    assertFalse(projectFile.exists)
+  }
+
+  @Test def worksWithNoSourcesJavaDocs(): Unit = {
 
     val buildFile = testProjectDir.newFile("build.gradle")
     testProjectDir.newFolder("src", "main", "scala")
@@ -244,7 +494,6 @@ abstract class ConfigGenerationSuite {
         |
         |bloop {
         |  targetDir      = file("testDir")
-        |  stdLibName     = "testLibName"
         |  includeSources = false
         |  includeJavadoc = false
         |}
@@ -273,18 +522,92 @@ abstract class ConfigGenerationSuite {
     val bloop = new File(bloopDir, s"${projectName}.json")
 
     val config = readValidBloopConfig(bloop)
-    // no Scala library should be found because it's checking against "testLibName"
-    assert(config.project.`scala`.isEmpty)
-    // no source or JavaDoc artifacts should exist
+    // source and JavaDoc artifacts should not exist
     assert(config.project.resolution.nonEmpty)
-    assert(
-      !config.project.resolution.exists(
+    assertFalse(
+      config.project.resolution.exists(
         res =>
           res.modules
-            .exists(conf => conf.artifacts.exists(artifact => artifact.classifier.nonEmpty))
+            .exists(
+              conf => conf.artifacts.exists(artifact => artifact.classifier.contains("javadoc"))
+            )
       )
     )
-    assertNoConfigsHaveAnyJars(List(config), List(s"$projectName", s"$projectName-test"))
+    assertFalse(
+      config.project.resolution.exists(
+        res =>
+          res.modules
+            .exists(
+              conf => conf.artifacts.exists(artifact => artifact.classifier.contains("sources"))
+            )
+      )
+    )
+  }
+
+  @Test def worksWithSourcesJavaDocs(): Unit = {
+
+    val buildFile = testProjectDir.newFile("build.gradle")
+    testProjectDir.newFolder("src", "main", "scala")
+    writeBuildScript(
+      buildFile,
+      """
+        |plugins {
+        |  id 'bloop'
+        |}
+        |
+        |apply plugin: 'scala'
+        |apply plugin: 'bloop'
+        |
+        |bloop {
+        |  targetDir      = file("testDir")
+        |  includeSources = true
+        |  includeJavadoc = true
+        |}
+        |
+        |repositories {
+        |  mavenCentral()
+        |}
+        |
+        |dependencies {
+        |  compile 'org.scala-lang:scala-library:2.12.8'
+        |}
+      """.stripMargin
+    )
+
+    GradleRunner
+      .create()
+      .withGradleVersion(gradleVersion)
+      .withProjectDir(testProjectDir.getRoot)
+      .withPluginClasspath(getClasspath)
+      .withArguments("bloopInstall", "-Si")
+      .build()
+
+    val projectName = testProjectDir.getRoot.getName
+    // non-".bloop" dir
+    val bloopDir = new File(testProjectDir.getRoot, "testDir")
+    val bloop = new File(bloopDir, s"${projectName}.json")
+
+    val config = readValidBloopConfig(bloop)
+    // source and JavaDoc artifacts should exist
+    assert(config.project.resolution.nonEmpty)
+    assert(
+      config.project.resolution.exists(
+        res =>
+          res.modules
+            .exists(
+              conf => conf.artifacts.exists(artifact => artifact.classifier.contains("javadoc"))
+            )
+      )
+    )
+    assert(
+      config.project.resolution.exists(
+        res =>
+          res.modules
+            .exists(
+              conf => conf.artifacts.exists(artifact => artifact.classifier.contains("sources"))
+            )
+      )
+    )
   }
 
   @Test def worksWithTransientProjectDependencies(): Unit = {
@@ -2536,20 +2859,21 @@ abstract class ConfigGenerationSuite {
     new ClassGraph().getClasspathFiles()
   }
 
-  private def hasClasspathEntryName(entryName: String, classpath: List[Path]): Boolean = {
+  private def hasPathEntryName(entryName: String, paths: List[Path]): Boolean = {
     val pathValidEntryName = entryName.replace('/', File.separatorChar)
-    classpath.exists(_.toString.contains(pathValidEntryName))
+    val pathAsStr = paths.map(_.toString)
+    pathAsStr.exists(_.contains(pathValidEntryName))
   }
 
   private def hasRuntimeClasspathEntryName(config: Config.File, entryName: String): Boolean = {
     config.project.platform.exists {
-      case platform: Jvm => platform.classpath.exists(hasClasspathEntryName(entryName, _))
+      case platform: Jvm => platform.classpath.exists(hasPathEntryName(entryName, _))
       case _ => false
     }
   }
 
   private def hasCompileClasspathEntryName(config: Config.File, entryName: String): Boolean = {
-    hasClasspathEntryName(entryName, config.project.classpath)
+    hasPathEntryName(entryName, config.project.classpath)
   }
 
   private def hasBothClasspathsEntryName(config: Config.File, entryName: String): Boolean = {

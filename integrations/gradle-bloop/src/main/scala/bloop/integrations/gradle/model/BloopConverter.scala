@@ -63,7 +63,7 @@ class BloopConverter(parameters: BloopParameters) {
   ): Try[Config.File] = {
 
     val resources = getResources(sourceSet)
-    val sources = getSources(sourceSet).filterNot(resources.contains)
+    val sources = getSources(sourceSet)
 
     val isTestSourceSet = sourceSet.getName == SourceSet.TEST_SOURCE_SET_NAME
 
@@ -248,7 +248,7 @@ class BloopConverter(parameters: BloopParameters) {
           dottyVersion,
           dottyJars
         )
-        resolution = Config.Resolution(modules)
+
         bloopProject = Config.Project(
           name = projectName,
           directory = project.getProjectDir.toPath,
@@ -266,8 +266,8 @@ class BloopConverter(parameters: BloopParameters) {
           sbt = None,
           test = getTestConfig(testTask),
           platform = getPlatform(project, sourceSet, testTask, runtimeClasspath),
-          resolution = Some(resolution),
-          tags = Some(tags)
+          resolution = if (modules.isEmpty) None else Some(Config.Resolution(modules)),
+          tags = if (tags.isEmpty) None else Some(tags)
         )
       } yield Config.File(Config.File.LatestVersion, bloopProject)
     }
@@ -516,7 +516,7 @@ class BloopConverter(parameters: BloopParameters) {
     getClassesDir(targetDir, getProjectName(project, sourceSet))
 
   private def getSources(sourceSet: SourceSet): List[Path] =
-    sourceSet.getAllSource.getSrcDirs.asScala.map(_.toPath).toList
+    sourceSet.getAllJava.getSrcDirs.asScala.map(_.toPath).toList
 
   private def getResources(sourceSet: SourceSet): List[Path] =
     sourceSet.getResources.getSrcDirs.asScala.map(_.toPath).toList
@@ -684,6 +684,8 @@ class BloopConverter(parameters: BloopParameters) {
     specs.setCompileOptions(opts)
     specs.setSourceCompatibility(compileTask.getSourceCompatibility)
     specs.setTargetCompatibility(compileTask.getTargetCompatibility)
+    if (opts.getAnnotationProcessorPath != null)
+      specs.setAnnotationProcessorPath(opts.getAnnotationProcessorPath.asScala.toList.asJava);
 
     val builder = new JavaCompilerArgumentsBuilder(specs)
       .includeMainOptions(true)
