@@ -63,7 +63,7 @@ class BloopConverter(parameters: BloopParameters) {
   ): Try[Config.File] = {
 
     val resources = getResources(sourceSet)
-    val sources = getSources(sourceSet).filterNot(resources.contains)
+    val sources = getSources(sourceSet)
 
     val isTestSourceSet = sourceSet.getName == SourceSet.TEST_SOURCE_SET_NAME
 
@@ -516,7 +516,7 @@ class BloopConverter(parameters: BloopParameters) {
     getClassesDir(targetDir, getProjectName(project, sourceSet))
 
   private def getSources(sourceSet: SourceSet): List[Path] =
-    sourceSet.getAllSource.getSrcDirs.asScala.map(_.toPath).toList
+    sourceSet.getAllJava.getSrcDirs.asScala.map(_.toPath).toList
 
   private def getResources(sourceSet: SourceSet): List[Path] =
     sourceSet.getResources.getSrcDirs.asScala.map(_.toPath).toList

@@ -46,6 +46,126 @@ abstract class ConfigGenerationSuite {
   private val testProjectDir_ = new TemporaryFolder()
   @Rule def testProjectDir: TemporaryFolder = testProjectDir_
 
+  @Test def worksWithSourcesSetSourceNotEqualToResources(): Unit = {
+    val buildFile = testProjectDir.newFile("build.gradle")
+    testProjectDir.newFolder("src", "main", "scala")
+    writeBuildScript(
+      buildFile,
+      s"""
+         |plugins {
+         |  id 'bloop'
+         |}
+         |
+         |apply plugin: 'scala'
+         |apply plugin: 'bloop'
+         |
+         |repositories {
+         |  mavenCentral()
+         |}
+         |
+         |sourceSets.main {
+         |  java {
+         |    srcDirs = ['src/main/java']
+         |  }
+         |  scala {
+         |    srcDirs = ['src/main/scala']
+         |  }
+         |  resources {
+         |    srcDirs = ['src/main/resources']
+         |  }
+         |}
+         |
+         |dependencies {
+         |  compile group: 'org.scala-lang', name: 'scala-library', version: '2.12.8'
+         |}
+         |
+         |
+      """.stripMargin
+    )
+
+    createHelloWorldScalaSource(testProjectDir.getRoot)
+
+    GradleRunner
+      .create()
+      .withGradleVersion(gradleVersion)
+      .withProjectDir(testProjectDir.getRoot)
+      .withPluginClasspath(getClasspath)
+      .withArguments("bloopInstall", "-Si")
+      .build()
+
+    val projectName = testProjectDir.getRoot.getName
+    val bloopFile = new File(new File(testProjectDir.getRoot, ".bloop"), projectName + ".json")
+
+    val resultConfig = readValidBloopConfig(bloopFile)
+
+    assert(hasPathEntryName("src/main/java", resultConfig.project.sources))
+    assert(hasPathEntryName("src/main/scala", resultConfig.project.sources))
+    assert(!hasPathEntryName("src/main/resources", resultConfig.project.sources))
+    assert(resultConfig.project.sources.size == 2)
+    assert(resultConfig.project.resources.isDefined)
+    assert(hasPathEntryName("src/main/resources", resultConfig.project.resources.get))
+    assert(resultConfig.project.resources.get.size == 1)
+  }
+
+  @Test def worksWithSourcesSetSourceEqualToResources(): Unit = {
+    val buildFile = testProjectDir.newFile("build.gradle")
+    testProjectDir.newFolder("src", "main", "scala")
+    writeBuildScript(
+      buildFile,
+      s"""
+         |plugins {
+         |  id 'bloop'
+         |}
+         |
+         |apply plugin: 'scala'
+         |apply plugin: 'bloop'
+         |
+         |repositories {
+         |  mavenCentral()
+         |}
+         |
+         |sourceSets.main {
+         |  java {
+         |    srcDirs = ['src/main/scala']
+         |  }
+         |  scala {
+         |    srcDirs = ['src/main/scala']
+         |  }
+         |  resources {
+         |    srcDirs = ['src/main/scala']
+         |  }
+         |}
+         |
+         |dependencies {
+         |  compile group: 'org.scala-lang', name: 'scala-library', version: '2.12.8'
+         |}
+         |
+         |
+      """.stripMargin
+    )
+
+    createHelloWorldScalaSource(testProjectDir.getRoot)
+
+    GradleRunner
+      .create()
+      .withGradleVersion(gradleVersion)
+      .withProjectDir(testProjectDir.getRoot)
+      .withPluginClasspath(getClasspath)
+      .withArguments("bloopInstall", "-Si")
+      .build()
+
+    val projectName = testProjectDir.getRoot.getName
+    val bloopFile = new File(new File(testProjectDir.getRoot, ".bloop"), projectName + ".json")
+
+    val resultConfig = readValidBloopConfig(bloopFile)
+    assert(hasPathEntryName("src/main/scala", resultConfig.project.sources))
+    assert(!hasPathEntryName("src/main/resources", resultConfig.project.sources))
+    assert(resultConfig.project.sources.size == 1)
+    assert(resultConfig.project.resources.isDefined)
+    assert(hasPathEntryName("src/main/scala", resultConfig.project.resources.get))
+    assert(resultConfig.project.resources.get.size == 1)
+  }
+
   @Test def worksWithJavaCompilerAnnotationProcessor(): Unit = {
     val buildFile = testProjectDir.newFile("build.gradle")
     testProjectDir.newFolder("src", "main", "scala")
@@ -2625,15 +2745,21 @@ abstract class ConfigGenerationSuite {
     classpath.exists(_.toString.contains(pathValidEntryName))
   }
 
+  private def hasPathEntryName(entryName: String, paths: List[Path]): Boolean = {
+    val pathValidEntryName = entryName.replace('/', File.separatorChar)
+    val pathAsStr = paths.map(_.toString)
+    pathAsStr.exists(_.contains(pathValidEntryName))
+  }
+
   private def hasRuntimeClasspathEntryName(config: Config.File, entryName: String): Boolean = {
     config.project.platform.exists {
-      case platform: Jvm => platform.classpath.exists(hasClasspathEntryName(entryName, _))
+      case platform: Jvm => platform.classpath.exists(hasPathEntryName(entryName, _))
       case _ => false
     }
   }
 
   private def hasCompileClasspathEntryName(config: Config.File, entryName: String): Boolean = {
-    hasClasspathEntryName(entryName, config.project.classpath)
+    hasPathEntryName(entryName, config.project.classpath)
   }
 
   private def hasBothClasspathsEntryName(config: Config.File, entryName: String): Boolean = {
