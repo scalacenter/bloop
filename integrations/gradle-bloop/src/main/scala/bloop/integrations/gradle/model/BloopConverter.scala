@@ -248,7 +248,7 @@ class BloopConverter(parameters: BloopParameters) {
           dottyVersion,
           dottyJars
         )
-        resolution = Config.Resolution(modules)
+
         bloopProject = Config.Project(
           name = projectName,
           directory = project.getProjectDir.toPath,
@@ -266,8 +266,8 @@ class BloopConverter(parameters: BloopParameters) {
           sbt = None,
           test = getTestConfig(testTask),
           platform = getPlatform(project, sourceSet, testTask, runtimeClasspath),
-          resolution = Some(resolution),
-          tags = Some(tags)
+          resolution = if (modules.isEmpty) None else Some(Config.Resolution(modules)),
+          tags = if (tags.isEmpty) None else Some(tags)
         )
       } yield Config.File(Config.File.LatestVersion, bloopProject)
     }
