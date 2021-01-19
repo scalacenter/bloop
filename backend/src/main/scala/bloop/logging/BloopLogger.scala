@@ -56,13 +56,13 @@ final class BloopLogger(
   }
 
   private def print(msg: String, fn: String => Unit): Unit = {
-    val lines = msg.split("\\r?\\n", -1)
+    val lines = bloop.io.OsEnv.lineSplit(msg)
     val printFn = if (colorOutput) fn else (str: String) => fn(BloopLogger.stripColors(str))
     lines.foreach(printFn)
   }
 
   private def printInfo(line: String): Unit = {
-    out.println(line)
+    out.print(line + bloop.io.OsEnv.EOL)
   }
 
   private def colored(color: String, msg: String): String = {
@@ -157,5 +157,4 @@ object BloopLogger {
   private def stripColors(str: String): String = {
     colorsRegex.replaceAllIn(str, "")
   }
-
 }
