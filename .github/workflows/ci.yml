@@ -24,6 +24,12 @@ jobs:
         with:
           submodules: true
           fetch-depth: 0
+      - name: Checkout scala-debug-adapter
+        uses: actions/checkout@v2.3.4
+        with:
+          repository: adpi2/scala-debug-adapter
+          ref: bloop-integration
+          path: scala-debug-adapter
       - uses: olafurpg/setup-scala@v10
         with:
           java-version: ${{ matrix.jdk }}
@@ -36,6 +42,11 @@ jobs:
           yarn --help
           java -version
           [[ $HYDRA_LICENSE == floating-key=* ]] && mkdir -p $HOME/.triplequote && echo "$HYDRA_LICENSE" > "$HOME/.triplequote/hydra.license" || echo "Hydra license file was not created"
+        shell: bash
+      - name: Publish scala-debug-adapter locally
+        run: |
+          cd scala-debug-adapter
+          sbt publishLocal
         shell: bash
       - name: Check formatting
         if: matrix.os != 'windows-latest'
