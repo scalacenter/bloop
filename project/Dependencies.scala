@@ -113,6 +113,7 @@ object Dependencies {
   val circeCore = "io.circe" %% "circe-core" % circeVersion
   val circeGeneric = "io.circe" %% "circe-generic" % circeVersion
   val nuprocess = "com.zaxxer" % "nuprocess" % nuprocessVersion
+  val scalaDebugAdapter = "ch.epfl.scala" %% "scala-debug-adapter" % "1.0.0-SNAPSHOT"
 
   val scalaNativeTools03 = "org.scala-native" %% "tools" % scalaNative03Version % Provided
   val scalaNativeTools04 = "org.scala-native" %% "tools" % scalaNative04Version % Provided

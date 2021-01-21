@@ -8,15 +8,16 @@ import bloop.logging.RecordingLogger
 import bloop.util.{TestProject, TestUtil}
 import ch.epfl.scala.bsp.ScalaMainClass
 import monix.eval.Task
-import monix.execution.Cancelable
+import monix.execution.Ack
+
 import scala.collection.mutable
-import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.concurrent.{Promise, TimeoutException}
 import bloop.engine.ExecutionContext
-
 import com.microsoft.java.debug.core.protocol.Requests.SetBreakpointArguments
 import com.microsoft.java.debug.core.protocol.Types
 import com.microsoft.java.debug.core.protocol.Types.SourceBreakpoint
+
 import java.nio.file.Path
 import bloop.logging.Logger
 import bloop.logging.NoopLogger
@@ -24,13 +25,14 @@ import monix.reactive.Observer
 import bloop.reporter.ReporterAction
 import bloop.logging.LoggerAction
 import bloop.logging.LoggerAction.LogInfoMessage
-import monix.execution.Ack
 import bloop.logging.ObservedLogger
+
 import scala.concurrent.Future
 import bloop.data.Platform
 import bloop.engine.tasks.Tasks
 import bloop.engine.tasks.RunMode
 import bloop.engine.State
+import dap.{CancelableFuture, DebugServer, DebugSessionCallbacks, DebuggeeRunner}
 
 object DebugServerSpec extends DebugBspBaseSuite {
   private val ServerNotListening = new IllegalStateException("Server is not accepting connections")
@@ -195,19 +197,19 @@ object DebugServerSpec extends DebugBspBaseSuite {
   test("supports scala and java breakpoints") {
     TestUtil.withinWorkspace { workspace =>
       object Sources {
-        val javaClass =
+        val javaClass: String =
           """|/HelloJava.java
              |public class HelloJava {
              |  public HelloJava() {
              |    System.out.println("Breakpoint in hello java class constructor");
              |  }
-             |  
+             |
              |  public void greet() {
              |    System.out.println("Breakpoint in hello java greet method");
              |  }
              |}
              |""".stripMargin
-        val scalaMain =
+        val scalaMain: String =
           """|/Main.scala
              |object Main {
              |  def main(args: Array[String]): Unit = {
@@ -468,7 +470,7 @@ object DebugServerSpec extends DebugBspBaseSuite {
         _ <- client.initialize()
         cause <- client.launch().failed
       } yield {
-        assertContains(cause.getMessage, "Task timed-out")
+        assertContains(cause.getMessage, "Operation timed out")
       }
 
       TestUtil.await(FiniteDuration(20, SECONDS), ExecutionContext.ioScheduler)(test)
@@ -541,7 +543,7 @@ object DebugServerSpec extends DebugBspBaseSuite {
   }
 
   test("propagates launch failure cause") {
-    val task = Task.now(ExitStatus.RunError)
+    val task = Task.raiseError(new Exception(ExitStatus.RunError.name))
 
     startDebugServer(task) { server =>
       val test = for {
@@ -616,7 +618,10 @@ object DebugServerSpec extends DebugBspBaseSuite {
         remoteProcess.runAsync(defaultScheduler)
 
         val attachRemoteProcessRunner =
-          DebuggeeRunner.forAttachRemote(state.compile(project).toTestState.state)
+          BloopDebuggeeRunner.forAttachRemote(
+            state.compile(project).toTestState.state,
+            defaultScheduler
+          )
 
         startDebugServer(attachRemoteProcessRunner) { server =>
           val test = for {
@@ -658,9 +663,9 @@ object DebugServerSpec extends DebugBspBaseSuite {
           action match {
             case LogInfoMessage(msg) =>
               println(msg)
-              if (msg.startsWith(DebugSessionLogger.JDINotificationPrefix)) {
+              if (msg.startsWith(DebuggeeLogger.JDINotificationPrefix)) {
                 val port =
-                  Integer.parseInt(msg.drop(DebugSessionLogger.JDINotificationPrefix.length))
+                  Integer.parseInt(msg.drop(DebuggeeLogger.JDINotificationPrefix.length))
                 listener(port)
               }
               Ack.Continue
@@ -701,10 +706,11 @@ object DebugServerSpec extends DebugBspBaseSuite {
       environmentVariables: List[String] = Nil
   ): DebuggeeRunner = {
     val testState = state.compile(project).toTestState
-    DebuggeeRunner.forMainClass(
+    BloopDebuggeeRunner.forMainClass(
       Seq(testState.getProjectFor(project)),
       new ScalaMainClass("Main", arguments, jvmOptions, environmentVariables),
-      testState.state
+      testState.state,
+      defaultScheduler
     ) match {
       case Right(value) => value
       case Left(error) => throw new Exception(error)
@@ -713,8 +719,12 @@ object DebugServerSpec extends DebugBspBaseSuite {
 
   def startDebugServer(task: Task[ExitStatus])(f: TestServer => Any): Unit = {
     val runner = new DebuggeeRunner {
-      def logger: Logger = NoopLogger
-      def run(logger: DebugSessionLogger): Task[ExitStatus] = task
+      def name: String = "MockRunner"
+      def logger: dap.Logger = new DebugServerLogger(NoopLogger)
+      def run(callbacks: DebugSessionCallbacks): CancelableFuture[Unit] = {
+        DapCancellableFuture.runAsync(task.map(_ => ()), defaultScheduler)
+      }
+
       def classFilesMappedTo(
           origin: Path,
           lines: Array[Int],
@@ -722,12 +732,27 @@ object DebugServerSpec extends DebugBspBaseSuite {
       ): List[Path] = Nil
     }
 
-    startDebugServer(runner)(f)
+    startDebugServer(
+      runner,
+      // the runner is a mock so no need to wait for the jvm to startup
+      // make the test faster
+      Duration.Zero
+    )(f)
   }
 
-  def startDebugServer(runner: DebuggeeRunner)(f: TestServer => Any): Unit = {
+  def startDebugServer(
+      runner: DebuggeeRunner,
+      gracePeriod: Duration = Duration(5, SECONDS)
+  )(f: TestServer => Any): Unit = {
     val logger = new RecordingLogger(ansiCodesSupported = false)
-    val server = DebugServer.start(runner, logger, defaultScheduler)
+
+    val server = DebugServer(
+      runner,
+      new DebugServerLogger(logger),
+      autoCloseSession = true,
+      gracePeriod
+    )(defaultScheduler)
+    Task.fromFuture(server.start()).runAsync(defaultScheduler)
 
     val testServer = new TestServer(server)
     val test = Task(f(testServer))
@@ -738,14 +763,11 @@ object DebugServerSpec extends DebugBspBaseSuite {
     ()
   }
 
-  private final class TestServer(val server: StartedDebugServer)
-      extends Cancelable
-      with AutoCloseable {
-    private val task = server.listen.runAsync(defaultScheduler)
+  private final class TestServer(val server: DebugServer) extends AutoCloseable {
     private val clients = mutable.Set.empty[DebugAdapterConnection]
 
-    override def cancel(): Unit = {
-      task.cancel()
+    def cancel(): Unit = {
+      server.close()
     }
 
     // terminates both server and its clients
@@ -755,16 +777,10 @@ object DebugServerSpec extends DebugBspBaseSuite {
       TestUtil.await(10, SECONDS)(Task.sequence(allClientsClosed)); ()
     }
 
-    def startConnection: Task[DebugAdapterConnection] = {
-      server.address.flatMap {
-        case Some(uri) =>
-          val connection =
-            DebugAdapterConnection.connectTo(uri)(defaultScheduler)
-          clients += connection
-          Task(connection)
-        case None =>
-          throw ServerNotListening
-      }
+    def startConnection: Task[DebugAdapterConnection] = Task {
+      val connection = DebugAdapterConnection.connectTo(server.uri)(defaultScheduler)
+      clients += connection
+      connection
     }
   }
 

@@ -1,7 +1,7 @@
 package bloop
 
 import bloop.cli.ExitStatus
-import bloop.dap.DebugSessionLogger
+import bloop.dap.DebuggeeLogger
 import bloop.data.JdkConfig
 import bloop.exec.{Forker, JvmProcessForker}
 import bloop.io.AbsolutePath
@@ -105,7 +105,7 @@ class ForkerSpec {
 
   @Test
   def detectJDINotification(): Unit = {
-    val line = s"${DebugSessionLogger.JDINotificationPrefix} 123\n"
+    val line = s"${DebuggeeLogger.JDINotificationPrefix} 123\n"
     val buffer = ByteBuffer.wrap(line.getBytes(StandardCharsets.UTF_8))
     val remaining = new mutable.StringBuilder()
     val lines = linesFrom(buffer, remaining)
