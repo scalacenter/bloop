@@ -6,7 +6,7 @@ import java.nio.charset.StandardCharsets
 import java.util.concurrent.TimeUnit
 
 import bloop.cli.{CommonOptions, ExitStatus}
-import bloop.dap.DebugSessionLogger
+import bloop.dap.DebuggeeLogger
 import bloop.engine.ExecutionContext
 import bloop.io.AbsolutePath
 import bloop.logging.{DebugFilter, Logger}
@@ -238,7 +238,7 @@ object Forker {
   }
 
   private def containsFullJdiNotification(msg: StringBuilder): Boolean = {
-    val jdiIdx = msg.indexOf(DebugSessionLogger.JDINotificationPrefix)
+    val jdiIdx = msg.indexOf(DebuggeeLogger.JDINotificationPrefix)
     val jdiNewLine = msg.indexOf("\n", jdiIdx)
     jdiIdx >= 0 && jdiNewLine >= 0
   }
