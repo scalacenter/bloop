@@ -192,7 +192,6 @@ object BuildKeys {
 
   import sbt.util.Logger.{Null => NullLogger}
   def bloopInfoKeys(
-      nativeBridge03: Reference,
       nativeBridge04: Reference,
       jsBridge06: Reference,
       jsBridge1: Reference
@@ -211,13 +210,11 @@ object BuildKeys {
     // Add only the artifact name for 0.6 bridge because we replace it
     val jsBridge06Key = fromIvyModule("jsBridge06", Keys.ivyModule in jsBridge06)
     val jsBridge10Key = fromIvyModule("jsBridge1", Keys.ivyModule in jsBridge1)
-    val nativeBridge03Key = fromIvyModule("nativeBridge03", Keys.ivyModule in nativeBridge03)
     val nativeBridge04Key = fromIvyModule("nativeBridge04", Keys.ivyModule in nativeBridge04)
     val bspKey = BuildInfoKey.constant("bspVersion" -> Dependencies.bspVersion)
     val extra = List(
       zincKey,
       developersKey,
-      nativeBridge03Key,
       nativeBridge04Key,
       jsBridge06Key,
       jsBridge10Key,

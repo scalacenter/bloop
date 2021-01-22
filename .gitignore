@@ -35,6 +35,3 @@ package-lock.json
 .metals/
 *.lock
 benchmark-bridge/corpus/
-
-# Scala Native
-lowered.hnir

@@ -6,10 +6,13 @@ import java.nio.file.{Files, Path}
 
 import bloop.data.Project
 
-import scala.scalanative.build.{Build, Config, Discover, GC, Mode, Logger => NativeLogger}
+import scala.scalanative.build
+import scala.scalanative.util.Scope
 
 object NativeBridge {
   private implicit val ctx: DebugFilter = DebugFilter.Link
+  private val sharedScope = Scope.unsafe()
+
   def nativeLink(
       config0: NativeConfig,
       project: Project,
@@ -22,35 +25,40 @@ object NativeBridge {
     if (workdir.isDirectory) Paths.delete(workdir)
     Files.createDirectories(workdir.underlying)
 
-    val nativeLogger = NativeLogger(logger.debug _, logger.info _, logger.warn _, logger.error _)
+    val nativeLogger =
+      build.Logger(logger.trace _, logger.debug _, logger.info _, logger.warn _, logger.error _)
     val config = setUpNativeConfig(project, classpath, config0)
     val nativeMode = config.mode match {
-      case LinkerMode.Debug => Mode.debug
-      case LinkerMode.Release => Mode.release
+      case LinkerMode.Debug => build.Mode.debug
+      case LinkerMode.Release => build.Mode.releaseFast
     }
     val nativeLTO = config.mode match {
-      case LinkerMode.Debug => "none"
-      case LinkerMode.Release => "thin"
+      case LinkerMode.Debug => build.LTO.none
+      case LinkerMode.Release => build.LTO.thin
     }
 
     val nativeConfig =
-      Config.empty
-        .withGC(GC(config.gc))
-        .withMode(nativeMode)
-        .withLTO(nativeLTO)
-        .withClang(config.clang)
-        .withClangPP(config.clangpp)
-        .withLinkingOptions(config.options.linker)
-        .withCompileOptions(config.options.compiler)
-        .withTargetTriple(config.targetTriple)
-        .withNativelib(config.nativelib)
-        .withLinkStubs(config.linkStubs)
+      build.Config.empty
         .withMainClass(entry)
         .withClassPath(classpath)
         .withWorkdir(workdir.underlying)
         .withLogger(nativeLogger)
+        .withCompilerConfig(
+          build.NativeConfig.empty
+            .withClang(config.clang)
+            .withClangPP(config.clangpp)
+            .withCompileOptions(config.options.compiler)
+            .withLinkingOptions(config.options.linker)
+            .withGC(build.GC(config.gc))
+            .withMode(nativeMode)
+            .withLTO(nativeLTO)
+            .withLinkStubs(config.linkStubs)
+            .withCheck(config.check)
+            .withDump(config.dump)
+            .withTargetTriple(config.targetTriple)
+        )
 
-    Build.build(nativeConfig, target)
+    build.Build.build(nativeConfig, target)(sharedScope)
   }
 
   private[scalanative] def setUpNativeConfig(
@@ -60,40 +68,26 @@ object NativeBridge {
   ): NativeConfig = {
     val mode = config.mode
     val options = config.options
-    val gc = if (config.gc.isEmpty) GC.default.name else config.gc
-    val clang = if (config.clang.toString.isEmpty) Discover.clang() else config.clang
-    val clangpp = if (config.clangpp.toString.isEmpty) Discover.clangpp() else config.clangpp
-    val lopts = if (options.linker.isEmpty) Discover.linkingOptions() else options.linker
-    val copts = if (options.compiler.isEmpty) Discover.compileOptions() else options.compiler
+    val gc = if (config.gc.isEmpty) build.GC.default.name else config.gc
+    val clang = if (config.clang.toString.isEmpty) build.Discover.clang() else config.clang
+    val clangpp = if (config.clangpp.toString.isEmpty) build.Discover.clangpp() else config.clangpp
+    val lopts = if (options.linker.isEmpty) build.Discover.linkingOptions() else options.linker
+    val copts = if (options.compiler.isEmpty) build.Discover.compileOptions() else options.compiler
 
-    val targetTriple: String = {
-      if (config.targetTriple.nonEmpty) config.targetTriple
-      else {
-        val workdir = project.out.resolve("native").underlying
-        Discover.targetTriple(clang, workdir)
-      }
-    }
+    val targetTriple = config.targetTriple
 
-    val nativelib: Path = {
-      if (config.nativelib.toString.nonEmpty) config.nativelib
-      else {
-        Discover
-          .nativelib(classpath)
-          .getOrElse(sys.error("Fatal: nativelib is missing and could not be found."))
-      }
-    }
-
-    NativeConfig(
+    NativeConfig.apply(
       version = config.version,
       mode = mode,
       toolchain = Nil, // No worries, toolchain is on this project's classpath
-      nativelib = nativelib,
       gc = gc,
       targetTriple = targetTriple,
       clang = clang,
       clangpp = clangpp,
       options = options,
       linkStubs = config.linkStubs,
+      check = config.check,
+      dump = config.dump,
       output = config.output
     )
   }

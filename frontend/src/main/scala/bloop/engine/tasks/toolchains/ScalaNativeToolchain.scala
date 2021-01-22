@@ -67,7 +67,6 @@ object ScalaNativeToolchain extends ToolchainCompanion[ScalaNativeToolchain] {
 
   override def artifactNameFrom(version: String): String = {
     if (version.length == 3) sys.error("The full Scala Native version must be provided")
-    else if (version.startsWith("0.3")) BuildInfo.nativeBridge03
     else if (version.startsWith("0.4")) BuildInfo.nativeBridge04
     else sys.error(s"Expected compatible Scala Native version [0.3, 0.4], $version given")
   }

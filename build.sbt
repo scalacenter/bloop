@@ -281,7 +281,7 @@ lazy val frontend: Project = project
     mainClass in Compile in run := Some("bloop.Cli"),
     bloopMainClass in Compile in run := Some("bloop.Cli"),
     buildInfoPackage := "bloop.internal.build",
-    buildInfoKeys := bloopInfoKeys(nativeBridge03, nativeBridge04, jsBridge06, jsBridge1),
+    buildInfoKeys := bloopInfoKeys(nativeBridge04, jsBridge06, jsBridge1),
     javaOptions in run ++= jvmOptions,
     javaOptions in Test ++= jvmOptions,
     javaOptions in IntegrationTest ++= jvmOptions,
@@ -752,18 +752,6 @@ lazy val jsBridge1 = project
     )
   )
 
-lazy val nativeBridge03 = project
-  .dependsOn(frontend % Provided, frontend % "test->test")
-  .in(file("bridges") / "scala-native-0.3")
-  .disablePlugins(ScriptedPlugin)
-  .settings(testSettings)
-  .settings(
-    name := "bloop-native-bridge-0.3",
-    libraryDependencies += Dependencies.scalaNativeTools03,
-    javaOptions in Test ++= jvmOptions,
-    fork in Test := true
-  )
-
 lazy val nativeBridge04 = project
   .dependsOn(frontend % Provided, frontend % "test->test")
   .in(file("bridges") / "scala-native-0.4")
@@ -806,7 +794,6 @@ val allProjects = Seq(
   gradleBloop211,
   gradleBloop212,
   millBloop,
-  nativeBridge03,
   nativeBridge04,
   jsBridge06,
   jsBridge1,
@@ -849,7 +836,6 @@ val bloop = project
             gradleBloop211,
             gradleBloop212,
             millBloop,
-            nativeBridge03,
             nativeBridge04,
             jsBridge06,
             jsBridge1,
@@ -886,7 +872,6 @@ val bloop = project
             gradleBloop211,
             gradleBloop212,
             millBloop,
-            nativeBridge03,
             nativeBridge04,
             jsBridge06,
             jsBridge1,

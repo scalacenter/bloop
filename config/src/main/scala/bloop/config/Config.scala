@@ -178,19 +178,20 @@ object Config {
       version: String,
       mode: LinkerMode,
       gc: String,
-      targetTriple: String,
-      nativelib: Path,
+      targetTriple: Option[String],
       clang: Path,
       clangpp: Path,
       toolchain: List[Path],
       options: NativeOptions,
       linkStubs: Boolean,
+      check: Boolean,
+      dump: Boolean,
       output: Option[Path]
   ) extends PlatformConfig
 
   object NativeConfig {
     // FORMAT: OFF
-    val empty: NativeConfig = NativeConfig("", LinkerMode.Debug, "", "", emptyPath, emptyPath, emptyPath, Nil, NativeOptions.empty, false, None)
+    val empty: NativeConfig = NativeConfig("", LinkerMode.Debug, "", None, emptyPath, emptyPath, Nil, NativeOptions.empty, false, false, false, None)
     // FORMAT: ON
   }
 
