@@ -6,6 +6,10 @@ import java.nio.file.attribute.FileTime
 import java.nio.file.{Files, Path, Paths}
 import java.util.concurrent.TimeUnit
 
+import bloop.io.Environment.{
+  lineSeparator,
+  lineSplit
+} // System.lineSeparator unless set at JVM startup
 import bloop.{CompilerCache, ScalaInstance}
 import bloop.cli.Commands
 import bloop.config.Config
@@ -567,7 +571,7 @@ object TestUtil {
   case class ParsedFile(relativePath: RelativePath, contents: String)
   def parseFile(contents0: String): ParsedFile = {
     val contents = contents0.trim
-    contents.split(System.lineSeparator()) match {
+    lineSplit(contents) match {
       case Array() =>
         sys.error(
           s"""Expected parsed file format:
@@ -586,7 +590,7 @@ object TestUtil {
         if (!potentialPath.startsWith("/")) {
           sys.error("First line of contents file does not start with `/`")
         } else {
-          val contents = lines.tail.mkString(System.lineSeparator)
+          val contents = lines.tail.mkString(lineSeparator)
           val relPath = potentialPath.replace("/", File.separator).stripPrefix(File.separator)
           ParsedFile(RelativePath(relPath), contents)
         }

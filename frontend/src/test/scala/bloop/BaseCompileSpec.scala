@@ -2,6 +2,7 @@ package bloop
 
 import bloop.config.Config
 import bloop.io.{AbsolutePath, RelativePath, Paths => BloopPaths}
+import bloop.io.Environment.lineSplit // reliably split string to lines
 import bloop.logging.RecordingLogger
 import bloop.cli.{Commands, ExitStatus}
 import bloop.engine.{Feedback, Run, State, ExecutionContext}
@@ -1483,8 +1484,7 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
       val actionsOutput = new String(testOut.toByteArray(), StandardCharsets.UTF_8)
       def removeAsciiColorCodes(line: String): String = line.replaceAll("\u001B\\[[;\\d]*m", "")
 
-      val expected = actionsOutput
-        .split(System.lineSeparator())
+      val expected = lineSplit(actionsOutput)
         .filterNot(_.startsWith("Compiled"))
         .map(removeAsciiColorCodes)
         .map(msg => RecordingLogger.replaceTimingInfo(msg))

@@ -9,6 +9,7 @@ import java.nio.file.{FileSystems, Files, Path}
 import java.util.concurrent.ConcurrentHashMap
 import java.util.stream.Collectors
 
+import bloop.io.Environment.lineSeparator // System.lineSeparator unless set at JVM startup
 import bloop.io.ServerHandle
 import bloop.util.JavaRuntime
 import bloop.bsp.BloopBspDefinitions.BloopExtraBuildParams
@@ -530,7 +531,7 @@ final class BloopBspServices(
             case Success(state) => (state, Right(bsp.CleanCacheResult(None, cleaned = true)))
             case Failure(exception) =>
               val t = BloopLogger.prettyPrintException(exception)
-              val msg = s"Unexpected error when cleaning build targets!${System.lineSeparator}$t"
+              val msg = s"Unexpected error when cleaning build targets!${lineSeparator}$t"
               state -> Right(bsp.CleanCacheResult(Some(msg), cleaned = false))
           }
       }

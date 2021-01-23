@@ -38,3 +38,6 @@ benchmark-bridge/corpus/
 
 # Scala Native
 lowered.hnir
+
+# vim file copies
+*.sw[op]

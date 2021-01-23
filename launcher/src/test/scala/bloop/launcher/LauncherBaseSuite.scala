@@ -2,6 +2,7 @@ package bloop.launcher
 
 import bloop.io.Paths
 import bloop.io.AbsolutePath
+import bloop.io.Environment.{lineSeparator, LineSplitter} // reliable line endings
 import bloop.testing.BaseSuite
 import bloop.bloopgun.core.Shell
 import bloop.bloopgun.util.Environment
@@ -162,7 +163,7 @@ abstract class LauncherBaseSuite(
 
   case class LauncherRun(launcher: LauncherMain, output: ByteArrayOutputStream) {
     def logs: List[String] =
-      (new String(output.toByteArray, StandardCharsets.UTF_8)).split(System.lineSeparator()).toList
+      (new String(output.toByteArray, StandardCharsets.UTF_8)).splitLines.toList
   }
 
   def setUpLauncher(shell: Shell, startedServer: Promise[Unit] = Promise[Unit]())(
@@ -358,7 +359,7 @@ abstract class LauncherBaseSuite(
       prohibited0: List[String] = Nil
   ): Unit = {
     def splitLinesCorrectly(logs: List[String]): List[String] =
-      logs.flatMap(_.split(System.lineSeparator()).toList)
+      logs.flatMap(_.splitLines.toList)
     val expected = splitLinesCorrectly(expected0)
     val total = splitLinesCorrectly(total0)
     val missingLogs = expected.filterNot { expectedLog =>

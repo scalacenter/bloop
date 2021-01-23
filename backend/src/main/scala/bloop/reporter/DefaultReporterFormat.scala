@@ -1,6 +1,6 @@
 package bloop.reporter
 
-import scala.compat.Platform.EOL
+import bloop.io.Environment.lineSeparator // System.lineSeparator unless set at JVM startup
 
 /**
  * Helper object for easy configuration.
@@ -36,7 +36,7 @@ class DefaultReporterFormat(reporter: Reporter) extends ReporterFormat(reporter)
       } yield {
         val spaces = " " * startColumn
         val carets = "^" * Math.max(1, endColumn - startColumn)
-        lineContent + System.lineSeparator() + spaces + carets
+        lineContent + lineSeparator + spaces + carets
       }
     }
 
@@ -45,7 +45,7 @@ class DefaultReporterFormat(reporter: Reporter) extends ReporterFormat(reporter)
         lineContent <- Option(problem.position.lineContent).filter(_.nonEmpty)
         pointer <- toOption(problem.position.pointerSpace)
       } yield {
-        lineContent + System.lineSeparator() + pointer + "^"
+        lineContent + lineSeparator + pointer + "^"
       }
     }
   }
@@ -68,7 +68,7 @@ class DefaultReporterFormat(reporter: Reporter) extends ReporterFormat(reporter)
 
     val text =
       List(formatSourcePath(problem), formatMessage(problem), sourceCode).flatten
-        .mkString(EOL)
+        .mkString(lineSeparator)
 
     val prefix = s"${extraSpace(problem.severity)}[E${problem.id}] "
     prefixed(reporter.config.errorIdColor, prefix, text)

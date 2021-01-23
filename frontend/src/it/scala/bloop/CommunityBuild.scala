@@ -147,7 +147,7 @@ abstract class CommunityBuild(val buildpressHomeDir: AbsolutePath) {
         sbt = None,
         resolution = None,
         tags = Nil,
-        origin = origin,
+        origin = origin
       )
 
       val newLoaded = LoadedProject.RawProject(rootProject) :: allProjectsInBuild
@@ -196,7 +196,8 @@ abstract class CommunityBuild(val buildpressHomeDir: AbsolutePath) {
     if (!blacklist.exists) Nil
     else {
       val bytes = Files.readAllBytes(blacklist.underlying)
-      val lines = bloop.io.OsEnv.lineSplit(new String(bytes, StandardCharsets.UTF_8))
+      // input file not assumed to have system line endings.
+      val lines = bloop.io.Environment.lineSplit(new String(bytes, StandardCharsets.UTF_8))
       lines.toList.flatMap { line =>
         if (line == "") Nil
         else List(line)

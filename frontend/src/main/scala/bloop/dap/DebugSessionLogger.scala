@@ -3,6 +3,7 @@ package bloop.dap
 import java.net.InetSocketAddress
 
 import bloop.logging.{DebugFilter, Logger}
+import bloop.io.Environment.lineSeparator // System.lineSeparator unless set at JVM startup
 import com.microsoft.java.debug.core.protocol.Events.OutputEvent
 import monix.execution.atomic.Atomic
 
@@ -66,7 +67,7 @@ final class DebugSessionLogger(
   }
 
   private def forwardToDebugClient(output: String, category: OutputEvent.Category): Unit = {
-    val event = new OutputEvent(category, output + System.lineSeparator())
+    val event = new OutputEvent(category, output + lineSeparator)
     debugSession.sendEvent(event)
   }
 }

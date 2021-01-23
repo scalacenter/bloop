@@ -3,6 +3,8 @@ package bloop.logging
 import java.io.PrintStream
 import java.util.concurrent.ConcurrentLinkedQueue
 
+import bloop.io.Environment.lineSeparator // System.lineSeparator unless set at JVM startup
+
 import scala.collection.JavaConverters.asScalaIteratorConverter
 
 class RecordingLogger(
@@ -25,7 +27,8 @@ class RecordingLogger(
   }
 
   def renderTimeInsensitiveInfos: String = {
-    captureTimeInsensitiveInfos.mkString(System.lineSeparator())
+    // use a line.separator than can be defined by client at JVM startup
+    captureTimeInsensitiveInfos.mkString(lineSeparator)
   }
 
   def renderTimeInsensitiveTestInfos: String = {
@@ -35,13 +38,13 @@ class RecordingLogger(
           msg.startsWith("Compiling ") || msg.startsWith("Compiled ") || msg
             .startsWith("Generated ")
       )
-      .mkString(System.lineSeparator())
+      .mkString(lineSeparator)
   }
 
   def renderErrors(exceptContaining: String = ""): String = {
     val exclude = exceptContaining.nonEmpty
     val newErrors = if (!exclude) errors else errors.filterNot(_.contains(exceptContaining))
-    newErrors.mkString(System.lineSeparator)
+    newErrors.mkString(lineSeparator)
   }
 
   def getMessagesAt(level: Option[String]): List[String] = getMessages(level).map(_._2)
@@ -122,7 +125,7 @@ class RecordingLogger(
       .map {
         case (level, msg) => s"[${level}] ${msg}"
       }
-      .mkString(System.lineSeparator())
+      .mkString(lineSeparator)
   }
 
   import java.nio.file.Path
