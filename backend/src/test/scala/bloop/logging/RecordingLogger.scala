@@ -2,8 +2,8 @@ package bloop.logging
 
 import java.io.PrintStream
 import java.util.concurrent.ConcurrentLinkedQueue
-
-import bloop.io.Environment.lineSeparator // System.lineSeparator unless set at JVM startup
+// Environment.lineSeparator == System.lineSeparator, but can be defined by client at JVM startup
+import bloop.io.Environment.lineSeparator // allows -Dline.separator='\n' at JVM startup
 
 import scala.collection.JavaConverters.asScalaIteratorConverter
 
@@ -27,7 +27,6 @@ class RecordingLogger(
   }
 
   def renderTimeInsensitiveInfos: String = {
-    // use a line.separator than can be defined by client at JVM startup
     captureTimeInsensitiveInfos.mkString(lineSeparator)
   }
 

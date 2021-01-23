@@ -3,6 +3,7 @@ package bloop
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
 import java.nio.file.attribute.FileTime
+import bloop.io.Environment.LineSplitter // define String#splitLines
 
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
@@ -196,8 +197,7 @@ abstract class CommunityBuild(val buildpressHomeDir: AbsolutePath) {
     if (!blacklist.exists) Nil
     else {
       val bytes = Files.readAllBytes(blacklist.underlying)
-      // input file not assumed to have system line endings.
-      val lines = bloop.io.Environment.lineSplit(new String(bytes, StandardCharsets.UTF_8))
+      val lines = new String(bytes, StandardCharsets.UTF_8).splitLines
       lines.toList.flatMap { line =>
         if (line == "") Nil
         else List(line)
