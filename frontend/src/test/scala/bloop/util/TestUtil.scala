@@ -6,10 +6,7 @@ import java.nio.file.attribute.FileTime
 import java.nio.file.{Files, Path, Paths}
 import java.util.concurrent.TimeUnit
 
-import bloop.io.Environment.{
-  lineSeparator,
-  lineSplit
-} // System.lineSeparator unless set at JVM startup
+import bloop.io.Environment.{lineSeparator, LineSplitter}
 import bloop.{CompilerCache, ScalaInstance}
 import bloop.cli.Commands
 import bloop.config.Config
@@ -571,7 +568,7 @@ object TestUtil {
   case class ParsedFile(relativePath: RelativePath, contents: String)
   def parseFile(contents0: String): ParsedFile = {
     val contents = contents0.trim
-    lineSplit(contents) match {
+    contents.splitLines match {
       case Array() =>
         sys.error(
           s"""Expected parsed file format:

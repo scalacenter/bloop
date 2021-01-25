@@ -2,7 +2,7 @@ package bloop
 
 import bloop.config.Config
 import bloop.io.{AbsolutePath, RelativePath, Paths => BloopPaths}
-import bloop.io.Environment.LineSplitter // reliably split line endings
+import bloop.io.Environment.LineSplitter
 import bloop.logging.RecordingLogger
 import bloop.cli.{Commands, ExitStatus}
 import bloop.engine.{Feedback, Run, State, ExecutionContext}

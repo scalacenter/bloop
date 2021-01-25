@@ -22,7 +22,7 @@ object Environment {
    *
    * @return preferred lineSeparator for SHELL environments, or `System.lineSeparator` otherwise.
    */
-  def shellLineSeparator: String = if (validShell.nonEmpty) "\n" else sysLineSeparator
+  private def shellLineSeparator: String = if (validShell.nonEmpty) "\n" else sysLineSeparator
 
   /**
    * Preferred line ending for SHELL environments.
@@ -34,7 +34,7 @@ object Environment {
    *   print(someText + EOL)
    * }}}
    */
-  lazy val EOL: String = shellLineSeparator // alias for shellLineSeparator
+  lazy val EOL: String = shellLineSeparator
 
   /**
    * Return the canonical lowercased shell name, or empty string.
@@ -46,7 +46,7 @@ object Environment {
    * @example if {{{SHELL=/usr/bin/bash}}}, returns {{{/bin/bash}}}.
    *
    */
-  def validShell: String = validShells.find { _.endsWith(shellLC) } match {
+  private def validShell: String = validShells.find { _.endsWith(shellLC) } match {
     case Some(sh) => sh
     case _ => ""
   }
@@ -88,15 +88,6 @@ object Environment {
 
   def getenvOpt(varname: String): Option[String] = Option(System.getenv(varname))
 
-  /*
-   * The safe general way to split Strings to lines.   Makes minimal assumptions
-   * about the source of the String.
-   *
-   * Does not depend on editor end-of-line configuration.
-   * Correctly splits strings from any of the common OSTYPES.
-   */
-  def lineSplit(str: String): Array[String] = str.split(END_OF_LINE_MATCHER, -1)
-
   /**
    * Extend String for reliable line splitting.
    *
@@ -107,6 +98,13 @@ object Environment {
    *
    */
   implicit class LineSplitter(str: String) {
+    /*
+     * The safe general way to split Strings to lines.   Makes minimal assumptions
+     * about the source of the String.
+     *
+     * Does not depend on editor end-of-line configuration.
+     * Correctly splits strings from any of the common OSTYPES.
+     */
     def splitLines: Array[String] = str.split(END_OF_LINE_MATCHER, -1)
   }
 
@@ -118,13 +116,13 @@ object Environment {
    *  - "\r\n"
    *  - "\r"
    */
-  def END_OF_LINE_MATCHER = "\n|\r\n|\r"
+  private def END_OF_LINE_MATCHER = "\n|\r\n|\r"
 
   /*
    * A list of valid shell paths.  The SHELL environment variable must
    * have one of these entries as a substring to be considered a valid shell.
    */
-  lazy val validShells = Seq(
+  private lazy val validShells = Seq(
     "/bin/sh",
     "/bin/ash",
     "/bin/bash",
@@ -139,7 +137,7 @@ object Environment {
   /*
    * Returns the empty String unless OSTYPE is defined.
    */
-  lazy val ostype: String = getenvOpt("OSTYPE").getOrElse("")
+  private lazy val ostype: String = getenvOpt("OSTYPE").getOrElse("")
 
   /*
    * Returns validated, lowercase abbreviated OSTYPE value, or empty string.
@@ -147,7 +145,7 @@ object Environment {
    * Replaced by the entry of [[validOsTypes]] having [[ostype]] as a substring.
    *
    */
-  def validOstype: String = {
+  private def validOstype: String = {
     ostype.toLowerCase(java.util.Locale.ENGLISH) match {
       case "" => ""
       case os =>
@@ -159,7 +157,7 @@ object Environment {
    * A list of valid ostype substrings.  The lower-case OSTYPE environment
    * variable must contain one of these substrings to be supported.
    */
-  lazy val validOstypes = Seq(
+  private lazy val validOstypes = Seq(
     "cygwin",
     "msys",
     "mingw",
