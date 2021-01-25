@@ -44,7 +44,7 @@ object Dependencies {
   val nuprocessVersion = "1.2.4"
   val shapelessVersion = "2.3.3-lower-priority-coproduct"
   val scalaNative03Version = "0.3.9"
-  val scalaNative04Version = "0.4.0-M2"
+  val scalaNative04Version = "0.4.0"
   val scalaJs06Version = "0.6.32"
   val scalaJs1Version = "1.3.1"
   val scalaJsEnvsVersion = "1.1.1"

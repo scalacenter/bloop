@@ -701,18 +701,10 @@ object BloopDefaults {
     else Def.task(Some(Keys.updateClassifiers.value))
   }
 
-  /** Find nativelib jar on the classpath. Copy pasted from Scala native. */
-  def findNativelib(classpath: Seq[Path]): Option[Path] = {
-    classpath.find { path =>
-      val absolute = path.toAbsolutePath.toString
-      absolute.contains("scala-native") && absolute.contains("nativelib")
-    }
-  }
-
   import sbt.ModuleID
   private final val CompilerPluginConfig = "plugin->default(compile)"
 
-  /** Find nativelib jar on the classpath. Copy pasted from Scala native. */
+  /** Find native version. Copy pasted from Scala native. */
   def findVersion(deps: Seq[ModuleID], org: String): Option[String] = {
     def isPlugin(d: ModuleID, org: String) =
       d.configurations.toList.contains(CompilerPluginConfig) && d.organization == org
@@ -750,7 +742,6 @@ object BloopDefaults {
           val clangpp = ScalaNativeKeys.nativeClangPP.?.value.map(_.toPath).getOrElse(emptyNative.clangpp)
           val nativeGc = ScalaNativeKeys.nativeGC.?.value.getOrElse(emptyNative.gc)
           val nativeLinkStubs = ScalaNativeKeys.nativeLinkStubs.?.value.getOrElse(emptyNative.linkStubs)
-          val nativelib = findNativelib(externalClasspath).getOrElse(emptyNative.nativelib)
           val nativeCompileOptions = ScalaNativeKeys.nativeCompileOptions.?.value.toList.flatten
           val nativeLinkingOptions = ScalaNativeKeys.nativeLinkingOptions.?.value.toList.flatten
           val nativeVersion = findVersion(libraryDeps, "org.scala-native").getOrElse(emptyNative.version)
@@ -762,7 +753,7 @@ object BloopDefaults {
           }
 
           val options = Config.NativeOptions(nativeLinkingOptions, nativeCompileOptions)
-          val nativeConfig = Config.NativeConfig(nativeVersion, nativeMode, nativeGc, emptyNative.targetTriple, nativelib, clang, clangpp, Nil, options, nativeLinkStubs, None)
+          val nativeConfig = Config.NativeConfig(nativeVersion, nativeMode, nativeGc, None, clang, clangpp, Nil, options, nativeLinkStubs, false, false, None)
           Config.Platform.Native(nativeConfig, mainClass)
         }
       }
