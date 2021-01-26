@@ -1,5 +1,6 @@
 package bloop.io
 
+import bloop.io.Environment.{lineSeparator, LineSplitter}
 import bloop.logging.RecordingLogger
 import scala.concurrent.Promise
 import bloop.util.TestUtil
@@ -27,7 +28,7 @@ object SourceHasherSpec extends bloop.testing.BaseSuite {
       val sources = {
         var allSources: List[String] = Nil
         for (i <- 0 to 200) {
-          val contents = s"/A$i.scala${System.lineSeparator}$largeFileContents"
+          val contents = s"/A$i.scala${lineSeparator}$largeFileContents"
           allSources = contents :: allSources
         }
         allSources

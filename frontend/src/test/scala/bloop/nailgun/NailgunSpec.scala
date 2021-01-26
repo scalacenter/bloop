@@ -1,6 +1,7 @@
 package bloop.nailgun
 
 import bloop.io.{AbsolutePath, RelativePath}
+import bloop.io.Environment.{lineSeparator, LineSplitter}
 import bloop.testing.BaseSuite
 import bloop.logging.RecordingLogger
 import bloop.internal.build.BuildInfo
@@ -27,7 +28,7 @@ object NailgunSpec extends BaseSuite with NailgunTestUtils {
   ): T = withServer(configDir, noExit, new RecordingLogger(ansiCodesSupported = false))(op)
 
   def assertNoErrors(logger: RecordingLogger): Unit = {
-    assertNoDiff(logger.errors.mkString(System.lineSeparator), "")
+    assertNoDiff(logger.errors.mkString(lineSeparator), "")
   }
 
   test("nailgun help works in simple build") {
@@ -35,7 +36,7 @@ object NailgunSpec extends BaseSuite with NailgunTestUtils {
       client.expectSuccess("help")
       assertNoErrors(logger)
       assertNoDiff(
-        logger.infos.filterNot(_ == "").mkString(System.lineSeparator()),
+        logger.infos.filterNot(_ == "").mkString(lineSeparator),
         s"""|bloop ${BuildInfo.version}
             |Usage: bloop [options] [command] [command-options]
             |Available commands: about, autocomplete, bsp, clean, compile, configure, console, help, link, projects, run, test
@@ -53,7 +54,7 @@ object NailgunSpec extends BaseSuite with NailgunTestUtils {
       logger.dump()
       assertNoErrors(logger)
       assertNoDiff(
-        logger.infos.mkString(System.lineSeparator()),
+        logger.infos.mkString(lineSeparator),
         """|Command not found: foobar
            |""".stripMargin
       )
@@ -69,7 +70,7 @@ object NailgunSpec extends BaseSuite with NailgunTestUtils {
         client.expectSuccess("help")
         assertNoErrors(logger)
         assertNoDiff(
-          logger.infos.filterNot(_ == "").mkString(System.lineSeparator()),
+          logger.infos.filterNot(_ == "").mkString(lineSeparator),
           s"""|bloop ${BuildInfo.version}
               |Usage: bloop [options] [command] [command-options]
               |Available commands: about, autocomplete, bsp, clean, compile, configure, console, help, link, projects, run, test
@@ -87,7 +88,7 @@ object NailgunSpec extends BaseSuite with NailgunTestUtils {
       client.expectSuccess("about")
       assertNoErrors(logger)
       assertNoDiff(
-        logger.infos.filterNot(_ == "").mkString(System.lineSeparator()),
+        logger.infos.filterNot(_ == "").mkString(lineSeparator),
         s"""|bloop v${BuildInfo.version}
             |Using Scala v${BuildInfo.scalaVersion} and Zinc v${BuildInfo.zincVersion}
             |$jvmLine
@@ -103,7 +104,7 @@ object NailgunSpec extends BaseSuite with NailgunTestUtils {
       client.expectSuccess("projects")
       assertNoErrors(logger)
       assertNoDiff(
-        logger.infos.filterNot(_ == "").mkString(System.lineSeparator()),
+        logger.infos.filterNot(_ == "").mkString(lineSeparator),
         """|a
            |a-test
            |b
@@ -126,7 +127,7 @@ object NailgunSpec extends BaseSuite with NailgunTestUtils {
 
       assertNoErrors(logger)
       assertNoDiff(
-        logger.infos.filterNot(_ == "").mkString(System.lineSeparator()),
+        logger.infos.filterNot(_ == "").mkString(lineSeparator),
         """|a
            |a-test
            |b
@@ -145,7 +146,7 @@ object NailgunSpec extends BaseSuite with NailgunTestUtils {
       client.expectSuccess("about")
       client.expectFailure("projects", "--no-color")
       assertNoDiff(
-        logger.infos.filterNot(_ == "").mkString(System.lineSeparator()),
+        logger.infos.filterNot(_ == "").mkString(lineSeparator),
         s"""|bloop v${BuildInfo.version}
             |Using Scala v${BuildInfo.scalaVersion} and Zinc v${BuildInfo.zincVersion}
             |$jvmLine
@@ -155,7 +156,7 @@ object NailgunSpec extends BaseSuite with NailgunTestUtils {
       )
 
       assertNoDiff(
-        logger.errors.mkString(System.lineSeparator()),
+        logger.errors.mkString(lineSeparator),
         "[E] Fatal recursive dependency detected in 'g': List(g, g)"
       )
     }
@@ -175,7 +176,7 @@ object NailgunSpec extends BaseSuite with NailgunTestUtils {
               msg == "" || msg.startsWith("Non-compiled module") || msg
                 .startsWith(" Compilation completed in")
           )
-          .mkString(System.lineSeparator()),
+          .mkString(lineSeparator),
         """|Compiling a (1 Scala source)
            |Compiled a ???
            |Compiling b (1 Scala source)
@@ -198,7 +199,7 @@ object NailgunSpec extends BaseSuite with NailgunTestUtils {
 
       // Checks new nailgun session still produces a no-op compilation
       client.expectSuccess("compile", "b")
-      assertNoDiff(newLogger.captureTimeInsensitiveInfos.mkString(System.lineSeparator()), "")
+      assertNoDiff(newLogger.captureTimeInsensitiveInfos.mkString(lineSeparator), "")
     }
   }
 

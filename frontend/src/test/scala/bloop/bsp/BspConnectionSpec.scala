@@ -1,5 +1,6 @@
 package bloop.bsp
 
+import bloop.io.Environment.{lineSeparator, LineSplitter}
 import bloop.cli.{ExitStatus, BspProtocol}
 import bloop.util.{TestUtil, TestProject}
 import bloop.logging.{RecordingLogger, BspClientLogger}
@@ -88,7 +89,7 @@ class BspConnectionSpec(
     // Filter out the initialize request that contains platform-specific details
     val allButInitializeRequest = jsonrpc.filterNot(_.contains("""build/initialize""""))
     assertNoDiff(
-      allButInitializeRequest.mkString(System.lineSeparator),
+      allButInitializeRequest.mkString(lineSeparator),
       s"""| --> {
           |  "result" : {
           |    "displayName" : "${BuildInfo.bloopName}",

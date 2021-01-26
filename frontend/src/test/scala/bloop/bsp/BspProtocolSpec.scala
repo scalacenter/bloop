@@ -6,6 +6,7 @@ import java.net.URI
 import bloop.engine.State
 import bloop.config.Config
 import bloop.io.AbsolutePath
+import bloop.io.Environment.{lineSeparator, LineSplitter}
 import bloop.cli.{BspProtocol, ExitStatus}
 import bloop.util.{TestProject, TestUtil}
 import bloop.logging.RecordingLogger
@@ -516,8 +517,8 @@ class BspProtocolSpec(
           }.distinct
 
           assertNoDiff(
-            dependencySources.sources.map(_.value).sorted.mkString(System.lineSeparator()),
-            expectedSources.sorted.mkString(System.lineSeparator())
+            dependencySources.sources.map(_.value).sorted.mkString(lineSeparator),
+            expectedSources.sorted.mkString(lineSeparator)
           )
         }
 

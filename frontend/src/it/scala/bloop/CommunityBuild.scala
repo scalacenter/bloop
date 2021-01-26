@@ -3,7 +3,7 @@ package bloop
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
 import java.nio.file.attribute.FileTime
-import bloop.io.Environment.LineSplitter // define String#splitLines
+import bloop.io.Environment.LineSplitter
 
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration

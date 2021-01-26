@@ -2,7 +2,7 @@ package bloop
 
 import bloop.config.Config
 import bloop.io.RelativePath
-import bloop.io.Environment.{lineSeparator, LineSplitter} // reliable line endings
+import bloop.io.Environment.{lineSeparator, LineSplitter}
 import bloop.logging.RecordingLogger
 import bloop.cli.{Commands, ExitStatus, BspProtocol}
 import bloop.engine.ExecutionContext

@@ -9,7 +9,7 @@ import java.nio.file.{FileSystems, Files, Path}
 import java.util.concurrent.ConcurrentHashMap
 import java.util.stream.Collectors
 
-import bloop.io.Environment.lineSeparator // System.lineSeparator unless set at JVM startup
+import bloop.io.Environment.lineSeparator
 import bloop.io.ServerHandle
 import bloop.util.JavaRuntime
 import bloop.bsp.BloopBspDefinitions.BloopExtraBuildParams

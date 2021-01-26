@@ -2,8 +2,7 @@ package bloop.logging
 
 import java.io.PrintStream
 import java.util.concurrent.ConcurrentLinkedQueue
-// Environment.lineSeparator == System.lineSeparator, but can be defined by client at JVM startup
-import bloop.io.Environment.lineSeparator // allows -Dline.separator='\n' at JVM startup
+import bloop.io.Environment.lineSeparator
 
 import scala.collection.JavaConverters.asScalaIteratorConverter
 

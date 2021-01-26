@@ -8,6 +8,7 @@ import bloop.logging.RecordingLogger
 import bloop.internal.build.BuildInfo
 import java.nio.file.attribute.FileTime
 import bloop.io.AbsolutePath
+import bloop.io.Environment.{lineSeparator, LineSplitter}
 import bloop.io.{Paths => BloopPaths}
 import java.nio.file.Files
 import monix.eval.Task
@@ -34,7 +35,7 @@ class BspCompileSpec(
     // Filter out the initialize request that contains platform-specific details
     val allButInitializeRequest = jsonrpc.filterNot(_.contains("""build/initialize""""))
     assertNoDiff(
-      allButInitializeRequest.mkString(System.lineSeparator),
+      allButInitializeRequest.mkString(lineSeparator),
       s"""| --> {
           |  "result" : {
           |    "displayName" : "${BuildInfo.bloopName}",
@@ -761,7 +762,7 @@ class BspCompileSpec(
       assertValidCompilationState(cliCompiledState, projects)
 
       assertNoDiff(
-        cliLogger.compilingInfos.mkString(System.lineSeparator),
+        cliLogger.compilingInfos.mkString(lineSeparator),
         "Compiling a (1 Scala source)"
       )
 
@@ -826,7 +827,7 @@ class BspCompileSpec(
       assertExitStatus(cliCompiledState, ExitStatus.Ok)
       assertValidCompilationState(cliCompiledState, projects)
       assertNoDiff(
-        cliLogger.compilingInfos.mkString(System.lineSeparator),
+        cliLogger.compilingInfos.mkString(lineSeparator),
         "Compiling a (2 Scala sources)"
       )
 
@@ -918,7 +919,7 @@ class BspCompileSpec(
       assertExitStatus(cliCompiledState, ExitStatus.Ok)
       assertValidCompilationState(cliCompiledState, projects)
       assertNoDiff(
-        cliLogger.compilingInfos.mkString(System.lineSeparator),
+        cliLogger.compilingInfos.mkString(lineSeparator),
         "Compiling a (2 Scala sources)"
       )
 

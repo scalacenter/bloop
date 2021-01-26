@@ -4,7 +4,6 @@ object Environment {
 
   /**
    * Returns "\n" if both OSTYPE and SHELL are nonEmpty, returns `System.lineSeparator` otherwise.
-   * @see [[shellLineSeparator]] which is similar.
    */
   def lineSeparator: String = if (validOstype.nonEmpty) shellLineSeparator else System.lineSeparator
 

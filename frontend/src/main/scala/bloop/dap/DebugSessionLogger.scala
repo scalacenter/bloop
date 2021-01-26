@@ -3,7 +3,7 @@ package bloop.dap
 import java.net.InetSocketAddress
 
 import bloop.logging.{DebugFilter, Logger}
-import bloop.io.Environment.lineSeparator // System.lineSeparator unless set at JVM startup
+import bloop.io.Environment.lineSeparator
 import com.microsoft.java.debug.core.protocol.Events.OutputEvent
 import monix.execution.atomic.Atomic
 

@@ -4,7 +4,7 @@ import java.io.PrintStream
 
 import scala.Console.{CYAN, GREEN, RED, RESET, YELLOW}
 import scala.util.matching.Regex
-import bloop.io.Environment.{LineSplitter, EOL} // reliably split line endings
+import bloop.io.Environment.{LineSplitter, EOL}
 
 /**
  * Creates a logger that writes to the given streams.

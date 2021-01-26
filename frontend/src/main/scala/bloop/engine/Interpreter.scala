@@ -16,7 +16,7 @@ import bloop.data.{ClientInfo, Platform, Project, JdkConfig}
 import bloop.engine.Feedback.XMessageString
 import bloop.engine.tasks.toolchains.{ScalaJsToolchain, ScalaNativeToolchain}
 import bloop.reporter.{LogReporter, ReporterInputs}
-import bloop.io.Environment.lineSeparator // System.lineSeparator unless set at JVM startup
+import bloop.io.Environment.lineSeparator
 import caseapp.core.CommandMessages
 import monix.eval.Task
 

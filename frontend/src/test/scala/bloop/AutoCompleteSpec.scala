@@ -2,6 +2,7 @@ package bloop
 
 import bloop.cli.{CliOptions, Commands, completion}
 import bloop.engine.Run
+import bloop.io.Environment.{lineSeparator, LineSplitter}
 import bloop.logging.RecordingLogger
 import bloop.util.TestUtil
 import org.junit.Test
@@ -71,7 +72,7 @@ class AutoCompleteSpec {
           |A
           |B
         """.stripMargin,
-        logger.infos.mkString(System.lineSeparator)
+        logger.infos.mkString(lineSeparator)
       )
     }
   }

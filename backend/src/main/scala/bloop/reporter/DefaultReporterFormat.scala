@@ -1,6 +1,6 @@
 package bloop.reporter
 
-import bloop.io.Environment.lineSeparator // System.lineSeparator unless set at JVM startup
+import bloop.io.Environment.lineSeparator
 
 /**
  * Helper object for easy configuration.

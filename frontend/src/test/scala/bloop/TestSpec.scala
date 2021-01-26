@@ -2,6 +2,7 @@ package bloop
 
 import bloop.config.Config
 import bloop.io.{AbsolutePath, RelativePath, Paths => BloopPaths}
+import bloop.io.Environment.{lineSeparator, LineSplitter}
 import bloop.logging.RecordingLogger
 import bloop.cli.{Commands, ExitStatus}
 import bloop.engine.{Feedback, Run, State, ExecutionContext}
@@ -262,7 +263,7 @@ object JvmTestSpec extends BaseTestSpec("test-project-test", "cross-test-build-s
       val testState = build.state.test(project, Nil, List("*myTest*"))
 
       assertNoDiff(
-        logger.warnings.mkString(System.lineSeparator()),
+        logger.warnings.mkString(lineSeparator),
         "Ignored CLI test options 'List(*myTest*)' can only be applied to one framework, found: JUnit, ScalaCheck, ScalaTest, specs2, utest"
       )
 
