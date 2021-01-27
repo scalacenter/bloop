@@ -7,6 +7,7 @@ import java.nio.file.{Files, Path}
 import scala.collection.mutable
 import scala.util.control.NonFatal
 import bloop.io.{AbsolutePath, Paths}
+import bloop.io.Environment.LineSplitter
 import buildpress.RepositoryCache.RepoCacheDiff
 import buildpress.io.{BuildpressPaths, SbtProjectHasher}
 import buildpress.util.Traverse._
