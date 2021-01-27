@@ -35,8 +35,8 @@ val sbtBloopBuildShadedJar = project
       "com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-macros" % "2.4.0",
       "org.zeroturnaround" % "zt-exec" % "1.11",
       "me.vican.jorge" %% "snailgun-cli" % "0.3.1",
-      "io.get-coursier" %% "coursier" % "2.0.0-RC3-4",
-      "io.get-coursier" %% "coursier-cache" % "2.0.0-RC3-4",
+      "io.get-coursier" %% "coursier" % "2.0.9",
+      "io.get-coursier" %% "coursier-cache" % "2.0.9",
       "ch.epfl.scala" % "bsp4j" % "2.0.0-M4+10-61e61e87"
     ),
     toShadeClasses := {
@@ -76,7 +76,7 @@ val sbtBloopBuildShadedJar = project
 
     },
     shadingNamespace := "shaded.build",
-    shadeIgnoredNamespaces := Set("com.google.gson", "org.slf4j"),
+    shadeIgnoredNamespaces := Set("com.google.gson", "org.slf4j", "scala"),
     shadeNamespaces := Set(
       "com.github.plokhotnyuk.jsoniter_scala",
       "machinist",
@@ -87,6 +87,9 @@ val sbtBloopBuildShadedJar = project
       "macrocompat",
       "com.zaxxer.nuprocess",
       "coursier",
+      "io.github.alexarchambault",
+      "org.fusesource",
+      "concurrentrefhashmap",
       "shapeless",
       "argonaut",
       "org.checkerframework",
