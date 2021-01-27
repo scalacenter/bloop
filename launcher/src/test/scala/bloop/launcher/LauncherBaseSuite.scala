@@ -205,7 +205,7 @@ abstract class LauncherBaseSuite(
     catch {
       case NonFatal(t) =>
         println("Test case failed with the following logs: ", System.err)
-        printQuoted(run.logs.mkString(System.lineSeparator()), System.err)
+        printQuoted(run.logs.mkString(lineSeparator), System.err)
         throw t
     } finally {
       if (ps != null) ps.close()
@@ -280,7 +280,7 @@ abstract class LauncherBaseSuite(
       status match {
         case Some(LauncherStatus.SuccessfulRun) => ()
         case unexpected =>
-          System.err.println(launcherLogs.mkString(System.lineSeparator))
+          System.err.println(launcherLogs.mkString(lineSeparator))
           fail(s"Expected 'SuccessfulRun', obtained ${unexpected}!")
       }
     }
@@ -369,11 +369,11 @@ abstract class LauncherBaseSuite(
     if (missingLogs.nonEmpty) {
       fail(
         s"""Missing logs:
-           |${missingLogs.map(l => s"-> $l").mkString(System.lineSeparator)}
+           |${missingLogs.map(l => s"-> $l").mkString(lineSeparator)}
            |
            |in the actually received logs:
            |
-           |${total.map(l => s"> $l").mkString(System.lineSeparator)}
+           |${total.map(l => s"> $l").mkString(lineSeparator)}
          """.stripMargin
       )
     } else {
@@ -385,11 +385,11 @@ abstract class LauncherBaseSuite(
       if (prohibitedLogs.nonEmpty) {
         fail(
           s"""Prohibited logs:
-             |${prohibitedLogs.map(l => s"-> $l").mkString(System.lineSeparator)}
+             |${prohibitedLogs.map(l => s"-> $l").mkString(lineSeparator)}
              |
              |appear in the actually received logs:
              |
-             |${total.map(l => s"> $l").mkString(System.lineSeparator)}
+             |${total.map(l => s"> $l").mkString(lineSeparator)}
            """.stripMargin
         )
       }

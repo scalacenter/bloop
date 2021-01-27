@@ -9,6 +9,7 @@ import bloop.cli.{CommonOptions, ExitStatus}
 import bloop.dap.DebugSessionLogger
 import bloop.engine.ExecutionContext
 import bloop.io.AbsolutePath
+import bloop.io.Environment.lineSeparator
 import bloop.logging.{DebugFilter, Logger}
 import bloop.util.CrossPlatform
 import com.zaxxer.nuprocess.{NuAbstractProcessHandler, NuProcess, NuProcessBuilder}
@@ -212,7 +213,7 @@ object Forker {
       @tailrec
       def traverseLines(start: Int): Unit = {
         if (start < msg.length) {
-          val lineEnd = msg.indexOf(System.lineSeparator(), start)
+          val lineEnd = msg.indexOf(lineSeparator, start)
           if (lineEnd < 0) {
             // JVM send the JDI notification with "\n" as newline delimiter even on windows
             if (CrossPlatform.isWindows && containsFullJdiNotification(msg)) {
@@ -225,7 +226,7 @@ object Forker {
           } else {
             val line = msg.substring(start, lineEnd)
             op(line)
-            traverseLines(lineEnd + System.lineSeparator().length)
+            traverseLines(lineEnd + lineSeparator.length)
           }
         }
       }

@@ -13,6 +13,7 @@ import buildpress.util.Traverse._
 import caseapp.core.{Messages, WithHelp}
 import bloop.bloopgun.core.Shell
 import bloop.bloopgun.core.Shell.StatusCommand
+import bloop.io.Environment.lineSeparator
 
 abstract class Buildpress(
     in: InputStream,
@@ -371,7 +372,7 @@ abstract class Buildpress(
       fromPath: String,
       contents: String
   ): Either[BuildpressError.ParseFailure, List[Repository]] = {
-    val parseResults = contents.split(System.lineSeparator).zipWithIndex.flatMap {
+    val parseResults = contents.splitLines.zipWithIndex.flatMap {
       case (line, idx) =>
         if (line.startsWith("//")) Nil
         else {
@@ -405,15 +406,15 @@ abstract class Buildpress(
       val error = new StringBuilder()
       error
         .++=(e.msg)
-        .++=(System.lineSeparator())
+        .++=(lineSeparator)
         .++=(e.cause.map(t => s"   Parse error: ${t.getMessage}").getOrElse(""))
         .mkString
     }
 
     if (failures.nonEmpty) {
       val completeErrorMsg =
-        failureMsgs.mkString(System.lineSeparator) +
-          System.lineSeparator() +
+        failureMsgs.mkString(lineSeparator) +
+          lineSeparator +
           error(s"Found ${failures.length} errors when parsing URIs")
       Left(BuildpressError.ParseFailure(completeErrorMsg, None))
     } else {

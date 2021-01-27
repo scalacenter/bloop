@@ -4,7 +4,7 @@ import java.io.PrintStream
 
 import scala.Console.{CYAN, GREEN, RED, RESET, YELLOW}
 import scala.util.matching.Regex
-import bloop.io.Environment.{LineSplitter, EOL}
+import bloop.io.Environment.{lineSeparator, LineSplitter}
 
 /**
  * Creates a logger that writes to the given streams.
@@ -63,7 +63,7 @@ final class BloopLogger(
   }
 
   private def printInfo(line: String): Unit = {
-    out.print(line + EOL) // end-of-line matches shell environments.
+    out.print(line + lineSeparator) // end-of-line matches shell environments.
   }
 
   private def colored(color: String, msg: String): String = {

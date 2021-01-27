@@ -5,7 +5,7 @@ import bloop.dap.DebugSessionLogger
 import bloop.data.JdkConfig
 import bloop.exec.{Forker, JvmProcessForker}
 import bloop.io.AbsolutePath
-import bloop.io.Environment.{lineSeparator, LineSplitter}
+import bloop.io.Environment.lineSeparator
 import bloop.logging.RecordingLogger
 import bloop.util.TestUtil
 import java.nio.ByteBuffer

@@ -1,7 +1,7 @@
 package bloop
 
 import bloop.io.{AbsolutePath, RelativePath, Paths => BloopPaths}
-import bloop.io.Environment.{lineSeparator, LineSplitter}
+import bloop.io.Environment.lineSeparator
 import bloop.logging.RecordingLogger
 import bloop.cli.{Commands, ExitStatus}
 import bloop.engine.{Feedback, Run, State}

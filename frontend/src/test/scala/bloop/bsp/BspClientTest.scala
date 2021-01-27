@@ -318,7 +318,7 @@ trait BspClientTest {
                 val report = diagnostics.map(
                   _.copy(source = Some("_"), code = Some("_")).toString
                     .replace("\n", " ")
-                    .replace(System.lineSeparator, " ")
+                    .replace("\n|\r\n|\r", " ")
                 )
                 builder
                   .++=(s"#${compileIteration()}: $canonical\n")

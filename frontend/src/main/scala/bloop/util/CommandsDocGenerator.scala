@@ -10,6 +10,7 @@ import caseapp.{Name, ValueDescription}
 import caseapp.core.{Arg, Messages, NameOps, ValueDescriptionOps}
 
 import scala.util.control.NonFatal
+import bloop.io.Environment.lineSeparator
 
 object CommandsDocGenerator {
   private final val docsContentDelimiter =
@@ -67,7 +68,7 @@ object CommandsDocGenerator {
               oldContents.split(s"\\Q$docsContentDelimiter\\E") match {
                 case Array(header, l) =>
                   val generated = generateHTML(commandExamples).mkString(Messages.NL)
-                  val newContents = header + docsContentDelimiter + System.lineSeparator + generated
+                  val newContents = header + docsContentDelimiter + lineSeparator + generated
                   Files.write(outputPath, newContents.getBytes(StandardCharsets.UTF_8))
                   ()
                 case r =>

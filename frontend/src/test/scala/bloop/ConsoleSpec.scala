@@ -9,7 +9,7 @@ import coursier.paths.CoursierPaths
 import scala.util.Properties
 import java.nio.file.Paths
 import bloop.io.AbsolutePath
-import bloop.io.Environment.{lineSeparator, LineSplitter}
+import bloop.io.Environment.lineSeparator
 
 object ConsoleSpec extends BaseSuite {
   test("default ammonite console works in multi-build project") {

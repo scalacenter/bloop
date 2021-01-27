@@ -3,11 +3,6 @@ package bloop.io
 object Environment {
 
   /**
-   * Returns "\n" if both OSTYPE and SHELL are nonEmpty, returns `System.lineSeparator` otherwise.
-   */
-  def lineSeparator: String = if (validOstype.nonEmpty) shellLineSeparator else System.lineSeparator
-
-  /**
    * Returns preferred SHELL environment lineSeparator:
    *    '\r\n' on Windows, unless SHELL environment is recognized.
    *    '\n'   everywhere else
@@ -17,23 +12,14 @@ object Environment {
    *    1. if [[validShell]] is nonEmpty
    *    2. if system property `"line.separator"` is modified
    *
-   * Unlike [[lineSeparator]], only depends on the value of SHELL.
-   *
-   * @return preferred lineSeparator for SHELL environments, or `System.lineSeparator` otherwise.
-   */
-  private def shellLineSeparator: String = if (validShell.nonEmpty) "\n" else sysLineSeparator
-
-  /**
-   * Preferred line ending for SHELL environments.
-   *
-   * An alias for `shellLineSeparator`.
+   * @return preferred SHELL lineSeparator, or system property "line.separator"` otherwise.
    *
    * @example
    * {{{
-   *   print(someText + EOL)
+   *   print(someText + lineSeparator)
    * }}}
    */
-  lazy val EOL: String = shellLineSeparator
+  def lineSeparator: String = if (validShell.nonEmpty) "\n" else sysLineSeparator
 
   /**
    * Return the canonical lowercased shell name, or empty string.
@@ -63,7 +49,7 @@ object Environment {
    *
    * Normally set in CYGWIN, MinGW, msys, Git Bash shell environments.
    */
-  lazy val shell: String = getenvOpt("SHELL").getOrElse("")
+  lazy val shell: String = Option(System.getenv("SHELL")).getOrElse("")
 
   /*
    * Returns current value of system property `"line.separator"`.
@@ -81,11 +67,7 @@ object Environment {
    *  }}}
    *
    */
-  def sysLineSeparator: String = propsOpt("line.separator").getOrElse("\n")
-
-  def propsOpt(propname: String): Option[String] = Option(sys.props(propname))
-
-  def getenvOpt(varname: String): Option[String] = Option(System.getenv(varname))
+  private def sysLineSeparator: String = System.getProperty("line.separator", "\n")
 
   /**
    * Extend String for reliable line splitting.
@@ -132,40 +114,4 @@ object Environment {
     "/bin/tcsh",
     "/bin/zsh"
   )
-
-  /*
-   * Returns the empty String unless OSTYPE is defined.
-   */
-  private lazy val ostype: String = getenvOpt("OSTYPE").getOrElse("")
-
-  /*
-   * Returns validated, lowercase abbreviated OSTYPE value, or empty string.
-   *
-   * Replaced by the entry of [[validOsTypes]] having [[ostype]] as a substring.
-   *
-   */
-  private def validOstype: String = {
-    ostype.toLowerCase(java.util.Locale.ENGLISH) match {
-      case "" => ""
-      case os =>
-        validOstypes.find { os.contains(_) }.getOrElse("")
-    }
-  }
-
-  /*
-   * A list of valid ostype substrings.  The lower-case OSTYPE environment
-   * variable must contain one of these substrings to be supported.
-   */
-  private lazy val validOstypes = Seq(
-    "cygwin",
-    "msys",
-    "mingw",
-    "linux",
-    "darwin",
-    "osx",
-    "sunos",
-    "solaris",
-    "aix"
-  )
-
 }
