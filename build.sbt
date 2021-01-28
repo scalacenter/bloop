@@ -405,6 +405,7 @@ def shadeSettingsForModule(moduleId: String, module: Reference) = List(
     "com.github.plokhotnyuk.jsoniter_scala",
     // Coursier direct and transitive deps
     "coursier",
+    "concurrentrefhashmap",
     "shapeless",
     "argonaut",
     "io.github.alexarchambault.windowsansi",
@@ -506,7 +507,7 @@ def shadeSbtSettingsForModule(
       }.value
     },
     shadeOwnNamespaces := Set("bloop"),
-    shadeIgnoredNamespaces := Set("com.google.gson"),
+    shadeIgnoredNamespaces := Set("com.google.gson", "scala"),
     toShadeJars := {
       val eclipseJarsUnsignedDir = (Keys.crossTarget.value / "eclipse-jars-unsigned").toPath
       java.nio.file.Files.createDirectories(eclipseJarsUnsignedDir)
@@ -569,7 +570,8 @@ def shadeSbtSettingsForModule(
       "org.eclipse",
       "io.github.alexarchambault.windowsansi",
       "org.fusesource.hawtjni",
-      "org.fusesource.jansi"
+      "org.fusesource.jansi",
+      "concurrentrefhashmap"
     )
   )
 }
