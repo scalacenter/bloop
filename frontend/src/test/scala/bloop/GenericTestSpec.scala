@@ -2,7 +2,7 @@ package bloop
 
 import bloop.cli.Commands
 import bloop.io.AbsolutePath
-import bloop.io.Environment.{lineSeparator, LineSplitter}
+import bloop.io.Environment.lineSeparator
 import bloop.logging.RecordingLogger
 import bloop.util.TestUtil
 import bloop.engine.Run

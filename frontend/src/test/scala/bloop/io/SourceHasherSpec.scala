@@ -1,6 +1,6 @@
 package bloop.io
 
-import bloop.io.Environment.{lineSeparator, LineSplitter}
+import bloop.io.Environment.lineSeparator
 import bloop.logging.RecordingLogger
 import scala.concurrent.Promise
 import bloop.util.TestUtil

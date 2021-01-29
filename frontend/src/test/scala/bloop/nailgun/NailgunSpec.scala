@@ -1,7 +1,7 @@
 package bloop.nailgun
 
 import bloop.io.{AbsolutePath, RelativePath}
-import bloop.io.Environment.{lineSeparator, LineSplitter}
+import bloop.io.Environment.lineSeparator
 import bloop.testing.BaseSuite
 import bloop.logging.RecordingLogger
 import bloop.internal.build.BuildInfo

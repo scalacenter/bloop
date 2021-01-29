@@ -1,6 +1,6 @@
 package bloop.bsp
 
-import bloop.io.Environment.{lineSeparator, LineSplitter}
+import bloop.io.Environment.lineSeparator
 import bloop.cli.{ExitStatus, BspProtocol}
 import bloop.util.{TestUtil, TestProject}
 import bloop.logging.{RecordingLogger, BspClientLogger}

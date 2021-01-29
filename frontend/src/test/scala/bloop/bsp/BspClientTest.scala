@@ -318,7 +318,8 @@ trait BspClientTest {
                 val canonical = pathString.replace(File.separatorChar, '/')
                 val report = diagnostics.map(
                   _.copy(source = Some("_"), code = Some("_")).toString
-                    .replace(END_OF_LINE_MATCHER, " ")
+                    .replace("\n", " ")
+                    .replace(System.lineSeparator, " ")
                 )
                 builder
                   .++=(s"#${compileIteration()}: $canonical\n")

@@ -8,7 +8,7 @@ import bloop.logging.RecordingLogger
 import bloop.internal.build.BuildInfo
 import java.nio.file.attribute.FileTime
 import bloop.io.AbsolutePath
-import bloop.io.Environment.{lineSeparator, LineSplitter}
+import bloop.io.Environment.lineSeparator
 import bloop.io.{Paths => BloopPaths}
 import java.nio.file.Files
 import monix.eval.Task
