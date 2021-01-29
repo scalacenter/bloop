@@ -10,7 +10,7 @@ package object launcher {
   def printQuoted(msg: String, out: PrintStream): Unit = {
     println(
       msg
-        .split("\n|\r\n|\r", -1)
+        .split("\r\n|\n")
         .map(l => s"> $l")
         .mkString(lineSeparator),
       out

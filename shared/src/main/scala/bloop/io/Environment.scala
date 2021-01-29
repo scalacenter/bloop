@@ -8,8 +8,8 @@ object Environment {
    *    '\n'   everywhere else
    *
    * The default ending in Windows is '\r\n', but either of two conditions can
-   * change the value of [[shellLineSeparator]]:
-   *    1. if [[validShell]] is nonEmpty
+   * change the value of [[lineSeparator]]:
+   *    1. if `SHELL` is recognized as valid
    *    2. if system property `"line.separator"` is modified
    *
    * @return preferred SHELL lineSeparator, or system property "line.separator"` otherwise.
@@ -19,55 +19,10 @@ object Environment {
    *   print(someText + lineSeparator)
    * }}}
    */
-  def lineSeparator: String = if (validShell.nonEmpty) "\n" else sysLineSeparator
-
-  /**
-   * Return the canonical lowercased shell name, or empty string.
-   *
-   * `shell` is valid if when lowercased, it has a `validShells` entry as substring.
-   *
-   * @return the matching `validShells` entry, if there is a match; empty string otherwise.
-   *
-   * @example if {{{SHELL=/usr/bin/bash}}}, returns {{{/bin/bash}}}.
-   *
-   */
-  private def validShell: String = validShells.find { _.endsWith(shellLC) } match {
-    case Some(sh) => sh
-    case _ => ""
+  val lineSeparator: String = Option(System.getenv("SHELL")) match {
+    case Some(currentShell) if validShells.exists(sh => currentShell.contains(sh)) => "\n"
+    case None => System.getProperty("line.separator", "\n")
   }
-
-  /*
-   * Return lowercase shell with possible .exe extension removed.
-   */
-  private[this] def shellLC = shell.toLowerCase(java.util.Locale.ENGLISH) match {
-    case sh if sh.endsWith(".exe") => sh.replaceFirst(".exe$", "")
-    case sh => sh
-  }
-
-  /*
-   * Return the name of the SHELL environment variable, or empty string.
-   *
-   * Normally set in CYGWIN, MinGW, msys, Git Bash shell environments.
-   */
-  lazy val shell: String = Option(System.getenv("SHELL")).getOrElse("")
-
-  /*
-   * Returns current value of system property `"line.separator"`.
-   *
-   * System.lineSeparator may only be redefined at JVM startup,
-   * whereas this may be redefined on the fly in client code.
-   *
-   * System.lineSeparator always returns the initial value of system property "line.separator".
-   * @see [[https://docs.oracle.com/javase/8/docs/api/java/lang/System.html#lineSeparator--]]
-   *
-   * System properties may be redefined on JVM startup, e.g., from a shell environment:
-   * @example
-   *  {{{
-   *  $ java -J-Dline.separator=$'\n' ...
-   *  }}}
-   *
-   */
-  private def sysLineSeparator: String = System.getProperty("line.separator", "\n")
 
   /**
    * Extend String for reliable line splitting.
@@ -86,7 +41,7 @@ object Environment {
      * Does not depend on editor end-of-line configuration.
      * Correctly splits strings from any of the common OSTYPES.
      */
-    def splitLines: Array[String] = str.split(END_OF_LINE_MATCHER, -1)
+    def splitLines: Array[String] = str.split(END_OF_LINE_MATCHER)
   }
 
   /**
@@ -97,7 +52,7 @@ object Environment {
    *  - "\r\n"
    *  - "\r"
    */
-  private def END_OF_LINE_MATCHER = "\n|\r\n|\r"
+  def END_OF_LINE_MATCHER = "\r\n|\n"
 
   /*
    * A list of valid shell paths.  The SHELL environment variable must

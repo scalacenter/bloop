@@ -11,6 +11,7 @@ import bloop.engine.ExecutionContext
 import bloop.engine.caches.ResultsCache
 import bloop.internal.build.BuildInfo
 import bloop.io.{AbsolutePath, RelativePath}
+import bloop.io.Environment.{lineSeparator, END_OF_LINE_MATCHER}
 import bloop.logging.{BspClientLogger, DebugFilter, RecordingLogger, Slf4jAdapter}
 import bloop.util.{UUIDUtil, TestUtil}
 
@@ -317,8 +318,7 @@ trait BspClientTest {
                 val canonical = pathString.replace(File.separatorChar, '/')
                 val report = diagnostics.map(
                   _.copy(source = Some("_"), code = Some("_")).toString
-                    .replace("\n", " ")
-                    .replace("\n|\r\n|\r", " ")
+                    .replace(END_OF_LINE_MATCHER, " ")
                 )
                 builder
                   .++=(s"#${compileIteration()}: $canonical\n")

@@ -57,13 +57,13 @@ final class BloopLogger(
   }
 
   private def print(msg: String, fn: String => Unit): Unit = {
-    val lines = msg.splitLines // reliable line splitter
+    val lines = msg.splitLines
     val printFn = if (colorOutput) fn else (str: String) => fn(BloopLogger.stripColors(str))
     lines.foreach(printFn)
   }
 
   private def printInfo(line: String): Unit = {
-    out.print(line + lineSeparator) // end-of-line matches shell environments.
+    out.print(line + lineSeparator)
   }
 
   private def colored(color: String, msg: String): String = {
@@ -148,7 +148,7 @@ object BloopLogger {
     sw.toString()
   }
 
-  private lazy val colorsRegex = "\u001b\\[[0-9;]*m".r
+  private lazy val colorsRegex = "(\u001b|\u2190)\\[[0-9;]*m".r
 
   /**
    * Remove the ANSI colors from `str`.
@@ -158,4 +158,5 @@ object BloopLogger {
   private def stripColors(str: String): String = {
     colorsRegex.replaceAllIn(str, "")
   }
+
 }

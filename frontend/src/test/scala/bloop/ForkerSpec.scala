@@ -5,7 +5,6 @@ import bloop.dap.DebugSessionLogger
 import bloop.data.JdkConfig
 import bloop.exec.{Forker, JvmProcessForker}
 import bloop.io.AbsolutePath
-import bloop.io.Environment.lineSeparator
 import bloop.logging.RecordingLogger
 import bloop.util.TestUtil
 import java.nio.ByteBuffer
@@ -75,7 +74,7 @@ class ForkerSpec {
 
   @Test
   def detectNewLines(): Unit = {
-    val nl = lineSeparator
+    val nl = System.lineSeparator()
     val remaining = new StringBuilder()
     val msg = ByteBuffer.wrap("   ".getBytes(StandardCharsets.UTF_8))
     val lines = linesFrom(msg, remaining)

@@ -7,14 +7,13 @@ import java.nio.file.{Files, Path}
 import scala.collection.mutable
 import scala.util.control.NonFatal
 import bloop.io.{AbsolutePath, Paths}
-import bloop.io.Environment.LineSplitter
+import bloop.io.Environment.{lineSeparator, LineSplitter}
 import buildpress.RepositoryCache.RepoCacheDiff
 import buildpress.io.{BuildpressPaths, SbtProjectHasher}
 import buildpress.util.Traverse._
 import caseapp.core.{Messages, WithHelp}
 import bloop.bloopgun.core.Shell
 import bloop.bloopgun.core.Shell.StatusCommand
-import bloop.io.Environment.lineSeparator
 
 abstract class Buildpress(
     in: InputStream,
