@@ -607,7 +607,7 @@ class BloopgunCli(
       else {
         def processAmmoniteOutFile: Int = {
           val contents = new String(Files.readAllBytes(cmdOutFile), StandardCharsets.UTF_8)
-          val replCoursierCmd = contents.trim.split(" ")
+          val replCoursierCmd = contents.trim.split("\n")
           if (replCoursierCmd.length == 0) {
             logger.error("Unexpected empty REPL command after running console in Bloop server!")
             1
