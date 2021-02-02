@@ -287,7 +287,12 @@ object Interpreter {
 
                   val ammArgs = "--" :: cmd.args
 
-                  val ammoniteCmd = (coursierCmd ++ coursierClasspathArgs ++ ammArgs).mkString(" ")
+                  /**
+                   * Whenever `console` is run an extra `--out-file` parameter is added.
+                   * That file is later used to write a coursier command to and Bloopgun uses it
+                   * to download and run Ammonite.
+                   */
+                  val ammoniteCmd = (coursierCmd ++ coursierClasspathArgs ++ ammArgs).mkString("\n")
                   cmd.outFile match {
                     case None => Task.now(state.withInfo(ammoniteCmd))
                     case Some(outFile) =>
