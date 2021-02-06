@@ -212,7 +212,7 @@ object Forker {
       @tailrec
       def traverseLines(start: Int): Unit = {
         if (start < msg.length) {
-          val (lineEnd,lineEndLength) = msg.indexOf("\r\n", start) match {
+          val (lineEnd, lineEndLength) = msg.indexOf("\r\n", start) match {
             case -1 => (msg.indexOf("\n", start), 1)
             case idx => (idx, 2)
           }
