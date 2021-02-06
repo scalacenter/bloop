@@ -148,7 +148,7 @@ object BloopLogger {
     sw.toString()
   }
 
-  private lazy val colorsRegex = "(\u001b|\u2190)\\[[0-9;]*m".r
+  private lazy val colorsRegex = "\u001b\\[[0-9;]*m".r
 
   /**
    * Remove the ANSI colors from `str`.

@@ -212,9 +212,9 @@ object Forker {
       @tailrec
       def traverseLines(start: Int): Unit = {
         if (start < msg.length) {
-          val lineEnd = msg.indexOf("\r\n", start) match {
-            case -1 => msg.indexOf("\n", start)
-            case idx => idx
+          val (lineEnd,lineEndLength) = msg.indexOf("\r\n", start) match {
+            case -1 => (msg.indexOf("\n", start), 1)
+            case idx => (idx, 2)
           }
           if (lineEnd < 0) {
             // JVM send the JDI notification with "\n" as newline delimiter even on windows
@@ -228,10 +228,6 @@ object Forker {
           } else {
             val line = msg.substring(start, lineEnd)
             op(line)
-            val lineEndLength = msg.substring(lineEnd) match {
-              case str if str.startsWith("\r\n") => 2
-              case _ => 1
-            }
             traverseLines(lineEnd + lineEndLength)
           }
         }

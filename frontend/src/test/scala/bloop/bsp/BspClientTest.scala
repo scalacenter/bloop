@@ -11,7 +11,7 @@ import bloop.engine.ExecutionContext
 import bloop.engine.caches.ResultsCache
 import bloop.internal.build.BuildInfo
 import bloop.io.{AbsolutePath, RelativePath}
-import bloop.io.Environment.{lineSeparator, END_OF_LINE_MATCHER}
+import bloop.io.Environment.END_OF_LINE_MATCHER
 import bloop.logging.{BspClientLogger, DebugFilter, RecordingLogger, Slf4jAdapter}
 import bloop.util.{UUIDUtil, TestUtil}
 
