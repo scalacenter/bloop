@@ -11,7 +11,8 @@ case class SCFingerprint(superclassName: String) extends SubclassFingerprint {
 
 class Framework extends sbt.testing.Framework {
   def name(): String = "My awesome framework"
-  def runner(args: Array[String], remoteArgs: Array[String], testClassLoader: ClassLoader): Runner = new Runner(args, remoteArgs)
+  def runner(args: Array[String], remoteArgs: Array[String], testClassLoader: ClassLoader): Runner =
+    new Runner(args, remoteArgs)
   def fingerprints(): Array[Fingerprint] =
     Array(SCFingerprint("foo.Test"), SCFingerprint("foo.Test2"))
 }

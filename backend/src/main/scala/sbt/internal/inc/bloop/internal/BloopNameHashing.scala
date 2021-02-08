@@ -2,7 +2,6 @@ package sbt.internal.inc.bloop.internal
 
 import java.io.File
 
-import _root_.bloop.CompilerOracle
 import _root_.bloop.UniqueCompileInputs
 import _root_.bloop.reporter.ZincReporter
 import _root_.bloop.tracing.BraveTracer

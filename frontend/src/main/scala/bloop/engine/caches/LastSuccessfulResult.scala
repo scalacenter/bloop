@@ -1,7 +1,6 @@
 package bloop.engine.caches
 
 import bloop.Compiler
-import bloop.CompilerOracle
 import bloop.CompileProducts
 import bloop.data.Project
 import bloop.io.AbsolutePath
