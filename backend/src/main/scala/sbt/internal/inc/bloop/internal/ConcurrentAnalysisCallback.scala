@@ -31,9 +31,6 @@ import sbt.internal.inc.Analysis
 import sbt.internal.inc.Compilation
 import sbt.internal.inc.SourceInfos
 
-import bloop.CompileMode
-import xsbti.compile.Signature
-
 /**
  * This class provides a thread-safe implementation of `xsbti.AnalysisCallback` which is required to compile with the
  * Triplequote Hydra compiler.
@@ -45,7 +42,6 @@ import xsbti.compile.Signature
  * IMPORTANT: All modifications made to BloopAnalysisCallback` must be replicated here.
  */
 final class ConcurrentAnalysisCallback(
-    compileMode: CompileMode,
     internalBinaryToSourceClassName: String => Option[String],
     internalSourceToClassNamesMap: File => Set[String],
     externalAPI: (File, String) => Option[AnalyzedClass],
@@ -378,22 +374,4 @@ final class ConcurrentAnalysisCallback(
   override def dependencyPhaseCompleted(): Unit = ()
   override def classesInOutputJar(): java.util.Set[String] = ju.Collections.emptySet()
 
-  override def definedMacro(symbolName: String): Unit = {
-    compileMode.oracle.registerDefinedMacro(symbolName)
-  }
-
-  override def invokedMacro(invokedMacroSymbol: String): Unit = {
-    compileMode.oracle.blockUntilMacroClasspathIsReady(invokedMacroSymbol)
-  }
-
-  override def isPipeliningEnabled(): Boolean = compileMode.oracle.isPipeliningEnabled
-  override def downstreamSignatures(): Array[Signature] =
-    compileMode.oracle.collectDownstreamSignatures()
-  override def definedSignatures(signatures: Array[Signature]): Unit = {
-    compileMode.oracle.startDownstreamCompilations(signatures)
-  }
-
-  override def invalidatedClassFiles(): Array[File] = {
-    manager.invalidatedClassFiles()
-  }
 }

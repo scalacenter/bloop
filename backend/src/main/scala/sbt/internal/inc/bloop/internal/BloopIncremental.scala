@@ -4,11 +4,9 @@ package sbt.internal.inc.bloop.internal
 import java.io.File
 import java.util.concurrent.CompletableFuture
 
-import bloop.CompilerOracle
 import bloop.UniqueCompileInputs
 import bloop.reporter.ZincReporter
 import bloop.tracing.BraveTracer
-import bloop.CompileMode
 
 import monix.eval.Task
 import sbt.internal.inc.{Analysis, InvalidationProfiler, Lookup, Stamper, Stamps}
@@ -31,7 +29,6 @@ object BloopIncremental {
       log: Logger,
       reporter: ZincReporter,
       options: IncOptions,
-      mode: CompileMode,
       manager: ClassFileManager,
       tracer: BraveTracer,
       isHydraEnabled: Boolean
@@ -53,9 +50,9 @@ object BloopIncremental {
     val internalSourceToClassNamesMap: File => Set[String] = (f: File) => previousRelations.classNames(f)
 
     val builder: () => IBloopAnalysisCallback = {
-      if (!isHydraEnabled) () => new BloopAnalysisCallback(mode, internalBinaryToSourceClassName, internalSourceToClassNamesMap, externalAPI, current, output, options, manager)
+      if (!isHydraEnabled) () => new BloopAnalysisCallback(internalBinaryToSourceClassName, internalSourceToClassNamesMap, externalAPI, current, output, options, manager)
       else
-        () => new ConcurrentAnalysisCallback(mode, internalBinaryToSourceClassName, internalSourceToClassNamesMap, externalAPI, current, output, options, manager)
+        () => new ConcurrentAnalysisCallback(internalBinaryToSourceClassName, internalSourceToClassNamesMap, externalAPI, current, output, options, manager)
     }
     // We used to catch for `CompileCancelled`, but we prefer to propagate it so that Bloop catches it
     compileIncremental(sources, uniqueInputs, lookup, previous, current, compile, builder, reporter, log, output, options, manager, tracer)

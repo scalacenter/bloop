@@ -1,45 +1,43 @@
 package bloop
 
-import java.io.File
-import java.lang.Iterable
-import java.io.PrintWriter
-import java.util.concurrent.ConcurrentHashMap
-
-import javax.tools.JavaFileManager.Location
-import javax.tools.JavaFileObject.Kind
-import javax.tools.{
-  FileObject,
-  ForwardingJavaFileManager,
-  JavaFileManager,
-  JavaFileObject,
-  JavaCompiler => JavaxCompiler
-}
-import bloop.io.{AbsolutePath, Paths}
-import bloop.util.JavaRuntime
+import bloop.io.AbsolutePath
+import bloop.io.Paths
 import bloop.logging.Logger
+import bloop.util.JavaRuntime
+import sbt.internal.inc.AnalyzingCompiler
+import sbt.internal.inc.BloopComponentCompiler
+import sbt.internal.inc.BloopZincLibraryManagement
+import sbt.internal.inc.ZincUtil
+import sbt.internal.inc.bloop.ZincInternals
+import sbt.internal.inc.javac.DiagnosticsReporter
+import sbt.internal.inc.javac.JavaTools
+import sbt.internal.inc.javac.Javadoc
+import sbt.internal.inc.javac.WriteReportingJavaFileObject
+import sbt.internal.util.LoggerWriter
 import sbt.librarymanagement.Resolver
 import xsbti.ComponentProvider
-import xsbti.compile.Compilers
-import xsbti.compile.{JavaCompiler, JavaTool => XJavaTool}
 import xsbti.compile.ClassFileManager
-import xsbti.{Logger => XLogger, Reporter => XReporter}
-import sbt.internal.inc.bloop.ZincInternals
-import sbt.internal.inc.{
-  AnalyzingCompiler,
-  ZincUtil,
-  BloopZincLibraryManagement,
-  BloopComponentCompiler
-}
-import sbt.internal.inc.javac.{
-  DiagnosticsReporter,
-  JavaTools,
-  Javadoc,
-  WriteReportingJavaFileObject
-}
-import sbt.internal.util.LoggerWriter
-import java.io.IOException
-import scala.concurrent.ExecutionContext
+import xsbti.compile.Compilers
+import xsbti.compile.JavaCompiler
 import xsbti.compile.ScalaCompiler
+import xsbti.compile.{JavaTool => XJavaTool}
+import xsbti.{Logger => XLogger}
+import xsbti.{Reporter => XReporter}
+
+import java.io.File
+import java.io.IOException
+import java.io.PrintWriter
+import java.lang.Iterable
+import java.util.concurrent.ConcurrentHashMap
+import javax.tools.FileObject
+import javax.tools.ForwardingJavaFileManager
+import javax.tools.JavaFileManager
+import javax.tools.JavaFileManager.Location
+import javax.tools.JavaFileObject
+import javax.tools.JavaFileObject.Kind
+import javax.tools.{JavaCompiler => JavaxCompiler}
+import scala.collection.mutable.HashSet
+import scala.concurrent.ExecutionContext
 
 final class CompilerCache(
     componentProvider: ComponentProvider,
@@ -172,7 +170,7 @@ final class CompilerCache(
         import sbt.util.InterfaceUtil
         InterfaceUtil.toOption(topts.classFileManager()) match {
           case None => logger.error("Missing class file manager for forked Java compiler"); false
-          case Some(classFileManager) =>
+          case Some(classFileManager: BloopClassFileManager) =>
             import java.nio.file.Files
             val newInvalidatedEntry = AbsolutePath(
               Files.createTempDirectory("invalidated-forked-javac")
@@ -211,6 +209,7 @@ final class CompilerCache(
             } finally {
               Paths.delete(newInvalidatedEntry)
             }
+          case _ => logger.error("Missing Bloop class file manager for forked Java compiler"); false
         }
       }
     }
@@ -319,7 +318,9 @@ final class CompilerCache(
         val invalidated = {
           zincManager match {
             case m: bloop.BloopClassFileManager => m.invalidatedClassFilesSet
-            case _ => zincManager.invalidatedClassFiles().toSet
+            // Bloop uses it's own classfile manager so this should not happen
+            case _ => new HashSet[File]()
+
           }
         }
 

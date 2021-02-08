@@ -5,7 +5,7 @@ import bloop.engine.Feedback
 import bloop.engine.{Dag, ExecutionContext}
 import bloop.io.{AbsolutePath, Paths}
 import bloop.io.ByteHasher
-import bloop.{Compiler, CompilerOracle, ScalaInstance}
+import bloop.{Compiler, ScalaInstance}
 import bloop.logging.{Logger, ObservedLogger, LoggerAction}
 import bloop.reporter.{ObservedReporter, ReporterAction}
 import bloop.tracing.BraveTracer
@@ -62,8 +62,6 @@ case object CancelledCompileBundle extends CompileBundle
  * dependent projects, which is required to create a full classpath.
  * @param javaSources A list of Java sources in the project.
  * @param scalaSources A list of Scala sources in the project.
- * @param oracleInputs The compiler oracle inputs are the main input to the
- * compilation task called by [[CompileGraph]].
  * @param cancelCompilation A promise that can be completed to cancel the compilation.
  * @param reporter A reporter instance that will register every reporter action
  * produced by the compilation started by this compile bundle.

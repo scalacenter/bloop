@@ -285,10 +285,10 @@ object ClientInfo {
                   val attrs =
                     Files.readAttributes(clientDir.underlying, classOf[BasicFileAttributes])
                   val isOldDir = attrs.creationTime.toInstant.isBefore(deletionThresholdInstant)
-                  val isWhitelisted = CliClientInfo.isStableDirName(dirName) ||
+                  val isAllowed = CliClientInfo.isStableDirName(dirName) ||
                     connectedBspClientIds.exists(clientId => dirName.endsWith(s"-$clientId"))
 
-                  if (isWhitelisted || !isOldDir) ()
+                  if (isAllowed || !isOldDir) ()
                   else {
                     out.println(s"Deleting orphan directory ${clientDir}")
                     bloop.io.Paths.delete(clientDir)
