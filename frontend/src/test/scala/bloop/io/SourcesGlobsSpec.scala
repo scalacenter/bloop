@@ -1,5 +1,6 @@
 package bloop.io
 
+import bloop.io.Environment.lineSeparator
 import bloop.logging.RecordingLogger
 import scala.concurrent.Promise
 import bloop.util.TestUtil
@@ -28,7 +29,7 @@ object SourcesGlobsSpec extends bloop.testing.BaseSuite {
         val testProject = TestProject(
           workspace,
           "globs",
-          filenames.map(name => s"/$name${System.lineSeparator()}// command")
+          filenames.map(name => s"/$name${lineSeparator}// command")
         )
         val logger = new RecordingLogger(ansiCodesSupported = false)
         val configDir = TestProject.populateWorkspace(workspace, List(testProject))

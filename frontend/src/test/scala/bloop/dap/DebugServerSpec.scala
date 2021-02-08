@@ -13,6 +13,7 @@ import scala.collection.mutable
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{Promise, TimeoutException}
 import bloop.engine.ExecutionContext
+import bloop.io.Environment.lineSeparator
 
 import com.microsoft.java.debug.core.protocol.Requests.SetBreakpointArguments
 import com.microsoft.java.debug.core.protocol.Types
@@ -129,7 +130,7 @@ object DebugServerSpec extends DebugBspBaseSuite {
               output.linesIterator
                 .filterNot(_.contains("ERROR: JDWP Unable to get JNI 1.2 environment"))
                 .filterNot(_.contains("JDWP exit error AGENT_ERROR_NO_JNI_ENV"))
-                .mkString(System.lineSeparator),
+                .mkString(lineSeparator),
               "Hello, World!"
             )
           }
@@ -181,7 +182,7 @@ object DebugServerSpec extends DebugBspBaseSuite {
               output.linesIterator
                 .filterNot(_.contains("ERROR: JDWP Unable to get JNI 1.2 environment"))
                 .filterNot(_.contains("JDWP exit error AGENT_ERROR_NO_JNI_ENV"))
-                .mkString(System.lineSeparator),
+                .mkString(lineSeparator),
               "hello\nworld!"
             )
           }

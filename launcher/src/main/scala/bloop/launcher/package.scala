@@ -10,10 +10,19 @@ package object launcher {
   def printQuoted(msg: String, out: PrintStream): Unit = {
     println(
       msg
-        .split(System.lineSeparator())
+        .split("\r\n|\n")
         .map(l => s"> $l")
-        .mkString(System.lineSeparator()),
+        .mkString(lineSeparator),
       out
     )
+  }
+
+  /**
+   * SHELL path implies preference for '\n' instead of Windows default.
+   * @return '\n' if SHELL path recognized, system line.separator otherwise.
+   */
+  lazy val lineSeparator = Option(System.getenv("SHELL")) match {
+    case Some(sh) if sh.toLowerCase.matches("/.*/bin/[a-z]*sh(.exe)") => "\n"
+    case _ => System.getProperty("line.separator", "\n")
   }
 }

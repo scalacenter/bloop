@@ -16,6 +16,7 @@ import bloop.data.{ClientInfo, Platform, Project, JdkConfig}
 import bloop.engine.Feedback.XMessageString
 import bloop.engine.tasks.toolchains.{ScalaJsToolchain, ScalaNativeToolchain}
 import bloop.reporter.{LogReporter, ReporterInputs}
+import bloop.io.Environment.lineSeparator
 import caseapp.core.CommandMessages
 import monix.eval.Task
 
@@ -94,7 +95,7 @@ object Interpreter {
   }
 
   private final val t = "    "
-  private final val line = System.lineSeparator()
+  private final val line = lineSeparator
 
   private def getProjectsDag(projects: List[Project], state: State): Dag[Project] =
     Aggregate(projects.map(p => state.build.getDagFor(p)))

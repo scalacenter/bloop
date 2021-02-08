@@ -2,6 +2,7 @@ package bloop
 
 import bloop.config.Config
 import bloop.io.{AbsolutePath, RelativePath, Paths => BloopPaths}
+import bloop.io.Environment.{lineSeparator, LineSplitter}
 import bloop.logging.RecordingLogger
 import bloop.cli.{Commands, ExitStatus}
 import bloop.engine.{Feedback, Run, State, ExecutionContext}
@@ -75,7 +76,7 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
       assertExitStatus(compiledState, ExitStatus.Ok)
       assertValidCompilationState(compiledState, projects)
       assertNoDiff(
-        logger.compilingInfos.mkString(System.lineSeparator),
+        logger.compilingInfos.mkString(lineSeparator),
         s"""
            |Compiling a (1 Scala source)
         """.stripMargin
@@ -92,7 +93,7 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
 
       // Logger should contain only the log from the previous compile, as this is a no-op
       assertNoDiff(
-        logger.compilingInfos.mkString(System.lineSeparator),
+        logger.compilingInfos.mkString(lineSeparator),
         s"""
            |Compiling a (1 Scala source)
         """.stripMargin
@@ -154,7 +155,7 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
       assertExitStatus(compiledState, ExitStatus.Ok)
       assertValidCompilationState(compiledState, projects)
       assertNoDiff(
-        logger.compilingInfos.mkString(System.lineSeparator),
+        logger.compilingInfos.mkString(lineSeparator),
         s"""
            |Compiling a (1 Scala source)
         """.stripMargin
@@ -167,7 +168,7 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
       assertDifferentExternalClassesDirs(compiledState, secondCompiledState, projects)
       assertNonExistingInternalClassesDir(secondCompiledState)(compiledState, projects)
       assertNoDiff(
-        logger.compilingInfos.mkString(System.lineSeparator),
+        logger.compilingInfos.mkString(lineSeparator),
         s"""
            |Compiling a (1 Scala source)
            |Compiling a (1 Scala source)
@@ -228,7 +229,7 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
       assertExitStatus(compiledState, ExitStatus.Ok)
       assertValidCompilationState(compiledState, List(`A`, `B`))
       assertNoDiff(
-        logger.compilingInfos.mkString(System.lineSeparator),
+        logger.compilingInfos.mkString(lineSeparator),
         """Compiling a (2 Scala sources)
           |Compiling b (1 Scala source)""".stripMargin
       )
@@ -302,7 +303,7 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
       assertValidCompilationState(sixthCompiledState, List(`A`, `B`))
 
       assertNoDiff(
-        logger.compilingInfos.mkString(System.lineSeparator),
+        logger.compilingInfos.mkString(lineSeparator),
         """Compiling a (2 Scala sources)
           |Compiling b (1 Scala source)
           |Compiling a (1 Scala source)
@@ -394,7 +395,7 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
       assertValidCompilationState(compiledState, List(`A`, `B`, `C`, `D`, `E`))
       assertEmptyCompilationState(compiledState, List(`F`))
       assertNoDiff(
-        logger.compilingInfos.sorted.mkString(System.lineSeparator),
+        logger.compilingInfos.sorted.mkString(lineSeparator),
         """Compiling a (1 Scala source)
           |Compiling b (1 Scala source)
           |Compiling c (1 Scala source)
@@ -402,7 +403,7 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
           |Compiling e (1 Scala source)""".stripMargin
       )
       assertNoDiff(
-        logger.warnings.sorted.mkString(System.lineSeparator),
+        logger.warnings.sorted.mkString(lineSeparator),
         Feedback.detectMissingDependencies(`A`.config.name, List(`Empty`.config.name)).get
       )
     }
@@ -529,14 +530,14 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
       )
 
       val secondCompiledState = compiledState.compile(`B`)
-      assertNoDiff(logger.errors.mkString(System.lineSeparator), "")
+      assertNoDiff(logger.errors.mkString(lineSeparator), "")
       assertExitStatus(secondCompiledState, ExitStatus.Ok)
       assertValidCompilationState(secondCompiledState, projects)
       assertDifferentExternalClassesDirs(secondCompiledState, compiledStateBackup, projects)
 
       writeFile(`A`.srcFor("Enrichments.scala"), Sources.`Enrichments2.scala`)
       val thirdCompiledState = secondCompiledState.compile(`B`)
-      assertNoDiff(logger.errors.mkString(System.lineSeparator), "")
+      assertNoDiff(logger.errors.mkString(lineSeparator), "")
       assertExitStatus(thirdCompiledState, ExitStatus.Ok)
       assertValidCompilationState(thirdCompiledState, projects)
       assertDifferentExternalClassesDirs(thirdCompiledState, secondCompiledState, projects)
@@ -1253,7 +1254,7 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
       assertExitStatus(compiledState, ExitStatus.Ok)
       assertValidCompilationState(compiledState, projects)
       assertNoDiff(
-        logger.compilingInfos.sorted.mkString(System.lineSeparator),
+        logger.compilingInfos.sorted.mkString(lineSeparator),
         """Compiling F (1 Scala source)
           |Compiling G (1 Scala source)
           |Compiling H (1 Scala source)
@@ -1300,7 +1301,7 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
       assertExitStatus(compiledUserState, ExitStatus.CompilationError)
       assertCancelledCompilation(compiledUserState, List(build.userProject))
       assertNoDiff(
-        logger.warnings.mkString(System.lineSeparator()),
+        logger.warnings.mkString(lineSeparator),
         "Cancelling compilation of user"
       )
     }
@@ -1403,7 +1404,7 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
       val targetA = TestUtil.universalPath("a/src/main/scala/A.scala")
       assertExitStatus(compiledState, ExitStatus.CompilationError)
       assertNoDiff(
-        logger.errors.mkString(System.lineSeparator()),
+        logger.errors.mkString(lineSeparator),
         s"""
            |[E2] ${targetA}:6:14
            |     type mismatch;
@@ -1444,7 +1445,7 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
 
       val targetA = TestUtil.universalPath("a/src/A.scala")
       assertNoDiff(
-        logger.errors.mkString(System.lineSeparator),
+        logger.errors.mkString(lineSeparator),
         s"""[E2] ${targetA}:3:17
            |     type mismatch;
            |      found   : String("")
@@ -1483,12 +1484,11 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
       val actionsOutput = new String(testOut.toByteArray(), StandardCharsets.UTF_8)
       def removeAsciiColorCodes(line: String): String = line.replaceAll("\u001B\\[[;\\d]*m", "")
 
-      val expected = actionsOutput
-        .split(System.lineSeparator())
+      val expected = actionsOutput.splitLines
         .filterNot(_.startsWith("Compiled"))
         .map(removeAsciiColorCodes)
         .map(msg => RecordingLogger.replaceTimingInfo(msg))
-        .mkString(System.lineSeparator())
+        .mkString(lineSeparator)
         .replaceAll("'(bloop-cli-.*)'", "'bloop-cli'")
         .replaceAll("'bloop-cli'", "???")
 

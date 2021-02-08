@@ -2,6 +2,7 @@ package bloop
 
 import bloop.cli.Commands
 import bloop.io.AbsolutePath
+import bloop.io.Environment.lineSeparator
 import bloop.logging.RecordingLogger
 import bloop.util.TestUtil
 import bloop.engine.Run
@@ -88,7 +89,7 @@ class GenericTestSpec {
           |Test run started
           |Test run started
         """.stripMargin,
-        logger.startedTestInfos.sorted.mkString(System.lineSeparator)
+        logger.startedTestInfos.sorted.mkString(lineSeparator)
       )
     }
   }

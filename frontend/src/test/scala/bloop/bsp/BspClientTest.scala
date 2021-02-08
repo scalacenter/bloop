@@ -11,6 +11,7 @@ import bloop.engine.ExecutionContext
 import bloop.engine.caches.ResultsCache
 import bloop.internal.build.BuildInfo
 import bloop.io.{AbsolutePath, RelativePath}
+import bloop.io.Environment.END_OF_LINE_MATCHER
 import bloop.logging.{BspClientLogger, DebugFilter, RecordingLogger, Slf4jAdapter}
 import bloop.util.{UUIDUtil, TestUtil}
 
@@ -318,7 +319,7 @@ trait BspClientTest {
                 val report = diagnostics.map(
                   _.copy(source = Some("_"), code = Some("_")).toString
                     .replace("\n", " ")
-                    .replace(System.lineSeparator, " ")
+                    .replace(END_OF_LINE_MATCHER, " ")
                 )
                 builder
                   .++=(s"#${compileIteration()}: $canonical\n")

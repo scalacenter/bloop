@@ -2,6 +2,7 @@ package bloop
 
 import bloop.config.Config
 import bloop.io.RelativePath
+import bloop.io.Environment.{lineSeparator, LineSplitter}
 import bloop.logging.RecordingLogger
 import bloop.cli.{Commands, ExitStatus, BspProtocol}
 import bloop.engine.ExecutionContext
@@ -48,7 +49,7 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
       assert(compiledMacrosState.status == ExitStatus.Ok)
       assertValidCompilationState(compiledMacrosState, List(build.macroProject))
       assertNoDiff(
-        logger.compilingInfos.mkString(System.lineSeparator()),
+        logger.compilingInfos.mkString(lineSeparator),
         s"""
            |Compiling macros (1 Scala source)
          """.stripMargin
@@ -121,14 +122,14 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
         )
 
         assertNoDiff(
-          logger2.compilingInfos.mkString(System.lineSeparator()),
+          logger2.compilingInfos.mkString(lineSeparator),
           s"""
              |Compiling user (2 Scala sources)
          """.stripMargin
         )
 
         assertNoDiff(
-          logger3.compilingInfos.mkString(System.lineSeparator()),
+          logger3.compilingInfos.mkString(lineSeparator),
           s"""
              |Compiling user (2 Scala sources)
          """.stripMargin
@@ -165,7 +166,7 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
 
         // Same check as before because no-op should not show any more input
         assertNoDiff(
-          logger2.compilingInfos.mkString(System.lineSeparator()),
+          logger2.compilingInfos.mkString(lineSeparator),
           s"""
              |Compiling user (2 Scala sources)
          """.stripMargin
@@ -182,7 +183,7 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
       assert(compiledMacrosState.status == ExitStatus.Ok)
       assertValidCompilationState(compiledMacrosState, List(build.macroProject))
       assertNoDiff(
-        logger.compilingInfos.mkString(System.lineSeparator()),
+        logger.compilingInfos.mkString(lineSeparator),
         s"""
            |Compiling macros (1 Scala source)
          """.stripMargin
@@ -244,7 +245,7 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
         )
 
         assertNoDiff(
-          cliLogger.compilingInfos.mkString(System.lineSeparator()),
+          cliLogger.compilingInfos.mkString(lineSeparator),
           s"""
              |Compiling user (2 Scala sources)
          """.stripMargin
@@ -317,7 +318,7 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
         )
 
         assertNoDiff(
-          cliLogger.compilingInfos.mkString(System.lineSeparator()),
+          cliLogger.compilingInfos.mkString(lineSeparator),
           s"""
              |Compiling user (2 Scala sources)
              |Compiling user (1 Scala source)
@@ -350,7 +351,7 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
       assert(compiledMacrosState.status == ExitStatus.Ok)
       assertValidCompilationState(compiledMacrosState, List(build.macroProject))
       assertNoDiff(
-        logger.compilingInfos.mkString(System.lineSeparator()),
+        logger.compilingInfos.mkString(lineSeparator),
         s"""
            |Compiling macros (1 Scala source)
          """.stripMargin
@@ -424,7 +425,7 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
         )
 
         assertNoDiff(
-          cliLogger.compilingInfos.mkString(System.lineSeparator()),
+          cliLogger.compilingInfos.mkString(lineSeparator),
           s"""
              |Compiling user (2 Scala sources)
          """.stripMargin
@@ -432,7 +433,7 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
 
         // Second compilation should be independent from 1 and report warning
         assertNoDiff(
-          cliLogger.warnings.mkString(System.lineSeparator()),
+          cliLogger.warnings.mkString(lineSeparator),
           s"""| [E1] ${TestUtil.universalPath("user/src/main/scala/User2.scala")}:5:19
               |      implicit numeric widening
               |      L5:   val i: Long = 1.toInt
@@ -579,7 +580,7 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
         )
 
         assertNoDiff(
-          cliLogger1.compilingInfos.mkString(System.lineSeparator()),
+          cliLogger1.compilingInfos.mkString(lineSeparator),
           s"""
              |Compiling a (1 Scala source)
              |Compiling b (1 Scala source)
@@ -588,7 +589,7 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
         )
 
         assertNoDiff(
-          cliLogger1.errors.mkString(System.lineSeparator()),
+          cliLogger1.errors.mkString(lineSeparator),
           s"""
              |[E1] ${TestUtil.universalPath("b/src/B.scala")}:3:29
              |     type mismatch;
@@ -601,7 +602,7 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
         )
 
         assertNoDiff(
-          cliLogger2.compilingInfos.mkString(System.lineSeparator()),
+          cliLogger2.compilingInfos.mkString(lineSeparator),
           s"""
              |Compiling b (1 Scala source)
          """.stripMargin
@@ -609,7 +610,7 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
 
         val targetB = TestUtil.universalPath("b/src/B.scala")
         assertNoDiff(
-          cliLogger2.errors.mkString(System.lineSeparator()),
+          cliLogger2.errors.mkString(lineSeparator),
           s"""
              |[E1] ${targetB}:3:29
              |     type mismatch;
@@ -660,14 +661,14 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
         )
 
         assertNoDiff(
-          cliLogger4.compilingInfos.mkString(System.lineSeparator()),
+          cliLogger4.compilingInfos.mkString(lineSeparator),
           s"""
              |Compiling b (1 Scala source)
          """.stripMargin
         )
 
         assertNoDiff(
-          cliLogger4.errors.mkString(System.lineSeparator()),
+          cliLogger4.errors.mkString(lineSeparator),
           s"""
              |[E1] ${targetB}:3:29
              |     type mismatch;
@@ -680,14 +681,14 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
         )
 
         assertNoDiff(
-          cliLogger5.compilingInfos.mkString(System.lineSeparator()),
+          cliLogger5.compilingInfos.mkString(lineSeparator),
           s"""
              |Compiling b (1 Scala source)
          """.stripMargin
         )
 
         assertNoDiff(
-          cliLogger5.errors.mkString(System.lineSeparator()),
+          cliLogger5.errors.mkString(lineSeparator),
           s"""
              |[E1] ${targetB}:3:29
              |     type mismatch;
@@ -736,7 +737,7 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
         checkDeduplication(cliLogger7, isDeduplicated = true)
 
         assertNoDiff(
-          cliLogger7.compilingInfos.mkString(System.lineSeparator()),
+          cliLogger7.compilingInfos.mkString(lineSeparator),
           s"""
              |Compiling b (1 Scala source)
          """.stripMargin
@@ -880,7 +881,7 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
           assert(firstCompiledState.status == ExitStatus.CompilationError)
           assertCancelledCompilation(firstCompiledState.toTestState, List(`B`))
           assertNoDiff(
-            bspLogger.infos.filterNot(_.contains("tcp")).mkString(System.lineSeparator()),
+            bspLogger.infos.filterNot(_.contains("tcp")).mkString(lineSeparator),
             """
               |request received: build/initialize
               |BSP initialization handshake complete.
@@ -908,7 +909,7 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
           )
 
           assertNoDiff(
-            cliLogger.warnings.mkString(System.lineSeparator()),
+            cliLogger.warnings.mkString(lineSeparator),
             "Cancelling compilation of b"
           )
         }
@@ -995,7 +996,7 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
           assert(firstCompiledState.status == ExitStatus.CompilationError)
           assertCancelledCompilation(firstCompiledState.toTestState, List(`B`))
           assertNoDiff(
-            bspLogger.infos.filterNot(_.contains("tcp")).mkString(System.lineSeparator()),
+            bspLogger.infos.filterNot(_.contains("tcp")).mkString(lineSeparator),
             """
               |request received: build/initialize
               |BSP initialization handshake complete.
@@ -1010,17 +1011,16 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
           checkDeduplication(cliLogger, isDeduplicated = true)
 
           assertNoDiff(
-            cliLogger.warnings.mkString(System.lineSeparator()),
+            cliLogger.warnings.mkString(lineSeparator),
             """Disconnecting from deduplication of ongoing compilation for 'b'
               |No progress update for 2 seconds caused bloop to cancel compilation and schedule a new compile.
               |""".stripMargin
           )
 
           // Skip deduplication log that can happen because of timing issues, we're only interested in deduplicating b
-          val cliLogs = cliLogger.renderTimeInsensitiveInfos
-            .split(System.lineSeparator)
+          val cliLogs = cliLogger.renderTimeInsensitiveInfos.splitLines
             .filter(!_.startsWith("Deduplicating compilation of a"))
-            .mkString(System.lineSeparator)
+            .mkString(lineSeparator)
 
           assertNoDiff(
             cliLogs,
@@ -1057,7 +1057,7 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
       assert(compiledMacrosState.status == ExitStatus.Ok)
       assertValidCompilationState(compiledMacrosState, List(build.macroProject))
       assertNoDiff(
-        logger.compilingInfos.mkString(System.lineSeparator()),
+        logger.compilingInfos.mkString(lineSeparator),
         s"""
            |Compiling macros (1 Scala source)
          """.stripMargin
@@ -1112,7 +1112,7 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
         )
 
         assertNoDiff(
-          logger2.compilingInfos.mkString(System.lineSeparator()),
+          logger2.compilingInfos.mkString(lineSeparator),
           s"""
              |Compiling user (32 Scala sources)
          """.stripMargin
@@ -1123,7 +1123,7 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
             .filterNot(_.contains("127.0.0.1"))
             .filterNot(_.contains("build/initialize"))
             .filterNot(_.contains("BSP"))
-            .mkString(System.lineSeparator()),
+            .mkString(lineSeparator),
           s"""
              |Hello, World!
              |Hello, World!

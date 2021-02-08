@@ -5,9 +5,10 @@ import bloop.data.Project
 import bloop.engine.Dag.RecursiveTrace
 import bloop.io.AbsolutePath
 import bloop.util.JavaRuntime
+import bloop.io.Environment.lineSeparator
 
 object Feedback {
-  private final val eol = System.lineSeparator
+  private final val eol = lineSeparator
   def listMainClasses(mainClasses: List[String]): String =
     s"Use the following main classes:\n${mainClasses.mkString(" * ", s"$eol * ", "")}"
   def missingMainClass(project: Project): String =

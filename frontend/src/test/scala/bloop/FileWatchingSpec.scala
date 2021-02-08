@@ -4,6 +4,7 @@ import bloop.testing.BaseSuite
 import bloop.config.Config
 import bloop.data.Project
 import bloop.io.{AbsolutePath, Paths => BloopPaths}
+import bloop.io.Environment.lineSeparator
 import bloop.logging.{RecordingLogger, PublisherLogger, DebugFilter}
 import bloop.cli.{Commands, ExitStatus}
 import bloop.engine.{Feedback, Run, State, ExecutionContext, Dag, Build}
@@ -368,7 +369,7 @@ object FileWatchingSpec extends BaseSuite {
           catch {
             case NonFatal(t) =>
               errorMessage =
-                logs.map { case (level, log) => s"[$level] $log" }.mkString(System.lineSeparator())
+                logs.map { case (level, log) => s"[$level] $log" }.mkString(lineSeparator)
               throw t
           }
         }
@@ -455,7 +456,7 @@ object FileWatchingSpec extends BaseSuite {
           received
             .++=("Received ")
             .++=(msg.mkString(", "))
-            .++=(System.lineSeparator)
+            .++=(lineSeparator)
           ()
         }
     }

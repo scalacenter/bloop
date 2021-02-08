@@ -9,6 +9,7 @@ import coursier.paths.CoursierPaths
 import scala.util.Properties
 import java.nio.file.Paths
 import bloop.io.AbsolutePath
+import bloop.io.Environment.lineSeparator
 
 object ConsoleSpec extends BaseSuite {
   test("default ammonite console works in multi-build project") {
@@ -53,7 +54,7 @@ object ConsoleSpec extends BaseSuite {
               msg == "" || msg.startsWith("Non-compiled module") || msg
                 .startsWith(" Compilation completed in")
           )
-          .mkString(System.lineSeparator()),
+          .mkString(lineSeparator),
         s"""|Compiling a (1 Scala source)
             |Compiled a ???
             |Compiling b (1 Scala source)

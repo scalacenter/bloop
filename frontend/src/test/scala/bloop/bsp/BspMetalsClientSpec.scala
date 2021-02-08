@@ -1,6 +1,7 @@
 package bloop.bsp
 
 import bloop.io.AbsolutePath
+import bloop.io.Environment.{lineSeparator, LineSplitter}
 import bloop.cli.BspProtocol
 import bloop.util.TestUtil
 import bloop.util.TestProject
@@ -49,7 +50,7 @@ class BspMetalsClientSpec(
       )
 
       loadBspState(workspace, projects, logger, "Metals", bloopExtraParams = extraParams) { state =>
-        assertNoDiff(logger.warnings.mkString(System.lineSeparator), "")
+        assertNoDiff(logger.warnings.mkString(lineSeparator), "")
         assertNoDiffInSettingsFile(
           configDir,
           """|{
@@ -102,7 +103,7 @@ class BspMetalsClientSpec(
         )
         // Expect only range positions to be added, semanticdb is not supported
         assertScalacOptions(state, `A`, "-Yrangepos")
-        assertNoDiff(logger.warnings.mkString(System.lineSeparator), "")
+        assertNoDiff(logger.warnings.mkString(lineSeparator), "")
       }
     }
   }
@@ -496,12 +497,12 @@ class BspMetalsClientSpec(
 
     val expectedOptions = unorderedExpectedOptions
       .replace("$workspace", workspaceDir)
-      .split(System.lineSeparator)
+      .splitLines
       .filterNot(_.isEmpty)
       .sorted
-      .mkString(System.lineSeparator)
+      .mkString(lineSeparator)
     assertNoDiff(
-      scalacOptions.sorted.mkString(System.lineSeparator),
+      scalacOptions.sorted.mkString(lineSeparator),
       expectedOptions
     )
   }

@@ -1,6 +1,7 @@
 package bloop
 
 import bloop.io.{AbsolutePath, RelativePath, Paths => BloopPaths}
+import bloop.io.Environment.lineSeparator
 import bloop.logging.RecordingLogger
 import bloop.cli.{Commands, ExitStatus}
 import bloop.engine.{Feedback, Run, State}
@@ -116,7 +117,7 @@ object BuildPipeliningSpec extends bloop.testing.BaseSuite {
       )
 
       assertNoDiff(
-        logger.warnings.mkString(System.lineSeparator()),
+        logger.warnings.mkString(lineSeparator),
         """|The project a didn't use pipelined compilation.
            |The project b didn't use pipelined compilation.
            |""".stripMargin
