@@ -16,7 +16,6 @@ import bloop.{
   CompileBackgroundTasks,
   CompileExceptions,
   CompileInputs,
-  CompileMode,
   CompileOutPaths,
   CompileProducts,
   Compiler
@@ -87,13 +86,6 @@ object CompileTask {
 
       bundle.prepareSourcesAndInstance match {
         case Left(earlyResultBundle) =>
-          graphInputs.pipelineInputs match {
-            case None => ()
-            case Some(inputs) =>
-              inputs.irPromise.trySuccess(new Array(0))
-              inputs.finishedCompilation.trySuccess(None)
-              inputs.completeJava.trySuccess(())
-          }
           compileProjectTracer.terminate()
           Task.now(earlyResultBundle)
         case Right(CompileSourcesAndInstance(sources, instance, javaOnly)) =>
@@ -143,7 +135,6 @@ object CompileTask {
               previousResult,
               reporter,
               logger,
-              configuration.mode,
               graphInputs.dependentResults,
               cancelCompilation,
               compileProjectTracer,
@@ -166,9 +157,6 @@ object CompileTask {
           waitOnReadClassesDir.flatMap { _ =>
             // Only when the task is finished, we kickstart the compilation
             inputs.flatMap(inputs => Compiler.compile(inputs)).map { result =>
-              // Post-compilation hook to complete/validate pipelining state
-              runPipeliningBookkeeping(graphInputs, result, javaOnly, logger)
-
               def runPostCompilationTasks(
                   backgroundTasks: CompileBackgroundTasks
               ): CancelableFuture[Unit] = {
@@ -257,7 +245,7 @@ object CompileTask {
     }
 
     val client = state.client
-    CompileGraph.traverse(dag, client, store, setup(_), compile(_), pipeline).flatMap { pdag =>
+    CompileGraph.traverse(dag, client, store, setup(_), compile(_)).flatMap { pdag =>
       val partialResults = Dag.dfs(pdag)
       val finalResults = partialResults.map(r => PartialCompileResult.toFinalResult(r))
       Task.gatherUnordered(finalResults).map(_.flatten).flatMap { results =>
@@ -328,61 +316,13 @@ object CompileTask {
     }
   }
 
-  case class ConfiguredCompilation(mode: CompileMode, scalacOptions: List[String])
+  case class ConfiguredCompilation(scalacOptions: List[String])
   private def configureCompilation(
       project: Project,
       graphInputs: CompileGraph.Inputs,
       out: CompileOutPaths
   ): ConfiguredCompilation = {
-    graphInputs.pipelineInputs match {
-      case Some(inputs) =>
-        val scalacOptions = project.scalacOptions
-        val newMode = CompileMode.Pipelined(
-          inputs.completeJava,
-          inputs.finishedCompilation,
-          inputs.transitiveJavaSignal,
-          graphInputs.oracle,
-          inputs.separateJavaAndScala
-        )
-        ConfiguredCompilation(newMode, scalacOptions)
-      case None =>
-        val newMode = CompileMode.Sequential(graphInputs.oracle)
-        ConfiguredCompilation(newMode, project.scalacOptions)
-    }
-  }
-
-  private def runPipeliningBookkeeping(
-      inputs: CompileGraph.Inputs,
-      result: Compiler.Result,
-      javaOnly: Boolean,
-      logger: Logger
-  ): Unit = {
-    val projectName = inputs.bundle.project.name
-    // Avoid deadlocks in case pipelining is disabled in the Zinc bridge
-    inputs.pipelineInputs match {
-      case None => ()
-      case Some(pipelineInputs) =>
-        result match {
-          case Compiler.Result.NotOk(_) =>
-            // If error, try to set failure in IR promise; if already completed ignore
-            pipelineInputs.irPromise.tryFailure(CompileExceptions.FailedOrCancelledPromise); ()
-          case result =>
-            // Complete finished compilation promise with products if success or empty
-            result match {
-              case s: Compiler.Result.Success =>
-                pipelineInputs.finishedCompilation.success(Some(s.products))
-              case Compiler.Result.Empty =>
-                pipelineInputs.finishedCompilation.trySuccess(None)
-              case _ =>
-                pipelineInputs.finishedCompilation.tryFailure(CompileExceptions.CompletePromise)
-            }
-
-            val completed = pipelineInputs.irPromise.tryFailure(CompileExceptions.CompletePromise)
-            if (completed && !javaOnly) {
-              logger.warn(s"The project $projectName didn't use pipelined compilation.")
-            }
-        }
-    }
+    ConfiguredCompilation(project.scalacOptions)
   }
 
   private def populateNewReadOnlyClassesDir(

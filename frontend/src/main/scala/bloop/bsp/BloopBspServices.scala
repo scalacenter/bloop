@@ -12,7 +12,7 @@ import bloop.io.Environment.lineSeparator
 import bloop.io.ServerHandle
 import bloop.util.JavaRuntime
 import bloop.bsp.BloopBspDefinitions.BloopExtraBuildParams
-import bloop.{CompileMode, Compiler, ScalaInstance}
+import bloop.{Compiler, ScalaInstance}
 import bloop.cli.{Commands, ExitStatus, Validate}
 import bloop.dap.{DebugServerLogger, BloopDebuggeeRunner}
 import bloop.data.{ClientInfo, JdkConfig, Platform, Project, WorkspaceSettings}

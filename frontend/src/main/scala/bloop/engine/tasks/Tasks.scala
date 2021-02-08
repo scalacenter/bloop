@@ -68,7 +68,7 @@ object Tasks {
         val opts = ClasspathOptionsUtil.repl
         val options = project.scalacOptions :+ "-Xnojline"
         // We should by all means add better error handling here!
-        compiler.console(entries, options, opts, "", "", state.logger)(Some(loader))
+        compiler.console(entries, options, "", "", state.logger)(Some(loader))
       case None => logger.error(s"Missing Scala configuration on project '${project.name}'")
     }
 

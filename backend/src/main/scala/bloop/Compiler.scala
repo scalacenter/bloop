@@ -13,8 +13,6 @@ import bloop.tracing.BraveTracer
 import bloop.logging.{ObservedLogger, Logger}
 import bloop.reporter.{ProblemPerPhase, ZincReporter}
 import bloop.util.{AnalysisUtils, UUIDUtil, CacheHashCode}
-import bloop.CompileMode.Pipelined
-import bloop.CompileMode.Sequential
 
 import xsbti.compile._
 import xsbti.T2
@@ -23,7 +21,6 @@ import sbt.util.InterfaceUtil
 import sbt.internal.inc.Analysis
 import sbt.internal.inc.bloop.BloopZincCompiler
 import sbt.internal.inc.{FreshCompilerCache, InitialChanges, Locate}
-import sbt.internal.inc.bloop.internal.StopPipelining
 import sbt.internal.inc.{ConcreteAnalysisContents, FileAnalysisStore}
 
 import scala.concurrent.Promise
@@ -55,7 +52,6 @@ case class CompileInputs(
     previousCompilerResult: Compiler.Result,
     reporter: ZincReporter,
     logger: ObservedLogger[Logger],
-    mode: CompileMode,
     dependentResults: Map[File, PreviousResult],
     cancelPromise: Promise[Unit],
     tracer: BraveTracer,
@@ -260,6 +256,7 @@ object Compiler {
 
     def newFileManager: ClassFileManager = {
       new BloopClassFileManager(
+        Files.createTempDirectory("bloop"),
         compileInputs,
         compileOut,
         allGeneratedRelativeClassFilePaths,
@@ -300,7 +297,6 @@ object Compiler {
         .withClasspath(classpath)
         .withScalacOptions(optionsWithoutFatalWarnings)
         .withJavacOptions(inputs.javacOptions)
-        .withClasspathOptions(inputs.classpathOptions)
         .withOrder(inputs.compileOrder)
     }
 
@@ -344,19 +340,12 @@ object Compiler {
 
     import ch.epfl.scala.bsp
     import scala.util.{Success, Failure}
-    val mode = compileInputs.mode
     val reporter = compileInputs.reporter
 
     def cancel(): Unit = {
       // Complete all pending promises when compilation is cancelled
       logger.debug(s"Cancelling compilation from ${readOnlyClassesDirPath} to ${newClassesDirPath}")
       compileInputs.cancelPromise.trySuccess(())
-      mode match {
-        case _: Sequential => ()
-        case Pipelined(completeJava, finishedCompilation, _, _, _) =>
-          completeJava.trySuccess(())
-          finishedCompilation.tryFailure(CompileExceptions.FailedOrCancelledPromise)
-      }
 
       // Always report the compilation of a project no matter if it's completed
       reporter.reportCancelledCompilation()
@@ -379,7 +368,16 @@ object Compiler {
     val uniqueInputs = compileInputs.uniqueInputs
     reporter.reportStartCompilation(previousProblems)
     BloopZincCompiler
-      .compile(inputs, mode, reporter, logger, uniqueInputs, newFileManager, cancelPromise, tracer)
+      .compile(
+        inputs,
+        reporter,
+        logger,
+        uniqueInputs,
+        newFileManager,
+        cancelPromise,
+        tracer,
+        classpathOptions
+      )
       .materialize
       .doOnCancel(Task(cancel()))
       .map {
@@ -417,9 +415,9 @@ object Compiler {
                 val invalidatedExtraProducts =
                   allInvalidatedExtraCompileProducts.iterator.map(_.toPath).toSet
                 val invalidatedInThisProject = invalidatedClassFiles ++ invalidatedExtraProducts
-                val blacklist = invalidatedInThisProject ++ readOnlyCopyBlacklist.iterator
+                val denyList = invalidatedInThisProject ++ readOnlyCopyBlacklist.iterator
                 val config =
-                  ParallelOps.CopyConfiguration(5, CopyMode.ReplaceIfMetadataMismatch, blacklist)
+                  ParallelOps.CopyConfiguration(5, CopyMode.ReplaceIfMetadataMismatch, denyList)
                 val lastCopy = ParallelOps.copyDirectories(config)(
                   readOnlyClassesDir,
                   clientClassesDir.underlying,
@@ -444,7 +442,6 @@ object Compiler {
           }
 
           val isNoOp = previousAnalysis.contains(analysis)
-          val definedMacroSymbols = mode.oracle.collectDefinedMacroSymbols
           if (isNoOp) {
             // If no-op, return previous result with updated classpath hashes
             val noOpPreviousResult = {
@@ -460,8 +457,7 @@ object Compiler {
               noOpPreviousResult,
               noOpPreviousResult,
               Set(),
-              Map.empty,
-              definedMacroSymbols
+              Map.empty
             )
 
             val backgroundTasks = new CompileBackgroundTasks {
@@ -578,8 +574,7 @@ object Compiler {
               resultForDependentCompilationsInSameRun,
               resultForFutureCompilationRuns,
               allInvalidated.toSet,
-              allGeneratedProducts,
-              definedMacroSymbols
+              allGeneratedProducts
             )
 
             Result.Success(
@@ -599,7 +594,6 @@ object Compiler {
           reporter.reportEndCompilation()
 
           cause match {
-            case f: StopPipelining => Result.Blocked(f.failedProjectNames)
             case f: xsbti.CompileFailed =>
               // We cannot guarantee reporter.problems == f.problems, so we aggregate them together
               val reportedProblems = reporter.allProblemsPerPhase.toList

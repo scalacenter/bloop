@@ -4,7 +4,6 @@ package sbt.internal.inc.bloop
 import java.io.File
 import java.util.concurrent.CompletableFuture
 
-import bloop.{CompileMode, CompilerOracle}
 import bloop.reporter.ZincReporter
 import bloop.logging.ObservedLogger
 import bloop.tracing.BraveTracer
@@ -44,13 +43,13 @@ object BloopZincCompiler {
    */
   def compile(
       in: Inputs,
-      compileMode: CompileMode,
       reporter: ZincReporter,
       logger: ObservedLogger[_],
       uniqueInputs: UniqueCompileInputs,
       manager: ClassFileManager,
       cancelPromise: Promise[Unit],
-      tracer: BraveTracer
+      tracer: BraveTracer,
+      classpathOptions: ClasspathOptions
   ): Task[CompileResult] = {
     val config = in.options()
     val setup = in.setup()
@@ -81,7 +80,6 @@ object BloopZincCompiler {
         skip,
         incrementalCompilerOptions,
         extraOptions,
-        compileMode,
         manager,
         cancelPromise,
         tracer
@@ -109,7 +107,6 @@ object BloopZincCompiler {
       skip: Boolean = false,
       incrementalOptions: IncOptions,
       extra: List[(String, String)],
-      compileMode: CompileMode,
       manager: ClassFileManager,
       cancelPromise: Promise[Unit],
       tracer: BraveTracer
@@ -126,12 +123,12 @@ object BloopZincCompiler {
       if (skip) Task.now(CompileResult.of(prev, config.currentSetup, false))
       else {
         val setOfSources = sources.toSet
-        val compiler = BloopHighLevelCompiler(config, reporter, logger, tracer)
+        val compiler = BloopHighLevelCompiler(config, reporter, logger, tracer, classpathOptions)
         val lookup = new BloopLookup(config, previousSetup, logger)
         val analysis = invalidateAnalysisFromSetup(config.currentSetup, previousSetup, incrementalOptions.ignoredScalacOptions(), setOfSources, prev, manager, logger)
 
         // Scala needs the explicit type signature to infer the function type arguments
-        val compile: (Set[File], DependencyChanges, AnalysisCallback, ClassFileManager) => Task[Unit] = compiler.compile(_, _, _, _, compileMode, cancelPromise)
+        val compile: (Set[File], DependencyChanges, AnalysisCallback, ClassFileManager) => Task[Unit] = compiler.compile(_, _, _, _, cancelPromise, classpathOptions)
         BloopIncremental
           .compile(
             setOfSources,
@@ -143,7 +140,6 @@ object BloopZincCompiler {
             logger,
             reporter,
             config.incOptions,
-            compileMode,
             manager,
             tracer,
             HydraSupport.isEnabled(config.compiler.scalaInstance())
@@ -264,7 +260,6 @@ object BloopZincCompiler {
     MixedAnalyzingCompiler.config(
       sources,
       classpath,
-      classpathOptions,
       compileSetup,
       progress,
       previousAnalysis,

@@ -63,8 +63,8 @@ object BloopComponentCompiler {
     val (isDotty, organization, version) = scalaInstance match {
       case instance: BloopScalaInstance =>
         if (instance.isDotty) (true, instance.organization, instance.version)
-        else (false, "ch.epfl.scala", latestVersion)
-      case instance: ScalaInstance => (false, "ch.epfl.scala", latestVersion)
+        else (false, "org.scala-sbt", latestVersion)
+      case instance: ScalaInstance => (false, "org.scala-sbt", latestVersion)
     }
 
     val bridgeId = compilerBridgeId(scalaInstance.version)
@@ -102,24 +102,14 @@ object BloopComponentCompiler {
       scheduler: ExecutionContext
   ) extends CompilerBridgeProvider {
 
-    private def is213ThatNeedsPreviousZinc(scalaVersion: String): Boolean = {
-      scalaVersion.startsWith("2.13.0") ||
-      scalaVersion.startsWith("2.13.1") ||
-      scalaVersion.startsWith("2.13.2")
-    }
-
     /**
      * Defines a richer interface for Scala users that want to pass in an explicit module id.
      *
      * Note that this method cannot be defined in [[CompilerBridgeProvider]] because [[ModuleID]]
      * is a Scala-defined class to which the compiler bridge cannot depend on.
      */
-    private def compiledBridge(bridgeSources0: ModuleID, scalaInstance: ScalaInstance): File = {
+    private def compiledBridge(bridgeSources: ModuleID, scalaInstance: ScalaInstance): File = {
       val scalaVersion = scalaInstance.version()
-      val bridgeSources =
-        if (is213ThatNeedsPreviousZinc(scalaVersion))
-          bridgeSources0.withRevision("1.3.0-M4+42-5daa8ed7")
-        else bridgeSources0
       val raw = new RawCompiler(scalaInstance, ClasspathOptionsUtil.auto, logger)
       val zinc = new BloopComponentCompiler(raw, manager, bridgeSources, logger, scheduler)
       logger.debug(s"Getting $bridgeSources for Scala ${scalaInstance.version}")(
