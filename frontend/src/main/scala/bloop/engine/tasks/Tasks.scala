@@ -148,7 +148,8 @@ object Tasks {
    * @param project   The project to run.
    * @param cwd       The directory in which to start the forked JVM.
    * @param fqn       The fully qualified name of the main class.
-   * @param args      The arguments to pass to the main class.
+   * @param args      The arguments to pass to the main class. If they contain args
+   *                   starting with `-J`, they will be interpreted as jvm options.
    * @param skipJargs Skip the interpretation of `-J` options in `args`.
    * @param mode      The run mode.
    */
@@ -163,11 +164,40 @@ object Tasks {
       envVars: List[String],
       mode: RunMode
   ): Task[State] = {
+    val (userJvmOptions, userArgs) =
+      if (skipJargs) (Array.empty[String], args)
+      else args.partition(_.startsWith("-J"))
+    val jvmOptions = userJvmOptions.map(_.stripPrefix("-J"))
+    runJVM(state, project, config, cwd, fqn, userArgs, jvmOptions, envVars, mode)
+  }
+
+  /**
+   * Runs the fully qualified class `className` in `project`.
+   *
+   * @param state           The current state of Bloop.
+   * @param project         The project to run.
+   * @param cwd             The directory in which to start the forked JVM.
+   * @param fqn             The fully qualified name of the main class.
+   * @param args            The arguments to pass to the main class.
+   * @param jvmOptions      The java options to pass to the jvm.
+   * @param mode            The run mode.
+   */
+  def runJVM(
+      state: State,
+      project: Project,
+      config: JdkConfig,
+      cwd: AbsolutePath,
+      fqn: String,
+      args: Array[String],
+      jvmOptions: Array[String],
+      envVars: List[String],
+      mode: RunMode
+  ): Task[State] = {
     val dag = state.build.getDagFor(project)
     val classpath = project.fullRuntimeClasspath(dag, state.client)
     val forker = JvmProcessForker(config, classpath, mode)
     val runTask =
-      forker.runMain(cwd, fqn, args, skipJargs, envVars, state.logger, state.commonOptions)
+      forker.runMain(cwd, fqn, args, jvmOptions, envVars, state.logger, state.commonOptions)
     runTask.map { exitCode =>
       val exitStatus = Forker.exitStatus(exitCode)
       state.mergeStatus(exitStatus)

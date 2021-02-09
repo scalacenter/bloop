@@ -61,7 +61,7 @@ class ForkerSpec {
           cwd,
           mainClass,
           args,
-          skipJargs = false,
+          Array.empty,
           envVars = Nil,
           logger.asVerbose,
           opts,
