@@ -33,44 +33,24 @@ trait JvmProcessForker {
   /**
    * Run the main function in class `className`, passing it `args`
    *
-   * @param cwd            The directory in which to start the forked JVM
-   * @param mainClass      The fully qualified name of the class to run
-   * @param args0          The arguments to pass to the main method. If they contain args
-   *                       starting with `-J`, they will be interpreted as jvm options.
-   * @param skipJargs      Skip the interpretation of `-J` options in `args`.
-   * @param logger         Where to log the messages from execution
-   * @param opts           The options to run the program with
-   * @param extraClasspath Paths to append to the classpath before running
+   * @param cwd             The directory in which to start the forked JVM
+   * @param mainClass       The fully qualified name of the class to run
+   * @param args            The arguments to pass to the main method.
+   * @param jvmOptions      The java options to pass to the jvm.
+   * @param logger          Where to log the messages from execution
+   * @param opts            The options to run the program with
+   * @param extraClasspath  Paths to append to the classpath before running
    * @return 0 if the execution exited successfully, a non-zero number otherwise
-   *
-   *
    */
-  final def runMain(
-      cwd: AbsolutePath,
-      mainClass: String,
-      args0: Array[String],
-      skipJargs: Boolean,
-      envVars: List[String],
-      logger: Logger,
-      opts: CommonOptions,
-      extraClasspath: Array[AbsolutePath] = Array.empty
-  ): Task[Int] = {
-    val (userJvmOptions, userArgs) =
-      if (skipJargs) (Array.empty[String], args0)
-      else args0.partition(_.startsWith("-J"))
-
-    runMain(cwd, mainClass, userArgs, userJvmOptions, envVars, logger, opts, extraClasspath)
-  }
-
   def runMain(
       cwd: AbsolutePath,
       mainClass: String,
       args: Array[String],
-      jargs: Array[String],
+      jvmOptions: Array[String],
       envVars: List[String],
       logger: Logger,
       opts: CommonOptions,
-      extraClasspath: Array[AbsolutePath]
+      extraClasspath: Array[AbsolutePath] = Array.empty
   ): Task[Int]
 }
 
@@ -117,8 +97,7 @@ final class JvmForker(config: JdkConfig, classpath: Array[AbsolutePath]) extends
       opts: CommonOptions,
       extraClasspath: Array[AbsolutePath]
   ): Task[Int] = {
-
-    val jvmOptions = jargs.map(_.stripPrefix("-J")) ++ config.javaOptions
+    val jvmOptions = jargs ++ config.javaOptions
     val fullClasspath = classpath ++ extraClasspath
     val fullClasspathStr = fullClasspath.map(_.syntax).mkString(File.pathSeparator)
     envVars.map(_.split("=")).collect {

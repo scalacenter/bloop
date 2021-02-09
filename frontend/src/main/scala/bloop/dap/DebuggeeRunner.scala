@@ -40,14 +40,18 @@ private final class MainClassDebugAdapter(
 
   def run(debugLogger: DebugSessionLogger): Task[ExitStatus] = {
     val workingDir = state.commonOptions.workingPath
+    // TODO: https://github.com/scalacenter/bloop/issues/1456
+    // Metals used to add the `-J` prefix but it is not needed anymore
+    // So we cautiously strip it off
+    val jvmOptions = mainClass.jvmOptions.map(_.stripPrefix("-J"))
     val runState = Tasks.runJVM(
       state.copy(logger = debugLogger),
       project,
       env,
       workingDir,
       mainClass.`class`,
-      (mainClass.arguments ++ mainClass.jvmOptions).toArray,
-      skipJargs = false,
+      mainClass.arguments.toArray,
+      jvmOptions.toArray,
       mainClass.environmentVariables,
       RunMode.Debug
     )
