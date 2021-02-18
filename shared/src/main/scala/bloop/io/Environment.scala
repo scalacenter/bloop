@@ -21,7 +21,7 @@ object Environment {
    */
   val lineSeparator: String = Option(System.getenv("SHELL")) match {
     case Some(currentShell) if validShells.exists(sh => currentShell.contains(sh)) => "\n"
-    case None => System.getProperty("line.separator", "\n")
+    case _ => System.getProperty("line.separator", "\n")
   }
 
   /**
@@ -67,6 +67,7 @@ object Environment {
     "/bin/pdksh",
     "/bin/posh",
     "/bin/tcsh",
-    "/bin/zsh"
+    "/bin/zsh",
+    "/bin/fish"
   )
 }
