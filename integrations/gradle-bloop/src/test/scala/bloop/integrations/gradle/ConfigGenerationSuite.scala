@@ -31,12 +31,12 @@ import scala.collection.JavaConverters._
  */
 
 // minimum supported version
-class ConfigGenerationSuite50 extends ConfigGenerationSuite {
+class ConfigGenerationSuite_5_0 extends ConfigGenerationSuite {
   protected val gradleVersion: String = "5.0"
 }
 
 // maximum supported version
-class ConfigGenerationSuite70 extends ConfigGenerationSuite {
+class ConfigGenerationSuite_7_0 extends ConfigGenerationSuite {
   protected val gradleVersion: String = "7.0"
 }
 
@@ -46,6 +46,234 @@ abstract class ConfigGenerationSuite extends BaseConfigSuite {
   // folder to put test build scripts and java/scala source files
   private val testProjectDir_ = new TemporaryFolder()
   @Rule def testProjectDir: TemporaryFolder = testProjectDir_
+
+  @Test def worksWithAndroidPlugin(): Unit = {
+    // This version has to match with Dependencies#gradleAndroidPluginVersion.  Currently can't test multiple versions.
+    worksWithAndroidPlugin("4.1.0")
+  }
+
+  private def worksWithAndroidPlugin(androidToolsVersion: String): Unit = {
+    if (gradleVersion >= "6.1.1") {
+      val buildSettings = testProjectDir.newFile("settings.gradle")
+      val buildDirA = testProjectDir.newFolder("a")
+      testProjectDir.newFolder("a", "src", "main", "java")
+      testProjectDir.newFolder("a", "src", "androidTest", "java")
+      val buildDirB = testProjectDir.newFolder("b")
+      testProjectDir.newFolder("b", "src", "main", "java")
+      testProjectDir.newFolder("b", "src", "androidTest", "java")
+      val buildDirC = testProjectDir.newFolder("c")
+      testProjectDir.newFolder("c", "src", "main", "java")
+      testProjectDir.newFolder("c", "src", "androidTest", "java")
+      val buildFileA = new File(buildDirA, "build.gradle")
+      val buildFileB = new File(buildDirB, "build.gradle")
+      val buildFileC = new File(buildDirC, "build.gradle")
+
+      writeBuildScript(
+        buildFileA,
+        s"""
+           |buildscript {
+           |  repositories {
+           |    google()
+           |    jcenter()
+           |  }
+           |  dependencies {
+           |    classpath 'com.android.tools.build:gradle:$androidToolsVersion'
+           |  }
+           |}
+           |plugins {
+           |  id 'bloop'
+           |}
+           |
+           |apply plugin: 'com.android.library'
+           |apply plugin: 'bloop'
+           |
+           |android {
+           |  compileSdkVersion 29
+           |}
+           |
+           |repositories {
+           |  mavenCentral()
+           |}
+           |dependencies {
+           |  testImplementation 'junit:junit:4.12'
+           |}
+        """.stripMargin
+      )
+
+      writeBuildScript(
+        buildFileB,
+        s"""
+           |buildscript {
+           |  repositories {
+           |    google()
+           |    jcenter()
+           |  }
+           |  dependencies {
+           |    classpath 'com.android.tools.build:gradle:$androidToolsVersion'
+           |  }
+           |}
+           |plugins {
+           |  id 'bloop'
+           |}
+           |
+           |apply plugin: 'com.android.library'
+           |apply plugin: 'bloop'
+           |
+           |android {
+           |  compileSdkVersion 29
+           |}
+           |
+           |repositories {
+           |  mavenCentral()
+           |}
+           |dependencies {
+           |  api project(':a')
+           |  testImplementation 'junit:junit:4.12'
+           |  implementation 'org.typelevel:cats-core_2.12:1.2.0'
+           |}
+        """.stripMargin
+      )
+
+      writeBuildScript(
+        buildFileC,
+        s"""
+           |buildscript {
+           |  repositories {
+           |    google()
+           |    jcenter()
+           |  }
+           |  dependencies {
+           |    classpath 'com.android.tools.build:gradle:$androidToolsVersion'
+           |  }
+           |}
+           |plugins {
+           |  id 'bloop'
+           |}
+           |
+           |apply plugin: 'com.android.application'
+           |apply plugin: 'bloop'
+           |
+           |android {
+           |  compileSdkVersion 29
+           |  defaultConfig {
+           |    testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
+           |  }
+           |}
+           |
+           |repositories {
+           |  mavenCentral()
+           |}
+           |dependencies {
+           |  implementation project(':b')
+           |  testImplementation 'junit:junit:4.12'
+           |  implementation 'org.typelevel:cats-core_2.12:1.2.0'
+           |}
+        """.stripMargin
+      )
+
+      writeBuildScript(
+        buildSettings,
+        """
+          |rootProject.name = 'scala-multi-projects'
+          |include 'a'
+          |include 'b'
+          |include 'c'
+        """.stripMargin
+      )
+
+      createHelloWorldScalaTestSource(buildDirA, "")
+      createHelloWorldScalaTestSource(buildDirB, "")
+      createHelloWorldScalaTestSource(buildDirC, "")
+
+      GradleRunner
+        .create()
+        .withGradleVersion(gradleVersion)
+        .withProjectDir(testProjectDir.getRoot)
+        .withPluginClasspath(getClasspath)
+        .forwardOutput()
+        .withArguments("bloopInstall", "-Si")
+        .build()
+
+      val bloopDir = new File(testProjectDir.getRoot, ".bloop")
+
+      val bloopADebug = new File(bloopDir, "a-debug.json")
+      val bloopADebugAndroidTest = new File(bloopDir, "a-debug-androidTest.json")
+      val bloopARelease = new File(bloopDir, "a-release.json")
+      val bloopBDebug = new File(bloopDir, "b-debug.json")
+      val bloopBDebugAndroidTest = new File(bloopDir, "b-debug-androidTest.json")
+      val bloopBRelease = new File(bloopDir, "b-release.json")
+      val bloopCDebug = new File(bloopDir, "c-debug.json")
+      val bloopCDebugAndroidTest = new File(bloopDir, "c-debug-androidTest.json")
+      val bloopCRelease = new File(bloopDir, "c-release.json")
+
+      val configADebug = readValidBloopConfig(bloopADebug)
+      val configADebugAndroidTest = readValidBloopConfig(bloopADebugAndroidTest)
+      val configARelease = readValidBloopConfig(bloopARelease)
+      val configBDebug = readValidBloopConfig(bloopBDebug)
+      val configBDebugAndroidTest = readValidBloopConfig(bloopBDebugAndroidTest)
+      val configBRelease = readValidBloopConfig(bloopBRelease)
+      val configCDebug = readValidBloopConfig(bloopCDebug)
+      val configCDebugAndroidTest = readValidBloopConfig(bloopCDebugAndroidTest)
+      val configCRelease = readValidBloopConfig(bloopCRelease)
+
+      assert(hasTag(configADebug, Tag.Library))
+      assert(hasTag(configADebugAndroidTest, Tag.Test))
+      assert(hasTag(configARelease, Tag.Library))
+      assert(hasTag(configBDebug, Tag.Library))
+      assert(hasTag(configBDebugAndroidTest, Tag.Test))
+      assert(hasTag(configBRelease, Tag.Library))
+      assert(hasTag(configCDebug, Tag.Library))
+      assert(hasTag(configCDebugAndroidTest, Tag.Test))
+      assert(hasTag(configCRelease, Tag.Library))
+
+      assert(configADebug.project.dependencies.isEmpty)
+      assertEquals(List("a-debug"), configADebugAndroidTest.project.dependencies.sorted)
+      assert(configARelease.project.dependencies.isEmpty)
+      assertEquals(List("a-debug"), configBDebug.project.dependencies.sorted)
+      assertEquals(List("a-debug", "b-debug"), configBDebugAndroidTest.project.dependencies.sorted)
+      assertEquals(List("a-release"), configBRelease.project.dependencies.sorted)
+      assertEquals(List("a-debug", "b-debug"), configCDebug.project.dependencies.sorted)
+      assertEquals(
+        List("a-debug", "b-debug", "c-debug"),
+        configCDebugAndroidTest.project.dependencies.sorted
+      )
+      assertEquals(List("a-release", "b-release"), configCRelease.project.dependencies.sorted)
+
+      assert(hasCompileClasspathEntryName(configADebugAndroidTest, "/a-debug/build/classes"))
+      assert(hasCompileClasspathEntryName(configBDebug, "/a-debug/build/classes"))
+      assert(hasCompileClasspathEntryName(configBDebugAndroidTest, "/a-debug/build/classes"))
+      assert(hasCompileClasspathEntryName(configBDebugAndroidTest, "/b-debug/build/classes"))
+      assert(hasCompileClasspathEntryName(configBRelease, "/a-release/build/classes"))
+
+      assert(hasCompileClasspathEntryName(configCDebug, "/a-debug/build/classes"))
+      assert(hasCompileClasspathEntryName(configCDebug, "/b-debug/build/classes"))
+      assert(hasCompileClasspathEntryName(configCDebugAndroidTest, "/a-debug/build/classes"))
+      assert(hasCompileClasspathEntryName(configCDebugAndroidTest, "/b-debug/build/classes"))
+      assert(hasCompileClasspathEntryName(configCDebugAndroidTest, "/c-debug/build/classes"))
+      assert(hasCompileClasspathEntryName(configCRelease, "/a-release/build/classes"))
+      assert(hasCompileClasspathEntryName(configCRelease, "/b-release/build/classes"))
+
+      assert(configADebug.project.test.isEmpty)
+      assert(configADebugAndroidTest.project.test.nonEmpty)
+      assert(configARelease.project.test.isEmpty)
+      assert(configBDebug.project.test.isEmpty)
+      assert(configBDebugAndroidTest.project.test.nonEmpty)
+      assert(configBRelease.project.test.isEmpty)
+      assert(configCDebug.project.test.isEmpty)
+      assert(configCDebugAndroidTest.project.test.nonEmpty)
+      assert(configCRelease.project.test.isEmpty)
+
+      assertTrue(hasCompileClasspathEntryName(configADebug, "/R.jar"))
+      assertTrue(hasCompileClasspathEntryName(configADebugAndroidTest, "/R.jar"))
+      assertTrue(hasCompileClasspathEntryName(configARelease, "/R.jar"))
+      assertTrue(hasCompileClasspathEntryName(configBDebug, "/R.jar"))
+      assertTrue(hasCompileClasspathEntryName(configBDebugAndroidTest, "/R.jar"))
+      assertTrue(hasCompileClasspathEntryName(configBRelease, "/R.jar"))
+      assertTrue(hasCompileClasspathEntryName(configCDebug, "/R.jar"))
+      assertTrue(hasCompileClasspathEntryName(configCDebugAndroidTest, "/R.jar"))
+      assertTrue(hasCompileClasspathEntryName(configCRelease, "/R.jar"))
+    }
+  }
 
   @Test def worksWithSourcesSetSourceNotEqualToResources(): Unit = {
     val buildFile = testProjectDir.newFile("build.gradle")
@@ -2201,10 +2429,15 @@ abstract class ConfigGenerationSuite extends BaseConfigSuite {
       .withArguments("bloopInstall", "-Si")
       .build()
 
-    assert(result.getOutput.contains("Ignoring 'bloopInstall' on non-Scala and non-Java project"))
+    assertTrue(
+      result.getOutput,
+      result.getOutput.contains(
+        "Ignoring 'bloopInstall' on non-Scala, non-Java, non-Android project"
+      )
+    )
     val projectName = testProjectDir.getRoot.getName
     val bloopFile = new File(new File(testProjectDir.getRoot, ".bloop"), projectName + ".json")
-    assert(!bloopFile.exists())
+    assertFalse(bloopFile.exists())
   }
 
   @Test def generateConfigFileForNonJavaNonScalaProjectDependencies(): Unit = {
