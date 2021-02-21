@@ -49,7 +49,6 @@ jobs:
               "frontend/test:compile" \
               "sbtBloop013/compile" \
               "sbtBloop10/compile" \
-              "millBloop/compile" \
               "mavenBloop/compile" \
               "backend/test" \
               "docs/compile" \
@@ -77,7 +76,6 @@ jobs:
         if: matrix.jdk == 'graalvm-ce-java11@20.1.0' && matrix.os != 'windows-latest'
         run: |
           ./bin/sbt-ci.sh \
-              "millBloop/compile" \
               "mavenBloop/compile" \
               "gradleBloop211/compile" \
               "gradleBloop212/compile" \

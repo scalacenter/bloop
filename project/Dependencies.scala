@@ -48,7 +48,6 @@ object Dependencies {
   val scalaJs06Version = "0.6.32"
   val scalaJs1Version = "1.3.1"
   val scalaJsEnvsVersion = "1.1.1"
-  val millVersion = "0.3.6"
   val xxHashVersion = "1.3.0"
   val ztVersion = "1.13"
   val difflibVersion = "1.3.0"
@@ -129,7 +128,6 @@ object Dependencies {
 
   val classgraph = "io.github.classgraph" % "classgraph" % "4.8.78"
 
-  val mill = "com.lihaoyi" %% "mill-scalalib" % millVersion % Provided
   val xxHashLibrary = "net.jpountz.lz4" % "lz4" % xxHashVersion
   val zt = "org.zeroturnaround" % "zt-zip" % ztVersion
 
