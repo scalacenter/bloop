@@ -73,6 +73,7 @@ object Dependencies {
   val coursierCache = "io.get-coursier" %% "coursier-cache" % coursierVersion
   val coursierScalaz = "io.get-coursier" %% "coursier-scalaz-interop" % coursierVersion
   val scalaXml = "org.scala-lang.modules" %% "scala-xml" % scalaXmlVersion
+  val scalaCollectionCompat = "org.scala-lang.modules" %% "scala-collection-compat" % "2.4.2"
   val shapeless = "ch.epfl.scala" %% "shapeless" % shapelessVersion
   val caseApp = "ch.epfl.scala" %% "case-app" % caseAppVersion
   val sourcecode = "com.lihaoyi" %% "sourcecode" % sourcecodeVersion
