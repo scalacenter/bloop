@@ -1097,6 +1097,113 @@ abstract class ConfigGenerationSuite {
     assert(compileBloopProject("d-foo", bloopDir).status.isOk)
   }
 
+  @Test def worksWithMonoReposWithDuplicateProjectNames(): Unit = {
+    val buildSettings = testProjectDir.newFile("settings.gradle")
+    val buildDirA = testProjectDir.newFolder("code", "foo")
+    val buildDirB = testProjectDir.newFolder("code", "bar")
+
+    testProjectDir.newFolder("code", "foo", "src", "main", "scala")
+    testProjectDir.newFolder("code", "foo", "src", "test", "scala")
+
+    testProjectDir.newFolder("code", "bar", "src", "main", "scala")
+    testProjectDir.newFolder("code", "bar", "src", "test", "scala")
+
+    val buildDirC = testProjectDir.newFolder("infra", "foo")
+
+    val buildFileA = new File(buildDirA, "build.gradle")
+    val buildFileB = new File(buildDirB, "build.gradle")
+    val buildFileC = new File(buildDirC, "build.gradle")
+
+    writeBuildScript(
+      buildFileA,
+      s"""
+         |plugins {
+         |  id 'bloop'
+         |}
+         |
+         |apply plugin: 'scala'
+         |apply plugin: 'bloop'
+         |
+         |repositories {
+         |  mavenCentral()
+         |}
+         |
+         |dependencies {
+         |  compile 'org.scala-lang:scala-library:2.12.8'
+         |}
+      """.stripMargin
+    )
+
+    writeBuildScript(
+      buildFileB,
+      s"""
+         |plugins {
+         |  id 'bloop'
+         |}
+         |
+         |apply plugin: 'scala'
+         |apply plugin: 'bloop'
+         |
+         |repositories {
+         |  mavenCentral()
+         |}
+         |
+         |dependencies {
+         |  implementation 'org.typelevel:cats-core_2.12:1.2.0'
+         |  compile project(':code:foo')
+         |}
+      """.stripMargin
+    )
+
+    writeBuildScript(
+      buildFileC,
+      s"""
+         |repositories {
+         |  mavenCentral()
+         |}
+      """.stripMargin
+    )
+
+    writeBuildScript(
+      buildSettings,
+      """
+        |rootProject.name = 'code-infra-mono-project'
+        |include 'code:foo'
+        |include 'code:bar'
+        |include 'infra:foo'
+      """.stripMargin
+    )
+
+    createHelloWorldScalaSource(buildDirA, "package x { trait A }")
+    createHelloWorldScalaSource(buildDirB, "package y { trait B }")
+
+    GradleRunner
+      .create()
+      .withGradleVersion(gradleVersion)
+      .withProjectDir(testProjectDir.getRoot)
+      .withPluginClasspath(getClasspath)
+      .withArguments("bloopInstall", "-Si")
+      .build()
+
+    val projectName = testProjectDir.getRoot.getName
+    val bloopDir = new File(testProjectDir.getRoot, ".bloop")
+
+    val bloopA = new File(bloopDir, "foo.json")
+    val bloopB = new File(bloopDir, "bar.json")
+
+    val shouldNotExistFiles = List("code-foo.json", "code-bar.json", "infra.json", "infra-foo.json")
+
+    shouldNotExistFiles.foreach { file =>
+      assert(!new File(bloopDir, file).exists(), s"$file should not have been created!")
+    }
+
+    val configA = readValidBloopConfig(bloopA)
+    val configB = readValidBloopConfig(bloopB)
+
+    assert(compileBloopProject("foo", bloopDir).status.isOk)
+    assert(compileBloopProject("bar", bloopDir).status.isOk)
+  }
+
   // problem here is that to specify the test sourceset of project b depends on the test sourceset of project a using
   // testCompile project(':a').sourceSets.test.output
   // means that it points directly at the source set directory instead of the project + sourceset
