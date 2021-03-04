@@ -9,6 +9,7 @@ import bloop.config.{Config, Tag}
 import bloop.config.Config.{CompileSetup, JavaThenScala, JvmConfig, Mixed, Platform}
 import bloop.integrations.gradle.BloopParameters
 import bloop.integrations.gradle.syntax._
+import bloop.integrations.gradle.tasks.PluginUtils
 import org.gradle.api.{Action, GradleException, Project}
 import org.gradle.api.artifacts._
 import org.gradle.api.artifacts.ArtifactView.ViewConfiguration
@@ -328,7 +329,7 @@ class BloopConverter(parameters: BloopParameters) {
   }
 
   private def getSourceSetProjectMap(rootProject: Project): Map[SourceSet, Project] = {
-    rootProject.getAllprojects.asScala
+    getAllBloopCapableProjects(rootProject)
       .flatMap(p => p.allSourceSets.map(_ -> p))
       .toMap
   }
@@ -453,24 +454,26 @@ class BloopConverter(parameters: BloopParameters) {
   }
 
   def getProjectName(project: Project, sourceSet: SourceSet): String = {
-    val projectsWithName = project.getRootProject
-      .getAllprojects()
-      .asScala
-      .filter(p => p.getName == project.getName)
+
+    val projectsWithName =
+      getAllBloopCapableProjects(project.getRootProject())
+      // Need to namespace only those projects that can run bloop. Others would not cause collision.
+        .filter(_.getName == project.getName)
+
+    // If there are more than one project with same name, use path to avoid collision.
     val rawProjectName = if (projectsWithName.size == 1) project.getName else project.getPath
-    val sanitizedProjectName = rawProjectName.zipWithIndex
-      .map {
-        case (c, i) =>
-          if (i == 0 && c == ':') {
-            None
-          } else if (c == ':') {
-            Some('-')
-          } else {
-            Some(c)
-          }
-      }
-      .flatten
-      .mkString
+
+    val sanitizedProjectName = rawProjectName.zipWithIndex.flatMap {
+      case (c, i) =>
+        if (i == 0 && c == ':') {
+          None
+        } else if (c == ':') {
+          Some('-')
+        } else {
+          Some(c)
+        }
+    }.mkString
+
     if (sourceSet.getName == SourceSet.MAIN_SOURCE_SET_NAME) {
       sanitizedProjectName
     } else {
@@ -784,6 +787,10 @@ class BloopConverter(parameters: BloopParameters) {
 
   private def splitFlags(values: List[String]): List[String] = {
     values.flatMap(value => value.split(argumentSpaceSeparator))
+  }
+
+  private def getAllBloopCapableProjects(rootProject: Project): List[Project] = {
+    rootProject.getAllprojects().asScala.filter(PluginUtils.canRunBloop).toList
   }
 }
 
