@@ -57,7 +57,7 @@ object BloopIncremental {
       else
         () => new ConcurrentAnalysisCallback(mode, internalBinaryToSourceClassName, internalSourceToClassNamesMap, externalAPI, current, output, options, manager)
     }
-    // We used to catch for `CompileCancelled`, but we prefer to propagate it so that Bloop catches it
+    // TEST COMMENT We used to catch for `CompileCancelled`, but we prefer to propagate it so that Bloop catches it
     compileIncremental(sources, uniqueInputs, lookup, previous, current, compile, builder, reporter, log, output, options, manager, tracer)
   }
 
