@@ -168,7 +168,6 @@ abstract class ConfigGenerationSuite {
 
   @Test def worksWithJavaCompilerAnnotationProcessor(): Unit = {
     val buildFile = testProjectDir.newFile("build.gradle")
-    testProjectDir.newFolder("src", "main", "scala")
     writeBuildScript(
       buildFile,
       """
@@ -176,7 +175,7 @@ abstract class ConfigGenerationSuite {
         |  id 'bloop'
         |}
         |
-        |apply plugin: 'scala'
+        |apply plugin: 'java'
         |apply plugin: 'bloop'
         |
         |repositories {
@@ -184,8 +183,8 @@ abstract class ConfigGenerationSuite {
         |}
         |
         |dependencies {
-        |  compile group: 'org.scala-lang', name: 'scala-library', version: '2.12.8'
         |  annotationProcessor "org.immutables:value:2.8.2"
+        |  compileOnly "org.immutables:value:2.8.2"
         |}
         |
         """.stripMargin
@@ -204,7 +203,7 @@ abstract class ConfigGenerationSuite {
         |  public abstract List<Integer> buz();
         |  public abstract Set<Long> crux();
         |}
-      """
+      """.stripMargin
     val annotatedSourceUsage =
       """
         |import java.util.List;
@@ -222,10 +221,10 @@ abstract class ConfigGenerationSuite {
         |    List<Integer> buz = value.buz(); // ImmutableList.of(1, 3, 4)
         |  }
         |}
-      """
+      """.stripMargin
 
-    createSource(testProjectDir.getRoot, annotatedSource, "main", "java")
-    createSource(testProjectDir.getRoot, annotatedSourceUsage, "main", "java")
+    createSource(testProjectDir.getRoot, annotatedSource, "main", "FoobarValue", "java")
+    createSource(testProjectDir.getRoot, annotatedSourceUsage, "main", "FoobarValueMain", "java")
 
     GradleRunner
       .create()
@@ -241,13 +240,15 @@ abstract class ConfigGenerationSuite {
     val resultConfig = readValidBloopConfig(bloopFile)
 
     assert(resultConfig.project.resolution.nonEmpty)
-    assert(!hasCompileClasspathEntryName(resultConfig, "org.immutables"))
+    assert(hasCompileClasspathEntryName(resultConfig, "org.immutables"))
     assert(!hasRuntimeClasspathEntryName(resultConfig, "org.immutables"))
     assert(resultConfig.project.java.isDefined)
     val processorPath =
       resultConfig.project.java.get.options.dropWhile(_ != "-processorpath").drop(1)
     assert(processorPath.nonEmpty)
     assert(processorPath.head.contains("value-2.8.2.jar"))
+    val bloopDir = new File(testProjectDir.getRoot, ".bloop")
+    assert(compileBloopProject(projectName, bloopDir).status.isOk)
   }
 
   @Test def pluginCanBeApplied(): Unit = {
@@ -2897,9 +2898,19 @@ abstract class ConfigGenerationSuite {
       sourceSetName: String,
       language: String
   ): Unit = {
+    createSource(projectDir, contents, sourceSetName, "Hello", language)
+  }
+
+  private def createSource(
+      projectDir: File,
+      contents: String,
+      sourceSetName: String,
+      fileName: String,
+      language: String
+  ): Unit = {
     val srcDir = projectDir.toPath.resolve("src").resolve(sourceSetName).resolve(language)
     Files.createDirectories(srcDir)
-    val srcFile = srcDir.resolve(s"Hello.$language")
+    val srcFile = srcDir.resolve(s"$fileName.$language")
     Files.write(srcFile, contents.getBytes(StandardCharsets.UTF_8))
     ()
   }

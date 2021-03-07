@@ -696,7 +696,7 @@ class BloopConverter(parameters: BloopParameters) {
       .includeSourceFiles(false)
       .includeLauncherOptions(false)
 
-    var args = builder.build().asScala.toList.filter(_.nonEmpty)
+    var args = builder.build().asScala.toList
 
     if (!args.contains("-source")) {
       if (specs.getSourceCompatibility != null) {
