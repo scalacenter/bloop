@@ -306,13 +306,13 @@ class BloopConverter(parameters: BloopParameters) {
       targetDir: File
   ): List[Path] = {
     classPathFiles
-      .map(f => {
+      .flatMap(f => {
         // change Gradle JAR references -> Bloop project classes dirs where possible.
         allArchivesToSourceSets
           .get(f)
           .map(ss => {
             val ssProject = allSourceSetsToProjects(ss)
-            getClassesDir(targetDir, ssProject, ss)
+            getClassesDir(targetDir, ssProject, ss) :: getResources(ss)
           })
           .orElse(
             // change Gradle classes dirs -> Bloop project classes dirs where possible.
@@ -320,10 +320,10 @@ class BloopConverter(parameters: BloopParameters) {
               .get(f)
               .map(ss => {
                 val ssProject = allSourceSetsToProjects(ss)
-                getClassesDir(targetDir, ssProject, ss)
+                getClassesDir(targetDir, ssProject, ss) :: getResources(ss)
               })
           )
-          .getOrElse(f.toPath)
+          .getOrElse(List(f.toPath))
       })
       .distinct
   }
