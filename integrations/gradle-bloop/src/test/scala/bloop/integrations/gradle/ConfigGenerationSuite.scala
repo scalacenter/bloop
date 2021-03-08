@@ -168,7 +168,6 @@ abstract class ConfigGenerationSuite {
 
   @Test def worksWithJavaCompilerAnnotationProcessor(): Unit = {
     val buildFile = testProjectDir.newFile("build.gradle")
-    testProjectDir.newFolder("src", "main", "scala")
     writeBuildScript(
       buildFile,
       """
@@ -176,7 +175,7 @@ abstract class ConfigGenerationSuite {
         |  id 'bloop'
         |}
         |
-        |apply plugin: 'scala'
+        |apply plugin: 'java'
         |apply plugin: 'bloop'
         |
         |repositories {
@@ -184,8 +183,8 @@ abstract class ConfigGenerationSuite {
         |}
         |
         |dependencies {
-        |  compile group: 'org.scala-lang', name: 'scala-library', version: '2.12.8'
         |  annotationProcessor "org.immutables:value:2.8.2"
+        |  compileOnly "org.immutables:value:2.8.2"
         |}
         |
         """.stripMargin
@@ -204,7 +203,7 @@ abstract class ConfigGenerationSuite {
         |  public abstract List<Integer> buz();
         |  public abstract Set<Long> crux();
         |}
-      """
+      """.stripMargin
     val annotatedSourceUsage =
       """
         |import java.util.List;
@@ -222,10 +221,10 @@ abstract class ConfigGenerationSuite {
         |    List<Integer> buz = value.buz(); // ImmutableList.of(1, 3, 4)
         |  }
         |}
-      """
+      """.stripMargin
 
-    createSource(testProjectDir.getRoot, annotatedSource, "main", "java")
-    createSource(testProjectDir.getRoot, annotatedSourceUsage, "main", "java")
+    createSource(testProjectDir.getRoot, annotatedSource, "main", "FoobarValue", "java")
+    createSource(testProjectDir.getRoot, annotatedSourceUsage, "main", "FoobarValueMain", "java")
 
     GradleRunner
       .create()
@@ -241,13 +240,15 @@ abstract class ConfigGenerationSuite {
     val resultConfig = readValidBloopConfig(bloopFile)
 
     assert(resultConfig.project.resolution.nonEmpty)
-    assert(!hasCompileClasspathEntryName(resultConfig, "org.immutables"))
+    assert(hasCompileClasspathEntryName(resultConfig, "org.immutables"))
     assert(!hasRuntimeClasspathEntryName(resultConfig, "org.immutables"))
     assert(resultConfig.project.java.isDefined)
     val processorPath =
       resultConfig.project.java.get.options.dropWhile(_ != "-processorpath").drop(1)
     assert(processorPath.nonEmpty)
     assert(processorPath.head.contains("value-2.8.2.jar"))
+    val bloopDir = new File(testProjectDir.getRoot, ".bloop")
+    assert(compileBloopProject(projectName, bloopDir).status.isOk)
   }
 
   @Test def pluginCanBeApplied(): Unit = {
@@ -819,18 +820,30 @@ abstract class ConfigGenerationSuite {
     assertSources(configB, "cats-core")
     assert(hasBothClasspathsEntryName(configB, "/a/build/classes"))
     assert(hasBothClasspathsEntryName(configB, "/c/build/classes"))
+    assert(hasBothClasspathsEntryName(configB, "/a/src/main/resources"))
+    assert(hasBothClasspathsEntryName(configB, "/c/src/main/resources"))
     assert(hasBothClasspathsEntryName(configBTest, "cats-core"))
     assertSources(configBTest, "cats-core")
     assert(hasBothClasspathsEntryName(configBTest, "/a/build/classes"))
     assert(hasBothClasspathsEntryName(configBTest, "/b/build/classes"))
     assert(hasBothClasspathsEntryName(configBTest, "/c/build/classes"))
+    assert(hasBothClasspathsEntryName(configBTest, "/a/src/main/resources"))
+    assert(hasBothClasspathsEntryName(configBTest, "/b/src/main/resources"))
+    assert(hasBothClasspathsEntryName(configBTest, "/c/src/main/resources"))
     assert(hasBothClasspathsEntryName(configD, "/a/build/classes"))
     assert(hasBothClasspathsEntryName(configD, "/b/build/classes"))
     assert(hasBothClasspathsEntryName(configD, "/c/build/classes"))
+    assert(hasBothClasspathsEntryName(configD, "/a/src/main/resources"))
+    assert(hasBothClasspathsEntryName(configD, "/b/src/main/resources"))
+    assert(hasBothClasspathsEntryName(configD, "/c/src/main/resources"))
     assert(hasBothClasspathsEntryName(configDTest, "/a/build/classes"))
     assert(hasBothClasspathsEntryName(configDTest, "/b/build/classes"))
     assert(hasBothClasspathsEntryName(configDTest, "/c/build/classes"))
     assert(hasBothClasspathsEntryName(configDTest, "/d/build/classes"))
+    assert(hasBothClasspathsEntryName(configDTest, "/a/src/main/resources"))
+    assert(hasBothClasspathsEntryName(configDTest, "/b/src/main/resources"))
+    assert(hasBothClasspathsEntryName(configDTest, "/c/src/main/resources"))
+    assert(hasBothClasspathsEntryName(configDTest, "/d/src/main/resources"))
 
     assert(compileBloopProject("b", bloopDir).status.isOk)
     assert(compileBloopProject("d", bloopDir).status.isOk)
@@ -2897,9 +2910,19 @@ abstract class ConfigGenerationSuite {
       sourceSetName: String,
       language: String
   ): Unit = {
+    createSource(projectDir, contents, sourceSetName, "Hello", language)
+  }
+
+  private def createSource(
+      projectDir: File,
+      contents: String,
+      sourceSetName: String,
+      fileName: String,
+      language: String
+  ): Unit = {
     val srcDir = projectDir.toPath.resolve("src").resolve(sourceSetName).resolve(language)
     Files.createDirectories(srcDir)
-    val srcFile = srcDir.resolve(s"Hello.$language")
+    val srcFile = srcDir.resolve(s"$fileName.$language")
     Files.write(srcFile, contents.getBytes(StandardCharsets.UTF_8))
     ()
   }
