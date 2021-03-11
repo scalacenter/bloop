@@ -98,6 +98,7 @@ abstract class BaseTestProject {
       strictDependencies: Boolean = false,
       enableTests: Boolean = false,
       scalacOptions: List[String] = Nil,
+      javacOptions: List[String] = Nil,
       scalaOrg: Option[String] = None,
       scalaCompiler: Option[String] = None,
       scalaVersion: Option[String] = None,
@@ -154,6 +155,8 @@ abstract class BaseTestProject {
       Some(setup)
     )
 
+    val javacConfig = Config.Java(javacOptions)
+
     val frameworks = if (enableTests) Config.TestFramework.DefaultFrameworks else Nil
     val testConfig = Config.Test(frameworks, Config.TestOptions.empty)
     val platform = Config.Platform.Jvm(
@@ -185,7 +188,7 @@ abstract class BaseTestProject {
       classes.underlying,
       resources = compileResourcesList,
       scala = Some(scalaConfig),
-      java = None,
+      java = Some(javacConfig),
       sbt = None,
       test = Some(testConfig),
       platform = Some(platform),

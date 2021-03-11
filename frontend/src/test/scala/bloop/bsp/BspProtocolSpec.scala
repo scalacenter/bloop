@@ -27,7 +27,7 @@ class BspProtocolSpec(
     override val protocol: BspProtocol
 ) extends BspBaseSuite {
   import ch.epfl.scala.bsp
-  test("check the correct contents of scalac options") {
+  test("check the correct contents of scalac/javac options") {
     TestUtil.withinWorkspace { workspace =>
       object Sources {
         val `A.scala` =
@@ -45,12 +45,17 @@ class BspProtocolSpec(
         val B = List("-Yprint-typer")
       }
 
+      object JavacOptions {
+        val A = List("-source", "9")
+      }
+
       val logger = new RecordingLogger(ansiCodesSupported = false)
       val `A` = TestProject(
         workspace,
         "a",
         List(Sources.`A.scala`),
-        scalacOptions = ScalacOptions.`A`
+        scalacOptions = ScalacOptions.`A`,
+        javacOptions = JavacOptions.A
       )
 
       val `B` = TestProject(
@@ -93,6 +98,9 @@ class BspProtocolSpec(
         assert(stateB.status == ExitStatus.Ok)
         val classesDirB = stateB.toTestState.getClientExternalDir(`B`).underlying
         testOptions(resultB, ScalacOptions.B, classesDirB, `B`.bspId, List(classesDirB))
+
+        val (_, javacResultA) = state.javacOptions(`A`)
+        assert(javacResultA.items.flatMap(_.options) == JavacOptions.A)
       }
     }
   }
