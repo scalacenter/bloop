@@ -1158,7 +1158,6 @@ final class BloopBspServices(
         case Left(error) =>
           // Log the mapping error to the user via a log event + an error status code
           logger.error(error)
-          // TODO(jvican): Add status code to scalac options result
           Task.now((state, Right(bsp.ScalacOptionsResult(Nil))))
         case Right(mappings) => scalacOptions(mappings, state)
       }
@@ -1193,7 +1192,6 @@ final class BloopBspServices(
         case Left(error) =>
           // Log the mapping error to the user via a log event + an error status code
           logger.error(error)
-          // TODO(jvican): Add status code to scalac options result
           Task.now((state, Right(bsp.JavacOptionsResult(Nil))))
         case Right(mappings) => javacOptions(mappings, state)
       }
