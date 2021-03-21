@@ -596,7 +596,16 @@ object Interpreter {
         }
       }
 
-      if (cmd.watch) watch(projects, state)(runTask) else runTask(state)
+      if (cmd.hotSwapCompilation) {
+        val compilationProcess =
+          watch(projects, state)(runCompile(cmd, _, projects, false, cmd.cliOptions.noColor))
+            .runAsync(ExecutionContext.ioScheduler)
+        runTask(state).doOnFinish(_ => Task.delay(compilationProcess.cancel()))
+      } else if (cmd.watch) {
+        watch(projects, state)(runTask)
+      } else {
+        runTask(state)
+      }
     }
   }
 

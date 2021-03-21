@@ -193,6 +193,9 @@ object Commands {
       @ExtraName("w")
       @HelpMessage("If set, run the command whenever projects' source files change.")
       watch: Boolean = false,
+      @ExtraName("H")
+      @HelpMessage("Hot Swap Compilation")
+      hotSwapCompilation: Boolean = false,
       @HelpMessage("Ignore arguments starting with `-J` and forward them instead.")
       skipJargs: Boolean = false,
       @ExtraName("O")
