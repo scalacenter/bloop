@@ -1,6 +1,7 @@
 package bloop.cli.completion
 
-import caseapp.core.ArgParser
+import caseapp.core.argparser.ArgParser
+import caseapp.core.argparser.SimpleArgParser
 
 sealed abstract class Mode(val name: String)
 
@@ -44,10 +45,10 @@ object Mode {
     )
 
   implicit val completionModeRead: ArgParser[Mode] = {
-    ArgParser.instance[Mode]("mode") { input =>
+    SimpleArgParser.from[Mode]("mode") { input =>
       modes.find(_.name == input) match {
         case Some(mode) => Right(mode)
-        case None => Left(s"Unrecognized mode: $input")
+        case None => Left(caseapp.core.Error.Other(s"Unrecognized mode: $input"))
       }
     }
   }

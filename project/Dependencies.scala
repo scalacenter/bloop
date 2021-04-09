@@ -4,6 +4,7 @@ object Dependencies {
   val Scala210Version = "2.10.7"
   val Scala211Version = "2.11.12"
   val Scala212Version = "2.12.8"
+  val Scala213Version = "2.13.1"
 
   val Sbt013Version = "0.13.18"
   val Sbt1Version = "1.3.3"
@@ -23,7 +24,7 @@ object Dependencies {
   val scalaXmlVersion = "1.2.0"
   val lmVersion = "1.0.0"
   val configDirsVersion = "10"
-  val caseAppVersion = "1.2.0-faster-compile-time"
+  val caseAppVersion = "2.0.4"
   val sourcecodeVersion = "0.1.4"
   val sbtTestInterfaceVersion = "1.0"
   val sbtTestAgentVersion = "1.4.4"
@@ -75,7 +76,7 @@ object Dependencies {
   val scalaXml = "org.scala-lang.modules" %% "scala-xml" % scalaXmlVersion
   val scalaCollectionCompat = "org.scala-lang.modules" %% "scala-collection-compat" % "2.4.2"
   val shapeless = "ch.epfl.scala" %% "shapeless" % shapelessVersion
-  val caseApp = "ch.epfl.scala" %% "case-app" % caseAppVersion
+  val caseApp = "com.github.alexarchambault" %% "case-app" % caseAppVersion
   val sourcecode = "com.lihaoyi" %% "sourcecode" % sourcecodeVersion
   val sbtTestInterface = "org.scala-sbt" % "test-interface" % sbtTestInterfaceVersion
   val sbtTestAgent = "org.scala-sbt" % "test-agent" % sbtTestAgentVersion
@@ -84,8 +85,8 @@ object Dependencies {
   val slf4jNop = "org.slf4j" % "slf4j-nop" % "1.7.2"
 
   val scalatest = "org.scalatest" % "scalatest_2.12" % "3.0.5"
-  val utest = "com.lihaoyi" %% "utest" % "0.6.6"
-  val pprint = "com.lihaoyi" %% "pprint" % "0.5.3"
+  val utest = "com.lihaoyi" %% "utest" % "0.7.2"
+  val pprint = "com.lihaoyi" %% "pprint" % "0.6.0"
   val scalacheck = "org.scalacheck" %% "scalacheck" % "1.13.4"
   val junit = "com.novocode" % "junit-interface" % junitVersion
   val graphviz = "guru.nidi" % "graphviz-java" % graphvizVersion

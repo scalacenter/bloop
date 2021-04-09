@@ -27,6 +27,7 @@ import monix.execution.atomic.AtomicBoolean
 import bloop.io.Paths
 import scala.util.Success
 import scala.util.Failure
+import caseapp.core.help.WithHelp
 
 class Cli
 object Cli {
@@ -168,7 +169,7 @@ object Cli {
   }
 
   def parse(args: Array[String], commonOptions: CommonOptions): Action = {
-    import caseapp.core.WithHelp
+    // import caseapp.core.WithHelp
     CommandsParser.withHelp.detailedParse(args)(OptionsParser.withHelp) match {
       case Left(err) => printErrorAndExit(err, commonOptions)
       case Right((WithHelp(_, help @ true, _), _, _)) =>

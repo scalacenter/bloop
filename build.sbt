@@ -202,7 +202,7 @@ lazy val jsonConfig213 = crossProject(JSPlatform, JVMPlatform)
     name := "bloop-config",
     unmanagedSourceDirectories in Compile +=
       Keys.baseDirectory.value / ".." / "src" / "main" / "scala-2.11-13",
-    scalaVersion := "2.13.1",
+    scalaVersion := Dependencies.Scala213Version,
     scalacOptions := {
       scalacOptions.value
         .filterNot(opt => opt == "-deprecation" || opt == "-Yno-adapted-args"),
@@ -223,6 +223,37 @@ lazy val jsonConfig213 = crossProject(JSPlatform, JVMPlatform)
     target := (file("config") / "target" / "json-config-2.13" / "js").getAbsoluteFile
   )
 
+lazy val jsonConfigCross = crossProject(JSPlatform, JVMPlatform)
+  .crossType(CrossType.Pure)
+  .in(file("config"))
+  .disablePlugins(ScriptedPlugin)
+  .settings(publishJsonModuleSettings)
+  .settings(
+    name := "bloop-config",
+    unmanagedSourceDirectories in Compile +=
+      Keys.baseDirectory.value / ".." / "src" / "main" / "scala-2.11-13",
+    scalaVersion := Dependencies.Scala212Version,
+    crossScalaVersions := Seq(Dependencies.Scala212Version, Dependencies.Scala213Version),
+    scalacOptions := {
+      scalacOptions.value
+        .filterNot(opt => opt == "-deprecation" || opt == "-Yno-adapted-args"),
+    },
+    testResourceSettings
+  )
+  .jvmSettings(
+    testSettings,
+    target := (file("config") / "target" / s"json-config-cross-${scalaBinaryVersion.value}" / "jvm").getAbsoluteFile,
+    libraryDependencies ++= List(
+      Dependencies.jsoniterCore,
+      Dependencies.jsoniterMacros % Provided
+    )
+  )
+  .jsConfigure(_.enablePlugins(ScalaJSJUnitPlugin))
+  .jsSettings(
+    testJSSettings,
+    target := (file("config") / "target" / s"json-config-cross-${scalaBinaryVersion.value}" / "js").getAbsoluteFile
+  )
+
 lazy val sockets: Project = project
   .settings(
     crossPaths := false,
@@ -230,7 +261,9 @@ lazy val sockets: Project = project
     description := "IPC: Unix Domain Socket and Windows Named Pipes for Java",
     libraryDependencies ++= Seq(Dependencies.jna, Dependencies.jnaPlatform),
     javacOptions ++= Seq("-source", "1.8", "-target", "1.8"),
-    sources in (Compile, doc) := Nil
+    sources in (Compile, doc) := Nil,
+    scalaVersion := Dependencies.Scala212Version,
+    crossScalaVersions := Seq(Dependencies.Scala212Version, Dependencies.Scala213Version)
   )
 
 import build.BuildImplementation.jvmOptions
@@ -241,7 +274,7 @@ lazy val frontend: Project = project
     bloopShared,
     backend,
     backend % "test->test",
-    jsonConfig212.jvm,
+    jsonConfigCross.jvm,
     buildpressConfig % "it->compile"
   )
   .disablePlugins(ScriptedPlugin)
@@ -286,6 +319,8 @@ lazy val frontend: Project = project
     javaOptions in Test ++= jvmOptions,
     javaOptions in IntegrationTest ++= jvmOptions,
     libraryDependencies += Dependencies.graphviz % Test,
+    scalaVersion := Dependencies.Scala212Version,
+    crossScalaVersions := Seq(Dependencies.Scala212Version, Dependencies.Scala213Version),
     fork in run := true,
     fork in Test := true,
     fork in run in IntegrationTest := true,
@@ -327,6 +362,8 @@ lazy val bloopgun: Project = project
       "org.bouncycastle" % "bcprov-jdk15on" % "1.64",
       "org.bouncycastle" % "bcpkix-jdk15on" % "1.64"
     ),
+    scalaVersion := Dependencies.Scala212Version,
+    crossScalaVersions := Seq(Dependencies.Scala212Version, Dependencies.Scala213Version),
     mainClass in GraalVMNativeImage := Some("bloop.bloopgun.Bloopgun"),
     graalVMNativeImageCommand := {
       val oldPath = graalVMNativeImageCommand.value

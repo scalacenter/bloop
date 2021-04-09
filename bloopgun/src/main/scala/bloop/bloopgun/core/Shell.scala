@@ -80,7 +80,7 @@ final class Shell(runWithInterpreter: Boolean, detectPython: Boolean) {
       useJdkProcessAndInheritIO: Boolean = false
   ): StatusCommand = {
     assert(cmd0.nonEmpty)
-    val outBuilder = StringBuilder.newBuilder
+    val outBuilder = new StringBuilder
     val cmd = deriveCommandForPlatform(cmd0, attachTerminal)
     val executor = new ProcessExecutor(cmd: _*)
 
