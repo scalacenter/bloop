@@ -80,14 +80,14 @@ object BloopKeys {
     taskKey[CompileResult]("Offload compilation to Bloop via BSP.")
   val bloopAnalysisOut: TaskKey[Option[File]] =
     taskKey[Option[File]]("User-defined location for the incremental analysis file")
-  
+
   val bloopScalaJSStage: SettingKey[Option[String]] =
     settingKey[Option[String]]("Scala.js-independent definition of `scalaJSStage`")
   val bloopScalaJSModuleKind: SettingKey[Option[String]] =
     settingKey[Option[String]]("Scala.js-independent definition of `scalaJSModuleKind`")
-  val bloopScalaJSEnv: SettingKey[Option[String]] = 
+  val bloopScalaJSEnv: SettingKey[Option[String]] =
     settingKey[Option[String]]("Scala.js-independent definition of `jsEnv`")
-  
+
   val bloopMainClass: SettingKey[Option[String]] =
     settingKey[Option[String]]("The main class to run a bloop target")
   val bloopSupportedConfigurations: SettingKey[Seq[Configuration]] =
@@ -800,7 +800,6 @@ object BloopDefaults {
         val scalaJsEmitSourceMaps =
           ScalaJsKeys.scalaJSEmitSourceMaps.?.value.getOrElse(emptyScalaJs.emitSourceMaps)
 
-        // val jsEnv = ScalaJsKeys
         val jsdom = BloopKeys.bloopScalaJSEnv.value.map(_ == JsDomEnv)
         val jsConfig = Config.JsConfig(scalaJsVersion, scalaJsStage, scalaJsModule, scalaJsEmitSourceMaps, jsdom, None, None, emptyScalaJs.toolchain)
         Config.Platform.Js(jsConfig, mainClass)
