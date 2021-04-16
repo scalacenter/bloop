@@ -80,10 +80,14 @@ object BloopKeys {
     taskKey[CompileResult]("Offload compilation to Bloop via BSP.")
   val bloopAnalysisOut: TaskKey[Option[File]] =
     taskKey[Option[File]]("User-defined location for the incremental analysis file")
+  
   val bloopScalaJSStage: SettingKey[Option[String]] =
     settingKey[Option[String]]("Scala.js-independent definition of `scalaJSStage`")
   val bloopScalaJSModuleKind: SettingKey[Option[String]] =
     settingKey[Option[String]]("Scala.js-independent definition of `scalaJSModuleKind`")
+  val bloopScalaJSEnv: SettingKey[Option[String]] = 
+    settingKey[Option[String]]("Scala.js-independent definition of `jsEnv`")
+  
   val bloopMainClass: SettingKey[Option[String]] =
     settingKey[Option[String]]("The main class to run a bloop target")
   val bloopSupportedConfigurations: SettingKey[Seq[Configuration]] =
@@ -219,6 +223,7 @@ object BloopDefaults {
       List(
         BloopKeys.bloopScalaJSStage := findOutScalaJsStage.value,
         BloopKeys.bloopScalaJSModuleKind := findOutScalaJsModuleKind.value,
+        BloopKeys.bloopScalaJSEnv := checkScalaJsDomEnv.value,
         // Override checksums so that `updates` don't check md5 for all jars
         Keys.checksums in Keys.update := Vector("sha1"),
         Keys.checksums in Keys.updateClassifiers := Vector("sha1"),
@@ -269,6 +274,8 @@ object BloopDefaults {
   private final val CommonJSModule = "CommonJSModule"
   private final val ESModule = "ESModule"
 
+  private final val JsDomEnv = "JsDom"
+
   /**
    * Create a "proxy" for a setting that will allow us to inspect its value even though
    * its not accessed from the same classloader. This is required to access Scala.js
@@ -307,6 +314,22 @@ object BloopDefaults {
           case "Some(ESModule)" => Some(ESModule)
           case _ => None
         }
+      }
+    } catch {
+      case _: ClassNotFoundException => Def.setting(None)
+    }
+  }
+
+  def checkScalaJsDomEnv: Def.Initialize[Option[String]] = Def.settingDyn {
+    try {
+      val stageClass = Class.forName("org.scalajs.jsenv.JSEnv")
+      val stageSetting = proxyForSetting("jsEnv", stageClass)
+
+      Def.setting {
+        val name = stageSetting.value.toString
+
+        if (name.contains("JSDOMNodeJSEnv")) Some(JsDomEnv)
+        else None
       }
     } catch {
       case _: ClassNotFoundException => Def.setting(None)
@@ -776,7 +799,9 @@ object BloopDefaults {
 
         val scalaJsEmitSourceMaps =
           ScalaJsKeys.scalaJSEmitSourceMaps.?.value.getOrElse(emptyScalaJs.emitSourceMaps)
-        val jsdom = Some(false)
+
+        // val jsEnv = ScalaJsKeys
+        val jsdom = BloopKeys.bloopScalaJSEnv.value.map(_ == JsDomEnv)
         val jsConfig = Config.JsConfig(scalaJsVersion, scalaJsStage, scalaJsModule, scalaJsEmitSourceMaps, jsdom, None, None, emptyScalaJs.toolchain)
         Config.Platform.Js(jsConfig, mainClass)
       }
