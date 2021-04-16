@@ -17,7 +17,7 @@ import bloop.engine.Feedback.XMessageString
 import bloop.engine.tasks.toolchains.{ScalaJsToolchain, ScalaNativeToolchain}
 import bloop.reporter.{LogReporter, ReporterInputs}
 import bloop.io.Environment.lineSeparator
-import caseapp.core.CommandMessages
+import caseapp.core.help.CommandHelp
 import monix.eval.Task
 
 import scala.concurrent.Promise
@@ -397,7 +397,7 @@ object Interpreter {
       case Mode.ProjectBoundCommands =>
         Task {
           val commandsAcceptingProjects = CommandsMessages.messages.collect {
-            case (name, CommandMessages(args, _)) if args.exists(_.name == "projects") => name
+            case (name, help) if help.args.exists(_.name.name == "projects") => name.mkString(" ")
           }
 
           state.withInfo(commandsAcceptingProjects.mkString(" "))
@@ -406,7 +406,7 @@ object Interpreter {
         Task {
           for {
             (name, args) <- CommandsMessages.messages
-            completion <- cmd.format.showCommand(name, args)
+            completion <- cmd.format.showCommand(name.mkString(" "), args)
           } state.logger.info(completion)
           state
         }
@@ -423,7 +423,7 @@ object Interpreter {
         Task {
           for {
             command <- cmd.command
-            message <- CommandsMessages.messages.toMap.get(command)
+            message <- CommandsMessages.messages.toMap.get(Seq(command))
             arg <- message.args
             completion <- cmd.format.showArg(command, Case.kebabizeArg(arg))
           } state.logger.info(completion)

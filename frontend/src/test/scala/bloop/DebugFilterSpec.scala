@@ -84,7 +84,8 @@ class DebugFilterSpec {
   def failWhenParsingOnlyDebugHeader(): Unit = {
     val args = Array("compile", "foo", "--debug")
     Cli.parse(args, CommonOptions.default) match {
-      case Print(msg, _, Exit(ExitStatus.InvalidCommandLineOption)) if msg == "argument missing" =>
+      case Print(msg, _, Exit(ExitStatus.InvalidCommandLineOption))
+          if msg.contains("argument missing") =>
       case r => Assert.fail(s"Expected `Print` with argument missing followed by exit, got $r")
     }
   }
