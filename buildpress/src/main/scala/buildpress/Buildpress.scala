@@ -26,7 +26,6 @@ abstract class Buildpress(
   type EitherErrorOr[T] = Either[BuildpressError, T]
   def exit(exitCode: Int): Unit
 
-  import BuildpressParams.buildpressParamsParser
   implicit val messagesParams =
     Help.help[BuildpressParams].withAppName("buildpress").withProgName("buildpress")
   implicit val messagesParamsHelp = messagesParams.withHelp
@@ -34,7 +33,7 @@ abstract class Buildpress(
   def run(args: Array[String]): Unit = {
     def errorAndExit(msg: String): Unit = { err.println(msg); exit(1) }
 
-    BuildpressParams.buildpressParamsParser.withHelp.detailedParse(args) match {
+    BuildpressParams.parser.withHelp.detailedParse(args) match {
       case Left(a) => errorAndExit(error(a.message))
       case Right((WithHelp(usage, help, result), _)) =>
         if (help) out.println(messagesParams.help)

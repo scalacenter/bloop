@@ -39,5 +39,6 @@ object BuildpressParams {
       toPath.left.map(t => Error.MalformedValue("absolute path", s"$supposedPath (${t.getMessage()})"))
   }
 
-  implicit val buildpressParamsParser = Parser[BuildpressParams]
+  implicit lazy val parser = Parser[BuildpressParams]
+  implicit lazy val help = caseapp.core.help.Help[BuildpressParams]
 }

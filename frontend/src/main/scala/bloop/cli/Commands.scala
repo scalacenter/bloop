@@ -5,6 +5,10 @@ import java.nio.file.Path
 
 import bloop.io.AbsolutePath
 import caseapp.{CommandName, ExtraName, HelpMessage, Recurse}
+import caseapp.core.parser.Parser
+import caseapp.core
+
+import CliParsers._
 
 object Commands {
 
@@ -24,6 +28,11 @@ object Commands {
   /** Represents a command that is used by the cli and has no user input validation. */
   sealed trait RawCommand extends Command
 
+  object RawCommand {
+    implicit val help = caseapp.core.help.CommandsHelp[RawCommand]
+    implicit val parser = caseapp.core.commandparser.CommandParser[RawCommand]
+  }
+
   sealed trait CompilingCommand extends RawCommand {
     def projects: List[String]
     def reporter: ReporterKind
@@ -40,6 +49,11 @@ object Commands {
       @Recurse cliOptions: CliOptions = CliOptions.default
   ) extends RawCommand
 
+  object Help {
+    implicit lazy val parser = Parser[Help]
+    implicit lazy val help = core.help.Help[Help]
+  }
+
   case class Autocomplete(
       @Recurse cliOptions: CliOptions = CliOptions.default,
       mode: completion.Mode,
@@ -48,9 +62,19 @@ object Commands {
       project: Option[String]
   ) extends RawCommand
 
+  object Autocomplete {
+    implicit lazy val parser = Parser[Autocomplete]
+    implicit lazy val help = core.help.Help[Autocomplete]
+  }
+
   case class About(
       @Recurse cliOptions: CliOptions = CliOptions.default
   ) extends RawCommand
+
+  object About {
+    implicit lazy val parser = Parser[About]
+    implicit lazy val help = core.help.Help[About]
+  }
 
   case class Projects(
       @HelpMessage("Print out a dot graph you can pipe into `dot`. By default, false.")
@@ -58,12 +82,22 @@ object Commands {
       @Recurse cliOptions: CliOptions = CliOptions.default
   ) extends RawCommand
 
+  object Projects {
+    implicit lazy val parser = Parser[Projects]
+    implicit lazy val help = core.help.Help[Projects]
+  }
+
   private[bloop] final val DefaultThreadNumber = 0
   case class Configure(
       @HelpMessage("(deprecated) Set the number of threads used to compile and test all projects.")
       threads: Int = 0,
       @Recurse cliOptions: CliOptions = CliOptions.default
   ) extends RawCommand
+
+  object Configure {
+    implicit lazy val parser = Parser[Configure]
+    implicit lazy val help = core.help.Help[Configure]
+  }
 
   case class Clean(
       @ExtraName("p")
@@ -77,6 +111,11 @@ object Commands {
       cascade: Boolean = false,
       @Recurse cliOptions: CliOptions = CliOptions.default
   ) extends RawCommand
+
+  object Clean {
+    implicit lazy val parser = Parser[Clean]
+    implicit lazy val help = core.help.Help[Clean]
+  }
 
   @CommandName("bsp")
   case class Bsp(
@@ -94,6 +133,11 @@ object Commands {
       pipeName: Option[String] = None,
       @Recurse cliOptions: CliOptions = CliOptions.default
   ) extends RawCommand
+
+  object Bsp {
+    implicit lazy val parser = Parser[Bsp]
+    implicit lazy val help = core.help.Help[Bsp]
+  }
 
   private lazy val DefaultBatches: ParallelBatches = ParallelBatches.Default
   case class Compile(
@@ -114,6 +158,11 @@ object Commands {
       cascade: Boolean = false,
       @Recurse cliOptions: CliOptions = CliOptions.default
   ) extends CompilingCommand
+
+  object Compile {
+    implicit lazy val parser = Parser[Compile]
+    implicit lazy val help = core.help.Help[Compile]
+  }
 
   case class Test(
       @ExtraName("p")
@@ -145,6 +194,11 @@ object Commands {
       )
       parallel: Boolean = false
   ) extends CompilingCommand
+
+  object Test {
+    implicit lazy val parser = Parser[Test]
+    implicit lazy val help = core.help.Help[Test]
+  }
 
   case class Console(
       @ExtraName("p")
@@ -202,6 +256,11 @@ object Commands {
       optimize: Option[OptimizerConfig] = None,
       @Recurse cliOptions: CliOptions = CliOptions.default
   ) extends LinkingCommand
+
+  object Run {
+    implicit lazy val parser = Parser[Run]
+    implicit lazy val help = core.help.Help[Run]
+  }
 
   case class Link(
       @ExtraName("project")

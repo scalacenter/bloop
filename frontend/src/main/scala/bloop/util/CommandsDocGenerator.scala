@@ -22,7 +22,7 @@ object CommandsDocGenerator {
   private def WW = "  "
   def main(args: Array[String]): Unit = {
     def generateHTML(commandExamples: Map[String, Seq[String]]): Seq[String] = {
-      CliParsers.CommandsMessages.messages.map {
+      Commands.RawCommand.help.messages.map {
         case (commandName, messages) =>
           val examples = commandExamples.getOrElse(commandName.mkString(" "), Nil).reverse.map {
             example =>

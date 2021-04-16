@@ -92,14 +92,12 @@ object Cli {
     ngContext.exit(exitStatus.code)
   }
 
-  import CliParsers.{CommandsMessages, CommandsParser, BaseMessages, OptionsParser}
-  val commands: Seq[String] = CommandsMessages.messages.flatMap(_._1.headOption.toSeq)
+  val commands: Seq[String] = Commands.RawCommand.help.messages.flatMap(_._1.headOption.toSeq)
   // Getting the name from the sbt generated metadata gives us `bloop-frontend` instead.
-  val beforeCommandMessages: Help[Unit] = BaseMessages
-    .withAppName("bloop")
-    .withAppVersion(bloop.internal.build.BuildInfo.version)
-    .withProgName("bloop")
-    .withOptionsDesc(s"[options] [command] [command-options]")
+  val beforeCommandMessages: Help[Unit] =
+    caseapp.core.help
+      .Help(Nil, "bloop", bloop.internal.build.BuildInfo.version, "bloop", None)
+      .withOptionsDesc(s"[options] [command] [command-options]")
 
   private val progName: String = beforeCommandMessages.progName
   private def helpAsked: String =
@@ -110,7 +108,7 @@ object Cli {
 
   private def commandHelpAsked(command: String): String = {
     // We have to do this ourselves because case-app 1.2.0 has a bug in its `ArgsName` handling.
-    val messages = CommandsMessages.messagesMap(Seq(command))
+    val messages = Commands.RawCommand.help.messagesMap(Seq(command))
     val argsName =
       if (messages.args.exists(_.name.name.startsWith("project"))) Some("project") else None
     messages.withArgsNameOption(argsName).helpMessage(beforeCommandMessages.progName, Seq(command))
@@ -147,7 +145,7 @@ object Cli {
   }
 
   private def commandUsageAsked(command: String): String =
-    CommandsMessages
+    Commands.RawCommand.help
       .messagesMap(Seq(command))
       .usageMessage(beforeCommandMessages.progName, Seq(command))
 
@@ -170,7 +168,7 @@ object Cli {
 
   def parse(args: Array[String], commonOptions: CommonOptions): Action = {
     import caseapp.core.help.WithHelp
-    CommandsParser.withHelp.detailedParse(args)(OptionsParser.withHelp) match {
+    Commands.RawCommand.parser.withHelp.detailedParse(args)(CliOptions.parser.withHelp) match {
       case Left(err) => printErrorAndExit(err.message, commonOptions)
       case Right((WithHelp(_, help @ true, _), _, _)) =>
         Print(helpAsked, commonOptions, Exit(ExitStatus.Ok))
