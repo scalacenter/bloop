@@ -68,6 +68,6 @@ object CommonOptions {
     }
   }
 
-  implicit lazy val parser = Parser[CommonOptions]
-  implicit lazy val help = Help[CommonOptions]
+  implicit lazy val parser: Parser[CommonOptions] = Parser.derive
+  implicit lazy val help: Help[CommonOptions] = Help.derive
 }

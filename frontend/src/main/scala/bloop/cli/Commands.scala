@@ -5,8 +5,7 @@ import java.nio.file.Path
 
 import bloop.io.AbsolutePath
 import caseapp.{CommandName, ExtraName, HelpMessage, Recurse}
-import caseapp.core.parser.Parser
-import caseapp.core
+import caseapp.{Help => CaseAppHelp, CommandsHelp, CommandParser, Parser, core}
 
 import CliParsers._
 
@@ -29,8 +28,8 @@ object Commands {
   sealed trait RawCommand extends Command
 
   object RawCommand {
-    implicit val help = caseapp.core.help.CommandsHelp[RawCommand]
-    implicit val parser = caseapp.core.commandparser.CommandParser[RawCommand]
+    implicit val help: CommandsHelp[RawCommand] = CommandsHelp.derive
+    implicit val parser: CommandParser[RawCommand] = CommandParser.derive
   }
 
   sealed trait CompilingCommand extends RawCommand {
@@ -50,8 +49,8 @@ object Commands {
   ) extends RawCommand
 
   object Help {
-    implicit lazy val parser = Parser[Help]
-    implicit lazy val help = core.help.Help[Help]
+    implicit lazy val parser: Parser[Help] = Parser.derive
+    implicit lazy val help: CaseAppHelp[Help] = CaseAppHelp.derive
   }
 
   case class Autocomplete(
@@ -63,8 +62,8 @@ object Commands {
   ) extends RawCommand
 
   object Autocomplete {
-    implicit lazy val parser = Parser[Autocomplete]
-    implicit lazy val help = core.help.Help[Autocomplete]
+    implicit lazy val parser: Parser[Autocomplete] = Parser.derive
+    implicit lazy val help: CaseAppHelp[Autocomplete] = CaseAppHelp.derive
   }
 
   case class About(
@@ -72,8 +71,8 @@ object Commands {
   ) extends RawCommand
 
   object About {
-    implicit lazy val parser = Parser[About]
-    implicit lazy val help = core.help.Help[About]
+    implicit lazy val parser: Parser[About] = Parser.derive
+    implicit lazy val help: CaseAppHelp[About] = CaseAppHelp.derive
   }
 
   case class Projects(
@@ -83,8 +82,8 @@ object Commands {
   ) extends RawCommand
 
   object Projects {
-    implicit lazy val parser = Parser[Projects]
-    implicit lazy val help = core.help.Help[Projects]
+    implicit lazy val parser: Parser[Projects] = Parser.derive
+    implicit lazy val help: CaseAppHelp[Projects] = CaseAppHelp.derive
   }
 
   private[bloop] final val DefaultThreadNumber = 0
@@ -95,8 +94,8 @@ object Commands {
   ) extends RawCommand
 
   object Configure {
-    implicit lazy val parser = Parser[Configure]
-    implicit lazy val help = core.help.Help[Configure]
+    implicit lazy val parser: Parser[Configure] = Parser.derive
+    implicit lazy val help: CaseAppHelp[Configure] = CaseAppHelp.derive
   }
 
   case class Clean(
@@ -113,8 +112,8 @@ object Commands {
   ) extends RawCommand
 
   object Clean {
-    implicit lazy val parser = Parser[Clean]
-    implicit lazy val help = core.help.Help[Clean]
+    implicit lazy val parser: Parser[Clean] = Parser.derive
+    implicit lazy val help: CaseAppHelp[Clean] = CaseAppHelp.derive
   }
 
   @CommandName("bsp")
@@ -135,8 +134,8 @@ object Commands {
   ) extends RawCommand
 
   object Bsp {
-    implicit lazy val parser = Parser[Bsp]
-    implicit lazy val help = core.help.Help[Bsp]
+    implicit lazy val parser: Parser[Bsp] = Parser.derive
+    implicit lazy val help: CaseAppHelp[Bsp] = CaseAppHelp.derive
   }
 
   private lazy val DefaultBatches: ParallelBatches = ParallelBatches.Default
@@ -160,8 +159,8 @@ object Commands {
   ) extends CompilingCommand
 
   object Compile {
-    implicit lazy val parser = Parser[Compile]
-    implicit lazy val help = core.help.Help[Compile]
+    implicit lazy val parser: Parser[Compile] = Parser.derive
+    implicit lazy val help: CaseAppHelp[Compile] = CaseAppHelp.derive
   }
 
   case class Test(
@@ -196,8 +195,8 @@ object Commands {
   ) extends CompilingCommand
 
   object Test {
-    implicit lazy val parser = Parser[Test]
-    implicit lazy val help = core.help.Help[Test]
+    implicit lazy val parser: Parser[Test] = Parser.derive
+    implicit lazy val help: CaseAppHelp[Test] = CaseAppHelp.derive
   }
 
   case class Console(
@@ -258,8 +257,8 @@ object Commands {
   ) extends LinkingCommand
 
   object Run {
-    implicit lazy val parser = Parser[Run]
-    implicit lazy val help = core.help.Help[Run]
+    implicit lazy val parser: Parser[Run] = Parser.derive
+    implicit lazy val help: CaseAppHelp[Run] = CaseAppHelp.derive
   }
 
   case class Link(

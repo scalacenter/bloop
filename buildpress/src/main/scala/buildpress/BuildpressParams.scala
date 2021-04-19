@@ -5,8 +5,7 @@ import scala.util.Try
 import bloop.io.AbsolutePath
 import caseapp.core.argparser.{ArgParser, SimpleArgParser}
 import caseapp.core.Error
-import caseapp.core.parser.Parser
-import caseapp.{ExtraName, HelpMessage}
+import caseapp.{ExtraName, Help, HelpMessage, Parser}
 
 final case class BuildpressParams(
     @ExtraName("i")
@@ -39,6 +38,6 @@ object BuildpressParams {
       toPath.left.map(t => Error.MalformedValue("absolute path", s"$supposedPath (${t.getMessage()})"))
   }
 
-  implicit lazy val parser = Parser[BuildpressParams]
-  implicit lazy val help = caseapp.core.help.Help[BuildpressParams]
+  implicit lazy val parser: Parser[BuildpressParams] = Parser.derive
+  implicit lazy val help: Help[BuildpressParams] = Help.derive
 }

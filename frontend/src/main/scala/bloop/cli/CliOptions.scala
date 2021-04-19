@@ -33,6 +33,6 @@ case class CliOptions(
 object CliOptions {
   val default = CliOptions()
 
-  implicit lazy val parser = Parser[CliOptions]
-  implicit lazy val help = Help[CliOptions]
+  implicit lazy val parser: Parser[CliOptions] = Parser.derive
+  implicit lazy val help: Help[CliOptions] = Help.derive
 }
