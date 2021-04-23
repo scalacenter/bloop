@@ -42,7 +42,7 @@ object Dependencies {
   val jsoniterVersion = "2.4.0"
   val circeVersion213 = "0.12.2"
   val nuprocessVersion = "1.2.4"
-  val shapelessVersion = "2.3.3-lower-priority-coproduct"
+  val shapelessVersion = "2.3.4"
   val scalaNative03Version = "0.3.9"
   val scalaNative04Version = "0.4.0"
   val scalaJs06Version = "0.6.32"
@@ -74,7 +74,7 @@ object Dependencies {
   val coursierScalaz = "io.get-coursier" %% "coursier-scalaz-interop" % coursierVersion
   val scalaXml = "org.scala-lang.modules" %% "scala-xml" % scalaXmlVersion
   val scalaCollectionCompat = "org.scala-lang.modules" %% "scala-collection-compat" % "2.4.2"
-  val shapeless = "ch.epfl.scala" %% "shapeless" % shapelessVersion
+  val shapeless = "com.chuusai" %% "shapeless" % shapelessVersion
   val caseApp = "com.github.alexarchambault" %% "case-app" % caseAppVersion
   val sourcecode = "com.lihaoyi" %% "sourcecode" % sourcecodeVersion
   val sbtTestInterface = "org.scala-sbt" % "test-interface" % sbtTestInterfaceVersion
