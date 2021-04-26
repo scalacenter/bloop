@@ -4,6 +4,10 @@ import java.nio.file.Path
 
 import bloop.logging.DebugFilter
 import caseapp.{ExtraName, HelpMessage, Recurse, ValueDescription}
+import caseapp.core.parser.Parser
+import caseapp.core.help.Help
+
+import CliParsers._
 
 case class CliOptions(
     @ExtraName("c")
@@ -28,4 +32,7 @@ case class CliOptions(
 
 object CliOptions {
   val default = CliOptions()
+
+  implicit lazy val parser: Parser[CliOptions] = Parser.derive
+  implicit lazy val help: Help[CliOptions] = Help.derive
 }

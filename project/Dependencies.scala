@@ -23,7 +23,7 @@ object Dependencies {
   val scalaXmlVersion = "1.2.0"
   val lmVersion = "1.0.0"
   val configDirsVersion = "10"
-  val caseAppVersion = "1.2.0-faster-compile-time"
+  val caseAppVersion = "2.0.6"
   val sourcecodeVersion = "0.1.4"
   val sbtTestInterfaceVersion = "1.0"
   val sbtTestAgentVersion = "1.4.4"
@@ -42,7 +42,7 @@ object Dependencies {
   val jsoniterVersion = "2.4.0"
   val circeVersion213 = "0.12.2"
   val nuprocessVersion = "1.2.4"
-  val shapelessVersion = "2.3.3-lower-priority-coproduct"
+  val shapelessVersion = "2.3.4"
   val scalaNative03Version = "0.3.9"
   val scalaNative04Version = "0.4.0"
   val scalaJs06Version = "0.6.32"
@@ -74,8 +74,8 @@ object Dependencies {
   val coursierScalaz = "io.get-coursier" %% "coursier-scalaz-interop" % coursierVersion
   val scalaXml = "org.scala-lang.modules" %% "scala-xml" % scalaXmlVersion
   val scalaCollectionCompat = "org.scala-lang.modules" %% "scala-collection-compat" % "2.4.2"
-  val shapeless = "ch.epfl.scala" %% "shapeless" % shapelessVersion
-  val caseApp = "ch.epfl.scala" %% "case-app" % caseAppVersion
+  val shapeless = "com.chuusai" %% "shapeless" % shapelessVersion
+  val caseApp = "com.github.alexarchambault" %% "case-app" % caseAppVersion
   val sourcecode = "com.lihaoyi" %% "sourcecode" % sourcecodeVersion
   val sbtTestInterface = "org.scala-sbt" % "test-interface" % sbtTestInterfaceVersion
   val sbtTestAgent = "org.scala-sbt" % "test-agent" % sbtTestAgentVersion

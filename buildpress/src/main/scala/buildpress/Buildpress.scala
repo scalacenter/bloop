@@ -11,7 +11,7 @@ import bloop.io.Environment.{lineSeparator, LineSplitter}
 import buildpress.RepositoryCache.RepoCacheDiff
 import buildpress.io.{BuildpressPaths, SbtProjectHasher}
 import buildpress.util.Traverse._
-import caseapp.core.{Messages, WithHelp}
+import caseapp.core.help.{Help, WithHelp}
 import bloop.bloopgun.core.Shell
 import bloop.bloopgun.core.Shell.StatusCommand
 
@@ -26,21 +26,20 @@ abstract class Buildpress(
   type EitherErrorOr[T] = Either[BuildpressError, T]
   def exit(exitCode: Int): Unit
 
-  import BuildpressParams.buildpressParamsParser
   implicit val messagesParams =
-    Messages.messages[BuildpressParams].copy(appName = "buildpress", progName = "buildpress")
+    Help.help[BuildpressParams].withAppName("buildpress").withProgName("buildpress")
   implicit val messagesParamsHelp = messagesParams.withHelp
 
   def run(args: Array[String]): Unit = {
     def errorAndExit(msg: String): Unit = { err.println(msg); exit(1) }
 
-    BuildpressParams.buildpressParamsParser.withHelp.detailedParse(args) match {
-      case Left(a) => errorAndExit(error(a))
-      case Right((WithHelp(usage, help, result), remainingArgs, extraArgs)) =>
-        if (help) out.println(messagesParams.helpMessage)
-        if (usage) out.println(messagesParams.usageMessage)
+    BuildpressParams.parser.withHelp.detailedParse(args) match {
+      case Left(a) => errorAndExit(error(a.message))
+      case Right((WithHelp(usage, help, result), _)) =>
+        if (help) out.println(messagesParams.help)
+        if (usage) out.println(messagesParams.usage)
         result match {
-          case Left(parserError) => errorAndExit(error(parserError))
+          case Left(parserError) => errorAndExit(error(parserError.message))
           case Right(params) =>
             if (!params.input.exists) {
               errorAndExit(s"Input path '${params.input}' doesn't exist")

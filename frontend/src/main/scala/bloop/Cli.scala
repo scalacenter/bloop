@@ -14,13 +14,12 @@ import bloop.engine.tasks.Tasks
 import bloop.logging.{BloopLogger, DebugFilter, Logger}
 import bloop.data.ClientInfo.CliClientInfo
 
-import caseapp.core.{DefaultBaseCommand, Messages}
+import caseapp.core.help.Help
 import com.martiansoftware.nailgun.NGContext
 import _root_.monix.eval.Task
 
 import scala.concurrent.Promise
 import scala.util.control.NonFatal
-import caseapp.core.CommandsMessages
 import scala.concurrent.duration.FiniteDuration
 import java.util.concurrent.TimeUnit
 import monix.execution.atomic.AtomicBoolean
@@ -93,32 +92,30 @@ object Cli {
     ngContext.exit(exitStatus.code)
   }
 
-  import CliParsers.{CommandsMessages, CommandsParser, BaseMessages, OptionsParser}
-  val commands: Seq[String] = CommandsMessages.messages.map(_._1)
+  val commands: Seq[String] = Commands.RawCommand.help.messages.flatMap(_._1.headOption.toSeq)
   // Getting the name from the sbt generated metadata gives us `bloop-frontend` instead.
-  val beforeCommandMessages: Messages[DefaultBaseCommand] = BaseMessages.copy(
-    appName = "bloop",
-    appVersion = bloop.internal.build.BuildInfo.version,
-    progName = "bloop",
-    optionsDesc = s"[options] [command] [command-options]"
-  )
+  val beforeCommandMessages: Help[Unit] =
+    caseapp.core.help
+      .Help(Nil, "bloop", bloop.internal.build.BuildInfo.version, "bloop", None)
+      .withOptionsDesc(s"[options] [command] [command-options]")
 
   private val progName: String = beforeCommandMessages.progName
   private def helpAsked: String =
-    s"""${beforeCommandMessages.helpMessage}
+    s"""${beforeCommandMessages.help}
        |Available commands: ${commands.mkString(", ")}
        |Type `$progName 'command' --help` for help on an individual command
      """.stripMargin
 
   private def commandHelpAsked(command: String): String = {
     // We have to do this ourselves because case-app 1.2.0 has a bug in its `ArgsName` handling.
-    val messages = CommandsMessages.messagesMap(command)
-    val argsName = if (messages.args.exists(_.name.startsWith("project"))) Some("project") else None
-    messages.copy(argsNameOption = argsName).helpMessage(beforeCommandMessages.progName, command)
+    val messages = Commands.RawCommand.help.messagesMap(Seq(command))
+    val argsName =
+      if (messages.args.exists(_.name.name.startsWith("project"))) Some("project") else None
+    messages.withArgsNameOption(argsName).helpMessage(beforeCommandMessages.progName, Seq(command))
   }
 
   private def usageAsked: String = {
-    s"""${beforeCommandMessages.usageMessage}
+    s"""${beforeCommandMessages.usage}
        |Available commands: ${commands.mkString(", ")}
        |Type `$progName 'command' --usage` for usage of an individual command
      """.stripMargin
@@ -148,7 +145,9 @@ object Cli {
   }
 
   private def commandUsageAsked(command: String): String =
-    CommandsMessages.messagesMap(command).usageMessage(beforeCommandMessages.progName, command)
+    Commands.RawCommand.help
+      .messagesMap(Seq(command))
+      .usageMessage(beforeCommandMessages.progName, Seq(command))
 
   private def printErrorAndExit(msg: String, commonOptions: CommonOptions): Print =
     Print(msg, commonOptions, Exit(ExitStatus.InvalidCommandLineOption))
@@ -168,21 +167,21 @@ object Cli {
   }
 
   def parse(args: Array[String], commonOptions: CommonOptions): Action = {
-    import caseapp.core.WithHelp
-    CommandsParser.withHelp.detailedParse(args)(OptionsParser.withHelp) match {
-      case Left(err) => printErrorAndExit(err, commonOptions)
+    import caseapp.core.help.WithHelp
+    Commands.RawCommand.parser.withHelp.detailedParse(args)(CliOptions.parser.withHelp) match {
+      case Left(err) => printErrorAndExit(err.message, commonOptions)
       case Right((WithHelp(_, help @ true, _), _, _)) =>
         Print(helpAsked, commonOptions, Exit(ExitStatus.Ok))
       case Right((WithHelp(usage @ true, _, _), _, _)) =>
         Print(usageAsked, commonOptions, Exit(ExitStatus.Ok))
       case Right((WithHelp(_, _, userOptions), _, commandOpt)) =>
         val newAction = commandOpt map {
-          case Left(err) => printErrorAndExit(err, commonOptions)
-          case Right((commandName, WithHelp(_, help @ true, _), _, _)) =>
-            Print(commandHelpAsked(commandName), commonOptions, Exit(ExitStatus.Ok))
-          case Right((commandName, WithHelp(usage @ true, _, _), _, _)) =>
-            Print(commandUsageAsked(commandName), commonOptions, Exit(ExitStatus.Ok))
-          case Right((commandName, WithHelp(_, _, command), remainingArgs, extraArgs)) =>
+          case Left(err) => printErrorAndExit(err.message, commonOptions)
+          case Right((commandName, WithHelp(_, help @ true, _), _)) =>
+            Print(commandHelpAsked(commandName.mkString(" ")), commonOptions, Exit(ExitStatus.Ok))
+          case Right((commandName, WithHelp(usage @ true, _, _), _)) =>
+            Print(commandUsageAsked(commandName.mkString(" ")), commonOptions, Exit(ExitStatus.Ok))
+          case Right((commandName, WithHelp(_, _, command), remainingArgs)) =>
             // Override common options depending who's the caller of parse (whether nailgun or main)
             def run(command: Commands.RawCommand, cliOptions: CliOptions): Run = {
               if (!cliOptions.version) Run(command, Exit(ExitStatus.Ok))
@@ -190,7 +189,7 @@ object Cli {
             }
 
             command match {
-              case Left(err) => printErrorAndExit(err, commonOptions)
+              case Left(err) => printErrorAndExit(err.message, commonOptions)
               case Right(v: Commands.Help) =>
                 Print(helpAsked, commonOptions, Exit(ExitStatus.Ok))
               case Right(_: Commands.About) =>
@@ -200,7 +199,12 @@ object Cli {
                 Validate.bsp(newCommand, CrossPlatform.isWindows)
               case Right(c: Commands.Compile) =>
                 val newCommand = c.copy(cliOptions = c.cliOptions.copy(common = commonOptions))
-                withNonEmptyProjects(c.projects, commandName, remainingArgs, commonOptions) { ps =>
+                withNonEmptyProjects(
+                  c.projects,
+                  commandName.mkString(" "),
+                  remainingArgs.all,
+                  commonOptions
+                ) { ps =>
                   run(newCommand.copy(projects = ps), newCommand.cliOptions)
                 }
               case Right(c: Commands.Autocomplete) =>
@@ -208,34 +212,49 @@ object Cli {
                 run(newCommand, newCommand.cliOptions)
               case Right(c: Commands.Console) =>
                 val newCommand = c.copy(cliOptions = c.cliOptions.copy(common = commonOptions))
-                withNonEmptyProjects(c.projects, commandName, remainingArgs, commonOptions) { ps =>
+                withNonEmptyProjects(
+                  c.projects,
+                  commandName.mkString(" "),
+                  remainingArgs.remaining,
+                  commonOptions
+                ) { ps =>
                   run(
                     // Infer everything after '--' as if they were execution args
-                    newCommand.copy(projects = ps, args = c.args ++ extraArgs),
+                    newCommand.copy(projects = ps, args = c.args ++ remainingArgs.unparsed),
                     newCommand.cliOptions
                   )
                 }
               case Right(c: Commands.Test) =>
                 val newCommand = c.copy(cliOptions = c.cliOptions.copy(common = commonOptions))
-                withNonEmptyProjects(c.projects, commandName, remainingArgs, commonOptions) { ps =>
+                withNonEmptyProjects(
+                  c.projects,
+                  commandName.mkString(" "),
+                  remainingArgs.remaining,
+                  commonOptions
+                ) { ps =>
                   run(
                     // Infer everything after '--' as if they were execution args
-                    newCommand.copy(projects = ps, args = c.args ++ extraArgs),
+                    newCommand.copy(projects = ps, args = c.args ++ remainingArgs.unparsed),
                     newCommand.cliOptions
                   )
                 }
               case Right(c: Commands.Run) =>
                 val newCommand = c.copy(cliOptions = c.cliOptions.copy(common = commonOptions))
-                withNonEmptyProjects(c.projects, commandName, remainingArgs, commonOptions) { ps =>
+                withNonEmptyProjects(
+                  c.projects,
+                  commandName.mkString(" "),
+                  remainingArgs.remaining,
+                  commonOptions
+                ) { ps =>
                   run(
                     // Infer everything after '--' as if they were execution args
-                    newCommand.copy(projects = ps, args = c.args ++ extraArgs),
+                    newCommand.copy(projects = ps, args = c.args ++ remainingArgs.unparsed),
                     newCommand.cliOptions
                   )
                 }
               case Right(c: Commands.Clean) =>
                 // We accept no project arguments in clean
-                val potentialProjects = c.projects ++ remainingArgs
+                val potentialProjects = c.projects ++ remainingArgs.remaining
                 val cliOptions = c.cliOptions.copy(common = commonOptions)
                 run(c.copy(projects = potentialProjects, cliOptions = cliOptions), c.cliOptions)
               case Right(c: Commands.Projects) =>
@@ -246,14 +265,19 @@ object Cli {
                 run(newCommand, newCommand.cliOptions)
               case Right(c: Commands.Link) =>
                 val newCommand = c.copy(cliOptions = c.cliOptions.copy(common = commonOptions))
-                withNonEmptyProjects(c.projects, commandName, remainingArgs, commonOptions) { ps =>
+                withNonEmptyProjects(
+                  c.projects,
+                  commandName.mkString(" "),
+                  remainingArgs.remaining,
+                  commonOptions
+                ) { ps =>
                   run(newCommand.copy(projects = ps), newCommand.cliOptions)
                 }
             }
         }
         newAction.getOrElse {
           userOptions match {
-            case Left(err) => printErrorAndExit(err, commonOptions)
+            case Left(err) => printErrorAndExit(err.message, commonOptions)
             case Right(cliOptions0) =>
               val cliOptions = cliOptions0.copy(common = commonOptions)
               if (cliOptions.version) Run(Commands.About(cliOptions), Exit(ExitStatus.Ok))
