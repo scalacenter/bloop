@@ -476,8 +476,8 @@ object Offloader {
     import bloop.config.Config
     val project = BloopDefaults.targetNamesToConfigs.get(targetName).project
     val scala = project.scala.get
-    val output = sbt.internal.inc.CompileOutput(project.classesDir.toFile)
-    val classpath = project.classpath.map(p => xsbti.compile.FileHash.create(p.toFile, 0)).toArray
+    val output = sbt.internal.inc.CompileOutput(project.classesDir)
+    val classpath = project.classpath.map(p => xsbti.compile.FileHash.create(p, 0)).toArray
     val scalacOptions = scala.options.toArray
     val javacOptions = project.java.map(_.options.toArray).getOrElse(new Array(0))
     val options = xsbti.compile.MiniOptions.create(classpath, scalacOptions, javacOptions)
