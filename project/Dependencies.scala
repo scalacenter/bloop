@@ -41,7 +41,7 @@ object Dependencies {
   val circeVersion = "0.9.3"
   val jsoniterVersion = "2.4.0"
   val circeVersion213 = "0.12.2"
-  val nuprocessVersion = "1.2.4"
+  val nuprocessVersion = "2.0.1"
   val shapelessVersion = "2.3.4"
   val scalaNative03Version = "0.3.9"
   val scalaNative04Version = "0.4.0"
@@ -53,7 +53,7 @@ object Dependencies {
   val difflibVersion = "1.3.0"
   val braveVersion = "5.6.1"
   val zipkinSenderVersion = "2.7.15"
-  val jnaVersion = "4.5.0"
+  val jnaVersion = "5.8.0"
   val asmVersion = "7.0"
   val snailgunVersion = "0.4.0"
   val ztExecVersion = "1.11"
@@ -112,7 +112,7 @@ object Dependencies {
   val circeParser = "io.circe" %% "circe-parser" % circeVersion
   val circeCore = "io.circe" %% "circe-core" % circeVersion
   val circeGeneric = "io.circe" %% "circe-generic" % circeVersion
-  val nuprocess = "com.zaxxer" % "nuprocess" % nuprocessVersion
+  val nuprocess = "com.zaxxer" % "nuprocess" % nuprocessVersion exclude("net.java.dev.jna","jna")
 
   val scalaNativeTools03 = "org.scala-native" %% "tools" % scalaNative03Version % Provided
   val scalaNativeTools04 = "org.scala-native" %% "tools" % scalaNative04Version % Provided
