@@ -6,7 +6,7 @@ object Dependencies {
   val Scala212Version = "2.12.8"
 
   val Sbt013Version = "0.13.18"
-  val Sbt1Version = "1.4.7"
+  val Sbt1Version = "1.3.3"
 
   val nailgunVersion = "ee3c4343"
   // Used to download the python client instead of resolving
