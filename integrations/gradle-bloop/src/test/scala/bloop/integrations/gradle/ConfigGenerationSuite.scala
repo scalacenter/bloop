@@ -76,7 +76,7 @@ abstract class ConfigGenerationSuite {
          |}
          |
          |dependencies {
-         |  compile group: 'org.scala-lang', name: 'scala-library', version: '2.12.8'
+         |  implementation 'org.scala-lang:scala-library:2.12.8'
          |}
          |
          |
@@ -137,7 +137,7 @@ abstract class ConfigGenerationSuite {
          |}
          |
          |dependencies {
-         |  compile group: 'org.scala-lang', name: 'scala-library', version: '2.12.8'
+         |  implementation 'org.scala-lang:scala-library:2.12.8'
          |}
          |
          |
@@ -338,6 +338,9 @@ abstract class ConfigGenerationSuite {
   @Test def worksWithSpecificScala3B(): Unit = {
     worksWithScala3("3.0.0-M1", "3.0.0-M1")
   }
+  @Test def worksWithSpecificScala3C(): Unit = {
+    worksWithScala3("3.0.0", "3.0.0")
+  }
   @Test def worksWithScala3LatestNightly(): Unit = {
     // newer releases mean we can't test for version
     worksWithScala3("Latest", "")
@@ -391,7 +394,7 @@ abstract class ConfigGenerationSuite {
          |}
          |
          |dependencies {
-         |  compile 'org.scala-lang:scala-library:2.13.1'
+         |  implementation 'org.scala-lang:scala-library:2.13.1'
          |}
       """.stripMargin
     )
@@ -456,7 +459,7 @@ abstract class ConfigGenerationSuite {
         |}
         |
         |dependencies {
-        |  compile 'org.scala-lang:scala-library:2.12.8'
+        |  implementation 'org.scala-lang:scala-library:2.12.8'
         |}
       """.stripMargin
     )
@@ -504,7 +507,7 @@ abstract class ConfigGenerationSuite {
         |}
         |
         |dependencies {
-        |  compile 'org.scala-lang:scala-library:2.12.8'
+        |  implementation 'org.scala-lang:scala-library:2.12.8'
         |}
       """.stripMargin
     )
@@ -570,7 +573,7 @@ abstract class ConfigGenerationSuite {
         |}
         |
         |dependencies {
-        |  compile 'org.scala-lang:scala-library:2.12.8'
+        |  implementation 'org.scala-lang:scala-library:2.12.8'
         |}
       """.stripMargin
     )
@@ -645,7 +648,7 @@ abstract class ConfigGenerationSuite {
          |}
          |
          |dependencies {
-         |  compile 'org.scala-lang:scala-library:2.12.8'
+         |  implementation 'org.scala-lang:scala-library:2.12.8'
          |}
       """.stripMargin
     )
@@ -657,6 +660,7 @@ abstract class ConfigGenerationSuite {
          |  id 'bloop'
          |}
          |
+         |apply plugin: 'java-library'
          |apply plugin: 'scala'
          |apply plugin: 'bloop'
          |
@@ -665,9 +669,10 @@ abstract class ConfigGenerationSuite {
          |}
          |
          |dependencies {
+         |  implementation 'org.scala-lang:scala-library:2.12.8'
          |  implementation 'org.typelevel:cats-core_2.12:1.2.0'
-         |  compile project(':a')
-         |  compile project(':c')
+         |  api project(':a')
+         |  api project(':c')
          |}
       """.stripMargin
     )
@@ -687,7 +692,7 @@ abstract class ConfigGenerationSuite {
          |}
          |
          |dependencies {
-         |  compile 'org.scala-lang:scala-library:2.12.8'
+         |  implementation 'org.scala-lang:scala-library:2.12.8'
          |}
       """.stripMargin
     )
@@ -707,7 +712,8 @@ abstract class ConfigGenerationSuite {
          |}
          |
          |dependencies {
-         |  compile project(':b')
+         |  implementation 'org.scala-lang:scala-library:2.12.8'
+         |  implementation project(':b')
          |}
       """.stripMargin
     )
@@ -760,6 +766,13 @@ abstract class ConfigGenerationSuite {
     val configBTest = readValidBloopConfig(bloopBTest)
     val configCTest = readValidBloopConfig(bloopCTest)
     val configDTest = readValidBloopConfig(bloopDTest)
+
+    assert(configA.project.workspaceDir.nonEmpty)
+    // canonicalFile needed to pass tests on mac due to "/private/var" "/var" symlink
+    assertEquals(
+      testProjectDir.getRoot.getCanonicalFile,
+      configA.project.workspaceDir.get.toFile.getCanonicalFile
+    )
 
     assert(configA.project.`scala`.exists(_.version == "2.12.8"))
     assert(configB.project.`scala`.exists(_.version == "2.12.8"))
@@ -885,7 +898,7 @@ abstract class ConfigGenerationSuite {
          |}
          |
          |dependencies {
-         |  compile 'org.scala-lang:scala-library:2.12.8'
+         |  implementation 'org.scala-lang:scala-library:2.12.8'
          |}
       """.stripMargin
     )
@@ -905,8 +918,8 @@ abstract class ConfigGenerationSuite {
          |}
          |
          |dependencies {
-         |  compile project(':a')
-         |  compile 'org.scala-lang:scala-library:2.12.8'
+         |  implementation project(':a')
+         |  implementation 'org.scala-lang:scala-library:2.12.8'
          |}
       """.stripMargin
     )
@@ -967,6 +980,127 @@ abstract class ConfigGenerationSuite {
     assert(!hasRuntimeClasspathEntryName(configBTest, "/b-test/build/classes"))
   }
 
+  @Test def worksWithIncludeFlat(): Unit = {
+    val buildDirA = testProjectDir.newFolder("a")
+    testProjectDir.newFolder("a", "src", "main", "scala")
+    testProjectDir.newFolder("a", "src", "test", "scala")
+    val buildDirB = testProjectDir.newFolder("b")
+    testProjectDir.newFolder("b", "src", "main", "scala")
+    testProjectDir.newFolder("b", "src", "test", "scala")
+    val buildDirMaster = testProjectDir.newFolder("master")
+    val buildSettings = new File(buildDirMaster, "settings.gradle")
+    val buildFileA = new File(buildDirA, "build.gradle")
+    val buildFileB = new File(buildDirB, "build.gradle")
+
+    writeBuildScript(
+      buildFileA,
+      s"""
+         |plugins {
+         |  id 'bloop'
+         |}
+         |
+         |apply plugin: 'scala'
+         |apply plugin: 'bloop'
+         |
+         |repositories {
+         |  mavenCentral()
+         |}
+         |
+         |dependencies {
+         |  implementation 'org.scala-lang:scala-library:2.12.8'
+         |}
+      """.stripMargin
+    )
+
+    writeBuildScript(
+      buildFileB,
+      s"""
+         |plugins {
+         |  id 'bloop'
+         |}
+         |
+         |apply plugin: 'scala'
+         |apply plugin: 'bloop'
+         |
+         |repositories {
+         |  mavenCentral()
+         |}
+         |
+         |dependencies {
+         |  implementation project(':a')
+         |  implementation 'org.scala-lang:scala-library:2.12.8'
+         |}
+      """.stripMargin
+    )
+
+    writeBuildScript(
+      buildSettings,
+      """
+        |rootProject.name = 'master'
+        |includeFlat 'a'
+        |includeFlat 'b'
+      """.stripMargin
+    )
+
+    createHelloWorldScalaSource(buildDirA, "package x { trait A }")
+    createHelloWorldScalaTestSource(buildDirA, "package y { trait B }")
+    createHelloWorldScalaTestSource(buildDirB, "package z { trait C extends x.A { } }")
+
+    GradleRunner
+      .create()
+      .withGradleVersion(gradleVersion)
+      .withProjectDir(buildDirMaster)
+      .withPluginClasspath(getClasspath)
+      .withArguments("bloopInstall", "-Si")
+      .forwardOutput()
+      .build()
+
+    val projectName = testProjectDir.getRoot.getName
+    val bloopDir = new File(testProjectDir.getRoot, ".bloop")
+    val bloopNone = new File(bloopDir, s"${projectName}.json")
+    val bloopA = new File(bloopDir, "a.json")
+    val bloopB = new File(bloopDir, "b.json")
+    val bloopMaster = new File(bloopDir, "master.json")
+    val bloopATest = new File(bloopDir, "a-test.json")
+    val bloopBTest = new File(bloopDir, "b-test.json")
+
+    assert(!bloopNone.exists())
+    assert(!bloopMaster.exists())
+    val configA = readValidBloopConfig(bloopA)
+    val configB = readValidBloopConfig(bloopB)
+    val configATest = readValidBloopConfig(bloopATest)
+    val configBTest = readValidBloopConfig(bloopBTest)
+
+    assert(configA.project.workspaceDir.nonEmpty)
+    // canonicalFile needed to pass tests on mac due to "/private/var" "/var" symlink
+    assertEquals(
+      testProjectDir.getRoot.getCanonicalFile,
+      configA.project.workspaceDir.get.toFile.getCanonicalFile
+    )
+    assert(configA.project.dependencies.isEmpty)
+    assertEquals(List("a"), configATest.project.dependencies.sorted)
+    assertEquals(List("a"), configB.project.dependencies.sorted)
+    assertEquals(List("a", "b"), configBTest.project.dependencies.sorted)
+
+    assert(!hasRuntimeClasspathEntryName(configA, "/build/resources/main"))
+    assert(!hasRuntimeClasspathEntryName(configB, "/build/resources/main"))
+    assert(!hasRuntimeClasspathEntryName(configATest, "/build/resources/main"))
+    assert(!hasRuntimeClasspathEntryName(configBTest, "/build/resources/main"))
+
+    assert(!hasCompileClasspathEntryName(configA, "/build/resources/main"))
+    assert(!hasCompileClasspathEntryName(configB, "/build/resources/main"))
+    assert(!hasCompileClasspathEntryName(configATest, "/build/resources/main"))
+    assert(!hasCompileClasspathEntryName(configBTest, "/build/resources/main"))
+
+    assert(!hasRuntimeClasspathEntryName(configA, "/a/build/classes"))
+    assert(!hasRuntimeClasspathEntryName(configB, "/b/build/classes"))
+    assert(!hasRuntimeClasspathEntryName(configATest, "/a-test/build/classes"))
+    assert(!hasRuntimeClasspathEntryName(configBTest, "/b-test/build/classes"))
+
+    assert(hasBothClasspathsEntryName(configB, "/a/src/main/resources"))
+    assert(hasBothClasspathsEntryName(configB, "/a/build/classes"))
+  }
+
   @Test def worksWithDuplicateNestedProjectNames(): Unit = {
     val buildSettings = testProjectDir.newFile("settings.gradle")
     val buildDirA = testProjectDir.newFolder("a", "foo")
@@ -1001,7 +1135,7 @@ abstract class ConfigGenerationSuite {
          |}
          |
          |dependencies {
-         |  compile 'org.scala-lang:scala-library:2.12.8'
+         |  implementation 'org.scala-lang:scala-library:2.12.8'
          |}
       """.stripMargin
     )
@@ -1022,8 +1156,8 @@ abstract class ConfigGenerationSuite {
          |
          |dependencies {
          |  implementation 'org.typelevel:cats-core_2.12:1.2.0'
-         |  compile project(':a:foo')
-         |  compile project(':c:foo')
+         |  implementation project(':a:foo')
+         |  implementation project(':c:foo')
          |}
       """.stripMargin
     )
@@ -1043,7 +1177,7 @@ abstract class ConfigGenerationSuite {
          |}
          |
          |dependencies {
-         |  compile 'org.scala-lang:scala-library:2.12.8'
+         |  implementation 'org.scala-lang:scala-library:2.12.8'
          |}
       """.stripMargin
     )
@@ -1063,7 +1197,8 @@ abstract class ConfigGenerationSuite {
          |}
          |
          |dependencies {
-         |  compile project(':b:foo')
+         |  implementation project(':b:foo')
+         |  implementation 'org.scala-lang:scala-library:2.12.8'
          |}
       """.stripMargin
     )
@@ -1142,7 +1277,7 @@ abstract class ConfigGenerationSuite {
          |}
          |
          |dependencies {
-         |  compile 'org.scala-lang:scala-library:2.12.8'
+         |  implementation 'org.scala-lang:scala-library:2.12.8'
          |}
       """.stripMargin
     )
@@ -1163,7 +1298,7 @@ abstract class ConfigGenerationSuite {
          |
          |dependencies {
          |  implementation 'org.typelevel:cats-core_2.12:1.2.0'
-         |  compile project(':code:foo')
+         |  implementation project(':code:foo')
          |}
       """.stripMargin
     )
@@ -1246,7 +1381,7 @@ abstract class ConfigGenerationSuite {
          |}
          |
          |dependencies {
-         |  compile 'org.scala-lang:scala-library:2.12.8'
+         |  implementation 'org.scala-lang:scala-library:2.12.8'
          |}
       """.stripMargin
     )
@@ -1266,7 +1401,7 @@ abstract class ConfigGenerationSuite {
          |}
          |
          |dependencies {
-         |  compile 'org.scala-lang:scala-library:2.12.8'
+         |  implementation 'org.scala-lang:scala-library:2.12.8'
          |  testImplementation project(':a').sourceSets.test.output
          |}
       """.stripMargin
@@ -1374,7 +1509,7 @@ abstract class ConfigGenerationSuite {
          |}
          |
          |dependencies {
-         |  compile 'org.scala-lang:scala-library:2.12.8'
+         |  implementation 'org.scala-lang:scala-library:2.12.8'
          |}
       """.stripMargin
     )
@@ -1394,7 +1529,7 @@ abstract class ConfigGenerationSuite {
          |}
          |
          |dependencies {
-         |  compile 'org.scala-lang:scala-library:2.12.8'
+         |  implementation 'org.scala-lang:scala-library:2.12.8'
          |  testImplementation project( path: ':a', configuration: 'testArtifacts')
          |}
       """.stripMargin
@@ -1487,7 +1622,8 @@ abstract class ConfigGenerationSuite {
            |}
            |
            |dependencies {
-           |  compile 'org.scala-lang:scala-library:2.12.8'
+           |  implementation 'org.scala-lang:scala-library:2.12.8'
+           |  testFixturesImplementation 'org.scala-lang:scala-library:2.12.8'
            |}
         """.stripMargin
       )
@@ -1507,7 +1643,7 @@ abstract class ConfigGenerationSuite {
            |}
            |
            |dependencies {
-           |  compile 'org.scala-lang:scala-library:2.12.8'
+           |  implementation 'org.scala-lang:scala-library:2.12.8'
            |  testImplementation(testFixtures(project(":a")))
            |}
         """.stripMargin
@@ -1621,7 +1757,8 @@ abstract class ConfigGenerationSuite {
            |}
            |
            |dependencies {
-           |  compile 'org.scala-lang:scala-library:2.12.8'
+           |  implementation 'org.scala-lang:scala-library:2.12.8'
+           |  testImplementation 'org.scala-lang:scala-library:2.12.8'
            |}
         """.stripMargin
       )
@@ -1641,7 +1778,8 @@ abstract class ConfigGenerationSuite {
            |}
            |
            |dependencies {
-           |  compile 'org.scala-lang:scala-library:2.12.8'
+           |  implementation 'org.scala-lang:scala-library:2.12.8'
+           |  testImplementation 'org.scala-lang:scala-library:2.12.8'
            |  testImplementation project( path: ':a', configuration: "testArtifacts" )
            |}
         """.stripMargin
@@ -1725,7 +1863,7 @@ abstract class ConfigGenerationSuite {
          |}
          |
          |dependencies {
-         |  compile group: 'org.scala-lang', name: 'scala-library', version: '2.12.8'
+         |  implementation 'org.scala-lang:scala-library:2.12.8'
          |}
          |
          |tasks.withType(ScalaCompile) {
@@ -1774,7 +1912,7 @@ abstract class ConfigGenerationSuite {
          |}
          |
          |dependencies {
-         |  compile group: 'org.scala-lang', name: 'scala-library', version: '2.12.8'
+         |  implementation 'org.scala-lang:scala-library:2.12.8'
          |}
          |
          |tasks.withType(JavaCompile) {
@@ -1870,8 +2008,8 @@ abstract class ConfigGenerationSuite {
         |}
         |
         |dependencies {
-        |  compile 'org.scala-lang:scala-library:2.12.8'
-        |  compile project(':a')
+        |  implementation 'org.scala-lang:scala-library:2.12.8'
+        |  implementation project(':a')
         |}
         |
       """.stripMargin
@@ -1987,9 +2125,9 @@ abstract class ConfigGenerationSuite {
         |}
         |
         |dependencies {
-        |  compile 'org.typelevel:cats-core_2.12:1.2.0'
-        |  compile(project(path: ':a',  configuration: 'foo'))
-        |  testRuntime files("${System.properties['java.home']}/../lib/tools.jar")
+        |  implementation 'org.typelevel:cats-core_2.12:1.2.0'
+        |  implementation(project(path: ':a',  configuration: 'foo'))
+        |  testRuntimeOnly files("${System.properties['java.home']}/../lib/tools.jar")
         |}
       """.stripMargin
     )
@@ -2325,7 +2463,7 @@ abstract class ConfigGenerationSuite {
          |}
          |
          |dependencies {
-         |  compile 'org.scala-lang:scala-library:2.12.8'
+         |  implementation 'org.scala-lang:scala-library:2.12.8'
          |}
       """.stripMargin
     )
@@ -2357,7 +2495,7 @@ abstract class ConfigGenerationSuite {
          |}
          |
          |dependencies {
-         |  compile 'org.scala-lang:scala-library:2.12.8'
+         |  implementation 'org.scala-lang:scala-library:2.12.8'
          |}
       """.stripMargin
     )
@@ -2416,7 +2554,7 @@ abstract class ConfigGenerationSuite {
         |}
         |
         |dependencies {
-        |  compile 'org.scala-lang:scala-library:2.12.8'
+        |  implementation 'org.scala-lang:scala-library:2.12.8'
         |}
       """.stripMargin
     )
@@ -2436,10 +2574,10 @@ abstract class ConfigGenerationSuite {
         |}
         |
         |dependencies {
-        |  compile project(':c')
-        |  compile 'org.typelevel:cats-core_2.12:1.2.0'
-        |  compile project(':a')
-        |  compile project(':b')
+        |  implementation project(':c')
+        |  implementation 'org.typelevel:cats-core_2.12:1.2.0'
+        |  implementation project(':a')
+        |  implementation project(':b')
         |}
       """.stripMargin
     )
@@ -2574,7 +2712,7 @@ abstract class ConfigGenerationSuite {
         |}
         |
         |dependencies {
-        |  compile project(':e')
+        |  implementation project(':e')
         |}
       """.stripMargin
     )
@@ -2644,7 +2782,7 @@ abstract class ConfigGenerationSuite {
         |}
         |
         |dependencies {
-        |  compile group: 'org.scala-lang', name: 'scala-library', version: '2.12.8'
+        |  implementation 'org.scala-lang:scala-library:2.12.8'
         |  scalaCompilerPlugin "org.scalameta:semanticdb-scalac_2.12.8:4.1.9"
         |}
         |
@@ -2708,7 +2846,7 @@ abstract class ConfigGenerationSuite {
           |}
           |
           |dependencies {
-          |  compile group: 'org.scala-lang', name: 'scala-library', version: '2.12.8'
+          |  implementation 'org.scala-lang:scala-library:2.12.8'
           |  scalaCompilerPlugins "org.scalameta:semanticdb-scalac_2.12.8:4.1.9"
           |}
           |
@@ -2787,7 +2925,7 @@ abstract class ConfigGenerationSuite {
          |}
          |
          |dependencies {
-         |  compile 'org.scala-lang:scala-library:2.12.8'
+         |  implementation 'org.scala-lang:scala-library:2.12.8'
          |}
       """.stripMargin
     )
@@ -2870,7 +3008,7 @@ abstract class ConfigGenerationSuite {
          |}
          |
          |dependencies {
-         |  compile group: 'org.scala-lang', name: 'scala-library', version: "$version"
+         |  implementation group: 'org.scala-lang', name: 'scala-library', version: "$version"
          |}
       """.stripMargin
     )

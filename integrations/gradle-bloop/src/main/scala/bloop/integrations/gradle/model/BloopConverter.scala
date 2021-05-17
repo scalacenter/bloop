@@ -149,6 +149,7 @@ class BloopConverter(parameters: BloopParameters) {
 
             val DottyVersion = raw"""0\.(\d+)(.*)""".r
             val Scala3Version = raw"""3\.(\d+)\.(\d+)-(\w+)(.*)""".r
+            val Scala3VersionReleased = raw"""3\.(\d+)(.*)""".r
             val (dottyOrgName, dottyLibrary, artifactAndVersion) = version match {
               case DottyVersion(minor, patch) =>
                 val artifactID = s"dotty-compiler_0.$minor"
@@ -159,6 +160,12 @@ class BloopConverter(parameters: BloopParameters) {
                 val artifactVersion =
                   if (remaining.isEmpty) "+" else s"3.$minor.$patch-$milestone$remaining"
                 ("org.scala-lang", "SCALA3-LIBRARY", s"$artifactID:$artifactVersion")
+              case Scala3VersionReleased(minor, patch) =>
+                val artifactID = s"scala3-compiler_3"
+                val artifactVersion = if (patch.isEmpty) "+" else s"3.$minor$patch"
+                ("org.scala-lang", "SCALA3-LIBRARY", s"$artifactID:$artifactVersion")
+              case "3" =>
+                ("org.scala-lang", "SCALA3-LIBRARY", s"scala3-compiler_3:+")
             }
 
             val compilerDependencyName = s"$dottyOrgName:$artifactAndVersion"
@@ -253,7 +260,7 @@ class BloopConverter(parameters: BloopParameters) {
         bloopProject = Config.Project(
           name = projectName,
           directory = project.getProjectDir.toPath,
-          workspaceDir = Option(project.getRootProject.getProjectDir.toPath),
+          workspaceDir = Option(project.getRootProject.workspacePath),
           sources = sources,
           sourcesGlobs = None,
           sourceRoots = None,

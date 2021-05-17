@@ -58,15 +58,17 @@ case class BloopParametersExtension(project: Project) {
   includeJavadoc_.set(false)
   @Input @Optional def getIncludeJavadoc: Property[java.lang.Boolean] = includeJavadoc_
 
-  def createParameters: BloopParameters =
+  def createParameters: BloopParameters = {
+    val defaultTargetDir = project.getRootProject.workspacePath.resolve(".bloop").toFile
     BloopParameters(
-      targetDir_.getOrElse(project.getRootProject.getProjectDir / ".bloop"),
+      targetDir_.getOrElse(defaultTargetDir),
       compilerName_.getOrElse("scala-compiler"),
       stdLibName_.getOrElse("scala-library"),
       includeSources_.get,
       includeJavadoc_.get,
       getDottyVersionOption
     )
+  }
 }
 
 case class BloopParameters(
