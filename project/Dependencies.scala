@@ -57,6 +57,7 @@ object Dependencies {
   val asmVersion = "7.0"
   val snailgunVersion = "0.4.0"
   val ztExecVersion = "1.11"
+  val debugAdapterVersion = "1.0.0"
 
   import sbt.librarymanagement.syntax.stringToOrganization
   val zinc = "ch.epfl.scala" %% "zinc" % zincVersion
@@ -113,6 +114,7 @@ object Dependencies {
   val circeCore = "io.circe" %% "circe-core" % circeVersion
   val circeGeneric = "io.circe" %% "circe-generic" % circeVersion
   val nuprocess = "com.zaxxer" % "nuprocess" % nuprocessVersion exclude("net.java.dev.jna","jna")
+  val scalaDebugAdapter = "ch.epfl.scala" %% "scala-debug-adapter" % debugAdapterVersion
 
   val scalaNativeTools03 = "org.scala-native" %% "tools" % scalaNative03Version % Provided
   val scalaNativeTools04 = "org.scala-native" %% "tools" % scalaNative04Version % Provided
