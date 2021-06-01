@@ -24,7 +24,7 @@ jobs:
         with:
           submodules: true
           fetch-depth: 0
-      - uses: olafurpg/setup-scala@v10
+      - uses: olafurpg/setup-scala@v11
         with:
           java-version: ${{ matrix.jdk }}
       - uses: actions/setup-node@v2.1.5
@@ -110,7 +110,7 @@ jobs:
         with:
           submodules: true
           fetch-depth: 0
-      - uses: olafurpg/setup-scala@v10
+      - uses: olafurpg/setup-scala@v11
         with:
           java-version: ${{ matrix.jdk }}
       - name: Publish GraalVM Native artifacts
@@ -155,7 +155,7 @@ jobs:
         with:
           submodules: true
           fetch-depth: 0
-      - uses: olafurpg/setup-scala@v10
+      - uses: olafurpg/setup-scala@v11
         with:
           java-version: ${{ matrix.jdk }}
       - name: Install GraalVM Native Image
@@ -221,7 +221,7 @@ jobs:
         with:
           submodules: true
           fetch-depth: 0
-      - uses: olafurpg/setup-scala@v10
+      - uses: olafurpg/setup-scala@v11
         with:
           java-version: ${{ matrix.jdk }}
       - uses: actions/setup-node@v2.1.5
