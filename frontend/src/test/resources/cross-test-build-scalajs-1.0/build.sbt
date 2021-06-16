@@ -23,11 +23,12 @@ lazy val `test-project` =
         libraryDependencies += "org.scalatest" %%% "scalatest" % "3.1.1" % Test,
         libraryDependencies += "org.scalacheck" %%% "scalacheck" % "1.14.3" % Test,
         libraryDependencies += "org.specs2" %%% "specs2-core" % "4.9.2" % Test
-      ))
+      )
+    )
     .jvmSettings(
       libraryDependencies += "org.scalatest" %% "scalatest" % "3.1.1" % Test,
       libraryDependencies += "org.scalacheck" %% "scalacheck" % "1.14.3" % Test,
-      libraryDependencies += "org.specs2" %% "specs2-core" % "4.9.2" % Test,
+      libraryDependencies += "org.specs2" %% "specs2-core" % "4.9.2" % Test
     )
 
 lazy val `test-project-js` = `test-project`.js

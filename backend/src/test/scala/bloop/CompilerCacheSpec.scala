@@ -62,7 +62,6 @@ class CompilerCacheSpec {
 
         val classFileManager = new ClassFileManager {
           override def delete(classes: Array[File]): Unit = ()
-          override def invalidatedClassFiles(): Array[File] = Array.empty
           override def generated(classes: Array[File]): Unit = ()
           override def complete(success: Boolean): Unit = ()
         }

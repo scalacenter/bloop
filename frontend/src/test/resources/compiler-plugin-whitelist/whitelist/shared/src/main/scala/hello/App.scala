@@ -5,4 +5,3 @@ object App {
     println("Whitelist application was compiled successfully v3.0")
   }
 }
-        

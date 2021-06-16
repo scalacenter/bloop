@@ -20,17 +20,15 @@ final class ScalaInstance private (
     override val version: String,
     override val allJars: Array[File]
 ) extends xsbti.compile.ScalaInstance {
+
+  override def libraryJars(): Array[File] = {
+    allJars
+      .filter(f => isJar(f.getName) && hasScalaLibraryName(f.getName))
+  }
+
   override val compilerJar: File = {
     allJars
       .find(f => isJar(f.getName) && hasScalaCompilerName(f.getName))
-      .getOrElse(
-        sys.error(s"Missing compiler jar in Scala jars ${allJars.mkString(", ")}")
-      )
-  }
-
-  override val libraryJar: File = {
-    allJars
-      .find(f => isJar(f.getName) && hasScalaLibraryName(f.getName))
       .getOrElse(
         sys.error(s"Missing compiler jar in Scala jars ${allJars.mkString(", ")}")
       )
@@ -47,10 +45,10 @@ final class ScalaInstance private (
       (organization == "org.scala-lang" && version.startsWith("3."))
 
   override lazy val loaderLibraryOnly: ClassLoader =
-    new URLClassLoader(Array(libraryJar.toURI.toURL), ScalaInstance.topClassLoader)
+    new URLClassLoader(libraryJars.map(_.toURI.toURL), ScalaInstance.topClassLoader)
   override lazy val loader: ClassLoader = {
     // For some exceptionally weird reason, we need to load all jars for dotty here
-    val jarsToLoad = if (isDotty) allJars else allJars.filterNot(_ == libraryJar)
+    val jarsToLoad = if (isDotty) allJars else allJars.filterNot(jar => libraryJars.contains(jar))
     new URLClassLoader(jarsToLoad.map(_.toURI.toURL), loaderLibraryOnly)
   }
 

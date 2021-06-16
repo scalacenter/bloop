@@ -40,6 +40,7 @@ import sbt.internal.util.LoggerWriter
 import java.io.IOException
 import scala.concurrent.ExecutionContext
 import xsbti.compile.ScalaCompiler
+import xsbti.compile.ClasspathOptions
 
 final class CompilerCache(
     componentProvider: ComponentProvider,
@@ -159,49 +160,8 @@ final class CompilerCache(
         logger.error("Missing classpath option for forked Java compiler")
         false
       } else {
-        import sbt.util.InterfaceUtil
-        InterfaceUtil.toOption(topts.classFileManager()) match {
-          case None => logger.error("Missing class file manager for forked Java compiler"); false
-          case Some(classFileManager) =>
-            import java.nio.file.Files
-            val newInvalidatedEntry = AbsolutePath(
-              Files.createTempDirectory("invalidated-forked-javac")
-            )
-
-            val invalidatedPaths =
-              classFileManager.invalidatedClassFiles().map(_.getAbsolutePath())
-            val classpathValueIndex = classpathIndex + 1
-            val classpathValue = options.apply(classpathValueIndex)
-            val classpathEntries = classpathValue.split(File.pathSeparatorChar)
-
-            invalidatedPaths.foreach { invalidatedPath =>
-              val relativePath = classpathEntries.collectFirst {
-                case classpathEntry if invalidatedPath.startsWith(classpathEntry) =>
-                  invalidatedPath.stripPrefix(classpathEntry)
-              }
-
-              relativePath.foreach { relative =>
-                val relativeParts = relative.split(File.separatorChar)
-                val invalidatedClassFile = relativeParts.foldLeft(newInvalidatedEntry) {
-                  case (path, relativePart) => path.resolve(relativePart)
-                }
-
-                val invalidatedClassFilePath = invalidatedClassFile.underlying
-                Files.createDirectories(invalidatedClassFilePath.getParent)
-                Files.write(invalidatedClassFilePath, "".getBytes())
-              }
-            }
-
-            val newClasspathValue = newInvalidatedEntry.toFile + File.pathSeparator + classpathValue
-            options(classpathValueIndex) = newClasspathValue
-
-            try {
-              import sbt.internal.inc.javac.BloopForkedJavaUtils
-              BloopForkedJavaUtils.launch(javaHome, "javac", sources, options, log, reporter)
-            } finally {
-              Paths.delete(newInvalidatedEntry)
-            }
-        }
+        import sbt.internal.inc.javac.BloopForkedJavaUtils
+        BloopForkedJavaUtils.launch(javaHome, "javac", sources, options, log, reporter)
       }
     }
   }
@@ -306,15 +266,7 @@ final class CompilerCache(
           kinds: ju.Set[Kind],
           recurse: Boolean
       ): Iterable[JavaFileObject] = {
-        val invalidated = {
-          zincManager match {
-            case m: bloop.BloopClassFileManager => m.invalidatedClassFilesSet
-            case _ => zincManager.invalidatedClassFiles().toSet
-          }
-        }
-
-        val ls = super.list(location, packageName, kinds, recurse)
-        ls.asScala.filter(o => !invalidated.contains(new File(o.getName))).asJava
+        super.list(location, packageName, kinds, recurse)
       }
 
       // Needed because JavaFileManager doesn't expect WriteReportingJavaFileObjects in isSameFile, fixes #956

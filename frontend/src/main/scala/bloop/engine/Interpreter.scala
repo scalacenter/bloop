@@ -1,6 +1,5 @@
 package bloop.engine
 
-import bloop.CompileMode
 import bloop.bsp.BspServer
 import bloop.cli._
 import bloop.cli.completion.{Case, Mode}

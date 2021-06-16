@@ -63,8 +63,8 @@ object BloopComponentCompiler {
     val (isDotty, organization, version) = scalaInstance match {
       case instance: BloopScalaInstance =>
         if (instance.isDotty) (true, instance.organization, instance.version)
-        else (false, "ch.epfl.scala", latestVersion)
-      case instance: ScalaInstance => (false, "ch.epfl.scala", latestVersion)
+        else (false, "org.scala-sbt", latestVersion)
+      case instance: ScalaInstance => (false, "org.scala-sbt", latestVersion)
     }
 
     val bridgeId = compilerBridgeId(scalaInstance.version)

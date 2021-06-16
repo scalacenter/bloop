@@ -19,7 +19,6 @@ import scala.collection.mutable
 import scala.concurrent.Promise
 
 import bloop.data.Project
-import bloop.CompilerOracle
 import bloop.engine.ExecutionContext
 import bloop.util.monix.FoldLeftAsyncConsumer
 import bloop.UniqueCompileInputs.HashedSource
