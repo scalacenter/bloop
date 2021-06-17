@@ -3,7 +3,6 @@ package bloop.config
 import java.io.InputStreamReader
 import java.io.BufferedReader
 import java.util.stream.Collectors
-import bloop.io.Environment.lineSeparator
 
 object TestPlatform {
   def getResourceAsString(resource: String): String = {
@@ -14,7 +13,7 @@ object TestPlatform {
         val isr = new InputStreamReader(stream)
         try {
           val reader = new BufferedReader(isr)
-          reader.lines().collect(Collectors.joining(lineSeparator))
+          reader.lines().collect(Collectors.joining(" "))
         } finally (isr.close())
       } finally stream.close()
     }

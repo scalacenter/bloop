@@ -86,18 +86,6 @@ public class BloopMojo extends ExtendedScalaContinuousCompileMojo {
         MojoImplementation.writeCompileAndTestConfiguration(bloopMojo, session, this.getLog());
     }
 
-    public File[] getAllScalaJars() throws Exception {
-        if (moduleType == ModuleType.SCALA)
-        {
-            File libraryJar = getLibraryJar();
-            File compilerJar = getCompilerJar();
-            File[] mainJars = new File[]{libraryJar, compilerJar};
-            List<File> extraJars = getCompilerDependencies();
-            extraJars.remove( libraryJar );
-            return (File[]) ArrayUtils.addAll( mainJars, extraJars.toArray() );
-        } else return new File[0];
-    }
-
     public File getBloopConfigDir() {
         return bloopConfigDir;
     }
