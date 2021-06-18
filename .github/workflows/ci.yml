@@ -10,17 +10,40 @@ on:
 
 jobs:
   scalafmt: 
+    name: Formatting
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2.3.4
-        with:
-          submodules: true
-          fetch-depth: 0
       - uses: olafurpg/setup-scala@v11
         with:
           java-version: graalvm-ce-java11@20.1.0
       - name: Check formatting
         run: ./bin/scalafmt --test
+  integrations: 
+    name: Build integrations tests
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macOS-latest]
+        jdk: [graalvm-ce-java11@20.1.0]
+    steps:
+      - uses: actions/checkout@v2.3.4
+        with:
+          submodules: true
+      - uses: olafurpg/setup-scala@v11
+        with:
+          java-version: ${{ matrix.jdk }}
+      - name: Tests
+        run: |
+          ./bin/sbt-ci.sh \
+              "mavenBloop/compile" \
+              "gradleBloop211/compile" \
+              "gradleBloop212/compile" \
+              "gradleBloop212/test" \
+              "sbtBloop10Shaded/publishLocal" \
+              "sbtBloop10/scripted"
+        shell: bash
   test:
     runs-on: ${{ matrix.os }}
     strategy:
@@ -78,16 +101,10 @@ jobs:
           which gu && gu install native-image
           ./bin/sbt-ci.sh "install" "launcher/test"
         shell: bash
-      - name: Run build tool + native tests
+      - name: Benchmark
         if: matrix.jdk == 'graalvm-ce-java11@20.1.0' && matrix.os != 'windows-latest'
         run: |
           ./bin/sbt-ci.sh \
-              "mavenBloop/compile" \
-              "gradleBloop211/compile" \
-              "gradleBloop212/compile" \
-              "gradleBloop212/test" \
-              "sbtBloop10Shaded/publishLocal" \
-              "sbtBloop10/scripted" \
               "benchmarks/jmh:run .*HotBloopBenchmark.* -wi 0 -i 1 -f1 -t1 -p project=with-tests -p projectName=with-tests"
         shell: bash
 
