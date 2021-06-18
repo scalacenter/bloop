@@ -28,7 +28,6 @@ object Dependencies {
   val sbtTestInterfaceVersion = "1.0"
   val sbtTestAgentVersion = "1.4.4"
   val junitVersion = "0.11"
-  val junitSystemRulesVersion = "1.19.0"
   val graphvizVersion = "0.2.2"
   val directoryWatcherVersion = "0.8.0+6-f651bd93"
   val mavenApiVersion = "3.6.1"
@@ -43,7 +42,6 @@ object Dependencies {
   val circeVersion213 = "0.12.2"
   val nuprocessVersion = "2.0.2"
   val shapelessVersion = "2.3.4"
-  val scalaNative03Version = "0.3.9"
   val scalaNative04Version = "0.4.0"
   val scalaJs06Version = "0.6.32"
   val scalaJs1Version = "1.3.1"
@@ -72,7 +70,6 @@ object Dependencies {
   val scalazConcurrent = "org.scalaz" %% "scalaz-concurrent" % scalazVersion
   val coursier = "io.get-coursier" %% "coursier" % coursierVersion
   val coursierCache = "io.get-coursier" %% "coursier-cache" % coursierVersion
-  val coursierScalaz = "io.get-coursier" %% "coursier-scalaz-interop" % coursierVersion
   val scalaXml = "org.scala-lang.modules" %% "scala-xml" % scalaXmlVersion
   val scalaCollectionCompat = "org.scala-lang.modules" %% "scala-collection-compat" % "2.4.2"
   val shapeless = "com.chuusai" %% "shapeless" % shapelessVersion
@@ -84,7 +81,6 @@ object Dependencies {
   val ztExec = "org.zeroturnaround" % "zt-exec" % ztExecVersion
   val slf4jNop = "org.slf4j" % "slf4j-nop" % "1.7.2"
 
-  val scalatest = "org.scalatest" % "scalatest_2.12" % "3.0.5"
   val utest = "com.lihaoyi" %% "utest" % "0.6.6"
   val pprint = "com.lihaoyi" %% "pprint" % "0.5.3"
   val scalacheck = "org.scalacheck" %% "scalacheck" % "1.13.4"
@@ -92,7 +88,6 @@ object Dependencies {
   val graphviz = "guru.nidi" % "graphviz-java" % graphvizVersion
   val directoryWatcher = "ch.epfl.scala" % "directory-watcher" % directoryWatcherVersion
   val difflib = "com.googlecode.java-diff-utils" % "diffutils" % difflibVersion
-  val junitSystemRules = "com.github.stefanbirkner" % "system-rules" % junitSystemRulesVersion
 
   import sbt.Provided
   val mavenCore = "org.apache.maven" % "maven-core" % mavenApiVersion % Provided
@@ -116,7 +111,6 @@ object Dependencies {
   val nuprocess = "com.zaxxer" % "nuprocess" % nuprocessVersion exclude ("net.java.dev.jna", "jna")
   val scalaDebugAdapter = "ch.epfl.scala" %% "scala-debug-adapter" % debugAdapterVersion
 
-  val scalaNativeTools03 = "org.scala-native" %% "tools" % scalaNative03Version % Provided
   val scalaNativeTools04 = "org.scala-native" %% "tools" % scalaNative04Version % Provided
   val scalaJsTools06 = "org.scala-js" %% "scalajs-tools" % scalaJs06Version % Provided
   val scalaJsSbtTestAdapter06 = "org.scala-js" %% "scalajs-sbt-test-adapter" % scalaJs06Version % Provided
