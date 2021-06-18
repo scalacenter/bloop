@@ -598,12 +598,15 @@ object DebugServerSpec extends DebugBspBaseSuite {
           case platform => throw new Exception(s"Unsupported platform $platform")
         }
 
-        val debuggeeLogger = portListeningLogger(testState.state.logger, port => {
-          if (!attachPort.isCompleted) {
-            attachPort.success(port)
-            ()
+        val debuggeeLogger = portListeningLogger(
+          testState.state.logger,
+          port => {
+            if (!attachPort.isCompleted) {
+              attachPort.success(port)
+              ()
+            }
           }
-        })
+        )
 
         val remoteProcess: Task[State] = Tasks.runJVM(
           testState.state.copy(logger = debuggeeLogger),

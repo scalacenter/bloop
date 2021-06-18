@@ -70,9 +70,11 @@ class BloopConverter(parameters: BloopParameters) {
 
     // Gradle always creates a main and test source set regardless of whether they are needed.
     // ignore test sourceset if there are no sources or resources
-    if (isTestSourceSet &&
-        !sources.exists(_.toFile.exists()) &&
-        !resources.exists(_.toFile.exists())) {
+    if (
+      isTestSourceSet &&
+      !sources.exists(_.toFile.exists()) &&
+      !resources.exists(_.toFile.exists())
+    ) {
       Failure(new GradleException("Test project has no source so ignore it"))
     } else {
       // get Gradle output dirs
@@ -97,10 +99,9 @@ class BloopConverter(parameters: BloopParameters) {
 
       // create map of every projects' output dirs -> source sets
       val allOutputDirsToSourceSets = allSourceSetsToProjects.keySet
-        .flatMap(
-          ss =>
-            ss.getOutput.getClassesDirs.getFiles.asScala.map(_ -> ss) +
-              (ss.getOutput.getResourcesDir -> ss)
+        .flatMap(ss =>
+          ss.getOutput.getClassesDirs.getFiles.asScala.map(_ -> ss) +
+            (ss.getOutput.getResourcesDir -> ss)
         )
         .toMap
 
@@ -201,20 +202,18 @@ class BloopConverter(parameters: BloopParameters) {
       // filter out internal scala plugin configurations
       val additionalModules = project.getConfigurations.asScala
         .filter(_.isCanBeResolved)
-        .filter(
-          c =>
-            !List(
-              "incrementalScalaAnalysisElements",
-              "incrementalScalaAnalysisFormain",
-              "incrementalScalaAnalysisFortest",
-              "zinc"
-            ).contains(c.getName)
+        .filter(c =>
+          !List(
+            "incrementalScalaAnalysisElements",
+            "incrementalScalaAnalysisFormain",
+            "incrementalScalaAnalysisFortest",
+            "zinc"
+          ).contains(c.getName)
         )
         .flatMap(getConfigurationArtifacts)
-        .filter(
-          f =>
-            !allArchivesToSourceSets.contains(f.getFile) &&
-              !allOutputDirsToSourceSets.contains(f.getFile)
+        .filter(f =>
+          !allArchivesToSourceSets.contains(f.getFile) &&
+            !allOutputDirsToSourceSets.contains(f.getFile)
         )
         .map(artifactToConfigModule(_, project))
         .toList
@@ -389,10 +388,9 @@ class BloopConverter(parameters: BloopParameters) {
         val archiveTasks = c.getAllArtifacts.asScala.flatMap(getArchiveTask)
         val possibleArchiveSourceSets =
           archiveTasks
-            .flatMap(
-              archiveTask =>
-                getSourceSet(sourceSets, archiveTask)
-                  .map(ss => archiveTask.getArchivePath -> ss)
+            .flatMap(archiveTask =>
+              getSourceSet(sourceSets, archiveTask)
+                .map(ss => archiveTask.getArchivePath -> ss)
             )
             .toMap
         possibleArchiveSourceSets
@@ -464,7 +462,7 @@ class BloopConverter(parameters: BloopParameters) {
 
     val projectsWithName =
       getAllBloopCapableProjects(project.getRootProject())
-      // Need to namespace only those projects that can run bloop. Others would not cause collision.
+        // Need to namespace only those projects that can run bloop. Others would not cause collision.
         .filter(_.getName == project.getName)
 
     // If there are more than one project with same name, use path to avoid collision.

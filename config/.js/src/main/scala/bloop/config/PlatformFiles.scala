@@ -15,9 +15,12 @@ object PlatformFiles {
   }
 
   def deleteTempFile(path: Path): Unit = {
-    NodeFS.rmdirSync(NodePath.dirname(path), new NodeFS.RmDirOptions {
-      override val recursive = true
-    })
+    NodeFS.rmdirSync(
+      NodePath.dirname(path),
+      new NodeFS.RmDirOptions {
+        override val recursive = true
+      }
+    )
   }
 
   def resolve(parent: Path, child: String): Path =

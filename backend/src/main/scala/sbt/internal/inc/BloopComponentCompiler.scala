@@ -83,7 +83,6 @@ object BloopComponentCompiler {
    *
    * Example: "org.scala-sbt-compiler-bridge-1.0.0-bin_2.11.7__50.0".
    *
-   *
    * @param sources The moduleID representing the compiler bridge sources.
    * @param scalaInstance The scala instance that sets the scala version for the id.
    * @return The complete jar identifier for the bridge sources.
@@ -122,9 +121,10 @@ object BloopComponentCompiler {
      */
     private def compiledBridge(bridgeSources0: ModuleID, scalaInstance: ScalaInstance): File = {
       val scalaVersion = scalaInstance.version()
-      val requiresPrevZincVersion = isTooRecentFor213Before3(bridgeSources0) && is213ThatNeedsPreviousZinc(
-        scalaVersion
-      )
+      val requiresPrevZincVersion =
+        isTooRecentFor213Before3(bridgeSources0) && is213ThatNeedsPreviousZinc(
+          scalaVersion
+        )
       val bridgeSources =
         if (!requiresPrevZincVersion) bridgeSources0
         else bridgeSources0.withRevision("1.3.0-M4+42-5daa8ed7")
@@ -392,9 +392,8 @@ private[inc] class BloopComponentCompiler(
 
           val mergedJar = Files.createTempFile(HydraSupport.bridgeNamePrefix, "merged").toFile
           logger.debug(s"Merged jar destination: $mergedJar")
-          val allSourceContents = (hydraSourceContents ++ regularSourceContents).map(
-            s => s -> relativize(tempDir, s).get
-          )
+          val allSourceContents =
+            (hydraSourceContents ++ regularSourceContents).map(s => s -> relativize(tempDir, s).get)
 
           zip(allSourceContents.toSeq, mergedJar)
           Right(Vector(mergedJar))

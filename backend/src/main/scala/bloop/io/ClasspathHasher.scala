@@ -81,35 +81,36 @@ object ClasspathHasher {
         case AcquiredTask(file, idx, p) =>
           // Use task.now because Monix's load balancer already forces an async boundary
           val hashingTask = Task.now {
-            val hash = try {
-              if (cancelCompilation.isCompleted) {
-                BloopStamps.cancelledHash(file)
-              } else if (isCancelled.get) {
-                cancelCompilation.trySuccess(())
-                BloopStamps.cancelledHash(file)
-              } else {
-                val filePath = file.toPath
-                val attrs = Files.readAttributes(filePath, classOf[BasicFileAttributes])
-                if (attrs.isDirectory) BloopStamps.directoryHash(file)
-                else {
-                  val currentMetadata =
-                    (FileTime.fromMillis(IO.getModifiedTimeOrZero(file)), attrs.size())
-                  Option(cacheMetadataJar.get(file)) match {
-                    case Some((metadata, hashHit)) if metadata == currentMetadata => hashHit
-                    case _ =>
-                      tracer.traceVerbose(s"computing hash ${filePath.toAbsolutePath.toString}") {
-                        _ =>
-                          val newHash = FileHash.of(file, ByteHasher.hashFileContents(file))
-                          cacheMetadataJar.put(file, (currentMetadata, newHash))
-                          newHash
-                      }
+            val hash =
+              try {
+                if (cancelCompilation.isCompleted) {
+                  BloopStamps.cancelledHash(file)
+                } else if (isCancelled.get) {
+                  cancelCompilation.trySuccess(())
+                  BloopStamps.cancelledHash(file)
+                } else {
+                  val filePath = file.toPath
+                  val attrs = Files.readAttributes(filePath, classOf[BasicFileAttributes])
+                  if (attrs.isDirectory) BloopStamps.directoryHash(file)
+                  else {
+                    val currentMetadata =
+                      (FileTime.fromMillis(IO.getModifiedTimeOrZero(file)), attrs.size())
+                    Option(cacheMetadataJar.get(file)) match {
+                      case Some((metadata, hashHit)) if metadata == currentMetadata => hashHit
+                      case _ =>
+                        tracer.traceVerbose(s"computing hash ${filePath.toAbsolutePath.toString}") {
+                          _ =>
+                            val newHash = FileHash.of(file, ByteHasher.hashFileContents(file))
+                            cacheMetadataJar.put(file, (currentMetadata, newHash))
+                            newHash
+                        }
+                    }
                   }
                 }
+              } catch {
+                // Can happen when a file doesn't exist, for example
+                case monix.execution.misc.NonFatal(t) => BloopStamps.emptyHash(file)
               }
-            } catch {
-              // Can happen when a file doesn't exist, for example
-              case monix.execution.misc.NonFatal(t) => BloopStamps.emptyHash(file)
-            }
             classpathHashes(idx) = hash
             hashingPromises.remove(file, p)
             p.trySuccess(hash)

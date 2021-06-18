@@ -119,5 +119,5 @@ checkSourceAndDocs in ThisBuild := {
   /*
   val classpathSize = fooBloopFile.project.classpath.size
   assert(classpathSize == modules.size, "There are more modules than classpath entries!")
- */
+   */
 }

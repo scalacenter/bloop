@@ -28,8 +28,8 @@ object DiffAssertions {
       obtainedTitle: String,
       expectedTitle: String,
       print: Boolean = true
-  )(
-      implicit source: sourcecode.Line
+  )(implicit
+      source: sourcecode.Line
   ): Boolean = {
     try assertNoDiff(obtained, expected, obtainedTitle, expectedTitle)
     catch {
@@ -93,16 +93,16 @@ object DiffAssertions {
     if (obtained.length < 1000) {
       sb.append(
         s"""#${header("Obtained")}
-           #${stripTrailingWhitespace(obtained)}
-           #
+            #${stripTrailingWhitespace(obtained)}
+            #
             #""".stripMargin('#')
       )
     }
     sb.append(
       s"""#${header("Diff")}
-         #${stripTrailingWhitespace(
-           Diff.unifiedDiff(obtained, expected, obtainedTitle, expectedTitle)
-         )}"""
+          #${stripTrailingWhitespace(
+        Diff.unifiedDiff(obtained, expected, obtainedTitle, expectedTitle)
+      )}"""
         .stripMargin('#')
     )
     sb.toString()

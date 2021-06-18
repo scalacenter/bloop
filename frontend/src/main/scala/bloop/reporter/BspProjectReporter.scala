@@ -108,8 +108,7 @@ final class BspProjectReporter(
         // Report recent problems for this source file once a phase has finished
         recentlyReportProblemsPerFile.get(sourceFile).foreach { problems =>
           val unreported = clearProblemsAtPhase(sourceFile, finishedPhase, problems)
-          recentlyReportProblemsPerFile =
-            recentlyReportProblemsPerFile + (sourceFile -> unreported)
+          recentlyReportProblemsPerFile = recentlyReportProblemsPerFile + (sourceFile -> unreported)
         }
     }
   }

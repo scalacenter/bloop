@@ -11,9 +11,13 @@ bloopAggregateSourceDependencies in Global := true
 
 bloopExportJarClassifiers in ThisBuild := Some(Set("sources"))
 
-/***************************************************************************************************/
+/**
+ * ************************************************************************************************
+ */
 /*                      This is the build definition of the source deps                            */
-/***************************************************************************************************/
+/**
+ * ************************************************************************************************
+ */
 val benchmarkBridge = project
   .in(file(".benchmark-bridge-compilation"))
   .aggregate(BenchmarkBridgeCompilation)
@@ -38,9 +42,13 @@ lazy val bloopShared = (project in file("shared"))
     )
   )
 
-/***************************************************************************************************/
+/**
+ * ************************************************************************************************
+ */
 /*                            This is the build definition of the wrapper                          */
-/***************************************************************************************************/
+/**
+ * ************************************************************************************************
+ */
 import build.Dependencies
 import build.Dependencies.{
   Scala210Version,
@@ -372,24 +380,23 @@ def shadeSettingsForModule(moduleId: String, module: Reference) = List(
   },
   toShadeJars := {
     val dependencyJars = dependencyClasspath.in(Runtime).in(module).value.map(_.data)
-    dependencyJars.flatMap {
-      path =>
-        val ppath = path.toString
-        val shouldShadeJar = !(
-          ppath.contains("scala-compiler") ||
-            ppath.contains("scala-library") ||
-            ppath.contains("scala-reflect") ||
-            ppath.contains("scala-xml") ||
-            ppath.contains("macro-compat") ||
-            ppath.contains("bcprov-jdk15on") ||
-            ppath.contains("bcpkix-jdk15on") ||
-            ppath.contains("jna") ||
-            ppath.contains("jna-platform") ||
-            isJdiJar(path)
-        ) && path.exists && !path.isDirectory
+    dependencyJars.flatMap { path =>
+      val ppath = path.toString
+      val shouldShadeJar = !(
+        ppath.contains("scala-compiler") ||
+          ppath.contains("scala-library") ||
+          ppath.contains("scala-reflect") ||
+          ppath.contains("scala-xml") ||
+          ppath.contains("macro-compat") ||
+          ppath.contains("bcprov-jdk15on") ||
+          ppath.contains("bcpkix-jdk15on") ||
+          ppath.contains("jna") ||
+          ppath.contains("jna-platform") ||
+          isJdiJar(path)
+      ) && path.exists && !path.isDirectory
 
-        if (!shouldShadeJar) Nil
-        else List(path)
+      if (!shouldShadeJar) Nil
+      else List(path)
     }
   },
   shadeIgnoredNamespaces := Set("scala"),
@@ -515,32 +522,31 @@ def shadeSbtSettingsForModule(
       java.nio.file.Files.createDirectories(eclipseJarsUnsignedDir)
 
       val dependencyJars = dependencyClasspath.in(Runtime).in(module).value.map(_.data)
-      dependencyJars.flatMap {
-        path =>
-          val ppath = path.toString
-          val isEclipseJar = ppath.contains("eclipse")
-          val shouldShadeJar = !(
-            ppath.contains("scala-compiler") ||
-              ppath.contains("scala-library") ||
-              ppath.contains("scala-reflect") ||
-              ppath.contains("scala-xml") ||
-              ppath.contains("macro-compat") ||
-              ppath.contains("scalamacros") ||
-              ppath.contains("jsr") ||
-              ppath.contains("bcprov-jdk15on") ||
-              ppath.contains("bcpkix-jdk15on") ||
-              ppath.contains("jna") ||
-              ppath.contains("jna-platform") ||
-              isJdiJar(path)
-          ) && path.exists && !path.isDirectory
+      dependencyJars.flatMap { path =>
+        val ppath = path.toString
+        val isEclipseJar = ppath.contains("eclipse")
+        val shouldShadeJar = !(
+          ppath.contains("scala-compiler") ||
+            ppath.contains("scala-library") ||
+            ppath.contains("scala-reflect") ||
+            ppath.contains("scala-xml") ||
+            ppath.contains("macro-compat") ||
+            ppath.contains("scalamacros") ||
+            ppath.contains("jsr") ||
+            ppath.contains("bcprov-jdk15on") ||
+            ppath.contains("bcpkix-jdk15on") ||
+            ppath.contains("jna") ||
+            ppath.contains("jna-platform") ||
+            isJdiJar(path)
+        ) && path.exists && !path.isDirectory
 
-          if (!shouldShadeJar) Nil
-          else if (!isEclipseJar) List(path)
-          else {
-            val targetJar = eclipseJarsUnsignedDir.resolve(path.getName)
-            build.Shading.deleteSignedJarMetadata(path.toPath, targetJar)
-            List(targetJar.toFile)
-          }
+        if (!shouldShadeJar) Nil
+        else if (!isEclipseJar) List(path)
+        else {
+          val targetJar = eclipseJarsUnsignedDir.resolve(path.getName)
+          build.Shading.deleteSignedJarMetadata(path.toPath, targetJar)
+          List(targetJar.toFile)
+        }
       }
     },
     shadeNamespaces := Set(
@@ -651,7 +657,9 @@ lazy val gradleBloop211 = project
   .settings(scalaVersion := Keys.scalaVersion.in(jsonConfig211.jvm).value)
   .settings(
     libraryDependencies += Dependencies.classgraph % Test,
-    target := (file("integrations") / "gradle-bloop" / "target" / "gradle-bloop-2.11").getAbsoluteFile
+    target := (file(
+      "integrations"
+    ) / "gradle-bloop" / "target" / "gradle-bloop-2.11").getAbsoluteFile
   )
   .settings(
     sourceDirectories in Test := Nil,
@@ -672,7 +680,9 @@ lazy val gradleBloop212 = project
   .settings(BuildInfoPlugin.buildInfoScopedSettings(Test))
   .settings(scalaVersion := Keys.scalaVersion.in(jsonConfig212.jvm).value)
   .settings(
-    target := (file("integrations") / "gradle-bloop" / "target" / "gradle-bloop-2.12").getAbsoluteFile
+    target := (file(
+      "integrations"
+    ) / "gradle-bloop" / "target" / "gradle-bloop-2.12").getAbsoluteFile
   )
   .settings(
     libraryDependencies += Dependencies.classgraph % Test,

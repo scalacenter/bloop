@@ -9,10 +9,12 @@ object ConfigUtil {
         var found: Boolean = false
         val rootDirSize = root.toString.size
         var currentTarget = (if (Files.isRegularFile(path)) path.getParent else path).toAbsolutePath
-        while (!found &&
-               currentTarget != null &&
-               // Use a heuristic to know if we should short-circuit and return false
-               currentTarget.toString.size >= rootDirSize) {
+        while (
+          !found &&
+          currentTarget != null &&
+          // Use a heuristic to know if we should short-circuit and return false
+          currentTarget.toString.size >= rootDirSize
+        ) {
           if (currentTarget == root) {
             found = true
           }

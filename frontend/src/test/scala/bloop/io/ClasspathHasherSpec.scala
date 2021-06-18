@@ -28,10 +28,9 @@ object ClasspathHasherSpec extends bloop.testing.BaseSuite {
         DependencyResolution.Artifact("org.apache.spark", "spark-core_2.11", "2.4.4"),
         DependencyResolution.Artifact("org.apache.hadoop", "hadoop-main", "3.2.1"),
         DependencyResolution.Artifact("io.monix", "monix_2.12", "3.0.0")
-      ).flatMap(
-        a =>
-          // Force independent resolution for every artifact
-          DependencyResolution.resolve(List(a), logger)
+      ).flatMap(a =>
+        // Force independent resolution for every artifact
+        DependencyResolution.resolve(List(a), logger)
       )
     val hashClasspathTask =
       ClasspathHasher.hash(jars, 2, cancelPromise, ioScheduler, logger, tracer, System.out)

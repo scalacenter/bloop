@@ -53,7 +53,7 @@ object BloopIncremental {
     val internalSourceToClassNamesMap: File => Set[String] = (f: File) => previousRelations.classNames(f)
 
     val builder: () => IBloopAnalysisCallback = {
-      if (!isHydraEnabled)() => new BloopAnalysisCallback(mode, internalBinaryToSourceClassName, internalSourceToClassNamesMap, externalAPI, current, output, options, manager)
+      if (!isHydraEnabled) () => new BloopAnalysisCallback(mode, internalBinaryToSourceClassName, internalSourceToClassNamesMap, externalAPI, current, output, options, manager)
       else
         () => new ConcurrentAnalysisCallback(mode, internalBinaryToSourceClassName, internalSourceToClassNamesMap, externalAPI, current, output, options, manager)
     }

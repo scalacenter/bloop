@@ -66,8 +66,10 @@ class BloopComponentManager(
     lockLocalCache(getOrElse(fromSecondary))
   }
 
-  /** Get the file for component 'id',
-   *  throwing an exception if no files or multiple files exist for the component. */
+  /**
+   * Get the file for component 'id',
+   *  throwing an exception if no files or multiple files exist for the component.
+   */
   def file(id: String)(ifMissing: IfMissing): File = {
     files(id)(ifMissing).toList match {
       case x :: Nil => x

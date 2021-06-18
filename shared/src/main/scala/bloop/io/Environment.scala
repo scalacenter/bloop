@@ -31,7 +31,6 @@ object Environment {
    * {{{
    *   val lines = text.splitLines // equivalent to `text.split(END_OF_LINE_MATCHER)`
    * }}}
-   *
    */
   implicit class LineSplitter(str: String) {
     /*

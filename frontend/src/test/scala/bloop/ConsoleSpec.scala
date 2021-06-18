@@ -49,10 +49,9 @@ object ConsoleSpec extends BaseSuite {
 
       assertNoDiff(
         logger.captureTimeInsensitiveInfos
-          .filterNot(
-            msg =>
-              msg == "" || msg.startsWith("Non-compiled module") || msg
-                .startsWith(" Compilation completed in")
+          .filterNot(msg =>
+            msg == "" || msg.startsWith("Non-compiled module") || msg
+              .startsWith(" Compilation completed in")
           )
           .mkString(lineSeparator),
         s"""|Compiling a (1 Scala source)

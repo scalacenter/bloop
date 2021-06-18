@@ -59,19 +59,18 @@ val sbtBloopBuildShadedJar = project
       import java.nio.file.{Files, FileSystems}
       val eclipseJarsUnsignedDir = (Keys.crossTarget.value / "eclipse-jars-unsigned").toPath
       Files.createDirectories(eclipseJarsUnsignedDir)
-      dependenciesToShade.map(_.data).flatMap {
-        path =>
-          val ppath = path.toString
+      dependenciesToShade.map(_.data).flatMap { path =>
+        val ppath = path.toString
 
-          // Copy over jar and remove signed entries
-          if (!path.exists || !path.isFile) Nil
-          else if (ppath.contains("gson") || ppath.contains("jsr") || ppath.contains("jna")) Nil
-          else if (!ppath.contains("eclipse")) List(path)
-          else {
-            val targetJar = eclipseJarsUnsignedDir.resolve(path.getName)
-            build.Shading.deleteSignedJarMetadata(path.toPath, targetJar)
-            List(targetJar.toFile)
-          }
+        // Copy over jar and remove signed entries
+        if (!path.exists || !path.isFile) Nil
+        else if (ppath.contains("gson") || ppath.contains("jsr") || ppath.contains("jna")) Nil
+        else if (!ppath.contains("eclipse")) List(path)
+        else {
+          val targetJar = eclipseJarsUnsignedDir.resolve(path.getName)
+          build.Shading.deleteSignedJarMetadata(path.toPath, targetJar)
+          List(targetJar.toFile)
+        }
       }
 
     },

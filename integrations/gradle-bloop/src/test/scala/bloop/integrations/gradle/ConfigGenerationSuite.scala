@@ -529,21 +529,19 @@ abstract class ConfigGenerationSuite {
     // source and JavaDoc artifacts should not exist
     assert(config.project.resolution.nonEmpty)
     assertFalse(
-      config.project.resolution.exists(
-        res =>
-          res.modules
-            .exists(
-              conf => conf.artifacts.exists(artifact => artifact.classifier.contains("javadoc"))
-            )
+      config.project.resolution.exists(res =>
+        res.modules
+          .exists(conf =>
+            conf.artifacts.exists(artifact => artifact.classifier.contains("javadoc"))
+          )
       )
     )
     assertFalse(
-      config.project.resolution.exists(
-        res =>
-          res.modules
-            .exists(
-              conf => conf.artifacts.exists(artifact => artifact.classifier.contains("sources"))
-            )
+      config.project.resolution.exists(res =>
+        res.modules
+          .exists(conf =>
+            conf.artifacts.exists(artifact => artifact.classifier.contains("sources"))
+          )
       )
     )
   }
@@ -595,21 +593,19 @@ abstract class ConfigGenerationSuite {
     // source and JavaDoc artifacts should exist
     assert(config.project.resolution.nonEmpty)
     assert(
-      config.project.resolution.exists(
-        res =>
-          res.modules
-            .exists(
-              conf => conf.artifacts.exists(artifact => artifact.classifier.contains("javadoc"))
-            )
+      config.project.resolution.exists(res =>
+        res.modules
+          .exists(conf =>
+            conf.artifacts.exists(artifact => artifact.classifier.contains("javadoc"))
+          )
       )
     )
     assert(
-      config.project.resolution.exists(
-        res =>
-          res.modules
-            .exists(
-              conf => conf.artifacts.exists(artifact => artifact.classifier.contains("sources"))
-            )
+      config.project.resolution.exists(res =>
+        res.modules
+          .exists(conf =>
+            conf.artifacts.exists(artifact => artifact.classifier.contains("sources"))
+          )
       )
     )
   }
@@ -802,10 +798,9 @@ abstract class ConfigGenerationSuite {
         config.project.resolution.isDefined
       )
       config.project.resolution.foreach { resolution =>
-        val sources = resolution.modules.find(
-          module =>
-            module.name.contains(entryName) && module.artifacts
-              .exists(_.classifier.contains("sources"))
+        val sources = resolution.modules.find(module =>
+          module.name.contains(entryName) && module.artifacts
+            .exists(_.classifier.contains("sources"))
         )
         assertTrue(s"Sources for $entryName do not exist", sources.isDefined)
         assertTrue(
@@ -3194,20 +3189,18 @@ abstract class ConfigGenerationSuite {
       matchMethod: (String, String) => Boolean,
       assertMethod: (String, Boolean) => Unit
   ): Unit = {
-    configs.foreach(
-      config =>
-        jarNames
-          .foreach(
-            jarName =>
-              assertMethod(
-                s"${config.project.name} $jarName",
-                config.project.resolution.exists(
-                  _.modules.exists(
-                    _.artifacts.exists(a => matchMethod(a.path.getFileName.toString, jarName))
-                  )
-                )
+    configs.foreach(config =>
+      jarNames
+        .foreach(jarName =>
+          assertMethod(
+            s"${config.project.name} $jarName",
+            config.project.resolution.exists(
+              _.modules.exists(
+                _.artifacts.exists(a => matchMethod(a.path.getFileName.toString, jarName))
               )
+            )
           )
+        )
     )
   }
 }

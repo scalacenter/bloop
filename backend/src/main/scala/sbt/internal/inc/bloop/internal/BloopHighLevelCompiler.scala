@@ -24,7 +24,6 @@ import scala.concurrent.Promise
 import xsbt.InterfaceCompileCancelled
 
 /**
- *
  * Defines a high-level compiler after [[sbt.internal.inc.MixedAnalyzingCompiler]], with the
  * exception that this one changes the interface to allow compilation to be task-based and
  * only proceed after external tasks signal it (see `startJavaCompilation` in `compile`).

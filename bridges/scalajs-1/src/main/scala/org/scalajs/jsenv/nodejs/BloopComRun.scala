@@ -211,7 +211,8 @@ private final class BloopComRun(
 
 object BloopComRun {
 
-  /** Starts a [[JSComRun]] using the provided [[JSRun]] launcher.
+  /**
+   * Starts a [[JSComRun]] using the provided [[JSRun]] launcher.
    *
    *  @param config Configuration for the run.
    *  @param onMessage callback upon message reception.

@@ -426,7 +426,8 @@ object BuildImplementation {
       "-Ywarn-numeric-widen" :: "-Ywarn-value-discard" :: "-Xfuture" :: Nil
   )
 
-  final val jvmOptions = "-Xmx3g" :: "-Xms1g" :: "-XX:ReservedCodeCacheSize=512m" :: "-XX:MaxInlineLevel=20" :: Nil
+  final val jvmOptions =
+    "-Xmx3g" :: "-Xms1g" :: "-XX:ReservedCodeCacheSize=512m" :: "-XX:MaxInlineLevel=20" :: Nil
 
   object BuildDefaults {
     private final val kafka =
@@ -442,8 +443,10 @@ object BuildImplementation {
       }
     }
 
-    /** This onLoad hook will clone any repository required for the build tool integration tests.
-     * In this case, we clone kafka so that the gradle plugin unit tests can access to its directory. */
+    /**
+     * This onLoad hook will clone any repository required for the build tool integration tests.
+     * In this case, we clone kafka so that the gradle plugin unit tests can access to its directory.
+     */
     val bloopOnLoad: Def.Initialize[State => State] = Def.setting {
       Keys.onLoad.value.andThen { state =>
         if (sys.env.isDefinedAt("SKIP_TEST_RESOURCES_GENERATION")) state
@@ -721,7 +724,8 @@ object BuildImplementation {
       val regenerationFile = stagingDir./("regeneration-file.txt")
       val cachedGenerate = FileFunction.cached(cacheDirectory, sbt.util.FileInfo.hash) { _ =>
         // Publish local snapshots via Twitter dodo's build tool for exporting the build to work
-        val cmd = "bash" :: BuildKeys.twitterDodo.value.getAbsolutePath :: "--no-test" :: "finagle" :: Nil
+        val cmd =
+          "bash" :: BuildKeys.twitterDodo.value.getAbsolutePath :: "--no-test" :: "finagle" :: Nil
         val dodoSetUp = Process(cmd, baseDir).!
         if (dodoSetUp != 0)
           throw new MessageOnlyException(

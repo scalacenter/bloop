@@ -165,8 +165,8 @@ object TestTask {
         val classpath = project.fullRuntimeClasspath(dag, state.client)
         val forker = JvmProcessForker(env, classpath, mode)
         val testLoader = forker.newClassLoader(Some(TestInternals.filteredLoader))
-        val frameworks = project.testFrameworks.flatMap(
-          f => TestInternals.loadFramework(testLoader, f.names, logger)
+        val frameworks = project.testFrameworks.flatMap(f =>
+          TestInternals.loadFramework(testLoader, f.names, logger)
         )
         Task.now(Some(DiscoveredTestFrameworks.Jvm(frameworks, forker, testLoader)))
 

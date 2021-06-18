@@ -78,7 +78,7 @@ object WorkspaceSettings {
   sealed trait DetectedChange
   final case object SemanticDBVersionChange extends DetectedChange
 
-  /** File name to store Metals specific settings*/
+  /** File name to store Metals specific settings */
   private[bloop] val settingsFileName = RelativePath("bloop.settings.json")
 
   private implicit val codecSettings: JsonValueCodec[WorkspaceSettings] =
