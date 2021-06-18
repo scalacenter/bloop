@@ -286,7 +286,7 @@ class BspProtocolSpec(
       val logger = new RecordingLogger(ansiCodesSupported = false)
       loadBspBuildFromResources("cross-test-build-scalajs-0.6", workspace, logger) { build =>
         val project = build.projectFor("test-project-test")
-        val compiledState = build.state.compile(project)
+        val compiledState = build.state.compile(project, timeout = 120)
         val expectedClasses = Set(
           "JUnitTest",
           "ScalaTestTest",
