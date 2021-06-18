@@ -24,10 +24,10 @@ object CommandsDocGenerator {
     def generateHTML(commandExamples: Map[String, Seq[String]]): Seq[String] = {
       Commands.RawCommand.help.messages.map {
         case (commandName, messages) =>
-          val examples = commandExamples.getOrElse(commandName.mkString(" "), Nil).reverse.map {
-            example =>
+          val examples =
+            commandExamples.getOrElse(commandName.mkString(" "), Nil).reverse.map { example =>
               s"  * <samp>$example</samp>"
-          }
+            }
 
           val argsOption = messages.argsNameOption.map(" <" + _ + ">").mkString
           val progName = "bloop"

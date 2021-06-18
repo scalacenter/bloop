@@ -84,10 +84,13 @@ class ScalaJsToolchainSpec {
     def assertContain(needle: String, atLevel: String): Unit = {
       def failMessage = s"""Logs did not contain `$needle` at level `$atLevel`. Logs were:
                            |${logs.mkString("\n")}""".stripMargin
-      assertTrue(failMessage, logs.exists {
-        case (`atLevel`, msg) => msg.contains(needle)
-        case _ => false
-      })
+      assertTrue(
+        failMessage,
+        logs.exists {
+          case (`atLevel`, msg) => msg.contains(needle)
+          case _ => false
+        }
+      )
     }
   }
 }

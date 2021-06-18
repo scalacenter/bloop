@@ -244,7 +244,8 @@ object BloopDefaults {
    * Replace the implementation of discovered sbt plugins so that we don't run it
    * when we `bloopGenerate` or `bloopInstall`. This is important because when there
    * are sbt plugins in the build they trigger the compilation of all the modules.
-   * We do no-op when there is indeed an sbt plugin in the build. */
+   * We do no-op when there is indeed an sbt plugin in the build.
+   */
   def discoveredSbtPluginsSettings: Seq[Def.Setting[_]] = List(
     Keys.discoveredSbtPlugins := Def.taskDyn {
       val roots = Keys.executionRoots.value
@@ -624,8 +625,10 @@ object BloopDefaults {
         val old2 = oldClassesDir.getAbsolutePath
         val newClassesDirAbs = newClassesDir.getAbsolutePath
         scalacOptions.map { scalacOption =>
-          if (scalacOptions.contains(old1) ||
-              scalacOptions.contains(old2)) {
+          if (
+            scalacOptions.contains(old1) ||
+            scalacOptions.contains(old2)
+          ) {
             logger.warn(Feedback.warnReferenceToClassesDir(scalacOption, oldClassesDir.toString))
             scalacOption.replace(old1, newClassesDirAbs).replace(old2, newClassesDirAbs)
           } else scalacOption
@@ -672,8 +675,8 @@ object BloopDefaults {
 
   def mergeModules(ms0: Seq[Config.Module], ms1: Seq[Config.Module]): Seq[Config.Module] = {
     ms0.map { m0 =>
-      ms1.find(
-        m => m0.organization == m.organization && m0.name == m.name && m0.version == m.version
+      ms1.find(m =>
+        m0.organization == m.organization && m0.name == m.name && m0.version == m.version
       ) match {
         case Some(m1) => m0.copy(artifacts = (m0.artifacts ++ m1.artifacts).distinct)
         case None => m0
@@ -993,8 +996,8 @@ object BloopDefaults {
             else {
               val previousAllModules =
                 previousConfigFile.flatMap(_.resolution.map(_.modules)).toList.flatten
-              previousAllModules.filter(
-                module => module.artifacts.exists(_.classifier == Some("sources"))
+              previousAllModules.filter(module =>
+                module.artifacts.exists(_.classifier == Some("sources"))
               )
             }
           }

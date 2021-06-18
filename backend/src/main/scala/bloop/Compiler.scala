@@ -525,7 +525,8 @@ object Compiler {
             }
 
             // Delete all those class files that were invalidated in the external classes dir
-            val allInvalidated = allInvalidatedClassFilesForProject ++ allInvalidatedExtraCompileProducts
+            val allInvalidated =
+              allInvalidatedClassFilesForProject ++ allInvalidatedExtraCompileProducts
 
             // Schedule the tasks to run concurrently after the compilation end
             val backgroundTasksExecution = new CompileBackgroundTasks {
@@ -537,9 +538,8 @@ object Compiler {
               ): Task[Unit] = {
                 val clientClassesDirPath = clientClassesDir.toString
                 val successBackgroundTasks =
-                  backgroundTasksWhenNewSuccessfulAnalysis.map(
-                    f => f(clientClassesDir, clientReporter, clientTracer)
-                  )
+                  backgroundTasksWhenNewSuccessfulAnalysis
+                    .map(f => f(clientClassesDir, clientReporter, clientTracer))
                 val persistTask =
                   persistAnalysis(analysisForFutureCompilationRuns, compileOut.analysisOut)
                 val initialTasks = persistTask :: successBackgroundTasks.toList

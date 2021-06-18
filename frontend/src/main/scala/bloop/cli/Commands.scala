@@ -11,7 +11,7 @@ import CliParsers._
 
 object Commands {
 
-  /** Represents the most generic command that exists.  */
+  /** Represents the most generic command that exists. */
   trait Command {
     def cliOptions: CliOptions
   }

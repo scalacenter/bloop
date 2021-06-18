@@ -67,13 +67,14 @@ final class BloopClasspathEntryLookup(
     private def toClassName(entry: String): String =
       entry.stripSuffix(ClassExt).replace('/', '.')
     private lazy val entries: Set[String] = {
-      val jar = try {
-        new ZipFile(entry, ZipFile.OPEN_READ)
-      } catch {
-        case e: ZipException =>
-          // ZipException doesn't include the file name :(
-          throw new RuntimeException("Error opening zip file: " + entry.getName, e)
-      }
+      val jar =
+        try {
+          new ZipFile(entry, ZipFile.OPEN_READ)
+        } catch {
+          case e: ZipException =>
+            // ZipException doesn't include the file name :(
+            throw new RuntimeException("Error opening zip file: " + entry.getName, e)
+        }
 
       try {
         import collection.JavaConverters._

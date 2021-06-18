@@ -131,9 +131,7 @@ object BuildLoader {
           supportedScalaVersions,
           logger
         ) { (plugin: Option[AbsolutePath]) =>
-          projects.map(
-            p => Project.enableMetalsSettings(p, configDir, plugin, logger) -> Some(p)
-          )
+          projects.map(p => Project.enableMetalsSettings(p, configDir, plugin, logger) -> Some(p))
         }
         coeval.task
     }

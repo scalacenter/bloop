@@ -190,9 +190,8 @@ object Offloader {
             Some(executor)
           )
 
-          initializeBloopClient(sbtVersion, client, connState, logger).map(
-            _ =>
-              BloopCompileState(connState, client, handlers, analysis, results, requests, executor)
+          initializeBloopClient(sbtVersion, client, connState, logger).map(_ =>
+            BloopCompileState(connState, client, handlers, analysis, results, requests, executor)
           )
       }
     }
@@ -462,13 +461,12 @@ object Offloader {
         case _ => sbt.Reference.display(project) + trailing
       }
     }
-    sbt.Show[ScopedKey[_]](
-      key =>
-        sbt.Scope.display(
-          key.scope,
-          sbt.Def.withColor(key.key.label, keyNameColor),
-          ref => displayShort(ref)
-        )
+    sbt.Show[ScopedKey[_]](key =>
+      sbt.Scope.display(
+        key.scope,
+        sbt.Def.withColor(key.key.label, keyNameColor),
+        ref => displayShort(ref)
+      )
     )
   }
 
@@ -572,13 +570,16 @@ object Offloader {
             def cancelAndShutdown(): Unit = {
               val cancelledRequests = new mutable.ListBuffer[JFuture[_]]()
               if (bloopState != null) {
-                bloopState.ongoingRequestsMap.forEachKey(4, { future =>
-                  if (!future.isDone()) {
-                    future.cancel(true)
-                    cancelledRequests.+=(future)
+                bloopState.ongoingRequestsMap.forEachKey(
+                  4,
+                  { future =>
+                    if (!future.isDone()) {
+                      future.cancel(true)
+                      cancelledRequests.+=(future)
+                    }
+                    ()
                   }
-                  ()
-                })
+                )
               }
 
               canceller.cancelAndShutdown()

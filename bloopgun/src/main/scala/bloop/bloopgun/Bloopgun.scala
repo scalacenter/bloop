@@ -44,7 +44,6 @@ import java.io.BufferedReader
 import java.io.IOException
 
 /**
- *
  * The main library entrypoint for bloopgun, the Bloop binary CLI.
  *
  * It uses Nailgun to communicate to the Bloop server, the Bloop CLI:
@@ -153,11 +152,10 @@ class BloopgunCli(
             .arg[String]("<server-args>...")
             .optional()
             .unbounded()
-            .action(
-              (arg, params) =>
-                params.copy(
-                  serverConfig = params.serverConfig.copy(serverArgs = params.args ++ List(arg))
-                )
+            .action((arg, params) =>
+              params.copy(
+                serverConfig = params.serverConfig.copy(serverArgs = params.args ++ List(arg))
+              )
             )
             .text("The command and arguments for the Bloop server")
         )

@@ -104,9 +104,11 @@ final class BraveTracer private (
     catch { case t: Throwable => () }
   }
 
-  /** Create an independent tracer that propagates this current context
+  /**
+   * Create an independent tracer that propagates this current context
    * and that whose completion in zipkin will happen independently. This
-   * is ideal for tracing background tasks that outlive their parent trace. */
+   * is ideal for tracing background tasks that outlive their parent trace.
+   */
   def toIndependentTracer(
       name: String,
       traceProperties: TraceProperties,

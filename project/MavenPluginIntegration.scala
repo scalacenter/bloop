@@ -100,8 +100,8 @@ object MavenPluginImplementation {
     val resourceGenerators: Def.Initialize[Task[Seq[File]]] = Def.taskDyn {
       // Let's protect this so that we don't run it when we do `bloopInstall`
       val state = Keys.state.value.currentCommand
-      val isBloopInstall = state.exists(
-        e => e.commandLine.contains("bloopInstall") || e.commandLine.contains("bloopGenerate")
+      val isBloopInstall = state.exists(e =>
+        e.commandLine.contains("bloopInstall") || e.commandLine.contains("bloopGenerate")
       )
       if (!MavenPluginKeys.mavenPlugin.value || isBloopInstall) Def.task(Nil)
       else {
@@ -201,8 +201,8 @@ object MavenPluginImplementation {
         .filter(!existingParameters.contains(_))
       val pluginRequirementParameters = selectedMojos
         .flatMap(_.getRequirements().asScala.toList.asInstanceOf[List[ComponentRequirement]])
-        .filter(
-          p => !existingParameters.exists((p2: Parameter) => p.getFieldName() == p2.getName())
+        .filter(p =>
+          !existingParameters.exists((p2: Parameter) => p.getFieldName() == p2.getName())
         )
         .map(fromRequirementToParameter)
       val newPluginParameters = pluginParameters ++ pluginRequirementParameters

@@ -93,18 +93,22 @@ object Dependencies {
   val mavenCore = "org.apache.maven" % "maven-core" % mavenApiVersion % Provided
   val mavenPluginApi = "org.apache.maven" % "maven-plugin-api" % mavenApiVersion
   val mavenInvoker = "org.apache.maven.shared" % "maven-invoker" % "3.0.1"
-  val mavenPluginAnnotations = "org.apache.maven.plugin-tools" % "maven-plugin-annotations" % mavenAnnotationsVersion % Provided
+  val mavenPluginAnnotations =
+    "org.apache.maven.plugin-tools" % "maven-plugin-annotations" % mavenAnnotationsVersion % Provided
   val mavenScalaPlugin = "net.alchim31.maven" % "scala-maven-plugin" % mavenScalaPluginVersion
 
   val gradleCore = "org.gradle" % "gradle-core" % gradleVersion % Provided
   val gradleWorkers = "org.gradle" % "gradle-workers" % gradleVersion % Provided
-  val gradleDependencyManagement = "org.gradle" % "gradle-dependency-management" % gradleVersion % Provided
+  val gradleDependencyManagement =
+    "org.gradle" % "gradle-dependency-management" % gradleVersion % Provided
   val gradleToolingApi = "org.gradle" % "gradle-tooling-api" % gradleVersion % Provided
   val groovy = "org.codehaus.groovy" % "groovy" % groovyVersion % Provided
 
   val monix = "io.monix" %% "monix" % monixVersion
-  val jsoniterCore = "com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-core" % jsoniterVersion
-  val jsoniterMacros = "com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-macros" % jsoniterVersion
+  val jsoniterCore =
+    "com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-core" % jsoniterVersion
+  val jsoniterMacros =
+    "com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-macros" % jsoniterVersion
   val circeParser = "io.circe" %% "circe-parser" % circeVersion
   val circeCore = "io.circe" %% "circe-core" % circeVersion
   val circeGeneric = "io.circe" %% "circe-generic" % circeVersion
@@ -113,14 +117,16 @@ object Dependencies {
 
   val scalaNativeTools04 = "org.scala-native" %% "tools" % scalaNative04Version % Provided
   val scalaJsTools06 = "org.scala-js" %% "scalajs-tools" % scalaJs06Version % Provided
-  val scalaJsSbtTestAdapter06 = "org.scala-js" %% "scalajs-sbt-test-adapter" % scalaJs06Version % Provided
+  val scalaJsSbtTestAdapter06 =
+    "org.scala-js" %% "scalajs-sbt-test-adapter" % scalaJs06Version % Provided
   val scalaJsEnvs06 = "org.scala-js" %% "scalajs-js-envs" % scalaJs06Version % Provided
 
   val scalaJsLinker1 = "org.scala-js" %% "scalajs-linker" % scalaJs1Version % Provided
   val scalaJsEnvs1 = "org.scala-js" %% "scalajs-js-envs" % scalaJsEnvsVersion % Provided
   val scalaJsEnvNode1 = "org.scala-js" %% "scalajs-env-nodejs" % scalaJsEnvsVersion % Provided
   val scalaJsEnvJsdomNode1 = "org.scala-js" %% "scalajs-env-jsdom-nodejs" % "1.1.0" % Provided
-  val scalaJsSbtTestAdapter1 = "org.scala-js" %% "scalajs-sbt-test-adapter" % scalaJs1Version % Provided
+  val scalaJsSbtTestAdapter1 =
+    "org.scala-js" %% "scalajs-sbt-test-adapter" % scalaJs1Version % Provided
   val scalaJsLogging1 = "org.scala-js" %% "scalajs-logging" % "1.1.1" % Provided
 
   val classgraph = "io.github.classgraph" % "classgraph" % "4.8.78"

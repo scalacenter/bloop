@@ -332,11 +332,11 @@ final class BloopAnalysisCallback(
               Analysis.NonLocalProduct(srcClassName, binaryClassName, classFile, classFileStamp)
           }
 
-        val internalDeps = classesInSrc.flatMap(
-          cls => intSrcDeps.getOrElse(cls, new mutable.HashSet[InternalDependency]())
+        val internalDeps = classesInSrc.flatMap(cls =>
+          intSrcDeps.getOrElse(cls, new mutable.HashSet[InternalDependency]())
         )
-        val externalDeps = classesInSrc.flatMap(
-          cls => extSrcDeps.getOrElse(cls, new mutable.HashSet[ExternalDependency]())
+        val externalDeps = classesInSrc.flatMap(cls =>
+          extSrcDeps.getOrElse(cls, new mutable.HashSet[ExternalDependency]())
         )
         val binDeps = binaries.map(d => (d, binaryClassName(d), stampReader binary d))
 

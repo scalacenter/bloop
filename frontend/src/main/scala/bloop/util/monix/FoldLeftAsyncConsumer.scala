@@ -28,13 +28,16 @@ final class FoldLeftAsyncConsumer[A, R](
 
       def onNext(elem: A): Future[Ack] = running.synchronized {
         def triggerTaskExecution = {
-          val task = f(state, elem).transform(update => {
-            state = update
-            Continue: Continue
-          }, error => {
-            onError(error)
-            Stop: Stop
-          })
+          val task = f(state, elem).transform(
+            update => {
+              state = update
+              Continue: Continue
+            },
+            error => {
+              onError(error)
+              Stop: Stop
+            }
+          )
 
           val future = task.runAsync
           cancelables.+=(future)
