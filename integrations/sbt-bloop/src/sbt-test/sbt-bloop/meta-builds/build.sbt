@@ -29,7 +29,7 @@ checkSourceJars in ThisBuild := {
   val bloopDir = Keys.baseDirectory.value./("project")./(".bloop")
   val metaBuildConfig = bloopDir./(s"$directoryName-build.json")
   val contents = readBareFile(metaBuildConfig.toPath)
-  
+
   assert(contents.contains("\"classifier\":\"sources\""), "Missing source jar.")
   assert(contents.contains("\"organization\":\"org.scala-sbt\""), "Missing source jar.")
 }

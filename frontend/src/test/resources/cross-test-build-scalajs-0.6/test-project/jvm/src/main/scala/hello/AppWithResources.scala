@@ -5,7 +5,9 @@ object AppWithResources {
     assert(resourceContent("my-compile-resource.txt") == Some("Content of my-compile-resource.txt"))
     assert(
       resourceContent("generated-compile-resource.txt") == Some(
-        "Content of generated-compile-resource.txt"))
+        "Content of generated-compile-resource.txt"
+      )
+    )
     assert(resourceContent("non-existent-resource.txt") == None)
     println("Resources were found")
   }

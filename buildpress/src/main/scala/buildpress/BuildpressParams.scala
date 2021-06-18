@@ -35,7 +35,9 @@ object BuildpressParams {
   implicit val absolutePathParser: ArgParser[AbsolutePath] = SimpleArgParser.from("absolute path") {
     case supposedPath: String =>
       val toPath = Try(AbsolutePath(supposedPath)).toEither
-      toPath.left.map(t => Error.MalformedValue("absolute path", s"$supposedPath (${t.getMessage()})"))
+      toPath.left.map(
+        t => Error.MalformedValue("absolute path", s"$supposedPath (${t.getMessage()})")
+      )
   }
 
   implicit lazy val parser: Parser[BuildpressParams] = Parser.derive

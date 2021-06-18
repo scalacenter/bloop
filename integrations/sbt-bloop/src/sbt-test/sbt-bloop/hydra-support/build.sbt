@@ -11,8 +11,7 @@ val hydraProject = project
         assert(lines.contains(s"""scala-compiler-${scalaVersion.value}-hydra"""))
         assert(lines.contains(s"""scala-reflect-${scalaVersion.value}-hydra"""))
         assert(lines.contains(s"""hydra_${scalaVersion.value}"""))
-      }
-      else {
+      } else {
         sLog.value.info(s"Test is skipped because $hydraLicense doesn't exist")
       }
     }

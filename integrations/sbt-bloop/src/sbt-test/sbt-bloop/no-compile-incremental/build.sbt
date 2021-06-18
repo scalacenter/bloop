@@ -3,7 +3,8 @@ lazy val commonSettings = Seq(
   scalacOptions ++= Seq(
     "-deprecation",
     "-unchecked",
-    "-encoding", "UTF-8",
+    "-encoding",
+    "UTF-8",
     "-Yclosure-elim",
     "-Yinline",
     "-Xverify",

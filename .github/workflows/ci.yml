@@ -9,6 +9,18 @@ on:
   pull_request:
 
 jobs:
+  scalafmt: 
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2.3.4
+        with:
+          submodules: true
+          fetch-depth: 0
+      - uses: olafurpg/setup-scala@v11
+        with:
+          java-version: graalvm-ce-java11@20.1.0
+      - name: Check formatting
+        run: ./bin/scalafmt --test
   test:
     runs-on: ${{ matrix.os }}
     strategy:
@@ -36,12 +48,6 @@ jobs:
           yarn --help
           java -version
           [[ $HYDRA_LICENSE == floating-key=* ]] && mkdir -p $HOME/.triplequote && echo "$HYDRA_LICENSE" > "$HOME/.triplequote/hydra.license" || echo "Hydra license file was not created"
-        shell: bash
-      - name: Check formatting
-        if: matrix.os != 'windows-latest'
-        run: |
-          ./bin/sbt-ci.sh \
-              "scalafmtCheckAll" \
         shell: bash
       - name: Compile and test main projects
         run: |

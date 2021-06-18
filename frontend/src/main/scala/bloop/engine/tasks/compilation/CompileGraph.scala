@@ -1,4 +1,4 @@
-// scalafmt: { maxcolumn = 130 }
+// scalafmt: { maxColumn = 130 }
 package bloop.engine.tasks.compilation
 
 import java.io.File

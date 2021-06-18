@@ -1,7 +1,7 @@
 package bloop.test
 
-import scala.tools.nsc.{ Global, Phase }
-import scala.tools.nsc.plugins.{ Plugin, PluginComponent }
+import scala.tools.nsc.{Global, Phase}
+import scala.tools.nsc.plugins.{Plugin, PluginComponent}
 
 class BloopTestPlugin(val global: Global) extends Plugin {
   val name = "bloop-test-plugin"
