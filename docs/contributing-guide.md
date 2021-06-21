@@ -92,7 +92,6 @@ them to your project. For example, to depend on the latest SNAPSHOT of bloop
 launcher in sbt, add the following to your project:
 
 ```scala
-resolvers += Resolver.bintrayRepo("scalacenter", "releases"),
 libraryDependencies += "ch.epfl.scala" % "bloop-launcher" % "$VERSION"
 ```
 

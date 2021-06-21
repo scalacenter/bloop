@@ -39,7 +39,6 @@ lazy val whitelist = crossProjects(JVMPlatform, JSPlatform)
       s"-P:scoverage:dataDir:${scapegoatDataDir}"
     },
     addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.8"),
-    resolvers += Resolver.bintrayRepo("scalacenter", "releases"),
     addCompilerPlugin("ch.epfl.scala" %% "classpath-shrinker" % "0.1.1"),
     addCompilerPlugin("ch.epfl.scala" %% "scalac-profiling" % "1.0.0"),
     addCompilerPlugin("com.olegpy" %% "better-monadic-for" % "0.3.0-M4"),

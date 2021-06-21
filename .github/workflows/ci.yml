@@ -229,8 +229,6 @@ jobs:
       SKIP_TEST_RESOURCES_GENERATION: true
       SONATYPE_USER: ${{ secrets.SONATYPE_USER }}
       SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
-      BINTRAY_USER: ${{ secrets.BINTRAY_USER }}
-      BINTRAY_PASS: ${{ secrets.BINTRAY_PASSWORD }}
       PGP_PASSWORD: ${{ secrets.PGP_PASSWORD }}
       PGP_PASSPHRASE: ${{ secrets.PGP_PASSWORD }}
       PGP_PUBLIC_KEY: ${{ secrets.PGP_PUBLIC_KEY }}
@@ -260,7 +258,7 @@ jobs:
           curl -Lo coursier https://git.io/coursier-cli && chmod +x coursier && ./coursier --help
           yarn --help
         shell: bash
-      - name: Publish docs and binaries to Maven Central/Bintray
+      - name: Publish docs and binaries to Maven Central
         run: |
           yarn install
           touch ~/.profile

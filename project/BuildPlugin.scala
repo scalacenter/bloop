@@ -2,7 +2,6 @@ package build
 
 import java.io.File
 
-import bintray.BintrayKeys
 import ch.epfl.scala.sbt.release.Feedback
 import com.jsuereth.sbtpgp.SbtPgp.{autoImport => Pgp}
 import sbt.{
@@ -268,9 +267,6 @@ object BuildKeys {
     Keys.sbtPlugin := true,
     Keys.sbtVersion := sbtVersion,
     Keys.target := (file("integrations") / "sbt-bloop" / "target" / sbtVersion).getAbsoluteFile,
-    BintrayKeys.bintrayPackage := "sbt-bloop",
-    BintrayKeys.bintrayOrganization := Some("sbt"),
-    BintrayKeys.bintrayRepository := "sbt-plugin-releases",
     Keys.publishMavenStyle :=
       ReleaseEarlyKeys.releaseEarlyWith.value == ReleaseEarlyKeys.SonatypePublisher
   )
@@ -340,21 +336,11 @@ object BuildImplementation {
     Keys.resolvers := {
       val oldResolvers = Keys.resolvers.value
       val sonatypeStaging = Resolver.sonatypeRepo("staging")
-      val scalametaResolver = Resolver.bintrayRepo("scalameta", "maven")
-      val scalacenterResolver = Resolver.bintrayRepo("scalacenter", "releases")
-      (oldResolvers :+ sonatypeStaging :+ scalametaResolver :+ scalacenterResolver).distinct
+      (oldResolvers :+ sonatypeStaging).distinct
     },
     ReleaseEarlyKeys.releaseEarlyWith := {
-      /*
-      // Only tag releases go directly to Maven Central, the rest go to bintray!
-      val isOnlyTag = DynVerKeys.dynverGitDescribeOutput.value
-        .map(v => v.commitSuffix.isEmpty && v.dirtySuffix.value.isEmpty)
-      if (isOnlyTag.getOrElse(false)) ReleaseEarlyKeys.SonatypePublisher
-      else ReleaseEarlyKeys.BintrayPublisher
-       */
       ReleaseEarlyKeys.SonatypePublisher
     },
-    BintrayKeys.bintrayOrganization := Some("scalacenter"),
     Keys.startYear := Some(2017),
     Keys.autoAPIMappings := true,
     Keys.publishMavenStyle := true,
@@ -388,17 +374,6 @@ object BuildImplementation {
   )
 
   final val projectSettings: Seq[Def.Setting[_]] = Seq(
-    BintrayKeys.bintrayRepository := "releases",
-    BintrayKeys.bintrayPackage := "bloop",
-    // Add some metadata that is useful to see in every on-merge bintray release
-    BintrayKeys.bintrayPackageLabels := List("productivity", "build", "server", "cli", "tooling"),
-    BintrayKeys.bintrayVersionAttributes ++= {
-      import bintry.Attr
-      Map(
-        "zinc" -> Seq(Attr.String(Dependencies.zincVersion)),
-        "nailgun" -> Seq(Attr.String(Dependencies.nailgunVersion))
-      )
-    },
     ReleaseEarlyKeys.releaseEarlyPublish := BuildDefaults.releaseEarlyPublish.value,
     Keys.scalacOptions := reasonableCompileOptions,
     // Legal requirement: license and notice files must be in the published jar
@@ -610,12 +585,7 @@ object BuildImplementation {
       val logger = Keys.streams.value.log
       val name = Keys.name.value
       // We force publishSigned for all of the modules, yes or yes.
-      if (ReleaseEarlyKeys.releaseEarlyWith.value == ReleaseEarlyKeys.SonatypePublisher) {
-        logger.info(Feedback.logReleaseSonatype(name))
-      } else {
-        logger.info(Feedback.logReleaseBintray(name))
-      }
-
+      logger.info(Feedback.logReleaseSonatype(name))
       Pgp.PgpKeys.publishSigned.value
     }
 
