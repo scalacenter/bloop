@@ -174,10 +174,11 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
     def compile(
         project: TestProject,
         originId: Option[String] = None,
-        clearDiagnostics: Boolean = true
+        clearDiagnostics: Boolean = true,
+        timeout: Long = 30
     ): ManagedBspTestState = {
       // Use a default timeout of 30 seconds for every operation
-      TestUtil.await(FiniteDuration(30, "s")) {
+      TestUtil.await(FiniteDuration(timeout, "s")) {
         compileTask(project, originId, clearDiagnostics)
       }
     }
