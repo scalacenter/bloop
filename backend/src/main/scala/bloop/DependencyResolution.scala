@@ -85,7 +85,6 @@ object DependencyResolution {
   )(implicit ec: scala.concurrent.ExecutionContext): Either[CoursierError, Array[AbsolutePath]] = {
     var fetch = Fetch()
       .withDependencies(dependencies)
-      .addRepositories(Repositories.bintray("scalacenter", "releases"))
     if (resolveSources) {
       fetch = fetch.addArtifactTypes(Type.source, Type.jar)
     }
