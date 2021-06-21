@@ -36,6 +36,7 @@ import org.gradle.plugins.ide.internal.tooling.java.DefaultInstalledJdk
 import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
 import scala.io.Source
+import scala.annotation.tailrec
 
 /**
  * Define the conversion from Gradle's project model to Bloop's project model.
@@ -458,26 +459,62 @@ class BloopConverter(parameters: BloopParameters) {
     testTask.map(_ => Config.Test.defaultConfiguration)
   }
 
-  def getProjectName(project: Project, sourceSet: SourceSet): String = {
+  // create a minimal unique project name
+  // e.g. if "Foo" exists twice with paths...
+  // "a:b:c:Foo" and "a:b:d:Foo"
+  // then names should be
+  // "c-Foo" and "d-Foo"
+  // not
+  // "a-b-c-Foo" and "a-b-d-Foo"
+  private def createUniqueProjectName(project: Project): String = {
 
-    val projectsWithName =
+    def getFQName(project: Project): String = {
+      // gradle getPath is inconsistent - it returns ":" for rootProject and doesn't preface non-root project with rootProject.name
+      if (project == project.getRootProject())
+        project.getName
+      else
+        s"${project.getRootProject().getName}${project.getPath()}"
+    }
+
+    def getReversedFQNameParts(project: Project): Array[String] = {
+      getFQName(project).split(':').reverse
+    }
+
+    @tailrec
+    def getUniqueSections(
+        idx: Int,
+        fqNameParts: Array[String],
+        fqNamesParts: List[Array[String]]
+    ): Array[String] = {
+      if (idx >= fqNameParts.length)
+        fqNameParts
+      else {
+        val partialName = fqNameParts.take(idx)
+        val partialNames = fqNamesParts.map(_.take(idx))
+        if (!partialNames.exists(_.sameElements(partialName)))
+          partialName
+        else
+          getUniqueSections(idx + 1, fqNameParts, fqNamesParts)
+      }
+    }
+
+    // Need to namespace only those projects that can run bloop. Others would not cause collision.
+    val projectsWithSameName =
       getAllBloopCapableProjects(project.getRootProject())
-        // Need to namespace only those projects that can run bloop. Others would not cause collision.
         .filter(_.getName == project.getName)
 
-    // If there are more than one project with same name, use path to avoid collision.
-    val rawProjectName = if (projectsWithName.size == 1) project.getName else project.getPath
+    if (projectsWithSameName.size == 1) project.getName
+    else {
+      val fqNameParts = getReversedFQNameParts(project)
+      val fqNamesParts =
+        projectsWithSameName.map(getReversedFQNameParts).filter(!_.sameElements(fqNameParts))
+      getUniqueSections(1, fqNameParts, fqNamesParts).reverse.mkString("-")
+    }
+  }
 
-    val sanitizedProjectName = rawProjectName.zipWithIndex.flatMap {
-      case (c, i) =>
-        if (i == 0 && c == ':') {
-          None
-        } else if (c == ':') {
-          Some('-')
-        } else {
-          Some(c)
-        }
-    }.mkString
+  def getProjectName(project: Project, sourceSet: SourceSet): String = {
+    // If there are more than one project with same name, use path to avoid collision.
+    val sanitizedProjectName = createUniqueProjectName(project)
 
     if (sourceSet.getName == SourceSet.MAIN_SOURCE_SET_NAME) {
       sanitizedProjectName

@@ -35,8 +35,8 @@ class ConfigGenerationSuite50 extends ConfigGenerationSuite {
 }
 
 // maximum supported version
-class ConfigGenerationSuite65 extends ConfigGenerationSuite {
-  protected val gradleVersion: String = "6.5"
+class ConfigGenerationSuite70 extends ConfigGenerationSuite {
+  protected val gradleVersion: String = "7.0"
 }
 
 abstract class ConfigGenerationSuite {
@@ -1098,9 +1098,9 @@ abstract class ConfigGenerationSuite {
 
   @Test def worksWithDuplicateNestedProjectNames(): Unit = {
     val buildSettings = testProjectDir.newFile("settings.gradle")
-    val buildDirA = testProjectDir.newFolder("a", "foo")
-    testProjectDir.newFolder("a", "src", "main", "scala")
-    testProjectDir.newFolder("a", "src", "test", "scala")
+    val buildDirA = testProjectDir.newFolder("a", "b", "c", "foo")
+    testProjectDir.newFolder("a", "b", "c", "src", "main", "scala")
+    testProjectDir.newFolder("a", "b", "c", "src", "test", "scala")
     val buildDirB = testProjectDir.newFolder("b", "foo")
     testProjectDir.newFolder("b", "src", "main", "scala")
     testProjectDir.newFolder("b", "src", "test", "scala")
@@ -1110,10 +1110,32 @@ abstract class ConfigGenerationSuite {
     val buildDirD = testProjectDir.newFolder("d", "foo")
     testProjectDir.newFolder("d", "src", "main", "scala")
     testProjectDir.newFolder("d", "src", "test", "scala")
+
+    val buildRoot = testProjectDir.newFile("build.gradle")
     val buildFileA = new File(buildDirA, "build.gradle")
     val buildFileB = new File(buildDirB, "build.gradle")
     val buildFileC = new File(buildDirC, "build.gradle")
     val buildFileD = new File(buildDirD, "build.gradle")
+
+    writeBuildScript(
+      buildRoot,
+      s"""
+         |plugins {
+         |  id 'bloop'
+         |}
+         |
+         |apply plugin: 'scala'
+         |apply plugin: 'bloop'
+         |
+         |repositories {
+         |  mavenCentral()
+         |}
+         |
+         |dependencies {
+         |  implementation 'org.scala-lang:scala-library:2.12.8'
+         |}
+      """.stripMargin
+    )
 
     writeBuildScript(
       buildFileA,
@@ -1151,7 +1173,7 @@ abstract class ConfigGenerationSuite {
          |
          |dependencies {
          |  implementation 'org.typelevel:cats-core_2.12:1.2.0'
-         |  implementation project(':a:foo')
+         |  implementation project(':a:b:c:foo')
          |  implementation project(':c:foo')
          |}
       """.stripMargin
@@ -1202,7 +1224,7 @@ abstract class ConfigGenerationSuite {
       buildSettings,
       """
         |rootProject.name = 'scala-multi-projects'
-        |include 'a:foo'
+        |include 'a:b:c:foo'
         |include 'b:foo'
         |include 'c:foo'
         |include 'd:foo'
@@ -1225,12 +1247,15 @@ abstract class ConfigGenerationSuite {
     val projectName = testProjectDir.getRoot.getName
     val bloopDir = new File(testProjectDir.getRoot, ".bloop")
     val bloopNone = new File(bloopDir, s"${projectName}.json")
-    val bloopA = new File(bloopDir, "a-foo.json")
+
+    val bloopRoot = new File(bloopDir, "scala-multi-projects.json")
+    val bloopA = new File(bloopDir, "b-c-foo.json")
     val bloopB = new File(bloopDir, "b-foo.json")
-    val bloopC = new File(bloopDir, "c-foo.json")
+    val bloopC = new File(bloopDir, "scala-multi-projects-c-foo.json")
     val bloopD = new File(bloopDir, "d-foo.json")
 
     assert(!bloopNone.exists())
+    val configRoot = readValidBloopConfig(bloopRoot)
     val configA = readValidBloopConfig(bloopA)
     val configB = readValidBloopConfig(bloopB)
     val configC = readValidBloopConfig(bloopC)
@@ -1348,7 +1373,7 @@ abstract class ConfigGenerationSuite {
   }
 
   // problem here is that to specify the test sourceset of project b depends on the test sourceset of project a using
-  // testCompile project(':a').sourceSets.test.output
+  // testImplementation project(':a').sourceSets.test.output
   // means that it points directly at the source set directory instead of the project + sourceset
   @Test def worksWithSourceSetDependencies(): Unit = {
     val buildSettings = testProjectDir.newFile("settings.gradle")
@@ -1463,16 +1488,12 @@ abstract class ConfigGenerationSuite {
     assert(compileBloopProject("b", bloopDir).status.isOk)
   }
 
-  // problem here is that to specify the test sourceset of project b depends on the test sourceset of project a using
-  // additional configuration + artifacts
   @Test def worksWithConfigurationDependencies(): Unit = {
     val buildSettings = testProjectDir.newFile("settings.gradle")
     val buildDirA = testProjectDir.newFolder("a")
     testProjectDir.newFolder("a", "src", "main", "scala")
-    testProjectDir.newFolder("a", "src", "test", "scala")
     val buildDirB = testProjectDir.newFolder("b")
     testProjectDir.newFolder("b", "src", "main", "scala")
-    testProjectDir.newFolder("b", "src", "test", "scala")
     val buildFileA = new File(buildDirA, "build.gradle")
     val buildFileB = new File(buildDirB, "build.gradle")
 
@@ -1491,16 +1512,7 @@ abstract class ConfigGenerationSuite {
          |}
          |
          |configurations {
-         |  testArtifacts.extendsFrom testRuntime
-         |}
-         |
-         |task testJar(type: Jar) {
-         |  classifier = 'tests'
-         |  from sourceSets.test.output
-         |}
-         |
-         |artifacts {
-         |  testArtifacts testJar
+         |  myConfiguration.extendsFrom runtimeElements
          |}
          |
          |dependencies {
@@ -1525,7 +1537,7 @@ abstract class ConfigGenerationSuite {
          |
          |dependencies {
          |  implementation 'org.scala-lang:scala-library:2.12.8'
-         |  testImplementation project( path: ':a', configuration: 'testArtifacts')
+         |  implementation project( path: ':a', configuration: 'myConfiguration')
          |}
       """.stripMargin
     )
@@ -1540,8 +1552,7 @@ abstract class ConfigGenerationSuite {
     )
 
     createHelloWorldScalaSource(buildDirA, "package x { trait A }")
-    createHelloWorldScalaTestSource(buildDirA, "package y { trait B }")
-    createHelloWorldScalaTestSource(buildDirB, "package z { trait C extends x.A with y.B { } }")
+    createHelloWorldScalaSource(buildDirB, "package z { trait C extends x.A { } }")
 
     GradleRunner
       .create()
@@ -1556,37 +1567,154 @@ abstract class ConfigGenerationSuite {
     val bloopNone = new File(bloopDir, s"${projectName}.json")
     val bloopA = new File(bloopDir, "a.json")
     val bloopB = new File(bloopDir, "b.json")
-    val bloopATest = new File(bloopDir, "a-test.json")
-    val bloopBTest = new File(bloopDir, "b-test.json")
 
     assert(!bloopNone.exists())
     val configA = readValidBloopConfig(bloopA)
     val configB = readValidBloopConfig(bloopB)
-    val configATest = readValidBloopConfig(bloopATest)
-    val configBTest = readValidBloopConfig(bloopBTest)
 
     assert(hasTag(configA, Tag.Library))
     assert(hasTag(configB, Tag.Library))
-    assert(hasTag(configATest, Tag.Test))
-    assert(hasTag(configBTest, Tag.Test))
     assert(configA.project.dependencies.isEmpty)
-    assert(configB.project.dependencies.isEmpty)
-    assertEquals(List("a"), configATest.project.dependencies.sorted)
-    assertEquals(List("a", "a-test", "b"), configBTest.project.dependencies.sorted)
+    assertEquals(List("a"), configB.project.dependencies.sorted)
 
-    assert(!hasCompileClasspathEntryName(configB, "/a/build/classes"))
-    assert(!hasRuntimeClasspathEntryName(configB, "/a/build/classes"))
-    assert(!hasCompileClasspathEntryName(configB, "/a-test/build/classes"))
-    assert(!hasRuntimeClasspathEntryName(configB, "/a-test/build/classes"))
-    assert(hasBothClasspathsEntryName(configBTest, "/a-test/build/classes"))
-    assert(hasBothClasspathsEntryName(configBTest, "/a/build/classes"))
+    assert(hasCompileClasspathEntryName(configB, "/a/build/classes"))
+    assert(hasRuntimeClasspathEntryName(configB, "/a/build/classes"))
 
     assertNoConfigsHaveAnyJars(
-      List(configA, configATest, configB, configBTest),
-      List("a", "a-test", "b", "b-test")
+      List(configA, configB),
+      List("a", "b")
     )
 
-    assert(compileBloopProject("b-test", bloopDir).status.isOk)
+    assert(compileBloopProject("b", bloopDir).status.isOk)
+  }
+
+  // problem here is that to specify the test sourceset of project b depends on the test sourceset of project a using
+  // additional configuration + artifacts
+  @Test def worksWithTestConfigurationDependencies(): Unit = {
+    // testRuntime no longer consumable in 7.0
+    if (gradleVersion < "7.0") {
+      val buildSettings = testProjectDir.newFile("settings.gradle")
+      val buildDirA = testProjectDir.newFolder("a")
+      testProjectDir.newFolder("a", "src", "main", "scala")
+      testProjectDir.newFolder("a", "src", "test", "scala")
+      val buildDirB = testProjectDir.newFolder("b")
+      testProjectDir.newFolder("b", "src", "main", "scala")
+      testProjectDir.newFolder("b", "src", "test", "scala")
+      val buildFileA = new File(buildDirA, "build.gradle")
+      val buildFileB = new File(buildDirB, "build.gradle")
+
+      writeBuildScript(
+        buildFileA,
+        s"""
+           |plugins {
+           |  id 'bloop'
+           |}
+           |
+           |apply plugin: 'scala'
+           |apply plugin: 'bloop'
+           |
+           |repositories {
+           |  mavenCentral()
+           |}
+           |
+           |configurations {
+           |  testArtifacts.extendsFrom testRuntime
+           |}
+           |
+           |task testJar(type: Jar) {
+           |  classifier = 'tests'
+           |  from sourceSets.test.output
+           |}
+           |
+           |artifacts {
+           |  testArtifacts testJar
+           |}
+           |
+           |dependencies {
+           |  implementation 'org.scala-lang:scala-library:2.12.8'
+           |}
+        """.stripMargin
+      )
+
+      writeBuildScript(
+        buildFileB,
+        s"""
+           |plugins {
+           |  id 'bloop'
+           |}
+           |
+           |apply plugin: 'scala'
+           |apply plugin: 'bloop'
+           |
+           |repositories {
+           |  mavenCentral()
+           |}
+           |
+           |dependencies {
+           |  implementation 'org.scala-lang:scala-library:2.12.8'
+           |  testImplementation project( path: ':a', configuration: 'testArtifacts')
+           |}
+        """.stripMargin
+      )
+
+      writeBuildScript(
+        buildSettings,
+        """
+          |rootProject.name = 'scala-multi-projects'
+          |include 'a'
+          |include 'b'
+        """.stripMargin
+      )
+
+      createHelloWorldScalaSource(buildDirA, "package x { trait A }")
+      createHelloWorldScalaTestSource(buildDirA, "package y { trait B }")
+      createHelloWorldScalaTestSource(buildDirB, "package z { trait C extends x.A with y.B { } }")
+
+      GradleRunner
+        .create()
+        .withGradleVersion(gradleVersion)
+        .withProjectDir(testProjectDir.getRoot)
+        .withPluginClasspath(getClasspath)
+        .withArguments("bloopInstall", "-Si")
+        .build()
+
+      val projectName = testProjectDir.getRoot.getName
+      val bloopDir = new File(testProjectDir.getRoot, ".bloop")
+      val bloopNone = new File(bloopDir, s"${projectName}.json")
+      val bloopA = new File(bloopDir, "a.json")
+      val bloopB = new File(bloopDir, "b.json")
+      val bloopATest = new File(bloopDir, "a-test.json")
+      val bloopBTest = new File(bloopDir, "b-test.json")
+
+      assert(!bloopNone.exists())
+      val configA = readValidBloopConfig(bloopA)
+      val configB = readValidBloopConfig(bloopB)
+      val configATest = readValidBloopConfig(bloopATest)
+      val configBTest = readValidBloopConfig(bloopBTest)
+
+      assert(hasTag(configA, Tag.Library))
+      assert(hasTag(configB, Tag.Library))
+      assert(hasTag(configATest, Tag.Test))
+      assert(hasTag(configBTest, Tag.Test))
+      assert(configA.project.dependencies.isEmpty)
+      assert(configB.project.dependencies.isEmpty)
+      assertEquals(List("a"), configATest.project.dependencies.sorted)
+      assertEquals(List("a", "a-test", "b"), configBTest.project.dependencies.sorted)
+
+      assert(!hasCompileClasspathEntryName(configB, "/a/build/classes"))
+      assert(!hasRuntimeClasspathEntryName(configB, "/a/build/classes"))
+      assert(!hasCompileClasspathEntryName(configB, "/a-test/build/classes"))
+      assert(!hasRuntimeClasspathEntryName(configB, "/a-test/build/classes"))
+      assert(hasBothClasspathsEntryName(configBTest, "/a-test/build/classes"))
+      assert(hasBothClasspathsEntryName(configBTest, "/a/build/classes"))
+
+      assertNoConfigsHaveAnyJars(
+        List(configA, configATest, configB, configBTest),
+        List("a", "a-test", "b", "b-test")
+      )
+
+      assert(compileBloopProject("b-test", bloopDir).status.isOk)
+    }
   }
 
   @Test def worksWithTestFixtureDependencies(): Unit = {
@@ -1713,7 +1841,8 @@ abstract class ConfigGenerationSuite {
   }
 
   @Test def worksWithLazyArchiveDependencies(): Unit = {
-    if (gradleVersion >= "4.9") {
+    // testRuntime no longer consumable in 7.0
+    if (gradleVersion >= "4.9" && gradleVersion < "7.0") {
       val buildSettings = testProjectDir.newFile("settings.gradle")
       val buildDirA = testProjectDir.newFolder("a")
       testProjectDir.newFolder("a", "src", "main", "scala")
