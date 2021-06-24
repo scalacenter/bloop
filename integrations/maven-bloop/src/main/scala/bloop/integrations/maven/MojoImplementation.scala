@@ -94,15 +94,28 @@ object MojoImplementation {
         emptyLauncher
       }
 
+    val scalaContext = mojo.findScalaContext()
     val compileSetup = mojo.getCompileSetup()
-    val allScalaJars = mojo.getAllScalaJars().map(abs).toList
+    val compilerAndDeps = scalaContext.findCompilerAndDependencies().asScala
+    val allScalaJars = compilerAndDeps.map { artifact =>
+      artifact.getFile().toPath()
+    }.toList
+
+    val scalaOrganization = compilerAndDeps
+      .collectFirst {
+        case artifact
+            if artifact.getArtifactId() == "scala3-compiler_3" || artifact
+              .getArtifactId() == "scala-compiler" =>
+          artifact.getGroupId()
+      }
+      .getOrElse("org.scala-lang")
     val scalacArgs = mojo.getScalacArgs().asScala.toList.filter(_ != null)
 
     def writeConfig(
         sourceDirs0: Seq[File],
         classesDir0: File,
         classpath0: java.util.List[_],
-        resources0: java.util.List[Resource],
+        resources0: java.util.List[_],
         launcher: AppLauncher,
         configuration: String
     ): Unit = {
@@ -126,7 +139,8 @@ object MojoImplementation {
 
         val modules =
           project.getArtifacts().asScala.collect {
-            case art if art.getType() == "jar" => artifactToConfigModule(art, project, session)
+            case art: Artifact if art.getType() == "jar" =>
+              artifactToConfigModule(art, project, session)
           }
         Some(Config.Resolution(modules.toList))
       } else {
@@ -154,12 +168,14 @@ object MojoImplementation {
         val sbt = None
         val test = Some(Config.Test.defaultConfiguration)
         val java = Some(Config.Java(mojo.getJavacArgs().asScala.toList))
-        val `scala` = Some(Config.Scala(mojo.getScalaOrganization(), mojo.getScalaArtifactID(), mojo.getScalaVersion(), scalacArgs, allScalaJars, analysisOut, Some(compileSetup)))
+        val `scala` = Some(Config.Scala(scalaOrganization, mojo.getScalaArtifactID(), scalaContext.version().toString(), scalacArgs, allScalaJars, analysisOut, Some(compileSetup)))
         val javaHome = Some(abs(mojo.getJavaHome().getParentFile.getParentFile))
         val mainClass = if (launcher.getMainClass().isEmpty) None else Some(launcher.getMainClass())
         val platform = Some(Config.Platform.Jvm(Config.JvmConfig(javaHome, launcher.getJvmArgs().toList), mainClass, None, None, None))
-        // Resources in Maven require
-        val resources = Some(resources0.asScala.toList.flatMap(a => Option(a.getTargetPath).toList).map(classesDir.resolve))
+        val resources = Some(resources0.asScala.toList.flatMap{
+          case a: Resource => Option(Paths.get(a.getDirectory()))
+          case _ => None
+        })
         val project = Config.Project(name, baseDirectory, Some(root.toPath), sourceDirs, None, None, fullDependencies, classpath, out, classesDir, resources, `scala`, java, sbt, test, platform, resolution, Some(tags))
         Config.File(Config.File.LatestVersion, project)
       }
@@ -173,7 +189,7 @@ object MojoImplementation {
     }
 
     writeConfig(
-      mojo.getCompileSourceDirectories.asScala,
+      mojo.getCompileSourceDirectories.asScala.toSeq,
       mojo.getCompileOutputDir,
       project.getCompileClasspathElements,
       project.getResources,
@@ -182,7 +198,7 @@ object MojoImplementation {
     )
 
     writeConfig(
-      mojo.getTestSourceDirectories.asScala,
+      mojo.getTestSourceDirectories.asScala.toSeq,
       mojo.getTestOutputDir,
       project.getTestClasspathElements,
       project.getTestResources,

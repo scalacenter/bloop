@@ -211,10 +211,6 @@ lazy val jsonConfig213 = crossProject(JSPlatform, JVMPlatform)
     unmanagedSourceDirectories in Compile +=
       Keys.baseDirectory.value / ".." / "src" / "main" / "scala-2.11-13",
     scalaVersion := "2.13.1",
-    scalacOptions := {
-      scalacOptions.value
-        .filterNot(opt => opt == "-deprecation" || opt == "-Yno-adapted-args"),
-    },
     testResourceSettings
   )
   .jvmSettings(
@@ -642,15 +638,23 @@ lazy val sbtBloop013Shaded =
 lazy val mavenBloop = project
   .in(integrations / "maven-bloop")
   .disablePlugins(ScriptedPlugin)
-  .dependsOn(jsonConfig212.jvm)
-  .settings(name := "maven-bloop", scalaVersion := Scala212Version)
-  .settings(BuildDefaults.mavenPluginBuildSettings)
+  .enablePlugins(BuildInfoPlugin)
+  .dependsOn(jsonConfig213.jvm % "compile->compile;test->test")
+  .settings(
+    name := "maven-bloop",
+    scalaVersion := (jsonConfig213.jvm / scalaVersion).value,
+    publishM2 := publishM2.dependsOn(jsonConfig213.jvm / publishM2).value,
+    BuildDefaults.mavenPluginBuildSettings,
+    buildInfoKeys := Seq[BuildInfoKey](version),
+    buildInfoPackage := "bloop",
+    testSettings
+  )
 
 lazy val gradleBloop211 = project
   .in(file("integrations") / "gradle-bloop")
   .enablePlugins(BuildInfoPlugin)
   .disablePlugins(ScriptedPlugin)
-  .dependsOn(jsonConfig211.jvm)
+  .dependsOn(jsonConfig211.jvm % "compile->compile;test->test")
   .settings(name := "gradle-bloop")
   .settings(BuildDefaults.gradlePluginBuildSettings)
   .settings(BuildInfoPlugin.buildInfoScopedSettings(Test))
@@ -675,7 +679,7 @@ lazy val gradleBloop212 = project
   .enablePlugins(BuildInfoPlugin)
   .disablePlugins(ScriptedPlugin)
   .settings(name := "gradle-bloop")
-  .dependsOn(jsonConfig212.jvm, frontend % "test->test")
+  .dependsOn(jsonConfig212.jvm % "compile->compile;test->test", frontend % "test->test")
   .settings(BuildDefaults.gradlePluginBuildSettings, testSettings)
   .settings(BuildInfoPlugin.buildInfoScopedSettings(Test))
   .settings(scalaVersion := Keys.scalaVersion.in(jsonConfig212.jvm).value)

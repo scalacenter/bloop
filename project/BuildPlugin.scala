@@ -375,7 +375,15 @@ object BuildImplementation {
 
   final val projectSettings: Seq[Def.Setting[_]] = Seq(
     ReleaseEarlyKeys.releaseEarlyPublish := BuildDefaults.releaseEarlyPublish.value,
-    Keys.scalacOptions := reasonableCompileOptions,
+    Keys.scalacOptions := {
+      CrossVersion.partialVersion(Keys.scalaVersion.value) match {
+        case Some((2, 13)) =>
+          reasonableCompileOptions
+            .filterNot(opt => opt == "-deprecation" || opt == "-Yno-adapted-args")
+        case _ =>
+          reasonableCompileOptions
+      }
+    },
     // Legal requirement: license and notice files must be in the published jar
     Keys.resources in Compile ++= BuildDefaults.getLicense.value,
     Keys.sources in (Compile, Keys.doc) := Nil,

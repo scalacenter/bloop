@@ -7,6 +7,7 @@ import bloop.cli.Commands
 import bloop.config.Config.Platform.Jvm
 import bloop.config.{Config, Tag}
 import bloop.config.Config.{CompileSetup, JavaThenScala, Mixed, Platform, TestFramework}
+import bloop.config.utils.BaseConfigSuite
 import bloop.data.WorkspaceSettings
 import bloop.engine.{Build, Run, State}
 import bloop.io.AbsolutePath
@@ -39,7 +40,7 @@ class ConfigGenerationSuite70 extends ConfigGenerationSuite {
   protected val gradleVersion: String = "7.0"
 }
 
-abstract class ConfigGenerationSuite {
+abstract class ConfigGenerationSuite extends BaseConfigSuite {
   protected val gradleVersion: String
 
   // folder to put test build scripts and java/scala source files
@@ -3166,170 +3167,8 @@ abstract class ConfigGenerationSuite {
     assertAllConfigsMatchJarNames(List(configFile, configTestFile), List("scala-library"))
   }
 
-  private def createSource(
-      projectDir: File,
-      contents: String,
-      sourceSetName: String,
-      language: String
-  ): Unit = {
-    createSource(projectDir, contents, sourceSetName, "Hello", language)
-  }
-
-  private def createSource(
-      projectDir: File,
-      contents: String,
-      sourceSetName: String,
-      fileName: String,
-      language: String
-  ): Unit = {
-    val srcDir = projectDir.toPath.resolve("src").resolve(sourceSetName).resolve(language)
-    Files.createDirectories(srcDir)
-    val srcFile = srcDir.resolve(s"$fileName.$language")
-    Files.write(srcFile, contents.getBytes(StandardCharsets.UTF_8))
-    ()
-  }
-
-  private final val ScalaHelloWorldSource: String = {
-    """
-      |object Hello {
-      |  def main(args: Array[String]): Unit = {
-      |    println("Hello")
-      |  }
-      |}
-    """.stripMargin
-  }
-
-  private final val JavaHelloWorldSource: String = {
-    """
-      |public class Hello {
-      |    public static void main(String[] args) {
-      |        System.out.println("Hello World");
-      |    }
-      |}
-    """.stripMargin
-  }
-
-  private def createHelloWorldJavaSource(projectDir: File): Unit = {
-    createSource(projectDir, JavaHelloWorldSource, "main", "java")
-  }
-
-  private def createHelloWorldJavaTestSource(projectDir: File): Unit = {
-    createSource(projectDir, JavaHelloWorldSource, "test", "java")
-  }
-
-  private def createHelloWorldScalaTestSource(projectDir: File, source: String = ""): Unit = {
-    createSource(projectDir, if (source.isEmpty) ScalaHelloWorldSource else source, "test", "scala")
-  }
-
-  private def createHelloWorldScalaTestFixtureSource(
-      projectDir: File,
-      source: String = ""
-  ): Unit = {
-    createSource(
-      projectDir,
-      if (source.isEmpty) ScalaHelloWorldSource else source,
-      "testFixtures",
-      "scala"
-    )
-  }
-
-  private def createHelloWorldScalaSource(projectDir: File, source: String = ""): Unit = {
-    createSource(projectDir, if (source.isEmpty) ScalaHelloWorldSource else source, "main", "scala")
-  }
-
-  private def readValidBloopConfig(file: File): Config.File = {
-    assertTrue(s"The bloop project file should exist: $file", file.exists())
-    val bytes = Files.readAllBytes(file.toPath)
-    bloop.config.read(bytes) match {
-      case Right(file) => file
-      case Left(failure) =>
-        throw new AssertionError(s"Failed to parse ${file.getAbsolutePath}: $failure")
-    }
-  }
-
   private def getClasspath: java.lang.Iterable[File] = {
     new ClassGraph().getClasspathFiles()
   }
 
-  private def hasPathEntryName(entryName: String, paths: List[Path]): Boolean = {
-    val pathValidEntryName = entryName.replace('/', File.separatorChar)
-    val pathAsStr = paths.map(_.toString)
-    pathAsStr.exists(_.contains(pathValidEntryName))
-  }
-
-  private def hasRuntimeClasspathEntryName(config: Config.File, entryName: String): Boolean = {
-    config.project.platform.exists {
-      case platform: Jvm => platform.classpath.exists(hasPathEntryName(entryName, _))
-      case _ => false
-    }
-  }
-
-  private def hasCompileClasspathEntryName(config: Config.File, entryName: String): Boolean = {
-    hasPathEntryName(entryName, config.project.classpath)
-  }
-
-  private def hasBothClasspathsEntryName(config: Config.File, entryName: String): Boolean = {
-    hasCompileClasspathEntryName(config, entryName) &&
-    hasRuntimeClasspathEntryName(config, entryName)
-  }
-
-  private def idxOfClasspathEntryName(config: Config.File, entryName: String): Int = {
-    val pathValidEntryName = entryName.replace('/', File.separatorChar)
-    config.project.classpath.takeWhile(!_.toString.contains(pathValidEntryName)).size
-  }
-
-  private def hasTestFramework(config: Config.File, framework: TestFramework): Boolean = {
-    config.project.test.map(_.frameworks).getOrElse(Nil).contains(framework)
-  }
-
-  private def hasTag(config: Config.File, tag: String): Boolean = {
-    config.project.tags.getOrElse(Nil).contains(tag)
-  }
-
-  private def writeBuildScript(buildFile: File, contents: String): Unit = {
-    Files.write(buildFile.toPath, contents.getBytes(StandardCharsets.UTF_8))
-    ()
-  }
-
-  private def assertAllConfigsMatchJarNames(
-      configs: List[Config.File],
-      jarNames: List[String]
-  ): Unit = {
-    assertContainsJarNames(configs, jarNames, _.contains(_), assertTrue)
-  }
-
-  private def assertAllConfigsHaveAllJars(
-      configs: List[Config.File],
-      jarNames: List[String]
-  ): Unit = {
-    assertContainsJarNames(configs, jarNames.map(j => s"$j.jar"), _ == _, assertTrue)
-  }
-
-  private def assertNoConfigsHaveAnyJars(
-      configs: List[Config.File],
-      jarNames: List[String]
-  ): Unit = {
-    assertContainsJarNames(configs, jarNames.map(j => s"$j.jar"), _ == _, assertFalse)
-  }
-
-  private def assertContainsJarNames(
-      configs: List[Config.File],
-      jarNames: List[String],
-      matchMethod: (String, String) => Boolean,
-      assertMethod: (String, Boolean) => Unit
-  ): Unit = {
-    configs.foreach(config =>
-      jarNames
-        .foreach(jarName =>
-          assertMethod(
-            s"${config.project.name} $jarName",
-            config.project.resolution.exists(
-              _.modules.exists(
-                _.artifacts.exists(a => matchMethod(a.path.getFileName.toString, jarName))
-              )
-            )
-          )
-        )
-    )
-  }
 }
