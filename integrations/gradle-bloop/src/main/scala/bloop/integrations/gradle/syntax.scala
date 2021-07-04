@@ -2,6 +2,12 @@ package bloop.integrations.gradle
 
 import java.io.File
 
+import com.android.build.gradle.AppExtension
+import com.android.build.gradle.BaseExtension
+import com.android.build.gradle.LibraryExtension
+import com.android.build.gradle.api.BaseVariant
+import com.android.build.gradle.internal.api.TestedVariant
+
 import org.gradle.api.artifacts.Configuration
 import org.gradle.api.tasks.SourceSetContainer
 import org.gradle.api.plugins.JavaApplication
@@ -30,6 +36,36 @@ object syntax {
     def getConfiguration(name: String): Configuration = {
       val configs = project.getConfigurations
       configs.findByName(name)
+    }
+
+    def androidJar: Option[File] = {
+      Option(project.getExtensions.findByType(classOf[BaseExtension]))
+        .flatMap(f =>
+          try {
+            // android.jar has to be added to all Android project classpaths.  Its location is here...
+            val dir = f.getSdkDirectory()
+            val version = f.getCompileSdkVersion()
+            val jarLocation = dir.toPath
+              .resolve("platforms")
+              .resolve(version)
+              .resolve("android.jar")
+              .toFile
+            Some(jarLocation)
+          } catch {
+            case _: Exception => None
+          }
+        )
+    }
+
+    def androidVariants: Set[BaseVariant with TestedVariant] = {
+      val libVariants = Option(project.getExtensions.findByType(classOf[LibraryExtension]))
+        .map(_.getLibraryVariants.asScala.toSet)
+        .getOrElse(Set.empty)
+
+      val appVariants = Option(project.getExtensions.findByType(classOf[AppExtension]))
+        .map(_.getApplicationVariants.asScala.toSet)
+        .getOrElse(Set.empty)
+      libVariants ++ appVariants
     }
 
     def allSourceSets: Set[SourceSet] = {

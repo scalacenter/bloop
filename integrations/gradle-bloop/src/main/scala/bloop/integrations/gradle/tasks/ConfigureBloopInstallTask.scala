@@ -25,7 +25,7 @@ class ConfigureBloopInstallTask extends DefaultTask with PluginUtils with TaskLo
   def run(): Unit = {
     installTask match {
       case Some(task) =>
-        if (canRunBloop) {
+        if (hasJavaScalaPlugin) {
           // Guard to avoid accessing java-related information (source sets) for non-Java projects
           project.allSourceSets.foreach(addSourceSetAsInputs(task, _))
         }
