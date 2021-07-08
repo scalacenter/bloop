@@ -84,7 +84,6 @@ val sbtBloopBuildShadedJar = project
       "io.github.soc",
       "scopt",
       "macrocompat",
-      "com.zaxxer.nuprocess",
       "coursier",
       "io.github.alexarchambault",
       "org.fusesource",
