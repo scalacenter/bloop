@@ -29,10 +29,16 @@ class ForkerSpec {
          |object $mainClassName {
          |  def main(args: Array[String]): Unit = {
          |    if (args.contains("crash")) throw new Exception
-         |    println(s"Arguments: $${args.mkString(", ")}")
-         |    val cwd = new java.io.File(sys.props("user.dir")).getCanonicalPath
-         |    println(s"CWD: $$cwd")
-         |    System.err.println("testing stderr")
+         |    else if (args.contains("mixed-newlines")) {
+         |      print("first\\n")
+         |      print("second\\r\\n")
+         |      print("third\\r\\n")
+         |    } else { 
+         |      println(s"Arguments: $${args.mkString(", ")}")
+         |      val cwd = new java.io.File(sys.props("user.dir")).getCanonicalPath
+         |      println(s"CWD: $$cwd")
+         |      System.err.println("testing stderr")
+         |    }
          |  }
          |}""".stripMargin
   }
@@ -73,50 +79,18 @@ class ForkerSpec {
     }
 
   @Test
-  def detectNewLines(): Unit = {
-    val nl = System.lineSeparator()
-    val remaining = new StringBuilder()
-    val msg = ByteBuffer.wrap("   ".getBytes(StandardCharsets.UTF_8))
-    val lines = linesFrom(msg, remaining)
-    assert(lines.length == 0)
-    assert(remaining.mkString == "   ")
-
-    val msg2 = ByteBuffer.wrap(s"Hello${nl}World!$nl".getBytes(StandardCharsets.UTF_8))
-    val lines2 = linesFrom(msg2, remaining)
-    assert(lines2.length == 2)
-    assert(lines2(0) == "   Hello")
-    assert(lines2(1) == "World!")
-    assert(remaining.isEmpty)
-
-    val msg3 = ByteBuffer.wrap(s"${nl}${nl}asdf".getBytes(StandardCharsets.UTF_8))
-    val lines3 = linesFrom(msg3, remaining)
-    assert(lines3.length == 2)
-    assert(lines3(0) == "")
-    assert(lines3(1) == "")
-    assert(remaining.mkString == "asdf")
-
-    val msg4 = ByteBuffer.wrap(s"${nl}this is SPARTA${nl}".getBytes(StandardCharsets.UTF_8))
-    val lines4 = linesFrom(msg4, remaining)
-    assert(lines4.length == 2)
-    assert(lines4(0) == "asdf")
-    assert(lines4(1) == "this is SPARTA")
-    assert(remaining.isEmpty)
-  }
-
-  @Test
-  def detectJDINotification(): Unit = {
-    val line = s"${DebuggeeLogger.JDINotificationPrefix} 123\n"
-    val buffer = ByteBuffer.wrap(line.getBytes(StandardCharsets.UTF_8))
-    val remaining = new mutable.StringBuilder()
-    val lines = linesFrom(buffer, remaining)
-    assert(lines.sameElements(Array(line.stripLineEnd)))
-    assert(remaining.isEmpty)
-  }
-
-  private def linesFrom(buffer: ByteBuffer, remaining: StringBuilder): Array[String] = {
-    val lines = mutable.ArrayBuffer.empty[String]
-    Forker.onEachLine(buffer, remaining)(lines += _)
-    lines.toArray
+  def detectAnyNewline(): Unit = TestUtil.withinWorkspace { tmp =>
+    run(tmp, Array("mixed-newlines")) {
+      case (exitCode, messages) =>
+        assertEquals(0, exitCode.toLong)
+        val expected = List(
+          ("info", "first"),
+          ("info", "second"),
+          ("info", "third")
+        )
+        val nonLogged = expected.filter(v => !messages.contains(v))
+        assert(nonLogged.isEmpty)
+    }
   }
 
   @Test

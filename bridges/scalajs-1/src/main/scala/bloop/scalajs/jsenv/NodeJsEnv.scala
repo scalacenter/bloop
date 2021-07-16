@@ -8,7 +8,6 @@ import java.nio.file.{Files, Path, StandardCopyOption}
 import bloop.logging.{DebugFilter, Logger}
 import bloop.scalajs.jsenv
 import com.google.common.jimfs.Jimfs
-import com.zaxxer.nuprocess.NuProcessBuilder
 import monix.execution.atomic.AtomicBoolean
 import org.scalajs.jsenv.nodejs.NodeJSEnv.SourceMap
 import org.scalajs.jsenv.nodejs.BloopComRun
@@ -25,6 +24,10 @@ import org.scalajs.jsenv.JSUtils.escapeJS
 
 import scala.collection.JavaConverters._
 import scala.concurrent.{Future, Promise}
+import scala.concurrent.ExecutionContext.Implicits.global
+import java.io.OutputStream
+import bloop.exec.Forker
+import monix.execution.Cancelable
 
 // Copy pasted verbatim from Scala.js source code, added withCwd()
 // Original file: scala-js/nodejs-env/src/main/scala/org/scalajs/jsenv/nodejs/NodeJSEnv.scala
@@ -159,7 +162,7 @@ object NodeJSEnv {
     )
   }
 
-  private[jsenv] def write(input: Seq[Input])(out: ByteBuffer): Unit = {
+  private[jsenv] def write(input: Seq[Input])(out: OutputStream): Unit = {
     def runScript(path: Path): String = {
       try {
         val f = path.toFile
@@ -197,40 +200,35 @@ object NodeJSEnv {
     }
 
     def println(str: String): Unit = {
-      out.put((str + "\n").getBytes("UTF-8"))
-      ()
+      out.write((str + "\n").getBytes("UTF-8"))
+      out.flush()
     }
 
-    try {
-      if (!input.exists(_.isInstanceOf[Input.ESModule])) {
-        /* If there is no ES module in the input, we can do everything
-         * synchronously, and directly on the standard input.
-         */
-        for (item <- input)
-          println(execInputExpr(item) + ";")
-      } else {
-        /* If there is at least one ES module, we must asynchronous chain things,
-         * and we must use an actual file to feed code to Node.js (because
-         * `import()` cannot be used from the standard input).
-         */
-        val importChain = input.foldLeft("Promise.resolve()") { (prev, item) =>
-          s"$prev.\n  then(${execInputExpr(item)})"
-        }
-        val importerFileContent = {
-          s"""
-             |$importChain.catch(e => {
-             |  console.error(e);
-             |  process.exit(1);
-             |});
-          """.stripMargin
-        }
-        val f = createTmpFile("importer.js")
-        Files.write(f.toPath, importerFileContent.getBytes(StandardCharsets.UTF_8))
-        println(s"""require("${escapeJS(f.getAbsolutePath)}");""")
+    if (!input.exists(_.isInstanceOf[Input.ESModule])) {
+      /* If there is no ES module in the input, we can do everything
+       * synchronously, and directly on the standard input.
+       */
+      for (item <- input)
+        println(execInputExpr(item) + ";")
+    } else {
+      /* If there is at least one ES module, we must asynchronous chain things,
+       * and we must use an actual file to feed code to Node.js (because
+       * `import()` cannot be used from the standard input).
+       */
+      val importChain = input.foldLeft("Promise.resolve()") { (prev, item) =>
+        s"$prev.\n  then(${execInputExpr(item)})"
       }
-    } finally {
-      out.flip()
-      ()
+      val importerFileContent = {
+        s"""
+           |$importChain.catch(e => {
+           |  console.error(e);
+           |  process.exit(1);
+           |});
+        """.stripMargin
+      }
+      val f = createTmpFile("importer.js")
+      Files.write(f.toPath, importerFileContent.getBytes(StandardCharsets.UTF_8))
+      println(s"""require("${escapeJS(f.getAbsolutePath)}");""")
     }
   }
 
@@ -262,7 +260,7 @@ object NodeJSEnv {
   }
 
   def internalStart(logger: Logger, config: NodeJSConfig, env: Map[String, String])(
-      write: ByteBuffer => Unit,
+      write: OutputStream => Unit,
       runConfig: RunConfig
   ): JSRun = {
     val command = config.executable :: config.args
@@ -270,31 +268,31 @@ object NodeJSEnv {
     logger.debug(s"Current working directory: ${config.cwd}")
     logger.debug(s"Current environment: ${config.env}")
 
-    val executionPromise = Promise[Unit]()
-    val builder = new NuProcessBuilder(command.asJava, env.asJava)
-    val handler = new NodeJsHandler(logger, executionPromise, write)
-    builder.setProcessListener(handler)
-    config.cwd.foreach(builder.setCwd)
-
-    val processEnvironment = builder.environment()
-    processEnvironment.clear()
-    processEnvironment.putAll(config.env.asJava)
-
-    val process = builder.start()
-    process.wantWrite()
+    import monix.execution.Scheduler.Implicits.global
+    val cancellable =
+      Forker
+        .run(
+          config.cwd.map(_.toFile),
+          command,
+          logger,
+          config.env,
+          writeToStdIn = outputStream => {
+            write(outputStream)
+            Cancelable.empty
+          },
+          debugLog = msg => logger.debug(msg),
+          freshEnv = true
+        )
+        .runAsync
 
     new JSRun {
       private val isClosed = AtomicBoolean(false)
-      override def future: Future[Unit] = executionPromise.future
+      override def future: Future[Unit] = cancellable.map(_ => ())
       override def close(): Unit = {
         // Make sure we only destroy the process once, the test adapter can call this several times!
         if (!isClosed.getAndSet(true)) {
           logger.debug(s"Destroying process...")
-          process.destroy(false)
-          process.waitFor(400, _root_.java.util.concurrent.TimeUnit.MILLISECONDS)
-          process.destroy(true)
-          // Make sure that no matter what happens the `onExit` callback is invoked
-          handler.cancel()
+          cancellable.cancel()
         }
         ()
       }

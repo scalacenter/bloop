@@ -176,7 +176,7 @@ object TestInternals {
    *
    * How these tests are run is something up to the `JsEnv` to decide. In bloop,
    * we provide our own implementation of the js environment so that we can use
-   * nuprocess instead of the default js environment.
+   * forked process instead of the default js environment.
    *
    * The cancellation of this execution is controlled via the `dispose` method provided
    * by the discovered tests class. The dispose method is responsible for completely

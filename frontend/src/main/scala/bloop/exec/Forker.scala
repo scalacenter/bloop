@@ -11,11 +11,18 @@ import bloop.engine.ExecutionContext
 import bloop.io.AbsolutePath
 import bloop.logging.{DebugFilter, Logger}
 import bloop.util.CrossPlatform
-import com.zaxxer.nuprocess.{NuAbstractProcessHandler, NuProcess, NuProcessBuilder}
 import monix.eval.Task
 import monix.execution.Cancelable
+import scala.jdk.CollectionConverters._
 import scala.annotation.tailrec
 import scala.concurrent.duration.FiniteDuration
+import java.io.InputStream
+import java.io.OutputStream
+import java.io.BufferedReader
+import java.io.InputStreamReader
+import scala.sys.process.BasicIO
+import java.io.Closeable
+import scala.util.control.NonFatal
 
 object Forker {
   private implicit val logContext: DebugFilter = DebugFilter.All
@@ -53,56 +60,30 @@ object Forker {
       logger: Logger,
       opts: CommonOptions
   ): Task[Int] = {
+    if (cwd.exists) runProcess(cwd, cmd, logger, opts)
+    else {
+      logger.error(s"Working directory '$cwd' does not exist")
+      Task.now(EXIT_ERROR)
+    }
+  }
+
+  private def runProcess(
+      cwd: AbsolutePath,
+      cmd: Seq[String],
+      logger: Logger,
+      opts: CommonOptions
+  ): Task[Int] = {
     var consumeInput: Cancelable = null
     @volatile var shutdownInput: Boolean = false
 
-    final class ProcessHandler extends NuAbstractProcessHandler {
-      private val outBuilder = StringBuilder.newBuilder
-      private val errBuilder = StringBuilder.newBuilder
-
-      override def onStart(nuProcess: NuProcess): Unit = {
-        logger.debug(s"""Starting forked process:
-                        |  cwd = '$cwd'
-                        |  pid = '${nuProcess.getPID}'
-                        |  cmd = '${cmd.mkString(" ")}'""".stripMargin)
-      }
-
-      override def onExit(statusCode: Int): Unit =
-        logger.debug(s"Forked process exited with code: $statusCode")
-
-      override def onStdout(buffer: ByteBuffer, closed: Boolean): Unit = {
-        if (closed) {
-          // Make sure that the gobbler never stays awake!
-          if (consumeInput != null) consumeInput.cancel()
-          logger.debug("The process is closed. Emptying buffer...")
-          val remaining = outBuilder.mkString
-          if (!remaining.isEmpty)
-            logger.info(remaining)
-        } else {
-          Forker.onEachLine(buffer, outBuilder)(logger.info)
-        }
-      }
-
-      override def onStderr(buffer: ByteBuffer, closed: Boolean): Unit = {
-        if (closed) {
-          val remaining = errBuilder.mkString
-          if (!remaining.isEmpty)
-            logger.error(remaining)
-        } else {
-          Forker.onEachLine(buffer, errBuilder)(logger.error)
-        }
-      }
-    }
-
     /* We need to gobble the input manually with a fixed delay because otherwise
-     * the remote process will not see it. Instead of using the `wantWrite` API
-     * we write directly to the process to avoid the extra level of indirection.
+     * the remote process will not see it.
      *
      * The input gobble runs on a 50ms basis and it can process a maximum of 4096
      * bytes at a time. The rest that is not read will be read in the next 50ms. */
-    def gobbleInput(process: NuProcess): Task[Int] = {
+    def goobleInput(to: OutputStream): Cancelable = {
       val duration = FiniteDuration(50, TimeUnit.MILLISECONDS)
-      consumeInput = ExecutionContext.ioScheduler.scheduleWithFixedDelay(duration, duration) {
+      ExecutionContext.ioScheduler.scheduleWithFixedDelay(duration, duration) {
         val buffer = new Array[Byte](4096)
         if (shutdownInput) {
           if (consumeInput != null) consumeInput.cancel()
@@ -110,8 +91,11 @@ object Forker {
           try {
             if (opts.in.available() > 0) {
               val read = opts.in.read(buffer, 0, buffer.length)
-              if (read == -1 || !process.isRunning) ()
-              else process.writeStdin(ByteBuffer.wrap(buffer))
+              if (read == -1) ()
+              else {
+                to.write(buffer, 0, read)
+                to.flush()
+              }
             }
           } catch {
             case t: IOException =>
@@ -122,124 +106,130 @@ object Forker {
           }
         }
       }
+    }
 
-      Task {
-        try {
-          val exitCode = process.waitFor(0, _root_.java.util.concurrent.TimeUnit.SECONDS)
-          logger.debug(s"Process ${process.getPID} exited with code: $exitCode")
-          exitCode
-        } finally {
+    val runTask = run(
+      Some(cwd.underlying.toFile),
+      cmd,
+      logger,
+      opts.env.toMap,
+      writeToStdIn = outputStream => {
+        val mainCancellable = goobleInput(outputStream)
+        Cancelable { () =>
           shutdownInput = true
-          consumeInput.cancel()
+          mainCancellable.cancel()
         }
-      }.doOnCancel(Task {
-        shutdownInput = true
-        consumeInput.cancel()
-        try process.closeStdin(true)
-        finally {
-          process.destroy(false)
-          process.waitFor(200, _root_.java.util.concurrent.TimeUnit.MILLISECONDS)
-          process.destroy(true)
-          process.waitFor(200, _root_.java.util.concurrent.TimeUnit.MILLISECONDS)
-          if (process.isRunning) {
-            val msg = s"The cancellation could not destroy process ${process.getPID}"
-            opts.ngout.println(msg)
-            logger.debug(msg)
-          } else {
-            val msg = s"The run process ${process.getPID} has been closed"
-            opts.ngout.println(msg)
-            logger.debug(msg)
-          }
-        }
-      })
-    }
+      },
+      debugLog = msg => {
+        opts.ngout.println(msg)
+        logger.debug(msg)
+      },
+      freshEnv = false
+    )
 
-    run(cwd, cmd, new ProcessHandler(), opts.env.toMap)
-      .flatMap(gobbleInput)
-      .onErrorRecover {
-        case error =>
-          logger.error(error.getMessage)
-          Forker.EXIT_ERROR
-      }
+    Task {
+      logger.debug(s"""Starting forked process:
+                      |  cwd = '$cwd'
+                      |  cmd = '${cmd.mkString(" ")}'""".stripMargin)
+    }.flatMap(_ => runTask)
   }
 
-  /**
-   * Runs `cmd` in a new process and logs the results. The exit code is returned
-   *
-   * @param cwd    The directory in which to start the process
-   * @param cmd    The command to run
-   * @param env   The options to run the program with
-   * @return The exit code of the process
-   */
   def run(
-      cwd: AbsolutePath,
+      cwd: Option[java.io.File],
       cmd: Seq[String],
-      handler: NuAbstractProcessHandler,
-      env: Map[String, String]
-  ): Task[NuProcess] = {
-    import scala.collection.JavaConverters._
-    if (cwd.exists) {
-      val builder = new NuProcessBuilder(cmd.asJava, env.asJava)
-      builder.setProcessListener(handler)
-      builder.setCwd(cwd.underlying)
-      Task(builder.start())
-    } else {
-      val message = s"Working directory '$cwd' does not exist"
-      Task.raiseError(new FileNotFoundException(message))
-    }
-  }
+      logger: Logger,
+      env: Map[String, String],
+      writeToStdIn: OutputStream => Cancelable,
+      debugLog: String => Unit,
+      freshEnv: Boolean
+  ): Task[Int] = {
 
-  /**
-   * Performs specified operation on each line from the process [[input]].
-   * Segment without a new line is carried over using the [[carry]] buffer.
-   *
-   * @param input containing lines on which the [[op]] must be performed
-   * @param carry The string builder bookkeeping remaining message without new lines
-   */
-  private[bloop] def onEachLine(input: ByteBuffer, carry: StringBuilder)(
-      op: String => Unit
-  ): Unit = {
-    val bytes = new Array[Byte](input.remaining())
-    input.get(bytes)
-    val newMessage = new String(bytes, StandardCharsets.UTF_8)
+    def cancelTask(
+        writeStdIn: Cancelable,
+        outReaders: List[Thread],
+        ps: Process
+    ): Task[Unit] = {
+      Task {
+        writeStdIn.cancel()
+        ps.destroy()
 
-    if (newMessage.nonEmpty) {
-      val msg = new StringBuilder()
-        .append(carry)
-        .append(newMessage)
-      carry.clear()
+        val normalTermination = ps.waitFor(200, TimeUnit.MILLISECONDS)
 
-      @tailrec
-      def traverseLines(start: Int): Unit = {
-        if (start < msg.length) {
-          val (lineEnd, lineEndLength) = msg.indexOf("\r\n", start) match {
-            case -1 => (msg.indexOf("\n", start), 1)
-            case idx => (idx, 2)
+        val terminated =
+          normalTermination || {
+            ps.destroyForcibly()
+            ps.waitFor(200, TimeUnit.MILLISECONDS)
           }
-          if (lineEnd < 0) {
-            // JVM send the JDI notification with "\n" as newline delimiter even on windows
-            if (CrossPlatform.isWindows && containsFullJdiNotification(msg)) {
-              op(msg.stripLineEnd)
-            } else {
-              val remaining = msg.substring(start)
-              carry.append(remaining)
-              ()
-            }
-          } else {
-            val line = msg.substring(start, lineEnd)
-            op(line)
-            traverseLines(lineEnd + lineEndLength)
-          }
+        outReaders.foreach(_.interrupt())
+        val cmdStr = cmd.mkString(" ")
+        if (!terminated) {
+          val msg = s"The cancellation could not destroy process '$cmdStr'"
+          debugLog(msg)
+        } else {
+          val msg = s"The run process '${cmdStr}' has been closed"
+          debugLog(msg)
         }
       }
+    }
 
-      traverseLines(0)
+    def awaitCompletion(
+        writeStdIn: Cancelable,
+        outReaders: List[Thread],
+        ps: Process
+    ): Task[Int] = {
+      Task {
+        val exitCode = ps.waitFor()
+        writeStdIn.cancel()
+        outReaders.foreach(_.join())
+        logger.debug(s"Forked process exited with code: $exitCode")
+        exitCode
+      }
+    }
+
+    def readOutput(stream: InputStream, f: String => Unit): Thread = {
+      val thread = new Thread {
+        override def run(): Unit = {
+          // use scala.sys.process implementation
+          try {
+            BasicIO.processFully(f)(stream)
+          } catch {case NonFatal(e) => }
+        }
+      }
+      thread.setDaemon(true)
+      thread.start()
+      thread
+    }
+
+    val task = Task {
+      val builder = new ProcessBuilder(cmd.asJava)
+      cwd.foreach(builder.directory(_))
+      val envMap = builder.environment()
+      envMap.putAll(env.asJava)
+      builder.redirectErrorStream(false)
+      builder.start()
+    }.flatMap { ps =>
+      val writeIn = writeToStdIn(ps.getOutputStream)
+      val outReaders =
+        List(
+          readOutput(ps.getInputStream(), logger.info),
+          readOutput(ps.getErrorStream(), logger.error)
+        )
+      awaitCompletion(writeIn, outReaders, ps)
+        .doOnCancel(cancelTask(writeIn, outReaders, ps))
+        .onErrorRecover {
+          case error =>
+            writeIn.cancel()
+            outReaders.foreach(_.interrupt())
+            logger.error(error.getMessage)
+            Forker.EXIT_ERROR
+        }
+    }
+
+    task.onErrorRecover {
+      case e =>
+        logger.error(e.getMessage)
+        Forker.EXIT_ERROR
     }
   }
 
-  private def containsFullJdiNotification(msg: StringBuilder): Boolean = {
-    val jdiIdx = msg.indexOf(DebuggeeLogger.JDINotificationPrefix)
-    val jdiNewLine = msg.indexOf("\n", jdiIdx)
-    jdiIdx >= 0 && jdiNewLine >= 0
-  }
 }
