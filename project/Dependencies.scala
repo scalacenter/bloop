@@ -35,7 +35,7 @@ object Dependencies {
   val mavenScalaPluginVersion = "4.5.3"
   val gradleVersion = "5.0"
   val groovyVersion = "2.5.4"
-  val gradleAndroidPluginVersion = "4.1.0"
+  val gradleAndroidPluginVersion = "4.2.0"
   val ipcsocketVersion = "1.0.1"
   val monixVersion = "2.3.3"
   val circeVersion = "0.9.3"

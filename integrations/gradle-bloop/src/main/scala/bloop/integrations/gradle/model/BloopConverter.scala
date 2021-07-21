@@ -9,6 +9,7 @@ import bloop.config.{Config, Tag}
 import bloop.config.Config.{CompileSetup, JavaThenScala, JvmConfig, Mixed, Platform}
 import bloop.integrations.gradle.BloopParameters
 import bloop.integrations.gradle.syntax._
+import bloop.integrations.gradle.SemVer
 import bloop.integrations.gradle.tasks.PluginUtils
 import org.gradle.api.{Action, GradleException, Project}
 import org.gradle.api.artifacts.{Configuration, PublishArtifact}
@@ -45,7 +46,7 @@ import com.android.builder.model.SourceProvider
 import com.android.build.gradle.api.BaseVariantOutput
 import com.android.build.gradle.tasks.PackageAndroidArtifact
 import com.android.build.gradle.tasks.PackageApplication
-import com.android.build.gradle.internal.feature.BundleAllClasses
+import com.android.build.gradle.internal.tasks.AndroidVariantTask
 import com.android.build.gradle.api.TestVariant
 import com.android.build.gradle.api.BaseVariant
 import org.gradle.api.file.DirectoryProperty
@@ -53,6 +54,7 @@ import org.gradle.api.Task
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.provider.Provider
 import org.gradle.api.file.RegularFile
+import org.gradle.api.file.Directory
 
 /**
  * Define the conversion from Gradle's project model to Bloop's project model.
@@ -647,26 +649,43 @@ class BloopConverter(parameters: BloopParameters, info: String => Unit) {
   private def getAndroidOutputsSourceSetMap(
       allSourceSetsToProjectVariants: Map[SourceProvider, (Project, BaseVariant)]
   ): Map[File, SourceProvider] = {
+    val apiVersion =
+      SemVer.Version.fromString(com.android.builder.model.Version.ANDROID_GRADLE_PLUGIN_VERSION)
+    val bundleAllClassesClass = Class
+      .forName("com.android.build.gradle.internal.feature.BundleAllClasses")
+      .asInstanceOf[Class[AndroidVariantTask]]
     allSourceSetsToProjectVariants.flatMap {
       case (sourceProvider, (project, variant)) =>
         val bundleAppTasks = project.getTasks
-          .withType(classOf[BundleAllClasses])
+          .withType(bundleAllClassesClass)
           .asScala
           .filter(_.getVariantName == variant.getName)
 
         val apps = bundleAppTasks
           .flatMap(task => {
-            // v4.0.0 getJavacClasses returns DirectoryProperty.
-            // v3.4.1 getJavacClasses returns a BuildableArtifact which doesn't exists anymore and isn't handled
-            val getJavacClassesMethod = task.getClass.getMethod("getJavacClasses")
+            // 3.4.0   BundleAllClasses  getJavacClasses  BuildableArtifact (doesn't exist anymore - ignore it)
+            // 3.5.0   BundleAllClasses  getJavacClasses  Provider<Directory>
+            // 3.6.0   BundleAllClasses  getJavacClasses  DirectoryProperty (subclass of Provider<Directory>)
+            // 4.2.0   BundleAllClasses  getInputDirs     ConfigurableFileCollection
+            val getJavacClassesMethodName =
+              if (apiVersion < SemVer.Version.fromString("4.2.0")) "getJavacClasses"
+              else "getInputDirs"
+            val getJavacClassesMethod = task.getClass.getMethod(getJavacClassesMethodName)
             val classes = getJavacClassesMethod.invoke(task) match {
-              case f: DirectoryProperty => Option(f.getOrNull).map(_.getAsFile).toSet
+              case provider: Provider[_] =>
+                Option(provider.getOrNull)
+                  .map(_ match {
+                    case directory: Directory => directory.getAsFile
+                  })
+                  .toSet
+              case fileCollection: ConfigurableFileCollection => fileCollection.getFiles.asScala
               case _ => Set.empty[File]
             }
-            // v4.0.0 getOutputJar returns RegularFileProperty. v3.4.1 getOutputJar returns a File
+
+            // 3.4.0   BundleAllClasses  getOutputJar  File
+            // 3.6.0   BundleAllClasses  getOutputJar  RegularFileProperty
             val getOutputJarMethod = task.getClass.getMethod("getOutputJar")
-            val a = getOutputJarMethod.invoke(task)
-            val outputJar = a match {
+            val outputJar = getOutputJarMethod.invoke(task) match {
               case f: File => Set(f)
               case f: RegularFileProperty => Option(f.getOrNull).map(_.getAsFile).toSet
             }
@@ -674,85 +693,45 @@ class BloopConverter(parameters: BloopParameters, info: String => Unit) {
           })
 
         // uses reflection to support multiple API versions...
-        val libs =
-          try {
-            // Android plugin version 4.1.0 uses com.android.build.gradle.internal.tasks.BundleLibraryClassesJar
-            val v4_1_0BundleLibraryClass = Class
-              .forName("com.android.build.gradle.internal.tasks.BundleLibraryClassesJar")
-              .asInstanceOf[Class[Task]]
-            val v4_1_0BundleLibraryTasks =
-              project.getTasks.withType(v4_1_0BundleLibraryClass).asScala
+        val libs = {
+          // 3.4.0   BundleLibraryClasses     getOutput     Provider<RegularFile>
+          // 3.6.0   BundleLibraryClasses     getOutput     RegularFileProperty
+          // 4.0.0   BundleLibraryClasses     getJarOutput  RegularFileProperty
+          // 4.1.0   BundleLibraryClassesJar  getOutput     RegularFileProperty
+          val bundleLibraryClassName =
+            if (apiVersion < SemVer.Version.fromString("4.1.0"))
+              "com.android.build.gradle.internal.tasks.BundleLibraryClasses"
+            else
+              "com.android.build.gradle.internal.tasks.BundleLibraryClassesJar"
+          val bundleLibraryClass = Class.forName(bundleLibraryClassName).asInstanceOf[Class[Task]]
+          val bundleLibraryTasks = project.getTasks.withType(bundleLibraryClass).asScala
+          val getVariantNameMethod = bundleLibraryClass.getMethod("getVariantName")
+          val getOutputMethodName =
+            if (apiVersion < SemVer.Version.fromString("4.1.0")) "getJarOutput"
+            else if (apiVersion < SemVer.Version.fromString("4.0.0")) "getOutput"
+            else "getOutput"
+          val getOutputMethod = bundleLibraryClass.getMethod(getOutputMethodName)
+          val getClassesMethod = bundleLibraryClass.getMethod("getClasses")
 
-            val v4_1_0GetVariantNameMethod =
-              v4_1_0BundleLibraryClass.getMethod("getVariantName") // returns String
-            val v4_1_0GetOutputMethod =
-              v4_1_0BundleLibraryClass.getMethod("getOutput") // returns RegularFileProperty
-            val v4_1_0GetClassesMethod =
-              v4_1_0BundleLibraryClass.getMethod("getClasses") // returns ConfigurableFileCollection
-            v4_1_0BundleLibraryTasks
-              .filter(v4_1_0GetVariantNameMethod.invoke(_) == variant.getName)
-              .flatMap(task => {
-                val classes =
-                  try {
-                    v4_1_0GetClassesMethod.invoke(task) match {
-                      case f: ConfigurableFileCollection => f.getFiles().asScala
-                      case _: Exception => Set.empty[File]
-                    }
-                  } catch {
+          bundleLibraryTasks
+            .filter(getVariantNameMethod.invoke(_) == variant.getName)
+            .flatMap(task => {
+              val classes =
+                try {
+                  getClassesMethod.invoke(task) match {
+                    case f: ConfigurableFileCollection => f.getFiles.asScala
                     case _: Exception => Set.empty[File]
                   }
-                val jarOutput = Option(v4_1_0GetOutputMethod.invoke(task) match {
-                  case f: RegularFileProperty => f.getOrNull
-                  case _: Exception => null
-                }).map(_.getAsFile)
-                classes ++ jarOutput
-              })
-          } catch {
-            case _: Exception =>
-              // Android plugin version 4.0.0 uses com.android.build.gradle.internal.tasks.BundleLibraryClasses
-              val v4_0_0BundleLibraryClass = Class
-                .forName("com.android.build.gradle.internal.tasks.BundleLibraryClasses")
-                .asInstanceOf[Class[Task]]
-              val v4_0_0BundleLibraryTasks =
-                project.getTasks.withType(v4_0_0BundleLibraryClass).asScala
-
-              val v4_0_0GetVariantNameMethod =
-                v4_0_0BundleLibraryClass.getMethod("getVariantName") // returns String
-              val v4_0_0GetJarOutputMethod =
-                try {
-                  v4_0_0BundleLibraryClass.getMethod("getJarOutput") // returns RegularFileProperty
                 } catch {
-                  case _: Exception =>
-                    // v3.4.1 uses getOutput instead of getJarOutput
-                    v4_0_0BundleLibraryClass.getMethod("getOutput") // returns Provider[RegularFile]
+                  case _: Exception => Set.empty[File]
                 }
-              val v4_0_0GetClassesMethod = v4_0_0BundleLibraryClass.getMethod(
-                "getClasses"
-              ) // returns ConfigurableFileCollection
-              v4_0_0BundleLibraryTasks
-                .filter(v4_0_0GetVariantNameMethod.invoke(_) == variant.getName)
-                .flatMap(task => {
-                  val classes =
-                    try {
-                      v4_0_0GetClassesMethod.invoke(task) match {
-                        case f: ConfigurableFileCollection => f.getFiles().asScala
-                        case _ => Set.empty[File]
-                      }
-                    } catch {
-                      case _: Exception => Set.empty[File]
-                    }
-                  val jarOutput = Option(v4_0_0GetJarOutputMethod.invoke(task) match {
-                    case f: RegularFileProperty => f.getOrNull
-                    case f: Provider[_] =>
-                      f.getOrNull match {
-                        case g: RegularFile => g
-                        case _ => null
-                      }
-                    case _ => null
-                  }).map(_.getAsFile)
-                  classes ++ jarOutput
-                })
-          }
+              val jarOutput = getOutputMethod.invoke(task) match {
+                case f: RegularFileProperty => f.getOrNull
+                case _: Exception => null
+              }
+              classes ++ Option(jarOutput).map(_.getAsFile)
+            })
+        }
         // R.jar is needed on classpaths - don't substitute it for a project's classes dir
         val outputDirsAndJars = (libs ++ apps).filterNot(_.getName().equalsIgnoreCase("R.jar"))
         outputDirsAndJars.map(_ -> sourceProvider)

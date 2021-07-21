@@ -535,7 +535,6 @@ object BuildImplementation {
         Keys.resolvers ++= List(
           MavenRepository("Gradle releases", "https://repo.gradle.org/gradle/libs-releases-local/"),
           MavenRepository("Android plugin", "https://maven.google.com/"),
-          MavenRepository("trove4j dependency", "https://jcenter.bintray.com/"),
           MavenRepository("Android dependencies", "https://repo.spring.io/plugins-release/")
         ),
         Keys.libraryDependencies ++= List(

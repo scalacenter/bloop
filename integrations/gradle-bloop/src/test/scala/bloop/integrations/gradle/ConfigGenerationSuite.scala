@@ -47,9 +47,28 @@ abstract class ConfigGenerationSuite extends BaseConfigSuite {
   private val testProjectDir_ = new TemporaryFolder()
   @Rule def testProjectDir: TemporaryFolder = testProjectDir_
 
-  @Test def worksWithAndroidPlugin(): Unit = {
-    // This version has to match with Dependencies#gradleAndroidPluginVersion.  Currently can't test multiple versions.
+  @Test def worksWithAndroidPlugin_3_4(): Unit = {
+    worksWithAndroidPlugin("3.4.0")
+  }
+
+  @Test def worksWithAndroidPlugin_3_5(): Unit = {
+    worksWithAndroidPlugin("3.5.0")
+  }
+
+  @Test def worksWithAndroidPlugin_3_6(): Unit = {
+    worksWithAndroidPlugin("3.6.0")
+  }
+
+  @Test def worksWithAndroidPlugin_4_0(): Unit = {
+    worksWithAndroidPlugin("4.0.0")
+  }
+
+  @Test def worksWithAndroidPlugin_4_1(): Unit = {
     worksWithAndroidPlugin("4.1.0")
+  }
+
+  @Test def worksWithAndroidPlugin_4_2(): Unit = {
+    worksWithAndroidPlugin("4.2.0")
   }
 
   private def worksWithAndroidPlugin(androidToolsVersion: String): Unit = {
@@ -74,7 +93,6 @@ abstract class ConfigGenerationSuite extends BaseConfigSuite {
            |buildscript {
            |  repositories {
            |    google()
-           |    jcenter()
            |  }
            |  dependencies {
            |    classpath 'com.android.tools.build:gradle:$androidToolsVersion'
@@ -106,7 +124,6 @@ abstract class ConfigGenerationSuite extends BaseConfigSuite {
            |buildscript {
            |  repositories {
            |    google()
-           |    jcenter()
            |  }
            |  dependencies {
            |    classpath 'com.android.tools.build:gradle:$androidToolsVersion'
@@ -140,7 +157,6 @@ abstract class ConfigGenerationSuite extends BaseConfigSuite {
            |buildscript {
            |  repositories {
            |    google()
-           |    jcenter()
            |  }
            |  dependencies {
            |    classpath 'com.android.tools.build:gradle:$androidToolsVersion'
