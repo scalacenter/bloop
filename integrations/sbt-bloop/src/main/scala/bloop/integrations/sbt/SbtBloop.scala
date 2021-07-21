@@ -697,11 +697,15 @@ object BloopDefaults {
     }
   }
 
-  lazy val updateClassifiers: Def.Initialize[Task[Option[sbt.UpdateReport]]] = Def.taskDyn {
+  lazy val updateClassifiers: Def.Initialize[Task[Seq[Config.Module]]] = Def.taskDyn {
     val runUpdateClassifiers = BloopKeys.bloopExportJarClassifiers.value.nonEmpty
-    if (!runUpdateClassifiers) Def.task(None)
-    else if (BloopKeys.bloopIsMetaBuild.value) Def.task(Some(Keys.updateSbtClassifiers.value))
-    else Def.task(Some(Keys.updateClassifiers.value))
+    if (!runUpdateClassifiers) Def.task(Seq.empty)
+    else if (BloopKeys.bloopIsMetaBuild.value)
+      Def.task {
+        configModules(Keys.updateSbtClassifiers.value) ++
+          configModules(Keys.updateClassifiers.value)
+      }
+    else Def.task(configModules(Keys.updateClassifiers.value))
   }
 
   import sbt.ModuleID
@@ -991,7 +995,7 @@ object BloopDefaults {
 
           val binaryModules = configModules(Keys.update.value)
           val sourceModules = {
-            val sourceModulesFromSbt = updateClassifiers.value.toList.flatMap(configModules)
+            val sourceModulesFromSbt = updateClassifiers.value
             if (sourceModulesFromSbt.nonEmpty) sourceModulesFromSbt
             else {
               val previousAllModules =
