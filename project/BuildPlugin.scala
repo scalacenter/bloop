@@ -533,12 +533,15 @@ object BuildImplementation {
       sbtbuildinfo.BuildInfoPlugin.buildInfoScopedSettings(Test) ++ List(
         Keys.fork in Test := true,
         Keys.resolvers ++= List(
-          MavenRepository("Gradle releases", "https://repo.gradle.org/gradle/libs-releases-local/")
+          MavenRepository("Gradle releases", "https://repo.gradle.org/gradle/libs-releases-local/"),
+          MavenRepository("Android plugin", "https://maven.google.com/"),
+          MavenRepository("Android dependencies", "https://repo.spring.io/plugins-release/")
         ),
         Keys.libraryDependencies ++= List(
           Dependencies.gradleCore,
           Dependencies.gradleToolingApi,
-          Dependencies.groovy
+          Dependencies.groovy,
+          Dependencies.gradleAndroidPlugin
         ),
         Keys.publishLocal := Keys.publishLocal.dependsOn(Keys.publishM2).value,
         Keys.unmanagedJars.in(Compile) := unmanagedJarsWithGradleApi.value,

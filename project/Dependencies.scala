@@ -35,6 +35,7 @@ object Dependencies {
   val mavenScalaPluginVersion = "4.5.3"
   val gradleVersion = "5.0"
   val groovyVersion = "2.5.4"
+  val gradleAndroidPluginVersion = "4.2.0"
   val ipcsocketVersion = "1.0.1"
   val monixVersion = "2.3.3"
   val circeVersion = "0.9.3"
@@ -103,6 +104,8 @@ object Dependencies {
     "org.gradle" % "gradle-dependency-management" % gradleVersion % Provided
   val gradleToolingApi = "org.gradle" % "gradle-tooling-api" % gradleVersion % Provided
   val groovy = "org.codehaus.groovy" % "groovy" % groovyVersion % Provided
+  val gradleAndroidPlugin =
+    "com.android.tools.build" % "gradle" % gradleAndroidPluginVersion % Provided
 
   val monix = "io.monix" %% "monix" % monixVersion
   val jsoniterCore =
