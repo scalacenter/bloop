@@ -32,8 +32,10 @@ import com.github.plokhotnyuk.jsoniter_scala.macros.{CodecMakerConfig, JsonCodec
  * Another example is when the user manually goes to the file and changes a
  * setting in it.
  *
+ * @param javaSemanticDBVersion is the version that should be used to enable the
+ * Semanticdb compiler plugin in a Java project.
  * @param semanticDBVersion is the version that should be used to enable the
- * Semanticdb compiler plugin in a project.
+ * Semanticdb compiler plugin in a Scala project.
  * @param semanticDBScalaVersions is the sequence of Scala versions for which
  * the SemanticDB plugin can be resolved for. Important to know for which
  * projects we should skip the resolution of the plugin.
@@ -44,6 +46,7 @@ import com.github.plokhotnyuk.jsoniter_scala.macros.{CodecMakerConfig, JsonCodec
  */
 case class WorkspaceSettings(
     // Managed by bloop or build tool
+    javaSemanticDBVersion: Option[String],
     semanticDBVersion: Option[String],
     supportedScalaVersions: Option[List[String]],
     // Managed by the user
@@ -51,12 +54,14 @@ case class WorkspaceSettings(
     traceSettings: Option[TraceSettings]
 ) {
   def withSemanticdbSettings: Option[(WorkspaceSettings, SemanticdbSettings)] =
-    (semanticDBVersion, supportedScalaVersions) match {
-      case (Some(semanticDBVersion), Some(supportedScalaVersions)) =>
-        Some(this -> SemanticdbSettings(semanticDBVersion, supportedScalaVersions))
-      case _ => None
-    }
-
+    if (semanticDBVersion.nonEmpty || javaSemanticDBVersion.nonEmpty) {
+      val javaSettings = javaSemanticDBVersion.map(JavaSemanticdbSettings.apply)
+      val scalaSettings = for {
+        ver <- semanticDBVersion
+        vers <- supportedScalaVersions
+      } yield ScalaSemanticdbSettings(ver, vers)
+      Some(this -> SemanticdbSettings(javaSettings, scalaSettings))
+    } else None
 }
 
 object WorkspaceSettings {
@@ -68,10 +73,17 @@ object WorkspaceSettings {
   }
 
   def fromSemanticdbSettings(
-      semanticDBVersion: String,
+      javaSemanticDBVersion: String,
+      scalaSemanticDBVersion: String,
       supportedScalaVersions: List[String]
   ): WorkspaceSettings = {
-    WorkspaceSettings(Some(semanticDBVersion), Some(supportedScalaVersions), None, None)
+    WorkspaceSettings(
+      Some(javaSemanticDBVersion),
+      Some(scalaSemanticDBVersion),
+      Some(supportedScalaVersions),
+      None,
+      None
+    )
   }
 
   /** Represents the supported changes in the workspace. */

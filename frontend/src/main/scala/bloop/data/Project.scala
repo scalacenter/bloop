@@ -354,10 +354,12 @@ object Project {
   def enableMetalsSettings(
       project: Project,
       configDir: AbsolutePath,
-      semanticDBPlugin: Option[AbsolutePath],
+      scalaSemanticDBPlugin: Option[AbsolutePath],
+      javaSemanticDBPlugin: Option[AbsolutePath],
       logger: Logger
   ): Project = {
     val workspaceDir = project.workspaceDirectory.getOrElse(configDir.getParent)
+    val genericClassesDir = project.genericClassesDir
     val isDotty = project.scalaInstance.exists(_.isDotty)
 
     def isAtLeastScala3M3(version: String) = {
@@ -366,7 +368,7 @@ object Project {
       version != "3.0.0-M2"
     }
 
-    def enableSemanticdb(options: List[String], pluginPath: AbsolutePath): List[String] = {
+    def enableScalaSemanticdb(options: List[String], pluginPath: AbsolutePath): List[String] = {
       val baseSemanticdbOptions = List(
         "-P:semanticdb:failures:warning",
         "-P:semanticdb:synthetics:on",
@@ -374,10 +376,10 @@ object Project {
       )
       // TODO: Handle user-configured `targetroot`s inside Bloop's compilation
       // engine so that semanticdb files are replicated in those directories
-      val hasSemanticDB = hasSemanticDBEnabledInCompilerOptions(options)
+      val hasSemanticDB = hasScalaSemanticDBEnabledInCompilerOptions(options)
       val pluginOption = if (hasSemanticDB) Nil else List(s"-Xplugin:$pluginPath")
       val baseOptions = s"-P:semanticdb:sourceroot:$workspaceDir" :: options.filterNot(
-        isSemanticdbSourceRoot
+        isScalaSemanticdbSourceRoot
       )
       (baseOptions ++ baseSemanticdbOptions ++ pluginOption).distinct
     }
@@ -396,33 +398,67 @@ object Project {
       options ++ ysemanticdb ++ sourceRoot
     }
 
+    def enableJavaSemanticdbOptions(options: List[String]): List[String] = {
+      if (hasJavaSemanticDBEnabledInCompilerOptions(options)) options
+      else
+        // targetroot is added in Compiler.scala as it depends on Bloop client.
+        s"-Xplugin:semanticdb -sourceroot:${workspaceDir}" :: options
+    }
+
+    def enableJavaSemanticdbClasspath(
+        pluginPath: AbsolutePath,
+        classpath: List[AbsolutePath]
+    ): List[AbsolutePath] = {
+      if (classpath.contains(pluginPath)) classpath else pluginPath :: classpath
+    }
+
     def enableRangePositions(options: List[String]): List[String] = {
       val hasYrangepos = options.exists(_.contains("-Yrangepos"))
       if (hasYrangepos || isDotty) options else options :+ "-Yrangepos"
     }
 
     val projectWithRangePositions =
-      project.copy(scalacOptions = enableRangePositions(project.scalacOptions))
+      if (project.scalaInstance.nonEmpty)
+        project.copy(scalacOptions = enableRangePositions(project.scalacOptions))
+      else
+        project
 
-    val options = projectWithRangePositions.scalacOptions
+    val rangedScalacOptions = projectWithRangePositions.scalacOptions
+    val javacOptions = projectWithRangePositions.javacOptions
 
-    semanticDBPlugin match {
+    val scalaProjectWithRangePositions = scalaSemanticDBPlugin match {
       case _ if isDotty =>
-        val optionsWithSemanticDB = enableDottySemanticdb(options)
-        projectWithRangePositions.copy(scalacOptions = optionsWithSemanticDB)
+        val scalacOptionsWithSemanticDB = enableDottySemanticdb(rangedScalacOptions)
+        projectWithRangePositions.copy(scalacOptions = scalacOptionsWithSemanticDB)
       case None =>
         projectWithRangePositions
       case Some(pluginPath) =>
-        val optionsWithSemanticDB = enableSemanticdb(options, pluginPath)
-        projectWithRangePositions.copy(scalacOptions = optionsWithSemanticDB)
+        val scalacOptionsWithSemanticDB = enableScalaSemanticdb(rangedScalacOptions, pluginPath)
+        projectWithRangePositions.copy(scalacOptions = scalacOptionsWithSemanticDB)
+    }
+    javaSemanticDBPlugin match {
+      case None =>
+        scalaProjectWithRangePositions
+      case Some(pluginPath) =>
+        val javacOptionsWithSemanticDB = enableJavaSemanticdbOptions(javacOptions)
+        val classpathWithSemanticDB =
+          enableJavaSemanticdbClasspath(pluginPath, scalaProjectWithRangePositions.rawClasspath)
+        scalaProjectWithRangePositions.copy(
+          javacOptions = javacOptionsWithSemanticDB,
+          rawClasspath = classpathWithSemanticDB
+        )
     }
   }
 
-  def hasSemanticDBEnabledInCompilerOptions(options: List[String]): Boolean = {
+  def hasScalaSemanticDBEnabledInCompilerOptions(options: List[String]): Boolean = {
     options.exists(opt => opt.contains("-Xplugin") && opt.contains("semanticdb-scalac"))
   }
 
-  def isSemanticdbSourceRoot(option: String): Boolean = {
+  def hasJavaSemanticDBEnabledInCompilerOptions(options: List[String]): Boolean = {
+    options.exists(f => f.contains("-Xplugin") && f.contains("semanticdb"))
+  }
+
+  def isScalaSemanticdbSourceRoot(option: String): Boolean = {
     option.contains("semanticdb:sourceroot")
   }
 

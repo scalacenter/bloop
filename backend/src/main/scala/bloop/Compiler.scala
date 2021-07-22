@@ -293,13 +293,24 @@ object Compiler {
       if (isFatalWarningsEnabled)
         inputs.reporter.enableFatalWarnings()
 
+      // targetroot is currently needed here because classes out dir varies per BSP client
+      val javaPluginIdx = inputs.javacOptions.indexWhere(f =>
+        f.contains("-Xplugin:") && f.contains("semanticdb") && !f.contains("-targetroot:")
+      )
+      val substitutedJavaOptions = if (javaPluginIdx > -1) {
+        val newJavacOptions = inputs.javacOptions.clone()
+        newJavacOptions(javaPluginIdx) =
+          s"${inputs.javacOptions(javaPluginIdx)} -targetroot:$newClassesDir"
+        newJavacOptions
+      } else inputs.javacOptions
+
       CompileOptions
         .create()
         .withClassesDirectory(newClassesDir.toFile)
         .withSources(sources.map(_.toFile))
         .withClasspath(classpath)
         .withScalacOptions(optionsWithoutFatalWarnings)
-        .withJavacOptions(inputs.javacOptions)
+        .withJavacOptions(substitutedJavaOptions)
         .withClasspathOptions(inputs.classpathOptions)
         .withOrder(inputs.compileOrder)
     }
