@@ -401,8 +401,7 @@ object Project {
     def enableJavaSemanticdbOptions(options: List[String]): List[String] = {
       if (hasJavaSemanticDBEnabledInCompilerOptions(options)) options
       else
-        // targetroot is added in Compiler.scala as it depends on Bloop client.
-        s"-Xplugin:semanticdb -sourceroot:${workspaceDir}" :: options
+        s"-Xplugin:semanticdb -sourceroot:${workspaceDir} -targetroot:javac-classes-directory" :: options
     }
 
     def enableJavaSemanticdbClasspath(
