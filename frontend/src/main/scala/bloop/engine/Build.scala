@@ -109,7 +109,6 @@ final case class Build private (
           case Some(LoadedProject.ConfiguredProject(project, original, settings)) =>
             findUpdateSettingsAction(Some(settings), settingsForReload) match {
               case Build.AvoidReload(_) =>
-                // TODO - should this be || or && ??
                 val reattemptConfiguration = newSettings.nonEmpty &&
                   (!Project.hasScalaSemanticDBEnabledInCompilerOptions(project.scalacOptions) ||
                     !Project.hasJavaSemanticDBEnabledInCompilerOptions(project.javacOptions))

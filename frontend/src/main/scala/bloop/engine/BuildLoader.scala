@@ -71,7 +71,7 @@ object BuildLoader {
         settingsForLoad.flatMap(_.withSemanticdbSettings) match {
           case None =>
             Task.now(projectsRequiringMetalsTransformation.map(LoadedProject.RawProject(_)))
-          case Some((settings, semanticdb: SemanticdbSettings)) =>
+          case Some((settings, semanticdb)) =>
             resolveSemanticDBForProjects(
               projectsRequiringMetalsTransformation,
               configDir,
@@ -207,10 +207,10 @@ object BuildLoader {
   }
   private def tryEnablingScalaSemanticDB(
       projects: List[Project],
-      scalaVersion: String,
-      scalaSemanticdbSettings: ScalaSemanticdbSettings,
+      scalaSemanticdbVersionAndSettings: (String, ScalaSemanticdbSettings),
       logger: Logger
   ): Option[AbsolutePath] = {
+    val (scalaVersion, scalaSemanticdbSettings) = scalaSemanticdbVersionAndSettings
     // Recognize 2.12.8-abdcddd as supported if 2.12.8 exists in supported versions
     val isUnsupportedVersion =
       !scalaSemanticdbSettings.supportedScalaVersions.exists(scalaVersion.startsWith(_))
@@ -244,30 +244,11 @@ object BuildLoader {
       enableMetals: (Option[AbsolutePath], Option[AbsolutePath]) => T
   ): Coeval[T] = {
     Coeval.eval {
-      if (javaSemanticSettings.nonEmpty) {
-        val javaSemanticdbPath =
-          tryEnablingJavaSemanticDB(projects, javaSemanticSettings.get, logger)
-        if (scalaSemanticdbVersionAndSettings.nonEmpty) {
-          val scalaSemanticdbPath =
-            tryEnablingScalaSemanticDB(
-              projects,
-              scalaSemanticdbVersionAndSettings.get._1,
-              scalaSemanticdbVersionAndSettings.get._2,
-              logger
-            )
-          enableMetals(scalaSemanticdbPath, javaSemanticdbPath)
-        } else enableMetals(None, javaSemanticdbPath)
-      } else if (scalaSemanticdbVersionAndSettings.nonEmpty) {
-        val scalaSemanticdbPath =
-          tryEnablingScalaSemanticDB(
-            projects,
-            scalaSemanticdbVersionAndSettings.get._1,
-            scalaSemanticdbVersionAndSettings.get._2,
-            logger
-          )
-        enableMetals(scalaSemanticdbPath, None)
-      } else
-        enableMetals(None, None)
+      val javaSemanticdbPath =
+        javaSemanticSettings.flatMap(tryEnablingJavaSemanticDB(projects, _, logger))
+      val scalaSemanticdbPath =
+        scalaSemanticdbVersionAndSettings.flatMap(tryEnablingScalaSemanticDB(projects, _, logger))
+      enableMetals(scalaSemanticdbPath, javaSemanticdbPath)
     }
   }
 

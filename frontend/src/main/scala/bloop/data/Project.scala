@@ -359,7 +359,6 @@ object Project {
       logger: Logger
   ): Project = {
     val workspaceDir = project.workspaceDirectory.getOrElse(configDir.getParent)
-    val genericClassesDir = project.genericClassesDir
     val isDotty = project.scalaInstance.exists(_.isDotty)
 
     def isAtLeastScala3M3(version: String) = {
