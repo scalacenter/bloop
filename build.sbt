@@ -299,7 +299,6 @@ lazy val frontend: Project = project
       Dependencies.scalazCore,
       Dependencies.monix,
       Dependencies.caseApp,
-      Dependencies.nuprocess,
       Dependencies.scalaDebugAdapter
     ),
     dependencyOverrides += Dependencies.shapeless
@@ -405,7 +404,6 @@ def shadeSettingsForModule(moduleId: String, module: Reference) = List(
     "org.slf4j",
     "scopt",
     "macrocompat",
-    "com.zaxxer.nuprocess",
     "com.github.plokhotnyuk.jsoniter_scala",
     // Coursier direct and transitive deps
     "coursier",
@@ -559,7 +557,6 @@ def shadeSbtSettingsForModule(
       "org.slf4j",
       "scopt",
       "macrocompat",
-      "com.zaxxer.nuprocess",
       "coursier",
       "shapeless",
       "argonaut",
@@ -711,8 +708,7 @@ lazy val buildpress = project
   .settings(
     scalaVersion := Scala212Version,
     libraryDependencies ++= List(
-      Dependencies.caseApp,
-      Dependencies.nuprocess
+      Dependencies.caseApp
     )
   )
 
