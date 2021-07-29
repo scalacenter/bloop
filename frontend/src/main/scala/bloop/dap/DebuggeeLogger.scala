@@ -36,7 +36,8 @@ class DebuggeeLogger(listener: DebuggeeListener, underlying: Logger) extends Log
   }
 
   override def info(msg: String): Unit = {
-    underlying.info(msg)
+    // don't log program output by default, since it can be long
+    underlying.debug(msg)(debugFilter)
     // Expect the first log to be JDI notification since debuggee runs with `quiet=n` JDI option
     if (msg.startsWith(JDINotificationPrefix)) {
       if (initialized.compareAndSet(false, true)) {
