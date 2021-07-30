@@ -140,7 +140,7 @@ object CompilerPluginWhitelist {
                     .map(group => Task.parSequenceUnordered(group))
                 }
 
-                Task.sequence(blockingBatches).map(_.flatten).map { _ =>
+                Task.sequence(blockingBatches.toIndexedSeq).map(_.flatten).map { _ =>
                   val enableCacheFlag = cachePluginResults.forall(_ == true)
                   if (!enableCacheFlag) scalacOptions
                   else "-Ycache-plugin-class-loader:last-modified" :: scalacOptions
