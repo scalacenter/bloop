@@ -8,7 +8,7 @@ import com.microsoft.java.debug.core.protocol.Messages.ProtocolMessage
 import com.microsoft.java.debug.core.protocol.{JsonUtils, Messages}
 import monix.eval.Task
 import monix.execution.{Ack, Scheduler}
-import monix.reactive.observables.ObservableLike.Operator
+import monix.reactive.Observable.Operator
 import monix.reactive.observers.Subscriber
 import monix.reactive.{Observable, Observer}
 
