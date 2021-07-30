@@ -179,7 +179,9 @@ object CompileTask {
                       logger
                     )
                     .doOnFinish(_ => Task(compileProjectTracer.terminate()))
-                postCompilationTasks.runAsync(ExecutionContext.ioScheduler)
+                postCompilationTasks
+                  .executeWithOptions(_.disableAutoCancelableRunLoops)
+                  .runAsync(ExecutionContext.ioScheduler)
               }
 
               // Populate the last successful result if result was success
@@ -257,7 +259,7 @@ object CompileTask {
     CompileGraph.traverse(dag, client, store, setup(_), compile(_)).flatMap { pdag =>
       val partialResults = Dag.dfs(pdag)
       val finalResults = partialResults.map(r => PartialCompileResult.toFinalResult(r))
-      Task.gatherUnordered(finalResults).map(_.flatten).flatMap { results =>
+      Task.parSequenceUnordered(finalResults).map(_.flatten).flatMap { results =>
         val cleanUpTasksToRunInBackground =
           markUnusedClassesDirAndCollectCleanUpTasks(results, rawLogger)
 
@@ -389,9 +391,15 @@ object CompileTask {
       parallelUnits: Int = Runtime.getRuntime().availableProcessors()
   ): Unit = {
     val aggregatedTask = Task.sequence(
-      tasks.toList.grouped(parallelUnits).map(group => Task.gatherUnordered(group))
+      tasks.toList
+        .grouped(parallelUnits)
+        .map(group => Task.parSequenceUnordered(group))
+        .toIndexedSeq
     )
-    aggregatedTask.map(_ => ()).runAsync(ExecutionContext.ioScheduler)
+    aggregatedTask
+      .map(_ => ())
+      .executeWithOptions(_.disableAutoCancelableRunLoops)
+      .runAsync(ExecutionContext.ioScheduler)
     ()
   }
 

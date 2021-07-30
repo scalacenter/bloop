@@ -2,8 +2,6 @@ package bloop.logging
 
 import java.util.concurrent.atomic.AtomicInteger
 
-import scala.meta.jsonrpc.JsonRpcClient
-
 import ch.epfl.scala.bsp
 import ch.epfl.scala.bsp.BuildTargetIdentifier
 import ch.epfl.scala.bsp.DiagnosticSeverity
@@ -12,6 +10,10 @@ import ch.epfl.scala.bsp.endpoints.Build
 
 import bloop.engine.State
 
+import com.github.plokhotnyuk.jsoniter_scala.core._
+import com.github.plokhotnyuk.jsoniter_scala.macros.JsonCodecMaker
+import jsonrpc4s.RawJson
+import jsonrpc4s.RpcClient
 import monix.execution.atomic.AtomicInt
 import sbt.internal.inc.bloop.ZincInternals
 import xsbti.Severity
@@ -26,7 +28,7 @@ import xsbti.Severity
 final class BspServerLogger private (
     override val name: String,
     private[bloop] val underlying: Logger,
-    implicit val client: JsonRpcClient,
+    implicit val client: RpcClient,
     taskIdCounter: AtomicInt,
     ansiSupported: Boolean,
     val originId: Option[String]
@@ -167,7 +169,7 @@ final class BspServerLogger private (
   private def now: Long = System.currentTimeMillis()
 
   def publishCompilationStart(event: CompilationEvent.StartCompilation): Unit = {
-    val json = bsp.CompileTask.encodeCompileTask(
+    val encoded = writeToArray(
       bsp.CompileTask(bsp.BuildTargetIdentifier(event.projectUri))
     )
 
@@ -177,24 +179,23 @@ final class BspServerLogger private (
         Some(now),
         Some(event.msg),
         Some(bsp.TaskDataKind.CompileTask),
-        Some(json)
+        Some(RawJson(encoded))
       )
     )
     ()
   }
 
-  import io.circe.ObjectEncoder
   private case class BloopProgress(
       target: BuildTargetIdentifier
   )
 
-  private implicit val bloopProgressEncoder: ObjectEncoder[BloopProgress] =
-    io.circe.derivation.deriveEncoder
+  private implicit val codec: JsonValueCodec[BloopProgress] =
+    JsonCodecMaker.makeWithRequiredCollectionFields
 
   /** Publish a compile progress notification to the client via BSP every 5% progress increments. */
   def publishCompilationProgress(event: CompilationEvent.ProgressCompilation): Unit = {
     val msg = s"Compiling ${event.projectName} (${event.percentage}%)"
-    val json = bloopProgressEncoder(BloopProgress(bsp.BuildTargetIdentifier(event.projectUri)))
+    val encoded = writeToArray(BloopProgress(bsp.BuildTargetIdentifier(event.projectUri)))
     Build.taskProgress.notify(
       bsp.TaskProgressParams(
         event.taskId,
@@ -204,7 +205,7 @@ final class BspServerLogger private (
         Some(event.progress),
         None,
         Some("bloop-progress"),
-        Some(json)
+        Some(RawJson(encoded))
       )
     )
     ()
@@ -213,7 +214,7 @@ final class BspServerLogger private (
   def publishCompilationEnd(event: CompilationEvent.EndCompilation): Unit = {
     val errors = event.problems.count(_.severity == Severity.Error)
     val warnings = event.problems.count(_.severity == Severity.Warn)
-    val json = BspServerLogger.BloopCompileReport.encoder(
+    val encoded = writeToArray(
       BspServerLogger.BloopCompileReport(
         bsp.BuildTargetIdentifier(event.projectUri),
         originId,
@@ -234,7 +235,7 @@ final class BspServerLogger private (
         Some(s"Compiled '${event.projectName}'"),
         event.code,
         Some(bsp.TaskDataKind.CompileReport),
-        Some(json)
+        Some(RawJson(encoded))
       )
     )
     ()
@@ -246,7 +247,7 @@ object BspServerLogger {
 
   def apply(
       state: State,
-      client: JsonRpcClient,
+      client: RpcClient,
       taskIdCounter: AtomicInt,
       ansiCodesSupported: Boolean
   ): BspServerLogger = {
@@ -274,9 +275,7 @@ object BspServerLogger {
   )
 
   object BloopCompileReport {
-    import io.circe.{RootEncoder, Decoder}
-    import io.circe.derivation._
-    val encoder: RootEncoder[BloopCompileReport] = deriveEncoder
-    val decoder: Decoder[BloopCompileReport] = deriveDecoder
+    implicit val codec: JsonValueCodec[BloopCompileReport] =
+      JsonCodecMaker.makeWithRequiredCollectionFields
   }
 }

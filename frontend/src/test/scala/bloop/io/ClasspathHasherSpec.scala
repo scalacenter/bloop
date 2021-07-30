@@ -35,10 +35,13 @@ object ClasspathHasherSpec extends bloop.testing.BaseSuite {
       ClasspathHasher.hash(jars, 2, cancelPromise, ioScheduler, logger, tracer, System.out)
     val competingHashClasspathTask =
       ClasspathHasher.hash(jars, 2, cancelPromise2, ioScheduler, logger, tracer, System.out)
-    val running = hashClasspathTask.runAsync(ioScheduler)
+    val running =
+      hashClasspathTask.executeWithOptions(_.disableAutoCancelableRunLoops).runAsync(ioScheduler)
 
     Thread.sleep(10)
-    val running2 = competingHashClasspathTask.runAsync(ioScheduler)
+    val running2 = competingHashClasspathTask
+      .executeWithOptions(_.disableAutoCancelableRunLoops)
+      .runAsync(ioScheduler)
 
     Thread.sleep(5)
     running.cancel()

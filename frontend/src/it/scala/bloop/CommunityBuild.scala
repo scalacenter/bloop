@@ -25,7 +25,7 @@ import bloop.engine.caches.ResultsCache
 import bloop.io.AbsolutePath
 import bloop.logging.{BloopLogger, Logger, NoopLogger}
 import monix.eval.Task
-import monix.execution.misc.NonFatal
+import scala.util.control.NonFatal
 import bloop.engine.tasks.compilation.CompileGatekeeper
 import sbt.internal.inc.BloopComponentCompiler
 
@@ -206,7 +206,8 @@ abstract class CommunityBuild(val buildpressHomeDir: AbsolutePath) {
 
   private def execute(a: Action, state: State, duration: Duration = Duration.Inf): State = {
     val task = Interpreter.execute(a, Task.now(state))
-    val handle = task.runAsync(ExecutionContext.scheduler)
+    val handle =
+      task.executeWithOptions(_.disableAutoCancelableRunLoops).runAsync(ExecutionContext.scheduler)
     try Await.result(handle, duration)
     catch {
       case NonFatal(t) => handle.cancel(); throw t

@@ -445,10 +445,10 @@ object Cli {
 
       val groups = deleteTasks
         .grouped(4)
-        .map(group => Task.gatherUnordered(group).map(_ => ()))
+        .map(group => Task.parSequenceUnordered(group).map(_ => ()))
 
       Task
-        .sequence(groups)
+        .sequence(groups.toIndexedSeq)
         .map(_ => ())
         .executeOn(ExecutionContext.ioScheduler)
     }
@@ -476,6 +476,7 @@ object Cli {
         .flatMap(start => task.materialize.map(s => (s, start)))
         .map { case (state, start) => logElapsed(start); state }
         .dematerialize
+        .executeWithOptions(_.disableAutoCancelableRunLoops)
         .runAsync(ExecutionContext.scheduler)
 
     if (!cancel.isDone) {
@@ -491,6 +492,7 @@ object Cli {
             handle.cancel()
           }
         }
+        .executeWithOptions(_.disableAutoCancelableRunLoops)
         .runAsync(ExecutionContext.ioScheduler)
     }
 

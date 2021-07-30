@@ -106,7 +106,7 @@ object CompilerPluginAllowlist {
           tracer.traceTaskVerbose("enabling plugin caching") { tracer =>
             // Consumers are processed with `foreachParallel`, so we side-effect on `cachePluginResults`
             val parallelConsumer = {
-              Consumer.foreachParallelAsync[WorkItem](parallelUnits) {
+              Consumer.foreachParallelTask[WorkItem](parallelUnits) {
                 case WorkItem(pluginCompilerFlag, idx, p) =>
                   shouldCachePlugin(pluginCompilerFlag, tracer, logger).materialize.map {
                     case scala.util.Success(cache) =>
@@ -143,10 +143,10 @@ object CompilerPluginAllowlist {
                 val blockingBatches = {
                   acquiredByOtherTasks.toList
                     .grouped(parallelUnits)
-                    .map(group => Task.gatherUnordered(group))
+                    .map(group => Task.parSequenceUnordered(group))
                 }
 
-                Task.sequence(blockingBatches).map(_.flatten).map { _ =>
+                Task.sequence(blockingBatches.toIndexedSeq).map(_.flatten).map { _ =>
                   val enableCacheFlag = cachePluginResults.forall(_ == true)
                   if (!enableCacheFlag) scalacOptions
                   else "-Ycache-plugin-class-loader:last-modified" :: scalacOptions

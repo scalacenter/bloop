@@ -5,3 +5,4 @@ object App {
     println("Allowed application was compiled successfully v3.0")
   }
 }
+        

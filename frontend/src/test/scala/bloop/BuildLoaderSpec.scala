@@ -233,7 +233,7 @@ object BuildLoaderSpec extends BaseSuite {
     }
 
     Task
-      .gatherUnordered(changes)
+      .parSequenceUnordered(changes)
       .flatMap { _ =>
         testBuild.state.build.checkForChange(None, logger).map {
           case action: Build.UpdateState =>

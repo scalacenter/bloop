@@ -13,6 +13,7 @@ import java.util.zip.ZipEntry
 
 import scala.collection.mutable
 import scala.concurrent.Promise
+import scala.util.control.NonFatal
 
 import bloop.logging.Logger
 import bloop.tracing.BraveTracer
@@ -76,7 +77,7 @@ object ClasspathHasher {
 
     val isCancelled = AtomicBoolean(false)
     val parallelConsumer = {
-      Consumer.foreachParallelAsync[AcquiredTask](parallelUnits) {
+      Consumer.foreachParallelTask[AcquiredTask](parallelUnits) {
         case AcquiredTask(path, idx, p) =>
           // Use task.now because Monix's load balancer already forces an async boundary
           val hashingTask = Task.now {
@@ -108,7 +109,7 @@ object ClasspathHasher {
                 }
               } catch {
                 // Can happen when a file doesn't exist, for example
-                case monix.execution.misc.NonFatal(_) => BloopStamps.emptyHash(path)
+                case NonFatal(t) => BloopStamps.emptyHash(path)
               }
             classpathHashes(idx) = hash
             hashingPromises.remove(path, p)
@@ -277,6 +278,6 @@ object ClasspathHasher {
       }
     }
 
-    Task.gatherUnordered(classpath.map(readJar(_)))
+    Task.parSequenceUnordered(classpath.map(readJar(_)))
   }
 }

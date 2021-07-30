@@ -2,13 +2,14 @@ package bloop.tracing
 
 import java.util.concurrent.ConcurrentHashMap
 
+import scala.util.control.NonFatal
+
 import brave.Span
 import brave.Tracer
 import brave.propagation.SamplingFlags
 import brave.propagation.TraceContext
 import brave.propagation.TraceContextOrSamplingFlags
 import monix.eval.Task
-import monix.execution.misc.NonFatal
 import zipkin2.codec.SpanBytesEncoder.JSON_V1
 import zipkin2.codec.SpanBytesEncoder.JSON_V2
 

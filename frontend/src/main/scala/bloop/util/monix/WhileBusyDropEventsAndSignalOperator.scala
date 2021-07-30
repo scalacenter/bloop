@@ -4,12 +4,12 @@ import scala.collection.mutable
 import scala.concurrent.Future
 import scala.util.Failure
 import scala.util.Success
+import scala.util.control.NonFatal
 
 import monix.execution.Ack
 import monix.execution.Ack.Continue
 import monix.execution.Ack.Stop
-import monix.execution.misc.NonFatal
-import monix.reactive.observables.ObservableLike.Operator
+import monix.reactive.Observable.Operator
 import monix.reactive.observers.Subscriber
 
 final class BloopWhileBusyDropEventsAndSignalOperator[A](onOverflow: Seq[A] => A)

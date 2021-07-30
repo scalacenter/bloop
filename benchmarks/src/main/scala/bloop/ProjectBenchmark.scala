@@ -5,6 +5,7 @@ import java.util.concurrent.TimeUnit
 
 import scala.concurrent.Await
 import scala.concurrent.duration.FiniteDuration
+import scala.util.control.NonFatal
 
 import bloop.cli.CommonOptions
 import bloop.data.ClientInfo
@@ -13,7 +14,6 @@ import bloop.engine.NoPool
 import bloop.io.AbsolutePath
 import bloop.logging.NoopLogger
 
-import monix.execution.misc.NonFatal
 import org.openjdk.jmh.annotations.Benchmark
 import org.openjdk.jmh.annotations.Mode.SampleTime
 import org.openjdk.jmh.annotations._
@@ -30,7 +30,8 @@ class ProjectBenchmark {
     val client = ClientInfo.CliClientInfo(useStableCliDirs = true, () => true)
     val t = State.loadActiveStateFor(configDir, client, NoPool, CommonOptions.default, NoopLogger)
     val duration = FiniteDuration(10, TimeUnit.SECONDS)
-    val handle = t.runAsync(ExecutionContext.scheduler)
+    val handle =
+      t.executeWithOptions(_.disableAutoCancelableRunLoops).runAsync(ExecutionContext.scheduler)
     try Await.result(handle, duration)
     catch {
       case NonFatal(t) => handle.cancel(); throw t

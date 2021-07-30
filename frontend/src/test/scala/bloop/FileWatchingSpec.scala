@@ -3,6 +3,7 @@ package bloop
 import java.util.concurrent.TimeUnit
 
 import scala.concurrent.duration.FiniteDuration
+import scala.util.control.NonFatal
 
 import bloop.cli.ExitStatus
 import bloop.config.Config
@@ -19,7 +20,6 @@ import bloop.util.TestProject
 import bloop.util.TestUtil
 
 import monix.eval.Task
-import monix.execution.misc.NonFatal
 import monix.reactive.MulticastStrategy
 import monix.reactive.Observable
 
@@ -488,7 +488,7 @@ object FileWatchingSpec extends BaseSuite {
       ()
     }
 
-    val f = Task.mapBoth(consumingTask, createEvents)((_: Unit, _: Unit) => ()).runAsync
+    val f = Task.mapBoth(consumingTask, createEvents)((_: Unit, _: Unit) => ()).runToFuture
     scala.concurrent.Await.result(f, 2.second)
     println(received.toString)
   }

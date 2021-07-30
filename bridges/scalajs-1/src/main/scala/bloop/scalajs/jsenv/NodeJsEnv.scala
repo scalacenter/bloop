@@ -284,6 +284,7 @@ object NodeJSEnv {
           },
           debugLog = msg => logger.debug(msg)
         )
+        .executeWithOptions(_.disableAutoCancelableRunLoops)
         .runAsync(ExecutionContext.ioScheduler)
 
     new JSRun {

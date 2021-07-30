@@ -162,7 +162,9 @@ object TestInternals {
       runTask.map(exitCode => Forker.exitStatus(exitCode).code)
     }
 
-    val listenerHandle = listener.reporter.runAsync(ExecutionContext.ioScheduler)
+    val listenerHandle = listener.reporter
+      .executeWithOptions(_.disableAutoCancelableRunLoops)
+      .runAsync(ExecutionContext.ioScheduler)
 
     def cancel(): Unit = {
       if (!cancelled.getAndSet(true)) {

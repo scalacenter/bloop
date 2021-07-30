@@ -8,6 +8,7 @@ import java.util.concurrent.ConcurrentHashMap
 import scala.collection.mutable
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
+import scala.util.control.NonFatal
 
 import bloop.CompileOutPaths
 import bloop.CompileProducts
@@ -31,7 +32,6 @@ import bloop.reporter.LogReporter
 import bloop.reporter.ReporterConfig
 
 import monix.eval.Task
-import monix.execution.misc.NonFatal
 import sbt.internal.inc.Analysis
 import sbt.internal.inc.FileAnalysisStore
 import xsbti.compile.PreviousResult
@@ -141,7 +141,12 @@ object ResultsCache {
       logger: Logger
   ): ResultsCache = {
     val handle = loadAsync(build, cwd, cleanOrphanedInternalDirs, logger)
-    Await.result(handle.runAsync(ExecutionContext.ioScheduler), Duration.Inf)
+    Await.result(
+      handle
+        .executeWithOptions(_.disableAutoCancelableRunLoops)
+        .runAsync(ExecutionContext.ioScheduler),
+      Duration.Inf
+    )
   }
 
   def loadAsync(
@@ -275,7 +280,7 @@ object ResultsCache {
 
     val projects = build.loadedProjects.map(_.project)
     val all = projects.map(p => fetchPreviousResult(p).map(r => p -> r))
-    Task.gatherUnordered(all).executeOn(ExecutionContext.ioScheduler).map { projectResults =>
+    Task.parSequenceUnordered(all).executeOn(ExecutionContext.ioScheduler).map { projectResults =>
       val newCache = new ResultsCache(Map.empty, Map.empty)
       val cleanupTasks = new mutable.ListBuffer[Task[Unit]]()
       val results = projectResults.foldLeft(newCache) {
@@ -285,7 +290,11 @@ object ResultsCache {
       }
 
       // Spawn the cleanup tasks sequentially in the background and forget about it
-      Task.sequence(cleanupTasks).materialize.runAsync(ExecutionContext.ioScheduler)
+      Task
+        .sequence(cleanupTasks)
+        .materialize
+        .executeWithOptions(_.disableAutoCancelableRunLoops)
+        .runAsync(ExecutionContext.ioScheduler)
 
       // Return the collected results per project
       results

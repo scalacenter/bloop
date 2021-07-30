@@ -197,7 +197,7 @@ abstract class LauncherBaseSuite(
     )
     val run = new LauncherRun(launcher, baos)
 
-    import monix.execution.misc.NonFatal
+    import scala.util.control.NonFatal
     try launcherLogic(run)
     catch {
       case NonFatal(t) =>
@@ -219,25 +219,25 @@ abstract class LauncherBaseSuite(
 
   import bloop.logging.BspClientLogger
   import monix.eval.Task
-  import scala.meta.jsonrpc.BaseProtocolMessage
   import bloop.util.TestUtil
-  import scala.meta.jsonrpc.Response
-  import bloop.bsp.BloopLanguageClient
+  import jsonrpc4s._
+
   def startBspInitializeHandshake[T](
       in: InputStream,
       out: OutputStream,
       logger: BspClientLogger[_]
-  )(runEndpoints: BloopLanguageClient => Task[Either[Response.Error, T]]): Task[T] = {
+  )(runEndpoints: RpcClient => Task[Either[Response.Error, T]]): Task[T] = {
     import ch.epfl.scala.bsp
     import ch.epfl.scala.bsp.endpoints
-    import bloop.bsp.BloopLanguageClient
     import bloop.bsp.BloopLanguageServer
-    implicit val lsClient = new BloopLanguageClient(out, logger)
-    val messages = BaseProtocolMessage.fromInputStream(in, logger)
+    implicit val lsClient = RpcClient.fromOutputStream(out, logger)
+    val messages = LowLevelMessage
+      .fromInputStream(in, logger)
+      .mapEval(msg => Task(LowLevelMessage.toMsg(msg)))
     val services = TestUtil.createTestServices(false, logger)
     val lsServer = new BloopLanguageServer(messages, lsClient, services, bspScheduler, logger)
-
-    lsServer.startTask.runAsync(bspScheduler)
+    val runningClientServer =
+      lsServer.startTask.executeWithOptions(_.disableAutoCancelableRunLoops).runAsync(bspScheduler)
 
     val initializeServer = endpoints.Build.initialize.request(
       bsp.InitializeBuildParams(
@@ -309,7 +309,8 @@ abstract class LauncherBaseSuite(
       }
     }
 
-    val runServer = startServer.runAsync(bspScheduler)
+    val runServer =
+      startServer.executeWithOptions(_.disableAutoCancelableRunLoops).runAsync(bspScheduler)
 
     val logger = new RecordingLogger()
     val connectToServer = Task.fromFuture(startedServer.future).flatMap { _ =>

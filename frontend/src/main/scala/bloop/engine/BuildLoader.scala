@@ -59,7 +59,7 @@ object BuildLoader {
       val loadMsg = s"Loading ${configs.length} projects from '${configDir.syntax}'..."
       logger.debug(loadMsg)(DebugFilter.All)
       val rawProjects = configs.map(f => Task(loadProject(f.bytes, f.origin, logger)))
-      val groupTasks = rawProjects.grouped(10).map(group => Task.gatherUnordered(group)).toList
+      val groupTasks = rawProjects.grouped(10).map(group => Task.parSequenceUnordered(group)).toList
       val newOrModifiedRawProjects = Task.sequence(groupTasks).map(fp => fp.flatten)
 
       newOrModifiedRawProjects.flatMap { projects =>
@@ -130,7 +130,7 @@ object BuildLoader {
         }.task
     }
 
-    Task.gatherUnordered(enableMetalsInProjectsTask).map(_.flatten)
+    Task.parSequenceUnordered(enableMetalsInProjectsTask).map(_.flatten)
   }
 
   /**
@@ -181,8 +181,8 @@ object BuildLoader {
             )
           }
 
-          // Run coeval, we rethrow but note that `tryEnablingSemanticDB` handles errors
-          coeval.run match {
+              // Run coeval, we rethrow but note that `tryEnablingSemanticDB` handles errors
+          coeval.run.toEither match {
             case Left(value) => throw value
             case Right(value) => value
           }

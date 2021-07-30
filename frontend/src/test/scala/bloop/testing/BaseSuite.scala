@@ -6,6 +6,7 @@ import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 import scala.language.experimental.macros
 import scala.reflect.ClassTag
+import scala.util.control.NonFatal
 
 import bloop.Compiler
 import bloop.cli.ExitStatus
@@ -20,7 +21,6 @@ import bloop.util.TestProject
 import bloop.util.TestUtil
 
 import monix.eval.Task
-import monix.execution.misc.NonFatal
 import utest.TestSuite
 import utest.Tests
 import utest.asserts.Asserts
@@ -568,7 +568,12 @@ abstract class BaseSuite extends TestSuite with BloopHelpers {
       run: => Unit
   ): Unit = {
     test(name) {
-      Await.result(Task { run }.runAsync(ExecutionContext.scheduler), maxDuration)
+      Await.result(
+        Task { run }
+          .executeWithOptions(_.disableAutoCancelableRunLoops)
+          .runAsync(ExecutionContext.scheduler),
+        maxDuration
+      )
     }
   }
 

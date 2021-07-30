@@ -37,7 +37,8 @@ abstract class BloopDebuggeeRunner(initialState: State, ioScheduler: Scheduler)
       .map { status =>
         if (!status.isOk) throw new Exception(s"debugee failed with ${status.name}")
       }
-    DapCancellableFuture.runAsync(task, ioScheduler)
+    DapCancellableFuture
+      .runAsync(task, ioScheduler)
   }
 
   protected def start(state: State, listener: DebuggeeListener): Task[ExitStatus]

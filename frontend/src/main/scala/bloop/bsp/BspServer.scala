@@ -8,7 +8,7 @@ import java.util.concurrent.TimeUnit
 
 import scala.concurrent.Future
 import scala.concurrent.Promise
-import scala.meta.jsonrpc.BaseProtocolMessage
+import scala.util.control.NonFatal
 
 import bloop.cli.Commands
 import bloop.data.ClientInfo
@@ -20,6 +20,9 @@ import bloop.io.ServerHandle
 import bloop.logging.BspClientLogger
 import bloop.logging.DebugFilter
 
+import jsonrpc4s.LowLevelMessage
+import jsonrpc4s.Message
+import jsonrpc4s.RpcClient
 import monix.eval.Task
 import monix.execution.Ack
 import monix.execution.Cancelable
@@ -27,9 +30,8 @@ import monix.execution.Scheduler
 import monix.execution.atomic.Atomic
 import monix.execution.cancelables.AssignableCancelable
 import monix.execution.cancelables.CompositeCancelable
-import monix.execution.misc.NonFatal
+import monix.reactive.Observable
 import monix.reactive.Observer
-import monix.reactive.observables.ObservableLike
 import monix.reactive.observers.Subscriber
 import monix.reactive.subjects.BehaviorSubject
 
@@ -73,11 +75,16 @@ object BspServer {
 
       // FORMAT: OFF
       val bspLogger = new BspClientLogger(logger)
-      val client = new BloopLanguageClient(out, bspLogger)
-      val messages = BaseProtocolMessage.fromInputStream(in, bspLogger)
       val stopBspConnection = AssignableCancelable.single()
-      val provider = new BloopBspServices(state, client, config, stopBspConnection, externalObserver, isCommunicationActive, connectedBspClients, scheduler, ioScheduler)
-      val server = new BloopLanguageServer(messages, client, provider.services, ioScheduler, bspLogger)
+      val messages = LowLevelMessage
+        .fromInputStream(in, bspLogger)
+        .mapEval(msg => Task(LowLevelMessage.toMsg(msg)))
+        .executeAsync
+
+      val client = RpcClient.fromOutputStream(out, bspLogger)
+      val provider = new BloopBspServices(state, config, client, stopBspConnection, externalObserver, isCommunicationActive, connectedBspClients, scheduler, ioScheduler)
+      // In this case BloopLanguageServer doesn't use input observable
+      val server = new BloopLanguageServer(Observable.never, client, provider.services, ioScheduler, bspLogger)
       // FORMAT: ON
 
       def error(msg: String): Unit = provider.stateAfterExecution.logger.error(msg)
@@ -103,7 +110,7 @@ object BspServer {
       import monix.reactive.Observable
       import monix.reactive.MulticastStrategy
       val (bufferedObserver, endObservable) =
-        Observable.multicast(MulticastStrategy.publish[BaseProtocolMessage])(ioScheduler)
+        Observable.multicast(MulticastStrategy.publish[Message])(ioScheduler)
 
       import scala.collection.mutable
       import monix.execution.cancelables.AssignableCancelable
@@ -159,15 +166,15 @@ object BspServer {
       }
 
       import monix.reactive.Consumer
-      val singleMessageConsumer = Consumer.foreachAsync[BaseProtocolMessage] { msg =>
+      val singleMessageConsumer = Consumer.foreachTask[Message] { msg =>
         val taskToRun = {
           server
-            .handleMessage(msg)
+            .handleValidMessage(msg)
             .flatMap(msg => Task.fromFuture(client.serverRespond(msg)).map(_ => ()))
             .onErrorRecover { case NonFatal(e) => bspLogger.error("Unhandled error", e); () }
         }
 
-        val cancelable = taskToRun.runAsync(ioScheduler)
+        val cancelable = taskToRun.executeWithOptions(_.disableAutoCancelableRunLoops).runAsync(ioScheduler)
         cancelables.synchronized { cancelables.+=(cancelable) }
         Task
           .fromFuture(cancelable)
@@ -203,7 +210,7 @@ object BspServer {
         .flatMap(_ => server.awaitRunningTasks.map(_ => provider.stateAfterExecution))
 
       // Start consumer in the background and assign cancelable
-      val consumerFuture = consumingTask.runAsync(ioScheduler)
+      val consumerFuture = consumingTask.executeWithOptions(_.disableAutoCancelableRunLoops).runAsync(ioScheduler)
       stopBspConnection.:=(Cancelable(() => consumerFuture.cancel()))
 
       /*
@@ -254,7 +261,8 @@ object BspServer {
     initServer(handle, state).materialize.flatMap {
       case scala.util.Success(socket: ServerSocket) =>
         listenToConnection(handle, socket).onErrorRecoverWith {
-          case t => Task.now(state.withError(s"Exiting BSP server with ${t.getMessage}", t))
+          case t => 
+            Task.now(state.withError(s"Exiting BSP server with ${t.getMessage}", t))
         }
       case scala.util.Failure(t: Throwable) =>
         promiseWhenStarted.foreach(p => if (!p.isCompleted) p.failure(t))
@@ -292,19 +300,19 @@ object BspServer {
         }
       }
 
-      val groups = deleteExternalDirsTasks.grouped(4).map(group => Task.gatherUnordered(group))
+      val groups = deleteExternalDirsTasks.grouped(4).map(group => Task.parSequenceUnordered(group))
       Task
-        .sequence(groups)
+        .sequence(groups.toIndexedSeq)
         .map(_.flatten)
         .map(_ => ())
-        .runAsync(ExecutionContext.ioScheduler)
+        .executeWithOptions(_.disableAutoCancelableRunLoops).runAsync(ExecutionContext.ioScheduler)
 
       ()
     }
   }
 
   final class PumpOperator[A](pumpTarget: Observer.Sync[A], runningFuture: Cancelable)
-      extends ObservableLike.Operator[A, A] {
+      extends Observable.Operator[A, A] {
     def apply(out: Subscriber[A]): Subscriber[A] =
       new Subscriber[A] { self =>
         implicit val scheduler = out.scheduler

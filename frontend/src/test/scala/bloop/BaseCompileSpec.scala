@@ -10,6 +10,7 @@ import java.util.concurrent.TimeUnit
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 import scala.concurrent.duration.FiniteDuration
+import scala.util.control.NonFatal
 
 import bloop.cli.CommonOptions
 import bloop.cli.ExitStatus
@@ -29,7 +30,6 @@ import bloop.util.BuildUtil
 import bloop.util.TestUtil
 
 import monix.eval.Task
-import monix.execution.misc.NonFatal
 
 abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
   protected def TestProject: BaseTestProject
@@ -1505,8 +1505,14 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
       val compileArgs = Array("compile", "a", "--config-dir", configDir.syntax)
       val compileAction = Cli.parse(compileArgs, options)
       def runCompileAsync = Task.fork(Task.eval(Cli.run(compileAction, NoPool)))
-      val runCompile = Task.gatherUnordered(List(runCompileAsync, runCompileAsync)).map(_ => ())
-      Await.result(runCompile.runAsync(ExecutionContext.ioScheduler), FiniteDuration(10, "s"))
+      val runCompile =
+        Task.parSequenceUnordered(List(runCompileAsync, runCompileAsync)).map(_ => ())
+      Await.result(
+        runCompile
+          .executeWithOptions(_.disableAutoCancelableRunLoops)
+          .runAsync(ExecutionContext.ioScheduler),
+        FiniteDuration(10, "s")
+      )
 
       val actionsOutput = new String(testOut.toByteArray(), StandardCharsets.UTF_8)
       def removeAsciiColorCodes(line: String): String = line.replaceAll("\u001B\\[[;\\d]*m", "")

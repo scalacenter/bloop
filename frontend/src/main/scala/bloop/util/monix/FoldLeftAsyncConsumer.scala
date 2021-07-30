@@ -2,19 +2,17 @@ package bloop.util.monix
 
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.Future
+import scala.util.control.NonFatal
 
-import monix.eval.Callback
 import monix.eval.Task
 import monix.execution.Ack
 import monix.execution.Ack.Continue
 import monix.execution.Ack.Stop
+import monix.execution.Callback
 import monix.execution.Cancelable
 import monix.execution.Scheduler
 import monix.execution.cancelables.AssignableCancelable
-import monix.execution.cancelables.CompositeCancelable
-import monix.execution.misc.NonFatal
 import monix.reactive.Consumer
-import monix.reactive.Observable
 import monix.reactive.observers.Subscriber
 
 // Fork of `FoldLeftAsyncConsumer` from Monix, not thread-safe
@@ -23,7 +21,10 @@ final class FoldLeftAsyncConsumer[A, R](
     f: (R, A) => Task[R]
 ) extends Consumer[A, R] {
 
-  def createSubscriber(cb: Callback[R], s: Scheduler): (Subscriber[A], AssignableCancelable) = {
+  def createSubscriber(
+      cb: Callback[Throwable, R],
+      s: Scheduler
+  ): (Subscriber[A], AssignableCancelable) = {
     val cancelables = new ListBuffer[Cancelable]()
     val out = new Subscriber[A] {
       implicit val scheduler = s
@@ -36,15 +37,15 @@ final class FoldLeftAsyncConsumer[A, R](
           val task = f(state, elem).transform(
             update => {
               state = update
-              Continue: Continue
+              Continue
             },
             error => {
               onError(error)
-              Stop: Stop
+              Stop
             }
           )
 
-          val future = task.runAsync
+          val future = task.runToFuture
           cancelables.+=(future)
           // Unregister from the cancelables when future completes
           future.transform(
@@ -93,14 +94,6 @@ final class FoldLeftAsyncConsumer[A, R](
     }
 
     (out, cancelable)
-  }
-
-  override def apply(source: Observable[A]): Task[R] = {
-    Task.create[R] { (scheduler, cb) =>
-      val (out, consumerSubscription) = createSubscriber(cb, scheduler)
-      val sourceSubscription = source.subscribe(out)
-      CompositeCancelable(sourceSubscription, consumerSubscription)
-    }
   }
 
 }

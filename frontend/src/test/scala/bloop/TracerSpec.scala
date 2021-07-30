@@ -102,8 +102,8 @@ object TracerSpec extends BaseSuite {
 
     import bloop.engine.ExecutionContext
     import bloop.util.TestUtil
-    TestUtil.await(FiniteDuration(20, "s"), ExecutionContext.ioScheduler) {
-      Task.gatherUnordered(tasks).map(_ => ())
+    TestUtil.await(FiniteDuration(10, "s"), ExecutionContext.ioScheduler) {
+      Task.parSequenceUnordered(tasks).map(_ => ())
     }
   }
 }

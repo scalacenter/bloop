@@ -143,7 +143,7 @@ final case class Build private (
       }
     }
 
-    Task.gatherUnordered(detectedChanges).map(_.flatten).map { changes =>
+    Task.parSequenceUnordered(detectedChanges).map(_.flatten).map { changes =>
       val deleted = oldFilesMap.values.collect {
         case f if !newToAttributed.contains(f.path) => f.path
       }

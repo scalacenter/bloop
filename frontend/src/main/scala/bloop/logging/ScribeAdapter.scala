@@ -1,11 +1,11 @@
 package bloop.logging
 
+import scribe.Level
 import scribe.LogRecord
 
 trait ScribeAdapter extends scribe.LoggerSupport { self: Logger =>
   override def log[M](record: LogRecord[M]): Unit = {
-    import scribe.Level
-    val msg = record.message
+    val msg = record.logOutput.plainText
     record.level match {
       case Level.Info => info(msg)
       case Level.Error => error(msg)
@@ -14,8 +14,10 @@ trait ScribeAdapter extends scribe.LoggerSupport { self: Logger =>
       case Level.Trace =>
         record.throwable match {
           case Some(t) => trace(t)
-          case None => debug(record.message)(DebugFilter.Bsp)
+          case None => debug(msg)(DebugFilter.Bsp)
         }
+      case Level.Fatal => error(msg)
+      case _ => ()
     }
   }
 }

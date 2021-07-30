@@ -10,7 +10,7 @@ import bloop.util.TestProject
 import bloop.util.TestUtil
 
 object SourceHasherSpec extends bloop.testing.BaseSuite {
-  flakyTest("cancellation works", 3) {
+  test("cancellation works") {
     val largeFileContents = {
       val sb = new StringBuilder()
       val base = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
@@ -40,18 +40,24 @@ object SourceHasherSpec extends bloop.testing.BaseSuite {
 
       val sourceHashesTask =
         SourceHasher.findAndHashSourcesInProject(projectA, 2, cancelPromise, ioScheduler)
-      val running = sourceHashesTask.runAsync(ioScheduler)
+      val running = sourceHashesTask
+        .executeWithOptions(_.disableAutoCancelableRunLoops)
+        .runToFuture(ioScheduler)
 
       Thread.sleep(2)
       running.cancel()
 
-      val cancelledResult = Await.result(running, FiniteDuration(20, "s"))
+      val cancelledResult = Await.result(running, FiniteDuration(5, "s"))
       assert(cancelPromise.isCompleted)
       assert(cancelledResult.isLeft)
 
       val sourceHashesTask2 =
         SourceHasher.findAndHashSourcesInProject(projectA, 2, cancelPromise2, ioScheduler)
-      val running2 = sourceHashesTask2.runAsync(ioScheduler)
+
+      val running2 = sourceHashesTask2
+        .executeWithOptions(_.disableAutoCancelableRunLoops)
+        .runToFuture(ioScheduler)
+
       val uncancelledResult = Await.result(running2, FiniteDuration(20, "s"))
       assert(uncancelledResult.isRight)
       assert(uncancelledResult.forall(_.nonEmpty))

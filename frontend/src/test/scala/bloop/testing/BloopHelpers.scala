@@ -103,7 +103,7 @@ trait BloopHelpers {
         }
       }
 
-      val loaders = all.grouped(5).map(group => Task.gatherUnordered(group)).toList
+      val loaders = all.grouped(5).map(group => Task.parSequenceUnordered(group)).toList
       Task.sequence(loaders).executeOn(ExecutionContext.ioScheduler).map { projects =>
         val state = new TestState(TestUtil.loadTestProject(configDir, logger, false))
         TestBuild(state, projects.flatten)
@@ -193,7 +193,9 @@ trait BloopHelpers {
         }
       }
 
-      interpretedTask.runAsync(ExecutionContext.scheduler)
+      interpretedTask
+        .executeWithOptions(_.disableAutoCancelableRunLoops)
+        .runAsync(ExecutionContext.scheduler)
     }
 
     def cascadeCompile(projects: TestProject*): TestState = {
@@ -236,7 +238,9 @@ trait BloopHelpers {
         }
       }
 
-      interpretedTask.runAsync(userScheduler.getOrElse(ExecutionContext.scheduler))
+      interpretedTask
+        .executeWithOptions(_.disableAutoCancelableRunLoops)
+        .runAsync(userScheduler.getOrElse(ExecutionContext.scheduler))
     }
 
     def getProjectFor(project: TestProject): Project =
@@ -311,7 +315,7 @@ trait BloopHelpers {
       }
 
       TestUtil.await(scala.concurrent.duration.FiniteDuration(5, "s")) {
-        Task.gatherUnordered(newSuccessfulTasks).map {
+        Task.parSequenceUnordered(newSuccessfulTasks).map {
           case newSuccessful =>
             val newResults = state.results.copy(successful = newSuccessful.toMap)
             new TestState(state.copy(results = newResults))
