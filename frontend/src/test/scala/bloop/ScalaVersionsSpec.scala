@@ -9,7 +9,7 @@ import bloop.cli.ExitStatus
 import scala.concurrent.duration.FiniteDuration
 import bloop.engine.State
 import java.util.concurrent.TimeoutException
-import monix.execution.misc.NonFatal
+import scala.util.control.NonFatal
 import java.lang.management.ManagementFactory
 
 object ScalaVersionsSpec extends bloop.testing.BaseSuite {

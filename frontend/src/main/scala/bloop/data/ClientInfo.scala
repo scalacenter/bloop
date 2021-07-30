@@ -12,7 +12,7 @@ import scala.collection.mutable
 import java.nio.file.Path
 import bloop.io.Paths
 import java.io.IOException
-import monix.execution.misc.NonFatal
+import scala.util.control.NonFatal
 import bloop.logging.Logger
 import bloop.tracing.BraveTracer
 import bloop.logging.DebugFilter

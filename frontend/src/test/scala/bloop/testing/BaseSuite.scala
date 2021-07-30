@@ -30,7 +30,7 @@ import utest.ufansi.Color
 
 import monix.eval.Task
 import bloop.io.Paths
-import monix.execution.misc.NonFatal
+import scala.util.control.NonFatal
 import bloop.logging.RecordingLogger
 import bloop.logging.BspServerLogger
 

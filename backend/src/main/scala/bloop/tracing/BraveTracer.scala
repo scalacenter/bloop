@@ -6,7 +6,7 @@ import brave.propagation.TraceContextOrSamplingFlags
 import brave.Span
 import brave.Tracer
 import monix.eval.Task
-import monix.execution.misc.NonFatal
+import scala.util.control.NonFatal
 import scala.util.Properties
 import zipkin2.codec.SpanBytesEncoder.JSON_V1
 import zipkin2.codec.SpanBytesEncoder.JSON_V2

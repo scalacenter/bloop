@@ -1,14 +1,15 @@
 package bloop.util.monix
 
-import monix.eval.{Callback, Task}
+import monix.eval.Task
 import monix.execution.Ack.{Continue, Stop}
 import monix.execution.cancelables.{AssignableCancelable, CompositeCancelable}
-import monix.execution.misc.NonFatal
+import monix.execution.Callback
 import monix.execution.{Ack, Cancelable, Scheduler}
 import monix.reactive.observers.Subscriber
 import monix.reactive.{Consumer, Observable}
 
 import scala.collection.mutable.ListBuffer
+import scala.util.control.NonFatal
 import scala.concurrent.Future
 import monix.execution.CancelableFuture
 
@@ -18,7 +19,7 @@ final class FoldLeftAsyncConsumer[A, R](
     f: (R, A) => Task[R]
 ) extends Consumer[A, R] {
 
-  def createSubscriber(cb: Callback[R], s: Scheduler): (Subscriber[A], AssignableCancelable) = {
+  def createSubscriber(cb: Callback[Throwable, R], s: Scheduler): (Subscriber[A], AssignableCancelable) = {
     val cancelables = new ListBuffer[Cancelable]()
     val out = new Subscriber[A] {
       implicit val scheduler = s
@@ -31,15 +32,15 @@ final class FoldLeftAsyncConsumer[A, R](
           val task = f(state, elem).transform(
             update => {
               state = update
-              Continue: Continue
+              Continue
             },
             error => {
               onError(error)
-              Stop: Stop
+              Stop
             }
           )
 
-          val future = task.runAsync
+          val future = task.runToFuture
           cancelables.+=(future)
           // Unregister from the cancelables when future completes
           future.transform(

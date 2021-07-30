@@ -156,7 +156,7 @@ object ParallelOps {
       Cancelable.cancelAll(completeSubscribers :: tasksToCancel)
     }
 
-    val copyFileSequentially = Consumer.foreachAsync[((Path, BasicFileAttributes), Path)] {
+    val copyFileSequentially = Consumer.foreachTask[((Path, BasicFileAttributes), Path)] {
       case ((originFile, originAttrs), targetFile) =>
         def copy(replaceExisting: Boolean): Unit = {
           if (replaceExisting) {

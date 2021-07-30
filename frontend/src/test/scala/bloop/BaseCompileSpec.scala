@@ -17,7 +17,7 @@ import scala.concurrent.duration.Duration
 import scala.concurrent.duration.FiniteDuration
 
 import monix.eval.Task
-import monix.execution.misc.NonFatal
+import scala.util.control.NonFatal
 import monix.execution.CancelableFuture
 import bloop.cli.CommonOptions
 import bloop.engine.NoPool

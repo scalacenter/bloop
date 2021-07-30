@@ -17,7 +17,7 @@ import monix.eval.Task
 import monix.reactive.Consumer
 import monix.execution.Cancelable
 import monix.reactive.{MulticastStrategy, Observable}
-import monix.execution.misc.NonFatal
+import scala.util.control.NonFatal
 import monix.execution.atomic.AtomicBoolean
 import monix.reactive.OverflowStrategy
 import java.util.concurrent.ConcurrentHashMap

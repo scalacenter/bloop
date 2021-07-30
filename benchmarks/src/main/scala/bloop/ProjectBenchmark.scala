@@ -15,7 +15,7 @@ import bloop.engine.NoPool
 
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.Await
-import monix.execution.misc.NonFatal
+import scala.util.control.NonFatal
 import bloop.engine.ExecutionContext
 
 @State(Scope.Benchmark)

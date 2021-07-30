@@ -31,7 +31,7 @@ import scala.collection.mutable
 import java.nio.file.Path
 import bloop.io.Paths
 import java.nio.file.NoSuchFileException
-import monix.execution.misc.NonFatal
+import scala.util.control.NonFatal
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.ConcurrentHashMap
 import sbt.internal.inc.Analysis

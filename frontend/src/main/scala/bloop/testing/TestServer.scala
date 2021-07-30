@@ -9,7 +9,7 @@ import bloop.config.Config
 import scala.util.Try
 import bloop.logging.{DebugFilter, Logger}
 import monix.eval.Task
-import monix.execution.misc.NonFatal
+import scala.util.control.NonFatal
 import sbt.{ForkConfiguration, ForkTags}
 import sbt.testing.{Event, Framework, TaskDef}
 

@@ -16,7 +16,7 @@ import monix.execution.Ack
 import monix.execution.Scheduler
 import monix.execution.Cancelable
 import monix.execution.atomic.Atomic
-import monix.execution.misc.NonFatal
+import scala.util.control.NonFatal
 import monix.reactive.OverflowStrategy
 import monix.reactive.observers.Subscriber
 import monix.reactive.{Observable, Observer}
@@ -158,7 +158,7 @@ object BspServer {
       }
 
       import monix.reactive.Consumer
-      val singleMessageConsumer = Consumer.foreachAsync[BaseProtocolMessage] { msg =>
+      val singleMessageConsumer = Consumer.foreachTask[BaseProtocolMessage] { msg =>
         import scala.meta.jsonrpc.Response.Empty
         import scala.meta.jsonrpc.Response.Success
         val taskToRun = {
