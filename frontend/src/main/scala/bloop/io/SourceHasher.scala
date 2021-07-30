@@ -28,7 +28,6 @@ import monix.reactive.{MulticastStrategy, Consumer, Observable}
 import monix.eval.Task
 import monix.execution.atomic.AtomicBoolean
 import monix.execution.Scheduler
-import monix.reactive.internal.operators.MapAsyncParallelObservable
 import monix.execution.Cancelable
 import monix.execution.cancelables.CompositeCancelable
 
@@ -139,11 +138,12 @@ object SourceHasher {
         Cancelable.empty
       } else {
         val (out, consumerSubscription) = collectHashesConsumer.createSubscriber(cb, scheduler)
-        val hashSourcesInParallel = observable.mapAsync(parallelUnits) { (source: Path) =>
-          Task.eval {
-            val hash = ByteHasher.hashFileContents(source.toFile)
-            HashedSource(AbsolutePath(source), hash)
-          }
+        val hashSourcesInParallel = observable.mapParallelUnordered(parallelUnits) {
+          (source: Path) =>
+            Task.eval {
+              val hash = ByteHasher.hashFileContents(source.toFile)
+              HashedSource(AbsolutePath(source), hash)
+            }
         }
 
         val sourceSubscription = hashSourcesInParallel.subscribe(out)
