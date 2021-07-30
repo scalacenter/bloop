@@ -4,7 +4,7 @@ import java.util.concurrent.{CancellationException, CompletableFuture, Completio
 import java.util.function.BiFunction
 
 import monix.execution.cancelables.SingleAssignmentCancelable
-import monix.execution.misc.NonFatal
+import scala.util.control.NonFatal
 import monix.execution.schedulers.TrampolinedRunnable
 import monix.execution.{Cancelable, CancelableFuture}
 

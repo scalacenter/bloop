@@ -18,7 +18,7 @@ import java.nio.file.Files
 import java.util.concurrent.TimeUnit
 
 import scala.concurrent.duration.FiniteDuration
-import monix.execution.misc.NonFatal
+import scala.util.control.NonFatal
 import bloop.data.SourcesGlobs
 
 object FileWatchingSpec extends BaseSuite {

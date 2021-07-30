@@ -6,6 +6,7 @@ import bloop.tracing.BraveTracer
 
 import scala.collection.mutable
 import scala.concurrent.Promise
+import scala.util.control.NonFatal
 
 import java.io.{File, InputStream}
 import java.nio.file.{Files, NoSuchFileException, Path}
@@ -14,7 +15,7 @@ import java.nio.file.attribute.{BasicFileAttributes, FileTime}
 import java.util.zip.ZipEntry
 
 import monix.eval.Task
-import monix.eval.Callback
+import monix.execution.Callback
 import monix.execution.Scheduler
 import monix.execution.Cancelable
 import monix.execution.atomic.AtomicBoolean
@@ -77,7 +78,7 @@ object ClasspathHasher {
 
     val isCancelled = AtomicBoolean(false)
     val parallelConsumer = {
-      Consumer.foreachParallelAsync[AcquiredTask](parallelUnits) {
+      Consumer.foreachParallelTask[AcquiredTask](parallelUnits) {
         case AcquiredTask(file, idx, p) =>
           // Use task.now because Monix's load balancer already forces an async boundary
           val hashingTask = Task.now {
@@ -109,7 +110,7 @@ object ClasspathHasher {
                 }
               } catch {
                 // Can happen when a file doesn't exist, for example
-                case monix.execution.misc.NonFatal(t) => BloopStamps.emptyHash(file)
+                case NonFatal(t) => BloopStamps.emptyHash(file)
               }
             classpathHashes(idx) = hash
             hashingPromises.remove(file, p)

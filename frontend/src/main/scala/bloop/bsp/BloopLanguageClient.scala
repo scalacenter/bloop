@@ -14,7 +14,7 @@ import java.nio.ByteBuffer
 import java.nio.channels.Channels
 
 import monix.eval.Task
-import monix.eval.Callback
+import monix.execution.Callback
 import monix.execution.Ack
 import monix.reactive.Observer
 import monix.execution.Cancelable
@@ -40,7 +40,7 @@ final class BloopLanguageClient(out: Observer[ByteBuffer], logger: LoggerSupport
   private val writer = new MessageWriter(out, logger)
   private val counter: AtomicInt = Atomic(1)
   private val activeServerRequests =
-    TrieMap.empty[RequestId, Callback[Response]]
+    TrieMap.empty[RequestId, Callback[Throwable, Response]]
 
   def notify[A: Encoder](method: String, notification: A): Future[Ack] =
     writer.write(Notification(method, Some(notification.asJson)))

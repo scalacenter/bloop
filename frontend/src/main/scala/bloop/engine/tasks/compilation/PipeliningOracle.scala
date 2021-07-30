@@ -18,7 +18,7 @@ import xsbti.compile.Signature
 import monix.execution.atomic.AtomicBoolean
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
-import monix.execution.misc.NonFatal
+import scala.util.control.NonFatal
 
 /** @inheritdoc */
 final class PipeliningOracle(

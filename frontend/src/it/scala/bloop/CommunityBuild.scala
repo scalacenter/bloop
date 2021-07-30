@@ -25,7 +25,7 @@ import bloop.engine.caches.ResultsCache
 import bloop.io.AbsolutePath
 import bloop.logging.{BloopLogger, Logger, NoopLogger}
 import monix.eval.Task
-import monix.execution.misc.NonFatal
+import scala.util.control.NonFatal
 import sbt.internal.inc.bloop.ZincInternals
 import bloop.engine.tasks.compilation.CompileGatekeeper
 import sbt.internal.inc.BloopComponentCompiler

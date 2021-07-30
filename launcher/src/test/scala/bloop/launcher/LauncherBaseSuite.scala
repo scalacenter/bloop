@@ -200,7 +200,7 @@ abstract class LauncherBaseSuite(
     )
     val run = new LauncherRun(launcher, baos)
 
-    import monix.execution.misc.NonFatal
+    import scala.util.control.NonFatal
     try launcherLogic(run)
     catch {
       case NonFatal(t) =>

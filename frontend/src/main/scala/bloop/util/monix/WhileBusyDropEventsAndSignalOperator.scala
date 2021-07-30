@@ -2,7 +2,7 @@ package bloop.util.monix
 
 import monix.execution.Ack
 import monix.execution.Ack.{Continue, Stop}
-import monix.execution.misc.NonFatal
+import scala.util.control.NonFatal
 import monix.reactive.observables.ObservableLike.Operator
 import monix.reactive.observers.Subscriber
 import monix.execution.atomic.AtomicBoolean

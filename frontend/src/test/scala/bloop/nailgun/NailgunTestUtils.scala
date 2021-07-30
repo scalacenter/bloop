@@ -14,7 +14,7 @@ import bloop.util.{TestUtil, CrossPlatform}
 import com.martiansoftware.nailgun.{BloopThreadLocalInputStream, NGServer, ThreadLocalPrintStream}
 
 import monix.eval.Task
-import monix.execution.misc.NonFatal
+import scala.util.control.NonFatal
 import monix.execution.Scheduler
 
 import org.apache.commons.io.IOUtils
@@ -72,7 +72,6 @@ trait NailgunTestUtils {
       // Trick nailgun into thinking these are the real streams
       import java.net.InetAddress
       val addr = InetAddress.getLoopbackAddress
-      import monix.execution.misc.NonFatal
       try {
         val server = Server.launchServer(localIn, localOut, localErr, addr, TEST_PORT, log)
         serverIsStarted.success(())
