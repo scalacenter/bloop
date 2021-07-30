@@ -55,7 +55,7 @@ object BuildLoader {
       val loadMsg = s"Loading ${configs.length} projects from '${configDir.syntax}'..."
       logger.debug(loadMsg)(DebugFilter.All)
       val rawProjects = configs.map(f => Task(loadProject(f.bytes, f.origin, logger)))
-      val groupTasks = rawProjects.grouped(10).map(group => Task.gatherUnordered(group)).toList
+      val groupTasks = rawProjects.grouped(10).map(group => Task.parSequenceUnordered(group)).toList
       val newOrModifiedRawProjects = Task.sequence(groupTasks).map(fp => fp.flatten)
 
       newOrModifiedRawProjects.flatMap { projects =>
@@ -136,7 +136,7 @@ object BuildLoader {
         coeval.task
     }
 
-    Task.gatherUnordered(enableMetalsInProjectsTask).map { pps =>
+    Task.parSequenceUnordered(enableMetalsInProjectsTask).map { pps =>
       // Add projects with Metals settings enabled + projects with no scala config at all
       pps.flatten ++ projectsWithNoScalaConfig.toList.map(_ -> None)
     }

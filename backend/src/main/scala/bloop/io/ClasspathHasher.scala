@@ -280,6 +280,6 @@ object ClasspathHasher {
       }
     }
 
-    Task.gatherUnordered(classpath.map(readJar(_)))
+    Task.parSequenceUnordered(classpath.map(readJar(_)))
   }
 }

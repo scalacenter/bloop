@@ -112,7 +112,7 @@ object Interpreter {
     val reachable = Dag.dfs(getProjectsDag(projects, state))
     val projectsSourcesAndDirs = reachable.map(_.allSourceFilesAndDirectories)
     val groupTasks =
-      projectsSourcesAndDirs.grouped(8).map(group => Task.gatherUnordered(group)).toList
+      projectsSourcesAndDirs.grouped(8).map(group => Task.parSequenceUnordered(group)).toList
     Task
       .sequence(groupTasks)
       .map(fp => fp.flatten.flatten.map(_.underlying))

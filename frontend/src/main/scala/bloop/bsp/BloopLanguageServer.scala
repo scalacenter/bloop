@@ -71,7 +71,7 @@ final class BloopLanguageServer(
   def awaitRunningTasks: Task[Unit] = {
     val futures = activeClientRequests.values.map(fut => Task.fromFuture(fut))
     // Await until completion and ignore task results
-    Task.gatherUnordered(futures).materialize.map(_ => ())
+    Task.parSequenceUnordered(futures).materialize.map(_ => ())
   }
 
   def handleValidMessage(message: Message): Task[Response] = message match {

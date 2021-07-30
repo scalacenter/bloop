@@ -137,7 +137,7 @@ object CompilerPluginWhitelist {
                 val blockingBatches = {
                   acquiredByOtherTasks.toList
                     .grouped(parallelUnits)
-                    .map(group => Task.gatherUnordered(group))
+                    .map(group => Task.parSequenceUnordered(group))
                 }
 
                 Task.sequence(blockingBatches).map(_.flatten).map { _ =>

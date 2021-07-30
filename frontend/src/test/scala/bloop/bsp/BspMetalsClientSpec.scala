@@ -285,7 +285,7 @@ class BspMetalsClientSpec(
 
       val allClients = Random.shuffle(List(client1, client2, metalsClient))
       TestUtil.await(FiniteDuration(20, "s"), ExecutionContext.ioScheduler) {
-        Task.gatherUnordered(allClients).map(_ => ())
+        Task.parSequenceUnordered(allClients).map(_ => ())
       }
 
       assert(configDir.resolve(WorkspaceSettings.settingsFileName).exists)

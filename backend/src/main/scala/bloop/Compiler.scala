@@ -328,7 +328,7 @@ object Compiler {
 
     def runAggregateTasks(tasks: List[Task[Unit]]): CancelableFuture[Unit] = {
       Task
-        .gatherUnordered(tasks)
+        .parSequenceUnordered(tasks)
         .map(_ => ())
         .runToFuture(compileInputs.ioScheduler)
     }
@@ -488,7 +488,7 @@ object Compiler {
                 val deleteNewClassesDir = Task(BloopPaths.delete(AbsolutePath(newClassesDir)))
                 val allTasks = List(deleteNewClassesDir, updateClientState, writeAnalysisIfMissing)
                 Task
-                  .gatherUnordered(allTasks)
+                  .parSequenceUnordered(allTasks)
                   .map(_ => ())
                   .onErrorHandleWith(err => {
                     clientLogger.debug("Caught error in background tasks"); clientLogger.trace(err);
@@ -543,7 +543,7 @@ object Compiler {
                 val persistTask =
                   persistAnalysis(analysisForFutureCompilationRuns, compileOut.analysisOut)
                 val initialTasks = persistTask :: successBackgroundTasks.toList
-                val allClientSyncTasks = Task.gatherUnordered(initialTasks).flatMap { _ =>
+                val allClientSyncTasks = Task.parSequenceUnordered(initialTasks).flatMap { _ =>
                   // Only start these tasks after the previous IO tasks in the external dir are done
                   val firstTask = updateExternalClassesDirWithReadOnly(
                     clientClassesDir,
@@ -565,7 +565,7 @@ object Compiler {
                       }
                     }
                   }
-                  Task.gatherUnordered(List(firstTask, secondTask)).map(_ => ())
+                  Task.parSequenceUnordered(List(firstTask, secondTask)).map(_ => ())
                 }
 
                 allClientSyncTasks.doOnFinish(_ => Task(clientReporter.reportEndCompilation()))
@@ -632,7 +632,7 @@ object Compiler {
           clientLogger: Logger
       ): Task[Unit] = {
         val backgroundTasks = tasks.map(f => f(clientClassesDir, clientReporter, tracer))
-        Task.gatherUnordered(backgroundTasks).memoize.map(_ => ())
+        Task.parSequenceUnordered(backgroundTasks).memoize.map(_ => ())
       }
     }
   }

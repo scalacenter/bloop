@@ -342,7 +342,7 @@ object CompileGraph {
                  * replace the result by a failed result that informs the
                  * client compilation was not successfully deduplicated.
                  */
-                 compilationFiber.join.map { results =>
+                compilationFiber.join.map { results =>
                   PartialCompileResult.mapEveryResult(results) { (p: PartialCompileResult) =>
                     p match {
                       case s: PartialSuccess =>
@@ -379,7 +379,6 @@ object CompileGraph {
                   runningCompilation
                 )
 
-                
                 reporter.processEndCompilation(Nil, StatusCode.Cancelled, None, None)
                 reporter.reportEndCompilation()
 
@@ -394,7 +393,7 @@ object CompileGraph {
                   _ <- compilationFiber.cancel
                   result <- setupAndDeduplicate(client, inputs, setup)(compile)
                 } yield result
-                
+
             }
         }
 
@@ -459,13 +458,13 @@ object CompileGraph {
 
             case Aggregate(dags) =>
               val downstream = dags.map(loop)
-              Task.gatherUnordered(downstream).flatMap { dagResults =>
+              Task.parSequenceUnordered(downstream).flatMap { dagResults =>
                 Task.now(Parent(PartialEmpty, dagResults))
               }
 
             case Parent(project, dependencies) =>
               val downstream = dependencies.map(loop)
-              Task.gatherUnordered(downstream).flatMap { dagResults =>
+              Task.parSequenceUnordered(downstream).flatMap { dagResults =>
                 val failed = dagResults.flatMap(dag => blockedBy(dag).toList)
                 if (failed.nonEmpty) {
                   // Register the name of the projects we're blocked on (intransitively)
@@ -480,7 +479,7 @@ object CompileGraph {
 
                   val projectResults =
                     results.map(ps => ps.result.map(r => ps.bundle.project -> r))
-                  Task.gatherUnordered(projectResults).flatMap { results =>
+                  Task.parSequenceUnordered(projectResults).flatMap { results =>
                     var dependentProducts = new mutable.ListBuffer[(Project, BundleProducts)]()
                     var dependentResults = new mutable.ListBuffer[(File, PreviousResult)]()
                     results.foreach {
@@ -586,13 +585,13 @@ object CompileGraph {
 
             case Aggregate(dags) =>
               val downstream = dags.map(loop)
-              Task.gatherUnordered(downstream).flatMap { dagResults =>
+              Task.parSequenceUnordered(downstream).flatMap { dagResults =>
                 Task.now(Parent(PartialEmpty, dagResults))
               }
 
             case Parent(project, dependencies) =>
               val downstream = dependencies.map(loop)
-              Task.gatherUnordered(downstream).flatMap { dagResults =>
+              Task.parSequenceUnordered(downstream).flatMap { dagResults =>
                 val failed = dagResults.flatMap(dag => blockedBy(dag).toList)
                 if (failed.nonEmpty) {
                   // Register the name of the projects we're blocked on (intransitively)
@@ -660,7 +659,7 @@ object CompileGraph {
                     Task.now(Parent(PartialFailure(project, BlockURI, blocked), dagResults))
                   } else {
                     // Get the compilation result of those projects which were not pipelined
-                    Task.gatherUnordered(resultsToBlockOn.toList).flatMap { nonPipelineResults =>
+                    Task.parSequenceUnordered(resultsToBlockOn.toList).flatMap { nonPipelineResults =>
                       var nonPipelinedDependentProducts =
                         new mutable.ListBuffer[(Project, BundleProducts)]()
                       var nonPipelinedDependentResults =
@@ -747,7 +746,7 @@ object CompileGraph {
 
   private def aggregateJavaSignals(xs: List[Task[JavaSignal]]): Task[JavaSignal] = {
     Task
-      .gatherUnordered(xs)
+      .parSequenceUnordered(xs)
       .map { ys =>
         ys.foldLeft(JavaSignal.ContinueCompilation: JavaSignal) {
           case (JavaSignal.ContinueCompilation, JavaSignal.ContinueCompilation) =>

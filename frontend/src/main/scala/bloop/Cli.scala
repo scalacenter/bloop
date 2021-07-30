@@ -468,7 +468,7 @@ object Cli {
 
       val groups = deleteTasks
         .grouped(4)
-        .map(group => Task.gatherUnordered(group).map(_ => ()))
+        .map(group => Task.parSequenceUnordered(group).map(_ => ()))
 
       Task
         .sequence(groups)

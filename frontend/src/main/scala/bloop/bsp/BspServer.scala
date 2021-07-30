@@ -294,7 +294,7 @@ object BspServer {
         }
       }
 
-      val groups = deleteExternalDirsTasks.grouped(4).map(group => Task.gatherUnordered(group))
+      val groups = deleteExternalDirsTasks.grouped(4).map(group => Task.parSequenceUnordered(group))
       Task
         .sequence(groups)
         .map(_.flatten)

@@ -1478,7 +1478,8 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
       val compileArgs = Array("compile", "a", "--config-dir", configDir.syntax)
       val compileAction = Cli.parse(compileArgs, options)
       def runCompileAsync = Task.fork(Task.eval(Cli.run(compileAction, NoPool)))
-      val runCompile = Task.gatherUnordered(List(runCompileAsync, runCompileAsync)).map(_ => ())
+      val runCompile =
+        Task.parSequenceUnordered(List(runCompileAsync, runCompileAsync)).map(_ => ())
       Await.result(runCompile.runAsync(ExecutionContext.ioScheduler), FiniteDuration(10, "s"))
 
       val actionsOutput = new String(testOut.toByteArray(), StandardCharsets.UTF_8)
