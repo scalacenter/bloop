@@ -20,7 +20,6 @@ import scala.util.control.NonFatal
 import monix.reactive.OverflowStrategy
 import monix.reactive.observers.Subscriber
 import monix.reactive.{Observable, Observer}
-import monix.reactive.observables.ObservableLike
 import monix.execution.cancelables.CompositeCancelable
 
 import scala.concurrent.Future
@@ -296,7 +295,7 @@ object BspServer {
 
       val groups = deleteExternalDirsTasks.grouped(4).map(group => Task.parSequenceUnordered(group))
       Task
-        .sequence(groups)
+        .sequence(groups.toIndexedSeq)
         .map(_.flatten)
         .map(_ => ())
         .runAsync(ExecutionContext.ioScheduler)
@@ -306,7 +305,7 @@ object BspServer {
   }
 
   final class PumpOperator[A](pumpTarget: Observer.Sync[A], runningFuture: Cancelable)
-      extends ObservableLike.Operator[A, A] {
+      extends Observable.Operator[A, A] {
     def apply(out: Subscriber[A]): Subscriber[A] =
       new Subscriber[A] { self =>
         implicit val scheduler = out.scheduler

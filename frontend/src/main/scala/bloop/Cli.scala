@@ -471,7 +471,7 @@ object Cli {
         .map(group => Task.parSequenceUnordered(group).map(_ => ()))
 
       Task
-        .sequence(groups)
+        .sequence(groups.toIndexedSeq)
         .map(_ => ())
         .executeOn(ExecutionContext.ioScheduler)
     }
