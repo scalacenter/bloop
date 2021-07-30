@@ -328,7 +328,7 @@ class BspSbtClientSpec(
     )
 
     val duration = new FiniteDuration(20, TimeUnit.SECONDS)
-    val allCompiledStatesTask = Task.gatherUnordered(random.shuffle(allCompilationTasks))
+    val allCompiledStatesTask = Task.parSequenceUnordered(random.shuffle(allCompilationTasks))
     val compiledStates =
       TestUtil.await(duration, ExecutionContext.ioScheduler, Some(logger))(allCompiledStatesTask)
 

@@ -133,7 +133,7 @@ object PipeliningOracle {
       logger: Logger
   ): Unit = {
     val writePickles = signatures.map(ScalaSig.write(picklesDir, _, logger))
-    val groupTasks = writePickles.grouped(4).map(group => Task.gatherUnordered(group)).toList
+    val groupTasks = writePickles.grouped(4).map(group => Task.parSequenceUnordered(group)).toList
     val persistPicklesInParallel = {
       tracer.traceTask("writing pickles") { _ =>
         Task.sequence(groupTasks).doOnFinish {

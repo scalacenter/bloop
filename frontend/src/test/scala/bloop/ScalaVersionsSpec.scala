@@ -78,7 +78,7 @@ object ScalaVersionsSpec extends bloop.testing.BaseSuite {
     try {
       TestUtil.await(FiniteDuration(120, "s"), ExecutionContext.ioScheduler) {
         Task
-          .sequence(all.grouped(2).map(group => Task.gatherUnordered(group)))
+          .sequence(all.grouped(2).map(group => Task.parSequenceUnordered(group)))
           .map(_ => ())
       }
     } catch {

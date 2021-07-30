@@ -97,7 +97,7 @@ trait BloopHelpers {
         }
       }
 
-      val loaders = all.grouped(5).map(group => Task.gatherUnordered(group)).toList
+      val loaders = all.grouped(5).map(group => Task.parSequenceUnordered(group)).toList
       Task.sequence(loaders).executeOn(ExecutionContext.ioScheduler).map { projects =>
         val state = new TestState(TestUtil.loadTestProject(configDir, logger, false))
         TestBuild(state, projects.flatten)
@@ -309,7 +309,7 @@ trait BloopHelpers {
       }
 
       TestUtil.await(scala.concurrent.duration.FiniteDuration(5, "s")) {
-        Task.gatherUnordered(newSuccessfulTasks).map {
+        Task.parSequenceUnordered(newSuccessfulTasks).map {
           case newSuccessful =>
             val newResults = state.results.copy(successful = newSuccessful.toMap)
             new TestState(state.copy(results = newResults))

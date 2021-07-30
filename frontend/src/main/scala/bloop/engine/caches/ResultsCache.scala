@@ -281,7 +281,7 @@ object ResultsCache {
 
     val projects = build.loadedProjects.map(_.project)
     val all = projects.map(p => fetchPreviousResult(p).map(r => p -> r))
-    Task.gatherUnordered(all).executeOn(ExecutionContext.ioScheduler).map { projectResults =>
+    Task.parSequenceUnordered(all).executeOn(ExecutionContext.ioScheduler).map { projectResults =>
       val newCache = new ResultsCache(Map.empty, Map.empty)
       val cleanupTasks = new mutable.ListBuffer[Task[Unit]]()
       val results = projectResults.foldLeft(newCache) {

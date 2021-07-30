@@ -260,7 +260,7 @@ object CompileTask {
     CompileGraph.traverse(dag, client, store, setup(_), compile(_), pipeline).flatMap { pdag =>
       val partialResults = Dag.dfs(pdag)
       val finalResults = partialResults.map(r => PartialCompileResult.toFinalResult(r))
-      Task.gatherUnordered(finalResults).map(_.flatten).flatMap { results =>
+      Task.parSequenceUnordered(finalResults).map(_.flatten).flatMap { results =>
         val cleanUpTasksToRunInBackground =
           markUnusedClassesDirAndCollectCleanUpTasks(results, rawLogger)
 
@@ -443,7 +443,7 @@ object CompileTask {
       parallelUnits: Int = Runtime.getRuntime().availableProcessors()
   ): Unit = {
     val aggregatedTask = Task.sequence(
-      tasks.toList.grouped(parallelUnits).map(group => Task.gatherUnordered(group))
+      tasks.toList.grouped(parallelUnits).map(group => Task.parSequenceUnordered(group))
     )
     aggregatedTask.map(_ => ()).runAsync(ExecutionContext.ioScheduler)
     ()
