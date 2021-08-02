@@ -1106,12 +1106,21 @@ class BloopConverter(parameters: BloopParameters, info: String => Unit) {
 
     var args = builder.build().asScala.toList
 
-    if (!args.contains("-source")) {
-      if (specs.getSourceCompatibility != null) {
+    if (!args.contains("--release")) {
+      if (
+        !args.contains("-source") &&
+        !args.contains("--source") &&
+        specs.getSourceCompatibility != null
+      ) {
         args = "-source" :: specs.getSourceCompatibility :: args
-      } else {
-        Option(DefaultInstalledJdk.current())
-          .foreach(jvm => args = "-source" :: jvm.getJavaVersion.toString :: args)
+      }
+
+      if (
+        !args.contains("-target") &&
+        !args.contains("--target") &&
+        specs.getTargetCompatibility != null
+      ) {
+        args = "-target" :: specs.getTargetCompatibility :: args
       }
     }
 
@@ -1120,15 +1129,6 @@ class BloopConverter(parameters: BloopParameters, info: String => Unit) {
       args = args.takeWhile(_ != "-s") ++ args.dropWhile(_ != "-s").drop(2)
     } else if (args.contains("-s")) {
       Files.createDirectories(Paths.get(args(args.indexOf("-s") + 1)))
-    }
-
-    if (!args.contains("-target")) {
-      if (specs.getTargetCompatibility != null) {
-        args = "-target" :: specs.getTargetCompatibility :: args
-      } else {
-        Option(DefaultInstalledJdk.current())
-          .foreach(jvm => args = "-target" :: jvm.getJavaVersion.toString :: args)
-      }
     }
 
     // Always return a java configuration (this cannot hurt us)
