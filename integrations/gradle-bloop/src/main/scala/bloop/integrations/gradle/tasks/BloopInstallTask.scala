@@ -14,6 +14,7 @@ import com.android.build.gradle.api.BaseVariant
 
 import scala.collection.JavaConverters._
 import scala.util.{Failure, Success}
+import java.nio.file.FileAlreadyExistsException
 
 /**
  * Define a Gradle task that generates bloop configuration files from a Gradle project.
@@ -46,7 +47,11 @@ class BloopInstallTask extends DefaultTask with PluginUtils with TaskLogging {
 
     if (!targetDir.exists()) {
       debug(s"Creating target directory ${targetDir}")
-      Files.createDirectory(targetDir.toPath)
+      try {
+        Files.createDirectory(targetDir.toPath)
+      } catch {
+        case _: FileAlreadyExistsException => // do nothing - parallel exports cause this
+      }
     }
 
     if (hasJavaScalaPlugin)

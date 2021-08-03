@@ -2333,6 +2333,49 @@ abstract class ConfigGenerationSuite extends BaseConfigSuite {
       List("-source", "1.2", "-target", "1.3", "-g", "-sourcepath", "-XDuseUnsharedTable=true")
     val obtainedOptions = resultConfig.project.java.get.options
     assert(expectedOptions.forall(opt => obtainedOptions.contains(opt)))
+    assert(!obtainedOptions.contains("--release"))
+  }
+
+  @Test def sourceTargetReleaseGeneratedCorrectly(): Unit = {
+    val buildFile = testProjectDir.newFile("build.gradle")
+    testProjectDir.newFolder("src", "main", "scala")
+    writeBuildScript(
+      buildFile,
+      s"""
+         |plugins {
+         |  id 'bloop'
+         |}
+         |
+         |apply plugin: 'bloop'
+         |apply plugin: 'java'
+         |
+         |repositories {
+         |  mavenCentral()
+         |}
+         |
+         |tasks.withType(JavaCompile) {
+         |  options.compilerArgs << "--release" << "9"
+         |}
+      """.stripMargin
+    )
+    createHelloWorldScalaSource(testProjectDir.getRoot)
+    GradleRunner
+      .create()
+      .withGradleVersion(gradleVersion)
+      .withProjectDir(testProjectDir.getRoot)
+      .withPluginClasspath(getClasspath)
+      .withArguments("bloopInstall", "-Si")
+      .build()
+    val projectName = testProjectDir.getRoot.getName
+    val bloopFile = new File(new File(testProjectDir.getRoot, ".bloop"), projectName + ".json")
+    val resultConfig = readValidBloopConfig(bloopFile)
+    val expectedOptions = List("--release", "9")
+    val obtainedOptions = resultConfig.project.java.get.options
+    assert(expectedOptions.forall(opt => obtainedOptions.contains(opt)))
+    assert(!obtainedOptions.contains("-source"))
+    assert(!obtainedOptions.contains("--source"))
+    assert(!obtainedOptions.contains("-target"))
+    assert(!obtainedOptions.contains("--target"))
   }
 
   @Test def doesNotCreateEmptyProjects(): Unit = {
