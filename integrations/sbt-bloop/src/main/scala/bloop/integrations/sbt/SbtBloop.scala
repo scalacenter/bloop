@@ -26,6 +26,7 @@ import sbt.{
   ThisBuild,
   ThisProject,
   KeyRanks,
+  Optional,
   Provided
 }
 import xsbti.compile.CompileOrder
@@ -160,7 +161,13 @@ object BloopDefaults {
         else runCommandAndRemaining("bloopInstall")(state)
       }
     },
-    BloopKeys.bloopSupportedConfigurations := List(Compile, Test, IntegrationTest, Provided)
+    BloopKeys.bloopSupportedConfigurations := List(
+      Compile,
+      Test,
+      IntegrationTest,
+      Provided,
+      Optional
+    )
   ) ++ Offloader.bloopCompileGlobalSettings ++ Compat.bloopCompatSettings
 
   // From the infamous https://stackoverflow.com/questions/40741244/in-sbt-how-to-execute-a-command-in-task
@@ -548,10 +555,15 @@ object BloopDefaults {
         )
 
         val mappedConfiguration = {
-          // We need this to make `Provided` mean `Compile`
-          val mapped = mapping(configuration.name)
-          val retryWithProvided = mapped.isEmpty && configuration == Compile
-          if (retryWithProvided) mapping(Provided.name) else mapped
+          // We need this to make `Provided` & `Optional` mean `Compile`
+          var mapped = mapping(configuration.name)
+          if (configuration == Compile) {
+            if (mapped.isEmpty)
+              mapped = mapping(Provided.name)
+            if (mapped.isEmpty)
+              mapped = mapping(Optional.name)
+            mapped
+          } else mapped
         }
 
         mappedConfiguration match {
