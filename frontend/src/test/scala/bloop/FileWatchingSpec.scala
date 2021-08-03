@@ -492,7 +492,7 @@ object FileWatchingSpec extends BaseSuite {
       ()
     }
 
-    val f = Task.mapBoth(consumingTask, createEvents)((_: Unit, _: Unit) => ()).runAsync
+    val f = Task.mapBoth(consumingTask, createEvents)((_: Unit, _: Unit) => ()).runToFuture
     scala.concurrent.Await.result(f, 2.second)
     println(received.toString)
   }
