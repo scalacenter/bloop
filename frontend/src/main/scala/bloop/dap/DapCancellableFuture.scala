@@ -23,6 +23,7 @@ object DapCancellableFuture {
         case Some(t) => Task(promise.failure(t))
       }
       .doOnCancel(Task(promise.success(())))
+      .executeWithOptions(_.disableAutoCancelableRunLoops)
       .runAsync(ioScheduler)
     new DapCancellableFuture(promise.future, cancelable)
   }

@@ -182,7 +182,9 @@ object CompileTask {
                       logger
                     )
                     .doOnFinish(_ => Task(compileProjectTracer.terminate()))
-                postCompilationTasks.runAsync(ExecutionContext.ioScheduler)
+                postCompilationTasks
+                  .executeWithOptions(_.disableAutoCancelableRunLoops)
+                  .runAsync(ExecutionContext.ioScheduler)
               }
 
               // Populate the last successful result if result was success
@@ -448,7 +450,10 @@ object CompileTask {
         .map(group => Task.parSequenceUnordered(group))
         .toIndexedSeq
     )
-    aggregatedTask.map(_ => ()).runAsync(ExecutionContext.ioScheduler)
+    aggregatedTask
+      .map(_ => ())
+      .executeWithOptions(_.disableAutoCancelableRunLoops)
+      .runAsync(ExecutionContext.ioScheduler)
     ()
   }
 

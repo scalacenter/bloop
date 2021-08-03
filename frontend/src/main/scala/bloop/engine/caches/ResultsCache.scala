@@ -141,7 +141,12 @@ object ResultsCache {
       logger: Logger
   ): ResultsCache = {
     val handle = loadAsync(build, cwd, cleanOrphanedInternalDirs, logger)
-    Await.result(handle.runAsync(ExecutionContext.ioScheduler), Duration.Inf)
+    Await.result(
+      handle
+        .executeWithOptions(_.disableAutoCancelableRunLoops)
+        .runAsync(ExecutionContext.ioScheduler),
+      Duration.Inf
+    )
   }
 
   def loadAsync(
@@ -291,7 +296,11 @@ object ResultsCache {
       }
 
       // Spawn the cleanup tasks sequentially in the background and forget about it
-      Task.sequence(cleanupTasks).materialize.runAsync(ExecutionContext.ioScheduler)
+      Task
+        .sequence(cleanupTasks)
+        .materialize
+        .executeWithOptions(_.disableAutoCancelableRunLoops)
+        .runAsync(ExecutionContext.ioScheduler)
 
       // Return the collected results per project
       results

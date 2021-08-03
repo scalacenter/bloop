@@ -620,7 +620,7 @@ object DebugServerSpec extends DebugBspBaseSuite {
           RunMode.Debug
         )
 
-        remoteProcess.runAsync(defaultScheduler)
+        remoteProcess.executeWithOptions(_.disableAutoCancelableRunLoops).runAsync(defaultScheduler)
 
         val attachRemoteProcessRunner =
           BloopDebuggeeRunner.forAttachRemote(
@@ -726,7 +726,8 @@ object DebugServerSpec extends DebugBspBaseSuite {
     val runner = new DebuggeeRunner {
       def name: String = "MockRunner"
       def run(listener: DebuggeeListener): CancelableFuture[Unit] = {
-        DapCancellableFuture.runAsync(task.map(_ => ()), defaultScheduler)
+        DapCancellableFuture
+          .runAsync(task.map(_ => ()), defaultScheduler)
       }
 
       def classFilesMappedTo(
@@ -756,7 +757,10 @@ object DebugServerSpec extends DebugBspBaseSuite {
       autoCloseSession = true,
       gracePeriod
     )(defaultScheduler)
-    Task.fromFuture(server.start()).runAsync(defaultScheduler)
+    Task
+      .fromFuture(server.start())
+      .executeWithOptions(_.disableAutoCancelableRunLoops)
+      .runAsync(defaultScheduler)
 
     val testServer = new TestServer(server)
     val test = Task(f(testServer))

@@ -144,7 +144,7 @@ trait NailgunTestUtils {
       op: (RecordingLogger, Client) => T
   ): T = {
     // These tests can be flaky on Windows, so if they fail we restart them up to 3 times
-    val f = withServerTask(log, config, noExit)(op).runAsync(nailgunPool)
+    val f = withServerTask(log, config, noExit)(op).executeWithOptions(_.disableAutoCancelableRunLoops).runAsync(nailgunPool)
     // Note we cannot use restart because our task uses promises that cannot be completed twice
     try Await.result(f, FiniteDuration(35, TimeUnit.SECONDS))
     catch {

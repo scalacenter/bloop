@@ -128,7 +128,7 @@ final class BloopLanguageServer(
                 Response.internalError(e.getMessage, request.id)
             }
 
-          val runningResponse = response.runAsync(requestScheduler)
+          val runningResponse = response.executeWithOptions(_.disableAutoCancelableRunLoops).runAsync(requestScheduler)
           activeClientRequests.put(jsonId, runningResponse)
           Task.fromFuture(runningResponse)
       }
@@ -150,7 +150,7 @@ final class BloopLanguageServer(
       handleMessage(msg)
         .map(client.serverRespond)
         .onErrorRecover { case NonFatal(e) => logger.error("Unhandled error", e) }
-        .runAsync(requestScheduler)
+        .executeWithOptions(_.disableAutoCancelableRunLoops).runAsync(requestScheduler)
       ()
     }
   }

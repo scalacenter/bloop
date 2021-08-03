@@ -239,7 +239,8 @@ abstract class LauncherBaseSuite(
     val messages = BaseProtocolMessage.fromInputStream(in, logger)
     val services = TestUtil.createTestServices(false, logger)
     val lsServer = new BloopLanguageServer(messages, lsClient, services, bspScheduler, logger)
-    val runningClientServer = lsServer.startTask.runAsync(bspScheduler)
+    val runningClientServer =
+      lsServer.startTask.executeWithOptions(_.disableAutoCancelableRunLoops).runAsync(bspScheduler)
 
     val initializeServer = endpoints.Build.initialize.request(
       bsp.InitializeBuildParams(
@@ -311,7 +312,8 @@ abstract class LauncherBaseSuite(
       }
     }
 
-    val runServer = startServer.runAsync(bspScheduler)
+    val runServer =
+      startServer.executeWithOptions(_.disableAutoCancelableRunLoops).runAsync(bspScheduler)
 
     val logger = new RecordingLogger()
     val connectToServer = Task.fromFuture(startedServer.future).flatMap { _ =>

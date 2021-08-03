@@ -118,18 +118,23 @@ object TestUtil {
       scheduler: Scheduler,
       logger: Option[RecordingLogger] = None
   )(t: Task[T]): T = {
-    val handle = t.runAsync(scheduler)
-    try Await.result(handle, duration)
-    catch {
-      case NonFatal(t) => handle.cancel(); throw t
-      case i: InterruptedException => handle.cancel(); throw i
+    val handle = t.executeWithOptions(_.disableAutoCancelableRunLoops).runAsync(scheduler)
+    try {
+      Await.result(handle, duration)
+    } catch {
+
+      case i: InterruptedException =>
+        handle.cancel(); throw i
       case t: TimeoutException =>
+        println("TimeoutException")
         System.err.println("Error: timeout detected, printing logs!")
         logger.foreach(_.dump())
         System.err.println("Now, taking a thread dump!")
         System.err.println(threadDump)
         System.err.println("Rethrowing exception to the caller!")
         throw t
+      case NonFatal(t) =>
+        handle.cancel(); throw t
     }
   }
 
@@ -152,7 +157,9 @@ object TestUtil {
       userScheduler: Option[Scheduler] = None
   ): T = {
     val duration = Duration(seconds, TimeUnit.SECONDS)
-    val handle = task.runAsync(userScheduler.getOrElse(ExecutionContext.scheduler))
+    val handle = task
+      .executeWithOptions(_.disableAutoCancelableRunLoops)
+      .runAsync(userScheduler.getOrElse(ExecutionContext.scheduler))
     try Await.result(handle, duration)
     catch {
       case NonFatal(t) =>
@@ -166,7 +173,9 @@ object TestUtil {
   }
 
   def blockingExecute(a: Action, state: State, duration: Duration = Duration.Inf): State = {
-    val handle = interpreterTask(a, state).runAsync(ExecutionContext.scheduler)
+    val handle = interpreterTask(a, state)
+      .executeWithOptions(_.disableAutoCancelableRunLoops)
+      .runAsync(ExecutionContext.scheduler)
     try Await.result(handle, duration)
     catch {
       case NonFatal(t) => handle.cancel(); throw t

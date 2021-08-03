@@ -40,7 +40,8 @@ object SourceHasherSpec extends bloop.testing.BaseSuite {
 
       val sourceHashesTask =
         SourceHasher.findAndHashSourcesInProject(projectA, 2, cancelPromise, ioScheduler)
-      val running = sourceHashesTask.runAsync(ioScheduler)
+      val running =
+        sourceHashesTask.executeWithOptions(_.disableAutoCancelableRunLoops).runAsync(ioScheduler)
 
       Thread.sleep(2)
       running.cancel()
@@ -51,7 +52,8 @@ object SourceHasherSpec extends bloop.testing.BaseSuite {
 
       val sourceHashesTask2 =
         SourceHasher.findAndHashSourcesInProject(projectA, 2, cancelPromise2, ioScheduler)
-      val running2 = sourceHashesTask2.runAsync(ioScheduler)
+      val running2 =
+        sourceHashesTask2.executeWithOptions(_.disableAutoCancelableRunLoops).runAsync(ioScheduler)
       val uncancelledResult = Await.result(running2, FiniteDuration(20, "s"))
       assert(uncancelledResult.isRight)
       assert(uncancelledResult.forall(_.nonEmpty))

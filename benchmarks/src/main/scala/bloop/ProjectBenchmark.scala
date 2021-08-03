@@ -30,7 +30,8 @@ class ProjectBenchmark {
     val client = ClientInfo.CliClientInfo(useStableCliDirs = true, () => true)
     val t = State.loadActiveStateFor(configDir, client, NoPool, CommonOptions.default, NoopLogger)
     val duration = FiniteDuration(10, TimeUnit.SECONDS)
-    val handle = t.runAsync(ExecutionContext.scheduler)
+    val handle =
+      t.executeWithOptions(_.disableAutoCancelableRunLoops).runAsync(ExecutionContext.scheduler)
     try Await.result(handle, duration)
     catch {
       case NonFatal(t) => handle.cancel(); throw t

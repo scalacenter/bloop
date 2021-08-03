@@ -500,6 +500,7 @@ object Cli {
         .flatMap(start => task.materialize.map(s => (s, start)))
         .map { case (state, start) => logElapsed(start); state }
         .dematerialize
+        .executeWithOptions(_.disableAutoCancelableRunLoops)
         .runAsync(ExecutionContext.scheduler)
 
     if (!cancel.isDone) {
@@ -515,6 +516,7 @@ object Cli {
             handle.cancel()
           }
         }
+        .executeWithOptions(_.disableAutoCancelableRunLoops)
         .runAsync(ExecutionContext.ioScheduler)
     }
 

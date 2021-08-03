@@ -189,7 +189,9 @@ trait BloopHelpers {
         }
       }
 
-      interpretedTask.runAsync(ExecutionContext.scheduler)
+      interpretedTask
+        .executeWithOptions(_.disableAutoCancelableRunLoops)
+        .runAsync(ExecutionContext.scheduler)
     }
 
     def cascadeCompile(projects: TestProject*): TestState = {
@@ -232,7 +234,9 @@ trait BloopHelpers {
         }
       }
 
-      interpretedTask.runAsync(userScheduler.getOrElse(ExecutionContext.scheduler))
+      interpretedTask
+        .executeWithOptions(_.disableAutoCancelableRunLoops)
+        .runAsync(userScheduler.getOrElse(ExecutionContext.scheduler))
     }
 
     def getProjectFor(project: TestProject): Project =

@@ -1480,7 +1480,12 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
       def runCompileAsync = Task.fork(Task.eval(Cli.run(compileAction, NoPool)))
       val runCompile =
         Task.parSequenceUnordered(List(runCompileAsync, runCompileAsync)).map(_ => ())
-      Await.result(runCompile.runAsync(ExecutionContext.ioScheduler), FiniteDuration(10, "s"))
+      Await.result(
+        runCompile
+          .executeWithOptions(_.disableAutoCancelableRunLoops)
+          .runAsync(ExecutionContext.ioScheduler),
+        FiniteDuration(10, "s")
+      )
 
       val actionsOutput = new String(testOut.toByteArray(), StandardCharsets.UTF_8)
       def removeAsciiColorCodes(line: String): String = line.replaceAll("\u001B\\[[;\\d]*m", "")

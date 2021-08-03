@@ -83,7 +83,7 @@ object Interpreter {
       }
     }
 
-    execute(action, stateTask)
+    execute(action, stateTask).executeWithOptions(_.disableAutoCancelableRunLoops)
   }
 
   private def notHandled(command: String, cliOptions: CliOptions, state: State): Task[State] = {

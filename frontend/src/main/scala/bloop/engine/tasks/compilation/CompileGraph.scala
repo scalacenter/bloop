@@ -281,7 +281,7 @@ object CompileGraph {
           runningCompilation.traversal.executeOn(ExecutionContext.ioScheduler)
 
         val deduplicateStreamSideEffectsHandle =
-          replayEventsTask.runAsync(ExecutionContext.ioScheduler)
+          replayEventsTask.executeWithOptions(_.disableAutoCancelableRunLoops).runAsync(ExecutionContext.ioScheduler)
 
         /**
          * Deduplicate and change the implementation of the task returning the
@@ -301,6 +301,7 @@ object CompileGraph {
                     // Wait on new classes to be populated for correctness
                     val runningBackgroundTasks = s.backgroundTasks
                       .trigger(externalClassesDir, reporter, bundle.tracer, logger)
+                      .executeWithOptions(_.disableAutoCancelableRunLoops)
                       .runAsync(ExecutionContext.ioScheduler)
                     Task.now(results.copy(runningBackgroundTasks = runningBackgroundTasks))
                   case _: Compiler.Result.Cancelled =>
@@ -559,7 +560,9 @@ object CompileGraph {
                   val pipelineInputs = PipelineInputs(cf, end, jcf, JavaContinue, true)
                   val t = compile(Inputs(bundle, oracle, Some(pipelineInputs), Map.empty))
                   val running =
-                    Task.fromFuture(t.executeWithFork.runAsync(ExecutionContext.scheduler))
+                    Task.fromFuture(
+                      t.executeWithFork.executeWithOptions(_.disableAutoCancelableRunLoops).runAsync(ExecutionContext.scheduler)
+                    )
                   val completeJava = Task
                     .deferFuture(end.future)
                     .executeOn(ExecutionContext.ioScheduler)
@@ -705,7 +708,9 @@ object CompileGraph {
                             )
                           )
 
-                          val running = t.executeWithFork.runAsync(ExecutionContext.scheduler)
+                          val running = t.executeWithFork
+                            .executeWithOptions(_.disableAutoCancelableRunLoops)
+                            .runAsync(ExecutionContext.scheduler)
                           val ongoing = Task.fromFuture(running)
                           val cj = {
                             Task

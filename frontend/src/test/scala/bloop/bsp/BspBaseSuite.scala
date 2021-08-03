@@ -168,7 +168,7 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
         }
       }
 
-      interpretedTask.runAsync(userScheduler.getOrElse(ExecutionContext.scheduler))
+      interpretedTask.executeWithOptions(_.disableAutoCancelableRunLoops).runAsync(userScheduler.getOrElse(ExecutionContext.scheduler))
     }
 
     def compile(
@@ -252,7 +252,7 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
         }
       }
 
-      interpretedTask.runAsync(userScheduler.getOrElse(ExecutionContext.scheduler))
+      interpretedTask.executeWithOptions(_.disableAutoCancelableRunLoops).runAsync(userScheduler.getOrElse(ExecutionContext.scheduler))
     }
 
     def requestSources(project: TestProject): bsp.SourcesResult = {
@@ -481,7 +481,7 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
     Task
       .fromFuture(compileStart.future)
       .flatMap(_ => state.withLogger(logger).compileTask(project))
-      .runAsync(ExecutionContext.ioScheduler)
+      .executeWithOptions(_.disableAutoCancelableRunLoops).runAsync(ExecutionContext.ioScheduler)
   }
 
   private val bspDefaultScheduler: Scheduler = TestSchedulers.async("bsp-default", threads = 4)
@@ -609,7 +609,7 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
 
     val bspServerStarted = bspServer
       .doOnFinish(_ => Task(subject.onComplete()))
-      .runAsync(ioScheduler)
+      .executeWithOptions(_.disableAutoCancelableRunLoops).runAsync(ioScheduler)
     val stringifiedDiagnostics = new ConcurrentHashMap[bsp.BuildTargetIdentifier, StringBuilder]()
     val bspClientExecution = establishClientConnection(cmd).flatMap { socket =>
       val in = socket.getInputStream
@@ -625,7 +625,8 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
       }
 
       implicit val lsClient = new BloopLanguageClient(out, logger)
-      val messages = BaseProtocolMessage.fromInputStream(in, logger)
+      val observable = Observable.fromInputStreamUnsafe(in)
+      val messages = BaseProtocolMessage.fromBytes(observable, logger)
       val addDiagnosticsHandler = addServicesTest(
         configDirectory,
         () => compileIteration.get,
@@ -635,7 +636,7 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
 
       val services = addDiagnosticsHandler(TestUtil.createTestServices(false, logger))
       val lsServer = new BloopLanguageServer(messages, lsClient, services, ioScheduler, logger)
-      val runningClientServer = lsServer.processMessagesSequentiallyTask.runAsync(ioScheduler)
+      val runningClientServer = lsServer.processMessagesSequentiallyTask.executeWithOptions(_.disableAutoCancelableRunLoops).runAsync(ioScheduler)
       val cwd = configDirectory.underlying.getParent
       val additionalData = Try(BloopExtraBuildParams.encoder(bloopExtraParams)).toOption
       val initializeServer = endpoints.Build.initialize.request(
@@ -678,7 +679,7 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
 
     import scala.concurrent.Await
     import scala.concurrent.duration.FiniteDuration
-    val bspClient = bspClientExecution.runAsync(ioScheduler)
+    val bspClient = bspClientExecution.executeWithOptions(_.disableAutoCancelableRunLoops).runAsync(ioScheduler)
 
     try {
       // The timeout for all our bsp tests, no matter what operation they run, is 30s

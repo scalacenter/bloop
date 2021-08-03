@@ -207,7 +207,8 @@ abstract class CommunityBuild(val buildpressHomeDir: AbsolutePath) {
 
   private def execute(a: Action, state: State, duration: Duration = Duration.Inf): State = {
     val task = Interpreter.execute(a, Task.now(state))
-    val handle = task.runAsync(ExecutionContext.scheduler)
+    val handle =
+      task.executeWithOptions(_.disableAutoCancelableRunLoops).runAsync(ExecutionContext.scheduler)
     try Await.result(handle, duration)
     catch {
       case NonFatal(t) => handle.cancel(); throw t

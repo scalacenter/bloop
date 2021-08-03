@@ -865,6 +865,7 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
         val _ = Task
           .fromFuture(startedFirstCompilation.future)
           .map(_ => { firstCompilation.cancel() })
+          .executeWithOptions(_.disableAutoCancelableRunLoops)
           .runAsync(ExecutionContext.ioScheduler)
 
         val (firstCompiledState, secondCompiledState) =
@@ -1080,6 +1081,7 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
         val secondCompilation = Task
           .fromFuture(startedProjectCompilation.future)
           .flatMap(_ => compiledMacrosState.withLogger(logger2).runTask(build.userProject))
+          .executeWithOptions(_.disableAutoCancelableRunLoops)
           .runAsync(ExecutionContext.ioScheduler)
 
         val firstRunState = waitInSeconds(firstRunExecution, 10)(logger1.writeToFile("1"))

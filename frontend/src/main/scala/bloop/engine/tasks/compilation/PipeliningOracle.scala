@@ -80,6 +80,7 @@ final class PipeliningOracle(
           Task
             .sequence(dependentProjectPromises)
             .map(_ => ())
+            .executeWithOptions(_.disableAutoCancelableRunLoops)
             .runAsync(ExecutionContext.ioScheduler)
         }
 
@@ -144,7 +145,9 @@ object PipeliningOracle {
     }
 
     // Think strategies to get a hold of this future or cancel it if compilation is cancelled
-    persistPicklesInParallel.runAsync(ExecutionContext.ioScheduler)
+    persistPicklesInParallel
+      .executeWithOptions(_.disableAutoCancelableRunLoops)
+      .runAsync(ExecutionContext.ioScheduler)
     ()
   }
 }

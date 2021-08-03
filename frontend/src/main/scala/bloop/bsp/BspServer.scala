@@ -167,7 +167,7 @@ object BspServer {
             .onErrorRecover { case NonFatal(e) => bspLogger.error("Unhandled error", e); () }
         }
 
-        val cancelable = taskToRun.runAsync(ioScheduler)
+        val cancelable = taskToRun.executeWithOptions(_.disableAutoCancelableRunLoops).runAsync(ioScheduler)
         cancelables.synchronized { cancelables.+=(cancelable) }
         Task
           .fromFuture(cancelable)
@@ -203,7 +203,7 @@ object BspServer {
         .flatMap(_ => server.awaitRunningTasks.map(_ => provider.stateAfterExecution))
 
       // Start consumer in the background and assign cancelable
-      val consumerFuture = consumingTask.runAsync(ioScheduler)
+      val consumerFuture = consumingTask.executeWithOptions(_.disableAutoCancelableRunLoops).runAsync(ioScheduler)
       stopBspConnection.:=(Cancelable(() => consumerFuture.cancel()))
 
       /*
@@ -298,7 +298,7 @@ object BspServer {
         .sequence(groups.toIndexedSeq)
         .map(_.flatten)
         .map(_ => ())
-        .runAsync(ExecutionContext.ioScheduler)
+        .executeWithOptions(_.disableAutoCancelableRunLoops).runAsync(ExecutionContext.ioScheduler)
 
       ()
     }

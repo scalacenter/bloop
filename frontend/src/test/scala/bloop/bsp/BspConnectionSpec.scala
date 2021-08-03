@@ -53,7 +53,7 @@ class BspConnectionSpec(
           // Wait 500ms to let the rest of clients to connect to server and then simulate dropout
           Thread.sleep(500)
           bspState.simulateClientDroppingOut()
-        }
+        }.executeWithOptions(_.disableAutoCancelableRunLoops)
       }
 
       val client1 = createClient

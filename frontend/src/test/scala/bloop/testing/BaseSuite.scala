@@ -571,7 +571,12 @@ abstract class BaseSuite extends TestSuite with BloopHelpers {
       run: => Unit
   ): Unit = {
     test(name) {
-      Await.result(Task { run }.runAsync(ExecutionContext.scheduler), maxDuration)
+      Await.result(
+        Task { run }
+          .executeWithOptions(_.disableAutoCancelableRunLoops)
+          .runAsync(ExecutionContext.scheduler),
+        maxDuration
+      )
     }
   }
 
