@@ -94,9 +94,11 @@ object MojoImplementation {
         emptyLauncher
       }
 
-    val scalaContext = mojo.findScalaContext()
+    // check if Scala is contained in this project
+    // findScalaContext throws an exception if it can't find Scala
+    val scalaContext = Try(mojo.findScalaContext()).toOption
     val compileSetup = mojo.getCompileSetup()
-    val compilerAndDeps = scalaContext.findCompilerAndDependencies().asScala
+    val compilerAndDeps = scalaContext.toList.flatMap(_.findCompilerAndDependencies().asScala)
     val allScalaJars = compilerAndDeps.map { artifact =>
       artifact.getFile().toPath()
     }.toList
@@ -168,7 +170,11 @@ object MojoImplementation {
         val sbt = None
         val test = Some(Config.Test.defaultConfiguration)
         val java = Some(Config.Java(mojo.getJavacArgs().asScala.toList))
-        val `scala` = Some(Config.Scala(scalaOrganization, mojo.getScalaArtifactID(), scalaContext.version().toString(), scalacArgs, allScalaJars, analysisOut, Some(compileSetup)))
+        val `scala` =
+          scalaContext.map{
+            context =>
+              Config.Scala(scalaOrganization, mojo.getScalaArtifactID(), context.version().toString(), scalacArgs, allScalaJars, analysisOut, Some(compileSetup))
+          }
         val javaHome = Some(abs(mojo.getJavaHome().getParentFile.getParentFile))
         val mainClass = if (launcher.getMainClass().isEmpty) None else Some(launcher.getMainClass())
         val platform = Some(Config.Platform.Jvm(Config.JvmConfig(javaHome, launcher.getJvmArgs().toList), mainClass, None, None, None))
