@@ -222,21 +222,23 @@ abstract class LauncherBaseSuite(
 
   import bloop.logging.BspClientLogger
   import monix.eval.Task
-  import scala.meta.jsonrpc.BaseProtocolMessage
   import bloop.util.TestUtil
-  import scala.meta.jsonrpc.Response
   import bloop.bsp.BloopLanguageClient
+  import jsonrpc4s._
+
   def startBspInitializeHandshake[T](
       in: InputStream,
       out: OutputStream,
       logger: BspClientLogger[_]
-  )(runEndpoints: BloopLanguageClient => Task[Either[Response.Error, T]]): Task[T] = {
+  )(runEndpoints: RpcClient => Task[Either[Response.Error, T]]): Task[T] = {
     import ch.epfl.scala.bsp
     import ch.epfl.scala.bsp.endpoints
     import bloop.bsp.BloopLanguageClient
     import bloop.bsp.BloopLanguageServer
-    implicit val lsClient = new BloopLanguageClient(out, logger)
-    val messages = BaseProtocolMessage.fromInputStream(in, logger)
+    implicit val lsClient = RpcClient.fromOutputStream(out, logger)
+    val messages = LowLevelMessage
+      .fromInputStream(in, logger)
+      .mapEval(msg => Task(LowLevelMessage.toMsg(msg)))
     val services = TestUtil.createTestServices(false, logger)
     val lsServer = new BloopLanguageServer(messages, lsClient, services, bspScheduler, logger)
     val runningClientServer =

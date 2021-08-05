@@ -14,7 +14,6 @@ import sbt.internal.util.MessageOnlyException
 
 import scala.concurrent.{Await, Promise}
 import scala.concurrent.duration.FiniteDuration
-import scala.meta.jsonrpc._
 import scala.util.control.NonFatal
 import bloop.bloopgun.ServerConfig
 

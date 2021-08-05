@@ -9,6 +9,9 @@ import ch.epfl.scala.bsp.DebugSessionParamsDataKind._
 import monix.eval.Task
 import scala.concurrent.duration.FiniteDuration
 import java.util.concurrent.TimeUnit
+import com.github.plokhotnyuk.jsoniter_scala.core._
+import jsonrpc4s.RawJson
+import com.github.plokhotnyuk.jsoniter_scala.macros.JsonCodecMaker
 
 object DebugProtocolSpec extends DebugBspBaseSuite {
   test("starts a debug session") {
@@ -173,16 +176,17 @@ object DebugProtocolSpec extends DebugBspBaseSuite {
     target =>
       val targets = List(target)
       val data = bsp.ScalaMainClass(mainClass, Nil, Nil, Nil)
-      val json = bsp.ScalaMainClass.encodeScalaMainClass(data)
-      bsp.DebugSessionParams(targets, ScalaMainClass, json)
+      val json = writeToArray[bsp.ScalaMainClass](data)
+      bsp.DebugSessionParams(targets, ScalaMainClass, RawJson(json))
   }
 
   def testSuiteParams(
       filters: List[String]
   ): bsp.BuildTargetIdentifier => bsp.DebugSessionParams = { target =>
-    import io.circe.syntax._
     val targets = List(target)
-    val json = filters.asJson
-    bsp.DebugSessionParams(targets, ScalaTestSuites, json)
+    implicit val codec =
+      JsonCodecMaker.makeWithRequiredCollectionFields[List[bsp.BuildTargetIdentifier]]
+    val json = writeToArray[List[bsp.BuildTargetIdentifier]](targets)
+    bsp.DebugSessionParams(targets, ScalaTestSuites, RawJson(json))
   }
 }

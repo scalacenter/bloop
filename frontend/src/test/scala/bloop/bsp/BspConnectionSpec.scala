@@ -250,8 +250,8 @@ class BspConnectionSpec(
 
             import BuildTarget.compile._
             bspState.client0
-              .requestAndForget(
-                BuildTarget.compile.method,
+              .request(
+                BuildTarget.compile,
                 bsp.CompileParams(List(target), None, None)
               )
               .flatMap { _ =>

@@ -14,9 +14,6 @@ import bloop.bsp.BloopBspDefinitions.BloopExtraBuildParams
 
 import java.nio.file.{Files, Paths}
 
-import io.circe.JsonObject
-import io.circe.Json
-
 import monix.execution.Scheduler
 import monix.execution.ExecutionModel
 import monix.eval.Task

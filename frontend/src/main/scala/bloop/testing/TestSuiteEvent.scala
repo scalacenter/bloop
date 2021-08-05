@@ -8,8 +8,9 @@ import ch.epfl.scala.bsp.endpoints.{Build, BuildTarget}
 import sbt.testing.{Event, Selector, Status}
 
 import scala.collection.mutable
-import scala.meta.jsonrpc.JsonRpcClient
 import scala.util.Try
+
+import jsonrpc4s.RpcClient
 
 sealed trait TestSuiteEvent
 object TestSuiteEvent {
@@ -148,9 +149,9 @@ class LoggingEventHandler(logger: Logger) extends TestSuiteEventHandler {
   }
 }
 
-final class BspLoggingEventHandler(id: BuildTargetIdentifier, logger: Logger, client: JsonRpcClient)
+final class BspLoggingEventHandler(id: BuildTargetIdentifier, logger: Logger, client: RpcClient)
     extends LoggingEventHandler(logger) {
-  implicit val client0: JsonRpcClient = client
+  implicit val client0: RpcClient = client
   override def report(): Unit = {
     /*    val failed = suitesFailed.length
     val r = bsp.TestReport(id, None, suitesPassed, failed, 0, 0, 0, 0, Some(suitesDuration))

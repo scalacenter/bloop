@@ -16,9 +16,10 @@ import java.util.stream.Collectors
 import scala.collection.JavaConverters._
 import ch.epfl.scala.bsp.{JvmEnvironmentItem, ScalacOptionsItem, Uri}
 import bloop.bsp.BloopBspDefinitions.BloopExtraBuildParams
-import io.circe.Json
+import com.github.plokhotnyuk.jsoniter_scala.core._
 import bloop.testing.DiffAssertions.TestFailedException
 import bloop.data.SourcesGlobs
+import scala.util.{Try, Success, Failure}
 
  object TcpBspProtocolSpec extends BspProtocolSpec(BspProtocol.Tcp)
  object LocalBspProtocolSpec extends BspProtocolSpec(BspProtocol.Local)
@@ -324,21 +325,20 @@ class BspProtocolSpec(
           val bspTarget = build.state.findBuildTarget(project)
           assert(bspTarget.languageIds.sorted == List("java", "scala"))
           val json = bspTarget.data.get
-          bsp.ScalaBuildTarget.decodeScalaBuildTarget(json.hcursor) match {
-            case Right(scalaTarget) =>
+          Try(readFromArray[bsp.ScalaBuildTarget](json.value)) match {
+            case Success(scalaTarget) =>
               val expectedVersion = project.config.scala.get.version
               val expectedPlatform = project.config.platform.get match {
                 case _: Config.Platform.Jvm => bsp.ScalaPlatform.Jvm
                 case _: Config.Platform.Js => bsp.ScalaPlatform.Js
                 case _: Config.Platform.Native => bsp.ScalaPlatform.Native
               }
-
               assert(scalaTarget.jars.nonEmpty)
               assert(scalaTarget.scalaOrganization.nonEmpty)
               assert(expectedVersion == scalaTarget.scalaVersion)
               assert(expectedVersion.startsWith(scalaTarget.scalaBinaryVersion))
               assert(scalaTarget.platform == expectedPlatform)
-            case Left(e) => fail(s"Couldn't decode scala build target for ${bspTarget}")
+            case Failure(e) => fail(s"Couldn't decode scala build target for ${bspTarget}")
           }
         }
 

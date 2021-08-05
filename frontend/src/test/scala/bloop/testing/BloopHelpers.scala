@@ -115,7 +115,6 @@ trait BloopHelpers {
       newBaseDir: String,
       logger: Logger
   ): TestProject = {
-    import _root_.io.circe.parser
     val bytes = Files.readAllBytes(configFile)
     val contents = new String(bytes, StandardCharsets.UTF_8)
     val newContents = contents.replace(previousBaseDir, newBaseDir)

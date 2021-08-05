@@ -34,7 +34,7 @@ import sbt.internal.inc.bloop.ZincInternals
 
 import scala.concurrent.duration.{Duration, FiniteDuration, TimeUnit}
 import scala.concurrent.{Await, ExecutionException}
-import scala.meta.jsonrpc.Services
+import jsonrpc4s.Services
 import scala.tools.nsc.Properties
 import scala.util.control.NonFatal
 import bloop.data.WorkspaceSettings
