@@ -71,9 +71,6 @@ class Footer extends React.Component {
             <a href="https://gitter.im/scalacenter/bloop" target="_blank">
               <img src="https://img.shields.io/gitter/room/scalacenter/bloop.svg?logo=gitter&style=social" />
             </a>
-            <a href="https://twitter.com/jvican" target="_blank">
-              <img src="https://img.shields.io/twitter/follow/jvican.svg?logo=twitter&style=social" />
-            </a>
           </div>
         </section>
         <section className="copyright">{copyright}</section>

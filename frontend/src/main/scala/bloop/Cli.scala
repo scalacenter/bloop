@@ -140,7 +140,7 @@ object Cli {
        |Using Scala v$scalaVersion and Zinc v$zincVersion
        |Running on Java ${JavaRuntime.current} v$javaVersion ($javaHome)
        |  -> $jdiStatus
-       |Maintained by the Scala Center ($developers)
+       |Maintained by the Scala Center and the community.
        |""".stripMargin
   }
 
