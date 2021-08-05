@@ -1,10 +1,12 @@
 package bloop.bsp
 
 import ch.epfl.scala.bsp.Uri
-import io.circe.derivation._
-import io.circe.{Decoder, RootEncoder}
-
-import scala.meta.jsonrpc.Endpoint
+import com.github.plokhotnyuk.jsoniter_scala.core.JsonValueCodec
+import com.github.plokhotnyuk.jsoniter_scala.macros.JsonCodecMaker
+import com.github.plokhotnyuk.jsoniter_scala.macros.CodecMakerConfig
+import com.github.plokhotnyuk.jsoniter_scala.core.JsonReader
+import com.github.plokhotnyuk.jsoniter_scala.core.JsonWriter
+import jsonrpc4s.Endpoint
 
 object BloopBspDefinitions {
   final case class BloopExtraBuildParams(
@@ -22,21 +24,17 @@ object BloopBspDefinitions {
       supportedScalaVersions = None
     )
 
-    val encoder: RootEncoder[BloopExtraBuildParams] = deriveEncoder
-    val decoder: Decoder[BloopExtraBuildParams] = deriveDecoder
+    implicit val codec: JsonValueCodec[BloopExtraBuildParams] = JsonCodecMaker.makeWithRequiredCollectionFields
   }
 
   final case class StopClientCachingParams(originId: String)
   object StopClientCachingParams {
-    val encoder: RootEncoder[StopClientCachingParams] = deriveEncoder
-    val decoder: Decoder[StopClientCachingParams] = deriveDecoder
+    implicit val codec: JsonValueCodec[StopClientCachingParams] = JsonCodecMaker.makeWithRequiredCollectionFields
   }
 
   object stopClientCaching
       extends Endpoint[StopClientCachingParams, Unit]("bloop/stopClientCaching") (
-        StopClientCachingParams.decoder,
-        StopClientCachingParams.encoder,
-        implicitly[Decoder[Unit]],
-        implicitly[RootEncoder[Unit]]
+        StopClientCachingParams.codec,
+        Endpoint.unitCodec
       )
 }

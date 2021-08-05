@@ -24,12 +24,17 @@ import monix.execution.cancelables.CompositeCancelable
 
 import scala.concurrent.Future
 import scala.concurrent.Promise
-import scala.meta.jsonrpc.{BaseProtocolMessage, LanguageClient, LanguageServer}
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import monix.execution.cancelables.AssignableCancelable
 import java.nio.file.NoSuchFileException
 import monix.reactive.subjects.BehaviorSubject
+import jsonrpc4s.Services
+import jsonrpc4s.RpcClient
+import jsonrpc4s.LowLevelMessage
+import jsonrpc4s.RpcServer
+import jsonrpc4s.Connection
+import jsonrpc4s.Message
 
 object BspServer {
   private implicit val logContext: DebugFilter = DebugFilter.Bsp
@@ -70,11 +75,15 @@ object BspServer {
       val out = socket.getOutputStream
 
       // FORMAT: OFF
+      import jsonrpc4s.{Connection, InputOutput}
       val bspLogger = new BspClientLogger(logger)
-      val client = new BloopLanguageClient(out, bspLogger)
-      val messages = BaseProtocolMessage.fromInputStream(in, bspLogger)
+
       val stopBspConnection = AssignableCancelable.single()
-      val provider = new BloopBspServices(state, client, config, stopBspConnection, externalObserver, isCommunicationActive, connectedBspClients, scheduler, ioScheduler)
+      val messages = LowLevelMessage
+        .fromInputStream(in, bspLogger)
+        .mapEval(msg => Task(LowLevelMessage.toMsg(msg)))
+      val client = RpcClient.fromOutputStream(out, bspLogger)
+      val provider = new BloopBspServices(state, config, client, stopBspConnection, externalObserver, isCommunicationActive, connectedBspClients, scheduler, ioScheduler)
       val server = new BloopLanguageServer(messages, client, provider.services, ioScheduler, bspLogger)
       // FORMAT: ON
 
@@ -101,7 +110,7 @@ object BspServer {
       import monix.reactive.Observable
       import monix.reactive.MulticastStrategy
       val (bufferedObserver, endObservable) =
-        Observable.multicast(MulticastStrategy.publish[BaseProtocolMessage])(ioScheduler)
+        Observable.multicast(MulticastStrategy.publish[Message])(ioScheduler)
 
       import scala.collection.mutable
       import monix.execution.cancelables.AssignableCancelable
@@ -157,12 +166,10 @@ object BspServer {
       }
 
       import monix.reactive.Consumer
-      val singleMessageConsumer = Consumer.foreachTask[BaseProtocolMessage] { msg =>
-        import scala.meta.jsonrpc.Response.Empty
-        import scala.meta.jsonrpc.Response.Success
+      val singleMessageConsumer = Consumer.foreachTask[Message] { msg =>
         val taskToRun = {
           server
-            .handleMessage(msg)
+            .handleValidMessage(msg)
             .flatMap(msg => Task.fromFuture(client.serverRespond(msg)).map(_ => ()))
             .onErrorRecover { case NonFatal(e) => bspLogger.error("Unhandled error", e); () }
         }
