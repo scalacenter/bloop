@@ -60,7 +60,7 @@ foo-test
 If the results of `bloop projects` is empty, check that:
 
 1. You are running the command-line invocation in the root base directory (e.g. `/disk/foo`).
-1. The gradle build export process completed successfully.
+1. The mill build export process completed successfully.
 1. The `.bloop/` configuration directory contains bloop configuration files.
 
 If you suspect bloop is loading the configuration files from somewhere else, run `--verbose`:
