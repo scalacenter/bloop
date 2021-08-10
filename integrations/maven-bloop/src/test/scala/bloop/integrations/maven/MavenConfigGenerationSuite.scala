@@ -19,12 +19,15 @@ import scala.util.Try
 import scala.sys.process.ProcessLogger
 import bloop.config.Config
 import bloop.config.Tag
+import java.util.stream.Collector
+import java.util.stream.Collectors
 
 class MavenConfigGenerationSuite extends BaseConfigSuite {
 
   @Test
   def basicScala3() = {
-    check("basic_scala3/pom.xml", projectName = "basic_scala3") { (configFile, projectName) =>
+    check("basic_scala3/pom.xml") { (configFile, projectName, subprojects) =>
+      assert(subprojects.isEmpty)
       assert(configFile.project.`scala`.isDefined)
       assertEquals("3.0.0", configFile.project.`scala`.get.version)
       assertEquals("org.scala-lang", configFile.project.`scala`.get.organization)
@@ -46,7 +49,8 @@ class MavenConfigGenerationSuite extends BaseConfigSuite {
 
   @Test
   def basicScala() = {
-    check("basic_scala/pom.xml", projectName = "basic_scala") { (configFile, projectName) =>
+    check("basic_scala/pom.xml") { (configFile, projectName, subprojects) =>
+      assert(subprojects.isEmpty)
       assert(configFile.project.`scala`.isDefined)
       assertEquals("2.13.6", configFile.project.`scala`.get.version)
       assertEquals("org.scala-lang", configFile.project.`scala`.get.organization)
@@ -64,14 +68,50 @@ class MavenConfigGenerationSuite extends BaseConfigSuite {
     }
   }
 
-  private def check(testProject: String, projectName: String)(
-      checking: (Config.File, String) => Unit
+  @Test
+  def multiProject() = {
+    check(
+      "multi_scala/pom.xml",
+      submodules = List("multi_scala/module1/pom.xml", "multi_scala/module2/pom.xml")
+    ) {
+      case (configFile, projectName, List(module1, module2)) =>
+        assert(configFile.project.`scala`.isEmpty)
+        assert(module1.project.`scala`.isEmpty)
+        assert(module2.project.`scala`.isDefined)
+
+        assertEquals("2.13.6", module2.project.`scala`.get.version)
+        assertEquals("org.scala-lang", module2.project.`scala`.get.organization)
+        assert(
+          !module2.project.`scala`.get.jars.exists(_.toString.contains("scala3-compiler_3")),
+          "No Scala 3 jar should be present."
+        )
+        assert(hasCompileClasspathEntryName(module2, "scala-library"))
+
+        assert(hasTag(module1, Tag.Library))
+        assert(hasTag(module2, Tag.Library))
+
+        assertNoConfigsHaveAnyJars(List(configFile), List(s"$projectName", s"$projectName-test"))
+        assertNoConfigsHaveAnyJars(List(module1), List("module1", "module1-test"))
+        assertNoConfigsHaveAnyJars(List(module2), List("module2", "module2-test"))
+
+        assertAllConfigsMatchJarNames(List(module1), List("scala-library", "munit"))
+      case _ =>
+        assert(false, "Multi project should have two submodules")
+    }
+  }
+
+  private def check(testProject: String, submodules: List[String] = Nil)(
+      checking: (Config.File, String, List[Config.File]) => Unit
   ): Unit = {
+    def nameFromDirectory(projectString: String) =
+      Paths.get(projectString).getParent().getFileName().toString()
     val tempDir = Files.createTempDirectory("mavenBloop")
     val outFile = copyFromResource(tempDir, testProject)
+    submodules.foreach(copyFromResource(tempDir, _))
     val wrapperJar = copyFromResource(tempDir, s"maven-wrapper.jar")
     val wrapperPropertiesFile = copyFromResource(tempDir, s"maven-wrapper.properties")
 
+    //    val all = Files.list(tempDir).collect(Collectors.toList())
     import sys.process._
 
     val javaHome = Paths.get(System.getProperty("java.home"))
@@ -102,7 +142,13 @@ class MavenConfigGenerationSuite extends BaseConfigSuite {
       val bloopDir = projectPath.resolve(".bloop")
       val projectFile = bloopDir.resolve(s"${projectName}.json")
       val configFile = readValidBloopConfig(projectFile.toFile())
-      checking(configFile, projectName)
+
+      val subProjects = submodules.map { mod =>
+        val subProjectName = tempDir.resolve(mod).getParent().toFile().getName()
+        val subProjectFile = bloopDir.resolve(s"${subProjectName}.json")
+        readValidBloopConfig(subProjectFile.toFile())
+      }
+      checking(configFile, projectName, subProjects)
       tempDir.toFile().delete()
     } catch {
       case NonFatal(e) =>
