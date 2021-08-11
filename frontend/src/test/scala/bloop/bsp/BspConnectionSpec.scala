@@ -1,27 +1,25 @@
 package bloop.bsp
 
 import bloop.io.Environment.lineSeparator
-import bloop.cli.{ExitStatus, BspProtocol}
-import bloop.util.{TestUtil, TestProject}
-import bloop.logging.{RecordingLogger, BspClientLogger}
+import bloop.cli.{BspProtocol, ExitStatus}
+import bloop.util.{TestProject, TestUtil}
+import bloop.logging.{BspClientLogger, RecordingLogger}
 import bloop.internal.build.BuildInfo
-
 import monix.eval.Task
-import monix.execution.{Scheduler, ExecutionModel}
+import monix.execution.schedulers.SchedulerService
+import monix.execution.{ExecutionModel, Scheduler}
 
 import scala.concurrent.duration.FiniteDuration
 
 object TcpBspConnectionSpec extends BspConnectionSpec(BspProtocol.Tcp)
+
 object LocalBspConnectionSpec extends BspConnectionSpec(BspProtocol.Local)
 
 class BspConnectionSpec(
     override val protocol: BspProtocol
 ) extends BspBaseSuite {
   // A custom pool we use to make sure we don't block on threads
-  val poolFor6Clients: Scheduler = Scheduler(
-    java.util.concurrent.Executors.newFixedThreadPool(20),
-    ExecutionModel.Default
-  )
+  val poolFor6Clients: Scheduler = Scheduler.fixedPool(name = "6clientsPool", poolSize = 20)
 
   test("initialize several clients concurrently and simulate a hard disconnection") {
     TestUtil.withinWorkspace { workspace =>
@@ -29,31 +27,28 @@ class BspConnectionSpec(
       val projects = List(`A`)
       val configDir = TestProject.populateWorkspace(workspace, projects)
 
-      def createClient: Task[Unit] = {
-        Task {
-          val logger = new RecordingLogger(ansiCodesSupported = false)
-          val bspLogger = new BspClientLogger(logger)
-          val bspCommand = createBspCommand(configDir)
-          val state = TestUtil.loadTestProject(configDir.underlying, logger)
+      def createClient: Task[Unit] = Task {
+        val logger = new RecordingLogger(ansiCodesSupported = false)
+        val bspLogger = new BspClientLogger(logger)
+        val bspCommand = createBspCommand(configDir)
+        val state = TestUtil.loadTestProject(configDir.underlying, logger)
 
-          // Run the clients on our own unbounded IO scheduler to allow client concurrency
-          val scheduler = Some(poolFor6Clients)
-          val bspState = openBspConnection(
-            state,
-            bspCommand,
-            configDir,
-            bspLogger,
-            userIOScheduler = scheduler
-          )
+        // Run the clients on our own unbounded IO scheduler to allow client concurrency
+        val scheduler = Some(poolFor6Clients)
+        val bspState = openBspConnection(
+          state,
+          bspCommand,
+          configDir,
+          bspLogger,
+          userIOScheduler = scheduler
+        )
 
-          assert(bspState.status == ExitStatus.Ok)
-          // Note we opened an unmanaged state and we exit without sending `shutdown`/`exit`
-          checkConnectionIsInitialized(logger)
-
-          // Wait 500ms to let the rest of clients to connect to server and then simulate dropout
-          Thread.sleep(500)
-          bspState.simulateClientDroppingOut()
-        }.executeWithOptions(_.disableAutoCancelableRunLoops)
+        assert(bspState.status == ExitStatus.Ok)
+        // Note we opened an unmanaged state and we exit without sending `shutdown`/`exit`
+        checkConnectionIsInitialized(logger)
+        // Wait 500ms to let the rest of clients to connect to server and then simulate dropout
+        Thread.sleep(500)
+        bspState.simulateClientDroppingOut()
       }
 
       val client1 = createClient
@@ -85,55 +80,20 @@ class BspConnectionSpec(
   }
 
   def checkConnectionIsInitialized(logger: RecordingLogger): Unit = {
-    val jsonrpc = logger.debugs.filter(_.startsWith(" -->"))
+    val jsonrpc = logger.debugs.filter(_.contains(" -->"))
     // Filter out the initialize request that contains platform-specific details
     val allButInitializeRequest = jsonrpc.filterNot(_.contains("""build/initialize""""))
+    // some IDEs might trim spaces in multiline string
+    val spaces = "       "
     assertNoDiff(
-      allButInitializeRequest.mkString(lineSeparator),
-      s"""| --> {
-          |  "result" : {
-          |    "displayName" : "${BuildInfo.bloopName}",
-          |    "version" : "${BuildInfo.version}",
-          |    "bspVersion" : "${BuildInfo.bspVersion}",
-          |    "capabilities" : {
-          |      "compileProvider" : {
-          |        "languageIds" : [
-          |          "scala",
-          |          "java"
-          |        ]
-          |      },
-          |      "testProvider" : {
-          |        "languageIds" : [
-          |          "scala",
-          |          "java"
-          |        ]
-          |      },
-          |      "runProvider" : {
-          |        "languageIds" : [
-          |          "scala",
-          |          "java"
-          |        ]
-          |      },
-          |      "inverseSourcesProvider" : true,
-          |      "dependencySourcesProvider" : true,
-          |      "resourcesProvider" : true,
-          |      "buildTargetChangedProvider" : false,
-          |      "jvmTestEnvironmentProvider" : true,
-          |      "jvmRunEnvironmentProvider" : true,
-          |      "canReload" : false
-          |    },
-          |    "data" : null
-          |  },
-          |  "id" : "2",
-          |  "jsonrpc" : "2.0"
-          |}
-          | --> {
-          |  "method" : "build/initialized",
-          |  "params" : {
-          |    
-          |  },
-          |  "jsonrpc" : "2.0"
-          |}""".stripMargin
+      allButInitializeRequest.mkString,
+      s"""|
+          |  --> header: Content-Length -> 498
+          |  --> content: {"result":{"displayName":"${BuildInfo.bloopName}","version":"${BuildInfo.version}","bspVersion":"${BuildInfo.bspVersion}","capabilities":{"compileProvider":{"languageIds":["scala","java"]},"testProvider":{"languageIds":["scala","java"]},"runProvider":{"languageIds":["scala","java"]},"inverseSourcesProvider":true,"dependencySourcesProvider":true,"resourcesProvider":true,"buildTargetChangedProvider":false,"jvmTestEnvironmentProvider":true,"jvmRunEnvironmentProvider":true,"canReload":false}},"id":2,"jsonrpc":"2.0"}
+          |$spaces
+          |  --> header: Content-Length -> 58
+          |  --> content: {"method":"build/initialized","params":{},"jsonrpc":"2.0"}
+          |$spaces""".stripMargin
     )
   }
 
@@ -164,32 +124,32 @@ class BspConnectionSpec(
         val `B.scala` =
           """/B.scala
             |object B { def foo(s: String): String = s.toString; macros.SleepMacro.sleep() }
-          """.stripMargin
+           """.stripMargin
 
         val `B2.scala` =
           """/B2.scala
             |object B2 { def foo(s: String): String = s.toString; macros.SleepMacro.sleep() }
-          """.stripMargin
+           """.stripMargin
 
         val `B3.scala` =
           """/B3.scala
             |object B3 { def foo(s: String): String = s.toString; macros.SleepMacro.sleep() }
-          """.stripMargin
+           """.stripMargin
 
         val `B4.scala` =
           """/B4.scala
             |object B4 { def foo(s: String): String = s.toString; macros.SleepMacro.sleep() }
-          """.stripMargin
+           """.stripMargin
 
         val `B5.scala` =
           """/B5.scala
             |object B5 { def foo(s: String): String = s.toString; macros.SleepMacro.sleep() }
-          """.stripMargin
+           """.stripMargin
 
         val `B6.scala` =
           """/B6.scala
             |object B6 { def foo(s: String): String = s.toString; macros.SleepMacro.sleep() }
-          """.stripMargin
+           """.stripMargin
       }
 
       val `A` = TestProject(workspace, "a", List(Sources.`A.scala`))
@@ -208,65 +168,58 @@ class BspConnectionSpec(
       val configDir = TestProject.populateWorkspace(workspace, projects)
       val logger = new RecordingLogger(ansiCodesSupported = false)
 
-      def createHangingCompilationViaBsp: Task[Unit] = {
-        Task {
-          val bspLogger = new BspClientLogger(logger)
-          val bspCommand = createBspCommand(configDir)
-          val state = TestUtil.loadTestProject(configDir.underlying, logger)
+      def createHangingCompilationViaBsp: Task[Unit] = Task {
+        val bspLogger = new BspClientLogger(logger)
+        val bspCommand = createBspCommand(configDir)
+        val state = TestUtil.loadTestProject(configDir.underlying, logger)
 
-          // Run the clients on our own unbounded IO scheduler to allow client concurrency
-          val scheduler = Some(poolFor1Client)
-          val unmanagedBspState = openBspConnection(
-            state,
-            bspCommand,
-            configDir,
-            bspLogger,
-            userIOScheduler = scheduler
-          )
+        // Run the clients on our own unbounded IO scheduler to allow client concurrency
+        val scheduler = Some(poolFor1Client)
+        val unmanagedBspState = openBspConnection(
+          state,
+          bspCommand,
+          configDir,
+          bspLogger,
+          userIOScheduler = scheduler
+        )
 
-          assert(unmanagedBspState.status == ExitStatus.Ok)
-          val bspState = unmanagedBspState.toUnsafeManagedState
+        assert(unmanagedBspState.status == ExitStatus.Ok)
+        val bspState = unmanagedBspState.toUnsafeManagedState
 
-          // Note we opened an unmanaged state and we exit without sending `shutdown`/`exit`
-          checkConnectionIsInitialized(logger)
+        // Note we opened an unmanaged state and we exit without sending `shutdown`/`exit`
+        checkConnectionIsInitialized(logger)
 
-          import bloop.engine.ExecutionContext
-          import java.util.concurrent.TimeUnit
-          ExecutionContext.ioScheduler.scheduleOnce(
-            2000,
-            TimeUnit.MILLISECONDS,
-            new Runnable {
-              def run(): Unit = {
-                // Simulate hard disconnection by closing streams, should trigger cancellation
-                unmanagedBspState.simulateClientDroppingOut()
-              }
+        import bloop.engine.ExecutionContext
+        import java.util.concurrent.TimeUnit
+        ExecutionContext.ioScheduler.scheduleOnce(
+          2000,
+          TimeUnit.MILLISECONDS,
+          // Simulate hard disconnection by closing streams, should trigger cancellation
+          () => unmanagedBspState.simulateClientDroppingOut()
+        )
+
+        // A hand-made request to trigger a compile and detach from its response
+        bspState.runAfterTargets(`B`) { target =>
+          import ch.epfl.scala.bsp
+          import ch.epfl.scala.bsp.endpoints.BuildTarget
+
+          bspState.client0
+            .request(
+              BuildTarget.compile,
+              bsp.CompileParams(List(target), None, None)
+            )
+            .flatMap { _ =>
+              // Wait until observable is completed, which means server is done
+              bspState.serverStates.completedL
             }
-          )
-
-          // A hand-made request to trigger a compile and detach from its response
-          bspState.runAfterTargets(`B`) { target =>
-            import ch.epfl.scala.bsp
-            import ch.epfl.scala.bsp.endpoints.BuildTarget
-
-            import BuildTarget.compile._
-            bspState.client0
-              .request(
-                BuildTarget.compile,
-                bsp.CompileParams(List(target), None, None)
-              )
-              .flatMap { _ =>
-                // Wait until observable is completed, which means server is done
-                bspState.serverStates.foreachL(state => ())
-              }
-          }
-        }.flatten
-      }
+        }
+      }.flatten
 
       // Time out is 5 to check cancellation works and we don't finish until end
       // of compilation, which would take more than 6 seconds as there are 12 sleeps
-      val safeDelay = FiniteDuration(5, "s")
-      import java.util.concurrent.TimeoutException
+      val safeDelay = FiniteDuration(10, "s")
       TestUtil.await(safeDelay, poolFor1Client)(createHangingCompilationViaBsp)
     }
   }
 }
+

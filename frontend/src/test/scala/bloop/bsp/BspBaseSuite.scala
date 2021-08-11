@@ -610,7 +610,9 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
 
     val bspServerStarted = bspServer
       .doOnFinish(_ => Task(subject.onComplete()))
-      .executeWithOptions(_.disableAutoCancelableRunLoops).runAsync(ioScheduler)
+      .executeAsync
+      .runToFuture(ioScheduler)
+
     val stringifiedDiagnostics = new ConcurrentHashMap[bsp.BuildTargetIdentifier, StringBuilder]()
     val bspClientExecution = establishClientConnection(cmd).flatMap { socket =>
       val in = socket.getInputStream
@@ -625,7 +627,7 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
         ()
       }
 
-      implicit val lsClient = RpcClient.fromOutputStream(out, logger)
+      implicit val lsClient: RpcClient = RpcClient.fromOutputStream(out, logger)
       val messages = LowLevelMessage
         .fromInputStream(in, logger)
         .mapEval(msg => Task(LowLevelMessage.toMsg(msg)))
@@ -638,7 +640,7 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
 
       val services = addDiagnosticsHandler(TestUtil.createTestServices(false, logger))
       val lsServer = new BloopLanguageServer(messages, lsClient, services, ioScheduler, logger)
-      val runningClientServer = lsServer.processMessagesSequentiallyTask.executeWithOptions(_.disableAutoCancelableRunLoops).runAsync(ioScheduler)
+      val runningClientServer = lsServer.processMessagesSequentiallyTask.executeWithOptions(_.disableAutoCancelableRunLoops).runToFuture(ioScheduler)
       val cwd = configDirectory.underlying.getParent
       val additionalData = Try(writeToArray[BloopExtraBuildParams](bloopExtraParams)).toOption.map(RawJson(_))
       val initializeServer = endpoints.Build.initialize.request(
@@ -652,12 +654,12 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
         )
       )
 
-      val initializedTask = {
-        val startedServer = Task.fromFuture(readyToConnect.future)
-        initializeServer.delayExecutionWith(startedServer).flatMap { _ =>
+      val initializedTask = Task
+        .fromFuture(readyToConnect.future)
+        .flatMap(_ => initializeServer)
+        .flatMap { _ =>
           Task.fromFuture(endpoints.Build.initialized.notify(bsp.InitializedBuildParams()))
         }
-      }
 
       val closeTask = {
         endpoints.Build.shutdown.request(bsp.Shutdown()).flatMap { _ =>
@@ -681,7 +683,7 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
 
     import scala.concurrent.Await
     import scala.concurrent.duration.FiniteDuration
-    val bspClient = bspClientExecution.executeWithOptions(_.disableAutoCancelableRunLoops).runAsync(ioScheduler)
+    val bspClient = bspClientExecution.executeWithOptions(_.disableAutoCancelableRunLoops).executeAsync.runToFuture(ioScheduler)
 
     try {
       // The timeout for all our bsp tests, no matter what operation they run, is 30s

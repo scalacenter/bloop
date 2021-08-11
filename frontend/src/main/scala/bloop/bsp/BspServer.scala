@@ -3,7 +3,6 @@ package bloop.bsp
 import java.net.Socket
 import java.net.ServerSocket
 import java.util.Locale
-
 import bloop.cli.Commands
 import bloop.data.ClientInfo
 import bloop.engine.{ExecutionContext, State}
@@ -16,10 +15,10 @@ import monix.execution.Ack
 import monix.execution.Scheduler
 import monix.execution.Cancelable
 import monix.execution.atomic.Atomic
+
 import scala.util.control.NonFatal
-import monix.reactive.OverflowStrategy
+import monix.reactive.{Consumer, Observable, Observer, OverflowStrategy}
 import monix.reactive.observers.Subscriber
-import monix.reactive.{Observable, Observer}
 import monix.execution.cancelables.CompositeCancelable
 
 import scala.concurrent.Future
@@ -27,6 +26,7 @@ import scala.concurrent.Promise
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import monix.execution.cancelables.AssignableCancelable
+
 import java.nio.file.NoSuchFileException
 import monix.reactive.subjects.BehaviorSubject
 import jsonrpc4s.Services
@@ -34,7 +34,12 @@ import jsonrpc4s.RpcClient
 import jsonrpc4s.LowLevelMessage
 import jsonrpc4s.RpcServer
 import jsonrpc4s.Connection
+import jsonrpc4s.LowLevelMessage.fromBytes
 import jsonrpc4s.Message
+
+import java.io.{OutputStream, PrintWriter}
+import java.nio.ByteBuffer
+import java.nio.channels.Channels
 
 object BspServer {
   private implicit val logContext: DebugFilter = DebugFilter.Bsp
@@ -75,16 +80,17 @@ object BspServer {
       val out = socket.getOutputStream
 
       // FORMAT: OFF
-      import jsonrpc4s.{Connection, InputOutput}
       val bspLogger = new BspClientLogger(logger)
-
       val stopBspConnection = AssignableCancelable.single()
       val messages = LowLevelMessage
         .fromInputStream(in, bspLogger)
         .mapEval(msg => Task(LowLevelMessage.toMsg(msg)))
+        .executeAsync
+
       val client = RpcClient.fromOutputStream(out, bspLogger)
       val provider = new BloopBspServices(state, config, client, stopBspConnection, externalObserver, isCommunicationActive, connectedBspClients, scheduler, ioScheduler)
-      val server = new BloopLanguageServer(messages, client, provider.services, ioScheduler, bspLogger)
+      // In this case BloopLanguageServer doesn't use input observable
+      val server = new BloopLanguageServer(Observable.never, client, provider.services, ioScheduler, bspLogger)
       // FORMAT: ON
 
       def error(msg: String): Unit = provider.stateAfterExecution.logger.error(msg)
@@ -261,7 +267,8 @@ object BspServer {
     initServer(handle, state).materialize.flatMap {
       case scala.util.Success(socket: ServerSocket) =>
         listenToConnection(handle, socket).onErrorRecoverWith {
-          case t => Task.now(state.withError(s"Exiting BSP server with ${t.getMessage}", t))
+          case t => 
+            Task.now(state.withError(s"Exiting BSP server with ${t.getMessage}", t))
         }
       case scala.util.Failure(t: Throwable) =>
         promiseWhenStarted.foreach(p => if (!p.isCompleted) p.failure(t))

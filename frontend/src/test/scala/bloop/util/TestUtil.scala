@@ -118,15 +118,16 @@ object TestUtil {
       scheduler: Scheduler,
       logger: Option[RecordingLogger] = None
   )(t: Task[T]): T = {
-    val handle = t.executeWithOptions(_.disableAutoCancelableRunLoops).runAsync(scheduler)
+    val handle = t
+      .executeWithOptions(_.disableAutoCancelableRunLoops)
+      .runToFuture(scheduler)
     try {
       Await.result(handle, duration)
     } catch {
-
       case i: InterruptedException =>
         handle.cancel(); throw i
       case t: TimeoutException =>
-        println("TimeoutException")
+        handle.cancel()
         System.err.println("Error: timeout detected, printing logs!")
         logger.foreach(_.dump())
         System.err.println("Now, taking a thread dump!")
@@ -134,7 +135,8 @@ object TestUtil {
         System.err.println("Rethrowing exception to the caller!")
         throw t
       case NonFatal(t) =>
-        handle.cancel(); throw t
+        System.err.println("Rethrowing non-fatal exception to the caller!")
+        throw t
     }
   }
 

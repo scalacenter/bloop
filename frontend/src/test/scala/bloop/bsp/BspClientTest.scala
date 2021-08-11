@@ -4,30 +4,27 @@ import java.io.File
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
 import java.util.concurrent.{ConcurrentHashMap, ExecutionException}
-
-import bloop.engine.{State, Run}
-import bloop.cli.{Commands, Validate, CliOptions, BspProtocol}
+import bloop.engine.{Run, State}
+import bloop.cli.{BspProtocol, CliOptions, Commands, Validate}
 import bloop.engine.ExecutionContext
 import bloop.engine.caches.ResultsCache
 import bloop.internal.build.BuildInfo
 import bloop.io.{AbsolutePath, RelativePath}
 import bloop.io.Environment.END_OF_LINE_MATCHER
-import bloop.logging.{BspClientLogger, DebugFilter, RecordingLogger, Slf4jAdapter}
-import bloop.util.{UUIDUtil, TestUtil}
-
+import bloop.logging.{BspClientLogger, DebugFilter, Logger, RecordingLogger, Slf4jAdapter}
+import bloop.util.{TestUtil, UUIDUtil}
 import ch.epfl.scala.bsp
 import ch.epfl.scala.bsp.endpoints
 import monix.eval.Task
 import monix.execution.{ExecutionModel, Scheduler}
-import monix.{eval => me}
 import sbt.internal.util.MessageOnlyException
 
 import scala.collection.mutable
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.Promise
-
 import jsonrpc4s._
 import com.github.plokhotnyuk.jsoniter_scala.core._
+
 import scala.util.Try
 import scala.util.Failure
 import scala.util.Success
@@ -114,7 +111,7 @@ trait BspClientTest {
       addDiagnosticsHandler: Boolean = true,
       userState: Option[State] = None,
       userScheduler: Option[Scheduler] = None
-  )(runEndpoints: RpcClient => me.Task[Either[Response.Error, T]]): Option[T] = {
+  )(runEndpoints: RpcClient => Task[Either[Response.Error, T]]): Option[T] = {
     val ioScheduler = userScheduler.getOrElse(defaultScheduler)
     val logger = logger0.asVerbose.asInstanceOf[logger0.type]
     // Set an empty results cache and update the state globally
@@ -190,13 +187,15 @@ trait BspClientTest {
     }
   }
 
-  def establishClientConnection(cmd: Commands.ValidatedBsp): me.Task[java.net.Socket] = {
+  def establishClientConnection(cmd: Commands.ValidatedBsp): Task[java.net.Socket] = {
     import bloop.sockets.UnixDomainSocket
     import bloop.sockets.Win32NamedPipeSocket
-    val connectToServer = me.Task {
+    val connectToServer = Task {
       cmd match {
-        case cmd: Commands.TcpBsp => new java.net.Socket(cmd.host, cmd.port)
-        case cmd: Commands.UnixLocalBsp => new UnixDomainSocket(cmd.socket.syntax)
+        case cmd: Commands.TcpBsp =>
+          new java.net.Socket(cmd.host, cmd.port)
+        case cmd: Commands.UnixLocalBsp => 
+          new UnixDomainSocket(cmd.socket.syntax)
         case cmd: Commands.WindowsLocalBsp => new Win32NamedPipeSocket(cmd.pipeName)
       }
     }
@@ -205,17 +204,17 @@ trait BspClientTest {
 
   // Courtesy of @olafurpg
   def retryBackoff[A](
-      source: me.Task[A],
+      source: Task[A],
       maxRetries: Int,
       firstDelay: FiniteDuration
-  ): me.Task[A] = {
+  ): Task[A] = {
     source.onErrorHandleWith {
       case ex: Exception =>
         if (maxRetries > 0)
           // Recursive call, it's OK as Monix is stack-safe
           retryBackoff(source, maxRetries - 1, firstDelay * 2)
             .delayExecution(firstDelay)
-        else me.Task.raiseError(ex)
+        else Task.raiseError(ex)
     }
   }
 

@@ -196,8 +196,7 @@ final class SourceWatcher private (
       else FiniteDuration(userMs.toLong, "ms")
     }
 
-    observable
-      .transform(self => new BloopBufferTimedObservable(self, timespan, 0))
+    new BloopBufferTimedObservable(observable, timespan, 0)
       .liftByOperator(
         new BloopWhileBusyDropEventsAndSignalOperator((es: Seq[Seq[DirectoryChangeEvent]]) =>
           es.flatten
