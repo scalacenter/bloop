@@ -1,35 +1,17 @@
 package bloop.io
 
-import java.io.IOException
-import java.util.concurrent.ConcurrentLinkedDeque
-import java.nio.file.attribute.BasicFileAttributes
-import java.nio.file.{
-  FileSystems,
-  StandardCopyOption,
-  FileVisitResult,
-  FileVisitOption,
-  FileVisitor,
-  Files,
-  Path,
-  SimpleFileVisitor,
-  Paths => NioPaths
-}
+import bloop.UniqueCompileInputs.HashedSource
+import bloop.data.Project
+import monix.eval.Task
+import monix.execution.{Cancelable, Scheduler}
+import monix.execution.atomic.AtomicBoolean
+import monix.reactive.{Consumer, MulticastStrategy, Observable}
 
+import java.io.IOException
+import java.nio.file.attribute.BasicFileAttributes
+import java.nio.file._
 import scala.collection.mutable
 import scala.concurrent.Promise
-
-import bloop.data.Project
-import bloop.CompilerOracle
-import bloop.engine.ExecutionContext
-import bloop.util.monix.FoldLeftAsyncConsumer
-import bloop.UniqueCompileInputs.HashedSource
-
-import monix.reactive.{MulticastStrategy, Consumer, Observable}
-import monix.eval.Task
-import monix.execution.atomic.AtomicBoolean
-import monix.execution.Scheduler
-import monix.execution.Cancelable
-import monix.execution.cancelables.CompositeCancelable
 
 object SourceHasher {
   private final val sourceMatcher =
@@ -127,7 +109,7 @@ object SourceHasher {
 
     val collectHashesConsumer: Consumer[HashedSource, mutable.ListBuffer[HashedSource]] = {
       val empty = mutable.ListBuffer.empty[HashedSource]
-      FoldLeftAsyncConsumer.consume(empty)((buffer, source) => Task.now(buffer.+=(source)))
+      Consumer.foldLeft(empty)((buffer, source) => buffer.+=(source))
     }
 
     val collectAllSources = Task.create[mutable.ListBuffer[HashedSource]] { (scheduler, cb) =>
@@ -151,23 +133,27 @@ object SourceHasher {
         subscribed.success(())
         Cancelable { () =>
           isCancelled.compareAndSet(false, true)
-          try consumerSubscription.cancel()
-          finally {
-            sourceSubscription.cancel()
-          }
+          sourceSubscription.cancel()
+          cb.onSuccess(mutable.ListBuffer.empty)
         }
       }
     }
 
     val orderlyDiscovery = Task.fromFuture(subscribed.future).flatMap(_ => discoverFileTree)
-    Task
+    val computation = Task
       .mapBoth(orderlyDiscovery, collectAllSources) {
-        case (_, sources) =>
-          if (!isCancelled.get) Right(sources.toList.distinct)
-          else {
-            cancelCompilation.trySuccess(())
-            Left(())
-          }
+        case (_, sources) => Right(sources.toList.distinct)
+      }
+      .doOnCancel(Task(cancelCompilation.success(())))
+
+    val fallback: Task[Either[Unit, List[HashedSource]]] =
+      Task.fromFuture(cancelCompilation.future).map(_ => Left(())).uncancelable
+
+    Task
+      .race(computation, fallback)
+      .map {
+        case Left(computedHashes) => computedHashes
+        case Right(fallback) => fallback
       }
       .doOnCancel(Task { isCancelled.compareAndSet(false, true); () })
   }
