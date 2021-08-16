@@ -16,10 +16,9 @@ import syntax._
  * bloop {
  *   targetDir = file("$projectDir/.bloop")
  *   compilerName = "scala-compiler"
- *   stdLibName = "scala-library"
+ *   stdLibName = "scala-library" // or "scala3-library_3"
  *   includeSources = true
  *   includeJavaDoc = false
- *   dottyVersion = "latest"
  * }
  * }}}
  */
@@ -37,12 +36,6 @@ case class BloopParametersExtension(project: Project) {
   // name of Scala library
   private val stdLibName_ : Property[String] = project.getObjects.property(classOf[String])
   @Input @Optional def getStdLibName: Property[String] = stdLibName_
-
-  // Dotty override
-  private val dottyVersion_ : Property[String] = project.getObjects.property(classOf[String])
-  @Input @Optional def getDottyVersion: Property[String] = dottyVersion_
-  private def getDottyVersionOption: Option[String] =
-    if (dottyVersion_.isPresent) Some(dottyVersion_.get) else None
 
   // include the source artifacts
   // In Gradle 4.3 the default property for Boolean is false (not null) so default has to be set here
@@ -62,20 +55,18 @@ case class BloopParametersExtension(project: Project) {
     val defaultTargetDir = project.getRootProject.workspacePath.resolve(".bloop").toFile
     BloopParameters(
       targetDir_.getOrElse(defaultTargetDir),
-      compilerName_.getOrElse("scala-compiler"),
-      stdLibName_.getOrElse("scala-library"),
+      Option(compilerName_.getOrNull),
+      Option(stdLibName_.getOrNull),
       includeSources_.get,
-      includeJavadoc_.get,
-      getDottyVersionOption
+      includeJavadoc_.get
     )
   }
 }
 
 case class BloopParameters(
     targetDir: File,
-    compilerName: String,
-    stdLibName: String,
+    compilerName: Option[String],
+    stdLibName: Option[String],
     includeSources: Boolean,
-    includeJavadoc: Boolean,
-    dottyVersion: Option[String]
+    includeJavadoc: Boolean
 )

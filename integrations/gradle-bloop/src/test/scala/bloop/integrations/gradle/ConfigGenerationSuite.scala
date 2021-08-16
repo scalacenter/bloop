@@ -554,132 +554,23 @@ abstract class ConfigGenerationSuite extends BaseConfigSuite {
     worksWithGivenScalaVersion("2.11.12")
   }
 
-  @Test def worksWithScala212Project(): Unit = {
+  @Test def worksWithScala_2_12_8_Project(): Unit = {
     worksWithGivenScalaVersion("2.12.8")
   }
 
-  @Test def worksWithScala213Project(): Unit = {
+  @Test def worksWithScala_2_13_1_Project(): Unit = {
     worksWithGivenScalaVersion("2.13.1")
   }
 
-  @Test def worksWithSpecificDottyA(): Unit = {
-    worksWithDotty("0.21.0-bin-20191101-3939747-NIGHTLY", "0.21.0-bin-20191101-3939747-NIGHTLY")
+  /*
+   * TODO
+   * uncomment when...
+   * 1) https://github.com/gradle/gradle/pull/18001 is merged and released
+   * 2) ConfigGenerationSuite_7_0 is updated to that version
+  @Test def worksWithScala_3_0_1_Project(): Unit = {
+    worksWithGivenScalaVersion("3.0.1")
   }
-  @Test def worksWithSpecificDottyB(): Unit = {
-    worksWithDotty("0.21.0-RC1", "0.21.0-RC1")
-  }
-  @Test def worksWithSpecificDottyC(): Unit = {
-    worksWithDotty("0.21.0", "0.21.0")
-  }
-  @Test def worksWithSpecificDottyD(): Unit = {
-    worksWithDotty("0.21", "0.21.0")
-  }
-  @Test def worksWithSpecificScala3A(): Unit = {
-    worksWithScala3(
-      "3.0.0-M1-bin-20201015-8c56525-NIGHTLY",
-      "3.0.0-M1-bin-20201015-8c56525-NIGHTLY"
-    )
-  }
-  @Test def worksWithSpecificScala3B(): Unit = {
-    worksWithScala3("3.0.0-M1", "3.0.0-M1")
-  }
-  @Test def worksWithSpecificScala3C(): Unit = {
-    worksWithScala3("3.0.0", "3.0.0")
-  }
-  @Test def worksWithScala3LatestNightly(): Unit = {
-    // newer releases mean we can't test for version
-    worksWithScala3("Latest", "")
-  }
-
-  private def worksWithScala3(suppliedVersion: String, expectedVersion: String): Unit = {
-    worksWithDottyOrScala3(
-      suppliedVersion,
-      expectedVersion,
-      "org.scala-lang",
-      "scala3-compiler",
-      "scala3-library"
-    )
-  }
-
-  private def worksWithDotty(suppliedVersion: String, expectedVersion: String): Unit = {
-    worksWithDottyOrScala3(
-      suppliedVersion,
-      expectedVersion,
-      "ch.epfl.lamp",
-      "dotty-compiler",
-      "dotty-library"
-    )
-  }
-
-  private def worksWithDottyOrScala3(
-      suppliedVersion: String,
-      expectedVersion: String,
-      expectedOrg: String,
-      compilerName: String,
-      libraryName: String
-  ): Unit = {
-    val buildFile = testProjectDir.newFile("build.gradle")
-    testProjectDir.newFolder("src", "main", "scala")
-    writeBuildScript(
-      buildFile,
-      s"""
-         |plugins {
-         |  id 'bloop'
-         |}
-         |
-         |apply plugin: 'scala'
-         |apply plugin: 'bloop'
-         |
-         |bloop {
-         |  dottyVersion = "$suppliedVersion"
-         |}
-         |
-         |repositories {
-         |  mavenCentral()
-         |}
-         |
-         |dependencies {
-         |  implementation 'org.scala-lang:scala-library:2.13.1'
-         |}
-      """.stripMargin
-    )
-
-    createHelloWorldScalaSource(testProjectDir.getRoot)
-
-    GradleRunner
-      .create()
-      .withGradleVersion(gradleVersion)
-      .withProjectDir(testProjectDir.getRoot)
-      .withPluginClasspath(getClasspath)
-      .withArguments("bloopInstall", "-Si")
-      .build()
-
-    val projectName = testProjectDir.getRoot.getName
-    val bloopDir = new File(testProjectDir.getRoot, ".bloop")
-    val projectFile = new File(bloopDir, s"${projectName}.json")
-    val configFile = readValidBloopConfig(projectFile)
-
-    assert(configFile.project.`scala`.isDefined)
-
-    if (expectedVersion.isEmpty)
-      assertNotEquals(suppliedVersion, configFile.project.`scala`.get.version)
-    else
-      assertEquals(expectedVersion, configFile.project.`scala`.get.version)
-    assertEquals(expectedOrg, configFile.project.`scala`.get.organization)
-    assert(configFile.project.`scala`.get.jars.exists(_.toString.contains(compilerName)))
-    assert(hasBothClasspathsEntryName(configFile, libraryName))
-    assert(hasBothClasspathsEntryName(configFile, "scala-library"))
-
-    val idxDottyLib = idxOfClasspathEntryName(configFile, libraryName)
-    val idxScalaLib = idxOfClasspathEntryName(configFile, "scala-library")
-
-    assert(idxDottyLib < idxScalaLib)
-
-    assert(hasTag(configFile, Tag.Library))
-
-    assertNoConfigsHaveAnyJars(List(configFile), List(s"$projectName", s"$projectName-test"))
-    assertAllConfigsMatchJarNames(List(configFile), List(libraryName))
-  }
+   */
 
   @Test def failsOnMissingScalaLibrary(): Unit = {
 
@@ -3410,57 +3301,74 @@ abstract class ConfigGenerationSuite extends BaseConfigSuite {
     testProjectDir.newFolder("src", "main", "scala")
     testProjectDir.newFolder("src", "test", "scala")
 
-    writeBuildScript(
-      buildFile,
-      s"""
-         |plugins {
-         |  id 'bloop'
-         |}
-         |
-         |apply plugin: 'scala'
-         |apply plugin: 'bloop'
-         |
-         |repositories {
-         |  mavenCentral()
-         |}
-         |
-         |dependencies {
-         |  implementation group: 'org.scala-lang', name: 'scala-library', version: "$version"
-         |}
-      """.stripMargin
-    )
+    val isScala3 = version.startsWith("3")
+    // TODO correct this gradle version when https://github.com/gradle/gradle/pull/18001 is merged and released
+    if (!isScala3 || gradleVersion >= "8.0???") {
+      val (libraryName, compilerName) =
+        if (isScala3) ("scala3-library_3", "scala3-compiler_3")
+        else ("scala-library", "scala-compiler")
 
-    createHelloWorldScalaSource(testProjectDir.getRoot)
+      writeBuildScript(
+        buildFile,
+        s"""
+           |plugins {
+           |  id 'bloop'
+           |}
+           |
+           |apply plugin: 'scala'
+           |apply plugin: 'bloop'
+           |
+           |repositories {
+           |  mavenCentral()
+           |}
+           |
+           |dependencies {
+           |  implementation group: 'org.scala-lang', name: '$libraryName', version: '$version'
+           |}
+        """.stripMargin
+      )
 
-    GradleRunner
-      .create()
-      .withGradleVersion(gradleVersion)
-      .withProjectDir(testProjectDir.getRoot)
-      .withPluginClasspath(getClasspath)
-      .withArguments("bloopInstall", "-Si")
-      .build()
+      createHelloWorldScalaSource(testProjectDir.getRoot)
 
-    val projectName = testProjectDir.getRoot.getName
-    val bloopDir = new File(testProjectDir.getRoot, ".bloop")
-    val projectFile = new File(bloopDir, s"${projectName}.json")
-    val projectTestFile = new File(bloopDir, s"${projectName}-test.json")
-    val configFile = readValidBloopConfig(projectFile)
-    val configTestFile = readValidBloopConfig(projectTestFile)
+      GradleRunner
+        .create()
+        .withGradleVersion(gradleVersion)
+        .withProjectDir(testProjectDir.getRoot)
+        .withPluginClasspath(getClasspath)
+        .withArguments("bloopInstall", "-Si")
+        .build()
 
-    assert(configFile.project.`scala`.isDefined)
-    assertEquals(version, configFile.project.`scala`.get.version)
-    assert(configFile.project.classpath.nonEmpty)
-    assert(configFile.project.dependencies.isEmpty)
-    assert(hasTag(configFile, Tag.Library))
+      val projectName = testProjectDir.getRoot.getName
+      val bloopDir = new File(testProjectDir.getRoot, ".bloop")
+      val projectFile = new File(bloopDir, s"${projectName}.json")
+      val projectTestFile = new File(bloopDir, s"${projectName}-test.json")
+      val configFile = readValidBloopConfig(projectFile)
+      val configTestFile = readValidBloopConfig(projectTestFile)
 
-    assertEquals(List(projectName), configTestFile.project.dependencies)
-    assert(hasTag(configTestFile, Tag.Test))
-    assert(compileBloopProject(s"${projectName}-test", bloopDir).status.isOk)
-    assertAllConfigsMatchJarNames(List(configFile, configTestFile), List("scala-library"))
+      assert(configFile.project.`scala`.isDefined)
+      assertEquals(version, configFile.project.`scala`.get.version)
+      assertEquals("org.scala-lang", configFile.project.`scala`.get.organization)
+      assertEquals("scala-compiler", configFile.project.`scala`.get.name)
+      assert(configFile.project.`scala`.get.jars.exists(_.toString.contains(compilerName)))
+
+      assert(hasBothClasspathsEntryName(configFile, libraryName))
+      if (isScala3) {
+        assert(hasBothClasspathsEntryName(configFile, "scala-library"))
+        val idxScala3Lib = idxOfClasspathEntryName(configFile, libraryName)
+        val idxScalaLib = idxOfClasspathEntryName(configFile, "scala-library")
+        assert(idxScala3Lib < idxScalaLib)
+      }
+
+      assert(hasTag(configFile, Tag.Library))
+
+      assertEquals(List(projectName), configTestFile.project.dependencies)
+      assert(hasTag(configTestFile, Tag.Test))
+      assert(compileBloopProject(s"${projectName}-test", bloopDir).status.isOk)
+      assertAllConfigsMatchJarNames(List(configFile), List(libraryName))
+    }
   }
 
   private def getClasspath: java.lang.Iterable[File] = {
     new ClassGraph().getClasspathFiles()
   }
-
 }
