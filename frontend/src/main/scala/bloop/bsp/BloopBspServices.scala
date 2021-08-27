@@ -46,6 +46,7 @@ import scala.collection.mutable
 import scala.collection.JavaConverters._
 import scala.concurrent.Promise
 import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration.Duration
 import scala.util.{Failure, Success, Try}
 import monix.execution.Cancelable
 import io.circe.{Decoder, Json}
@@ -628,7 +629,12 @@ final class BloopBspServices(
                     case Right(runner) =>
                       val dapLogger = new DebugServerLogger(logger)
                       val handler =
-                        DebugServer.start(runner, dapLogger, autoCloseSession = true)(ioScheduler)
+                        DebugServer.start(
+                          runner, 
+                          dapLogger, 
+                          autoCloseSession = true, 
+                          gracePeriod = Duration(5, TimeUnit.SECONDS)
+                        )(ioScheduler)
                       val listenAndUnsubscribe = Task
                         .fromFuture(handler.running)
                         .runOnComplete(_ => backgroundDebugServers -= handler.uri)(ioScheduler)
