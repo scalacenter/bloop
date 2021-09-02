@@ -11,6 +11,10 @@ import scala.sys.process.Process
 
 object GradleIntegration {
   private final val isWindows = scala.util.Properties.isWin
+
+  // Used for cache action hashing
+  val version = "5.0"
+
   def fetchGradleApi(version: String, libDir: File, logger: Logger): Unit = {
     val targetApi = libDir / s"gradle-api-$version.jar"
     val targetTestKit = libDir / s"gradle-test-kit-$version.jar"
