@@ -2,22 +2,29 @@ package bloop.integrations.maven
 
 import java.io.File
 import java.nio.file.{Files, Path, Paths}
+import java.{util => ju}
 import bloop.config.{Config, Tag}
+import org.apache.maven.artifact.repository.ArtifactRepository
 import org.apache.maven.execution.MavenSession
 import org.apache.maven.model.Resource
 import org.apache.maven.plugin.logging.Log
 import org.apache.maven.plugin.{MavenPluginManager, Mojo, MojoExecution}
 import org.apache.maven.project.MavenProject
-import org.codehaus.plexus.util.xml.Xpp3Dom
-import scala_maven.AppLauncher
-import scala.collection.JavaConverters._
 import org.apache.maven.artifact.Artifact
 import org.apache.maven.shared.invoker.DefaultInvocationRequest
-import java.{util => ju}
-import org.apache.maven.shared.invoker.DefaultInvoker
-import org.apache.maven.shared.invoker.InvocationResult
+import org.codehaus.plexus.util.xml.Xpp3Dom
+import org.eclipse.aether.resolution.ArtifactRequest
+import org.eclipse.aether.artifact.DefaultArtifact
+import org.eclipse.aether.repository.RemoteRepository
+import org.eclipse.aether.repository.Authentication
+import org.eclipse.aether.util.repository.AuthenticationBuilder
+import org.eclipse.aether.repository.AuthenticationContext
+import org.eclipse.aether.repository
 
+import scala_maven.AppLauncher
 import scala.util.{Failure, Success, Try}
+import scala.collection.JavaConverters._
+import scala.collection.mutable.Buffer
 
 object MojoImplementation {
   private val ScalaMavenGroupArtifact = "net.alchim31.maven:scala-maven-plugin"
@@ -73,6 +80,41 @@ object MojoImplementation {
       file.toPath().toRealPath().toAbsolutePath()
     }
 
+    def resolveArtifact(artifact: Artifact, classifier: String = ""): Option[File] = try {
+      val suffix = if (classifier.nonEmpty) s":$classifier" else ""
+      log.info("Resolving artifact: " + artifact + suffix)
+      val request = new ArtifactRequest()
+      request.setArtifact(
+        new DefaultArtifact(
+          artifact.getGroupId(),
+          artifact.getArtifactId(),
+          classifier,
+          "jar",
+          artifact.getVersion()
+        )
+      )
+      request.setRepositories(mojo.getRemoteRepositories())
+      val result = mojo.getRepoSystem().resolveArtifact(session.getRepositorySession(), request)
+      log.info("SUCCESS " + artifact)
+      Some(result.getArtifact().getFile())
+    } catch {
+      case t: Throwable =>
+        log.error("FAILURE " + artifact, t)
+        None
+    }
+
+    val reactorProjectsSet = mojo
+      .getReactorProjects()
+      .asScala
+      .map { project =>
+        (project.getGroupId(), project.getName(), project.getVersion())
+      }
+      .toSet
+
+    def isNotReactorProjectArtifact(artifact: Artifact) = {
+      !reactorProjectsSet((artifact.getGroupId(), artifact.getArtifactId(), artifact.getVersion()))
+    }
+
     val root = new File(session.getExecutionRootDirectory())
     val project = mojo.getProject()
     val dependencies =
@@ -116,7 +158,8 @@ object MojoImplementation {
     def writeConfig(
         sourceDirs0: Seq[File],
         classesDir0: File,
-        classpath0: java.util.List[_],
+        // needs to be lazy, since we resolve artifacts later on
+        classpath0: () => java.util.List[_],
         resources0: java.util.List[_],
         launcher: AppLauncher,
         configuration: String
@@ -130,24 +173,20 @@ object MojoImplementation {
       val sourceDirs = sourceDirs0.map(abs).toList
       val classesDir = abs(classesDir0)
 
-      val resolution = if (mojo.shouldDownloadSources()) {
-        // Run source dependencies download
-        val request = new DefaultInvocationRequest()
-        request.setPomFile(project.getBasedir)
-        request.setBatchMode(true)
-        request.setGoals(ju.Collections.singletonList("dependency:sources"))
-        val invoker = new DefaultInvoker()
-        val result: InvocationResult = invoker.execute(request)
+      val modules =
+        project.getArtifacts().asScala.collect {
+          case art: Artifact if art.getType() == "jar" && isNotReactorProjectArtifact(art) =>
+            resolveArtifact(art).foreach { resolvedFile =>
+              //since we don't resolve dependencies automatically in the plugin, this will be null
+              art.setFile(resolvedFile)
+            }
+            if (mojo.shouldDownloadSources()) {
+              resolveArtifact(art, "sources")
+            }
+            artifactToConfigModule(art, project, session)
+        }
+      val resolution = Some(Config.Resolution(modules.toList))
 
-        val modules =
-          project.getArtifacts().asScala.collect {
-            case art: Artifact if art.getType() == "jar" =>
-              artifactToConfigModule(art, project, session)
-          }
-        Some(Config.Resolution(modules.toList))
-      } else {
-        None
-      }
       val classpath = {
         val projectDependencies = dependencies.flatMap { d =>
           val build = d.getBuild()
@@ -155,7 +194,7 @@ object MojoImplementation {
           else build.getTestOutputDirectory() :: build.getOutputDirectory() :: Nil
         }
 
-        val cp = classpath0.asScala.toList.asInstanceOf[List[String]].map(u => abs(new File(u)))
+        val cp = classpath0().asScala.toList.asInstanceOf[List[String]].map(u => abs(new File(u)))
         (projectDependencies.map(u => abs(new File(u))) ++ cp).toList
       }
 
@@ -230,16 +269,16 @@ object MojoImplementation {
       session: MavenSession
   ): Config.Module = {
     val base = session.getLocalRepository().getBasedir()
-    val artifactPath = session.getLocalRepository().pathOf(artifact)
-    val sources = artifactPath.replace(".jar", "-sources.jar")
-    val sourcesPath = Paths.get(base).resolve(sources)
-    val sourcesList = if (sourcesPath.toFile().exists()) {
+    val artifactRelativePath = session.getLocalRepository().pathOf(artifact)
+    val sources = artifactRelativePath.replace(".jar", "-sources.jar")
+    val sourcesJarPath = Paths.get(base).resolve(sources)
+    val sourcesList = if (sourcesJarPath.toFile().exists()) {
       List(
         Config.Artifact(
           name = artifact.getArtifactId(),
           classifier = Option("sources"),
           checksum = None,
-          path = sourcesPath
+          path = sourcesJarPath
         )
       )
     } else {
