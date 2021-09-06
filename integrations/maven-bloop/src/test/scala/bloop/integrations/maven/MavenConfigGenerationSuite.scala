@@ -100,6 +100,61 @@ class MavenConfigGenerationSuite extends BaseConfigSuite {
     }
   }
 
+  @Test
+  def multiDependency() = {
+    check(
+      "multi_dependency/pom.xml",
+      submodules = List("multi_dependency/module1/pom.xml", "multi_dependency/module2/pom.xml")
+    ) {
+      case (configFile, projectName, List(module1, module2)) =>
+        assert(module1.project.`scala`.isDefined)
+        assert(module2.project.`scala`.isDefined)
+        assert(module1.project.resolution.nonEmpty)
+        assert(module2.project.resolution.nonEmpty)
+
+        val resolutionModules1 = module1.project.resolution.get.modules
+        assert(resolutionModules1.nonEmpty)
+        assert(resolutionModules1.forall(_.artifacts.exists(_.classifier == Some("sources"))))
+        assert(resolutionModules1.forall(_.artifacts.exists(_.classifier == None)))
+
+        // check for munit, direct dependency
+        val munitModule1 = resolutionModules1.find(_.name == "munit_2.13")
+        assert(munitModule1.exists { m =>
+          m.artifacts.exists(_.path.toString().contains("munit_2.13-0.7.26-sources.jar"))
+          m.artifacts.exists(_.path.toString().contains("munit_2.13-0.7.26.jar"))
+        })
+
+        val resolutionModules2 = module2.project.resolution.get.modules
+        assert(resolutionModules2.nonEmpty)
+        assert(resolutionModules2.forall(_.artifacts.exists(_.classifier == Some("sources"))))
+        assert(resolutionModules2.forall(_.artifacts.exists(_.classifier == None)))
+
+        // check for munit, direct dependency
+        val munitModule2 = resolutionModules2.find(_.name == "munit_2.13")
+        assert(munitModule2.exists { m =>
+          m.artifacts.exists(_.path.toString().contains("munit_2.13-0.7.26-sources.jar"))
+          m.artifacts.exists(_.path.toString().contains("munit_2.13-0.7.26.jar"))
+        })
+
+        //junit transitive dependency
+        val junitModule = resolutionModules2.find(_.name == "junit")
+        assert(junitModule.exists { m =>
+          m.artifacts.exists(_.path.toString().contains("junit-4.13.1-sources.jar"))
+          m.artifacts.exists(_.path.toString().contains("junit-4.13.1.jar"))
+        })
+
+        // scaltags in dependend module
+        val scalatagsModule = resolutionModules2.find(_.name == "scalatags_2.13")
+        assert(scalatagsModule.exists { m =>
+          m.artifacts.exists(_.path.toString().contains("scalatags_2.13-0.8.2-sources.jar"))
+          m.artifacts.exists(_.path.toString().contains("scalatags_2.13-0.8.2.jar"))
+        })
+
+      case _ =>
+        assert(false, "Multi project should have two submodules")
+    }
+  }
+
   private def check(testProject: String, submodules: List[String] = Nil)(
       checking: (Config.File, String, List[Config.File]) => Unit
   ): Unit = {
