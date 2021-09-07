@@ -943,9 +943,8 @@ class BloopConverter(parameters: BloopParameters, info: String => Unit) {
     val artifactIds = artifacts
       .map(_.getId)
       .collect({ case mcai: ModuleComponentArtifactIdentifier => mcai })
-    val stdLibIds = stdLibNames.flatMap(stdLibName =>
-      artifactIds.find(_.getComponentIdentifier.getModule == stdLibName)
-    )
+    val stdLibIds =
+      artifactIds.filter(f => stdLibNames.contains(f.getComponentIdentifier.getModule))
     stdLibIds.headOption match {
       case Some(stdLibArtifact) =>
         val scalaCompileTaskName = sourceSet.getCompileTaskName("scala")
