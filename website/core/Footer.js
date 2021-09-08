@@ -65,11 +65,8 @@ class Footer extends React.Component {
             <a href="https://github.com/scalacenter/bloop" target="_blank">
               <img src="https://img.shields.io/github/stars/scalacenter/bloop.svg?color=%23087e8b&label=stars&logo=github&style=social" />
             </a>
-            <a href="https://discord.gg/vys6d43" target="_blank">
+            <a href="https://discord.gg/z8gygDXm" target="_blank">
               <img src="https://img.shields.io/discord/632642981228314653?logo=discord&style=social" />
-            </a>
-            <a href="https://gitter.im/scalacenter/bloop" target="_blank">
-              <img src="https://img.shields.io/gitter/room/scalacenter/bloop.svg?logo=gitter&style=social" />
             </a>
           </div>
         </section>
