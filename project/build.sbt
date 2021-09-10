@@ -31,7 +31,8 @@ val `bloop-build` = project
     addSbtPlugin("com.typesafe.sbt" % "sbt-native-packager" % "1.7.2"),
     // We need to add libdeps for the maven integration plugin to work
     libraryDependencies ++= List(
-      "org.eclipse.jgit" % "org.eclipse.jgit" % "4.6.0.201612231935-r",
+      "org.eclipse.jgit" % "org.eclipse.jgit" % "5.12.0.202106070339-r",
+      "org.eclipse.jgit" % "org.eclipse.jgit.ssh.jsch" % "5.12.0.202106070339-r",
       "org.apache.maven.plugin-tools" % "maven-plugin-tools-api" % mvnPluginToolsVersion,
       "org.apache.maven.plugin-tools" % "maven-plugin-annotations" % mvnPluginToolsVersion,
       "org.apache.maven.plugin-tools" % "maven-plugin-tools-generators" % mvnPluginToolsVersion,
