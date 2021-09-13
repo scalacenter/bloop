@@ -107,7 +107,7 @@ object MojoImplementation {
       .getReactorProjects()
       .asScala
       .map { project =>
-        (project.getGroupId(), project.getName(), project.getVersion())
+        (project.getGroupId(), project.getArtifactId(), project.getVersion())
       }
       .toSet
 
@@ -172,10 +172,29 @@ object MojoImplementation {
       val analysisOut = None
       val sourceDirs = sourceDirs0.map(abs).toList
       val classesDir = abs(classesDir0)
+      val artifacts = project.getArtifacts().asScala
+      lazy val libraryAndDependencies = scalaContext.toList
+        .flatMap(_.findLibraryAndDependencies().asScala)
 
+      // if we don't add scala-library explicitely it will not be available in artifacts
+      val hasScalaLibrary = artifacts.exists {
+        case a: Artifact => a.getArtifactId() == "scala-library"
+      }
+      val allArtifacts = if (hasScalaLibrary) artifacts else artifacts ++ libraryAndDependencies
       val modules =
-        project.getArtifacts().asScala.collect {
+        allArtifacts.collect {
           case art: Artifact if art.getType() == "jar" && isNotReactorProjectArtifact(art) =>
+            if (art.getArtifactId() == "scala-library")
+              scalaContext match {
+                case Some(context) =>
+                  /* If the scala library is not specified explicitely as recommended
+                   * it might sometimes be wrong, this doesn't happen for Scala 3.
+                   */
+                  val scalaVersion = context.version().toString()
+                  if (!scalaVersion.startsWith("3.") && scalaVersion != art.getVersion())
+                    art.setVersion(context.version.toString)
+                case _ =>
+              }
             resolveArtifact(art).foreach { resolvedFile =>
               //since we don't resolve dependencies automatically in the plugin, this will be null
               art.setFile(resolvedFile)
@@ -195,7 +214,12 @@ object MojoImplementation {
         }
 
         val cp = classpath0().asScala.toList.asInstanceOf[List[String]].map(u => abs(new File(u)))
-        (projectDependencies.map(u => abs(new File(u))) ++ cp).toList
+        // scalaLibrary might not be added by default to classpath and it's needed for the compilation
+        val hasScalaLibrary = cp.exists(p => p.toFile().getName().contains("scala_library-"))
+
+        val fullClasspath =
+          if (hasScalaLibrary) cp else cp ++ libraryAndDependencies.map(_.getFile().toPath())
+        (projectDependencies.map(u => abs(new File(u))) ++ fullClasspath).toList
       }
 
       val tags = if (configuration == "test") List(Tag.Test) else List(Tag.Library)
@@ -284,6 +308,8 @@ object MojoImplementation {
     } else {
       Nil
     }
+    if (artifact.getFile() == null)
+      throw new IllegalArgumentException(s"Could not resolve $artifact")
     Config.Module(
       organization = artifact.getGroupId(),
       name = artifact.getArtifactId(),

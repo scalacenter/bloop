@@ -155,6 +155,27 @@ class MavenConfigGenerationSuite extends BaseConfigSuite {
     }
   }
 
+  @Test
+  def noLibrary() = {
+    check("no_library/pom.xml") { (configFile, projectName, subprojects) =>
+      assert(subprojects.isEmpty)
+      assert(configFile.project.`scala`.isDefined)
+      assertEquals("2.13.6", configFile.project.`scala`.get.version)
+      assertEquals("org.scala-lang", configFile.project.`scala`.get.organization)
+      assert(configFile.project.`scala`.get.jars.exists(_.toString.contains("scala-compiler")))
+      assert(hasCompileClasspathEntryName(configFile, "scala-library"))
+      assert(hasTag(configFile, Tag.Library))
+      assertNoConfigsHaveAnyJars(List(configFile), List(s"$projectName", s"$projectName-test"))
+
+      val resolutionModules = configFile.project.resolution.get.modules
+      val scalaLibraryModule = resolutionModules.find(_.name == "scala-library")
+      assert(scalaLibraryModule.exists { m =>
+        m.artifacts.exists(_.path.toString().contains("scala-library-2.13.6-sources.jar"))
+        m.artifacts.exists(_.path.toString().contains("scala-library-2.13.6.jar"))
+      })
+    }
+  }
+
   private def check(testProject: String, submodules: List[String] = Nil)(
       checking: (Config.File, String, List[Config.File]) => Unit
   ): Unit = {
