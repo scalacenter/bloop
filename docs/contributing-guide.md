@@ -188,3 +188,33 @@ modified the name of a sidebar or the title of a documentation page, type
 <kbd>CTRL</kbd>+<kbd>C</kbd> on the `yarn start` process and run it again.
 Docusaurus doesn't incrementally rebuild changes to the Markdown page
 indices.
+
+## Releasing
+
+- Draft the release notes:
+
+  - You might use the `./bin/release_notes.sc` script to generate merged PRs list
+    between the two last release tags. It can be run using ammonite:
+
+  ```
+  cs install ammonite
+  amm ./bin/merged_prs.sc <tag1> <tag2> "<github_api_token>" > notes/<tag2>.md
+  ```
+
+  It will need a basic github API token to run, which may be specified via
+  an environment variable, `GITHUB_TOKEN`, or via the last argument.
+
+  The release notes must end up in the `notes` directory so that it can be later
+  picked up by the bot.
+
+  - Create a PR with the release notes and wait for approvals
+  - Merge the PR!
+
+- Release:
+  - Sync changes with the recent master
+  - Change the tag to point to the most recent commit with the release notes.
+  - Make sure that all the jobs are finished! This is important as some jobs are
+    delayed and if we push too early not all the neccessary steps will succeed.
+  - Push the new tag and wait for the release
+- Announce the release after the release notes are published in the most recent
+  release.
