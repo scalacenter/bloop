@@ -5,6 +5,9 @@ import bloop.io.Paths.AttributedPath
 import bloop.io.AbsolutePath
 import bloop.logging.{DebugFilter, Logger}
 import bloop.io.ByteHasher
+import bloop.data.JavaSemanticdbSettings
+import bloop.data.ScalaSemanticdbSettings
+import bloop.data.SemanticdbSettings
 import bloop.data.WorkspaceSettings
 import bloop.data.LoadedProject
 import bloop.engine.caches.SemanticDBCache
@@ -72,8 +75,8 @@ object BuildLoader {
             resolveSemanticDBForProjects(
               projectsRequiringMetalsTransformation,
               configDir,
-              semanticdb.semanticDBVersion,
-              semanticdb.supportedScalaVersions,
+              semanticdb.javaSemanticdbSettings,
+              semanticdb.scalaSemanticdbSettings,
               logger
             ).map { transformedProjects =>
               transformedProjects.map {
@@ -102,44 +105,32 @@ object BuildLoader {
   private def resolveSemanticDBForProjects(
       rawProjects: List[Project],
       configDir: AbsolutePath,
-      semanticDBVersion: String,
-      supportedScalaVersions: List[String],
+      javaSemanticSettings: Option[JavaSemanticdbSettings],
+      scalaSemanticdbSettings: Option[ScalaSemanticdbSettings],
       logger: Logger
   ): Task[List[(Project, Option[Project])]] = {
-    val projectsWithNoScalaConfig = new mutable.ListBuffer[Project]()
-    val groupedProjectsPerScalaVersion = new mutable.HashMap[String, List[Project]]()
-    rawProjects.foreach { project =>
-      project.scalaInstance match {
-        case None => projectsWithNoScalaConfig.+=(project)
-        case Some(instance) =>
-          val scalaVersion = instance.version
-          groupedProjectsPerScalaVersion.get(scalaVersion) match {
-            case Some(projects) =>
-              groupedProjectsPerScalaVersion.put(scalaVersion, project :: projects)
-            case None => groupedProjectsPerScalaVersion.put(scalaVersion, project :: Nil)
-          }
-      }
-    }
 
-    val enableMetalsInProjectsTask = groupedProjectsPerScalaVersion.toList.map {
-      case (scalaVersion, projects) =>
-        val coeval = tryEnablingSemanticDB(
+    // java only projects are keyed on None
+    val projectsByScalaVersion = rawProjects.groupBy(_.scalaInstance.map(_.version))
+
+    val enableMetalsInProjectsTask = projectsByScalaVersion.toList.map {
+      case (scalaVersionOpt, projects) =>
+        tryEnablingSemanticDB(
           projects,
           configDir,
-          scalaVersion,
-          semanticDBVersion,
-          supportedScalaVersions,
+          javaSemanticSettings,
+          scalaVersionOpt.flatMap(scalaVersion =>
+            scalaSemanticdbSettings.map(f => (scalaVersion, f))
+          ),
           logger
-        ) { (plugin: Option[AbsolutePath]) =>
-          projects.map(p => Project.enableMetalsSettings(p, configDir, plugin, logger) -> Some(p))
-        }
-        coeval.task
+        ) { (scalaPlugin: Option[AbsolutePath], javaPlugin: Option[AbsolutePath]) =>
+          projects.map(p =>
+            Project.enableMetalsSettings(p, configDir, scalaPlugin, javaPlugin, logger) -> Some(p)
+          )
+        }.task
     }
 
-    Task.gatherUnordered(enableMetalsInProjectsTask).map { pps =>
-      // Add projects with Metals settings enabled + projects with no scala config at all
-      pps.flatten ++ projectsWithNoScalaConfig.toList.map(_ -> None)
-    }
+    Task.gatherUnordered(enableMetalsInProjectsTask).map(_.flatten)
   }
 
   /**
@@ -172,32 +163,73 @@ object BuildLoader {
       val project = loadProject(f.bytes, f.origin, logger)
       settings.flatMap(_.withSemanticdbSettings) match {
         case None => LoadedProject.RawProject(project)
-        case Some((settings, semanticdb)) =>
-          project.scalaInstance match {
-            case None => LoadedProject.RawProject(project)
-            case Some(instance) =>
-              val scalaVersion = instance.version
-              val coeval = tryEnablingSemanticDB(
-                List(project),
-                configDir,
-                scalaVersion,
-                semanticdb.semanticDBVersion,
-                semanticdb.supportedScalaVersions,
-                logger
-              ) { (plugin: Option[AbsolutePath]) =>
-                LoadedProject.ConfiguredProject(
-                  Project.enableMetalsSettings(project, configDir, plugin, logger),
-                  project,
-                  settings
-                )
-              }
-
-              // Run coeval, we rethrow but note that `tryEnablingSemanticDB` handles errors
-              coeval.run match {
-                case Left(value) => throw value
-                case Right(value) => value
-              }
+        case Some((settings, semanticdb: SemanticdbSettings)) =>
+          val scalaSemanticdbVersionAndSettings = for {
+            version <- project.scalaInstance.map(_.version)
+            settings <- semanticdb.scalaSemanticdbSettings
+          } yield (version, settings)
+          val coeval = tryEnablingSemanticDB(
+            List(project),
+            configDir,
+            semanticdb.javaSemanticdbSettings,
+            scalaSemanticdbVersionAndSettings,
+            logger
+          ) { (scalaPlugin: Option[AbsolutePath], javaPlugin: Option[AbsolutePath]) =>
+            LoadedProject.ConfiguredProject(
+              Project.enableMetalsSettings(project, configDir, scalaPlugin, javaPlugin, logger),
+              project,
+              settings
+            )
           }
+
+          // Run coeval, we rethrow but note that `tryEnablingSemanticDB` handles errors
+          coeval.run match {
+            case Left(value) => throw value
+            case Right(value) => value
+          }
+      }
+    }
+  }
+
+  private def tryEnablingJavaSemanticDB(
+      projects: List[Project],
+      javaSemanticSettings: JavaSemanticdbSettings,
+      logger: Logger
+  ): Option[AbsolutePath] = {
+    SemanticDBCache.fetchJavaPlugin(javaSemanticSettings.semanticDBVersion, logger) match {
+      case Right(path) =>
+        logger.debug(Feedback.configuredMetalsJavaProjects(projects))(DebugFilter.All)
+        Some(path)
+      case Left(cause) =>
+        logger.displayWarningToUser(Feedback.failedMetalsJavaConfiguration(cause))
+        None
+    }
+  }
+  private def tryEnablingScalaSemanticDB(
+      projects: List[Project],
+      scalaSemanticdbVersionAndSettings: (String, ScalaSemanticdbSettings),
+      logger: Logger
+  ): Option[AbsolutePath] = {
+    val (scalaVersion, scalaSemanticdbSettings) = scalaSemanticdbVersionAndSettings
+    // Recognize 2.12.8-abdcddd as supported if 2.12.8 exists in supported versions
+    val isUnsupportedVersion =
+      !scalaSemanticdbSettings.supportedScalaVersions.exists(scalaVersion.startsWith(_))
+    if (isUnsupportedVersion) {
+      if (!scalaVersion.startsWith("3."))
+        logger.debug(Feedback.skippedUnsupportedScalaMetals(scalaVersion))(DebugFilter.All)
+      None
+    } else {
+      SemanticDBCache.fetchScalaPlugin(
+        scalaVersion,
+        scalaSemanticdbSettings.semanticDBVersion,
+        logger
+      ) match {
+        case Right(path) =>
+          logger.debug(Feedback.configuredMetalsScalaProjects(projects))(DebugFilter.All)
+          Some(path)
+        case Left(cause) =>
+          logger.displayWarningToUser(Feedback.failedMetalsScalaConfiguration(scalaVersion, cause))
+          None
       }
     }
   }
@@ -205,30 +237,18 @@ object BuildLoader {
   private def tryEnablingSemanticDB[T](
       projects: List[Project],
       configDir: AbsolutePath,
-      scalaVersion: String,
-      semanticDBVersion: String,
-      supportedScalaVersions: List[String],
+      javaSemanticSettings: Option[JavaSemanticdbSettings],
+      scalaSemanticdbVersionAndSettings: Option[(String, ScalaSemanticdbSettings)],
       logger: Logger
   )(
-      enableMetals: Option[AbsolutePath] => T
+      enableMetals: (Option[AbsolutePath], Option[AbsolutePath]) => T
   ): Coeval[T] = {
-    // Recognize 2.12.8-abdcddd as supported if 2.12.8 exists in supported versions
-    val isUnsupportedVersion = !supportedScalaVersions.exists(scalaVersion.startsWith(_))
-    if (isUnsupportedVersion) {
-      if (!scalaVersion.startsWith("3."))
-        logger.debug(Feedback.skippedUnsupportedScalaMetals(scalaVersion))(DebugFilter.All)
-      Coeval.now(enableMetals(None))
-    } else {
-      Coeval.eval {
-        SemanticDBCache.fetchPlugin(scalaVersion, semanticDBVersion, logger) match {
-          case Right(path) =>
-            logger.debug(Feedback.configuredMetalsProjects(projects))(DebugFilter.All)
-            enableMetals(Some(path))
-          case Left(cause) =>
-            logger.displayWarningToUser(Feedback.failedMetalsConfiguration(scalaVersion, cause))
-            enableMetals(None)
-        }
-      }
+    Coeval.eval {
+      val javaSemanticdbPath =
+        javaSemanticSettings.flatMap(tryEnablingJavaSemanticDB(projects, _, logger))
+      val scalaSemanticdbPath =
+        scalaSemanticdbVersionAndSettings.flatMap(tryEnablingScalaSemanticDB(projects, _, logger))
+      enableMetals(scalaSemanticdbPath, javaSemanticdbPath)
     }
   }
 

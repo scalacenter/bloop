@@ -109,10 +109,9 @@ final case class Build private (
           case Some(LoadedProject.ConfiguredProject(project, original, settings)) =>
             findUpdateSettingsAction(Some(settings), settingsForReload) match {
               case Build.AvoidReload(_) =>
-                val options = project.scalacOptions
-                val reattemptConfiguration = newSettings.nonEmpty && {
-                  !Project.hasSemanticDBEnabledInCompilerOptions(project.scalacOptions)
-                }
+                val reattemptConfiguration = newSettings.nonEmpty &&
+                  (!Project.hasScalaSemanticDBEnabledInCompilerOptions(project.scalacOptions) ||
+                    !Project.hasJavaSemanticDBEnabledInCompilerOptions(project.javacOptions))
 
                 if (reattemptConfiguration) {
                   invalidateProject(project, None)
@@ -193,7 +192,8 @@ final case class Build private (
   ): Build.UpdateSettingsAction = {
     (currentSettings, newSettings) match {
       case (Some(currentSettings), Some(newSettings))
-          if currentSettings.semanticDBVersion != newSettings.semanticDBVersion =>
+          if currentSettings.semanticDBVersion != newSettings.semanticDBVersion ||
+            currentSettings.javaSemanticDBVersion != newSettings.javaSemanticDBVersion =>
         Build.ForceReload(newSettings, List(WorkspaceSettings.SemanticDBVersionChange))
       case (Some(_), Some(newSettings)) => Build.AvoidReload(Some(newSettings))
       case (None, Some(newSettings)) =>

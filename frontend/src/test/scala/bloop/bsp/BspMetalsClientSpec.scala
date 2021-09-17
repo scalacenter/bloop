@@ -46,7 +46,8 @@ class BspMetalsClientSpec(
         ownsBuildFiles = None,
         clientClassesRootDir = None,
         semanticdbVersion = Some(semanticdbVersion),
-        supportedScalaVersions = Some(List(testedScalaVersion))
+        supportedScalaVersions = Some(List(testedScalaVersion)),
+        javaSemanticdbVersion = Some("0.5.7")
       )
 
       loadBspState(workspace, projects, logger, "Metals", bloopExtraParams = extraParams) { state =>
@@ -54,6 +55,7 @@ class BspMetalsClientSpec(
         assertNoDiffInSettingsFile(
           configDir,
           """|{
+             |    "javaSemanticDBVersion": "0.5.7",
              |    "semanticDBVersion": "4.2.0",
              |    "supportedScalaVersions": [
              |        "2.12.8"
@@ -72,6 +74,12 @@ class BspMetalsClientSpec(
              |-Yrangepos
              |""".stripMargin
         )
+        assertJavacOptions(
+          state,
+          `A`,
+          """|-Xplugin:semanticdb -sourceroot:$workspace -targetroot:javac-classes-directory
+             |""".stripMargin
+        )
       }
     }
   }
@@ -87,13 +95,15 @@ class BspMetalsClientSpec(
         ownsBuildFiles = None,
         clientClassesRootDir = None,
         semanticdbVersion = Some(semanticdbVersion),
-        supportedScalaVersions = Some(List("2.12.8"))
+        supportedScalaVersions = Some(List("2.12.8")),
+        javaSemanticdbVersion = Some("0.5.7")
       )
 
       loadBspState(workspace, projects, logger, "Metals", bloopExtraParams = extraParams) { state =>
         assertNoDiffInSettingsFile(
           configDir,
           """|{
+             |    "javaSemanticDBVersion": "0.5.7",
              |    "semanticDBVersion": "4.2.0",
              |    "supportedScalaVersions": [
              |        "2.12.8"
@@ -134,13 +144,15 @@ class BspMetalsClientSpec(
         ownsBuildFiles = None,
         clientClassesRootDir = None,
         semanticdbVersion = Some(semanticdbVersion),
-        supportedScalaVersions = Some(List(testedScalaVersion))
+        supportedScalaVersions = Some(List(testedScalaVersion)),
+        javaSemanticdbVersion = Some("0.5.7")
       )
 
       loadBspState(workspace, projects, logger, "Metals", bloopExtraParams = extraParams) { state =>
         assertNoDiffInSettingsFile(
           configDir,
           """|{
+             |    "javaSemanticDBVersion": "0.5.7",
              |    "semanticDBVersion": "4.2.0",
              |    "supportedScalaVersions": [
              |        "2.12.8"
@@ -184,13 +196,15 @@ class BspMetalsClientSpec(
         ownsBuildFiles = None,
         clientClassesRootDir = None,
         semanticdbVersion = Some(semanticdbVersion),
-        supportedScalaVersions = Some(List(testedScalaVersion))
+        supportedScalaVersions = Some(List(testedScalaVersion)),
+        javaSemanticdbVersion = Some("0.5.7")
       )
 
       loadBspState(workspace, projects, logger, "Metals", bloopExtraParams = extraParams) { state =>
         assertNoDiffInSettingsFile(
           configDir,
           """|{
+             |    "javaSemanticDBVersion": "0.5.7",
              |    "semanticDBVersion": "4.2.0",
              |    "supportedScalaVersions": [
              |        "2.12.8"
@@ -208,11 +222,13 @@ class BspMetalsClientSpec(
   test("should save workspace settings with cached build") {
     TestUtil.withinWorkspace { workspace =>
       val semanticdbVersion = "4.2.0"
+      val javaSemanticdbVersion = "0.5.7"
       val extraParams = BloopExtraBuildParams(
         ownsBuildFiles = None,
         clientClassesRootDir = None,
         semanticdbVersion = Some(semanticdbVersion),
-        supportedScalaVersions = Some(List(testedScalaVersion))
+        supportedScalaVersions = Some(List(testedScalaVersion)),
+        javaSemanticdbVersion = Some(javaSemanticdbVersion)
       )
       val `A` = TestProject(workspace, "A", Nil)
       val projects = List(`A`)
@@ -220,14 +236,15 @@ class BspMetalsClientSpec(
       val logger = new RecordingLogger(ansiCodesSupported = false)
       WorkspaceSettings.writeToFile(
         configDir,
-        WorkspaceSettings.fromSemanticdbSettings(semanticdbVersion, List(testedScalaVersion)),
+        WorkspaceSettings.fromSemanticdbSettings(javaSemanticdbVersion, semanticdbVersion, List(testedScalaVersion)),
         logger
       )
 
       def checkSettings: Unit = {
         assert(configDir.resolve(WorkspaceSettings.settingsFileName).exists)
         val settings = WorkspaceSettings.readFromFile(configDir, logger)
-        assert(settings.isDefined && settings.get.semanticDBVersion.get == semanticdbVersion)
+        assert(settings.isDefined && settings.get.semanticDBVersion.isDefined && settings.get.semanticDBVersion.get == semanticdbVersion)
+        assert(settings.isDefined && settings.get.javaSemanticDBVersion.isDefined && settings.get.javaSemanticDBVersion.get == javaSemanticdbVersion)
       }
 
       loadBspState(workspace, projects, logger, "Metals")(_ => checkSettings)
@@ -246,6 +263,7 @@ class BspMetalsClientSpec(
       val logger = new RecordingLogger(ansiCodesSupported = false)
 
       def createClient(
+          javaSemanticdbVersion: String,
           semanticdbVersion: String,
           clientName: String = "normalClient"
       ): Task[UnmanagedBspTestState] = {
@@ -254,7 +272,8 @@ class BspMetalsClientSpec(
             ownsBuildFiles = None,
             clientClassesRootDir = None,
             semanticdbVersion = Some(semanticdbVersion),
-            supportedScalaVersions = Some(List(testedScalaVersion))
+            supportedScalaVersions = Some(List(testedScalaVersion)),
+            javaSemanticdbVersion = Some(javaSemanticdbVersion)
           )
           val bspLogger = new BspClientLogger(logger)
           val bspCommand = createBspCommand(configDir)
@@ -277,11 +296,13 @@ class BspMetalsClientSpec(
         }
       }
 
+      val javaNormalClientsVersion = "0.5.7"
+      val javaMetalsVersion = "0.1.0"
       val normalClientsVersion = "4.2.0"
       val metalsClientVersion = "4.1.11"
-      val client1 = createClient(normalClientsVersion)
-      val client2 = createClient(normalClientsVersion)
-      val metalsClient = createClient(metalsClientVersion, "Metals")
+      val client1 = createClient(javaNormalClientsVersion, normalClientsVersion)
+      val client2 = createClient(javaNormalClientsVersion, normalClientsVersion)
+      val metalsClient = createClient(javaMetalsVersion, metalsClientVersion, "Metals")
 
       val allClients = Random.shuffle(List(client1, client2, metalsClient))
       TestUtil.await(FiniteDuration(20, "s"), ExecutionContext.ioScheduler) {
@@ -290,44 +311,47 @@ class BspMetalsClientSpec(
 
       assert(configDir.resolve(WorkspaceSettings.settingsFileName).exists)
       val settings = WorkspaceSettings.readFromFile(configDir, logger)
-      assert(settings.isDefined && settings.get.semanticDBVersion.get == metalsClientVersion)
+      assert(settings.isDefined && settings.get.semanticDBVersion.isDefined && settings.get.semanticDBVersion.get == metalsClientVersion)
+      assert(settings.isDefined && settings.get.javaSemanticDBVersion.isDefined && settings.get.javaSemanticDBVersion.get == javaMetalsVersion)
     }
   }
 
   test("compile with semanticDB") {
     TestUtil.withinWorkspace { workspace =>
-      val `A` = TestProject(workspace, "A", dummyFooSources)
+      val `A` = TestProject(workspace, "A", dummyFooScalaAndBarJavaSources)
       val projects = List(`A`)
       val configDir = TestProject.populateWorkspace(workspace, projects)
       val logger = new RecordingLogger(ansiCodesSupported = false)
       WorkspaceSettings.writeToFile(
         configDir,
-        WorkspaceSettings.fromSemanticdbSettings("4.2.0", List(testedScalaVersion)),
-        logger
-      )
-      val bspState = loadBspState(workspace, projects, logger) { state =>
-        val compiledState = state.compile(`A`).toTestState
-        assert(compiledState.status == ExitStatus.Ok)
-        assertSemanticdbFileFor("Foo.scala", compiledState)
-      }
-    }
-  }
-
-  test("compile with semanticDB using cached plugin") {
-    TestUtil.withinWorkspace { workspace =>
-      val `A` = TestProject(workspace, "A", dummyFooSources)
-      val projects = List(`A`)
-      val configDir = TestProject.populateWorkspace(workspace, projects)
-      val logger = new RecordingLogger(ansiCodesSupported = false)
-      WorkspaceSettings.writeToFile(
-        configDir,
-        WorkspaceSettings.fromSemanticdbSettings("4.1.11", List(testedScalaVersion)),
+        WorkspaceSettings.fromSemanticdbSettings("0.5.7", "4.2.0", List(testedScalaVersion)),
         logger
       )
       loadBspState(workspace, projects, logger) { state =>
         val compiledState = state.compile(`A`).toTestState
         assert(compiledState.status == ExitStatus.Ok)
         assertSemanticdbFileFor("Foo.scala", compiledState)
+        assertSemanticdbFileFor("Bar.java", compiledState)
+      }
+    }
+  }
+
+  test("compile with semanticDB using cached plugin") {
+    TestUtil.withinWorkspace { workspace =>
+      val `A` = TestProject(workspace, "A", dummyFooScalaAndBarJavaSources)
+      val projects = List(`A`)
+      val configDir = TestProject.populateWorkspace(workspace, projects)
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      WorkspaceSettings.writeToFile(
+        configDir,
+        WorkspaceSettings.fromSemanticdbSettings("0.5.7", "4.1.11", List(testedScalaVersion)),
+        logger
+      )
+      loadBspState(workspace, projects, logger) { state =>
+        val compiledState = state.compile(`A`).toTestState
+        assert(compiledState.status == ExitStatus.Ok)
+        assertSemanticdbFileFor("Foo.scala", compiledState)
+        assertSemanticdbFileFor("Bar.java", compiledState)
       }
     }
   }
@@ -337,7 +361,7 @@ class BspMetalsClientSpec(
       val `A` = TestProject(
         workspace,
         "A",
-        dummyFooSources,
+        dummyFooScalaAndBarJavaSources,
         scalaVersion = Some("3.0.0-M3"),
         scalaOrg = Some("org.scala-lang"),
         scalaCompiler = Some("scala3-compiler_3.0.0-M3")
@@ -347,7 +371,7 @@ class BspMetalsClientSpec(
       val logger = new RecordingLogger(ansiCodesSupported = false)
       WorkspaceSettings.writeToFile(
         configDir,
-        WorkspaceSettings.fromSemanticdbSettings("4.3.0", List()),
+        WorkspaceSettings.fromSemanticdbSettings("0.5.7", "4.3.0", List()),
         logger
       )
       loadBspState(workspace, projects, logger) { state =>
@@ -355,6 +379,7 @@ class BspMetalsClientSpec(
         assertExitStatus(compiledState, ExitStatus.Ok)
         assertValidCompilationState(compiledState, projects)
         assertSemanticdbFileFor("Foo.scala", compiledState)
+        assertSemanticdbFileFor("Bar.java", compiledState)
         assertSuccessfulCompilation(compiledState, projects, isNoOp = false)
       }
     }
@@ -365,7 +390,7 @@ class BspMetalsClientSpec(
       val `A` = TestProject(
         workspace,
         "A",
-        dummyFooSources,
+        dummyFooScalaAndBarJavaSources,
         scalaVersion = Some("3.0.0-M3"),
         scalaOrg = Some("org.scala-lang"),
         scalaCompiler = Some("scala3-compiler_3.0.0-M3")
@@ -379,6 +404,7 @@ class BspMetalsClientSpec(
         assertValidCompilationState(compiledState, projects)
         assertSuccessfulCompilation(compiledState, projects, isNoOp = false)
         assertNoSemanticdbFileFor("Foo.scala", compiledState)
+        assertNoSemanticdbFileFor("Bar.java", compiledState)
       }
     }
   }
@@ -391,7 +417,7 @@ class BspMetalsClientSpec(
       val `A` = TestProject(
         workspace,
         "A",
-        dummyFooSources,
+        dummyFooScalaSources,
         scalaVersion = Some("3.0.0-M3"),
         scalacOptions = defaultScalacOptions,
         scalaOrg = Some("org.scala-lang"),
@@ -402,7 +428,7 @@ class BspMetalsClientSpec(
       val logger = new RecordingLogger(ansiCodesSupported = false)
       WorkspaceSettings.writeToFile(
         configDir,
-        WorkspaceSettings.fromSemanticdbSettings("4.3.0", List()),
+        WorkspaceSettings.fromSemanticdbSettings("0.5.7", "4.3.0", List()),
         logger
       )
       loadBspState(workspace, projects, logger) { state =>
@@ -417,7 +443,7 @@ class BspMetalsClientSpec(
 
   test("save settings and compile with semanticDB") {
     TestUtil.withinWorkspace { workspace =>
-      val `A` = TestProject(workspace, "A", dummyFooSources)
+      val `A` = TestProject(workspace, "A", dummyFooScalaAndBarJavaSources)
       val projects = List(`A`)
       val configDir = TestProject.populateWorkspace(workspace, projects)
       val logger = new RecordingLogger(ansiCodesSupported = false)
@@ -425,21 +451,31 @@ class BspMetalsClientSpec(
         ownsBuildFiles = None,
         clientClassesRootDir = None,
         semanticdbVersion = Some("4.2.0"),
-        supportedScalaVersions = Some(List(testedScalaVersion))
+        supportedScalaVersions = Some(List(testedScalaVersion)),
+        javaSemanticdbVersion = Some("0.5.7")
       )
       loadBspState(workspace, projects, logger, "Metals", bloopExtraParams = extraParams) { state =>
         val compiledState = state.compile(`A`).toTestState
         assert(compiledState.status == ExitStatus.Ok)
         assertSemanticdbFileFor("Foo.scala", compiledState)
+        assertSemanticdbFileFor("Bar.java", compiledState)
       }
     }
   }
 
-  private val dummyFooSources = List(
+  private val dummyFooScalaSources = List(
     """/Foo.scala
       |class Foo
           """.stripMargin
   )
+
+  private val dummyBarJavaSources = List(
+    """/Bar.java
+      |class Bar {}
+          """.stripMargin
+  )
+
+  private val dummyFooScalaAndBarJavaSources = dummyFooScalaSources ++ dummyBarJavaSources
 
   private def semanticdbFile(sourceFileName: String, state: TestState) = {
     val projectA = state.build.getProjectFor("A").get
@@ -470,6 +506,31 @@ class BspMetalsClientSpec(
     assertNoDiff(
       readFile(settingsFile),
       expected
+    )
+  }
+
+  private def assertJavacOptions(
+      state: ManagedBspTestState,
+      project: TestProject,
+      unorderedExpectedOptions: String
+  ): Unit = {
+    // Not the best way to obtain workspace but valid for tests
+    val workspaceDir = project.config.workspaceDir
+      .map(AbsolutePath(_))
+      .getOrElse(state.underlying.build.origin.getParent)
+      .syntax
+    // plugin is on classpath so no need for full path to jar like scala plugin
+    val javacOptions = state.javacOptions(project)._2.items.flatMap(_.options)
+
+    val expectedOptions = unorderedExpectedOptions
+      .replace("$workspace", workspaceDir)
+      .splitLines
+      .filterNot(_.isEmpty)
+      .sorted
+      .mkString(lineSeparator)
+    assertNoDiff(
+      javacOptions.sorted.mkString(lineSeparator),
+      expectedOptions
     )
   }
 

@@ -248,18 +248,23 @@ final class BloopBspServices(
       if (!isMetals) {
         currentWorkspaceSettings
       } else {
-        extraBuildParams
-          .flatMap(extra => extra.semanticdbVersion)
-          .map { semanticDBVersion =>
-            val supportedScalaVersions =
-              extraBuildParams.toList.flatMap(_.supportedScalaVersions.toList.flatten)
+        val javaSemanticDBVersion = extraBuildParams.flatMap(_.javaSemanticdbVersion)
+        val scalaSemanticDBVersion = extraBuildParams.flatMap(_.semanticdbVersion)
+        val supportedScalaVersions =
+          if (scalaSemanticDBVersion.nonEmpty)
+            extraBuildParams.map(_.supportedScalaVersions.toList.flatten)
+          else None
+        if (javaSemanticDBVersion.nonEmpty || scalaSemanticDBVersion.nonEmpty)
+          Some(
             WorkspaceSettings(
-              Some(semanticDBVersion),
-              Some(supportedScalaVersions),
+              javaSemanticDBVersion,
+              scalaSemanticDBVersion,
+              supportedScalaVersions,
               currentRefreshProjectsCommand,
               currentTraceSettings
             )
-          }
+          )
+        else None
       }
     }
 
