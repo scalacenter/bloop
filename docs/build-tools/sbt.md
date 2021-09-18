@@ -93,8 +93,8 @@ Use an IDE such as [Metals](docs/ides/metals) or
 [CLI](docs/cli/tutorial) if you want to explore what CLI options are
 available.
 
-If you need help, you can always come over to our [Gitter
-channel](https://gitter.im/scalacenter/bloop).
+If you need help, you can always come over to our [Discord
+channel](https://discord.gg/KWF9zMhJWS).
 
 ## Plugin Configuration
 

@@ -49,9 +49,7 @@ class Footer extends React.Component {
             <a href={`${docsUrl}what-is-bloop`}>What is Bloop</a>
             <a href={`${docsUrl}integration`}>Integrate with Bloop</a>
             <a href={`${docsUrl}build-tools/overview`}>Build Tools</a>
-            <a href={` ${docsUrl}contributing-guide`}>
-              Contributing
-            </a>
+            <a href={` ${docsUrl}contributing-guide`}>Contributing</a>
           </div>
           <div>
             <h5>Build Tools</h5>
@@ -65,7 +63,7 @@ class Footer extends React.Component {
             <a href="https://github.com/scalacenter/bloop" target="_blank">
               <img src="https://img.shields.io/github/stars/scalacenter/bloop.svg?color=%23087e8b&label=stars&logo=github&style=social" />
             </a>
-            <a href="https://discord.gg/z8gygDXm" target="_blank">
+            <a href="https://discord.gg/KWF9zMhJWS" target="_blank">
               <img src="https://img.shields.io/discord/632642981228314653?logo=discord&style=social" />
             </a>
           </div>
