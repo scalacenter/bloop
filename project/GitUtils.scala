@@ -9,6 +9,8 @@ import _root_.org.eclipse.jgit.api.{Git, TransportCommand, PushCommand, CloneCom
 import _root_.org.eclipse.jgit.lib.ObjectId
 import _root_.org.eclipse.jgit.transport.UsernamePasswordCredentialsProvider
 
+import scala.collection.JavaConverters._
+
 /** Utility functions that help manipulate git repos */
 object GitUtils {
 
@@ -42,7 +44,8 @@ object GitUtils {
   }
 
   /** The latest tag in this repository. */
-  def latestTagIn(git: Git): Option[String] = Option(git.describe().call())
+  def latestTagIn(git: Git): Option[String] =
+    git.tagList.call().asScala.lastOption.map(_.getName().stripPrefix("refs/tags/"))
 
   /** Function that takes a TransportCommand and applies some authentication method on it. */
   type GitAuth = TransportCommand[_, _] => Unit
