@@ -15,6 +15,7 @@ import monix.execution.Scheduler
 import java.net.URLClassLoader
 import scala.collection.mutable
 import scala.annotation.tailrec
+import bloop.engine.caches.ExpressionCompilerCache
 
 abstract class BloopDebuggeeRunner(initialState: State, ioScheduler: Scheduler)
     extends DebuggeeRunner {
@@ -210,35 +211,14 @@ object BloopDebuggeeRunner {
       logger: Logger,
       ioScheduler: Scheduler
   ): Option[ClassLoader] = {
-    import ch.epfl.scala.debugadapter.BuildInfo._
-    import coursier._
-    val scalaVersion = scalaInstance.version
-    val module = s"${expressionCompilerName}_$scalaVersion"
-    val expressionCompilerDep = Dependency(
-      Module(
-        Organization(expressionCompilerOrganization),
-        ModuleName(module)
-      ),
-      expressionCompilerVersion
-    )
-    val resolution = Fetch()
-      .addDependencies(expressionCompilerDep)
-      .either()(ioScheduler)
-
-    resolution match {
+    ExpressionCompilerCache.fetch(scalaInstance.version, logger) match {
       case Left(error) =>
-        logger.warn(
-          s"Failed fetching $expressionCompilerOrganization:$module:$expressionCompilerVersion"
-        )
-        logger.warn(error.getMessage)
+        logger.warn(error)
         logger.warn(s"Expression evaluation will not work.")
         None
-      case Right(files) =>
-        val expressionCompilerJar = files
-          .find(_.getName.startsWith(expressionCompilerName))
-          .map(_.toURI.toURL)
+      case Right(expressionCompilerJar) =>
         val evaluationClassLoader =
-          new URLClassLoader(expressionCompilerJar.toArray, scalaInstance.loader)
+          new URLClassLoader(Array(expressionCompilerJar.toFile.toURI.toURL), scalaInstance.loader)
         Some(evaluationClassLoader)
     }
   }
