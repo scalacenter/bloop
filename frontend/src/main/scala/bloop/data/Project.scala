@@ -1,34 +1,20 @@
 package bloop.data
 
-import java.net.URI
-
-import bloop.io.AbsolutePath
-import bloop.logging.{DebugFilter, Logger}
 import bloop.ScalaInstance
 import bloop.bsp.ProjectUris
-import bloop.config.Config
-import bloop.engine.{Build, Dag}
-import bloop.engine.caches.SemanticDBCache
+import bloop.config.{Config, ConfigCodecs}
+import bloop.engine.Dag
 import bloop.engine.tasks.toolchains.{JvmToolchain, ScalaJsToolchain, ScalaNativeToolchain}
-import bloop.io.ByteHasher
-import java.nio.charset.StandardCharsets
-import java.nio.file.attribute.BasicFileAttributes
-import java.nio.file.PathMatcher
-import java.nio.file.Path
-import java.nio.file.FileVisitor
-import java.nio.file.FileVisitResult
-import java.nio.file.Files
-import java.nio.file.FileVisitOption
-import java.nio.file.SimpleFileVisitor
-
-import scala.util.Try
-import scala.collection.mutable
+import bloop.io.{AbsolutePath, ByteHasher}
+import bloop.logging.{DebugFilter, Logger}
 import ch.epfl.scala.{bsp => Bsp}
-import xsbti.compile.{ClasspathOptions, CompileOrder}
-import bloop.config.ConfigCodecs
-
-import scala.util.control.NonFatal
 import monix.eval.Task
+import xsbti.compile.{ClasspathOptions, CompileOrder}
+
+import java.nio.charset.StandardCharsets
+import scala.collection.mutable
+import scala.util.Try
+import scala.util.control.NonFatal
 
 final case class Project(
     name: String,
@@ -92,23 +78,7 @@ final case class Project(
   def allSourceFilesAndDirectories: Task[List[AbsolutePath]] = Task {
     val buf = mutable.ListBuffer.empty[AbsolutePath]
     buf ++= sources
-    sourcesGlobs.foreach { glob =>
-      if (Files.isDirectory(glob.directory.underlying)) {
-        Files.walkFileTree(
-          glob.directory.underlying,
-          java.util.EnumSet.of(FileVisitOption.FOLLOW_LINKS),
-          glob.walkDepth,
-          new SimpleFileVisitor[Path] {
-            override def visitFile(file: Path, attrs: BasicFileAttributes): FileVisitResult = {
-              if (glob.matches(file)) {
-                buf += AbsolutePath(file)
-              }
-              FileVisitResult.CONTINUE
-            }
-          }
-        )
-      }
-    }
+    for (glob <- sourcesGlobs) glob.walkThrough(buf += _)
     buf.result()
   }
 

@@ -18,6 +18,7 @@ import com.microsoft.java.debug.core.protocol.Responses.ContinueResponseBody
 import com.microsoft.java.debug.core.protocol.Responses.ScopesResponseBody
 import com.microsoft.java.debug.core.protocol.Responses.StackTraceResponseBody
 import com.microsoft.java.debug.core.protocol.Responses.VariablesResponseBody
+import com.microsoft.java.debug.core.protocol.Responses.EvaluateResponseBody
 
 /**
  * Manages a connection with a debug adapter.
@@ -78,6 +79,13 @@ private[dap] final class DebugAdapterConnection(
     val arguments = new VariablesArguments
     arguments.variablesReference = variablesReference
     adapter.request(Variables, arguments)
+  }
+
+  def evaluate(frameId: Int, expression: String): Task[EvaluateResponseBody] = {
+    val arguments = new EvaluateArguments
+    arguments.frameId = frameId
+    arguments.expression = expression
+    adapter.request(Evaluate, arguments)
   }
 
   def stopped: Task[Events.StoppedEvent] = {

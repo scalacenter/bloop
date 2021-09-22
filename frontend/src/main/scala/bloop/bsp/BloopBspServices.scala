@@ -599,7 +599,7 @@ final class BloopBspServices(
             filters => BloopDebuggeeRunner.forTestSuite(projects, filters, state, ioScheduler)
           )
         case bsp.DebugSessionParamsDataKind.ScalaAttachRemote =>
-          Right(BloopDebuggeeRunner.forAttachRemote(state, ioScheduler))
+          Right(BloopDebuggeeRunner.forAttachRemote(state, ioScheduler, projects))
         case dataKind => Left(JsonRpcResponse.invalidRequest(s"Unsupported data kind: $dataKind"))
       }
     }
@@ -1107,7 +1107,7 @@ final class BloopBspServices(
             val sourceJars = project.resolution.toList.flatMap { res =>
               res.modules.flatMap { m =>
                 m.artifacts.iterator
-                  .filter(a => a.classifier.toList.contains("sources"))
+                  .filter(a => a.classifier.contains("sources"))
                   .map(a => bsp.Uri(AbsolutePath(a.path).toBspUri))
                   .toList
               }
