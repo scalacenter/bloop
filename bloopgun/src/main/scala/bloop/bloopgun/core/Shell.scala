@@ -32,7 +32,8 @@ import bloop.bloopgun.ServerConfig
  * (see https://github.com/sbt/sbt-native-packager/issues/72).
  *
  * @param runWithInterpreter Decides whether we add a layer of indirection when running commands.
- *                           Uses `sh -c` in unix systems, `cmd.exe` in Windows systems */
+ *                           Uses `sh -c` in unix systems, `cmd.exe` in Windows systems
+ */
 final class Shell(runWithInterpreter: Boolean, detectPython: Boolean) {
   def runCommand(
       cmd0: List[String],

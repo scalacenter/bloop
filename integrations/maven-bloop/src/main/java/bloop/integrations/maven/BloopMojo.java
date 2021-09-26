@@ -4,23 +4,41 @@ import bloop.config.Config;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.maven.plugin.MavenPluginManager;
 import org.apache.maven.plugin.MojoExecution;
+import org.apache.maven.project.MavenProject;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.plugins.annotations.*;
 import scala.util.Either;
 import scala_maven.AppLauncher;
 import scala_maven.ExtendedScalaContinuousCompileMojo;
+import org.eclipse.aether.RepositorySystem;
+import org.eclipse.aether.repository.RemoteRepository;
 
 import java.io.File;
 import java.util.List;
 
-@Mojo(name = "bloopInstall", threadSafe = true, requiresProject = true, defaultPhase = LifecyclePhase.GENERATE_RESOURCES, requiresDependencyResolution = ResolutionScope.TEST)
+@Mojo(
+    name = "bloopInstall", 
+    threadSafe = true, 
+    requiresProject = true, 
+    defaultPhase = LifecyclePhase.GENERATE_RESOURCES,
+    requiresDependencyCollection = ResolutionScope.TEST
+)
 public class BloopMojo extends ExtendedScalaContinuousCompileMojo {
     @Parameter(defaultValue = "${mojoExecution}", readonly = true, required = true)
     private MojoExecution mojoExecution;
 
     @Component
+    private RepositorySystem repoSystem;
+
+    @Component
     private MavenPluginManager mavenPluginManager;
+
+    @Parameter(defaultValue = "${project.remoteProjectRepositories}", readonly = true)
+    private List<RemoteRepository> remoteRepos;
+
+    @Parameter(property = "reactorProjects", required = true, readonly = true)
+    private List<MavenProject> reactorProjects;
 
     @Parameter(property = "bloop.configDirectory", defaultValue = "${session.executionRootDirectory}/.bloop")
     private File bloopConfigDir;
@@ -86,24 +104,16 @@ public class BloopMojo extends ExtendedScalaContinuousCompileMojo {
         MojoImplementation.writeCompileAndTestConfiguration(bloopMojo, session, this.getLog());
     }
 
-    public File[] getAllScalaJars() throws Exception {
-        if (moduleType == ModuleType.SCALA)
-        {
-            File libraryJar = getLibraryJar();
-            File compilerJar = getCompilerJar();
-            File[] mainJars = new File[]{libraryJar, compilerJar};
-            List<File> extraJars = getCompilerDependencies();
-            extraJars.remove( libraryJar );
-            return (File[]) ArrayUtils.addAll( mainJars, extraJars.toArray() );
-        } else return new File[0];
-    }
-
     public File getBloopConfigDir() {
         return bloopConfigDir;
     }
 
     public boolean shouldDownloadSources(){
         return downloadSources;
+    }
+
+    public List<MavenProject> getReactorProjects(){
+        return reactorProjects;
     }
 
     private Config.CompileOrder getCompileOrder() {
@@ -128,6 +138,13 @@ public class BloopMojo extends ExtendedScalaContinuousCompileMojo {
                                        classpathOptionsExtra,
                                        classpathOptionsAutoBoot,
                                        classpathOptionsFilterLibrary);
+    }
+
+    public RepositorySystem getRepoSystem() {
+        return repoSystem;
+    }
+    public List<RemoteRepository> getRemoteRepositories() {
+        return remoteRepos;
     }
 
     public String getScalaArtifactID() {

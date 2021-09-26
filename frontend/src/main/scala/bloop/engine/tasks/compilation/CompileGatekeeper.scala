@@ -59,19 +59,18 @@ object CompileGatekeeper {
           val usedClassesDir = running.usedLastSuccessful.classesDir
           val usedClassesDirCounter = running.usedLastSuccessful.counterForClassesDir
 
-          usedClassesDirCounter.getAndTransform {
-            count =>
-              if (count == 0) {
-                // Abort deduplication, dir is scheduled to be deleted in background
-                deduplicate = false
-                // Remove from map of used classes dirs in case it hasn't already been
-                currentlyUsedClassesDirs.remove(usedClassesDir, usedClassesDirCounter)
-                // Return previous count, this counter will soon be deallocated
-                count
-              } else {
-                // Increase count to prevent other compiles to schedule its deletion
-                count + 1
-              }
+          usedClassesDirCounter.getAndTransform { count =>
+            if (count == 0) {
+              // Abort deduplication, dir is scheduled to be deleted in background
+              deduplicate = false
+              // Remove from map of used classes dirs in case it hasn't already been
+              currentlyUsedClassesDirs.remove(usedClassesDir, usedClassesDirCounter)
+              // Return previous count, this counter will soon be deallocated
+              count
+            } else {
+              // Increase count to prevent other compiles to schedule its deletion
+              count + 1
+            }
           }
 
           if (deduplicate) running

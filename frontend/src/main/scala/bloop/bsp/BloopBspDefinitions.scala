@@ -11,7 +11,8 @@ object BloopBspDefinitions {
       ownsBuildFiles: Option[Boolean],
       clientClassesRootDir: Option[Uri],
       semanticdbVersion: Option[String],
-      supportedScalaVersions: Option[List[String]]
+      supportedScalaVersions: Option[List[String]],
+      javaSemanticdbVersion: Option[String]
   )
 
   object BloopExtraBuildParams {
@@ -19,7 +20,8 @@ object BloopBspDefinitions {
       ownsBuildFiles = None,
       clientClassesRootDir = None,
       semanticdbVersion = None,
-      supportedScalaVersions = None
+      supportedScalaVersions = None,
+      javaSemanticdbVersion = None
     )
 
     val encoder: RootEncoder[BloopExtraBuildParams] = deriveEncoder

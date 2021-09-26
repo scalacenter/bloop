@@ -11,7 +11,8 @@ import monix.execution.{Cancelable, CancelableFuture}
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.{Failure, Success, Try}
 
-/** Utilities for integration with Java 8 classes
+/**
+ * Utilities for integration with Java 8 classes
  *
  * Provides methods to convert between `scala.concurrent.Future`
  * and `java.util.concurrent.CompletableFuture`.
@@ -21,7 +22,8 @@ import scala.util.{Failure, Success, Try}
  */
 object Java8Compat {
 
-  /** Given a registration function that can execute an asynchronous
+  /**
+   * Given a registration function that can execute an asynchronous
    * process, executes it and builds a [[CancelableFuture]] value
    * out of it.
    *
@@ -69,7 +71,8 @@ object Java8Compat {
 
   implicit class JavaCompletableFutureUtils[A](val source: CompletableFuture[A]) extends AnyVal {
 
-    /** Convert `CompletableFuture` to [[monix.execution.CancelableFuture]]
+    /**
+     * Convert `CompletableFuture` to [[monix.execution.CancelableFuture]]
      *
      * If the source is cancelled, returned `Future` will never terminate
      */
@@ -95,7 +98,8 @@ object Java8Compat {
 
   implicit class ScalaFutureUtils[A](val source: Future[A]) extends AnyVal {
 
-    /** Convert Scala `Future` to Java `CompletableFuture`
+    /**
+     * Convert Scala `Future` to Java `CompletableFuture`
      *
      * NOTE: Cancelling resulting future will not have any
      * effect on source

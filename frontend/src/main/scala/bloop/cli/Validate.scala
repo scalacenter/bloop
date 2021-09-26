@@ -79,8 +79,10 @@ object Validate {
    */
   def validateBuildForCLICommands(state: State, report: String => Unit): Task[State] = {
     val configDirectory = state.build.origin
-    if (state.build.origin.isDirectory &&
-        state.build.origin != Environment.defaultBloopDirectory) {
+    if (
+      state.build.origin.isDirectory &&
+      state.build.origin != Environment.defaultBloopDirectory
+    ) {
       state.build.traces match {
         case Nil => Task.now(state)
         case x :: xs =>

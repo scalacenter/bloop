@@ -99,10 +99,14 @@ object Feedback {
     projects.map(p => s"'${p.name}'").mkString(", ")
   def skippedUnsupportedScalaMetals(scalaVersion: String): String =
     s"Skipped configuration of SemanticDB in unsupported $scalaVersion projects"
-  def configuredMetalsProjects(projects: Traversable[Project]): String =
-    s"Configured SemanticDB in projects ${pprint(projects)}"
-  def failedMetalsConfiguration(version: String, cause: String): String =
-    s"Stopped configuration of SemanticDB in Scala $version projects: $cause"
+  def configuredMetalsScalaProjects(projects: Traversable[Project]): String =
+    s"Configured Scala SemanticDB in projects ${pprint(projects)}"
+  def configuredMetalsJavaProjects(projects: Traversable[Project]): String =
+    s"Configured Java SemanticDB in projects ${pprint(projects)}"
+  def failedMetalsScalaConfiguration(version: String, cause: String): String =
+    s"Stopped configuration of Scala SemanticDB in $version projects: $cause"
+  def failedMetalsJavaConfiguration(cause: String): String =
+    s"Stopped configuration of Java SemanticDB in projects: $cause"
 
   def detectedJdkWithoutJDI(error: Throwable): String = {
     s"""Debugging is not supported because Java Debug Interface couldn't be resolved in detected JDK ${JavaRuntime.home}: '${error.getMessage}'. To enable it, check manually that you're running on a JDK and JDI is supported.

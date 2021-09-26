@@ -96,7 +96,8 @@ final class PipeliningOracle(
          * Failing here it's fine.
          */
         try Await.result(waitDownstreamFullCompilations, Duration.Inf)
-        catch { case NonFatal(e) => () } finally {
+        catch { case NonFatal(e) => () }
+        finally {
           requiresMacroInitialization = true
         }
       }

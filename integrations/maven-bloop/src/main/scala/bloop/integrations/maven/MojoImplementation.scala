@@ -2,22 +2,29 @@ package bloop.integrations.maven
 
 import java.io.File
 import java.nio.file.{Files, Path, Paths}
+import java.{util => ju}
 import bloop.config.{Config, Tag}
+import org.apache.maven.artifact.repository.ArtifactRepository
 import org.apache.maven.execution.MavenSession
 import org.apache.maven.model.Resource
 import org.apache.maven.plugin.logging.Log
 import org.apache.maven.plugin.{MavenPluginManager, Mojo, MojoExecution}
 import org.apache.maven.project.MavenProject
-import org.codehaus.plexus.util.xml.Xpp3Dom
-import scala_maven.AppLauncher
-import scala.collection.JavaConverters._
 import org.apache.maven.artifact.Artifact
 import org.apache.maven.shared.invoker.DefaultInvocationRequest
-import java.{util => ju}
-import org.apache.maven.shared.invoker.DefaultInvoker
-import org.apache.maven.shared.invoker.InvocationResult
+import org.codehaus.plexus.util.xml.Xpp3Dom
+import org.eclipse.aether.resolution.ArtifactRequest
+import org.eclipse.aether.artifact.DefaultArtifact
+import org.eclipse.aether.repository.RemoteRepository
+import org.eclipse.aether.repository.Authentication
+import org.eclipse.aether.util.repository.AuthenticationBuilder
+import org.eclipse.aether.repository.AuthenticationContext
+import org.eclipse.aether.repository
 
+import scala_maven.AppLauncher
 import scala.util.{Failure, Success, Try}
+import scala.collection.JavaConverters._
+import scala.collection.mutable.Buffer
 
 object MojoImplementation {
   private val ScalaMavenGroupArtifact = "net.alchim31.maven:scala-maven-plugin"
@@ -73,6 +80,41 @@ object MojoImplementation {
       file.toPath().toRealPath().toAbsolutePath()
     }
 
+    def resolveArtifact(artifact: Artifact, classifier: String = ""): Option[File] = try {
+      val suffix = if (classifier.nonEmpty) s":$classifier" else ""
+      log.info("Resolving artifact: " + artifact + suffix)
+      val request = new ArtifactRequest()
+      request.setArtifact(
+        new DefaultArtifact(
+          artifact.getGroupId(),
+          artifact.getArtifactId(),
+          classifier,
+          "jar",
+          artifact.getVersion()
+        )
+      )
+      request.setRepositories(mojo.getRemoteRepositories())
+      val result = mojo.getRepoSystem().resolveArtifact(session.getRepositorySession(), request)
+      log.info("SUCCESS " + artifact)
+      Some(result.getArtifact().getFile())
+    } catch {
+      case t: Throwable =>
+        log.error("FAILURE " + artifact, t)
+        None
+    }
+
+    val reactorProjectsSet = mojo
+      .getReactorProjects()
+      .asScala
+      .map { project =>
+        (project.getGroupId(), project.getArtifactId(), project.getVersion())
+      }
+      .toSet
+
+    def isNotReactorProjectArtifact(artifact: Artifact) = {
+      !reactorProjectsSet((artifact.getGroupId(), artifact.getArtifactId(), artifact.getVersion()))
+    }
+
     val root = new File(session.getExecutionRootDirectory())
     val project = mojo.getProject()
     val dependencies =
@@ -94,15 +136,31 @@ object MojoImplementation {
         emptyLauncher
       }
 
+    // check if Scala is contained in this project
+    // findScalaContext throws an exception if it can't find Scala
+    val scalaContext = Try(mojo.findScalaContext()).toOption
     val compileSetup = mojo.getCompileSetup()
-    val allScalaJars = mojo.getAllScalaJars().map(abs).toList
+    val compilerAndDeps = scalaContext.toList.flatMap(_.findCompilerAndDependencies().asScala)
+    val allScalaJars = compilerAndDeps.map { artifact =>
+      artifact.getFile().toPath()
+    }.toList
+
+    val scalaOrganization = compilerAndDeps
+      .collectFirst {
+        case artifact
+            if artifact.getArtifactId() == "scala3-compiler_3" || artifact
+              .getArtifactId() == "scala-compiler" =>
+          artifact.getGroupId()
+      }
+      .getOrElse("org.scala-lang")
     val scalacArgs = mojo.getScalacArgs().asScala.toList.filter(_ != null)
 
     def writeConfig(
         sourceDirs0: Seq[File],
         classesDir0: File,
-        classpath0: java.util.List[_],
-        resources0: java.util.List[Resource],
+        // needs to be lazy, since we resolve artifacts later on
+        classpath0: () => java.util.List[_],
+        resources0: java.util.List[_],
         launcher: AppLauncher,
         configuration: String
     ): Unit = {
@@ -114,24 +172,40 @@ object MojoImplementation {
       val analysisOut = None
       val sourceDirs = sourceDirs0.map(abs).toList
       val classesDir = abs(classesDir0)
+      val artifacts = project.getArtifacts().asScala
+      lazy val libraryAndDependencies = scalaContext.toList
+        .flatMap(_.findLibraryAndDependencies().asScala)
 
-      val resolution = if (mojo.shouldDownloadSources()) {
-        // Run source dependencies download
-        val request = new DefaultInvocationRequest()
-        request.setPomFile(project.getBasedir)
-        request.setBatchMode(true)
-        request.setGoals(ju.Collections.singletonList("dependency:sources"))
-        val invoker = new DefaultInvoker()
-        val result: InvocationResult = invoker.execute(request)
-
-        val modules =
-          project.getArtifacts().asScala.collect {
-            case art if art.getType() == "jar" => artifactToConfigModule(art, project, session)
-          }
-        Some(Config.Resolution(modules.toList))
-      } else {
-        None
+      // if we don't add scala-library explicitely it will not be available in artifacts
+      val hasScalaLibrary = artifacts.exists {
+        case a: Artifact => a.getArtifactId() == "scala-library"
       }
+      val allArtifacts = if (hasScalaLibrary) artifacts else artifacts ++ libraryAndDependencies
+      val modules =
+        allArtifacts.collect {
+          case art: Artifact if art.getType() == "jar" && isNotReactorProjectArtifact(art) =>
+            if (art.getArtifactId() == "scala-library")
+              scalaContext match {
+                case Some(context) =>
+                  /* If the scala library is not specified explicitely as recommended
+                   * it might sometimes be wrong, this doesn't happen for Scala 3.
+                   */
+                  val scalaVersion = context.version().toString()
+                  if (!scalaVersion.startsWith("3.") && scalaVersion != art.getVersion())
+                    art.setVersion(context.version.toString)
+                case _ =>
+              }
+            resolveArtifact(art).foreach { resolvedFile =>
+              //since we don't resolve dependencies automatically in the plugin, this will be null
+              art.setFile(resolvedFile)
+            }
+            if (mojo.shouldDownloadSources()) {
+              resolveArtifact(art, "sources")
+            }
+            artifactToConfigModule(art, project, session)
+        }
+      val resolution = Some(Config.Resolution(modules.toList))
+
       val classpath = {
         val projectDependencies = dependencies.flatMap { d =>
           val build = d.getBuild()
@@ -139,8 +213,13 @@ object MojoImplementation {
           else build.getTestOutputDirectory() :: build.getOutputDirectory() :: Nil
         }
 
-        val cp = classpath0.asScala.toList.asInstanceOf[List[String]].map(u => abs(new File(u)))
-        (projectDependencies.map(u => abs(new File(u))) ++ cp).toList
+        val cp = classpath0().asScala.toList.asInstanceOf[List[String]].map(u => abs(new File(u)))
+        // scalaLibrary might not be added by default to classpath and it's needed for the compilation
+        val hasScalaLibrary = cp.exists(p => p.toFile().getName().contains("scala_library-"))
+
+        val fullClasspath =
+          if (hasScalaLibrary) cp else cp ++ libraryAndDependencies.map(_.getFile().toPath())
+        (projectDependencies.map(u => abs(new File(u))) ++ fullClasspath).toList
       }
 
       val tags = if (configuration == "test") List(Tag.Test) else List(Tag.Library)
@@ -154,12 +233,18 @@ object MojoImplementation {
         val sbt = None
         val test = Some(Config.Test.defaultConfiguration)
         val java = Some(Config.Java(mojo.getJavacArgs().asScala.toList))
-        val `scala` = Some(Config.Scala(mojo.getScalaOrganization(), mojo.getScalaArtifactID(), mojo.getScalaVersion(), scalacArgs, allScalaJars, analysisOut, Some(compileSetup)))
+        val `scala` =
+          scalaContext.map{
+            context =>
+              Config.Scala(scalaOrganization, mojo.getScalaArtifactID(), context.version().toString(), scalacArgs, allScalaJars, analysisOut, Some(compileSetup))
+          }
         val javaHome = Some(abs(mojo.getJavaHome().getParentFile.getParentFile))
         val mainClass = if (launcher.getMainClass().isEmpty) None else Some(launcher.getMainClass())
         val platform = Some(Config.Platform.Jvm(Config.JvmConfig(javaHome, launcher.getJvmArgs().toList), mainClass, None, None, None))
-        // Resources in Maven require
-        val resources = Some(resources0.asScala.toList.flatMap(a => Option(a.getTargetPath).toList).map(classesDir.resolve))
+        val resources = Some(resources0.asScala.toList.flatMap{
+          case a: Resource => Option(Paths.get(a.getDirectory()))
+          case _ => None
+        })
         val project = Config.Project(name, baseDirectory, Some(root.toPath), sourceDirs, None, None, fullDependencies, classpath, out, classesDir, resources, `scala`, java, sbt, test, platform, resolution, Some(tags))
         Config.File(Config.File.LatestVersion, project)
       }
@@ -173,7 +258,7 @@ object MojoImplementation {
     }
 
     writeConfig(
-      mojo.getCompileSourceDirectories.asScala,
+      mojo.getCompileSourceDirectories.asScala.toSeq,
       mojo.getCompileOutputDir,
       project.getCompileClasspathElements,
       project.getResources,
@@ -182,7 +267,7 @@ object MojoImplementation {
     )
 
     writeConfig(
-      mojo.getTestSourceDirectories.asScala,
+      mojo.getTestSourceDirectories.asScala.toSeq,
       mojo.getTestOutputDir,
       project.getTestClasspathElements,
       project.getTestResources,
@@ -196,7 +281,8 @@ object MojoImplementation {
     val basePath = (if (base.isAbsolute) base else base.getCanonicalFile).toPath
     val filePath = (if (file.isAbsolute) file else file.getCanonicalFile).toPath
     if ((filePath startsWith basePath) || (filePath.normalize() startsWith basePath.normalize())) {
-      val relativePath = catching(classOf[IllegalArgumentException]) opt (basePath relativize filePath)
+      val relativePath =
+        catching(classOf[IllegalArgumentException]) opt (basePath relativize filePath)
       relativePath map (_.toString)
     } else None
   }
@@ -207,21 +293,23 @@ object MojoImplementation {
       session: MavenSession
   ): Config.Module = {
     val base = session.getLocalRepository().getBasedir()
-    val artifactPath = session.getLocalRepository().pathOf(artifact)
-    val sources = artifactPath.replace(".jar", "-sources.jar")
-    val sourcesPath = Paths.get(base).resolve(sources)
-    val sourcesList = if (sourcesPath.toFile().exists()) {
+    val artifactRelativePath = session.getLocalRepository().pathOf(artifact)
+    val sources = artifactRelativePath.replace(".jar", "-sources.jar")
+    val sourcesJarPath = Paths.get(base).resolve(sources)
+    val sourcesList = if (sourcesJarPath.toFile().exists()) {
       List(
         Config.Artifact(
           name = artifact.getArtifactId(),
           classifier = Option("sources"),
           checksum = None,
-          path = sourcesPath
+          path = sourcesJarPath
         )
       )
     } else {
       Nil
     }
+    if (artifact.getFile() == null)
+      throw new IllegalArgumentException(s"Could not resolve $artifact")
     Config.Module(
       organization = artifact.getGroupId(),
       name = artifact.getArtifactId(),

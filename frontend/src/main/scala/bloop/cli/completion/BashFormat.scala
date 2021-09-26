@@ -1,25 +1,23 @@
 package bloop.cli.completion
 
-import caseapp.core.{Arg, CommandMessages}
+import caseapp.core.Arg
 import bloop.cli.{BspProtocol, ReporterKind}
 import bloop.data.Project
+import caseapp.core.help.CommandHelp
 
 object BashFormat extends Format {
   override def showProject(project: Project): Some[String] = {
     Some(project.name)
   }
 
-  override def showCommand(name: String, messages: CommandMessages): Some[String] = {
+  override def showCommand(name: String, messages: CommandHelp): Some[String] = {
     Some(name)
   }
 
   override def showArg(commandName: String, arg: Arg): Option[String] = {
-    val completionFn = completionFunction(commandName, arg.name).map(" " + _).getOrElse("")
-    arg match {
-      case Arg(_, name +: _, _, _, false, _, _, _) =>
-        Some(s"--${name.name}${completionFn}")
-      case _ =>
-        None
+    def completionFn = completionFunction(commandName, arg.name.name).map(" " + _).getOrElse("")
+    arg.extraNames.headOption.filter(_ => !arg.noHelp).map { longName =>
+      s"--${longName.name}${completionFn}"
     }
   }
 

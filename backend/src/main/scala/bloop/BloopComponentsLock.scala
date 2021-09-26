@@ -14,3 +14,5 @@ sealed trait ComponentLock extends GlobalLock {
 object BloopComponentsLock extends ComponentLock
 
 object SemanticDBCacheLock extends ComponentLock
+
+object ExpressionCompilerCacheLock extends ComponentLock

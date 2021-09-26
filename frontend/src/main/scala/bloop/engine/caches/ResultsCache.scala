@@ -242,10 +242,13 @@ object ResultsCache {
                       val cleanupTask = {
                         var cleanupTask0: Task[Unit] = Task.unit
                         val cleanupKey = AbsolutePath(classesDir)
-                        cleanedOrphanDirsInBuild.computeIfAbsent(cleanupKey, (_: AbsolutePath) => {
-                          cleanupTask0 = cleanUpOrphanedInternalDirs(p, cleanupKey)
-                          true
-                        })
+                        cleanedOrphanDirsInBuild.computeIfAbsent(
+                          cleanupKey,
+                          (_: AbsolutePath) => {
+                            cleanupTask0 = cleanUpOrphanedInternalDirs(p, cleanupKey)
+                            true
+                          }
+                        )
                         cleanupTask0
                       }
 

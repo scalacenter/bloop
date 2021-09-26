@@ -349,13 +349,11 @@ final class ConcurrentAnalysisCallback(
               Analysis.NonLocalProduct(srcClassName, binaryClassName, classFile, classFileStamp)
           }
 
-        val internalDeps = classesInSrc.flatMap(
-          cls =>
-            intSrcDeps.getOrElse(cls, ConcurrentHashMap.newKeySet[InternalDependency]()).asScala
+        val internalDeps = classesInSrc.flatMap(cls =>
+          intSrcDeps.getOrElse(cls, ConcurrentHashMap.newKeySet[InternalDependency]()).asScala
         )
-        val externalDeps = classesInSrc.flatMap(
-          cls =>
-            extSrcDeps.getOrElse(cls, ConcurrentHashMap.newKeySet[ExternalDependency]()).asScala
+        val externalDeps = classesInSrc.flatMap(cls =>
+          extSrcDeps.getOrElse(cls, ConcurrentHashMap.newKeySet[ExternalDependency]()).asScala
         )
         val binDeps = binaries.map(d => (d, binaryClassName(d), stampReader binary d))
 

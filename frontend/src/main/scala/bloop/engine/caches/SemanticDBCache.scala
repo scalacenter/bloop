@@ -23,48 +23,37 @@ import coursier.error.CoursierError
 import sbt.internal.inc.BloopComponentCompiler
 
 object SemanticDBCache {
-  @volatile private var latestResolvedSemanticDB: Path = null
-  def fetchPlugin(
-      scalaVersion: String,
-      version: String,
+  private def fetchPlugin(
+      artifact: DependencyResolution.Artifact,
       logger: Logger
   ): Either[String, AbsolutePath] = {
-    val organization = "org.scalameta"
-    val module = s"semanticdb-scalac_$scalaVersion"
-    val semanticDBId = s"$organization.$module.$version"
-    val provider =
-      BloopComponentCompiler.getComponentProvider(Paths.getCacheDirectory("semanticdb"))
-    val manager = new BloopComponentManager(SemanticDBCacheLock, provider, secondaryCacheDir = None)
 
     def attemptResolution: Either[String, AbsolutePath] = {
       import bloop.engine.ExecutionContext.ioScheduler
       DependencyResolution.resolveWithErrors(
-        List(DependencyResolution.Artifact(organization, module, version)),
+        List(artifact),
         logger
       )(ioScheduler) match {
         case Left(error) => Left(error.getMessage())
         case Right(paths) =>
-          paths.find(_.syntax.contains("semanticdb-scalac")) match {
+          paths.find(_.syntax.contains(artifact.module)) match {
             case Some(pluginPath) => Right(pluginPath)
             case None =>
               Left(
-                s"Missing semanticdb plugin in resolved jars ${paths.map(_.syntax).mkString(",")}"
+                s"Missing ${artifact.module} plugin in resolved jars ${paths.map(_.syntax).mkString(",")}"
               )
           }
       }
     }
 
-    if (version == "latest.release") {
-      // Only resolve once per bloop server invocation to avoid excessive overhead
-      latestResolvedSemanticDB.synchronized {
-        if (latestResolvedSemanticDB != null) Right(AbsolutePath(latestResolvedSemanticDB))
-        else {
-          val latestResolvedPlugin = attemptResolution
-          latestResolvedPlugin.foreach(plugin => latestResolvedSemanticDB = plugin.underlying)
-          latestResolvedPlugin
-        }
-      }
+    if (artifact.version == "latest.release") {
+      attemptResolution
     } else {
+      val provider =
+        BloopComponentCompiler.getComponentProvider(Paths.getCacheDirectory("semanticdb"))
+      val manager =
+        new BloopComponentManager(SemanticDBCacheLock, provider, secondaryCacheDir = None)
+      val semanticDBId = s"${artifact.organization}.${artifact.module}.${artifact.version}"
       Try(manager.file(semanticDBId)(IfMissing.Fail)) match {
         case Success(pluginPath) => Right(AbsolutePath(pluginPath))
         case Failure(exception) =>
@@ -73,5 +62,49 @@ object SemanticDBCache {
           resolvedPlugin
       }
     }
+  }
+
+  @volatile private var latestResolvedScalaSemanticDB: Path = null
+  def fetchScalaPlugin(
+      scalaVersion: String,
+      version: String,
+      logger: Logger
+  ): Either[String, AbsolutePath] = {
+    val organization = "org.scalameta"
+    val module = s"semanticdb-scalac_$scalaVersion"
+    val artifact = DependencyResolution.Artifact(organization, module, version)
+    if (artifact.version == "latest.release") {
+      // Only resolve once per bloop server invocation to avoid excessive overhead
+      latestResolvedScalaSemanticDB.synchronized {
+        if (latestResolvedScalaSemanticDB != null)
+          Right(AbsolutePath(latestResolvedScalaSemanticDB))
+        else {
+          val latestResolvedPlugin = fetchPlugin(artifact, logger)
+          latestResolvedPlugin.foreach(plugin => latestResolvedScalaSemanticDB = plugin.underlying)
+          latestResolvedPlugin
+        }
+      }
+    } else fetchPlugin(artifact, logger)
+  }
+
+  @volatile private var latestResolvedJavaSemanticDB: Path = null
+  def fetchJavaPlugin(
+      version: String,
+      logger: Logger
+  ): Either[String, AbsolutePath] = {
+    val organization = "com.sourcegraph"
+    val module = "semanticdb-javac"
+    val artifact = DependencyResolution.Artifact(organization, module, version)
+    if (artifact.version == "latest.release") {
+      // Only resolve once per bloop server invocation to avoid excessive overhead
+      latestResolvedJavaSemanticDB.synchronized {
+        if (latestResolvedJavaSemanticDB != null) Right(AbsolutePath(latestResolvedJavaSemanticDB))
+        else {
+          val latestResolvedPlugin = fetchPlugin(artifact, logger)
+          latestResolvedPlugin.foreach(plugin => latestResolvedJavaSemanticDB = plugin.underlying)
+          latestResolvedPlugin
+        }
+      }
+    } else fetchPlugin(artifact, logger)
   }
 }

@@ -1,34 +1,20 @@
 package bloop.data
 
-import java.net.URI
-
-import bloop.io.AbsolutePath
-import bloop.logging.{DebugFilter, Logger}
 import bloop.ScalaInstance
 import bloop.bsp.ProjectUris
-import bloop.config.Config
-import bloop.engine.{Build, Dag}
-import bloop.engine.caches.SemanticDBCache
+import bloop.config.{Config, ConfigCodecs}
+import bloop.engine.Dag
 import bloop.engine.tasks.toolchains.{JvmToolchain, ScalaJsToolchain, ScalaNativeToolchain}
-import bloop.io.ByteHasher
-import java.nio.charset.StandardCharsets
-import java.nio.file.attribute.BasicFileAttributes
-import java.nio.file.PathMatcher
-import java.nio.file.Path
-import java.nio.file.FileVisitor
-import java.nio.file.FileVisitResult
-import java.nio.file.Files
-import java.nio.file.FileVisitOption
-import java.nio.file.SimpleFileVisitor
-
-import scala.util.Try
-import scala.collection.mutable
+import bloop.io.{AbsolutePath, ByteHasher}
+import bloop.logging.{DebugFilter, Logger}
 import ch.epfl.scala.{bsp => Bsp}
-import xsbti.compile.{ClasspathOptions, CompileOrder}
-import bloop.config.ConfigCodecs
-
-import scala.util.control.NonFatal
 import monix.eval.Task
+import xsbti.compile.{ClasspathOptions, CompileOrder}
+
+import java.nio.charset.StandardCharsets
+import scala.collection.mutable
+import scala.util.Try
+import scala.util.control.NonFatal
 
 final case class Project(
     name: String,
@@ -92,23 +78,7 @@ final case class Project(
   def allSourceFilesAndDirectories: Task[List[AbsolutePath]] = Task {
     val buf = mutable.ListBuffer.empty[AbsolutePath]
     buf ++= sources
-    sourcesGlobs.foreach { glob =>
-      if (Files.isDirectory(glob.directory.underlying)) {
-        Files.walkFileTree(
-          glob.directory.underlying,
-          java.util.EnumSet.of(FileVisitOption.FOLLOW_LINKS),
-          glob.walkDepth,
-          new SimpleFileVisitor[Path] {
-            override def visitFile(file: Path, attrs: BasicFileAttributes): FileVisitResult = {
-              if (glob.matches(file)) {
-                buf += AbsolutePath(file)
-              }
-              FileVisitResult.CONTINUE
-            }
-          }
-        )
-      }
-    }
+    for (glob <- sourcesGlobs) glob.walkThrough(buf += _)
     buf.result()
   }
 
@@ -354,7 +324,8 @@ object Project {
   def enableMetalsSettings(
       project: Project,
       configDir: AbsolutePath,
-      semanticDBPlugin: Option[AbsolutePath],
+      scalaSemanticDBPlugin: Option[AbsolutePath],
+      javaSemanticDBPlugin: Option[AbsolutePath],
       logger: Logger
   ): Project = {
     val workspaceDir = project.workspaceDirectory.getOrElse(configDir.getParent)
@@ -366,7 +337,7 @@ object Project {
       version != "3.0.0-M2"
     }
 
-    def enableSemanticdb(options: List[String], pluginPath: AbsolutePath): List[String] = {
+    def enableScalaSemanticdb(options: List[String], pluginPath: AbsolutePath): List[String] = {
       val baseSemanticdbOptions = List(
         "-P:semanticdb:failures:warning",
         "-P:semanticdb:synthetics:on",
@@ -374,10 +345,10 @@ object Project {
       )
       // TODO: Handle user-configured `targetroot`s inside Bloop's compilation
       // engine so that semanticdb files are replicated in those directories
-      val hasSemanticDB = hasSemanticDBEnabledInCompilerOptions(options)
+      val hasSemanticDB = hasScalaSemanticDBEnabledInCompilerOptions(options)
       val pluginOption = if (hasSemanticDB) Nil else List(s"-Xplugin:$pluginPath")
       val baseOptions = s"-P:semanticdb:sourceroot:$workspaceDir" :: options.filterNot(
-        isSemanticdbSourceRoot
+        isScalaSemanticdbSourceRoot
       )
       (baseOptions ++ baseSemanticdbOptions ++ pluginOption).distinct
     }
@@ -396,33 +367,66 @@ object Project {
       options ++ ysemanticdb ++ sourceRoot
     }
 
+    def enableJavaSemanticdbOptions(options: List[String]): List[String] = {
+      if (hasJavaSemanticDBEnabledInCompilerOptions(options)) options
+      else
+        s"-Xplugin:semanticdb -sourceroot:${workspaceDir} -targetroot:javac-classes-directory" :: options
+    }
+
+    def enableJavaSemanticdbClasspath(
+        pluginPath: AbsolutePath,
+        classpath: List[AbsolutePath]
+    ): List[AbsolutePath] = {
+      if (classpath.contains(pluginPath)) classpath else pluginPath :: classpath
+    }
+
     def enableRangePositions(options: List[String]): List[String] = {
       val hasYrangepos = options.exists(_.contains("-Yrangepos"))
       if (hasYrangepos || isDotty) options else options :+ "-Yrangepos"
     }
 
     val projectWithRangePositions =
-      project.copy(scalacOptions = enableRangePositions(project.scalacOptions))
+      if (project.scalaInstance.nonEmpty)
+        project.copy(scalacOptions = enableRangePositions(project.scalacOptions))
+      else
+        project
 
-    val options = projectWithRangePositions.scalacOptions
+    val rangedScalacOptions = projectWithRangePositions.scalacOptions
+    val javacOptions = projectWithRangePositions.javacOptions
 
-    semanticDBPlugin match {
+    val scalaProjectWithRangePositions = scalaSemanticDBPlugin match {
       case _ if isDotty =>
-        val optionsWithSemanticDB = enableDottySemanticdb(options)
-        projectWithRangePositions.copy(scalacOptions = optionsWithSemanticDB)
+        val scalacOptionsWithSemanticDB = enableDottySemanticdb(rangedScalacOptions)
+        projectWithRangePositions.copy(scalacOptions = scalacOptionsWithSemanticDB)
       case None =>
         projectWithRangePositions
       case Some(pluginPath) =>
-        val optionsWithSemanticDB = enableSemanticdb(options, pluginPath)
-        projectWithRangePositions.copy(scalacOptions = optionsWithSemanticDB)
+        val scalacOptionsWithSemanticDB = enableScalaSemanticdb(rangedScalacOptions, pluginPath)
+        projectWithRangePositions.copy(scalacOptions = scalacOptionsWithSemanticDB)
+    }
+    javaSemanticDBPlugin match {
+      case None =>
+        scalaProjectWithRangePositions
+      case Some(pluginPath) =>
+        val javacOptionsWithSemanticDB = enableJavaSemanticdbOptions(javacOptions)
+        val classpathWithSemanticDB =
+          enableJavaSemanticdbClasspath(pluginPath, scalaProjectWithRangePositions.rawClasspath)
+        scalaProjectWithRangePositions.copy(
+          javacOptions = javacOptionsWithSemanticDB,
+          rawClasspath = classpathWithSemanticDB
+        )
     }
   }
 
-  def hasSemanticDBEnabledInCompilerOptions(options: List[String]): Boolean = {
+  def hasScalaSemanticDBEnabledInCompilerOptions(options: List[String]): Boolean = {
     options.exists(opt => opt.contains("-Xplugin") && opt.contains("semanticdb-scalac"))
   }
 
-  def isSemanticdbSourceRoot(option: String): Boolean = {
+  def hasJavaSemanticDBEnabledInCompilerOptions(options: List[String]): Boolean = {
+    options.exists(f => f.contains("-Xplugin") && f.contains("semanticdb"))
+  }
+
+  def isScalaSemanticdbSourceRoot(option: String): Boolean = {
     option.contains("semanticdb:sourceroot")
   }
 

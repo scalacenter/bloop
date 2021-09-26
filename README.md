@@ -30,8 +30,8 @@ support many different workflows and allow bespoke integrations.
 | 💻 Install bloop in your computer or CI server by following [our **Installation page**](https://scalacenter.github.io/bloop/setup) |
 | 📚 Learn more about bloop and how to use it from your favorite build tool and editor in <a href="https://scalacenter.github.io/bloop">our website</a> |
 | ⚙️ Tool author? Integrate your tool with bloop by reading the [Integration Guide](https://scalacenter.github.io/bloop/docs/integration) |
-| ❓Questions? Unsure if bloop is useful for your use case? Ask right away in our [Gitter channel](https://gitter.im/scalacenter/bloop)! |
+| ❓Questions? Unsure if bloop is useful for your use case? Ask right away in our [Dicord channel](https://discord.gg/KWF9zMhJWS)! |
 
-[gitter]: https://github.com/scalacenter/bloop
+[discord]: https://discord.gg/KWF9zMhJWS
 [contributing]: https://scalacenter.github.io/bloop/docs/developer-documentation/
 [coc]: https://www.scala-lang.org/conduct/

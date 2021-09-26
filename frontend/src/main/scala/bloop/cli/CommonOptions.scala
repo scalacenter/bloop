@@ -6,6 +6,10 @@ import java.util.Properties
 import bloop.engine.ExecutionContext
 import bloop.io.AbsolutePath
 import caseapp.Hidden
+import caseapp.core.help.Help
+import caseapp.core.parser.Parser
+
+import CliParsers._
 
 /**
  * Describes the common options for any command or CLI operation.
@@ -63,4 +67,7 @@ object CommonOptions {
       case (props, (key, value)) => props.setProperty(key, value); props
     }
   }
+
+  implicit lazy val parser: Parser[CommonOptions] = Parser.derive
+  implicit lazy val help: Help[CommonOptions] = Help.derive
 }

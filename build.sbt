@@ -11,9 +11,13 @@ bloopAggregateSourceDependencies in Global := true
 
 bloopExportJarClassifiers in ThisBuild := Some(Set("sources"))
 
-/***************************************************************************************************/
+/**
+ * ************************************************************************************************
+ */
 /*                      This is the build definition of the source deps                            */
-/***************************************************************************************************/
+/**
+ * ************************************************************************************************
+ */
 val benchmarkBridge = project
   .in(file(".benchmark-bridge-compilation"))
   .aggregate(BenchmarkBridgeCompilation)
@@ -38,9 +42,13 @@ lazy val bloopShared = (project in file("shared"))
     )
   )
 
-/***************************************************************************************************/
+/**
+ * ************************************************************************************************
+ */
 /*                            This is the build definition of the wrapper                          */
-/***************************************************************************************************/
+/**
+ * ************************************************************************************************
+ */
 import build.Dependencies
 import build.Dependencies.{
   Scala210Version,
@@ -203,10 +211,6 @@ lazy val jsonConfig213 = crossProject(JSPlatform, JVMPlatform)
     unmanagedSourceDirectories in Compile +=
       Keys.baseDirectory.value / ".." / "src" / "main" / "scala-2.11-13",
     scalaVersion := "2.13.1",
-    scalacOptions := {
-      scalacOptions.value
-        .filterNot(opt => opt == "-deprecation" || opt == "-Yno-adapted-args"),
-    },
     testResourceSettings
   )
   .jvmSettings(
@@ -295,7 +299,7 @@ lazy val frontend: Project = project
       Dependencies.scalazCore,
       Dependencies.monix,
       Dependencies.caseApp,
-      Dependencies.nuprocess
+      Dependencies.scalaDebugAdapter
     ),
     dependencyOverrides += Dependencies.shapeless
   )
@@ -371,24 +375,23 @@ def shadeSettingsForModule(moduleId: String, module: Reference) = List(
   },
   toShadeJars := {
     val dependencyJars = dependencyClasspath.in(Runtime).in(module).value.map(_.data)
-    dependencyJars.flatMap {
-      path =>
-        val ppath = path.toString
-        val shouldShadeJar = !(
-          ppath.contains("scala-compiler") ||
-            ppath.contains("scala-library") ||
-            ppath.contains("scala-reflect") ||
-            ppath.contains("scala-xml") ||
-            ppath.contains("macro-compat") ||
-            ppath.contains("bcprov-jdk15on") ||
-            ppath.contains("bcpkix-jdk15on") ||
-            ppath.contains("jna") ||
-            ppath.contains("jna-platform") ||
-            isJdiJar(path)
-        ) && path.exists && !path.isDirectory
+    dependencyJars.flatMap { path =>
+      val ppath = path.toString
+      val shouldShadeJar = !(
+        ppath.contains("scala-compiler") ||
+          ppath.contains("scala-library") ||
+          ppath.contains("scala-reflect") ||
+          ppath.contains("scala-xml") ||
+          ppath.contains("macro-compat") ||
+          ppath.contains("bcprov-jdk15on") ||
+          ppath.contains("bcpkix-jdk15on") ||
+          ppath.contains("jna") ||
+          ppath.contains("jna-platform") ||
+          isJdiJar(path)
+      ) && path.exists && !path.isDirectory
 
-        if (!shouldShadeJar) Nil
-        else List(path)
+      if (!shouldShadeJar) Nil
+      else List(path)
     }
   },
   shadeIgnoredNamespaces := Set("scala"),
@@ -401,7 +404,6 @@ def shadeSettingsForModule(moduleId: String, module: Reference) = List(
     "org.slf4j",
     "scopt",
     "macrocompat",
-    "com.zaxxer.nuprocess",
     "com.github.plokhotnyuk.jsoniter_scala",
     // Coursier direct and transitive deps
     "coursier",
@@ -514,32 +516,31 @@ def shadeSbtSettingsForModule(
       java.nio.file.Files.createDirectories(eclipseJarsUnsignedDir)
 
       val dependencyJars = dependencyClasspath.in(Runtime).in(module).value.map(_.data)
-      dependencyJars.flatMap {
-        path =>
-          val ppath = path.toString
-          val isEclipseJar = ppath.contains("eclipse")
-          val shouldShadeJar = !(
-            ppath.contains("scala-compiler") ||
-              ppath.contains("scala-library") ||
-              ppath.contains("scala-reflect") ||
-              ppath.contains("scala-xml") ||
-              ppath.contains("macro-compat") ||
-              ppath.contains("scalamacros") ||
-              ppath.contains("jsr") ||
-              ppath.contains("bcprov-jdk15on") ||
-              ppath.contains("bcpkix-jdk15on") ||
-              ppath.contains("jna") ||
-              ppath.contains("jna-platform") ||
-              isJdiJar(path)
-          ) && path.exists && !path.isDirectory
+      dependencyJars.flatMap { path =>
+        val ppath = path.toString
+        val isEclipseJar = ppath.contains("eclipse")
+        val shouldShadeJar = !(
+          ppath.contains("scala-compiler") ||
+            ppath.contains("scala-library") ||
+            ppath.contains("scala-reflect") ||
+            ppath.contains("scala-xml") ||
+            ppath.contains("macro-compat") ||
+            ppath.contains("scalamacros") ||
+            ppath.contains("jsr") ||
+            ppath.contains("bcprov-jdk15on") ||
+            ppath.contains("bcpkix-jdk15on") ||
+            ppath.contains("jna") ||
+            ppath.contains("jna-platform") ||
+            isJdiJar(path)
+        ) && path.exists && !path.isDirectory
 
-          if (!shouldShadeJar) Nil
-          else if (!isEclipseJar) List(path)
-          else {
-            val targetJar = eclipseJarsUnsignedDir.resolve(path.getName)
-            build.Shading.deleteSignedJarMetadata(path.toPath, targetJar)
-            List(targetJar.toFile)
-          }
+        if (!shouldShadeJar) Nil
+        else if (!isEclipseJar) List(path)
+        else {
+          val targetJar = eclipseJarsUnsignedDir.resolve(path.getName)
+          build.Shading.deleteSignedJarMetadata(path.toPath, targetJar)
+          List(targetJar.toFile)
+        }
       }
     },
     shadeNamespaces := Set(
@@ -556,7 +557,6 @@ def shadeSbtSettingsForModule(
       "org.slf4j",
       "scopt",
       "macrocompat",
-      "com.zaxxer.nuprocess",
       "coursier",
       "shapeless",
       "argonaut",
@@ -635,22 +635,32 @@ lazy val sbtBloop013Shaded =
 lazy val mavenBloop = project
   .in(integrations / "maven-bloop")
   .disablePlugins(ScriptedPlugin)
-  .dependsOn(jsonConfig212.jvm)
-  .settings(name := "maven-bloop", scalaVersion := Scala212Version)
-  .settings(BuildDefaults.mavenPluginBuildSettings)
+  .enablePlugins(BuildInfoPlugin)
+  .dependsOn(jsonConfig213.jvm % "compile->compile;test->test")
+  .settings(
+    name := "maven-bloop",
+    scalaVersion := (jsonConfig213.jvm / scalaVersion).value,
+    publishM2 := publishM2.dependsOn(jsonConfig213.jvm / publishM2).value,
+    BuildDefaults.mavenPluginBuildSettings,
+    buildInfoKeys := Seq[BuildInfoKey](version),
+    buildInfoPackage := "bloop",
+    testSettings
+  )
 
 lazy val gradleBloop211 = project
   .in(file("integrations") / "gradle-bloop")
   .enablePlugins(BuildInfoPlugin)
   .disablePlugins(ScriptedPlugin)
-  .dependsOn(jsonConfig211.jvm)
+  .dependsOn(jsonConfig211.jvm % "compile->compile;test->test")
   .settings(name := "gradle-bloop")
   .settings(BuildDefaults.gradlePluginBuildSettings)
   .settings(BuildInfoPlugin.buildInfoScopedSettings(Test))
   .settings(scalaVersion := Keys.scalaVersion.in(jsonConfig211.jvm).value)
   .settings(
     libraryDependencies += Dependencies.classgraph % Test,
-    target := (file("integrations") / "gradle-bloop" / "target" / "gradle-bloop-2.11").getAbsoluteFile
+    target := (file(
+      "integrations"
+    ) / "gradle-bloop" / "target" / "gradle-bloop-2.11").getAbsoluteFile
   )
   .settings(
     sourceDirectories in Test := Nil,
@@ -666,12 +676,14 @@ lazy val gradleBloop212 = project
   .enablePlugins(BuildInfoPlugin)
   .disablePlugins(ScriptedPlugin)
   .settings(name := "gradle-bloop")
-  .dependsOn(jsonConfig212.jvm, frontend % "test->test")
+  .dependsOn(jsonConfig212.jvm % "compile->compile;test->test", frontend % "test->test")
   .settings(BuildDefaults.gradlePluginBuildSettings, testSettings)
   .settings(BuildInfoPlugin.buildInfoScopedSettings(Test))
   .settings(scalaVersion := Keys.scalaVersion.in(jsonConfig212.jvm).value)
   .settings(
-    target := (file("integrations") / "gradle-bloop" / "target" / "gradle-bloop-2.12").getAbsoluteFile
+    target := (file(
+      "integrations"
+    ) / "gradle-bloop" / "target" / "gradle-bloop-2.12").getAbsoluteFile
   )
   .settings(
     libraryDependencies += Dependencies.classgraph % Test,
@@ -696,8 +708,7 @@ lazy val buildpress = project
   .settings(
     scalaVersion := Scala212Version,
     libraryDependencies ++= List(
-      Dependencies.caseApp,
-      Dependencies.nuprocess
+      Dependencies.caseApp
     )
   )
 

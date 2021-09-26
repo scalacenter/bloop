@@ -54,6 +54,7 @@ class BspIntellijClientSpec(
       val workspaceSettings = WorkspaceSettings(
         None,
         None,
+        None,
         refreshProjectsCommand = Some(refreshProjectsCommand),
         Some(TraceSettings.fromProperties(TraceProperties.default))
       )

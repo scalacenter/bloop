@@ -35,7 +35,7 @@ object PickleMarker {
     // To learn more what a varint means, check out:
     // https://developers.google.com/protocol-buffers/docs/encoding#varints
     def writeVarint(x: Int): Unit = {
-      writeVarlong(x.toLong & 0X00000000FFFFFFFFL)
+      writeVarlong(x.toLong & 0x00000000ffffffffL)
     }
 
     // NOTE: Write a 64-bit number as a base-128 varint.

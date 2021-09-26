@@ -26,6 +26,7 @@ import sbt.{
   ThisBuild,
   ThisProject,
   KeyRanks,
+  Optional,
   Provided
 }
 import xsbti.compile.CompileOrder
@@ -164,7 +165,13 @@ object BloopDefaults {
         else runCommandAndRemaining("bloopInstall")(state)
       }
     },
-    BloopKeys.bloopSupportedConfigurations := List(Compile, Test, IntegrationTest, Provided)
+    BloopKeys.bloopSupportedConfigurations := List(
+      Compile,
+      Test,
+      IntegrationTest,
+      Provided,
+      Optional
+    )
   ) ++ Offloader.bloopCompileGlobalSettings ++ Compat.bloopCompatSettings
 
   // From the infamous https://stackoverflow.com/questions/40741244/in-sbt-how-to-execute-a-command-in-task
@@ -249,7 +256,8 @@ object BloopDefaults {
    * Replace the implementation of discovered sbt plugins so that we don't run it
    * when we `bloopGenerate` or `bloopInstall`. This is important because when there
    * are sbt plugins in the build they trigger the compilation of all the modules.
-   * We do no-op when there is indeed an sbt plugin in the build. */
+   * We do no-op when there is indeed an sbt plugin in the build.
+   */
   def discoveredSbtPluginsSettings: Seq[Def.Setting[_]] = List(
     Keys.discoveredSbtPlugins := Def.taskDyn {
       val roots = Keys.executionRoots.value
@@ -570,10 +578,15 @@ object BloopDefaults {
         )
 
         val mappedConfiguration = {
-          // We need this to make `Provided` mean `Compile`
-          val mapped = mapping(configuration.name)
-          val retryWithProvided = mapped.isEmpty && configuration == Compile
-          if (retryWithProvided) mapping(Provided.name) else mapped
+          // We need this to make `Provided` & `Optional` mean `Compile`
+          var mapped = mapping(configuration.name)
+          if (configuration == Compile) {
+            if (mapped.isEmpty)
+              mapped = mapping(Provided.name)
+            if (mapped.isEmpty)
+              mapped = mapping(Optional.name)
+            mapped
+          } else mapped
         }
 
         mappedConfiguration match {
@@ -647,8 +660,10 @@ object BloopDefaults {
         val old2 = oldClassesDir.getAbsolutePath
         val newClassesDirAbs = newClassesDir.getAbsolutePath
         scalacOptions.map { scalacOption =>
-          if (scalacOptions.contains(old1) ||
-              scalacOptions.contains(old2)) {
+          if (
+            scalacOptions.contains(old1) ||
+            scalacOptions.contains(old2)
+          ) {
             logger.warn(Feedback.warnReferenceToClassesDir(scalacOption, oldClassesDir.toString))
             scalacOption.replace(old1, newClassesDirAbs).replace(old2, newClassesDirAbs)
           } else scalacOption
@@ -695,8 +710,8 @@ object BloopDefaults {
 
   def mergeModules(ms0: Seq[Config.Module], ms1: Seq[Config.Module]): Seq[Config.Module] = {
     ms0.map { m0 =>
-      ms1.find(
-        m => m0.organization == m.organization && m0.name == m.name && m0.version == m.version
+      ms1.find(m =>
+        m0.organization == m.organization && m0.name == m.name && m0.version == m.version
       ) match {
         case Some(m1) => m0.copy(artifacts = (m0.artifacts ++ m1.artifacts).distinct)
         case None => m0
@@ -717,11 +732,15 @@ object BloopDefaults {
     }
   }
 
-  lazy val updateClassifiers: Def.Initialize[Task[Option[sbt.UpdateReport]]] = Def.taskDyn {
+  lazy val updateClassifiers: Def.Initialize[Task[Seq[Config.Module]]] = Def.taskDyn {
     val runUpdateClassifiers = BloopKeys.bloopExportJarClassifiers.value.nonEmpty
-    if (!runUpdateClassifiers) Def.task(None)
-    else if (BloopKeys.bloopIsMetaBuild.value) Def.task(Some(Keys.updateSbtClassifiers.value))
-    else Def.task(Some(Keys.updateClassifiers.value))
+    if (!runUpdateClassifiers) Def.task(Seq.empty)
+    else if (BloopKeys.bloopIsMetaBuild.value)
+      Def.task {
+        configModules(Keys.updateSbtClassifiers.value) ++
+          configModules(Keys.updateClassifiers.value)
+      }
+    else Def.task(configModules(Keys.updateClassifiers.value))
   }
 
   import sbt.ModuleID
@@ -1012,13 +1031,13 @@ object BloopDefaults {
 
           val binaryModules = configModules(Keys.update.value)
           val sourceModules = {
-            val sourceModulesFromSbt = updateClassifiers.value.toList.flatMap(configModules)
+            val sourceModulesFromSbt = updateClassifiers.value
             if (sourceModulesFromSbt.nonEmpty) sourceModulesFromSbt
             else {
               val previousAllModules =
                 previousConfigFile.flatMap(_.resolution.map(_.modules)).toList.flatten
-              previousAllModules.filter(
-                module => module.artifacts.exists(_.classifier == Some("sources"))
+              previousAllModules.filter(module =>
+                module.artifacts.exists(_.classifier == Some("sources"))
               )
             }
           }

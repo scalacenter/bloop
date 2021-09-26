@@ -1,15 +1,12 @@
 package bloop.data
 
-import java.nio.file.FileSystems
-import java.nio.file.PathMatcher
-import java.nio.file.Path
-
-import scala.util.Properties
-import scala.util.control.NonFatal
-
 import bloop.config.Config
 import bloop.io.AbsolutePath
 import bloop.logging.Logger
+
+import java.nio.file._
+import java.nio.file.attribute.BasicFileAttributes
+import scala.util.control.NonFatal
 
 case class SourcesGlobs(
     directory: AbsolutePath,
@@ -26,6 +23,22 @@ case class SourcesGlobs(
         else matchesList(tail)
     }
     matchesList(includes) && !matchesList(excludes)
+  }
+
+  def walkThrough(f: AbsolutePath => Unit): Unit = {
+    if (directory.isDirectory) {
+      val _ = Files.walkFileTree(
+        directory.underlying,
+        java.util.EnumSet.of(FileVisitOption.FOLLOW_LINKS),
+        walkDepth,
+        new SimpleFileVisitor[Path] {
+          override def visitFile(file: Path, attrs: BasicFileAttributes): FileVisitResult = {
+            if (matches(file)) f(AbsolutePath(file))
+            FileVisitResult.CONTINUE
+          }
+        }
+      )
+    }
   }
 }
 

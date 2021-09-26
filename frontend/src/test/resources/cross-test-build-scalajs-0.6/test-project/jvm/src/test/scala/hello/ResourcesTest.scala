@@ -9,12 +9,16 @@ class ResourcesTest extends FlatSpec with Matchers {
     assert(resourceContent("my-compile-resource.txt") == Some("Content of my-compile-resource.txt"))
     assert(
       resourceContent("generated-compile-resource.txt") == Some(
-        "Content of generated-compile-resource.txt"))
+        "Content of generated-compile-resource.txt"
+      )
+    )
 
     assert(resourceContent("my-test-resource.txt") == Some("Content of my-test-resource.txt"))
     assert(
       resourceContent("generated-test-resource.txt") == Some(
-        "Content of generated-test-resource.txt"))
+        "Content of generated-test-resource.txt"
+      )
+    )
 
     assert(resourceContent("non-existent-resource.txt") == None)
   }

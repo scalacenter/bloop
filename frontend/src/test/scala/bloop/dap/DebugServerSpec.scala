@@ -1,37 +1,29 @@
 package bloop.dap
 
-import java.net.{ConnectException, SocketException, SocketTimeoutException}
-import java.util.NoSuchElementException
-import java.util.concurrent.TimeUnit.{MILLISECONDS, SECONDS}
 import bloop.cli.ExitStatus
-import bloop.logging.RecordingLogger
+import bloop.data.Platform
+import bloop.engine.{ExecutionContext, State}
+import bloop.engine.tasks.{RunMode, Tasks}
+import bloop.io.Environment.lineSeparator
+import bloop.logging.LoggerAction.LogInfoMessage
+import bloop.logging.{Logger, LoggerAction, ObservedLogger, RecordingLogger}
+import bloop.reporter.ReporterAction
 import bloop.util.{TestProject, TestUtil}
 import ch.epfl.scala.bsp.ScalaMainClass
-import monix.eval.Task
-import monix.execution.Cancelable
-import scala.collection.mutable
-import scala.concurrent.duration.FiniteDuration
-import scala.concurrent.{Promise, TimeoutException}
-import bloop.engine.ExecutionContext
-import bloop.io.Environment.lineSeparator
-
+import ch.epfl.scala.debugadapter._
 import com.microsoft.java.debug.core.protocol.Requests.SetBreakpointArguments
 import com.microsoft.java.debug.core.protocol.Types
 import com.microsoft.java.debug.core.protocol.Types.SourceBreakpoint
-import java.nio.file.Path
-import bloop.logging.Logger
-import bloop.logging.NoopLogger
-import monix.reactive.Observer
-import bloop.reporter.ReporterAction
-import bloop.logging.LoggerAction
-import bloop.logging.LoggerAction.LogInfoMessage
+import monix.eval.Task
 import monix.execution.Ack
-import bloop.logging.ObservedLogger
-import scala.concurrent.Future
-import bloop.data.Platform
-import bloop.engine.tasks.Tasks
-import bloop.engine.tasks.RunMode
-import bloop.engine.State
+import monix.reactive.Observer
+
+import java.net.{ConnectException, SocketException, SocketTimeoutException}
+import java.util.NoSuchElementException
+import java.util.concurrent.TimeUnit.{MILLISECONDS, SECONDS}
+import scala.collection.mutable
+import scala.concurrent.duration.{Duration, FiniteDuration}
+import scala.concurrent.{Future, Promise, TimeoutException}
 
 object DebugServerSpec extends DebugBspBaseSuite {
   private val ServerNotListening = new IllegalStateException("Server is not accepting connections")
@@ -196,19 +188,19 @@ object DebugServerSpec extends DebugBspBaseSuite {
   test("supports scala and java breakpoints") {
     TestUtil.withinWorkspace { workspace =>
       object Sources {
-        val javaClass =
+        val javaClass: String =
           """|/HelloJava.java
              |public class HelloJava {
              |  public HelloJava() {
              |    System.out.println("Breakpoint in hello java class constructor");
              |  }
-             |  
+             |
              |  public void greet() {
              |    System.out.println("Breakpoint in hello java greet method");
              |  }
              |}
              |""".stripMargin
-        val scalaMain =
+        val scalaMain: String =
           """|/Main.scala
              |object Main {
              |  def main(args: Array[String]): Unit = {
@@ -469,7 +461,7 @@ object DebugServerSpec extends DebugBspBaseSuite {
         _ <- client.initialize()
         cause <- client.launch().failed
       } yield {
-        assertContains(cause.getMessage, "Task timed-out")
+        assertContains(cause.getMessage, "Operation timed out")
       }
 
       TestUtil.await(FiniteDuration(20, SECONDS), ExecutionContext.ioScheduler)(test)
@@ -542,7 +534,7 @@ object DebugServerSpec extends DebugBspBaseSuite {
   }
 
   test("propagates launch failure cause") {
-    val task = Task.now(ExitStatus.RunError)
+    val task = Task.raiseError(new Exception(ExitStatus.RunError.name))
 
     startDebugServer(task) { server =>
       val test = for {
@@ -595,12 +587,15 @@ object DebugServerSpec extends DebugBspBaseSuite {
           case platform => throw new Exception(s"Unsupported platform $platform")
         }
 
-        val debuggeeLogger = portListeningLogger(testState.state.logger, port => {
-          if (!attachPort.isCompleted) {
-            attachPort.success(port)
-            ()
+        val debuggeeLogger = portListeningLogger(
+          testState.state.logger,
+          port => {
+            if (!attachPort.isCompleted) {
+              attachPort.success(port)
+              ()
+            }
           }
-        })
+        )
 
         val remoteProcess: Task[State] = Tasks.runJVM(
           testState.state.copy(logger = debuggeeLogger),
@@ -617,7 +612,11 @@ object DebugServerSpec extends DebugBspBaseSuite {
         remoteProcess.runAsync(defaultScheduler)
 
         val attachRemoteProcessRunner =
-          DebuggeeRunner.forAttachRemote(state.compile(project).toTestState.state)
+          BloopDebuggeeRunner.forAttachRemote(
+            state.compile(project).toTestState.state,
+            defaultScheduler,
+            Seq(buildProject)
+          )
 
         startDebugServer(attachRemoteProcessRunner) { server =>
           val test = for {
@@ -652,6 +651,78 @@ object DebugServerSpec extends DebugBspBaseSuite {
     }
   }
 
+  test("evaluate expression") {
+    TestUtil.withinWorkspace { workspace =>
+      val source = """|/Main.scala
+                      |object Main {
+                      |  def main(args: Array[String]): Unit = {
+                      |    val foo = new Foo
+                      |    println(foo)
+                      |  }
+                      |}
+                      |
+                      |class Foo {
+                      |  override def toString = "foo"
+                      |}
+                      |""".stripMargin
+
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val project = TestProject(
+        workspace,
+        "r",
+        List(source),
+        scalaVersion = Some("2.12.15")
+      )
+
+      loadBspState(workspace, List(project), logger) { state =>
+        val runner = mainRunner(project, state)
+
+        val buildProject = state.toTestState.getProjectFor(project)
+        def srcFor(srcName: String) =
+          buildProject.sources.map(_.resolve(srcName)).find(_.exists).get
+        val `Main.scala` = srcFor("Main.scala")
+
+        val breakpoints = {
+          val arguments = new SetBreakpointArguments()
+          val breakpoint1 = new SourceBreakpoint()
+          breakpoint1.line = 4
+          arguments.source = new Types.Source(`Main.scala`.syntax, 0)
+          arguments.sourceModified = false
+          arguments.breakpoints = Array(breakpoint1)
+          arguments
+        }
+
+        startDebugServer(runner) { server =>
+          val test = for {
+            client <- server.startConnection
+            _ <- client.initialize()
+            _ <- client.launch()
+            _ <- client.initialized
+            breakpoints <- client.setBreakpoints(breakpoints)
+            _ = assert(breakpoints.breakpoints.forall(_.verified))
+            _ <- client.configurationDone()
+            stopped <- client.stopped
+            stackTrace <- client.stackTrace(stopped.threadId)
+            topFrame <- stackTrace.stackFrames.headOption
+              .map(Task.now)
+              .getOrElse(Task.raiseError(new NoSuchElementException("no frames on the stack")))
+            evaluation <- client.evaluate(topFrame.id, "foo.toString")
+            _ <- client.continue(stopped.threadId)
+            _ <- client.exited
+            _ <- client.terminated
+            _ <- Task.fromFuture(client.closedPromise.future)
+          } yield {
+            assert(client.socket.isClosed)
+            assertNoDiff(evaluation.`type`, "String")
+            assertNoDiff(evaluation.result, "\"foo\"")
+          }
+
+          TestUtil.await(FiniteDuration(60, SECONDS), ExecutionContext.ioScheduler)(test)
+        }
+      }
+    }
+  }
+
   private def portListeningLogger(underlying: Logger, listener: Int => Unit): Logger = {
     val listeningObserver = new Observer[Either[ReporterAction, LoggerAction]] {
       override def onNext(elem: Either[ReporterAction, LoggerAction]): Future[Ack] = elem match {
@@ -659,9 +730,9 @@ object DebugServerSpec extends DebugBspBaseSuite {
           action match {
             case LogInfoMessage(msg) =>
               println(msg)
-              if (msg.startsWith(DebugSessionLogger.JDINotificationPrefix)) {
+              if (msg.startsWith(DebuggeeLogger.JDINotificationPrefix)) {
                 val port =
-                  Integer.parseInt(msg.drop(DebugSessionLogger.JDINotificationPrefix.length))
+                  Integer.parseInt(msg.drop(DebuggeeLogger.JDINotificationPrefix.length))
                 listener(port)
               }
               Ack.Continue
@@ -702,10 +773,11 @@ object DebugServerSpec extends DebugBspBaseSuite {
       environmentVariables: List[String] = Nil
   ): DebuggeeRunner = {
     val testState = state.compile(project).toTestState
-    DebuggeeRunner.forMainClass(
+    BloopDebuggeeRunner.forMainClass(
       Seq(testState.getProjectFor(project)),
       new ScalaMainClass("Main", arguments, jvmOptions, environmentVariables),
-      testState.state
+      testState.state,
+      defaultScheduler
     ) match {
       case Right(value) => value
       case Left(error) => throw new Exception(error)
@@ -714,21 +786,36 @@ object DebugServerSpec extends DebugBspBaseSuite {
 
   def startDebugServer(task: Task[ExitStatus])(f: TestServer => Any): Unit = {
     val runner = new DebuggeeRunner {
-      def logger: Logger = NoopLogger
-      def run(logger: DebugSessionLogger): Task[ExitStatus] = task
-      def classFilesMappedTo(
-          origin: Path,
-          lines: Array[Int],
-          columns: Array[Int]
-      ): List[Path] = Nil
+      override def classPathEntries: Seq[ClassPathEntry] = Seq.empty
+      override def javaRuntime: Option[JavaRuntime] = None
+      override def evaluationClassLoader: Option[ClassLoader] = None
+      def name: String = "MockRunner"
+      def run(listener: DebuggeeListener): CancelableFuture[Unit] = {
+        DapCancellableFuture.runAsync(task.map(_ => ()), defaultScheduler)
+      }
     }
 
-    startDebugServer(runner)(f)
+    startDebugServer(
+      runner,
+      // the runner is a mock so no need to wait for the jvm to startup
+      // make the test faster
+      Duration.Zero
+    )(f)
   }
 
-  def startDebugServer(runner: DebuggeeRunner)(f: TestServer => Any): Unit = {
+  def startDebugServer(
+      runner: DebuggeeRunner,
+      gracePeriod: Duration = Duration(5, SECONDS)
+  )(f: TestServer => Any): Unit = {
     val logger = new RecordingLogger(ansiCodesSupported = false)
-    val server = DebugServer.start(runner, logger, defaultScheduler)
+
+    val server = DebugServer(
+      runner,
+      new DebugServerLogger(logger),
+      autoCloseSession = true,
+      gracePeriod
+    )(defaultScheduler)
+    Task.fromFuture(server.start()).runAsync(defaultScheduler)
 
     val testServer = new TestServer(server)
     val test = Task(f(testServer))
@@ -739,14 +826,11 @@ object DebugServerSpec extends DebugBspBaseSuite {
     ()
   }
 
-  private final class TestServer(val server: StartedDebugServer)
-      extends Cancelable
-      with AutoCloseable {
-    private val task = server.listen.runAsync(defaultScheduler)
+  private final class TestServer(val server: DebugServer) extends AutoCloseable {
     private val clients = mutable.Set.empty[DebugAdapterConnection]
 
-    override def cancel(): Unit = {
-      task.cancel()
+    def cancel(): Unit = {
+      server.close()
     }
 
     // terminates both server and its clients
@@ -756,16 +840,10 @@ object DebugServerSpec extends DebugBspBaseSuite {
       TestUtil.await(10, SECONDS)(Task.sequence(allClientsClosed)); ()
     }
 
-    def startConnection: Task[DebugAdapterConnection] = {
-      server.address.flatMap {
-        case Some(uri) =>
-          val connection =
-            DebugAdapterConnection.connectTo(uri)(defaultScheduler)
-          clients += connection
-          Task(connection)
-        case None =>
-          throw ServerNotListening
-      }
+    def startConnection: Task[DebugAdapterConnection] = Task {
+      val connection = DebugAdapterConnection.connectTo(server.uri)(defaultScheduler)
+      clients += connection
+      connection
     }
   }
 

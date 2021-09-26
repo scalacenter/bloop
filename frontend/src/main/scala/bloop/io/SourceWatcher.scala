@@ -199,8 +199,8 @@ final class SourceWatcher private (
     observable
       .transform(self => new BloopBufferTimedObservable(self, timespan, 0))
       .liftByOperator(
-        new BloopWhileBusyDropEventsAndSignalOperator(
-          (es: Seq[Seq[DirectoryChangeEvent]]) => es.flatten
+        new BloopWhileBusyDropEventsAndSignalOperator((es: Seq[Seq[DirectoryChangeEvent]]) =>
+          es.flatten
         )
       )
       .consumeWith(fileEventConsumer)

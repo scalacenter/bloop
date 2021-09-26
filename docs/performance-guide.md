@@ -222,7 +222,7 @@ Here's a list of the steps to benchmark `akka/akka`:
 Wait for JMH to finish the benchmark and analyze its results!
 
 If you have any questions regarding the benchmark infrastructure, come ask us
-in [our Gitter channel](https://gitter.im/scalacenter/bloop).
+in [our Discord channel](https://discord.gg/KWF9zMhJWS).
 
 #### Compare performance numbers with sbt
 

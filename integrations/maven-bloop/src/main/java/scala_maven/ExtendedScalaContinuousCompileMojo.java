@@ -7,14 +7,12 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
+import util.FileUtils;
+
 // This is a java file instead of Scala because method implementations are copy pasted
 public class ExtendedScalaContinuousCompileMojo extends ScalaContinuousCompileMojo {
     public MavenProject getProject() {
         return super.project;
-    }
-
-    public String getScalaVersion() throws Exception {
-        return super.findScalaVersion().toString();
     }
 
     public List<String> getScalacArgs() throws Exception {

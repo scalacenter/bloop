@@ -3,7 +3,6 @@ package bloop.engine
 import bloop.CompileMode
 import bloop.bsp.BspServer
 import bloop.cli._
-import bloop.cli.CliParsers.CommandsMessages
 import bloop.cli.completion.{Case, Mode}
 import bloop.io.{AbsolutePath, RelativePath, SourceWatcher}
 import bloop.logging.{DebugFilter, Logger, NoopLogger}
@@ -17,7 +16,7 @@ import bloop.engine.Feedback.XMessageString
 import bloop.engine.tasks.toolchains.{ScalaJsToolchain, ScalaNativeToolchain}
 import bloop.reporter.{LogReporter, ReporterInputs}
 import bloop.io.Environment.lineSeparator
-import caseapp.core.CommandMessages
+import caseapp.core.help.CommandHelp
 import monix.eval.Task
 
 import scala.concurrent.Promise
@@ -396,8 +395,8 @@ object Interpreter {
     cmd.mode match {
       case Mode.ProjectBoundCommands =>
         Task {
-          val commandsAcceptingProjects = CommandsMessages.messages.collect {
-            case (name, CommandMessages(args, _)) if args.exists(_.name == "projects") => name
+          val commandsAcceptingProjects = Commands.RawCommand.help.messages.collect {
+            case (name, help) if help.args.exists(_.name.name == "projects") => name.mkString(" ")
           }
 
           state.withInfo(commandsAcceptingProjects.mkString(" "))
@@ -405,8 +404,8 @@ object Interpreter {
       case Mode.Commands =>
         Task {
           for {
-            (name, args) <- CommandsMessages.messages
-            completion <- cmd.format.showCommand(name, args)
+            (name, args) <- Commands.RawCommand.help.messages
+            completion <- cmd.format.showCommand(name.mkString(" "), args)
           } state.logger.info(completion)
           state
         }
@@ -423,7 +422,7 @@ object Interpreter {
         Task {
           for {
             command <- cmd.command
-            message <- CommandsMessages.messages.toMap.get(command)
+            message <- Commands.RawCommand.help.messages.toMap.get(Seq(command))
             arg <- message.args
             completion <- cmd.format.showArg(command, Case.kebabizeArg(arg))
           } state.logger.info(completion)

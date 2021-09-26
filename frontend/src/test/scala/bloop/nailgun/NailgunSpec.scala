@@ -93,7 +93,7 @@ object NailgunSpec extends BaseSuite with NailgunTestUtils {
             |Using Scala v${BuildInfo.scalaVersion} and Zinc v${BuildInfo.zincVersion}
             |$jvmLine
             |  -> Supports debugging user code, Java Debug Interface (JDI) is available.
-            |Maintained by the Scala Center (Jorge Vicente Cantero, Martin Duhem)
+            |Maintained by the Scala Center and the community.
             |""".stripMargin
       )
     }
@@ -151,7 +151,7 @@ object NailgunSpec extends BaseSuite with NailgunTestUtils {
             |Using Scala v${BuildInfo.scalaVersion} and Zinc v${BuildInfo.zincVersion}
             |$jvmLine
             |  -> Supports debugging user code, Java Debug Interface (JDI) is available.
-            |Maintained by the Scala Center (Jorge Vicente Cantero, Martin Duhem)
+            |Maintained by the Scala Center and the community.
             |""".stripMargin
       )
 

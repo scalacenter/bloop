@@ -19,10 +19,11 @@ object ZincInternals {
       def asIntPos(opt: ju.Optional[Integer]): Option[Int] = opt.toOption.map(_.toInt)
 
       // Javac doesn't provide column information, so we just assume beginning of the line
-      val rangePosition = for { startLine <- asIntPos(position.startLine()) } yield (
-        startLine,
-        asIntPos(position.startColumn()).getOrElse(0)
-      )
+      val rangePosition =
+        for { startLine <- asIntPos(position.startLine()) } yield (
+          startLine,
+          asIntPos(position.startColumn()).getOrElse(0)
+        )
       rangePosition.orElse {
         for { line <- asIntPos(position.line()) } yield (
           line,

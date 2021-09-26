@@ -31,10 +31,9 @@ class RecordingLogger(
 
   def renderTimeInsensitiveTestInfos: String = {
     captureTimeInsensitiveInfos
-      .filterNot(
-        msg =>
-          msg.startsWith("Compiling ") || msg.startsWith("Compiled ") || msg
-            .startsWith("Generated ")
+      .filterNot(msg =>
+        msg.startsWith("Compiling ") || msg.startsWith("Compiled ") || msg
+          .startsWith("Generated ")
       )
       .mkString(lineSeparator)
   }

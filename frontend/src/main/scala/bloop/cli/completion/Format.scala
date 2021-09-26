@@ -1,6 +1,7 @@
 package bloop.cli.completion
 
-import caseapp.core.{Arg, CommandMessages}
+import caseapp.core.Arg
+import caseapp.core.help.CommandHelp
 import bloop.cli.{BspProtocol, ReporterKind}
 import bloop.data.Project
 
@@ -23,11 +24,11 @@ trait Format {
    * Return the completion item for the command `name`.
    *
    * @param name     The name of the command
-   * @param messages The `CommandMessages` representing the arguments of the command.
+   * @param messages The `CommandHelp` representing the arguments of the command.
    * @return None, if the command shouldn't be autocompleted, otherwise Some(str) where
    *         `str` tells the autocompletion engine how to complete the command.
    */
-  def showCommand(name: String, messages: CommandMessages): Option[String]
+  def showCommand(name: String, messages: CommandHelp): Option[String]
 
   /**
    * Return the completion item for the argument `arg` in command `commandName`.

@@ -3,7 +3,6 @@
   "repositories": [
     "central",
     "ivy2local",
-    "bintray:scalacenter/releases",
     "https://oss.sonatype.org/content/repositories/staging"
   ],
   "launcherType": "graalvm-native-image",

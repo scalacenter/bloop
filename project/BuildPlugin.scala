@@ -2,7 +2,6 @@ package build
 
 import java.io.File
 
-import bintray.BintrayKeys
 import ch.epfl.scala.sbt.release.Feedback
 import com.jsuereth.sbtpgp.SbtPgp.{autoImport => Pgp}
 import sbt.{
@@ -268,9 +267,6 @@ object BuildKeys {
     Keys.sbtPlugin := true,
     Keys.sbtVersion := sbtVersion,
     Keys.target := (file("integrations") / "sbt-bloop" / "target" / sbtVersion).getAbsoluteFile,
-    BintrayKeys.bintrayPackage := "sbt-bloop",
-    BintrayKeys.bintrayOrganization := Some("sbt"),
-    BintrayKeys.bintrayRepository := "sbt-plugin-releases",
     Keys.publishMavenStyle :=
       ReleaseEarlyKeys.releaseEarlyWith.value == ReleaseEarlyKeys.SonatypePublisher
   )
@@ -340,21 +336,11 @@ object BuildImplementation {
     Keys.resolvers := {
       val oldResolvers = Keys.resolvers.value
       val sonatypeStaging = Resolver.sonatypeRepo("staging")
-      val scalametaResolver = Resolver.bintrayRepo("scalameta", "maven")
-      val scalacenterResolver = Resolver.bintrayRepo("scalacenter", "releases")
-      (oldResolvers :+ sonatypeStaging :+ scalametaResolver :+ scalacenterResolver).distinct
+      (oldResolvers :+ sonatypeStaging).distinct
     },
     ReleaseEarlyKeys.releaseEarlyWith := {
-      /*
-      // Only tag releases go directly to Maven Central, the rest go to bintray!
-      val isOnlyTag = DynVerKeys.dynverGitDescribeOutput.value
-        .map(v => v.commitSuffix.isEmpty && v.dirtySuffix.value.isEmpty)
-      if (isOnlyTag.getOrElse(false)) ReleaseEarlyKeys.SonatypePublisher
-      else ReleaseEarlyKeys.BintrayPublisher
-       */
       ReleaseEarlyKeys.SonatypePublisher
     },
-    BintrayKeys.bintrayOrganization := Some("scalacenter"),
     Keys.startYear := Some(2017),
     Keys.autoAPIMappings := true,
     Keys.publishMavenStyle := true,
@@ -388,19 +374,16 @@ object BuildImplementation {
   )
 
   final val projectSettings: Seq[Def.Setting[_]] = Seq(
-    BintrayKeys.bintrayRepository := "releases",
-    BintrayKeys.bintrayPackage := "bloop",
-    // Add some metadata that is useful to see in every on-merge bintray release
-    BintrayKeys.bintrayPackageLabels := List("productivity", "build", "server", "cli", "tooling"),
-    BintrayKeys.bintrayVersionAttributes ++= {
-      import bintry.Attr
-      Map(
-        "zinc" -> Seq(Attr.String(Dependencies.zincVersion)),
-        "nailgun" -> Seq(Attr.String(Dependencies.nailgunVersion))
-      )
-    },
     ReleaseEarlyKeys.releaseEarlyPublish := BuildDefaults.releaseEarlyPublish.value,
-    Keys.scalacOptions := reasonableCompileOptions,
+    Keys.scalacOptions := {
+      CrossVersion.partialVersion(Keys.scalaVersion.value) match {
+        case Some((2, 13)) =>
+          reasonableCompileOptions
+            .filterNot(opt => opt == "-deprecation" || opt == "-Yno-adapted-args")
+        case _ =>
+          reasonableCompileOptions
+      }
+    },
     // Legal requirement: license and notice files must be in the published jar
     Keys.resources in Compile ++= BuildDefaults.getLicense.value,
     Keys.sources in (Compile, Keys.doc) := Nil,
@@ -426,7 +409,8 @@ object BuildImplementation {
       "-Ywarn-numeric-widen" :: "-Ywarn-value-discard" :: "-Xfuture" :: Nil
   )
 
-  final val jvmOptions = "-Xmx3g" :: "-Xms1g" :: "-XX:ReservedCodeCacheSize=512m" :: "-XX:MaxInlineLevel=20" :: Nil
+  final val jvmOptions =
+    "-Xmx3g" :: "-Xms1g" :: "-XX:ReservedCodeCacheSize=512m" :: "-XX:MaxInlineLevel=20" :: Nil
 
   object BuildDefaults {
     private final val kafka =
@@ -442,8 +426,10 @@ object BuildImplementation {
       }
     }
 
-    /** This onLoad hook will clone any repository required for the build tool integration tests.
-     * In this case, we clone kafka so that the gradle plugin unit tests can access to its directory. */
+    /**
+     * This onLoad hook will clone any repository required for the build tool integration tests.
+     * In this case, we clone kafka so that the gradle plugin unit tests can access to its directory.
+     */
     val bloopOnLoad: Def.Initialize[State => State] = Def.setting {
       Keys.onLoad.value.andThen { state =>
         if (sys.env.isDefinedAt("SKIP_TEST_RESOURCES_GENERATION")) state
@@ -535,7 +521,6 @@ object BuildImplementation {
         Dependencies.mavenCore,
         Dependencies.mavenPluginApi,
         Dependencies.mavenPluginAnnotations,
-        Dependencies.mavenInvoker,
         // We add an explicit dependency to the maven-plugin artifact in the dependent plugin
         Dependencies.mavenScalaPlugin
           .withExplicitArtifacts(Vector(Artifact("scala-maven-plugin", "maven-plugin", "jar")))
@@ -547,12 +532,15 @@ object BuildImplementation {
       sbtbuildinfo.BuildInfoPlugin.buildInfoScopedSettings(Test) ++ List(
         Keys.fork in Test := true,
         Keys.resolvers ++= List(
-          MavenRepository("Gradle releases", "https://repo.gradle.org/gradle/libs-releases-local/")
+          MavenRepository("Gradle releases", "https://repo.gradle.org/gradle/libs-releases-local/"),
+          MavenRepository("Android plugin", "https://maven.google.com/"),
+          MavenRepository("Android dependencies", "https://repo.spring.io/plugins-release/")
         ),
         Keys.libraryDependencies ++= List(
           Dependencies.gradleCore,
           Dependencies.gradleToolingApi,
-          Dependencies.groovy
+          Dependencies.groovy,
+          Dependencies.gradleAndroidPlugin
         ),
         Keys.publishLocal := Keys.publishLocal.dependsOn(Keys.publishM2).value,
         Keys.unmanagedJars.in(Compile) := unmanagedJarsWithGradleApi.value,
@@ -607,12 +595,7 @@ object BuildImplementation {
       val logger = Keys.streams.value.log
       val name = Keys.name.value
       // We force publishSigned for all of the modules, yes or yes.
-      if (ReleaseEarlyKeys.releaseEarlyWith.value == ReleaseEarlyKeys.SonatypePublisher) {
-        logger.info(Feedback.logReleaseSonatype(name))
-      } else {
-        logger.info(Feedback.logReleaseBintray(name))
-      }
-
+      logger.info(Feedback.logReleaseSonatype(name))
       Pgp.PgpKeys.publishSigned.value
     }
 
@@ -721,7 +704,8 @@ object BuildImplementation {
       val regenerationFile = stagingDir./("regeneration-file.txt")
       val cachedGenerate = FileFunction.cached(cacheDirectory, sbt.util.FileInfo.hash) { _ =>
         // Publish local snapshots via Twitter dodo's build tool for exporting the build to work
-        val cmd = "bash" :: BuildKeys.twitterDodo.value.getAbsolutePath :: "--no-test" :: "finagle" :: Nil
+        val cmd =
+          "bash" :: BuildKeys.twitterDodo.value.getAbsolutePath :: "--no-test" :: "finagle" :: Nil
         val dodoSetUp = Process(cmd, baseDir).!
         if (dodoSetUp != 0)
           throw new MessageOnlyException(

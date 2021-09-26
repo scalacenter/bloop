@@ -1,6 +1,7 @@
 package bloop.cli.completion
 
-import caseapp.core.{Arg, CommandMessages}
+import caseapp.core.Arg
+import caseapp.core.help.CommandHelp
 import bloop.cli.{BspProtocol, ReporterKind}
 import bloop.data.Project
 
@@ -11,25 +12,17 @@ object ZshFormat extends Format {
     Some(project.name)
   }
 
-  override def showCommand(name: String, messages: CommandMessages): Some[String] = {
+  override def showCommand(name: String, messages: CommandHelp): Some[String] = {
     Some(name)
   }
 
   override def showArg(commandName: String, arg: Arg): Option[String] = {
-    val completionFn = completionFunction(commandName, arg.name)
-    arg match {
-      case Arg(_, name +: _, _, _, true, _, _, _) =>
-        None
-      case Arg(_, name +: _, _, Some(help), _, true, _, _) =>
-        Some(s"--${name.name}=-[${help.message}]:${name.name}:(true false)")
-      case Arg(_, name +: _, _, None, _, true, _, _) =>
-        Some(s"--${name.name}=-:${name.name}:(true false)")
-      case Arg(_, name +: _, _, Some(help), _, _, _, _) =>
-        Some(s"--${name.name}[${help.message}]:${name.name}:${completionFn}")
-      case Arg(_, name +: _, _, None, _, _, _, _) =>
-        Some(s"--${name.name}:${name.name}:${completionFn}")
-      case _ =>
-        None
+    val completionFn = completionFunction(commandName, arg.name.name)
+    arg.extraNames.headOption.filter(_ => !arg.noHelp).map { name =>
+      val help0 = arg.helpMessage.fold("")("[" + _.message + "]")
+      val sep = if (arg.isFlag) "=-" else ""
+      val argDesc = if (arg.isFlag) "(true false)" else completionFn
+      s"--${name.name}$sep$help0:${name.name}:$argDesc"
     }
   }
 

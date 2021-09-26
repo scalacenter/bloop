@@ -1,4 +1,4 @@
-// scalafmt: { maxcolumn = 130 }
+// scalafmt: { maxColumn = 130 }
 package bloop.engine.tasks.compilation
 
 import java.io.File
@@ -386,7 +386,7 @@ object CompileGraph {
                 logger.displayWarningToUser(
                   s"""Disconnecting from deduplication of ongoing compilation for '${inputs.project.name}'
                      |No progress update for ${(disconnectionTime: FiniteDuration)
-                       .toString()} caused bloop to cancel compilation and schedule a new compile.
+                    .toString()} caused bloop to cancel compilation and schedule a new compile.
                   """.stripMargin
                 )
 

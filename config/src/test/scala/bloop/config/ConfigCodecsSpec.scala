@@ -8,7 +8,8 @@ object ConfigCodecsSpec {
   val dummyFile = File.dummyForTests
 
   @AfterClass def afterClass(): Unit = {
-    val filesToDelete = dummyFile.project.classpath ++ dummyFile.project.sources :+ dummyFile.project.classesDir :+ dummyFile.project.out
+    val filesToDelete =
+      dummyFile.project.classpath ++ dummyFile.project.sources :+ dummyFile.project.classesDir :+ dummyFile.project.out
     filesToDelete.foreach(PlatformFiles.deleteTempFile)
   }
 }

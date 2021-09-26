@@ -148,7 +148,7 @@ abstract class CommunityBuild(val buildpressHomeDir: AbsolutePath) {
         sbt = None,
         resolution = None,
         tags = Nil,
-        origin = origin,
+        origin = origin
       )
 
       val newLoaded = LoadedProject.RawProject(rootProject) :: allProjectsInBuild

@@ -10,7 +10,7 @@ Configuring bloop with Maven projects speeds up developer workflows and gives yo
 
 However, the Maven integration has a few issues that are not being actively
 worked on. If you're a Maven user, please help out and introduce yourself in
-our [Gitter channel](https://gitter.im/scalacenter/bloop) or comment on one
+our [Discord channel](https://discord.gg/KWF9zMhJWS) or comment on one
 of the [open Maven
 tickets](https://github.com/scalacenter/bloop/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc+label%3Amaven).
 
@@ -102,8 +102,8 @@ Use an IDE such as [Metals](docs/ides/metals) or
 [CLI](docs/cli/tutorial) if you want to explore what CLI options are
 available.
 
-If you need help, you can always come over our [Gitter
-channel](https://gitter.im/scalacenter/bloop).
+If you need help, you can always come over our [Discord
+channel](https://discord.gg/KWF9zMhJWS).
 
 ## Well-known issues
 

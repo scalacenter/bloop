@@ -18,8 +18,8 @@ object Case {
   }
 
   def kebabizeArg(arg: Arg): Arg = {
-    val kebabizedName = camelToKebab(arg.name)
+    val kebabizedName = camelToKebab(arg.name.name)
     val kebabizedExtraNames = arg.extraNames.map((n: Name) => Name(camelToKebab(n.name)))
-    arg.copy(name = kebabizedName, extraNames = kebabizedExtraNames)
+    arg.withName(Name(kebabizedName)).withExtraNames(kebabizedExtraNames)
   }
 }

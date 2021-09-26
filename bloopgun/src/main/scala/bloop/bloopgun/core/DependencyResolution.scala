@@ -61,7 +61,6 @@ object DependencyResolution {
     val dependency = Dependency(Module(org, moduleName), version)
     var fetch = Fetch()
       .addDependencies(dependency)
-      .addRepositories(Repositories.bintray("scalacenter", "releases"))
     for (repository <- additionalRepositories) {
       fetch.addRepositories(repository)
     }

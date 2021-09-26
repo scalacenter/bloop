@@ -42,7 +42,8 @@ object MavenPluginIntegration extends AutoPlugin {
 object MavenPluginKeys {
   import sbt.{settingKey, taskKey}
   val mavenPlugin = settingKey[Boolean](
-    "If true, enables adding maven as a dependency and auto-generation of the plugin descriptor file.")
+    "If true, enables adding maven as a dependency and auto-generation of the plugin descriptor file."
+  )
   val mavenLogger = settingKey[Logger]("The Plexus logger used for Maven APIs.")
   val mavenProject =
     taskKey[MavenProject]("Return the maven project corresponding to this sbt project.")
@@ -100,7 +101,8 @@ object MavenPluginImplementation {
       // Let's protect this so that we don't run it when we do `bloopInstall`
       val state = Keys.state.value.currentCommand
       val isBloopInstall = state.exists(e =>
-        e.commandLine.contains("bloopInstall") || e.commandLine.contains("bloopGenerate"))
+        e.commandLine.contains("bloopInstall") || e.commandLine.contains("bloopGenerate")
+      )
       if (!MavenPluginKeys.mavenPlugin.value || isBloopInstall) Def.task(Nil)
       else {
         val task = Def.task {
@@ -192,13 +194,16 @@ object MavenPluginImplementation {
       }
 
       import scala.collection.JavaConverters._
-      val existingParameters = mojoDescriptor.getParameters().asScala.toList.asInstanceOf[List[Parameter]]
+      val existingParameters =
+        mojoDescriptor.getParameters().asScala.toList.asInstanceOf[List[Parameter]]
       val pluginParameters = selectedMojos
         .flatMap(_.getParameters().asScala.toList.asInstanceOf[List[Parameter]])
         .filter(!existingParameters.contains(_))
       val pluginRequirementParameters = selectedMojos
         .flatMap(_.getRequirements().asScala.toList.asInstanceOf[List[ComponentRequirement]])
-        .filter(p => !existingParameters.exists((p2: Parameter) => p.getFieldName() == p2.getName()))
+        .filter(p =>
+          !existingParameters.exists((p2: Parameter) => p.getFieldName() == p2.getName())
+        )
         .map(fromRequirementToParameter)
       val newPluginParameters = pluginParameters ++ pluginRequirementParameters
       mojoDescriptor.setParameters(newPluginParameters.toList.asJava)
@@ -279,9 +284,11 @@ object MavenPluginImplementation {
        * @param artifacts The dependencies (in artifacts) of the plugin.
        * @return A sequence of mojo descriptors to add to the wip plugin descriptor.
        */
-      def getMojoDescriptors(classesDir: File,
-                             pluginDescriptor: PluginDescriptor,
-                             artifacts: Set[Artifact]): Seq[MojoDescriptor] = {
+      def getMojoDescriptors(
+          classesDir: File,
+          pluginDescriptor: PluginDescriptor,
+          artifacts: Set[Artifact]
+      ): Seq[MojoDescriptor] = {
         val scanRequest = new MojoAnnotationsScannerRequest()
         scanRequest.setProject(mavenProject)
         scanRequest.setClassesDirectories(List(classesDir).asJava)

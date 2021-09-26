@@ -9,18 +9,22 @@ import bloop.config.{Config, Tag}
 import bloop.config.Config.{CompileSetup, JavaThenScala, JvmConfig, Mixed, Platform}
 import bloop.integrations.gradle.BloopParameters
 import bloop.integrations.gradle.syntax._
+import bloop.integrations.gradle.SemVer
 import bloop.integrations.gradle.tasks.PluginUtils
 import org.gradle.api.{Action, GradleException, Project}
-import org.gradle.api.artifacts._
+import org.gradle.api.artifacts.{Configuration, PublishArtifact}
 import org.gradle.api.artifacts.ArtifactView.ViewConfiguration
+import org.gradle.api.artifacts.dsl.DependencyHandler
 import org.gradle.api.artifacts.result.{ComponentArtifactsResult, ResolvedArtifactResult}
 import org.gradle.api.attributes.Attribute
 import org.gradle.api.attributes.AttributeContainer
 import org.gradle.api.component.Artifact
 import org.gradle.api.file.FileCollection
+import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.internal.artifacts.dsl.LazyPublishArtifact
 import org.gradle.api.internal.artifacts.publish.{ArchivePublishArtifact, DecoratingPublishArtifact}
 import org.gradle.api.internal.file.copy.DefaultCopySpec
+import org.gradle.api.internal.file.CompositeFileCollection
 import org.gradle.api.internal.tasks.compile.{DefaultJavaCompileSpec, JavaCompilerArgumentsBuilder}
 import org.gradle.api.tasks.bundling.AbstractArchiveTask
 import org.gradle.api.tasks.{AbstractCopyTask, SourceSet}
@@ -36,12 +40,179 @@ import org.gradle.plugins.ide.internal.tooling.java.DefaultInstalledJdk
 import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
 import scala.io.Source
+import scala.annotation.tailrec
+
+import com.android.builder.model.SourceProvider
+import com.android.build.gradle.api.BaseVariantOutput
+import com.android.build.gradle.tasks.PackageAndroidArtifact
+import com.android.build.gradle.tasks.PackageApplication
+import com.android.build.gradle.internal.tasks.AndroidVariantTask
+import com.android.build.gradle.api.TestVariant
+import com.android.build.gradle.api.BaseVariant
+import org.gradle.api.file.DirectoryProperty
+import org.gradle.api.Task
+import org.gradle.api.file.ConfigurableFileCollection
+import org.gradle.api.provider.Provider
+import org.gradle.api.file.RegularFile
+import org.gradle.api.file.Directory
 
 /**
  * Define the conversion from Gradle's project model to Bloop's project model.
  * @param parameters Plugin input parameters
  */
-class BloopConverter(parameters: BloopParameters) {
+class BloopConverter(parameters: BloopParameters, info: String => Unit) {
+
+  def toBloopConfig(
+      projectName: String,
+      project: Project,
+      variant: BaseVariant,
+      sourceProviders: List[SourceProvider],
+      targetDir: File
+  ): Try[Config.File] = {
+
+    //  build config is a generated source - needs to be added manually
+    val buildConfigLocation = Option(variant.getGenerateBuildConfigProvider.getOrNull())
+      .map(f => {
+        // Using reflection because in Android plugin v4.0 this is a File. In v4.1 this is a DirectoryProvider.
+        val getSourceOutputDirMethod = f.getClass.getMethod("getSourceOutputDir")
+        getSourceOutputDirMethod.invoke(f) match {
+          case f: File => f.toPath
+          case f: DirectoryProperty => f.getAsFile.get.toPath
+          case default =>
+            throw new IllegalStateException(s"Build Config Provider API changed $default")
+        }
+      })
+      .toList
+
+    val resources = sourceProviders.flatMap(_.getResourcesDirectories.asScala.map(_.toPath).toList)
+    val pureSources = sourceProviders.flatMap(_.getJavaDirectories.asScala.map(_.toPath).toList)
+
+    val isTestSourceSet = variant.isInstanceOf[TestVariant]
+
+    // Gradle always creates a main and test source set regardless of whether they are needed.
+    // ignore test sourceset if there are no sources or resources
+    if (
+      isTestSourceSet &&
+      !pureSources.exists(_.toFile.exists()) &&
+      !resources.exists(_.toFile.exists())
+    ) {
+      Failure(new GradleException("Test project has no source so ignore it"))
+    } else {
+
+      val sources = buildConfigLocation ::: pureSources
+
+      // create map of every projects' sourcesets -> their Gradle project/variants
+      val allSourceSetsToProjectVariants = getAndroidSourceSetProjectVariantMap(
+        project.getRootProject
+      )
+      // create map of every non-Android projects' sourcesets -> their Gradle projects
+      val allSourceSetsToProjects = getSourceSetProjectMap(project.getRootProject)
+
+      // create map of every projects' output jars and classes dir -> source sets
+      val allOutputsToSourceSets = getAndroidOutputsSourceSetMap(allSourceSetsToProjectVariants)
+      // create map of every non-Android projects' output jars -> source sets
+      val allArchivesToSourceSets =
+        getArchiveSourceSetMap(project.getRootProject, allSourceSetsToProjects.keySet)
+      // create map of every non-Android projects' output dirs -> source sets
+      val allOutputDirsToSourceSets = getOutputDirsToSourceSets(allSourceSetsToProjects)
+
+      // doesn't appear on classpath but is needed on classpath
+      val androidJarLocation = project.androidJar.toList
+
+      // get this project's classpath files
+      val compileClassPathFiles = androidJarLocation ::: getAndroidJavaCompile(variant)
+        .map(javaCompile => javaCompile.getClasspath().asScala.toList)
+        .getOrElse(List.empty)
+      val runtimeClassPathFiles = compileClassPathFiles
+
+      // project dependencies
+      // Bloop doesn't need transitive project dependencies but it's harder to exclude and won't hurt
+      val androidProjectDependencies = getAndroidProjectDependencies(
+        compileClassPathFiles,
+        runtimeClassPathFiles,
+        allOutputsToSourceSets,
+        allSourceSetsToProjectVariants,
+        projectName
+      )
+
+      val nonAndroidProjectDependencies = getProjectDependencies(
+        compileClassPathFiles,
+        runtimeClassPathFiles,
+        allArchivesToSourceSets,
+        allOutputDirsToSourceSets,
+        allSourceSetsToProjects,
+        projectName
+      )
+
+      val projectDependencies =
+        (androidProjectDependencies ::: nonAndroidProjectDependencies).distinct
+
+      // transform classpath
+      // includes all transitive references.
+      // this maintains order and includes project references that have been applied obliquely due to
+      // various ways Gradle can reference test sourcesets
+      val partiallyTranslatedCompileClasspathItems = getAndroidClassPathItems(
+        compileClassPathFiles,
+        allOutputsToSourceSets,
+        allSourceSetsToProjectVariants,
+        targetDir
+      ).map(_.toFile)
+      val compileClasspathItems = getClassPathItems(
+        partiallyTranslatedCompileClasspathItems,
+        allArchivesToSourceSets,
+        allOutputDirsToSourceSets,
+        allSourceSetsToProjects,
+        targetDir
+      )
+
+      // get all configurations dependencies - these go into the resolutions as the user can create their own config dependencies (e.g. compiler plugin jar)
+      // some configs aren't allowed to be resolved - hence the catch
+      // this can bring too many artifacts into the resolution section (e.g. junit on main projects) but there's no way to know which artifact is required by which sourceset
+      // filter out internal scala plugin configurations
+      val additionalModules = project.getConfigurations.asScala
+        .filter(_.isCanBeResolved)
+        .flatMap(getConfigurationArtifacts)
+        .filterNot(f => allOutputsToSourceSets.contains(f.getFile))
+        .map(artifactToConfigModule(_, project))
+        .toList
+
+      /* The classes directory is independent from Gradle's because Gradle has a different classes
+       * directory for Scala and Java projects, whereas Bloop doesn't (it inherited this design from
+       * sbt). Therefore, to avoid any compilation/test/run issue between Gradle and Bloop, we just
+       * use our own classes 'bloop' directory in the ".bloop" directory. */
+      val classesDir = getClassesDir(targetDir, projectName)
+      val outDir = getOutDir(targetDir, projectName)
+
+      val modules = additionalModules.flatten.distinct
+
+      val (tags, testConfig) =
+        if (isTestSourceSet)
+          (List(Tag.Test), Some(Config.Test.defaultConfiguration))
+        else (List(Tag.Library), None)
+
+      val bloopProject = Config.Project(
+        name = projectName,
+        directory = project.getProjectDir.toPath,
+        workspaceDir = Option(project.getRootProject.getProjectDir.toPath),
+        sources = sources,
+        sourcesGlobs = None,
+        sourceRoots = None,
+        dependencies = projectDependencies,
+        classpath = compileClasspathItems,
+        out = outDir,
+        classesDir = classesDir,
+        resources = if (resources.isEmpty) None else Some(resources),
+        `scala` = None,
+        java = getAndroidJavaConfig(project, variant),
+        sbt = None,
+        test = testConfig,
+        platform = None,
+        resolution = if (modules.isEmpty) None else Some(Config.Resolution(modules)),
+        tags = if (tags.isEmpty) None else Some(tags)
+      )
+      Success(Config.File(Config.File.LatestVersion, bloopProject))
+    }
+  }
 
   /**
    * Converts a project's given source set to a Bloop project
@@ -53,11 +224,13 @@ class BloopConverter(parameters: BloopParameters) {
    *
    * NOTE: Java classes will be also put into the above defined directory, not as with Gradle
    *
+   * @param projectName unique project name
    * @param project The Gradle project model
    * @param sourceSet The source set to convert
    * @return Bloop configuration
    */
   def toBloopConfig(
+      projectName: String,
       project: Project,
       sourceSet: SourceSet,
       targetDir: File
@@ -70,9 +243,11 @@ class BloopConverter(parameters: BloopParameters) {
 
     // Gradle always creates a main and test source set regardless of whether they are needed.
     // ignore test sourceset if there are no sources or resources
-    if (isTestSourceSet &&
-        !sources.exists(_.toFile.exists()) &&
-        !resources.exists(_.toFile.exists())) {
+    if (
+      isTestSourceSet &&
+      !sources.exists(_.toFile.exists()) &&
+      !resources.exists(_.toFile.exists())
+    ) {
       Failure(new GradleException("Test project has no source so ignore it"))
     } else {
       // get Gradle output dirs
@@ -96,39 +271,33 @@ class BloopConverter(parameters: BloopParameters) {
         getArchiveSourceSetMap(project.getRootProject, allSourceSetsToProjects.keySet)
 
       // create map of every projects' output dirs -> source sets
-      val allOutputDirsToSourceSets = allSourceSetsToProjects.keySet
-        .flatMap(
-          ss =>
-            ss.getOutput.getClassesDirs.getFiles.asScala.map(_ -> ss) +
-              (ss.getOutput.getResourcesDir -> ss)
-        )
-        .toMap
+      val allOutputDirsToSourceSets = getOutputDirsToSourceSets(allSourceSetsToProjects)
 
       val projectName = getProjectName(project, sourceSet)
 
       // project dependencies
       // Bloop doesn't need transitive project dependencies but it's harder to exclude and won't hurt
-      val projectDependencies = {
-        val sourceSetDependencies =
-          (compileClassPathFiles.flatMap(f => allArchivesToSourceSets.get(f)) ++
-            compileClassPathFiles.flatMap(f => allOutputDirsToSourceSets.get(f)) ++
-            runtimeClassPathFiles.flatMap(f => allArchivesToSourceSets.get(f)) ++
-            runtimeClassPathFiles.flatMap(f => allOutputDirsToSourceSets.get(f))).distinct
-        sourceSetDependencies.map(ss => getProjectName(allSourceSetsToProjects(ss), ss)).distinct
-      }.filter(_ != projectName)
+      val projectDependencies = getProjectDependencies(
+        compileClassPathFiles,
+        runtimeClassPathFiles,
+        allArchivesToSourceSets,
+        allOutputDirsToSourceSets,
+        allSourceSetsToProjects,
+        projectName
+      )
 
       // transform classpath
       // includes all transitive references.
       // this maintains order and includes project references that have been applied obliquely due to
       // various ways Gradle can reference test sourcesets
-      val compileClasspathItems = getClassPathItems(
+      val compileClasspath = getClassPathItems(
         compileClassPathFiles,
         allArchivesToSourceSets,
         allOutputDirsToSourceSets,
         allSourceSetsToProjects,
         targetDir
       )
-      val runtimeClasspathItems = getClassPathItems(
+      val runtimeClasspath = getClassPathItems(
         runtimeClassPathFiles,
         allArchivesToSourceSets,
         allOutputDirsToSourceSets,
@@ -136,98 +305,36 @@ class BloopConverter(parameters: BloopParameters) {
         targetDir
       )
 
-      // download Dotty artifacts
-      val (dottyOrgName, dottyVersion, dottyArtifacts, dottyJars, dottyLibraryPaths) =
-        parameters.dottyVersion
-          .map(specifiedVersion => {
-            val version = if (specifiedVersion.toUpperCase == "LATEST") {
-              val source = Source.fromURL("https://dotty.epfl.ch/versions/latest-nightly-base")
-              val majorVersionFromWebsite = source.getLines().toSeq.head
-              source.close()
-              majorVersionFromWebsite
-            } else specifiedVersion
-
-            val DottyVersion = raw"""0\.(\d+)(.*)""".r
-            val Scala3Version = raw"""3\.(\d+)\.(\d+)-(\w+)(.*)""".r
-            val (dottyOrgName, dottyLibrary, artifactAndVersion) = version match {
-              case DottyVersion(minor, patch) =>
-                val artifactID = s"dotty-compiler_0.$minor"
-                val artifactVersion = if (patch.isEmpty) "+" else s"0.$minor$patch"
-                ("ch.epfl.lamp", "DOTTY-LIBRARY", s"$artifactID:$artifactVersion")
-              case Scala3Version(minor, patch, milestone, remaining) =>
-                val artifactID = s"scala3-compiler_3.$minor.$patch-$milestone"
-                val artifactVersion =
-                  if (remaining.isEmpty) "+" else s"3.$minor.$patch-$milestone$remaining"
-                ("org.scala-lang", "SCALA3-LIBRARY", s"$artifactID:$artifactVersion")
-            }
-
-            val compilerDependencyName = s"$dottyOrgName:$artifactAndVersion"
-            val dottyLibraryDep = project.getDependencies.create(compilerDependencyName)
-            val dottyConfiguration =
-              project.getConfigurations.detachedConfiguration(dottyLibraryDep)
-            val dottyCompilerClassPath = dottyConfiguration.resolve().asScala.map(_.toPath).toList
-            val resolvedDottyArtifacts = getConfigurationArtifacts(dottyConfiguration)
-            val dottyLibraryModule =
-              resolvedDottyArtifacts
-                .find(_.getId.getDisplayName.toUpperCase.contains(dottyLibrary))
-            val dottyLibraryPaths = dottyLibraryModule.map(_.getFile.toPath).toList
-            val exactVersion = dottyLibraryModule
-              .map(_.getId)
-              .collect {
-                case mcai: ModuleComponentArtifactIdentifier =>
-                  mcai.getComponentIdentifier.getVersion
-              }
-              .getOrElse(version)
-            (
-              Some(dottyOrgName),
-              Some(exactVersion),
-              resolvedDottyArtifacts,
-              Some(dottyCompilerClassPath),
-              dottyLibraryPaths
-            )
-          })
-          .getOrElse((None, None, List.empty[ResolvedArtifactResult], None, List.empty))
-
       // get all configurations dependencies - these go into the resolutions as the user can create their own config dependencies (e.g. compiler plugin jar)
       // some configs aren't allowed to be resolved - hence the catch
       // this can bring too many artifacts into the resolution section (e.g. junit on main projects) but there's no way to know which artifact is required by which sourceset
       // filter out internal scala plugin configurations
-      val additionalModules = project.getConfigurations.asScala
+      val modules = project.getConfigurations.asScala
         .filter(_.isCanBeResolved)
-        .filter(
-          c =>
-            !List(
-              "incrementalScalaAnalysisElements",
-              "incrementalScalaAnalysisFormain",
-              "incrementalScalaAnalysisFortest",
-              "zinc"
-            ).contains(c.getName)
+        .filter(c =>
+          !List(
+            "incrementalScalaAnalysisElements",
+            "incrementalScalaAnalysisFormain",
+            "incrementalScalaAnalysisFortest",
+            "zinc"
+          ).contains(c.getName)
         )
         .flatMap(getConfigurationArtifacts)
-        .filter(
-          f =>
-            !allArchivesToSourceSets.contains(f.getFile) &&
-              !allOutputDirsToSourceSets.contains(f.getFile)
+        .filter(f =>
+          !allArchivesToSourceSets.contains(f.getFile) &&
+            !allOutputDirsToSourceSets.contains(f.getFile)
         )
         .map(artifactToConfigModule(_, project))
         .toList
+        .flatten
+        .distinct
 
       /* The classes directory is independent from Gradle's because Gradle has a different classes
        * directory for Scala and Java projects, whereas Bloop doesn't (it inherited this design from
        * sbt). Therefore, to avoid any compilation/test/run issue between Gradle and Bloop, we just
        * use our own classes 'bloop' directory in the ".bloop" directory. */
-      val classesDir = getClassesDir(targetDir, project, sourceSet)
-      val outDir = getOutDir(targetDir, project, sourceSet)
-
-      // dotty files need to take precedence if they exist
-      val compileClasspath: List[Path] =
-        (dottyLibraryPaths ++ compileClasspathItems).distinct
-
-      val runtimeClasspath: List[Path] =
-        (dottyLibraryPaths ++ runtimeClasspathItems).distinct
-
-      val modules = (additionalModules ++
-        dottyArtifacts.map(artifactToConfigModule(_, project))).flatten.distinct
+      val classesDir = getClassesDir(targetDir, projectName)
+      val outDir = getOutDir(targetDir, projectName)
 
       // check paths of test tasks to check if this source set is to be tested
       val testTask = getTestTask(project, sourceSetSourceOutputDirs)
@@ -244,16 +351,13 @@ class BloopConverter(parameters: BloopParameters) {
         scalaConfig <- getScalaConfig(
           project,
           sourceSet,
-          compileArtifacts,
-          dottyOrgName,
-          dottyVersion,
-          dottyJars
+          compileArtifacts
         )
 
         bloopProject = Config.Project(
           name = projectName,
           directory = project.getProjectDir.toPath,
-          workspaceDir = Option(project.getRootProject.getProjectDir.toPath),
+          workspaceDir = Option(project.getRootProject.workspacePath),
           sources = sources,
           sourcesGlobs = None,
           sourceRoots = None,
@@ -334,6 +438,55 @@ class BloopConverter(parameters: BloopParameters) {
       .toMap
   }
 
+  private def getOutputDirsToSourceSets(
+      allSourceSetsToProjects: Map[SourceSet, Project]
+  ): Map[File, SourceSet] = {
+    allSourceSetsToProjects.keySet
+      .flatMap(ss =>
+        ss.getOutput.getClassesDirs.getFiles.asScala.map(_ -> ss) +
+          (ss.getOutput.getResourcesDir -> ss)
+      )
+      .toMap
+  }
+
+  private def getProjectDependencies(
+      compileClassPathFiles: List[File],
+      runtimeClassPathFiles: List[File],
+      allArchivesToSourceSets: Map[File, SourceSet],
+      allOutputDirsToSourceSets: Map[File, SourceSet],
+      allSourceSetsToProjects: Map[SourceSet, Project],
+      projectName: String
+  ): List[String] = {
+    val sourceSetDependencies =
+      (compileClassPathFiles.flatMap(f => allArchivesToSourceSets.get(f)) ++
+        compileClassPathFiles.flatMap(f => allOutputDirsToSourceSets.get(f)) ++
+        runtimeClassPathFiles.flatMap(f => allArchivesToSourceSets.get(f)) ++
+        runtimeClassPathFiles.flatMap(f => allOutputDirsToSourceSets.get(f))).distinct
+    sourceSetDependencies
+      .map(ss => getProjectName(allSourceSetsToProjects(ss), ss))
+      .distinct
+      .filter(_ != projectName)
+  }
+
+  private def getAndroidProjectDependencies(
+      compileClassPathFiles: List[File],
+      runtimeClassPathFiles: List[File],
+      allOutputsToSourceSets: Map[File, SourceProvider],
+      allSourceSetsToProjectVariants: Map[SourceProvider, (Project, BaseVariant)],
+      projectName: String
+  ): List[String] = {
+    val sourceSetDependencies =
+      (compileClassPathFiles.flatMap(f => allOutputsToSourceSets.get(f)) ++
+        runtimeClassPathFiles.flatMap(f => allOutputsToSourceSets.get(f))).distinct
+    sourceSetDependencies
+      .map(ss => {
+        val (project, variant) = allSourceSetsToProjectVariants(ss)
+        getAndroidProjectName(project, variant)
+      })
+      .distinct
+      .filter(_ != projectName)
+  }
+
   // version 4.9 of Gradle onwards can use lazy wrappers round delegates
   private def getDelegate(lpa: LazyPublishArtifact): Iterable[PublishArtifact] = {
     try {
@@ -382,15 +535,137 @@ class BloopConverter(parameters: BloopParameters) {
         val archiveTasks = c.getAllArtifacts.asScala.flatMap(getArchiveTask)
         val possibleArchiveSourceSets =
           archiveTasks
-            .flatMap(
-              archiveTask =>
-                getSourceSet(sourceSets, archiveTask)
-                  .map(ss => archiveTask.getArchivePath -> ss)
+            .flatMap(archiveTask =>
+              getSourceSet(sourceSets, archiveTask)
+                .map(ss => archiveTask.getArchivePath -> ss)
             )
             .toMap
         possibleArchiveSourceSets
       }))
       .toMap
+  }
+
+  private def getAndroidClassPathItems(
+      classPathFiles: List[File],
+      allOutputsToSourceSets: Map[File, SourceProvider],
+      allSourceSetsToProjectVariants: Map[SourceProvider, (Project, BaseVariant)],
+      targetDir: File
+  ): List[Path] = {
+    classPathFiles
+      .map(f => {
+        // change Gradle JAR references -> Bloop project classes dirs where possible.
+        allOutputsToSourceSets
+          .get(f)
+          .map(ss => {
+            val (project, variant) = allSourceSetsToProjectVariants(ss)
+            getAndroidClassesDir(targetDir, project, variant)
+          })
+          .getOrElse(f.toPath)
+      })
+      .distinct
+  }
+
+  private def getAndroidSourceSetProjectVariantMap(
+      rootProject: Project
+  ): Map[SourceProvider, (Project, BaseVariant)] = {
+    (for {
+      project <- rootProject.getAllprojects.asScala
+      nonTestVariant <- project.androidVariants
+      variant <- nonTestVariant :: Option(nonTestVariant.getTestVariant).toList
+      sourceSet <- variant.getSourceSets.asScala
+    } yield (sourceSet -> ((project, variant)))).toMap
+  }
+
+  private def getAndroidOutputsSourceSetMap(
+      allSourceSetsToProjectVariants: Map[SourceProvider, (Project, BaseVariant)]
+  ): Map[File, SourceProvider] = {
+    val apiVersion =
+      SemVer.Version.fromString(com.android.builder.model.Version.ANDROID_GRADLE_PLUGIN_VERSION)
+    val bundleAllClassesClass = Class
+      .forName("com.android.build.gradle.internal.feature.BundleAllClasses")
+      .asInstanceOf[Class[AndroidVariantTask]]
+    allSourceSetsToProjectVariants.flatMap {
+      case (sourceProvider, (project, variant)) =>
+        val bundleAppTasks = project.getTasks
+          .withType(bundleAllClassesClass)
+          .asScala
+          .filter(_.getVariantName == variant.getName)
+
+        val apps = bundleAppTasks
+          .flatMap(task => {
+            // 3.4.0   BundleAllClasses  getJavacClasses  BuildableArtifact (doesn't exist anymore - ignore it)
+            // 3.5.0   BundleAllClasses  getJavacClasses  Provider<Directory>
+            // 3.6.0   BundleAllClasses  getJavacClasses  DirectoryProperty (subclass of Provider<Directory>)
+            // 4.2.0   BundleAllClasses  getInputDirs     ConfigurableFileCollection
+            val getJavacClassesMethodName =
+              if (apiVersion < SemVer.Version.fromString("4.2.0")) "getJavacClasses"
+              else "getInputDirs"
+            val getJavacClassesMethod = task.getClass.getMethod(getJavacClassesMethodName)
+            val classes = getJavacClassesMethod.invoke(task) match {
+              case provider: Provider[_] =>
+                Option(provider.getOrNull)
+                  .map(_ match {
+                    case directory: Directory => directory.getAsFile
+                  })
+                  .toSet
+              case fileCollection: ConfigurableFileCollection => fileCollection.getFiles.asScala
+              case _ => Set.empty[File]
+            }
+
+            // 3.4.0   BundleAllClasses  getOutputJar  File
+            // 3.6.0   BundleAllClasses  getOutputJar  RegularFileProperty
+            val getOutputJarMethod = task.getClass.getMethod("getOutputJar")
+            val outputJar = getOutputJarMethod.invoke(task) match {
+              case f: File => Set(f)
+              case f: RegularFileProperty => Option(f.getOrNull).map(_.getAsFile).toSet
+            }
+            classes ++ outputJar
+          })
+
+        // uses reflection to support multiple API versions...
+        val libs = {
+          // 3.4.0   BundleLibraryClasses     getOutput     Provider<RegularFile>
+          // 3.6.0   BundleLibraryClasses     getOutput     RegularFileProperty
+          // 4.0.0   BundleLibraryClasses     getJarOutput  RegularFileProperty
+          // 4.1.0   BundleLibraryClassesJar  getOutput     RegularFileProperty
+          val bundleLibraryClassName =
+            if (apiVersion < SemVer.Version.fromString("4.1.0"))
+              "com.android.build.gradle.internal.tasks.BundleLibraryClasses"
+            else
+              "com.android.build.gradle.internal.tasks.BundleLibraryClassesJar"
+          val bundleLibraryClass = Class.forName(bundleLibraryClassName).asInstanceOf[Class[Task]]
+          val bundleLibraryTasks = project.getTasks.withType(bundleLibraryClass).asScala
+          val getVariantNameMethod = bundleLibraryClass.getMethod("getVariantName")
+          val getOutputMethodName =
+            if (apiVersion < SemVer.Version.fromString("4.1.0")) "getJarOutput"
+            else if (apiVersion < SemVer.Version.fromString("4.0.0")) "getOutput"
+            else "getOutput"
+          val getOutputMethod = bundleLibraryClass.getMethod(getOutputMethodName)
+          val getClassesMethod = bundleLibraryClass.getMethod("getClasses")
+
+          bundleLibraryTasks
+            .filter(getVariantNameMethod.invoke(_) == variant.getName)
+            .flatMap(task => {
+              val classes =
+                try {
+                  getClassesMethod.invoke(task) match {
+                    case f: ConfigurableFileCollection => f.getFiles.asScala
+                    case _: Exception => Set.empty[File]
+                  }
+                } catch {
+                  case _: Exception => Set.empty[File]
+                }
+              val jarOutput = getOutputMethod.invoke(task) match {
+                case f: RegularFileProperty => f.getOrNull
+                case _: Exception => null
+              }
+              classes ++ Option(jarOutput).map(_.getAsFile)
+            })
+        }
+        // R.jar is needed on classpaths - don't substitute it for a project's classes dir
+        val outputDirsAndJars = (libs ++ apps).filterNot(_.getName().equalsIgnoreCase("R.jar"))
+        outputDirsAndJars.map(_ -> sourceProvider)
+    }.toMap
   }
 
   private def getJavaCompileTask(project: Project, sourceSet: SourceSet): JavaCompile = {
@@ -400,6 +675,19 @@ class BloopConverter(parameters: BloopParameters) {
 
   private def getJavaCompileOptions(project: Project, sourceSet: SourceSet): CompileOptions = {
     getJavaCompileTask(project, sourceSet).getOptions
+  }
+
+  private def getAndroidJavaCompile(variant: BaseVariant): Option[JavaCompile] = {
+    Option(variant.getJavaCompileProvider().getOrNull)
+  }
+
+  private def getAndroidJavaConfig(project: Project, variant: BaseVariant): Option[Config.Java] = {
+    getAndroidJavaCompile(variant).flatMap(javaCompile => {
+      val options = javaCompile.getOptions
+      // bug in DefaultJavaCompileSpec handling Android bootstrapClasspath causes crash so set to null
+      options.setBootstrapClasspath(null)
+      getJavaConfig(project, javaCompile, options)
+    })
   }
 
   private def getPlatform(
@@ -453,32 +741,72 @@ class BloopConverter(parameters: BloopParameters) {
     testTask.map(_ => Config.Test.defaultConfiguration)
   }
 
-  def getProjectName(project: Project, sourceSet: SourceSet): String = {
+  // create a minimal unique project name
+  // e.g. if "Foo" exists twice with paths...
+  // "a:b:c:Foo" and "a:b:d:Foo"
+  // then names should be
+  // "c-Foo" and "d-Foo"
+  // not
+  // "a-b-c-Foo" and "a-b-d-Foo"
+  private def createUniqueProjectName(project: Project, suffix: Option[String]): String = {
 
-    val projectsWithName =
+    def getFQName(project: Project): String = {
+      // gradle getPath is inconsistent - it returns ":" for rootProject and doesn't preface non-root project with rootProject.name
+      if (project == project.getRootProject())
+        project.getName
+      else
+        s"${project.getRootProject().getName}${project.getPath()}"
+    }
+
+    def getReversedFQNameParts(project: Project): Array[String] = {
+      getFQName(project).split(':').reverse
+    }
+
+    @tailrec
+    def getUniqueSections(
+        idx: Int,
+        fqNameParts: Array[String],
+        fqNamesParts: List[Array[String]]
+    ): Array[String] = {
+      if (idx >= fqNameParts.length)
+        fqNameParts
+      else {
+        val partialName = fqNameParts.take(idx)
+        val partialNames = fqNamesParts.map(_.take(idx))
+        if (!partialNames.exists(_.sameElements(partialName)))
+          partialName
+        else
+          getUniqueSections(idx + 1, fqNameParts, fqNamesParts)
+      }
+    }
+
+    // Need to namespace only those projects that can run bloop. Others would not cause collision.
+    val projectsWithSameName =
       getAllBloopCapableProjects(project.getRootProject())
-      // Need to namespace only those projects that can run bloop. Others would not cause collision.
         .filter(_.getName == project.getName)
 
-    // If there are more than one project with same name, use path to avoid collision.
-    val rawProjectName = if (projectsWithName.size == 1) project.getName else project.getPath
+    val uniqueProjectName =
+      if (projectsWithSameName.size == 1) project.getName
+      else {
+        val fqNameParts = getReversedFQNameParts(project)
+        val fqNamesParts =
+          projectsWithSameName.map(getReversedFQNameParts).filter(!_.sameElements(fqNameParts))
+        getUniqueSections(1, fqNameParts, fqNamesParts).reverse.mkString("-")
+      }
+    suffix.map(s => s"${uniqueProjectName}-$s").getOrElse(uniqueProjectName)
+  }
 
-    val sanitizedProjectName = rawProjectName.zipWithIndex.flatMap {
-      case (c, i) =>
-        if (i == 0 && c == ':') {
-          None
-        } else if (c == ':') {
-          Some('-')
-        } else {
-          Some(c)
-        }
-    }.mkString
+  def getProjectName(project: Project, sourceSet: SourceSet): String = {
+    val suffix =
+      if (sourceSet.getName == SourceSet.MAIN_SOURCE_SET_NAME) None else Some(sourceSet.getName)
+    createUniqueProjectName(project, suffix)
+  }
 
-    if (sourceSet.getName == SourceSet.MAIN_SOURCE_SET_NAME) {
-      sanitizedProjectName
-    } else {
-      s"${sanitizedProjectName}-${sourceSet.getName}"
-    }
+  def getAndroidProjectName(
+      project: Project,
+      variant: BaseVariant
+  ): String = {
+    createUniqueProjectName(project, Some(variant.getBaseName))
   }
 
   // find the source of the data going into an archive
@@ -515,7 +843,10 @@ class BloopConverter(parameters: BloopParameters) {
   private def getClassesDir(targetDir: File, projectName: String): Path =
     (targetDir / projectName / "build" / "classes").toPath
 
-  def getClassesDir(targetDir: File, project: Project, sourceSet: SourceSet): Path =
+  private def getAndroidClassesDir(targetDir: File, project: Project, variant: BaseVariant): Path =
+    getClassesDir(targetDir, getAndroidProjectName(project, variant))
+
+  private def getClassesDir(targetDir: File, project: Project, sourceSet: SourceSet): Path =
     getClassesDir(targetDir, getProjectName(project, sourceSet))
 
   private def getSources(sourceSet: SourceSet): List[Path] =
@@ -598,10 +929,7 @@ class BloopConverter(parameters: BloopParameters) {
   private def getScalaConfig(
       project: Project,
       sourceSet: SourceSet,
-      artifacts: List[ResolvedArtifactResult],
-      dottyOrgName: Option[String],
-      dottyVersion: Option[String],
-      dottyJars: Option[List[Path]]
+      artifacts: List[ResolvedArtifactResult]
   ): Try[Option[Config.Scala]] = {
     def isJavaOnly: Boolean = {
       val allSourceFiles = sourceSet.getAllSource.getFiles.asScala.toList
@@ -609,23 +937,26 @@ class BloopConverter(parameters: BloopParameters) {
     }
 
     // Finding the compiler group and version from the standard Scala library added as dependency
-    artifacts
+    // library precedence is: user-specified, Scala3, Scala2 (as multiple library version may exist)
+    val stdLibNames =
+      parameters.stdLibName.map(List.apply(_)).getOrElse(List("scala-library", "scala3-library_3"))
+    val artifactIds = artifacts
       .map(_.getId)
       .collect({ case mcai: ModuleComponentArtifactIdentifier => mcai })
-      .find(_.getComponentIdentifier.getModule == parameters.stdLibName) match {
+    val stdLibIds =
+      artifactIds.filter(f => stdLibNames.contains(f.getComponentIdentifier.getModule))
+    stdLibIds.headOption match {
       case Some(stdLibArtifact) =>
         val scalaCompileTaskName = sourceSet.getCompileTaskName("scala")
         val scalaCompileTask = project.getTask[ScalaCompile](scalaCompileTaskName)
 
         if (scalaCompileTask != null) {
-          val scalaVersion =
-            dottyVersion.getOrElse(stdLibArtifact.getComponentIdentifier.getVersion)
-          val scalaOrg = dottyOrgName.getOrElse(stdLibArtifact.getComponentIdentifier.getGroup)
-          val scalaJars =
-            dottyJars.getOrElse(scalaCompileTask.getScalaClasspath.asScala.map(_.toPath).toList)
+          val scalaVersion = stdLibArtifact.getComponentIdentifier.getVersion
+          val scalaOrg = stdLibArtifact.getComponentIdentifier.getGroup
+          val scalaJars = scalaCompileTask.getScalaClasspath.asScala.map(_.toPath).toList
           val opts = scalaCompileTask.getScalaCompileOptions
           val options = optionList(opts) ++ getPluginsAsOptions(scalaCompileTask)
-          val compilerName = parameters.compilerName
+          val compilerName = parameters.compilerName.getOrElse("scala-compiler")
           val compileOrder =
             if (!sourceSet.getJava.getSourceDirectories.isEmpty) JavaThenScala
             else Mixed
@@ -680,15 +1011,22 @@ class BloopConverter(parameters: BloopParameters) {
   }
 
   private def getJavaConfig(project: Project, sourceSet: SourceSet): Option[Config.Java] = {
-    val compileTask = getJavaCompileTask(project, sourceSet)
-    val opts = compileTask.getOptions
+    val javaCompile = getJavaCompileTask(project, sourceSet)
+    val options = javaCompile.getOptions
+    getJavaConfig(project, javaCompile, options)
+  }
 
+  private def getJavaConfig(
+      project: Project,
+      javaCompile: JavaCompile,
+      options: CompileOptions
+  ): Option[Config.Java] = {
     val specs = new DefaultJavaCompileSpec()
-    specs.setCompileOptions(opts)
-    specs.setSourceCompatibility(compileTask.getSourceCompatibility)
-    specs.setTargetCompatibility(compileTask.getTargetCompatibility)
-    if (opts.getAnnotationProcessorPath != null)
-      specs.setAnnotationProcessorPath(opts.getAnnotationProcessorPath.asScala.toList.asJava);
+    specs.setCompileOptions(options)
+    specs.setSourceCompatibility(javaCompile.getSourceCompatibility)
+    specs.setTargetCompatibility(javaCompile.getTargetCompatibility)
+    if (options.getAnnotationProcessorPath != null)
+      specs.setAnnotationProcessorPath(options.getAnnotationProcessorPath.asScala.toList.asJava);
 
     val builder = new JavaCompilerArgumentsBuilder(specs)
       .includeMainOptions(true)
@@ -698,12 +1036,21 @@ class BloopConverter(parameters: BloopParameters) {
 
     var args = builder.build().asScala.toList
 
-    if (!args.contains("-source")) {
-      if (specs.getSourceCompatibility != null) {
+    if (!args.contains("--release")) {
+      if (
+        !args.contains("-source") &&
+        !args.contains("--source") &&
+        specs.getSourceCompatibility != null
+      ) {
         args = "-source" :: specs.getSourceCompatibility :: args
-      } else {
-        Option(DefaultInstalledJdk.current())
-          .foreach(jvm => args = "-source" :: jvm.getJavaVersion.toString :: args)
+      }
+
+      if (
+        !args.contains("-target") &&
+        !args.contains("--target") &&
+        specs.getTargetCompatibility != null
+      ) {
+        args = "-target" :: specs.getTargetCompatibility :: args
       }
     }
 
@@ -712,15 +1059,6 @@ class BloopConverter(parameters: BloopParameters) {
       args = args.takeWhile(_ != "-s") ++ args.dropWhile(_ != "-s").drop(2)
     } else if (args.contains("-s")) {
       Files.createDirectories(Paths.get(args(args.indexOf("-s") + 1)))
-    }
-
-    if (!args.contains("-target")) {
-      if (specs.getTargetCompatibility != null) {
-        args = "-target" :: specs.getTargetCompatibility :: args
-      } else {
-        Option(DefaultInstalledJdk.current())
-          .foreach(jvm => args = "-target" :: jvm.getJavaVersion.toString :: args)
-      }
     }
 
     // Always return a java configuration (this cannot hurt us)

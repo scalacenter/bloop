@@ -1,6 +1,7 @@
 package bloop.cli
 
-import caseapp.core.ArgParser
+import caseapp.core.argparser.{ArgParser, SimpleArgParser}
+import caseapp.core.Error
 
 sealed abstract class BspProtocol(val name: String)
 
@@ -11,10 +12,10 @@ object BspProtocol {
   val protocols: List[BspProtocol] = List(Local, Tcp)
 
   implicit val bspProtocolRead: ArgParser[BspProtocol] = {
-    ArgParser.instance[BspProtocol]("protocol") { input =>
+    SimpleArgParser.from[BspProtocol]("protocol") { input =>
       protocols.find(_.name == input) match {
         case Some(protocol) => Right(protocol)
-        case None => Left("Unrecognized protocol: $input")
+        case None => Left(Error.MalformedValue("protocol", input))
       }
     }
   }

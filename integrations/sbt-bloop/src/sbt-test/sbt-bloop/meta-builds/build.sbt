@@ -29,7 +29,14 @@ checkSourceJars in ThisBuild := {
   val bloopDir = Keys.baseDirectory.value./("project")./(".bloop")
   val metaBuildConfig = bloopDir./(s"$directoryName-build.json")
   val contents = readBareFile(metaBuildConfig.toPath)
-  
-  assert(contents.contains("\"classifier\":\"sources\""), "Missing source jar.")
-  assert(contents.contains("\"organization\":\"org.scala-sbt\""), "Missing source jar.")
+
+  val buildInfoSourceArtifact =
+    for {
+      cfg <- bloop.config.read(metaBuildConfig.toPath).toOption
+      resolution <- cfg.project.resolution
+      module <- resolution.modules.find(_.name == "sbt-buildinfo")
+      sourceArtifact <- module.artifacts.find(_.classifier.contains("sources"))
+    } yield sourceArtifact
+
+  assert(buildInfoSourceArtifact.isDefined, "Source artifact for sbt-buildinfo was not found")
 }

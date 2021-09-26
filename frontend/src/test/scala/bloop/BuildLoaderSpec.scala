@@ -24,19 +24,22 @@ object BuildLoaderSpec extends BaseSuite {
   }
 
   testLoad("reload if settings are added") { (testBuild, logger) =>
-    val settings = WorkspaceSettings.fromSemanticdbSettings("4.2.0", List(BuildInfo.scalaVersion))
+    val settings =
+      WorkspaceSettings.fromSemanticdbSettings("0.2.0", "4.2.0", List(BuildInfo.scalaVersion))
     testBuild.state.build.checkForChange(Some(settings), logger).map {
       case Build.ReturnPreviousState =>
         sys.error(s"Expected return updated state, got previous state")
       case action: Build.UpdateState =>
-        assert(action.createdOrModified.size == 0)
-        assert(action.deleted.size == 0)
-        assert(action.invalidated.size == 4)
-        assert(action.settingsForReload == Some(settings))
+        assert(action.createdOrModified.isEmpty)
+        assert(action.deleted.isEmpty)
+        assertEquals(action.invalidated.size, 4)
+        assertEquals(action.settingsForReload, Some(settings))
     }
   }
 
-  val sameSettings = WorkspaceSettings.fromSemanticdbSettings("4.2.0", List(BuildInfo.scalaVersion))
+  val sameSettings =
+    WorkspaceSettings.fromSemanticdbSettings("0.2.0", "4.2.0", List(BuildInfo.scalaVersion))
+
   testLoad("do not reload if same settings are added", Some(sameSettings)) { (testBuild, logger) =>
     testBuild.state.build.checkForChange(Some(sameSettings), logger).map {
       case Build.ReturnPreviousState => ()
@@ -45,17 +48,31 @@ object BuildLoaderSpec extends BaseSuite {
     }
   }
 
-  testLoad("reload if new settings are added", Some(sameSettings)) { (testBuild, logger) =>
+  testLoad("reload if new Scala settings are added", Some(sameSettings)) { (testBuild, logger) =>
     val newSettings =
-      WorkspaceSettings.fromSemanticdbSettings("4.1.11", List(BuildInfo.scalaVersion))
+      WorkspaceSettings.fromSemanticdbSettings("0.2.0", "4.1.11", List(BuildInfo.scalaVersion))
     testBuild.state.build.checkForChange(Some(newSettings), logger).map {
       case Build.ReturnPreviousState =>
         sys.error(s"Expected return updated state, got previous state")
       case action: Build.UpdateState =>
-        assert(action.createdOrModified.size == 0)
-        assert(action.deleted.size == 0)
-        assert(action.invalidated.size == 4)
-        assert(action.settingsForReload == Some(newSettings))
+        assert(action.createdOrModified.isEmpty)
+        assert(action.deleted.isEmpty)
+        assertEquals(action.invalidated.size, 4)
+        assertEquals(action.settingsForReload, Some(newSettings))
+    }
+  }
+
+  testLoad("reload if new Java settings are added", Some(sameSettings)) { (testBuild, logger) =>
+    val newSettings =
+      WorkspaceSettings.fromSemanticdbSettings("0.1.0", "4.2.0", List(BuildInfo.scalaVersion))
+    testBuild.state.build.checkForChange(Some(newSettings), logger).map {
+      case Build.ReturnPreviousState =>
+        sys.error(s"Expected return updated state, got previous state")
+      case action: Build.UpdateState =>
+        assert(action.createdOrModified.isEmpty)
+        assert(action.deleted.isEmpty)
+        assertEquals(action.invalidated.size, 4)
+        assertEquals(action.settingsForReload, Some(newSettings))
     }
   }
 
@@ -77,10 +94,10 @@ object BuildLoaderSpec extends BaseSuite {
         case Build.ReturnPreviousState =>
           sys.error(s"Expected return updated state, got previous state")
         case action: Build.UpdateState =>
-          assert(action.createdOrModified.size == 2)
-          assert(action.deleted.size == 0)
-          assert(action.invalidated.size == 0)
-          assert(action.settingsForReload == Some(sameSettings))
+          assertEquals(action.createdOrModified.size, 2)
+          assert(action.deleted.isEmpty)
+          assert(action.invalidated.isEmpty)
+          assertEquals(action.settingsForReload, Some(sameSettings))
       }
   }
 
@@ -91,10 +108,10 @@ object BuildLoaderSpec extends BaseSuite {
         case Build.ReturnPreviousState =>
           sys.error(s"Expected return updated state, got previous state")
         case action: Build.UpdateState =>
-          assert(action.createdOrModified.size == 2)
-          assert(action.deleted.size == 0)
-          assert(action.invalidated.size == 0)
-          assert(action.settingsForReload == Some(sameSettings))
+          assertEquals(action.createdOrModified.size, 2)
+          assert(action.deleted.isEmpty)
+          assert(action.invalidated.isEmpty)
+          assertEquals(action.settingsForReload, Some(sameSettings))
       }
   }
 
@@ -102,15 +119,15 @@ object BuildLoaderSpec extends BaseSuite {
     (testBuild, logger) =>
       changeHashOfRandomFiles(testBuild, 2)
       val newSettings =
-        WorkspaceSettings.fromSemanticdbSettings("4.1.11", List(BuildInfo.scalaVersion))
+        WorkspaceSettings.fromSemanticdbSettings("0.2.0", "4.1.11", List(BuildInfo.scalaVersion))
       testBuild.state.build.checkForChange(Some(newSettings), logger).map {
         case Build.ReturnPreviousState =>
           sys.error(s"Expected return updated state, got previous state")
         case action: Build.UpdateState =>
-          assert(action.deleted.size == 0)
-          assert(action.createdOrModified.size == 2)
-          assert(action.invalidated.size == 2)
-          assert(action.settingsForReload == Some(newSettings))
+          assert(action.deleted.isEmpty)
+          assertEquals(action.createdOrModified.size, 2)
+          assertEquals(action.invalidated.size, 2)
+          assertEquals(action.settingsForReload, Some(newSettings))
       }
   }
 
@@ -251,6 +268,7 @@ object BuildLoaderSpec extends BaseSuite {
     TestUtil.withinWorkspace { workspace1 =>
       val logger = new RecordingLogger(ansiCodesSupported = false)
       val settings1 = WorkspaceSettings(
+        None,
         None,
         None,
         None,

@@ -16,7 +16,7 @@ supports JDI.
 
 Support for debugging is not yet fully worked out and it's gradually becoming
 better with every release. We're actively looking for contributions in this
-space so drop by our [Gitter channel][gitter] to help out make it better.
+space so drop by our [Dicord channel][discord] to help out make it better.
 
 ## Debugging via an editor
 
@@ -115,5 +115,5 @@ Here are the current limitations with the DAP implementation and debugging suppo
 [bsp]: https://github.com/scalacenter/bsp/blob/master/docs/bsp.md
 [java-debug]: https://github.com/microsoft/java-debug/
 [metals]: https://scalameta.org/metals/
-[gitter]: https://gitter.im/scalacenter/bloop
+[discord]: https://discord.gg/KWF9zMhJWS
 [jdi]: https://docs.oracle.com/javase/7/docs/jdk/api/jpda/jdi/

@@ -79,12 +79,15 @@ object BloopGateway {
 
     val isSuspended = new AtomicBoolean(false)
     import sun.misc.{Signal, SignalHandler}
-    Signal.handle(new Signal("TSTP"), new SignalHandler {
-      def handle(x: Signal): Unit = {
-        isSuspended.compareAndSet(false, true)
-        ()
+    Signal.handle(
+      new Signal("TSTP"),
+      new SignalHandler {
+        def handle(x: Signal): Unit = {
+          isSuspended.compareAndSet(false, true)
+          ()
+        }
       }
-    })
+    )
 
     val charset = StandardCharsets.UTF_8
     val shell = Shell.default

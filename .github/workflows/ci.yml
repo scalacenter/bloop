@@ -9,6 +9,48 @@ on:
   pull_request:
 
 jobs:
+  scalafmt: 
+    name: Formatting
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2.3.4
+      - uses: olafurpg/setup-scala@v13
+        with:
+          java-version: graalvm-ce-java11@20.1.0
+      - name: Check formatting
+        run: ./bin/scalafmt --test
+  integrations: 
+    name: Build integrations tests
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macOS-latest]
+        jdk: [graalvm-ce-java11@20.1.0]
+    steps:
+      - uses: actions/checkout@v2.3.4
+        with:
+          submodules: true
+      - uses: olafurpg/setup-scala@v13
+        with:
+          java-version: ${{ matrix.jdk }}
+      - name: Cache Gradle API
+        uses: actions/cache@v2
+        with:
+          path: |
+            integrations/gradle-bloop/lib
+          key: ${{ hashFiles('project/GradleIntegration.scala') }}
+      - name: Tests
+        run: |
+          ./bin/sbt-ci.sh \
+              "mavenBloop/publishM2" \
+              "mavenBloop/test" \
+              "gradleBloop211/compile" \
+              "gradleBloop212/compile" \
+              "gradleBloop212/test" \
+              "sbtBloop10Shaded/publishLocal" \
+              "sbtBloop10/scripted"
+        shell: bash
   test:
     runs-on: ${{ matrix.os }}
     strategy:
@@ -24,10 +66,19 @@ jobs:
         with:
           submodules: true
           fetch-depth: 0
-      - uses: olafurpg/setup-scala@v10
+      - uses: olafurpg/setup-scala@v13
         with:
           java-version: ${{ matrix.jdk }}
-      - uses: actions/setup-node@v2.1.5
+      - name: Cache Gradle API
+        # only launcher tests cause gradle API to be downloaded
+        # and they are only run on grallvm
+        if: matrix.jdk == 'graalvm-ce-java11@20.1.0'
+        uses: actions/cache@v2
+        with:
+          path: |
+            integrations/gradle-bloop/lib
+          key: ${{ hashFiles('project/GradleIntegration.scala') }}
+      - uses: actions/setup-node@v2.4.0
         with:
           node-version: "10.x"
       - name: Set up environment
@@ -36,12 +87,6 @@ jobs:
           yarn --help
           java -version
           [[ $HYDRA_LICENSE == floating-key=* ]] && mkdir -p $HOME/.triplequote && echo "$HYDRA_LICENSE" > "$HOME/.triplequote/hydra.license" || echo "Hydra license file was not created"
-        shell: bash
-      - name: Check formatting
-        if: matrix.os != 'windows-latest'
-        run: |
-          ./bin/sbt-ci.sh \
-              "scalafmtCheckAll" \
         shell: bash
       - name: Compile and test main projects
         run: |
@@ -72,16 +117,10 @@ jobs:
           which gu && gu install native-image
           ./bin/sbt-ci.sh "install" "launcher/test"
         shell: bash
-      - name: Run build tool + native tests
+      - name: Benchmark
         if: matrix.jdk == 'graalvm-ce-java11@20.1.0' && matrix.os != 'windows-latest'
         run: |
           ./bin/sbt-ci.sh \
-              "mavenBloop/compile" \
-              "gradleBloop211/compile" \
-              "gradleBloop212/compile" \
-              "gradleBloop212/test" \
-              "sbtBloop10Shaded/publishLocal" \
-              "sbtBloop10/scripted" \
               "benchmarks/jmh:run .*HotBloopBenchmark.* -wi 0 -i 1 -f1 -t1 -p project=with-tests -p projectName=with-tests"
         shell: bash
 
@@ -110,7 +149,7 @@ jobs:
         with:
           submodules: true
           fetch-depth: 0
-      - uses: olafurpg/setup-scala@v10
+      - uses: olafurpg/setup-scala@v13
         with:
           java-version: ${{ matrix.jdk }}
       - name: Publish GraalVM Native artifacts
@@ -155,7 +194,7 @@ jobs:
         with:
           submodules: true
           fetch-depth: 0
-      - uses: olafurpg/setup-scala@v10
+      - uses: olafurpg/setup-scala@v13
         with:
           java-version: ${{ matrix.jdk }}
       - name: Install GraalVM Native Image
@@ -206,8 +245,6 @@ jobs:
       SKIP_TEST_RESOURCES_GENERATION: true
       SONATYPE_USER: ${{ secrets.SONATYPE_USER }}
       SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
-      BINTRAY_USER: ${{ secrets.BINTRAY_USER }}
-      BINTRAY_PASS: ${{ secrets.BINTRAY_PASSWORD }}
       PGP_PASSWORD: ${{ secrets.PGP_PASSWORD }}
       PGP_PASSPHRASE: ${{ secrets.PGP_PASSWORD }}
       PGP_PUBLIC_KEY: ${{ secrets.PGP_PUBLIC_KEY }}
@@ -221,14 +258,14 @@ jobs:
         with:
           submodules: true
           fetch-depth: 0
-      - uses: olafurpg/setup-scala@v10
+      - uses: olafurpg/setup-scala@v13
         with:
           java-version: ${{ matrix.jdk }}
-      - uses: actions/setup-node@v2.1.5
+      - uses: actions/setup-node@v2.4.0
         with:
           node-version: "10.x"
       - name: Download built GraalVM binaries
-        uses: actions/download-artifact@v2.0.8
+        uses: actions/download-artifact@v2.0.10
         with:
           name: bloop-artifacts
           path: bloop-artifacts
@@ -237,7 +274,7 @@ jobs:
           curl -Lo coursier https://git.io/coursier-cli && chmod +x coursier && ./coursier --help
           yarn --help
         shell: bash
-      - name: Publish docs and binaries to Maven Central/Bintray
+      - name: Publish docs and binaries to Maven Central
         run: |
           yarn install
           touch ~/.profile

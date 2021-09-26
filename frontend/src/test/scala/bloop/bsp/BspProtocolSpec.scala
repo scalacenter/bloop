@@ -204,7 +204,8 @@ class BspProtocolSpec(
         ownsBuildFiles = None,
         Some(Uri(userClientClassesRootDir.toBspUri)),
         semanticdbVersion = None,
-        supportedScalaVersions = None
+        supportedScalaVersions = None,
+        javaSemanticdbVersion = None
       )
 
       // Start first client and query for scalac options which creates client classes dirs
@@ -286,7 +287,7 @@ class BspProtocolSpec(
       val logger = new RecordingLogger(ansiCodesSupported = false)
       loadBspBuildFromResources("cross-test-build-scalajs-0.6", workspace, logger) { build =>
         val project = build.projectFor("test-project-test")
-        val compiledState = build.state.compile(project)
+        val compiledState = build.state.compile(project, timeout = 120)
         val expectedClasses = Set(
           "JUnitTest",
           "ScalaTestTest",
