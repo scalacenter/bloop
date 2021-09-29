@@ -1,4 +1,3 @@
-
 ### Requirements
 
 - **Java 8 or higher**
@@ -6,15 +5,20 @@
 
 ### Installation options
 
+Coursier installation instructions can be found at
+https://get-coursier.io/docs/cli-installation.
+
+After successfully installing it you can run:
+
 ```sh
-coursier install bloop --only-prebuilt=true
+cs install bloop --only-prebuilt=true
 ```
 
 Coursier will install bloop in its installation directory. When installing, you
 might get a log similar to this:
 
 ```
-➜  ~ ➜  ~ coursier install bloop
+➜  ~ ➜  ~ cs install bloop
 https://repo1.maven.org/maven2/io/get-coursier/apps/maven-metadata.xml
   100.0% [##########] 993 B (20.2 KiB / s)
 https://repo1.maven.org/maven2/io/get-coursier/apps/maven-metadata.xml

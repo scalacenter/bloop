@@ -27,7 +27,14 @@ The Bloop plugin for Maven doesn't need to be installed, you can run
 following command.
 
 ```bash
-$ mvn ch.epfl.scala:maven-bloop_2.12:@VERSION@:bloopInstall
+$ mvn ch.epfl.scala:maven-bloop_2.13:@VERSION@:bloopInstall
+```
+
+In some cases, when you are using generated sources in you project
+you might need to run:
+
+```bash
+$ mvn generate-sources ch.epfl.scala:maven-bloop_2.13:@VERSION@:bloopInstall
 ```
 
 Note that the following command uses the latest Bloop stable version
