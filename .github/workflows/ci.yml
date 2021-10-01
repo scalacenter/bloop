@@ -78,7 +78,7 @@ jobs:
           path: |
             integrations/gradle-bloop/lib
           key: ${{ hashFiles('project/GradleIntegration.scala') }}
-      - uses: actions/setup-node@v2.4.0
+      - uses: actions/setup-node@v2.4.1
         with:
           node-version: "10.x"
       - name: Set up environment
@@ -261,7 +261,7 @@ jobs:
       - uses: olafurpg/setup-scala@v13
         with:
           java-version: ${{ matrix.jdk }}
-      - uses: actions/setup-node@v2.4.0
+      - uses: actions/setup-node@v2.4.1
         with:
           node-version: "10.x"
       - name: Download built GraalVM binaries
