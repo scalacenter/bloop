@@ -36,12 +36,19 @@ class ConfigGenerationSuite_5_0 extends ConfigGenerationSuite {
 }
 
 // maximum supported version
-class ConfigGenerationSuite_7_0 extends ConfigGenerationSuite {
-  protected val gradleVersion: String = "7.0"
+class ConfigGenerationSuite_7_3 extends ConfigGenerationSuite {
+  protected val gradleVersion: String = "7.3-20211002014332+0000"
 }
 
 abstract class ConfigGenerationSuite extends BaseConfigSuite {
   protected val gradleVersion: String
+  private def supportsAndroid: Boolean = gradleVersion >= "6.1.1"
+  private def supportsScala3: Boolean = gradleVersion >= "7.3"
+  private def canConsumeTestRuntime: Boolean = gradleVersion < "7.0"
+  private def supportsLazyArchives: Boolean = gradleVersion >= "4.9"
+  private def supportsTestFixtures: Boolean = gradleVersion >= "5.6"
+  private def supportsMainClass: Boolean = gradleVersion >= "6.4"
+  private def supportsScalaCompilerPlugins: Boolean = gradleVersion >= "6.4"
 
   // folder to put test build scripts and java/scala source files
   private val testProjectDir_ = new TemporaryFolder()
@@ -72,7 +79,7 @@ abstract class ConfigGenerationSuite extends BaseConfigSuite {
   }
 
   private def worksWithAndroidPlugin(androidToolsVersion: String): Unit = {
-    if (gradleVersion >= "6.1.1") {
+    if (supportsAndroid) {
       val buildSettings = testProjectDir.newFile("settings.gradle")
       val buildDirA = testProjectDir.newFolder("a")
       testProjectDir.newFolder("a", "src", "main", "java")
@@ -562,15 +569,9 @@ abstract class ConfigGenerationSuite extends BaseConfigSuite {
     worksWithGivenScalaVersion("2.13.1")
   }
 
-  /*
-   * TODO
-   * uncomment when...
-   * 1) https://github.com/gradle/gradle/pull/18001 is merged and released
-   * 2) ConfigGenerationSuite_7_0 is updated to that version
-  @Test def worksWithScala_3_0_1_Project(): Unit = {
-    worksWithGivenScalaVersion("3.0.1")
+  @Test def worksWithScala_3_0_2_Project(): Unit = {
+    worksWithGivenScalaVersion("3.0.2")
   }
-   */
 
   @Test def failsOnMissingScalaLibrary(): Unit = {
 
@@ -1727,8 +1728,7 @@ abstract class ConfigGenerationSuite extends BaseConfigSuite {
   // problem here is that to specify the test sourceset of project b depends on the test sourceset of project a using
   // additional configuration + artifacts
   @Test def worksWithTestConfigurationDependencies(): Unit = {
-    // testRuntime no longer consumable in 7.0
-    if (gradleVersion < "7.0") {
+    if (canConsumeTestRuntime) {
       val buildSettings = testProjectDir.newFile("settings.gradle")
       val buildDirA = testProjectDir.newFolder("a")
       testProjectDir.newFolder("a", "src", "main", "scala")
@@ -1854,7 +1854,7 @@ abstract class ConfigGenerationSuite extends BaseConfigSuite {
   }
 
   @Test def worksWithTestFixtureDependencies(): Unit = {
-    if (gradleVersion >= "5.6") {
+    if (supportsTestFixtures) {
       val buildSettings = testProjectDir.newFile("settings.gradle")
       val buildDirA = testProjectDir.newFolder("a")
       testProjectDir.newFolder("a", "src", "main", "scala")
@@ -1977,8 +1977,7 @@ abstract class ConfigGenerationSuite extends BaseConfigSuite {
   }
 
   @Test def worksWithLazyArchiveDependencies(): Unit = {
-    // testRuntime no longer consumable in 7.0
-    if (gradleVersion >= "4.9" && gradleVersion < "7.0") {
+    if (canConsumeTestRuntime && supportsLazyArchives) {
       val buildSettings = testProjectDir.newFile("settings.gradle")
       val buildDirA = testProjectDir.newFolder("a")
       testProjectDir.newFolder("a", "src", "main", "scala")
@@ -2545,7 +2544,7 @@ abstract class ConfigGenerationSuite extends BaseConfigSuite {
   }
 
   @Test def generateConfigFileForOtherMainClass(): Unit = {
-    if (gradleVersion >= "6.4") {
+    if (supportsMainClass) {
       val buildFile = testProjectDir.newFile("build.gradle")
       writeBuildScript(
         buildFile,
@@ -3136,7 +3135,7 @@ abstract class ConfigGenerationSuite extends BaseConfigSuite {
   }
 
   @Test def scalaCompilerPluginsGeneratedCorrectly(): Unit = {
-    if (gradleVersion >= "6.4") {
+    if (supportsScalaCompilerPlugins) {
       val buildFile = testProjectDir.newFile("build.gradle")
       testProjectDir.newFolder("src", "main", "scala")
       writeBuildScript(
@@ -3297,13 +3296,13 @@ abstract class ConfigGenerationSuite extends BaseConfigSuite {
   }
 
   private def worksWithGivenScalaVersion(version: String): Unit = {
-    val buildFile = testProjectDir.newFile("build.gradle")
-    testProjectDir.newFolder("src", "main", "scala")
-    testProjectDir.newFolder("src", "test", "scala")
-
     val isScala3 = version.startsWith("3")
-    // TODO correct this gradle version when https://github.com/gradle/gradle/pull/18001 is merged and released
-    if (!isScala3 || gradleVersion >= "8.0???") {
+    if (!isScala3 || supportsScala3) {
+
+      val buildFile = testProjectDir.newFile("build.gradle")
+      testProjectDir.newFolder("src", "main", "scala")
+      testProjectDir.newFolder("src", "test", "scala")
+
       val (libraryName, compilerName) =
         if (isScala3) ("scala3-library_3", "scala3-compiler_3")
         else ("scala-library", "scala-compiler")
