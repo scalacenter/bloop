@@ -55,6 +55,7 @@ import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.provider.Provider
 import org.gradle.api.file.RegularFile
 import org.gradle.api.file.Directory
+import org.gradle.api.file.CopySpec
 
 /**
  * Define the conversion from Gradle's project model to Bloop's project model.
@@ -487,22 +488,6 @@ class BloopConverter(parameters: BloopParameters, info: String => Unit) {
       .filter(_ != projectName)
   }
 
-  // version 4.9 of Gradle onwards can use lazy wrappers round delegates
-  private def getDelegate(lpa: LazyPublishArtifact): Iterable[PublishArtifact] = {
-    try {
-      // private method
-      val getDelegate = classOf[LazyPublishArtifact].getDeclaredMethod("getDelegate")
-      getDelegate.setAccessible(true)
-      Iterable(
-        getDelegate
-          .invoke(lpa)
-          .asInstanceOf[PublishArtifact]
-      )
-    } catch {
-      case _: NoSuchMethodException => Iterable.empty
-    }
-  }
-
   private def getTestTask(
       project: Project,
       sourceSetOutputFiles: collection.Set[File]
@@ -517,31 +502,33 @@ class BloopConverter(parameters: BloopParameters, info: String => Unit) {
     })
   }
 
-  private def getArchiveTask(pa: PublishArtifact): Iterable[AbstractArchiveTask] = {
-    pa match {
-      case apa: ArchivePublishArtifact => Iterable(apa.getArchiveTask)
-      case lpa: LazyPublishArtifact => getDelegate(lpa).flatMap(getArchiveTask)
-      case dpa: DecoratingPublishArtifact => getArchiveTask(dpa.getPublishArtifact)
-      case _ => Iterable.empty
+  private def getSourcePaths(copySpec: CopySpec): Set[Object] = {
+    var sourcePaths = Set.empty[Object]
+    copySpec match {
+      case f: DefaultCopySpec =>
+        sourcePaths = sourcePaths ++ f.getSourcePaths().asScala
+        sourcePaths = sourcePaths ++ f.getChildren.asScala.flatMap(getSourcePaths)
     }
+    sourcePaths
   }
 
   private def getArchiveSourceSetMap(
       rootProject: Project,
       sourceSets: Set[SourceSet]
   ): Map[File, SourceSet] = {
-    rootProject.getAllprojects.asScala
-      .flatMap(_.getConfigurations.asScala.flatMap(c => {
-        val archiveTasks = c.getAllArtifacts.asScala.flatMap(getArchiveTask)
-        val possibleArchiveSourceSets =
-          archiveTasks
-            .flatMap(archiveTask =>
-              getSourceSet(sourceSets, archiveTask)
-                .map(ss => archiveTask.getArchivePath -> ss)
-            )
-            .toMap
-        possibleArchiveSourceSets
-      }))
+    rootProject
+      .getAllTasks(true)
+      .asScala
+      .values
+      .flatMap(tasks => {
+        tasks.asScala.collect {
+          case archiveTask: AbstractArchiveTask =>
+            val path = archiveTask.getArchivePath
+            getSourcePaths(archiveTask.getRootSpec())
+              .flatMap(sourcePath => sourceSets.find(_.getOutput == sourcePath))
+              .map(ss => path -> ss)
+        }.flatten
+      })
       .toMap
   }
 
@@ -807,31 +794,6 @@ class BloopConverter(parameters: BloopParameters, info: String => Unit) {
       variant: BaseVariant
   ): String = {
     createUniqueProjectName(project, Some(variant.getBaseName))
-  }
-
-  // find the source of the data going into an archive
-  private def getSourceSet(
-      allSourceSets: Set[SourceSet],
-      abstractCopyTask: AbstractCopyTask
-  ): Option[SourceSet] = {
-    try {
-      // protected method
-      val getMainSpec = classOf[AbstractCopyTask].getDeclaredMethod("getMainSpec")
-      getMainSpec.setAccessible(true)
-      val mainSpec = getMainSpec.invoke(abstractCopyTask)
-      if (mainSpec == null)
-        None
-      else {
-        mainSpec
-          .asInstanceOf[DefaultCopySpec]
-          .getSourcePaths
-          .asScala
-          .flatMap(sourcePath => allSourceSets.find(_.getOutput == sourcePath))
-          .headOption
-      }
-    } catch {
-      case _: NoSuchMethodException => None;
-    }
   }
 
   private def getOutDir(targetDir: File, projectName: String): Path =
