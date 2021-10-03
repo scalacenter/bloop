@@ -45,7 +45,8 @@ class ConfigureBloopInstallTask extends DefaultTask with PluginUtils with TaskLo
   private def addSourceSetAsInputs(task: Task, sourceSet: SourceSet): Unit = {
     val configuration = project.getConfiguration(sourceSet.getCompileClasspathConfigurationName)
 
-    val artifacts = configuration.getResolvedConfiguration.getResolvedArtifacts.asScala
+    val artifacts =
+      configuration.getResolvedConfiguration.getLenientConfiguration.getArtifacts.asScala
     for (artifact <- artifacts) {
       // we don't want project artifacts, since they might not exist during bloopInstall
       val isNotProjectArtifact =
