@@ -7,6 +7,9 @@ import scalaz.Show
 import scala.collection.mutable.ListBuffer
 import scala.collection.mutable
 
+/**
+ * A [[Dag]] is a Directed Acyclic Graph where each node contains a value of T
+ */
 sealed trait Dag[T]
 final case class Leaf[T](value: T) extends Dag[T] with CacheHashCode
 final case class Parent[T](value: T, children: List[Dag[T]]) extends Dag[T] with CacheHashCode
@@ -285,6 +288,9 @@ object Dag {
     InverseDependencies(roots.toList, cascaded.toList)
   }
 
+  /**
+   * Depth first search
+   */
   def dfs[T](dag: Dag[T]): List[T] = {
     val visited = scala.collection.mutable.HashSet[Dag[T]]()
     val buffer = new ListBuffer[T]()
