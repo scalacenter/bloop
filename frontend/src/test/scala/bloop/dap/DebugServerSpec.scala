@@ -1,9 +1,11 @@
 package bloop.dap
 
+import bloop.ScalaInstance
 import bloop.cli.ExitStatus
-import bloop.data.Platform
+import bloop.data.{Platform, Project}
 import bloop.engine.{ExecutionContext, State}
 import bloop.engine.tasks.{RunMode, Tasks}
+import bloop.io.AbsolutePath
 import bloop.io.Environment.lineSeparator
 import bloop.logging.LoggerAction.LogInfoMessage
 import bloop.logging.{Logger, LoggerAction, ObservedLogger, RecordingLogger}
@@ -17,6 +19,7 @@ import com.microsoft.java.debug.core.protocol.Types.SourceBreakpoint
 import monix.eval.Task
 import monix.execution.Ack
 import monix.reactive.Observer
+import bloop.internal.build.BuildTestInfo
 
 import java.net.{ConnectException, SocketException, SocketTimeoutException}
 import java.util.NoSuchElementException
@@ -239,44 +242,8 @@ object DebugServerSpec extends DebugBspBaseSuite {
           buildProject.sources.map(_.resolve(srcName)).find(_.exists).get
         val `Main.scala` = srcFor("Main.scala")
         val `HelloJava.java` = srcFor("HelloJava.java")
-
-        val scalaBreakpoints = {
-          val arguments = new SetBreakpointArguments()
-          // Breakpoint in main method
-          val breakpoint1 = new SourceBreakpoint()
-          breakpoint1.line = 3
-          // Breakpoint in Hello class, in method greet
-          val breakpoint2 = new SourceBreakpoint()
-          breakpoint2.line = 13
-          // Breakpoint in Hello object, inside constructor
-          val breakpoint3 = new SourceBreakpoint()
-          breakpoint3.line = 20
-          // Breakpoint in Hello inner classs
-          val breakpoint4 = new SourceBreakpoint()
-          breakpoint4.line = 14
-          // Breakpoint in end of main method
-          val breakpoint5 = new SourceBreakpoint()
-          breakpoint5.line = 9
-          arguments.source = new Types.Source(`Main.scala`.syntax, 0)
-          arguments.sourceModified = false
-          arguments.breakpoints =
-            Array(breakpoint1, breakpoint2, breakpoint3, breakpoint4, breakpoint5)
-          arguments
-        }
-
-        val javaBreakpoints = {
-          val arguments = new SetBreakpointArguments()
-          // Breakpoint in Hello java class, in constructor
-          val breakpoint1 = new SourceBreakpoint()
-          breakpoint1.line = 3
-          // Breakpoint in Hello java class, in method greet
-          val breakpoint2 = new SourceBreakpoint()
-          breakpoint2.line = 7
-          arguments.source = new Types.Source(`HelloJava.java`.syntax, 0)
-          arguments.sourceModified = false
-          arguments.breakpoints = Array(breakpoint1, breakpoint2)
-          arguments
-        }
+        val scalaBreakpoints = breakpointsArgs(`Main.scala`, 3, 13, 20, 14, 9)
+        val javaBreakpoints = breakpointsArgs(`HelloJava.java`, 3, 7)
 
         startDebugServer(runner) { server =>
           val test = for {
@@ -353,16 +320,7 @@ object DebugServerSpec extends DebugBspBaseSuite {
         def srcFor(srcName: String) =
           buildProject.sources.map(_.resolve(srcName)).find(_.exists).get
         val `Main.scala` = srcFor("Main.scala")
-
-        val breakpoints = {
-          val arguments = new SetBreakpointArguments()
-          val breakpoint1 = new SourceBreakpoint()
-          breakpoint1.line = 4
-          arguments.source = new Types.Source(`Main.scala`.syntax, 0)
-          arguments.sourceModified = false
-          arguments.breakpoints = Array(breakpoint1)
-          arguments
-        }
+        val breakpoints = breakpointsArgs(`Main.scala`, 4)
 
         startDebugServer(runner) { server =>
           val test = for {
@@ -569,47 +527,7 @@ object DebugServerSpec extends DebugBspBaseSuite {
         def srcFor(srcName: String) =
           buildProject.sources.map(_.resolve(srcName)).find(_.exists).get
         val `Main.scala` = srcFor("Main.scala")
-
-        val breakpoints = {
-          val arguments = new SetBreakpointArguments()
-          val breakpoint = new SourceBreakpoint()
-          breakpoint.line = 3
-          arguments.source = new Types.Source(`Main.scala`.syntax, 0)
-          arguments.sourceModified = false
-          arguments.breakpoints = Array(breakpoint)
-          arguments
-        }
-
-        val attachPort = Promise[Int]()
-
-        val jdkConfig = buildProject.platform match {
-          case jvm: Platform.Jvm => jvm.config
-          case platform => throw new Exception(s"Unsupported platform $platform")
-        }
-
-        val debuggeeLogger = portListeningLogger(
-          testState.state.logger,
-          port => {
-            if (!attachPort.isCompleted) {
-              attachPort.success(port)
-              ()
-            }
-          }
-        )
-
-        val remoteProcess: Task[State] = Tasks.runJVM(
-          testState.state.copy(logger = debuggeeLogger),
-          buildProject,
-          jdkConfig,
-          testState.state.commonOptions.workingPath,
-          "Main",
-          Array.empty,
-          skipJargs = false,
-          envVars = List.empty,
-          RunMode.Debug
-        )
-
-        remoteProcess.runAsync(defaultScheduler)
+        val breakpoints = breakpointsArgs(`Main.scala`, 3)
 
         val attachRemoteProcessRunner =
           BloopDebuggeeRunner.forAttachRemote(
@@ -620,7 +538,7 @@ object DebugServerSpec extends DebugBspBaseSuite {
 
         startDebugServer(attachRemoteProcessRunner) { server =>
           val test = for {
-            port <- Task.fromFuture(attachPort.future)
+            port <- startRemoteProcess(buildProject, testState)
             client <- server.startConnection
             _ <- client.initialize()
             _ <- client.attach("localhost", port)
@@ -651,7 +569,7 @@ object DebugServerSpec extends DebugBspBaseSuite {
     }
   }
 
-  test("evaluate expression") {
+  test("evaluate expression in main debuggee") {
     TestUtil.withinWorkspace { workspace =>
       val source = """|/Main.scala
                       |object Main {
@@ -681,16 +599,7 @@ object DebugServerSpec extends DebugBspBaseSuite {
         def srcFor(srcName: String) =
           buildProject.sources.map(_.resolve(srcName)).find(_.exists).get
         val `Main.scala` = srcFor("Main.scala")
-
-        val breakpoints = {
-          val arguments = new SetBreakpointArguments()
-          val breakpoint1 = new SourceBreakpoint()
-          breakpoint1.line = 4
-          arguments.source = new Types.Source(`Main.scala`.syntax, 0)
-          arguments.sourceModified = false
-          arguments.breakpoints = Array(breakpoint1)
-          arguments
-        }
+        val breakpoints = breakpointsArgs(`Main.scala`, 4)
 
         startDebugServer(runner) { server =>
           val test = for {
@@ -723,6 +632,186 @@ object DebugServerSpec extends DebugBspBaseSuite {
     }
   }
 
+  test("evaluate expression in test suite") {
+    TestUtil.withinWorkspace { workspace =>
+      val source =
+        """/MySuite.scala
+          |class MySuite {
+          |  @org.junit.Test
+          |  def myTest(): Unit = {
+          |    val foo = new Foo
+          |    println(foo)
+          |  }
+          |}
+          |
+          |class Foo {
+          |  override def toString = "foo"
+          |}""".stripMargin
+
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+
+      val scalaVersion = "2.12.15"
+      val compilerJars = ScalaInstance
+        .resolve("org.scala-lang", "scala-compiler", scalaVersion, logger)(
+          ExecutionContext.ioScheduler
+        )
+        .allJars
+        .map(AbsolutePath.apply)
+      val junitJars = BuildTestInfo.junitTestJars.map(AbsolutePath.apply)
+
+      val project = TestProject(
+        workspace,
+        "r",
+        List(source),
+        enableTests = true,
+        jars = compilerJars ++ junitJars,
+        scalaVersion = Some(scalaVersion)
+      )
+
+      loadBspState(workspace, List(project), logger) { state =>
+        val runner = testRunner(project, state)
+
+        val buildProject = state.toTestState.getProjectFor(project)
+        def srcFor(srcName: String) =
+          buildProject.sources.map(_.resolve(srcName)).find(_.exists).get
+        val `MySuite.scala` = srcFor("MySuite.scala")
+        val breakpoints = breakpointsArgs(`MySuite.scala`, 5)
+
+        startDebugServer(runner) { server =>
+          val test = for {
+            client <- server.startConnection
+            _ <- client.initialize()
+            _ <- client.launch()
+            _ <- client.initialized
+            breakpoints <- client.setBreakpoints(breakpoints)
+            _ = assert(breakpoints.breakpoints.forall(_.verified))
+            _ <- client.configurationDone()
+            stopped <- client.stopped
+            stackTrace <- client.stackTrace(stopped.threadId)
+            topFrame <- stackTrace.stackFrames.headOption
+              .map(Task.now)
+              .getOrElse(Task.raiseError(new NoSuchElementException("no frames on the stack")))
+            evaluation <- client.evaluate(topFrame.id, "foo.toString")
+            _ <- client.continue(stopped.threadId)
+            _ <- client.exited
+            _ <- client.terminated
+            _ <- Task.fromFuture(client.closedPromise.future)
+          } yield {
+            assert(client.socket.isClosed)
+            assertNoDiff(evaluation.`type`, "String")
+            assertNoDiff(evaluation.result, "\"foo\"")
+          }
+
+          TestUtil.await(FiniteDuration(60, SECONDS), ExecutionContext.ioScheduler)(test)
+        }
+      }
+    }
+  }
+
+  test("evaluate expression in attached debuggee") {
+    TestUtil.withinWorkspace { workspace =>
+      val source = """|/Main.scala
+                      |object Main {
+                      |  def main(args: Array[String]): Unit = {
+                      |    val foo = new Foo
+                      |    println(foo)
+                      |  }
+                      |}
+                      |
+                      |class Foo {
+                      |  override def toString = "foo"
+                      |}
+                      |""".stripMargin
+
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val project = TestProject(
+        workspace,
+        "r",
+        List(source),
+        scalaVersion = Some("2.12.15")
+      )
+
+      loadBspState(workspace, List(project), logger) { state =>
+        val testState = state.compile(project).toTestState
+        val buildProject = testState.getProjectFor(project)
+        def srcFor(srcName: String) =
+          buildProject.sources.map(_.resolve(srcName)).find(_.exists).get
+        val `Main.scala` = srcFor("Main.scala")
+        val breakpoints = breakpointsArgs(`Main.scala`, 4)
+
+        val attachRemoteProcessRunner =
+          BloopDebuggeeRunner.forAttachRemote(
+            testState.state,
+            defaultScheduler,
+            Seq(buildProject)
+          )
+
+        startDebugServer(attachRemoteProcessRunner) { server =>
+          val test = for {
+            port <- startRemoteProcess(buildProject, testState)
+            client <- server.startConnection
+            _ <- client.initialize()
+            _ <- client.attach("localhost", port)
+            breakpoints <- client.setBreakpoints(breakpoints)
+            _ = assert(breakpoints.breakpoints.forall(_.verified))
+            _ <- client.configurationDone()
+            stopped <- client.stopped
+            stackTrace <- client.stackTrace(stopped.threadId)
+            topFrame <- stackTrace.stackFrames.headOption
+              .map(Task.now)
+              .getOrElse(Task.raiseError(new NoSuchElementException("no frames on the stack")))
+            evaluation <- client.evaluate(topFrame.id, "foo.toString")
+            _ <- client.continue(stopped.threadId)
+            _ <- client.exited
+            _ <- client.terminated
+            _ <- Task.fromFuture(client.closedPromise.future)
+          } yield {
+            assert(client.socket.isClosed)
+            assertNoDiff(evaluation.`type`, "String")
+            assertNoDiff(evaluation.result, "\"foo\"")
+          }
+
+          TestUtil.await(FiniteDuration(120, SECONDS), ExecutionContext.ioScheduler)(test)
+        }
+      }
+    }
+  }
+
+  private def startRemoteProcess(buildProject: Project, testState: TestState): Task[Int] = {
+    val attachPort = Promise[Int]()
+
+    val jdkConfig = buildProject.platform match {
+      case jvm: Platform.Jvm => jvm.config
+      case platform => throw new Exception(s"Unsupported platform $platform")
+    }
+
+    val debuggeeLogger = portListeningLogger(
+      testState.state.logger,
+      port => {
+        if (!attachPort.isCompleted) {
+          attachPort.success(port)
+          ()
+        }
+      }
+    )
+
+    val remoteProcess: Task[State] = Tasks.runJVM(
+      testState.state.copy(logger = debuggeeLogger),
+      buildProject,
+      jdkConfig,
+      testState.state.commonOptions.workingPath,
+      "Main",
+      Array.empty,
+      skipJargs = false,
+      envVars = List.empty,
+      RunMode.Debug
+    )
+
+    remoteProcess.runAsync(defaultScheduler)
+
+    Task.fromFuture(attachPort.future)
+  }
+
   private def portListeningLogger(underlying: Logger, listener: Int => Unit): Logger = {
     val listeningObserver = new Observer[Either[ReporterAction, LoggerAction]] {
       override def onNext(elem: Either[ReporterAction, LoggerAction]): Future[Ack] = elem match {
@@ -747,6 +836,19 @@ object DebugServerSpec extends DebugBspBaseSuite {
     ObservedLogger(underlying, listeningObserver)
   }
 
+  private def breakpointsArgs(source: AbsolutePath, lines: Int*): SetBreakpointArguments = {
+    val arguments = new SetBreakpointArguments()
+    val breakpoints = lines.map { line =>
+      val breakpoint = new SourceBreakpoint()
+      breakpoint.line = line
+      breakpoint
+    }
+    arguments.source = new Types.Source(source.syntax, 0)
+    arguments.sourceModified = false
+    arguments.breakpoints = breakpoints.toArray
+    arguments
+  }
+
   private def waitForServerEnd(server: TestServer): Task[Boolean] = {
     server.startConnection.failed
       .map {
@@ -765,9 +867,25 @@ object DebugServerSpec extends DebugBspBaseSuite {
       }
   }
 
+  private def testRunner(
+      project: TestProject,
+      state: ManagedBspTestState
+  ): DebuggeeRunner = {
+    val testState = state.compile(project).toTestState
+    BloopDebuggeeRunner.forTestSuite(
+      Seq(testState.getProjectFor(project)),
+      List("MySuite"),
+      testState.state,
+      defaultScheduler
+    ) match {
+      case Right(value) => value
+      case Left(error) => throw new Exception(error)
+    }
+  }
+
   private def mainRunner(
       project: TestProject,
-      state: DebugServerSpec.ManagedBspTestState,
+      state: ManagedBspTestState,
       arguments: List[String] = Nil,
       jvmOptions: List[String] = Nil,
       environmentVariables: List[String] = Nil
