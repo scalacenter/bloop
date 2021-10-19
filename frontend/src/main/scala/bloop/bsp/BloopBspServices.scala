@@ -986,7 +986,8 @@ final class BloopBspServices(
               val capabilities = bsp.BuildTargetCapabilities(
                 canCompile = true,
                 canTest = true,
-                canRun = true
+                canRun = true,
+                canDebug = true,
               )
               val isJavaOnly = p.scalaInstance.isEmpty
               val languageIds =
