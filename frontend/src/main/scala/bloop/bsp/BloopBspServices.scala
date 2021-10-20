@@ -282,8 +282,10 @@ final class BloopBspServices(
               compileProvider = Some(BloopBspServices.DefaultCompileProvider),
               testProvider = Some(BloopBspServices.DefaultTestProvider),
               runProvider = Some(BloopBspServices.DefaultRunProvider),
+              debugProvider = Some(BloopBspServices.DefaultDebugProvider),
               inverseSourcesProvider = Some(true),
               dependencySourcesProvider = Some(true),
+              dependencyModulesProvider = Some(false),
               resourcesProvider = Some(true),
               buildTargetChangedProvider = Some(false),
               jvmTestEnvironmentProvider = Some(true),
@@ -1248,4 +1250,5 @@ object BloopBspServices {
   private[bloop] val DefaultCompileProvider = bsp.CompileProvider(DefaultLanguages)
   private[bloop] val DefaultTestProvider = bsp.TestProvider(DefaultLanguages)
   private[bloop] val DefaultRunProvider = bsp.RunProvider(DefaultLanguages)
+  private[bloop] val DefaultDebugProvider = bsp.DebugProvider(DefaultLanguages)
 }
