@@ -91,7 +91,6 @@ const siteConfig = {
   headerLinks: [
     { page: 'setup', label: 'Install' },
     { doc: 'what-is-bloop', label: 'Docs' },
-    { blog: true, label: 'Blog' },
     { search: true },
     { href: repoUrl, label: 'GitHub' },
   ],
