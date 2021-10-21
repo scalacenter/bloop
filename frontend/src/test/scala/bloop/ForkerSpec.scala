@@ -29,7 +29,9 @@ class ForkerSpec {
          |object $mainClassName {
          |  def main(args: Array[String]): Unit = {
          |    if (args.contains("crash")) throw new Exception
-         |    else if (args.contains("mixed-newlines")) {
+         |    else if (args.contains("print-env")) {
+         |      sys.env.foreach{case (k, v) => println(s"$$k = $$v")}
+         |    } else if (args.contains("mixed-newlines")) {
          |      print("first\\n")
          |      print("second\\r\\n")
          |      print("third\\r\\n")
@@ -49,7 +51,8 @@ class ForkerSpec {
   private def run(
       cwd: AbsolutePath,
       args: Array[String],
-      extraClasspath: Array[AbsolutePath] = Array.empty
+      extraClasspath: Array[AbsolutePath] = Array.empty,
+      envs: List[String] = Nil
   )(
       op: (Int, List[(String, String)]) => Unit
   ): Unit =
@@ -68,7 +71,7 @@ class ForkerSpec {
           mainClass,
           args,
           Array.empty,
-          envVars = Nil,
+          envVars = envs,
           logger.asVerbose,
           opts,
           extraClasspath
@@ -100,6 +103,21 @@ class ForkerSpec {
         assertEquals(0, exitCode.toLong)
         assert(messages.contains(("info", "Arguments: foo, bar, baz")))
         assert(messages.contains(("error", "testing stderr")))
+    }
+  }
+
+  @Test
+  def processEnv(): Unit = TestUtil.withinWorkspace { tmp =>
+    val envs =
+      List(
+        "FOO=bar",
+        "TEST=http://localhost:8086?test=1&foo=bar"
+      )
+    run(tmp, Array("print-env"), envs = envs) {
+      case (exitCode, messages) =>
+        assertEquals(0, exitCode.toLong)
+        assert(messages.contains(("info", "FOO = bar")))
+        assert(messages.contains(("info", "TEST = http://localhost:8086?test=1&foo=bar")))
     }
   }
 

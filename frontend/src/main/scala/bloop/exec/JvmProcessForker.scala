@@ -100,10 +100,14 @@ final class JvmForker(config: JdkConfig, classpath: Array[AbsolutePath]) extends
     val jvmOptions = jargs ++ config.javaOptions
     val fullClasspath = classpath ++ extraClasspath
     val fullClasspathStr = fullClasspath.map(_.syntax).mkString(File.pathSeparator)
-    envVars.map(_.split("=")).collect {
-      case Array(key, value, _*) =>
+    envVars.foreach(line => {
+      val eqIdx = line.indexOf("=")
+      if (eqIdx > 0 && eqIdx != line.length - 1) {
+        val key = line.substring(0, eqIdx)
+        val value = line.substring(eqIdx + 1)
         opts.env.setProperty(key, value)
-    }
+      }
+    })
 
     // Windows max cmd line length is 32767, which seems to be the least of the common shells.
     val processCmdCharLimit = 30000
