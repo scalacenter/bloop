@@ -35,7 +35,7 @@ def main(
   outputBuilder.append("\n")
   outputBuilder.append("\n")
   outputBuilder.append(
-    "For more details about installing Bloop, please see [Bloop's Installation Guide][install-guide]"
+    "For more details about installing Bloop, please see [Bloop's Installation Guide](https://scalacenter.github.io/bloop/setup))"
   )
   outputBuilder.append("\n")
   outputBuilder.append("\n")
