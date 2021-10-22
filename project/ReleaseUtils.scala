@@ -191,7 +191,7 @@ object ReleaseUtils {
     val coursierChannel = bloopCoursierJson.value
     val version = Keys.version.value
     val token = GitUtils.authToken()
-    cloneAndPush(repository, buildBase, version, token, true) { inputs =>
+    cloneAndPush(repository, version, token, true) { inputs =>
       val formulaFileName = "bloop.rb"
       val artifacts = installationArtifacts(coursierChannel, buildBase, Some(inputs.tag))
       val contents = generateHomebrewFormulaContents(version, artifacts)
@@ -241,7 +241,7 @@ object ReleaseUtils {
     val coursierChannel = bloopCoursierJson.value
     val token = GitUtils.authToken()
 
-    cloneAndPush(repository, buildBase, version, token, true) { inputs =>
+    cloneAndPush(repository, version, token, true) { inputs =>
       val formulaFileName = "bloop.json"
       val artifacts = installationArtifacts(coursierChannel, buildBase, Some(inputs.tag))
       val contents = generateScoopFormulaContents(version, artifacts)
@@ -360,7 +360,7 @@ object ReleaseUtils {
     val sshKey = GitUtils.authSshKey()
     val coursierChannel = bloopCoursierJson.value
 
-    cloneAndPush(repository, buildBase, version, sshKey, false) { inputs =>
+    cloneAndPush(repository, version, sshKey, false) { inputs =>
       val buildFile = inputs.base / "PKGBUILD"
       val infoFile = inputs.base / ".SRCINFO"
       val artifacts = installationArtifacts(coursierChannel, buildBase, Some(inputs.tag))
@@ -379,16 +379,13 @@ object ReleaseUtils {
   /** Clones a git repository, generates a formula/package and pushes the result. */
   def cloneAndPush(
       repository: String,
-      buildBase: File,
       version: String,
       auth: GitAuth,
       pushTag: Boolean
   )(
       generateFormula: FormulaInputs => Seq[FormulaArtifact]
   ): Unit = {
-    val tagName = GitUtils.withGit(buildBase)(GitUtils.latestTagIn(_)).getOrElse {
-      throw new MessageOnlyException("No tag found in this repository.")
-    }
+    val tagName = s"v$version"
     IO.withTemporaryDirectory { tmpDir =>
       GitUtils.clone(repository, tmpDir, auth) { gitRepo =>
         val commitMessage = s"Updating to Bloop $tagName"
