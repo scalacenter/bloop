@@ -119,7 +119,7 @@ object ReleaseUtils {
        |  sha256 "${artifacts.bloopCoursier.sha}"
        |  bottle :unneeded
        |
-       |  depends_on "bash-completion"
+       |  depends_on "bash-completion@2"
        |  depends_on "coursier/formulas/coursier"
        |  depends_on "openjdk"
        |
