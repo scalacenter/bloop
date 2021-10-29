@@ -18,10 +18,11 @@ object FishFormat extends Format {
 
   override def showArg(commandName: String, arg: Arg): Option[String] = {
     val completionFn = completionFunction(commandName, arg.name.name)
-    arg.extraNames.headOption.filter(_ => !arg.noHelp).map { name =>
-      val help0 = arg.helpMessage.fold("")("'" + _.message + "'")
+    val name = arg.name
+    arg.helpMessage.map { help0 =>
+      val help = arg.helpMessage.fold("")("'" + _.message + "'")
       val argDesc = if (arg.isFlag) "(_boolean)" else completionFn
-      s"${name.name}#$help0#$argDesc"
+      s"${name.name}#$help#$argDesc"
     }
   }
 

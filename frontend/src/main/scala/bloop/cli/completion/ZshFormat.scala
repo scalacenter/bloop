@@ -18,11 +18,12 @@ object ZshFormat extends Format {
 
   override def showArg(commandName: String, arg: Arg): Option[String] = {
     val completionFn = completionFunction(commandName, arg.name.name)
-    arg.extraNames.headOption.filter(_ => !arg.noHelp).map { name =>
-      val help0 = arg.helpMessage.fold("")("[" + _.message + "]")
+    val name = arg.name.name
+    arg.helpMessage.map { help0 =>
+      val help = ("[" + help0.message + "]")
       val sep = if (arg.isFlag) "=-" else ""
       val argDesc = if (arg.isFlag) "(true false)" else completionFn
-      s"--${name.name}$sep$help0:${name.name}:$argDesc"
+      s"--${name}$sep$help:${name}:$argDesc"
     }
   }
 
