@@ -117,7 +117,6 @@ object ReleaseUtils {
        |  version "$version"
        |  url "${artifacts.bloopCoursier.url}"
        |  sha256 "${artifacts.bloopCoursier.sha}"
-       |  bottle :unneeded
        |
        |  depends_on "bash-completion"
        |  depends_on "coursier/formulas/coursier"
