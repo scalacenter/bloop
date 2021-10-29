@@ -16,7 +16,8 @@ object BashFormat extends Format {
 
   override def showArg(commandName: String, arg: Arg): Option[String] = {
     def completionFn = completionFunction(commandName, arg.name.name).map(" " + _).getOrElse("")
-    arg.extraNames.headOption.filter(_ => !arg.noHelp).map { longName =>
+    val longName = arg.name
+    arg.helpMessage map { _ =>
       s"--${longName.name}${completionFn}"
     }
   }
