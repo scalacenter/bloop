@@ -108,11 +108,6 @@ object BloopComponentCompiler {
       scalaVersion.startsWith("2.13.2")
     }
 
-    private def isTooRecentFor213Before3(bridgeSources: ModuleID): Boolean = {
-      bridgeSources.revision == "1.3.0-M4+45-d4354be3" ||
-      bridgeSources.revision == "1.3.0-M4+46-edbe573e"
-    }
-
     /**
      * Defines a richer interface for Scala users that want to pass in an explicit module id.
      *
@@ -121,13 +116,10 @@ object BloopComponentCompiler {
      */
     private def compiledBridge(bridgeSources0: ModuleID, scalaInstance: ScalaInstance): File = {
       val scalaVersion = scalaInstance.version()
-      val requiresPrevZincVersion =
-        isTooRecentFor213Before3(bridgeSources0) && is213ThatNeedsPreviousZinc(
-          scalaVersion
-        )
       val bridgeSources =
-        if (!requiresPrevZincVersion) bridgeSources0
-        else bridgeSources0.withRevision("1.3.0-M4+42-5daa8ed7")
+        if (is213ThatNeedsPreviousZinc(scalaVersion))
+          bridgeSources0.withRevision("1.3.0-M4+42-5daa8ed7")
+        else bridgeSources0
       val raw = new RawCompiler(scalaInstance, ClasspathOptionsUtil.auto, logger)
       val zinc = new BloopComponentCompiler(raw, manager, bridgeSources, logger, scheduler)
       logger.debug(s"Getting $bridgeSources for Scala ${scalaInstance.version}")(
