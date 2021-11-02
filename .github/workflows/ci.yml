@@ -13,7 +13,7 @@ jobs:
     name: Formatting
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2.3.4
+      - uses: actions/checkout@v2.3.5
       - uses: olafurpg/setup-scala@v13
         with:
           java-version: graalvm-ce-java11@20.1.0
@@ -28,7 +28,7 @@ jobs:
         os: [ubuntu-latest, macOS-latest]
         jdk: [graalvm-ce-java11@20.1.0]
     steps:
-      - uses: actions/checkout@v2.3.4
+      - uses: actions/checkout@v2.3.5
         with:
           submodules: true
       - uses: olafurpg/setup-scala@v13
@@ -62,7 +62,7 @@ jobs:
     env:
       HYDRA_LICENSE: ${{ secrets.HYDRA_LICENSE }}
     steps:
-      - uses: actions/checkout@v2.3.4
+      - uses: actions/checkout@v2.3.5
         with:
           submodules: true
           fetch-depth: 0
@@ -145,7 +145,7 @@ jobs:
       BLOOPOID_GITHUB_TOKEN: ${{ secrets.BLOOPOID_GITHUB_TOKEN }}
       ARTIFACT_NAME: ${{ matrix.artifact }}
     steps:
-      - uses: actions/checkout@v2.3.4
+      - uses: actions/checkout@v2.3.5
         with:
           submodules: true
           fetch-depth: 0
@@ -190,7 +190,7 @@ jobs:
       - name: Refresh Pagefile
         run: |
               (Get-CimInstance Win32_PageFileUsage).AllocatedBaseSize
-      - uses: actions/checkout@v2.3.4
+      - uses: actions/checkout@v2.3.5
         with:
           submodules: true
           fetch-depth: 0
@@ -254,7 +254,7 @@ jobs:
       BLOOPOID_SSH_PUBLIC_KEY: ${{ secrets.BLOOPOID_SSH_PUBLIC_KEY }}
       BLOOPOID_SSH_PRIVATE_KEY: ${{ secrets.BLOOPOID_SSH_PRIVATE_KEY }}
     steps:
-      - uses: actions/checkout@v2.3.4
+      - uses: actions/checkout@v2.3.5
         with:
           submodules: true
           fetch-depth: 0
