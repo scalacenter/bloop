@@ -15,6 +15,7 @@ import monix.execution.Scheduler
 
 import java.net.URLClassLoader
 import scala.collection.mutable
+import java.nio.file.Path
 
 abstract class BloopDebuggeeRunner(initialState: State, ioScheduler: Scheduler)
     extends DebuggeeRunner {
@@ -39,7 +40,8 @@ private final class MainClassDebugAdapter(
     val evaluationClassLoader: Option[ClassLoader],
     env: JdkConfig,
     initialState: State,
-    ioScheduler: Scheduler
+    ioScheduler: Scheduler,
+    override val classPath: Seq[Path]
 ) extends BloopDebuggeeRunner(initialState, ioScheduler) {
   val javaRuntime: Option[JavaRuntime] = JavaRuntime(env.javaHome.underlying)
   def name: String = s"${getClass.getSimpleName}(${project.name}, ${mainClass.`class`})"
@@ -71,7 +73,8 @@ private final class TestSuiteDebugAdapter(
     val javaRuntime: Option[JavaRuntime],
     val evaluationClassLoader: Option[ClassLoader],
     initialState: State,
-    ioScheduler: Scheduler
+    ioScheduler: Scheduler,
+    override val classPath: Seq[Path]
 ) extends BloopDebuggeeRunner(initialState, ioScheduler) {
   override def name: String = {
     val projectsStr = projects.map(_.bspUri).mkString("[", ", ", "]")
@@ -100,7 +103,8 @@ private final class AttachRemoteDebugAdapter(
     val javaRuntime: Option[JavaRuntime],
     val evaluationClassLoader: Option[ClassLoader],
     initialState: State,
-    ioScheduler: Scheduler
+    ioScheduler: Scheduler,
+    override val classPath: Seq[Path]
 ) extends BloopDebuggeeRunner(initialState, ioScheduler) {
   override def name: String = s"${getClass.getSimpleName}(${initialState.build.origin})"
   override def start(state: State): Task[ExitStatus] = Task(ExitStatus.Ok)
@@ -120,6 +124,7 @@ object BloopDebuggeeRunner {
           case jvm: Platform.Jvm =>
             val classPathEntries = getClassPathEntries(state, project)
             val evaluationClassLoader = getEvaluationClassLoader(project, state)
+            val classpath = getClasspath(state, project)
             Right(
               new MainClassDebugAdapter(
                 project,
@@ -128,7 +133,8 @@ object BloopDebuggeeRunner {
                 evaluationClassLoader,
                 jvm.config,
                 state,
-                ioScheduler
+                ioScheduler,
+                classpath
               )
             )
           case platform =>
@@ -151,6 +157,7 @@ object BloopDebuggeeRunner {
         val classPathEntries = getClassPathEntries(state, project)
         val javaRuntime = JavaRuntime(config.javaHome.underlying)
         val evaluationClassLoader = getEvaluationClassLoader(project, state)
+        val classpath = getClasspath(state, project)
         Right(
           new TestSuiteDebugAdapter(
             projects,
@@ -159,12 +166,22 @@ object BloopDebuggeeRunner {
             javaRuntime,
             evaluationClassLoader,
             state,
-            ioScheduler
+            ioScheduler,
+            classpath
           )
         )
       case _ =>
         Right(
-          new TestSuiteDebugAdapter(projects, filters, Seq.empty, None, None, state, ioScheduler)
+          new TestSuiteDebugAdapter(
+            projects,
+            filters,
+            Seq.empty,
+            None,
+            None,
+            state,
+            ioScheduler,
+            Seq.empty
+          )
         )
     }
   }
@@ -180,14 +197,16 @@ object BloopDebuggeeRunner {
         val classPathEntries = getClassPathEntries(state, project)
         val javaRuntime = JavaRuntime(config.javaHome.underlying)
         val evaluationClassLoader = getEvaluationClassLoader(project, state)
+        val classpath = getClasspath(state, project)
         new AttachRemoteDebugAdapter(
           classPathEntries,
           javaRuntime,
           evaluationClassLoader,
           state,
-          ioScheduler
+          ioScheduler,
+          classpath
         )
-      case _ => new AttachRemoteDebugAdapter(Seq.empty, None, None, state, ioScheduler)
+      case _ => new AttachRemoteDebugAdapter(Seq.empty, None, None, state, ioScheduler, Seq.empty)
     }
   }
 
@@ -236,6 +255,11 @@ object BloopDebuggeeRunner {
         }
       }
       .distinct
+  }
+
+  private def getClasspath(state: State, project: Project): Seq[Path] = {
+    val dag = state.build.getDagFor(project)
+    project.fullClasspath(dag, state.client).map(_.underlying).toSeq
   }
 
   private def getClassDirectories(dag: Dag[Project], client: ClientInfo): Seq[ClassPathEntry] = {
