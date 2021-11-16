@@ -1,5 +1,6 @@
 package bloop.testing
 import bloop.util.TestUtil
+import ch.epfl.scala.debugadapter.{util => ch}
 
 object TestPrinterSpec extends BaseSuite {
   test("stripping parts of message created by test framework") {
@@ -13,7 +14,7 @@ object TestPrinterSpec extends BaseSuite {
     testCases.foreach {
       case (testFrameworkMessage, expectedTruncatedMessage) =>
         assertNoDiff(
-          TestUtils.stripTestFrameworkSpecificInformation(testFrameworkMessage),
+          ch.TestUtils.stripTestFrameworkSpecificInformation(testFrameworkMessage),
           expectedTruncatedMessage
         )
     }

@@ -7,7 +7,7 @@ import bloop.engine.caches.ExpressionCompilerCache
 import bloop.engine.tasks.{RunMode, Tasks}
 import bloop.engine.{Dag, State}
 import bloop.logging.Logger
-import bloop.testing.{LoggingEventHandler, TestInternals}
+import bloop.testing.{LoggingEventHandler, DebugLoggingEventHandler, TestInternals}
 import ch.epfl.scala.bsp.ScalaMainClass
 import ch.epfl.scala.debugadapter._
 import monix.eval.Task
@@ -23,14 +23,14 @@ abstract class BloopDebuggeeRunner(initialState: State, ioScheduler: Scheduler)
   override def run(listener: DebuggeeListener): CancelableFuture[Unit] = {
     val debugSessionLogger = new DebuggeeLogger(listener, initialState.logger)
 
-    val task = start(initialState.copy(logger = debugSessionLogger))
+    val task = start(initialState.copy(logger = debugSessionLogger), listener)
       .map { status =>
         if (!status.isOk) throw new Exception(s"debugee failed with ${status.name}")
       }
     DapCancellableFuture.runAsync(task, ioScheduler)
   }
 
-  protected def start(state: State): Task[ExitStatus]
+  protected def start(state: State, listener: DebuggeeListener): Task[ExitStatus]
 }
 
 private final class MainClassDebugAdapter(
@@ -45,7 +45,7 @@ private final class MainClassDebugAdapter(
 ) extends BloopDebuggeeRunner(initialState, ioScheduler) {
   val javaRuntime: Option[JavaRuntime] = JavaRuntime(env.javaHome.underlying)
   def name: String = s"${getClass.getSimpleName}(${project.name}, ${mainClass.`class`})"
-  def start(state: State): Task[ExitStatus] = {
+  def start(state: State, listener: DebuggeeListener): Task[ExitStatus] = {
     val workingDir = state.commonOptions.workingPath
     // TODO: https://github.com/scalacenter/bloop/issues/1456
     // Metals used to add the `-J` prefix but it is not needed anymore
@@ -81,9 +81,9 @@ private final class TestSuiteDebugAdapter(
     val filtersStr = filters.mkString("[", ", ", "]")
     s"${getClass.getSimpleName}($projectsStr, $filtersStr)"
   }
-  override def start(state: State): Task[ExitStatus] = {
+  override def start(state: State, listener: DebuggeeListener): Task[ExitStatus] = {
     val filter = TestInternals.parseFilters(filters)
-    val handler = new LoggingEventHandler(state.logger)
+    val handler = new DebugLoggingEventHandler(state.logger, listener)
 
     val task = Tasks.test(
       state,
@@ -107,7 +107,9 @@ private final class AttachRemoteDebugAdapter(
     override val classPath: Seq[Path]
 ) extends BloopDebuggeeRunner(initialState, ioScheduler) {
   override def name: String = s"${getClass.getSimpleName}(${initialState.build.origin})"
-  override def start(state: State): Task[ExitStatus] = Task(ExitStatus.Ok)
+  override def start(state: State, listener: DebuggeeListener): Task[ExitStatus] = Task(
+    ExitStatus.Ok
+  )
 }
 
 object BloopDebuggeeRunner {

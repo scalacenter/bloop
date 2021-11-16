@@ -10,7 +10,8 @@ import bloop.engine.{Dag, State}
 import bloop.exec.{Forker, JvmProcessForker}
 import bloop.io.AbsolutePath
 import bloop.util.JavaCompat.EnrichOptional
-import bloop.testing.{LoggingEventHandler, TestSuiteEvent, TestSuiteEventHandler}
+import bloop.testing.{LoggingEventHandler, BloopTestSuiteEventHandler}
+import ch.epfl.scala.debugadapter.testing.TestSuiteEvent
 import monix.eval.Task
 import sbt.internal.inc.{Analysis, AnalyzingCompiler, ConcreteAnalysisContents, FileAnalysisStore}
 import sbt.internal.inc.classpath.ClasspathUtilities
@@ -89,7 +90,7 @@ object Tasks {
       projectsToTest: List[Project],
       userTestOptions: List[String],
       testFilter: String => Boolean,
-      testEventHandler: TestSuiteEventHandler,
+      testEventHandler: BloopTestSuiteEventHandler,
       runInParallel: Boolean = false,
       mode: RunMode
   ): Task[State] = {

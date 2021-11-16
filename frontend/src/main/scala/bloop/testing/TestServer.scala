@@ -5,15 +5,15 @@ import java.net.ServerSocket
 
 import bloop.cli.CommonOptions
 import bloop.config.Config
-
-import scala.util.Try
 import bloop.logging.{DebugFilter, Logger}
+import ch.epfl.scala.debugadapter.testing.TestSuiteEvent
 import monix.eval.Task
 import monix.execution.misc.NonFatal
 import sbt.{ForkConfiguration, ForkTags}
 import sbt.testing.{Event, Framework, TaskDef}
 
 import scala.concurrent.Promise
+import scala.util.Try
 
 /**
  * Implements the protocol that the forked remote JVM talks with the host process.
@@ -22,7 +22,7 @@ import scala.concurrent.Promise
  */
 final class TestServer(
     logger: Logger,
-    eventHandler: TestSuiteEventHandler,
+    eventHandler: BloopTestSuiteEventHandler,
     classLoader: ClassLoader,
     discoveredTests: Map[Framework, List[TaskDef]],
     args: List[Config.TestArgument],
