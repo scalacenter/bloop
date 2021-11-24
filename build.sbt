@@ -236,6 +236,13 @@ lazy val sockets: Project = project
     sources in (Compile, doc) := Nil
   )
 
+lazy val tmpDirSettings = Def.settings(
+  javaOptions in Test += {
+    val tmpDir = (baseDirectory in ThisBuild).value / "target" / "tests-tmp"
+    s"-Dbloop.tests.tmp-dir=$tmpDir"
+  }
+)
+
 import build.BuildImplementation.jvmOptions
 // For the moment, the dependency is fixed
 lazy val frontend: Project = project
@@ -287,6 +294,7 @@ lazy val frontend: Project = project
     buildInfoKeys := bloopInfoKeys(nativeBridge04, jsBridge06, jsBridge1),
     javaOptions in run ++= jvmOptions,
     javaOptions in Test ++= jvmOptions,
+    tmpDirSettings,
     javaOptions in IntegrationTest ++= jvmOptions,
     libraryDependencies += Dependencies.graphviz % Test,
     fork in run := true,
@@ -443,7 +451,8 @@ lazy val launcher: Project = project
     parallelExecution in Test := false,
     libraryDependencies ++= List(
       Dependencies.coursierInterface
-    )
+    ),
+    tmpDirSettings
   )
 
 lazy val launcherShaded = project

@@ -41,6 +41,8 @@ import bloop.data.WorkspaceSettings
 import bloop.data.LoadedProject
 import sbt.internal.inc.BloopComponentCompiler
 import java.util.concurrent.TimeoutException
+import java.security.SecureRandom
+import java.util.concurrent.atomic.AtomicInteger
 
 object TestUtil {
   def projectDir(base: Path, name: String) = base.resolve(name)
@@ -448,9 +450,23 @@ object TestUtil {
     }
   }
 
+  private lazy val baseTmpDir = {
+    val basePathStr =
+      sys.props.getOrElse("bloop.tests.tmp-dir", sys.error("bloop.tests.tmp-dir not set"))
+    val basePath = Paths.get(basePathStr)
+    val suffix = math.abs(new SecureRandom().nextInt().toLong)
+    val dir = basePath.resolve(s"run-$suffix")
+    Files.createDirectories(dir)
+    dir.toFile.deleteOnExit()
+    dir
+  }
+
+  private val tmpDirCount = new AtomicInteger
+
   /** Creates an empty workspace where operations can happen. */
   def withinWorkspace[T](op: AbsolutePath => T): T = {
-    val temp = Files.createTempDirectory("bloop-test-workspace")
+    val temp = baseTmpDir.resolve(s"test-${tmpDirCount.incrementAndGet()}")
+    Files.createDirectories(temp)
     try op(AbsolutePath(temp))
     finally delete(AbsolutePath(temp))
   }
