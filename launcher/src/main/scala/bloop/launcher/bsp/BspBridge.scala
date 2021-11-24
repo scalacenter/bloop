@@ -22,6 +22,16 @@ import java.nio.channels.WritableByteChannel
 import java.nio.ByteBuffer
 import java.nio.file.Files
 
+object BspBridge {
+  def printEx(t: Throwable): Unit =
+    if (t != null) {
+      System.err.println(t)
+      for (l <- t.getStackTrace)
+        System.err.println(s"  $l")
+      printEx(t.getCause)
+    }
+}
+
 final class BspBridge(
     clientIn: InputStream,
     clientOut: OutputStream,
@@ -74,13 +84,20 @@ final class BspBridge(
     println(Feedback.openingBspConnection(bspCmd), out)
     val thread = new Thread {
       override def run(): Unit = {
-        // Whenever the connection is broken or the server legitimately stops, this returns
-        bspServerStatus = Some {
-          bspCmd.mkString(" ") -> {
-            // Make it verbose so that bsp preparation logs are emitted
-            val args = bspCmd ++ bloopAdditionalArgs ++ List("--verbose")
-            StatusCommand(cli.run(args.toArray), "")
+        val args = bspCmd ++ bloopAdditionalArgs ++ List("--verbose")
+        try {
+          // Whenever the connection is broken or the server legitimately stops, this returns
+          System.err.println(s"Running $args")
+          bspServerStatus = Some {
+            bspCmd.mkString(" ") -> {
+              // Make it verbose so that bsp preparation logs are emitted
+              StatusCommand(cli.run(args.toArray), "")
+            }
           }
+        } catch {
+          case t: Throwable =>
+            System.err.println(s"Caught $t when running $args")
+            BspBridge.printEx(t)
         }
       }
     }
