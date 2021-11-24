@@ -288,6 +288,10 @@ lazy val frontend: Project = project
     buildInfoKeys := bloopInfoKeys(nativeBridge04, jsBridge06, jsBridge1),
     javaOptions in run ++= jvmOptions,
     javaOptions in Test ++= jvmOptions,
+    javaOptions in Test += {
+      val tmpDir = (baseDirectory in ThisBuild).value / "target" / "tests-tmp"
+      s"-Dbloop.tests.tmp-dir=$tmpDir"
+    },
     javaOptions in IntegrationTest ++= jvmOptions,
     libraryDependencies += Dependencies.graphviz % Test,
     fork in run := true,
