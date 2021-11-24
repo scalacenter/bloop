@@ -5,9 +5,10 @@ import bloop.io.AbsolutePath
 
 import sbt.librarymanagement._
 import sbt.librarymanagement.ivy._
-import coursier.core.Repository
-import coursier.error.CoursierError
-import coursier.{Dependency, Attributes, Type, Classifier, Module, Fetch, Repositories}
+import coursierapi.Repository
+import coursierapi.error.CoursierError
+
+import scala.collection.JavaConverters._
 
 object DependencyResolution {
 
@@ -58,11 +59,9 @@ object DependencyResolution {
     val dependencies = artifacts.map { artifact =>
       import artifact._
       logger.debug(s"Resolving $organization:$module:$version")(DebugFilter.All)
-      val org = coursier.Organization(organization)
-      val moduleName = coursier.ModuleName(module)
-      val attributes =
-        if (!resolveSources) Attributes() else Attributes(Type.empty, Classifier.sources)
-      Dependency(Module(org, moduleName), version).withAttributes(attributes)
+      val baseDep = coursierapi.Dependency.of(organization, module, version)
+      if (resolveSources) baseDep.withClassifier("sources")
+      else baseDep
     }
     resolveDependenciesWithErrors(dependencies, logger, resolveSources, additionalRepositories)
   }
@@ -78,21 +77,19 @@ object DependencyResolution {
    * @return Either a coursier error or all the resolved files.
    */
   def resolveDependenciesWithErrors(
-      dependencies: Seq[Dependency],
+      dependencies: Seq[coursierapi.Dependency],
       logger: Logger,
       resolveSources: Boolean = false,
       additionalRepositories: Seq[Repository] = Nil
   )(implicit ec: scala.concurrent.ExecutionContext): Either[CoursierError, Array[AbsolutePath]] = {
-    var fetch = Fetch()
-      .withDependencies(dependencies)
-    if (resolveSources) {
-      fetch = fetch.addArtifactTypes(Type.source, Type.jar)
-    }
-    for (repository <- additionalRepositories) {
-      fetch = fetch.addRepositories(repository)
-    }
+    var fetch = coursierapi.Fetch
+      .create()
+      .withDependencies(dependencies: _*)
+    if (resolveSources)
+      fetch.addArtifactTypes("src", "jar")
+    fetch.addRepositories(additionalRepositories: _*)
 
-    try Right(fetch.run().map(f => AbsolutePath(f.toPath)).toArray)
+    try Right(fetch.fetch().asScala.toArray.map(f => AbsolutePath(f.toPath)))
     catch {
       case error: CoursierError => Left(error)
     }

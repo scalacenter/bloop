@@ -17,7 +17,6 @@ import java.io.ByteArrayOutputStream
 import scala.concurrent.Promise
 import scala.collection.JavaConverters._
 
-import coursier.paths.CoursierPaths
 import java.io.ByteArrayInputStream
 import bloop.bloopgun.BloopgunCli
 import java.io.PrintStream
@@ -44,7 +43,7 @@ abstract class LauncherBaseSuite(
   val oldIvyHome = Option(System.getProperty("ivy.home"))
   val oldCoursierCacheDir = Option(System.getProperty("coursier.cache"))
   val ivyHome = oldHomeDir.resolve(".ivy2")
-  val coursierCacheDir = AbsolutePath(CoursierPaths.cacheDirectory())
+  val coursierCacheDir = AbsolutePath(coursierapi.Cache.create().getLocation)
   val bloopBinDirectory = AbsolutePath(Files.createTempDirectory("bsp-bin"))
 
   protected val shellWithPython = new Shell(true, true)

@@ -1,7 +1,7 @@
 package bloop.engine.caches
 
 import bloop.logging.Logger
-import coursier.core.Repository
+import coursierapi.Repository
 import bloop.io.AbsolutePath
 import bloop.io.Paths
 import bloop.DependencyResolution
@@ -19,7 +19,7 @@ import scala.util.Success
 import bloop.ComponentLock
 import bloop.SemanticDBCacheLock
 import java.nio.file.Path
-import coursier.error.CoursierError
+import coursierapi.error.CoursierError
 import sbt.internal.inc.BloopComponentCompiler
 
 object SemanticDBCache {

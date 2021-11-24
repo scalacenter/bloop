@@ -10,7 +10,7 @@ import scala.collection.JavaConverters._
 import scala.util.control.NonFatal
 import bloop.DependencyResolution
 import bloop.logging.NoopLogger
-import coursier.Repositories
+import coursierapi.MavenRepository
 
 case class Release(version: String, lastModified: Date) {
   def date: String = {
@@ -32,7 +32,8 @@ object Sonatype {
     val resolvedJars = DependencyResolution.resolve(
       artifacts,
       NoopLogger,
-      additionalRepos = List(Repositories.sonatype("staging"))
+      additionalRepos =
+        List(MavenRepository.of(s"https://oss.sonatype.org/content/repositories/staging"))
     )
 
     val latestStableVersion = resolvedJars.find(_.syntax.contains(artifact)) match {

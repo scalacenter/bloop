@@ -14,7 +14,7 @@ object HydraSupport {
 
   // The Hydra resolver is used to fetch both the bloop-hydra-bridge and the Hydra jars
   val resolver = {
-    coursier.maven.MavenRepository(
+    coursierapi.MavenRepository.of(
       sys.props
         .get("bloop.hydra.resolver")
         .getOrElse("https://repo.triplequote.com/artifactory/libs-release")

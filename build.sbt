@@ -73,8 +73,7 @@ lazy val backend = project
       Dependencies.nailgun,
       Dependencies.scalazCore,
       Dependencies.scalazConcurrent,
-      Dependencies.coursier,
-      Dependencies.coursierCache,
+      Dependencies.coursierInterface,
       Dependencies.libraryManagement,
       Dependencies.sourcecode,
       Dependencies.monix,
@@ -323,8 +322,7 @@ lazy val bloopgun: Project = project
       // Use zt-exec instead of nuprocess because it doesn't require JNA (good for graalvm)
       Dependencies.ztExec,
       Dependencies.slf4jNop,
-      Dependencies.coursier,
-      Dependencies.coursierCache,
+      Dependencies.coursierInterface,
       Dependencies.jsoniterCore,
       Dependencies.jsoniterMacros % Provided,
       // Necessary to compile to native (see https://github.com/coursier/coursier/blob/0bf1c4f364ceff76892751a51361a41dfc478b8d/build.sbt#L376)
@@ -405,14 +403,7 @@ def shadeSettingsForModule(moduleId: String, module: Reference) = List(
     "scopt",
     "macrocompat",
     "com.github.plokhotnyuk.jsoniter_scala",
-    // Coursier direct and transitive deps
-    "coursier",
-    "concurrentrefhashmap",
-    "shapeless",
-    "argonaut",
-    "io.github.alexarchambault.windowsansi",
-    "org.fusesource.hawtjni",
-    "org.fusesource.jansi"
+    "coursierapi"
   )
 )
 
@@ -441,8 +432,7 @@ lazy val launcher: Project = project
     fork in Test := true,
     parallelExecution in Test := false,
     libraryDependencies ++= List(
-      Dependencies.coursier,
-      Dependencies.coursierCache
+      Dependencies.coursierInterface
     )
   )
 
@@ -557,7 +547,7 @@ def shadeSbtSettingsForModule(
       "org.slf4j",
       "scopt",
       "macrocompat",
-      "coursier",
+      "coursierapi",
       "shapeless",
       "argonaut",
       "org.checkerframework",
