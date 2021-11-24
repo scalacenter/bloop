@@ -227,21 +227,10 @@ lazy val jsonConfig213 = crossProject(JSPlatform, JVMPlatform)
     target := (file("config") / "target" / "json-config-2.13" / "js").getAbsoluteFile
   )
 
-lazy val sockets: Project = project
-  .settings(
-    crossPaths := false,
-    autoScalaLibrary := false,
-    description := "IPC: Unix Domain Socket and Windows Named Pipes for Java",
-    libraryDependencies ++= Seq(Dependencies.jna, Dependencies.jnaPlatform),
-    javacOptions ++= Seq("-source", "1.8", "-target", "1.8"),
-    sources in (Compile, doc) := Nil
-  )
-
 import build.BuildImplementation.jvmOptions
 // For the moment, the dependency is fixed
 lazy val frontend: Project = project
   .dependsOn(
-    sockets,
     bloopShared,
     backend,
     backend % "test->test",
@@ -299,7 +288,8 @@ lazy val frontend: Project = project
       Dependencies.scalazCore,
       Dependencies.monix,
       Dependencies.caseApp,
-      Dependencies.scalaDebugAdapter
+      Dependencies.scalaDebugAdapter,
+      Dependencies.ipcsocket
     ),
     dependencyOverrides += Dependencies.shapeless
   )
@@ -434,7 +424,7 @@ lazy val bloopgunShaded = project
 
 lazy val launcher: Project = project
   .disablePlugins(ScriptedPlugin)
-  .dependsOn(sockets, bloopgun, frontend % "test->test")
+  .dependsOn(bloopgun, frontend % "test->test")
   .settings(testSuiteSettings)
   .settings(
     name := "bloop-launcher-core",
@@ -442,7 +432,8 @@ lazy val launcher: Project = project
     parallelExecution in Test := false,
     libraryDependencies ++= List(
       Dependencies.coursier,
-      Dependencies.coursierCache
+      Dependencies.coursierCache,
+      Dependencies.ipcsocket
     )
   )
 
@@ -531,6 +522,7 @@ def shadeSbtSettingsForModule(
             ppath.contains("bcpkix-jdk15on") ||
             ppath.contains("jna") ||
             ppath.contains("jna-platform") ||
+            ppath.contains("ipcsocket") ||
             isJdiJar(path)
         ) && path.exists && !path.isDirectory
 
@@ -614,7 +606,8 @@ lazy val sbtBloop10Shaded: Project =
       "net.java.dev.jna" % "jna" % "4.5.0",
       "net.java.dev.jna" % "jna-platform" % "4.5.0",
       "com.google.code.gson" % "gson" % "2.7",
-      "com.google.code.findbugs" % "jsr305" % "3.0.2"
+      "com.google.code.findbugs" % "jsr305" % "3.0.2",
+      Dependencies.ipcsocket
     )
   )
 
@@ -804,7 +797,6 @@ val allProjects = Seq(
   jsBridge06,
   jsBridge1,
   launcher,
-  sockets,
   bloopgun
 )
 
@@ -844,7 +836,6 @@ val bloop = project
             nativeBridge04,
             jsBridge06,
             jsBridge1,
-            sockets,
             bloopgun,
             launcher,
             bloopgunShaded,
@@ -879,7 +870,6 @@ val bloop = project
             nativeBridge04,
             jsBridge06,
             jsBridge1,
-            sockets,
             bloopgun,
             launcher,
             bloopgunShaded,

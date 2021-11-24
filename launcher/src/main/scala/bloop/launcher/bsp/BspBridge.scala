@@ -9,8 +9,8 @@ import bloop.launcher.core.Feedback
 import bloop.bloopgun.core.Shell
 import bloop.bloopgun.util.Environment
 import bloop.launcher.{printError, printQuoted, println}
-import bloop.sockets.UnixDomainSocket
 import bloop.bloopgun.core.Shell.StatusCommand
+import org.scalasbt.ipcsocket.UnixDomainSocket
 
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.Promise
