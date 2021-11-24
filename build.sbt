@@ -451,8 +451,8 @@ lazy val launcherShaded = project
     bloopGenerate in Compile := None,
     bloopGenerate in Test := None,
     libraryDependencies ++= List(
-      "net.java.dev.jna" % "jna" % "4.5.0",
-      "net.java.dev.jna" % "jna-platform" % "4.5.0",
+      Dependencies.jna,
+      Dependencies.jnaPlatform,
       Dependencies.scalaXml,
       Dependencies.scalaCollectionCompat
     )
