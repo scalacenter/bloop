@@ -323,6 +323,7 @@ lazy val bloopgun: Project = project
       Dependencies.ztExec,
       Dependencies.slf4jNop,
       Dependencies.coursierInterface,
+      Dependencies.coursierInterfaceSubs,
       Dependencies.jsoniterCore,
       Dependencies.jsoniterMacros % Provided,
       // Necessary to compile to native (see https://github.com/coursier/coursier/blob/0bf1c4f364ceff76892751a51361a41dfc478b8d/build.sbt#L376)
