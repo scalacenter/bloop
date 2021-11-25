@@ -38,7 +38,7 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
     if (isDeduplicated) assert(deduplicated) else assert(!deduplicated)
   }
 
-  test("three concurrent clients deduplicate compilation") {
+  def deduplicationTest(): Unit = {
     val logger = new RecordingLogger(ansiCodesSupported = false)
     val logger1 = new RecordingLogger(ansiCodesSupported = false)
     val logger2 = new RecordingLogger(ansiCodesSupported = false)
@@ -172,6 +172,11 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
          """.stripMargin
         )
       }
+    }
+  }
+  test("three concurrent clients deduplicate compilation") {
+    TestUtil.retry() {
+      deduplicationTest()
     }
   }
 
