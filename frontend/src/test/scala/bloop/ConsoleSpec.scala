@@ -5,7 +5,6 @@ import bloop.util.TestUtil
 import bloop.logging.RecordingLogger
 import bloop.util.TestProject
 import bloop.cli.ExitStatus
-import coursier.paths.CoursierPaths
 import scala.util.Properties
 import java.nio.file.Paths
 import bloop.io.AbsolutePath
@@ -35,7 +34,6 @@ object ConsoleSpec extends BaseSuite {
       assert(compiledState.status == ExitStatus.Ok)
       assertValidCompilationState(compiledState, projects)
 
-      val cache = CoursierPaths.cacheDirectory()
       val workspacePath = AbsolutePath(workspace.underlying.toRealPath())
 
       val projectB = state.getProjectFor(`B`)

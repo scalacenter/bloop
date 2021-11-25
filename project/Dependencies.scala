@@ -19,7 +19,6 @@ object Dependencies {
   val javaDebugVersion = "0.21.0+1-7f1080f1"
 
   val scalazVersion = "7.2.20"
-  val coursierVersion = "2.0.16"
   val scalaXmlVersion = "1.2.0"
   val lmVersion = "1.0.0"
   val configDirsVersion = "10"
@@ -68,8 +67,8 @@ object Dependencies {
   val libraryManagement = "org.scala-sbt" %% "librarymanagement-ivy" % lmVersion
   val scalazCore = "org.scalaz" %% "scalaz-core" % scalazVersion
   val scalazConcurrent = "org.scalaz" %% "scalaz-concurrent" % scalazVersion
-  val coursier = "io.get-coursier" %% "coursier" % coursierVersion
-  val coursierCache = "io.get-coursier" %% "coursier-cache" % coursierVersion
+  val coursierInterface = "io.get-coursier" % "interface" % "1.0.4"
+  val coursierInterfaceSubs = "io.get-coursier" % "interface-svm-subs" % "1.0.4"
   val scalaXml = "org.scala-lang.modules" %% "scala-xml" % scalaXmlVersion
   val scalaCollectionCompat = "org.scala-lang.modules" %% "scala-collection-compat" % "2.4.2"
   val shapeless = "com.chuusai" %% "shapeless" % shapelessVersion

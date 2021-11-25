@@ -264,9 +264,8 @@ private[inc] class BloopComponentCompiler(
     IO.withTemporaryDirectory { binaryDirectory =>
       val target = new File(binaryDirectory, s"$compilerBridgeId.jar")
       IO.withTemporaryDirectory { retrieveDirectory =>
-        import coursier.core.Type
         val shouldResolveSources =
-          bridgeSources.explicitArtifacts.exists(_.`type` == Type.source.value)
+          bridgeSources.explicitArtifacts.exists(_.`type` == "src")
         val allArtifacts = BloopDependencyResolution.resolveWithErrors(
           List(
             BloopDependencyResolution

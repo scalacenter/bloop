@@ -13,7 +13,7 @@ import bloop.logging.{DebugFilter, Logger}
 import bloop.util.CrossPlatform
 import monix.eval.Task
 import monix.execution.Cancelable
-import scala.jdk.CollectionConverters._
+import scala.collection.JavaConverters._
 import scala.annotation.tailrec
 import scala.concurrent.duration.FiniteDuration
 import java.io.InputStream

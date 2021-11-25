@@ -2,11 +2,13 @@ package bloop.bloopgun.core
 
 import bloop.bloopgun.util.Feedback
 
-import coursier.core.Repository
-import coursier.error.CoursierError
+import coursierapi.Repository
+import coursierapi.error.CoursierError
 
 import java.nio.file.Path
 import snailgun.logging.Logger
+
+import scala.collection.JavaConverters._
 
 object DependencyResolution {
 
@@ -54,20 +56,16 @@ object DependencyResolution {
       logger: Logger,
       additionalRepositories: Seq[Repository] = Nil
   )(implicit ec: scala.concurrent.ExecutionContext): Either[CoursierError, Array[Path]] = {
-    import coursier._
     logger.info(Feedback.resolvingDependency(s"$organization:$module:$version"))
-    val org = coursier.Organization(organization)
-    val moduleName = coursier.ModuleName(module)
-    val dependency = Dependency(Module(org, moduleName), version)
-    var fetch = Fetch()
+    val dependency = coursierapi.Dependency.of(organization, module, version)
+    val fetch = coursierapi.Fetch
+      .create()
       .addDependencies(dependency)
-    for (repository <- additionalRepositories) {
-      fetch.addRepositories(repository)
-    }
+    fetch.addRepositories(additionalRepositories: _*)
 
-    try Right(fetch.run().map(f => f.toPath).toArray)
+    try Right(fetch.fetch().asScala.toArray.map(f => f.toPath))
     catch {
-      case error: CoursierError => Left(error)
+      case error: coursierapi.error.CoursierError => Left(error)
     }
   }
 }

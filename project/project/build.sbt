@@ -35,8 +35,7 @@ val sbtBloopBuildShadedJar = project
       "com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-macros" % "2.4.0",
       "org.zeroturnaround" % "zt-exec" % "1.11",
       "me.vican.jorge" %% "snailgun-cli" % "0.3.1",
-      "io.get-coursier" %% "coursier" % "2.0.9",
-      "io.get-coursier" %% "coursier-cache" % "2.0.9",
+      "io.get-coursier" % "interface" % "1.0.4",
       "ch.epfl.scala" % "bsp4j" % "2.0.0-M4+10-61e61e87"
     ),
     toShadeClasses := {
@@ -84,7 +83,7 @@ val sbtBloopBuildShadedJar = project
       "io.github.soc",
       "scopt",
       "macrocompat",
-      "coursier",
+      "coursierapi",
       "io.github.alexarchambault",
       "org.fusesource",
       "concurrentrefhashmap",

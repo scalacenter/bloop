@@ -6,7 +6,7 @@ import java.nio.file.Paths
 import bloop.{DependencyResolution => BloopDependencyResolution}
 import bloop.io.AbsolutePath
 import bloop.logging.Logger
-import coursier.maven.MavenRepository
+import coursierapi.MavenRepository
 
 import scala.concurrent.ExecutionContext
 import scala.tools.nsc.Properties
@@ -16,7 +16,7 @@ object HydraCompileSpec extends BaseCompileSpec {
   override protected def extraCompilationMessageOutput: String =
     " [E-1] Using 1 Hydra worker to compile Scala sources."
 
-  private val TriplequoteResolver = MavenRepository(
+  private val TriplequoteResolver = MavenRepository.of(
     "https://repo.triplequote.com/artifactory/libs-release/"
   )
   private val HydraVersion = "2.2.2"
