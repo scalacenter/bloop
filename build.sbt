@@ -325,10 +325,7 @@ lazy val bloopgun: Project = project
       Dependencies.coursierInterface,
       Dependencies.coursierInterfaceSubs,
       Dependencies.jsoniterCore,
-      Dependencies.jsoniterMacros % Provided,
-      // Necessary to compile to native (see https://github.com/coursier/coursier/blob/0bf1c4f364ceff76892751a51361a41dfc478b8d/build.sbt#L376)
-      "org.bouncycastle" % "bcprov-jdk15on" % "1.64",
-      "org.bouncycastle" % "bcpkix-jdk15on" % "1.64"
+      Dependencies.jsoniterMacros % Provided
     ),
     mainClass in GraalVMNativeImage := Some("bloop.bloopgun.Bloopgun"),
     graalVMNativeImageCommand := {
