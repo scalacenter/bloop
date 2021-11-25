@@ -70,14 +70,14 @@ tickets</a>.</p>
 <p>The Bloop plugin for Maven doesn't need to be installed, you can run
 <code>bloopInstall</code>, the task to export your Maven builds to bloop, with the
 following command.</p>
-<pre><code class="hljs css language-bash">$ mvn ch.epfl.scala:maven-bloop_2.13:1.4.10:bloopInstall
+<pre><code class="hljs css language-bash">$ mvn ch.epfl.scala:maven-bloop_2.13:1.4.11:bloopInstall
 </code></pre>
 <p>In some cases, when you are using generated sources in you project
 you might need to run:</p>
-<pre><code class="hljs css language-bash">$ mvn generate-sources ch.epfl.scala:maven-bloop_2.13:1.4.10:bloopInstall
+<pre><code class="hljs css language-bash">$ mvn generate-sources ch.epfl.scala:maven-bloop_2.13:1.4.11:bloopInstall
 </code></pre>
 <p>Note that the following command uses the latest Bloop stable version
-1.4.10.</p>
+1.4.11.</p>
 <p>Here is the list of the latest Bloop stable and development versions. If you
 want to be on the very latest at the cost of misbehaviors, replace the above
 question with the development version.</p>
@@ -89,19 +89,19 @@ question with the development version.</p>
       </thead>
       <tbody>
         <tr>
-          <td>1.4.10</td>
-          <td>21 Oct 2021 11:35</td>
+          <td>1.4.11</td>
+          <td>02 Nov 2021 19:09</td>
           <td><code>-r sonatype:releases</code></td>
         </tr>
         <tr>
-          <td>1.4.11</td>
-          <td>02 Nov 2021 19:12</td>
+          <td>1.4.11-1-01ae12f6</td>
+          <td>25 Nov 2021 14:12</td>
           <td><code>-r sonatype:releases</code></td>
         </tr>
       </tbody>
     </table>
 <p>To build with a single Scala project <code>foo</code> generates two configuration files:</p>
-<pre><code class="hljs css language-bash">$ mvn ch.epfl.scala:maven-bloop_2.10:1.4.10:bloopInstall
+<pre><code class="hljs css language-bash">$ mvn ch.epfl.scala:maven-bloop_2.10:1.4.11:bloopInstall
 (...)
 Generated <span class="hljs-string">'/disk/foo/.bloop/foo.json'</span>.
 Generated <span class="hljs-string">'/disk/foo/.bloop/foo-test.json'</span>.
