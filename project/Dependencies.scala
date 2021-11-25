@@ -8,9 +8,9 @@ object Dependencies {
   val Sbt013Version = "0.13.18"
   val Sbt1Version = "1.3.3"
 
-  val nailgunVersion = "ee3c4343"
+  val nailgunVersion = "057f7de3"
   // Used to download the python client instead of resolving
-  val nailgunCommit = "a2520c1e"
+  val nailgunCommit = "057f7de3"
 
   // Keep in sync in BloopComponentCompiler
   val zincVersion = "1.3.0-M4+47-d881fa2f"
@@ -141,4 +141,6 @@ object Dependencies {
   val jnaPlatform = "net.java.dev.jna" % "jna-platform" % jnaVersion
   val asm = "org.ow2.asm" % "asm" % asmVersion
   val asmUtil = "org.ow2.asm" % "asm-util" % asmVersion
+
+  val libdaemonjvm = "io.github.alexarchambault.libdaemon" %% "libdaemon" % "0.0.2"
 }

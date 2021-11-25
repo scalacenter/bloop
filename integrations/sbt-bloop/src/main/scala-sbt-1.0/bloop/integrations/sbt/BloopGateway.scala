@@ -93,7 +93,7 @@ object BloopGateway {
     val shell = Shell.default
     val started = Promise[Unit]()
     val launcher =
-      new LauncherMain(launcherIn, launcherOut, logOut, charset, shell, None, None, started)
+      new LauncherMain(launcherIn, launcherOut, logOut, charset, shell, Right(None), started)
 
     val exitStatus = new AtomicReference[Option[LauncherStatus]](None)
     val launcherThread = new Thread {

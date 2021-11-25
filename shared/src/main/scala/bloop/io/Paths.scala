@@ -17,6 +17,7 @@ import java.util
 import io.github.soc.directories.ProjectDirectories
 import scala.collection.mutable
 import java.nio.file.NoSuchFileException
+import scala.util.Properties
 
 object Paths {
   private val projectDirectories = ProjectDirectories.from("", "", "bloop")
@@ -27,6 +28,13 @@ object Paths {
   final val bloopDataDir: AbsolutePath = createDirFor(projectDirectories.dataDir)
   final val bloopLogsDir: AbsolutePath = createDirFor(bloopDataDir.resolve("logs").syntax)
   final val bloopConfigDir: AbsolutePath = createDirFor(projectDirectories.configDir)
+
+  final val daemonDir: AbsolutePath = {
+    val baseDir =
+      if (Properties.isMac) bloopCacheDir
+      else bloopDataDir
+    baseDir.resolve("daemon")
+  }
 
   def getCacheDirectory(dirName: String): AbsolutePath = {
     val dir = bloopCacheDir.resolve(dirName)

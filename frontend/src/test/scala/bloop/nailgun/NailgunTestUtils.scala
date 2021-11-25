@@ -11,7 +11,7 @@ import bloop.testing.BaseSuite
 import bloop.logging.{DebugFilter, ProcessLogger, RecordingLogger}
 import bloop.util.{TestUtil, CrossPlatform}
 
-import com.martiansoftware.nailgun.{BloopThreadLocalInputStream, NGServer, ThreadLocalPrintStream}
+import com.martiansoftware.nailgun.{BloopThreadLocalInputStream, NGListeningAddress, NGServer, ThreadLocalPrintStream}
 
 import monix.eval.Task
 import monix.execution.misc.NonFatal
@@ -74,7 +74,7 @@ trait NailgunTestUtils {
       val addr = InetAddress.getLoopbackAddress
       import monix.execution.misc.NonFatal
       try {
-        val server = Server.launchServer(localIn, localOut, localErr, addr, TEST_PORT, log)
+        val server = Server.launchServer(localIn, localOut, localErr, new NGListeningAddress(addr, TEST_PORT), log, None)
         serverIsStarted.success(())
         server.run()
         serverIsFinished.success(())

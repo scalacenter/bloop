@@ -36,7 +36,9 @@ val sbtBloopBuildShadedJar = project
       "org.zeroturnaround" % "zt-exec" % "1.11",
       "me.vican.jorge" %% "snailgun-cli" % "0.3.1",
       "io.get-coursier" % "interface" % "1.0.4",
-      "ch.epfl.scala" % "bsp4j" % "2.0.0-M4+10-61e61e87"
+      "ch.epfl.scala" % "bsp4j" % "2.0.0-M4+10-61e61e87",
+      "io.github.alexarchambault.libdaemon" %% "libdaemon" % "0.0.2",
+      "org.scala-sbt.ipcsocket" % "ipcsocket" % "1.4.0"
     ),
     toShadeClasses := {
       build.Shading.toShadeClasses(
@@ -63,7 +65,10 @@ val sbtBloopBuildShadedJar = project
 
         // Copy over jar and remove signed entries
         if (!path.exists || !path.isFile) Nil
-        else if (ppath.contains("gson") || ppath.contains("jsr") || ppath.contains("jna")) Nil
+        else if (
+          ppath.contains("gson") || ppath.contains("jsr") || ppath.contains("jna") || ppath
+            .contains("ipcsocket") || ppath.contains("coursier-jniutils")
+        ) Nil
         else if (!ppath.contains("eclipse")) List(path)
         else {
           val targetJar = eclipseJarsUnsignedDir.resolve(path.getName)
@@ -74,7 +79,16 @@ val sbtBloopBuildShadedJar = project
 
     },
     shadingNamespace := "shaded.build",
-    shadeIgnoredNamespaces := Set("com.google.gson", "org.slf4j", "scala"),
+    shadeIgnoredNamespaces := Set(
+      "com.google.gson",
+      "org.slf4j",
+      "scala",
+      "org.scalasbt.ipcsocket",
+      "libdaemonjvm",
+      "dev.dirs",
+      "META-INF.versions.16.libdaemonjvm",
+      "coursier.jniutils"
+    ),
     shadeNamespaces := Set(
       "com.github.plokhotnyuk.jsoniter_scala",
       "machinist",

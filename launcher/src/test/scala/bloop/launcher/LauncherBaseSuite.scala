@@ -9,6 +9,7 @@ import bloop.bloopgun.util.Environment
 import bloop.internal.build.BuildTestInfo
 
 import java.nio.file.Files
+import java.nio.file.Path
 import java.io.InputStream
 import java.io.OutputStream
 import java.nio.charset.StandardCharsets
@@ -33,9 +34,12 @@ import snailgun.logging.SnailgunLogger
 abstract class LauncherBaseSuite(
     val bloopVersion: String,
     val bspVersion: String,
-    val bloopServerPort: Int
+    val bloopServerPortOrDaemonDir: Either[Int, Path]
 ) extends BaseSuite {
-  val defaultConfig = ServerConfig(port = Some(bloopServerPort))
+  private val listenOn = bloopServerPortOrDaemonDir.left
+    .map(port => (None, Some(port)))
+    .map(path => Some(path))
+  val defaultConfig = ServerConfig(listenOn = listenOn)
 
   val oldEnv = System.getenv()
   val oldCwd = AbsolutePath(System.getProperty("user.dir"))
@@ -97,7 +101,15 @@ abstract class LauncherBaseSuite(
     val cli = new BloopgunCli(bloopVersion, dummyIn, ps, ps, bloopgunShell)
 
     // Use ng-stop instead of exit b/c it closes the nailgun server but leaves threads hanging
-    val exitCmd = List("--nailgun-port", bloopServerPort.toString, "exit")
+    val exitCmd = {
+      val ngArgs = bloopServerPortOrDaemonDir match {
+        case Left(port) =>
+          List("--nailgun-port", port.toString)
+        case Right(path) =>
+          List("--daemon-dir", path.toString)
+      }
+      ngArgs ::: List("exit")
+    }
     val code = cli.run(exitCmd.toArray)
 
     if (code != 0 && complainIfError) {
@@ -186,15 +198,13 @@ abstract class LauncherBaseSuite(
     import java.io.PrintStream
     val baos = new ByteArrayOutputStream()
     val ps = new PrintStream(baos, true, "UTF-8")
-    val port = Some(bloopServerPort)
     val launcher = new LauncherMain(
       in,
       out,
       ps,
       StandardCharsets.UTF_8,
       shell,
-      None,
-      port,
+      listenOn,
       startedServer
     )
     val run = new LauncherRun(launcher, baos)

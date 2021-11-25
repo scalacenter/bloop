@@ -26,7 +26,7 @@ object LatestStableLauncherSpec extends LauncherSpec("1.3.2")
 object LatestMasterLauncherSpec extends LauncherSpec(BuildInfo.version)
 
 class LauncherSpec(bloopVersion: String)
-    extends LauncherBaseSuite(bloopVersion, BuildInfo.bspVersion, 9014) {
+    extends LauncherBaseSuite(bloopVersion, BuildInfo.bspVersion, Left(9014)) {
   private final val bloopDependency = s"ch.epfl.scala:bloop-frontend_2.12:${bloopVersion}"
   test("fail if arguments are empty") {
     setUpLauncher(shellWithPython) { run =>

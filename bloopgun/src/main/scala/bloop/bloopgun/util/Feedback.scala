@@ -9,7 +9,7 @@ object Feedback {
     s"""Unexpected server args syntax, got: '$obtained', expected: <port> | <host> <port>"""
 
   def serverCouldNotBeStarted(config: ServerConfig): String = {
-    s"Server could not be started at ${config.host}:${config.port}! Giving up..."
+    s"Server could not be started at $config! Giving up..."
   }
 
   def startingBloopServer(config: ServerConfig): String = {

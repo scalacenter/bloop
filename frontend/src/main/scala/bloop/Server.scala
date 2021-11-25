@@ -9,52 +9,121 @@ import bloop.util.ProxySetup
 
 import java.io.InputStream
 import java.io.PrintStream
+import java.nio.channels.ReadableByteChannel
+import java.nio.file.Files
+import java.nio.file.Paths
+import java.util.concurrent.atomic.AtomicBoolean
 
 import com.martiansoftware.nailgun.NGListeningAddress
 import com.martiansoftware.nailgun.NGConstants
 import com.martiansoftware.nailgun.{Alias, NGContext, NGServer}
+import libdaemonjvm._
+import libdaemonjvm.internal.{LockProcess, SocketHandler}
+import libdaemonjvm.server._
 
+import scala.util.Properties
 import scala.util.Try
+import java.net.ServerSocket
+import java.net.Socket
+import java.io.OutputStream
+import java.net.SocketAddress
+import java.nio.channels.Channels
+import libdaemonjvm.internal.SocketMaker
+import java.nio.ByteBuffer
 
 class Server
 object Server {
   private val defaultPort: Int = 8212 // 8100 + 'p'
   def main(args: Array[String]): Unit = {
-    run(instantiateServer(args))
-  }
-
-  private[bloop] def instantiateServer(args: Array[String]): NGServer = {
     def toPortNumber(userPort: String) = Try(userPort.toInt).getOrElse(Server.defaultPort)
-    val (addr, port) = {
-      if (args.length == 0) (InetAddress.getLoopbackAddress(), toPortNumber(""))
-      else if (args.length == 1) (InetAddress.getLoopbackAddress(), toPortNumber(args(0)))
-      else if (args.length == 2) {
-        val addr = InetAddress.getByName(args(0))
-        (addr, toPortNumber(args(1)))
-      } else {
+    val lockFilesOrHostPort = args match {
+      case Array() =>
+        val lockFiles = LockFiles.under(bloop.io.Paths.daemonDir.underlying, "scala_bloop_server")
+        Right(lockFiles)
+      case Array(arg) =>
+        if (arg.startsWith("daemon:")) {
+          val dir = Paths.get(arg.stripPrefix("daemon:"))
+          val lockFiles = LockFiles.under(dir, "scala_bloop_server")
+          Right(lockFiles)
+        } else
+          Left((InetAddress.getLoopbackAddress(), toPortNumber(args(0))))
+      case Array(host, portStr) =>
+        val addr = InetAddress.getByName(host)
+        Left((addr, toPortNumber(portStr)))
+      case _ =>
         throw new IllegalArgumentException(
-          s"Invalid arguments to bloop server: $args, expected: [address] [port]"
+          s"Invalid arguments to bloop server: $args, expected: ([address] [port] | [daemon:path])"
         )
-      }
     }
 
+    lockFilesOrHostPort match {
+      case Left(hostPort) =>
+        startServer(Left(hostPort))
+      case Right(lockFiles) =>
+        Lock.tryAcquire(
+          lockFiles,
+          LockProcess.default,
+          startServer(Right(lockFiles.socketPaths))
+        ) match {
+          case Left(err) => throw new Exception(err)
+          case Right(()) =>
+        }
+    }
+  }
+
+  def startServer(socketPathsOrHostPort: Either[(InetAddress, Int), SocketPaths]): Unit = {
+    val socketAndPathOrHostPort = socketPathsOrHostPort.map { socketPaths =>
+      val socket = SocketHandler.server(socketPaths) match {
+        case Left(socket) => socket
+        case Right(channel) => libdaemonjvm.Util.serverSocketFromChannel(channel)
+      }
+      val socketPath =
+        if (SocketHandler.usesWindowsPipe) socketPaths.windowsPipeName
+        else socketPaths.path.toString
+      (socket, socketPath)
+    }
+    val server = instantiateServer(socketAndPathOrHostPort)
+    val runServer: Runnable = () => server.run()
+    // FIXME Small delay between the time this method returns, and the time we actually
+    // accept connections on the socket. This might make concurrent attempts to start a server
+    // think we are a zombie server, and attempt to listen on the socket too.
+    new Thread(runServer, "bloop-server").start()
+  }
+
+  private[bloop] def instantiateServer(
+      socketAndPathOrHostPort: Either[(InetAddress, Int), (ServerSocket, String)]
+  ): NGServer = {
     val logger = BloopLogger.default("bloop-nailgun-main")
-    launchServer(System.in, System.out, System.err, addr, port, logger)
+    socketAndPathOrHostPort match {
+      case Left((addr, port)) =>
+        val tcpAddress = new NGListeningAddress(addr, port)
+        launchServer(System.in, System.out, System.err, tcpAddress, logger, None)
+      case Right((socket, socketPath)) =>
+        val socketAddress = new NGListeningAddress(socketPath)
+        launchServer(System.in, System.out, System.err, socketAddress, logger, Some(socket))
+    }
   }
 
   private[bloop] def launchServer(
       in: InputStream,
       out: PrintStream,
       err: PrintStream,
-      addr: InetAddress,
-      port: Int,
-      logger: Logger
+      address: NGListeningAddress,
+      logger: Logger,
+      serverSocketOpt: Option[ServerSocket]
   ): NGServer = {
     val javaLogger = new Slf4jAdapter(logger)
-    val address = new NGListeningAddress(addr, port)
     val poolSize = NGServer.DEFAULT_SESSIONPOOLSIZE
     val heartbeatMs = NGConstants.HEARTBEAT_TIMEOUT_MILLIS.toInt
-    val server = new NGServer(address, poolSize, heartbeatMs, in, out, err, javaLogger)
+
+    val domainSocketProvider: NGServer.DomainSocketProvider = { () =>
+      serverSocketOpt.getOrElse(
+        sys.error("Shouldn't be called")
+      )
+    }
+
+    val server =
+      new NGServer(address, poolSize, heartbeatMs, in, out, err, javaLogger, domainSocketProvider)
     registerAliases(server)
     ProxySetup.init()
     server
@@ -73,10 +142,6 @@ object Server {
       })
 
     ()
-  }
-
-  private def run(server: NGServer): Unit = {
-    server.run()
   }
 
   private def registerAliases(server: NGServer): Unit = {

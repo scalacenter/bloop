@@ -298,7 +298,8 @@ lazy val frontend: Project = project
       Dependencies.scalazCore,
       Dependencies.monix,
       Dependencies.caseApp,
-      Dependencies.scalaDebugAdapter
+      Dependencies.scalaDebugAdapter,
+      Dependencies.libdaemonjvm
     ),
     dependencyOverrides += Dependencies.shapeless
   )
@@ -325,7 +326,8 @@ lazy val bloopgun: Project = project
       Dependencies.coursierInterface,
       Dependencies.coursierInterfaceSubs,
       Dependencies.jsoniterCore,
-      Dependencies.jsoniterMacros % Provided
+      Dependencies.jsoniterMacros % Provided,
+      Dependencies.libdaemonjvm
     ),
     mainClass in GraalVMNativeImage := Some("bloop.bloopgun.Bloopgun"),
     graalVMNativeImageCommand := {
@@ -383,14 +385,24 @@ def shadeSettingsForModule(moduleId: String, module: Reference) = List(
           ppath.contains("bcpkix-jdk15on") ||
           ppath.contains("jna") ||
           ppath.contains("jna-platform") ||
-          isJdiJar(path)
+          isJdiJar(path) ||
+          ppath.contains("ipcsocket") ||
+          ppath.contains("libdaemonjvm") ||
+          ppath.contains("coursier-jniutils")
       ) && path.exists && !path.isDirectory
 
       if (!shouldShadeJar) Nil
       else List(path)
     }
   },
-  shadeIgnoredNamespaces := Set("scala"),
+  shadeIgnoredNamespaces := Set(
+    "scala",
+    "org.scalasbt.ipcsocket",
+    "libdaemonjvm",
+    "dev.dirs",
+    "META-INF.versions.16.libdaemonjvm",
+    "coursier.jniutils"
+  ),
   // Lists *all* Scala dependencies transitively for the shading to work correctly
   shadeNamespaces := Set(
     // Bloopgun direct and transitive deps
@@ -498,7 +510,19 @@ def shadeSbtSettingsForModule(
       }.value
     },
     shadeOwnNamespaces := Set("bloop"),
-    shadeIgnoredNamespaces := Set("com.google.gson", "scala"),
+    shadeIgnoredNamespaces := Set(
+      "com.google.gson",
+      "scala",
+      "org.scalasbt.ipcsocket",
+      "libdaemonjvm",
+      "dev.dirs",
+      "META-INF.versions.16.libdaemonjvm",
+      "coursier.jniutils"
+    ),
+    libraryDependencies ++= List(
+      "io.github.alexarchambault.libdaemon" %% "libdaemon" % "0.0.2",
+      "org.scala-sbt.ipcsocket" % "ipcsocket" % "1.4.0"
+    ),
     toShadeJars := {
       val eclipseJarsUnsignedDir = (Keys.crossTarget.value / "eclipse-jars-unsigned").toPath
       java.nio.file.Files.createDirectories(eclipseJarsUnsignedDir)
@@ -519,7 +543,8 @@ def shadeSbtSettingsForModule(
             ppath.contains("bcpkix-jdk15on") ||
             ppath.contains("jna") ||
             ppath.contains("jna-platform") ||
-            isJdiJar(path)
+            isJdiJar(path) ||
+            ppath.contains("ipcsocket") || ppath.contains("coursier-jniutils")
         ) && path.exists && !path.isDirectory
 
         if (!shouldShadeJar) Nil

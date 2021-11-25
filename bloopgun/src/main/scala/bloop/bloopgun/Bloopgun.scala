@@ -2,6 +2,7 @@ package bloop.bloopgun
 
 import bloop.bloopgun.core.Shell
 import bloop.bloopgun.core.DependencyResolution
+import bloop.bloopgun.util.DomainSocketClient
 import bloop.bloopgun.util.Environment
 import bloop.bloopgun.util.Feedback
 import bloop.bloopgun.util.GlobalSettings
@@ -42,6 +43,8 @@ import bloop.bloopgun.core.LocatedServer
 import java.io.InputStreamReader
 import java.io.BufferedReader
 import java.io.IOException
+import snailgun.Client
+import libdaemonjvm.LockFiles
 
 /**
  * The main library entrypoint for bloopgun, the Bloop binary CLI.
@@ -77,8 +80,6 @@ class BloopgunCli(
       shell: Shell
   ) = this(baseBloopVersion, in, out, err, shell, Environment.cwd)
   def run(args: Array[String]): Int = {
-    var setServer: Boolean = false
-    var setPort: Boolean = false
     var parsedServerOptionFlag: Option[String] = None
     var additionalCmdArgs: List[String] = Nil
 
@@ -95,12 +96,46 @@ class BloopgunCli(
         )
       val nailgunServerOpt = builder
         .opt[String]("nailgun-server")
-        .action((server, params) => { setServer = true; params.copy(nailgunServer = server) })
+        .action((server, params) => {
+          params.copy(
+            serverConfig = params.serverConfig.copy(
+              listenOn = {
+                val portOpt = params.serverConfig.listenOn match {
+                  case Left((_, portOpt)) => portOpt
+                  case Right(_) => None
+                }
+                Left((Some(server), portOpt))
+              }
+            )
+          )
+        })
         .text("Specify the host name of the target Bloop server")
       val nailgunPortOpt = builder
         .opt[Int]("nailgun-port")
-        .action((port, params) => { setPort = true; params.copy(nailgunPort = port) })
+        .action((port, params) => {
+          params.copy(
+            serverConfig = params.serverConfig.copy(
+              listenOn = {
+                val hostOpt = params.serverConfig.listenOn match {
+                  case Left((hostOpt, _)) => hostOpt
+                  case Right(_) => None
+                }
+                Left((hostOpt, Some(port)))
+              }
+            )
+          )
+        })
         .text("Specify the port of the target Bloop server")
+      val daemonDirOpt = builder
+        .opt[String]("daemon-dir")
+        .action((dir, params) => {
+          params.copy(
+            serverConfig = params.serverConfig.copy(
+              listenOn = Right(Some(Paths.get(dir)))
+            )
+          )
+        })
+        .text("Specify the daemon directory of the target Bloop server")
       val nailgunShowVersionOpt = builder
         .opt[Unit]("nailgun-showversion")
         .action((_, params) => params.copy(nailgunShowVersion = true))
@@ -128,12 +163,24 @@ class BloopgunCli(
         .action((_, params) => params.copy(server = true))
         .children(
           builder
-            .arg[Int]("<nailgun-port>")
+            .arg[String]("<nailgun-port|daemon:path>")
             .optional()
             .maxOccurs(1)
             .action {
               case (arg, params) =>
-                params.copy(serverConfig = params.serverConfig.copy(port = Some(arg)))
+                if (arg.startsWith("daemon:")) {
+                  val path = Paths.get(arg.stripPrefix("daemon:"))
+                  params.copy(serverConfig = params.serverConfig.copy(listenOn = Right(Some(path))))
+                } else {
+                  val port = arg.toInt // FIXME Catch exceptions?
+                  val hostOpt = params.serverConfig.listenOn match {
+                    case Left((hostOpt, _)) => hostOpt
+                    case Right(_) => None
+                  }
+                  params.copy(serverConfig =
+                    params.serverConfig.copy(listenOn = Left((hostOpt, Some(port))))
+                  )
+                }
             },
           builder
             .opt[String]("server-location")
@@ -170,6 +217,7 @@ class BloopgunCli(
           bloopVersionOpt,
           nailgunServerOpt,
           nailgunPortOpt,
+          daemonDirOpt,
           nailgunHelpOpt,
           nailgunShowVersionOpt,
           nailgunVerboseOpt,
@@ -200,8 +248,8 @@ class BloopgunCli(
         if (params.nailgunShowVersion)
           logger.info(s"Nailgun protocol v${Defaults.Version}")
 
+        val config = params.serverConfig
         if (params.server) {
-          val config = params.serverConfig
           shell.connectToBloopPort(config, logger) match {
             case true => logger.info(s"Server is already running at $config, exiting!"); 0
             case _ if config.fireAndForget =>
@@ -216,13 +264,6 @@ class BloopgunCli(
               }
           }
         } else {
-          val config = ServerConfig(
-            if (setServer) Some(params.nailgunServer)
-            else Defaults.env.get("BLOOP_SERVER"),
-            if (setPort) Some(params.nailgunPort)
-            else Defaults.env.get("BLOOP_PORT").map(_.toInt)
-          )
-
           params.args match {
             case Nil => logger.error("Missing CLI command for Bloop server!"); 1
             case cmd :: cmdArgs => fireCommand(cmd, cmdArgs.toArray, params, config, logger)
@@ -259,33 +300,42 @@ class BloopgunCli(
 
     import Defaults.env
     val streams = Streams(in, out, err)
-    val client = TcpClient(config.userOrDefaultHost, config.userOrDefaultPort)
+    val client: Client = config.listenOnWithDefaults match {
+      case Left((host, port)) =>
+        TcpClient(host, port)
+      case Right(daemonFiles) =>
+        DomainSocketClient(daemonFiles.socketPaths)
+    }
     val noCancel = new AtomicBoolean(false)
 
-    def executeCmd(client: TcpClient) = {
+    def executeCmd(client: Client) = {
       val code = client.run(cmd, cmdArgs, cwd, env, streams, logger, noCancel, isInteractive)
       logger.debug(s"Return code is $code")
       runAfterCommand(cmd, cmdArgs, consoleCmdOutFile, code, logger)
       code
     }
 
+    def noServer(): Int =
+      cmd match {
+        case "ng-stop" | "exit" =>
+          logger.info(s"No server running at ${config}, skipping 'exit' or 'ng-stop' command!")
+          0
+
+        case _ =>
+          // Attempt to start server here, move launcher logic
+          logger.info(s"No server running at ${config}, let's fire one...")
+          fireServer(FireInBackground, params, config, params.bloopVersion, logger) match {
+            case Some(true) => executeCmd(client)
+            case _ => logger.error(Feedback.serverCouldNotBeStarted(config)); 1
+          }
+      }
+
     try executeCmd(client)
     catch {
-      case _: ConnectException =>
-        cmd match {
-          case "ng-stop" | "exit" =>
-            logger.info(s"No server running at ${config}, skipping 'exit' or 'ng-stop' command!")
-            0
-
-          case _ =>
-            // Attempt to start server here, move launcher logic
-            logger.info(s"No server running at ${config}, let's fire one...")
-            fireServer(FireInBackground, params, config, params.bloopVersion, logger) match {
-              case Some(true) => executeCmd(client)
-              case _ => logger.error(Feedback.serverCouldNotBeStarted(config)); 1
-            }
-        }
-
+      case _: ConnectException | _: libdaemonjvm.errors.ConnectExceptionLike =>
+        noServer()
+      case e: IOException if e.getCause.isInstanceOf[org.scalasbt.ipcsocket.NativeErrorException] =>
+        noServer()
     } finally {
       if (consoleCmdOutFile != null) {
         Files.deleteIfExists(consoleCmdOutFile)
@@ -327,7 +377,6 @@ class BloopgunCli(
         exitPromise.success(startServer(found, config, false, logger))
       }
 
-      val port = config.userOrDefaultPort
       var isConnected: Boolean = false
 
       /*
@@ -340,7 +389,7 @@ class BloopgunCli(
       while (!exitPromise.isCompleted && !isConnected) {
         val waitMs = 125.toLong
         Thread.sleep(waitMs)
-        logger.debug(s"Sleeping for ${waitMs}ms until we connect to server port $port")
+        logger.debug(s"Sleeping for ${waitMs}ms until we connect to server")
         isConnected = shell.connectToBloopPort(config, logger)
       }
 
@@ -406,12 +455,18 @@ class BloopgunCli(
     val serverArgs = {
       if (!config.serverArgs.isEmpty) config.serverArgs
       else {
-        (config.host, config.port) match {
-          case (Some(host), Some(port)) => List(host, port.toString)
-          case (None, Some(port)) => List(port.toString)
-          case (None, None) => Nil
-          case (Some(host), None) =>
+        config.listenOn match {
+          case Left((Some(host), Some(port))) => List(host, port.toString)
+          case Left((None, Some(port))) => List(port.toString)
+          case Left((None, None)) =>
+            // not representable via args, will actually make the server use domain sockets
+            Nil
+          case Left((Some(host), None)) =>
             logger.warn(Feedback.unexpectedServerArgsSyntax(host))
+            Nil
+          case Right(Some(path)) =>
+            List(s"daemon:$path")
+          case Right(None) =>
             Nil
         }
       }
