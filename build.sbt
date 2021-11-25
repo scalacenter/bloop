@@ -207,6 +207,7 @@ lazy val frontend: Project = project
       Dependencies.monix,
       Dependencies.caseApp,
       Dependencies.scalaDebugAdapter,
+      Dependencies.libdaemonjvm,
       Dependencies.logback
     )
   )
@@ -231,7 +232,8 @@ lazy val bloopgun = project
       Dependencies.coursierInterface,
       Dependencies.coursierInterfaceSubs,
       Dependencies.jsoniterCore,
-      Dependencies.jsoniterMacros % Provided
+      Dependencies.jsoniterMacros % Provided,
+      Dependencies.libdaemonjvm
     ),
     mainClass in GraalVMNativeImage := Some("bloop.bloopgun.Bloopgun"),
     graalVMNativeImageCommand := {

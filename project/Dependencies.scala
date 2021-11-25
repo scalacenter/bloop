@@ -119,4 +119,6 @@ object Dependencies {
   val jnaPlatform = "net.java.dev.jna" % "jna-platform" % jnaVersion
   val asm = "org.ow2.asm" % "asm" % asmVersion
   val asmUtil = "org.ow2.asm" % "asm-util" % asmVersion
+
+  val libdaemonjvm = "io.github.alexarchambault.libdaemon" %% "libdaemon" % "0.0.4"
 }

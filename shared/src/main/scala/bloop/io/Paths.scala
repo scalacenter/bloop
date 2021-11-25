@@ -1,7 +1,7 @@
 package bloop.io
 
 import java.io.IOException
-import java.nio.file.attribute.{BasicFileAttributes, FileTime}
+import java.nio.file.attribute.{BasicFileAttributes, FileTime, PosixFilePermissions}
 import java.nio.file.{
   DirectoryNotEmptyException,
   FileSystems,
@@ -17,6 +17,7 @@ import java.util
 import io.github.soc.directories.ProjectDirectories
 import scala.collection.mutable
 import java.nio.file.NoSuchFileException
+import scala.util.Properties
 
 object Paths {
   private val projectDirectories = ProjectDirectories.from("", "", "bloop")
@@ -27,6 +28,25 @@ object Paths {
   final val bloopDataDir: AbsolutePath = createDirFor(projectDirectories.dataDir)
   final val bloopLogsDir: AbsolutePath = createDirFor(bloopDataDir.resolve("logs").syntax)
   final val bloopConfigDir: AbsolutePath = createDirFor(projectDirectories.configDir)
+
+  final val daemonDir: AbsolutePath = {
+    val baseDir =
+      if (Properties.isMac) bloopCacheDir
+      else bloopDataDir
+    val dir = baseDir.resolve("daemon")
+    if (!Files.exists(dir.underlying)) {
+      Files.createDirectories(dir.underlying)
+      if (!Properties.isWin) {
+        Files.setPosixFilePermissions(
+          dir.underlying,
+          PosixFilePermissions.fromString("rwx------")
+        )
+      }
+    }
+    dir
+  }
+
+  final val pipeName: String = "scala_bloop_server"
 
   def getCacheDirectory(dirName: String): AbsolutePath = {
     val dir = bloopCacheDir.resolve(dirName)

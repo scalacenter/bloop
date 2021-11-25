@@ -216,7 +216,7 @@ object NailgunSpec extends BaseSuite with NailgunTestUtils {
     // Make sure that we never end up with a background nailgun server running
     val cwd = Paths.get(System.getProperty("user.dir"))
     val client = Client(super.TEST_PORT, new RecordingLogger(), cwd)
-    val process = client.issueAsProcess("exit")
+    val process = client.issueAsProcess("exit", "--soft")
     process.waitFor(1, TimeUnit.SECONDS)
 
     bloop.io.Paths.delete(workspace)

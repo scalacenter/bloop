@@ -5,7 +5,8 @@ import scala.concurrent.Promise
 import bloop.bloopgun.util.Environment
 import bloop.internal.build.BuildInfo
 
-object GlobalSettingsSpec extends LauncherBaseSuite(BuildInfo.version, BuildInfo.bspVersion, 9014) {
+object GlobalSettingsSpec extends LauncherBaseSuite(BuildInfo.version, BuildInfo.bspVersion) {
+  val listenOn = Left(9014)
   val launcherArguments = Array(bloopVersion, "--skip-bsp-connection")
 
   def writeJsonSettings(json: String): Unit = {
@@ -23,7 +24,8 @@ object GlobalSettingsSpec extends LauncherBaseSuite(BuildInfo.version, BuildInfo
       in = System.in,
       out = System.out,
       startedServer = Promise[Unit](),
-      shell = shellWithPython
+      shell = shellWithPython,
+      bloopServerPortOrDaemonDir = listenOn
     ) { run =>
       val status = run.launcher.cli(launcherArguments)
       fn(run, status)
@@ -32,7 +34,7 @@ object GlobalSettingsSpec extends LauncherBaseSuite(BuildInfo.version, BuildInfo
 
   def runBspLauncherWithGlobalJsonSettings(json: String)(fn: BspLauncherResult => Unit): Unit = {
     writeJsonSettings(json)
-    val result = runBspLauncherWithEnvironment(launcherArguments, shellWithPython)
+    val result = runBspLauncherWithEnvironment(launcherArguments, shellWithPython, listenOn)
     fn(result)
   }
 

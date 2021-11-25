@@ -83,9 +83,9 @@ trait NailgunTestUtils {
           localIn,
           localOut,
           localErr,
-          addr,
-          TEST_PORT,
-          log
+          new NGListeningAddress(addr, TEST_PORT),
+          log,
+          None
         )
         serverIsStarted.success(())
         server.run()
@@ -113,9 +113,9 @@ trait NailgunTestUtils {
          * This suggests that the nailgun 'exit' method isn't Windows friendly somehow, but
          * for the sake of development I'm merging this since this method will be rarely called. */
         if (CrossPlatform.isWindows) {
-          val exitStatusCode = client.issue("exit")
+          val exitStatusCode = client.issue("exit", "--soft")
           log.debug(s"The status code for exit in Windows was ${exitStatusCode}.")
-        } else client.expectSuccess("exit")
+        } else client.expectSuccess("exit", "--soft")
       }
 
       System.in.synchronized {
