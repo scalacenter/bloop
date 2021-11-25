@@ -516,3 +516,16 @@ addCommandAlias(
 
 val allReleaseActions = List("releaseEarlyAllModules", "sonatypeBundleRelease")
 addCommandAlias("releaseBloop", allReleaseActions.mkString(";", ";", ""))
+
+lazy val stuff = project
+  .aggregate(
+    sockets,
+    frontend,
+    backend,
+    launcher,
+    bloopgun,
+    launcherShaded,
+    bloopShared,
+    jsonConfig212.jvm,
+    jsBridge1
+  )
