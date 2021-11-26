@@ -42,6 +42,7 @@ jobs:
           key: ${{ hashFiles('project/GradleIntegration.scala') }}
       - name: Tests
         run: |
+          .github/nailgun-publish-local.sh &&\
           ./bin/sbt-ci.sh \
               "mavenBloop/publishM2" \
               "mavenBloop/test" \
@@ -90,6 +91,7 @@ jobs:
         shell: bash
       - name: Compile and test main projects
         run: |
+          .github/nailgun-publish-local.sh &&\
           ./bin/sbt-ci.sh \
               "frontend/test:compile" \
               "sbtBloop013/compile" \
@@ -154,6 +156,7 @@ jobs:
           java-version: ${{ matrix.jdk }}
       - name: Publish GraalVM Native artifacts
         run: |
+          .github/nailgun-publish-local.sh
           echo $JAVA_HOME
           which gu
           gu install native-image
@@ -208,7 +211,7 @@ jobs:
         # cmd.
         # Keep the sbt version in sync with `sbt-ci-release.bat`.
         run: |
-          sbt -sbt-version 1.3.3 version
+          .github/nailgun-publish-local.sh && sbt -sbt-version 1.3.3 version
         shell: bash
       - name: Publish GraalVM Native artifacts
         run: >-
