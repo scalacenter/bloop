@@ -3,6 +3,7 @@ package bloop.launcher
 import java.io._
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
+import java.nio.file.Path
 
 import bloop.internal.build.BuildInfo
 import bloop.bloopgun.util.Environment
@@ -22,11 +23,13 @@ import bloop.launcher.core.{Feedback => LauncherFeedback}
 import bloop.bloopgun.util.{Feedback => BloopgunFeedback}
 import bloop.bloopgun.core.AvailableAtPath
 
-object LatestStableLauncherSpec extends LauncherSpec("1.3.2")
-object LatestMasterLauncherSpec extends LauncherSpec(BuildInfo.version)
+object LatestStableLauncherSpec extends LauncherSpec("1.3.2", Left(9014))
+object LatestMasterLauncherSpec extends LauncherSpec(BuildInfo.version, Left(9014))
+object LatestMasterLauncherDomainSocketSpec
+    extends LauncherSpec(BuildInfo.version, Right(TestUtil.tmpDir()))
 
-class LauncherSpec(bloopVersion: String)
-    extends LauncherBaseSuite(bloopVersion, BuildInfo.bspVersion, Left(9014)) {
+class LauncherSpec(bloopVersion: String, bloopServerPortOrDaemonDir: Either[Int, Path])
+    extends LauncherBaseSuite(bloopVersion, BuildInfo.bspVersion, bloopServerPortOrDaemonDir) {
   private final val bloopDependency = s"ch.epfl.scala:bloop-frontend_2.12:${bloopVersion}"
   test("fail if arguments are empty") {
     setUpLauncher(shellWithPython) { run =>

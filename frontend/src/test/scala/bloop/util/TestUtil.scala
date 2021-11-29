@@ -463,6 +463,12 @@ object TestUtil {
 
   private val tmpDirCount = new AtomicInteger
 
+  def tmpDir(): Path = {
+    val dir = baseTmpDir.resolve(s"tmp-dir-${tmpDirCount.incrementAndGet()}")
+    Files.createDirectories(dir)
+    dir
+  }
+
   /** Creates an empty workspace where operations can happen. */
   def withinWorkspace[T](op: AbsolutePath => T): T = {
     val temp = baseTmpDir.resolve(s"test-${tmpDirCount.incrementAndGet()}")
