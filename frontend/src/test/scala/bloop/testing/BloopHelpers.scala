@@ -330,6 +330,8 @@ trait BloopHelpers {
     import java.nio.file.StandardOpenOption
     val body = Try(TestUtil.parseFile(contents)).map(_.contents).getOrElse(contents)
 
+    Files.createDirectories(path.underlying.getParent)
+
     // Running this piece in Windows can produce spurious `AccessDeniedException`s
     if (!bloop.util.CrossPlatform.isWindows) {
       // Delete the file, there are weird issues when creating new files and
