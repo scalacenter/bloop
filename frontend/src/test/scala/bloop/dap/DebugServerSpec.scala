@@ -32,6 +32,11 @@ object DebugServerSpec extends DebugBspBaseSuite {
   private val ServerNotListening = new IllegalStateException("Server is not accepting connections")
   private val Success: ExitStatus = ExitStatus.Ok
 
+  override def test(name: String)(fun: => Any): Unit =
+    super.test(name) {
+      TestUtil.retry()(fun)
+    }
+
   test("cancelling server closes server connection") {
     startDebugServer(Task.now(Success)) { server =>
       val test = for {

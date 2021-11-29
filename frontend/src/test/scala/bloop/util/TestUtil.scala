@@ -616,4 +616,28 @@ object TestUtil {
     try new String(Stream.continually(inputStream.read).takeWhile(_ != -1).map(_.toByte).toArray)
     finally inputStream.close()
   }
+
+  def retry[T](
+      attempts: Int = if (System.getenv("CI") == null) 1 else 3
+  )(
+      f: => T
+  ): T = {
+    def helper(count: Int): T = {
+      val resOpt =
+        try Some(f)
+        catch {
+          case NonFatal(e) =>
+            if (count < attempts) {
+              System.err.println(s"Caught $e, trying again")
+              None
+            } else
+              throw new Exception(e)
+        }
+      resOpt match {
+        case Some(res) => res
+        case None => helper(count + 1)
+      }
+    }
+    helper(1)
+  }
 }
