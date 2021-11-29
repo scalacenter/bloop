@@ -39,12 +39,6 @@ class LauncherSpec(bloopVersion: String, bloopServerPortOrDaemonDir: Either[Int,
     }
   }
 
-  test("check that environment is correctly mocked") {
-    val parentDir = this.bloopBinDirectory.getParent
-    assert(parentDir.underlying == Environment.cwd.getParent)
-    assert(parentDir.underlying == Environment.homeDirectory.getParent)
-  }
-
   test("check that python is in the classpath") {
     // Python must always be in the classpath in order to run these tests, if this fails install it
     assert(shellWithPython.isPythonInClasspath)

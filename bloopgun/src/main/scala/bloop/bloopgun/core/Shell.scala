@@ -67,9 +67,6 @@ final class Shell(runWithInterpreter: Boolean, detectPython: Boolean) {
   ): StatusCommand = {
     import scala.collection.JavaConverters._
     val builder = new ProcessBuilder()
-    val newEnv = builder.environment()
-    newEnv.putAll(System.getenv())
-    addAdditionalEnvironmentVariables(newEnv)
 
     val cmd = deriveCommandForPlatform(cmd0, attachTerminal)
     val code = builder.command(cmd.asJava).directory(cwd.toFile).inheritIO().start().waitFor()
@@ -90,10 +87,6 @@ final class Shell(runWithInterpreter: Boolean, detectPython: Boolean) {
     val outBuilder = StringBuilder.newBuilder
     val cmd = deriveCommandForPlatform(cmd0, attachTerminal)
     val executor = new ProcessExecutor(cmd: _*)
-
-    val newEnv = executor.getEnvironment()
-    newEnv.putAll(System.getenv())
-    addAdditionalEnvironmentVariables(newEnv)
 
     executor
       .directory(cwd.toFile)
@@ -129,21 +122,6 @@ final class Shell(runWithInterpreter: Boolean, detectPython: Boolean) {
         val cmd = if (attachTerminal) s"(${cmd0.mkString(" ")}) </dev/tty" else cmd0.mkString(" ")
         List("sh", "-c", cmd)
       }
-    }
-  }
-
-  // Add coursier cache and ivy home system properties if set and not available in env
-  protected def addAdditionalEnvironmentVariables(env: java.util.Map[String, String]): Unit = {
-    Option(System.getProperty("coursier.cache")).foreach { cache =>
-      val coursierKey = "COURSIER_CACHE"
-      if (env.containsKey(coursierKey)) ()
-      else env.put(coursierKey, cache)
-    }
-
-    Option(System.getProperty("ivy.home")).foreach { ivyHome =>
-      val ivyHomeKey = "IVY_HOME"
-      if (env.containsKey(ivyHomeKey)) ()
-      else env.put(ivyHomeKey, ivyHome)
     }
   }
 
