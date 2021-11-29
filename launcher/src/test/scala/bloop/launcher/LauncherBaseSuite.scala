@@ -37,51 +37,18 @@ abstract class LauncherBaseSuite(
 ) extends BaseSuite {
   val defaultConfig = ServerConfig(port = Some(bloopServerPort))
 
-  val oldEnv = System.getenv()
-  val oldCwd = AbsolutePath(System.getProperty("user.dir"))
-  val oldHomeDir = AbsolutePath(System.getProperty("user.home"))
-  val oldIvyHome = Option(System.getProperty("ivy.home"))
-  val oldCoursierCacheDir = Option(System.getProperty("coursier.cache"))
-  val ivyHome = oldHomeDir.resolve(".ivy2")
-  val coursierCacheDir = AbsolutePath(coursierapi.Cache.create().getLocation)
-  val bloopBinDirectory = AbsolutePath(Files.createTempDirectory("bsp-bin"))
-
   protected val shellWithPython = new Shell(true, true)
 
   // Init code acting as beforeAll()
   stopServer(complainIfError = false)
-  prependToPath(bloopBinDirectory.syntax)
-  System.setProperty("ivy.home", ivyHome.syntax)
-  System.setProperty("bloop.home", AbsolutePath(BuildTestInfo.baseDirectory).syntax)
-  System.setProperty("coursier.cache", coursierCacheDir.syntax)
-
-  // Hijack so that lookup for bloop in PATH fails even if this machine has bloop installed
-  val hijackedBloop = bloopBinDirectory.resolve("bloop")
-  val hijackedBloopServer = bloopBinDirectory.resolve("blp-server")
-  writeFile(hijackedBloop, "I am not a script and I must fail to be executed")
-  // Add empty contents to blp-server so that `ServerStatus.findServerToRun` doesn't find a valid server
-  writeFile(hijackedBloopServer, "")
-  hijackedBloop.toFile.setExecutable(true)
-  hijackedBloopServer.toFile.setExecutable(true)
-  assertIsFile(hijackedBloop)
-  assertIsFile(hijackedBloopServer)
 
   override def test(name: String)(fun: => Any): Unit = {
-    val newCwd = AbsolutePath(Files.createTempDirectory("cwd-test"))
-    val newHome = AbsolutePath(Files.createTempDirectory("home-test"))
-
     val newFun = () => {
       try {
         stopServer(complainIfError = false)
-        System.setProperty("user.dir", newCwd.syntax)
-        System.setProperty("user.home", newHome.syntax)
         fun
       } finally {
         stopServer(complainIfError = true)
-        System.setProperty("user.dir", oldCwd.syntax)
-        System.setProperty("user.home", oldHomeDir.syntax)
-        Paths.delete(newCwd)
-        Paths.delete(newHome)
         ()
       }
     }
@@ -107,28 +74,7 @@ abstract class LauncherBaseSuite(
     }
   }
 
-  override def afterAll(): Unit = {
-    super.afterAll()
-    oldIvyHome.foreach(h => System.setProperty("ivy.home", h))
-    oldCoursierCacheDir.foreach(c => System.setProperty("coursier.cache", c))
-    val newOldMap = oldEnv.asScala.toMap.asJava
-    changeEnvironment(newOldMap)
-    Paths.delete(bloopBinDirectory)
-  }
-
   import java.{util => ju}
-  private def prependToPath(newEntry: String): Unit = {
-    import java.io.File
-    import bloop.util.CrossPlatform
-    val pathVariableName = if (CrossPlatform.isWindows) "Path" else "PATH"
-    val ourEnv = System.getenv().asScala.toMap
-    val currentPath = ourEnv
-      .get(pathVariableName)
-      .orElse(ourEnv.get("PATH"))
-      .getOrElse(sys.error(s"No Path or PATH in env!"))
-    val newPath = newEntry + File.pathSeparator + currentPath
-    changeEnvironment((ourEnv + (pathVariableName -> newPath)).asJava)
-  }
 
   private def changeEnvironment(newEnv: ju.Map[String, String]): Unit = {
     // From https://stackoverflow.com/questions/318239/how-do-i-set-environment-variables-from-java
