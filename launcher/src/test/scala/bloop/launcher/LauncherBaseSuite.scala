@@ -44,12 +44,12 @@ abstract class LauncherBaseSuite(
   protected val shellWithPython = new Shell(true, true)
 
   // Init code acting as beforeAll()
-  stopServer(complainIfError = false)
+  stopServer(complainIfError = true)
 
   override def test(name: String)(fun: => Any): Unit = {
     val newFun = () => {
       try {
-        stopServer(complainIfError = false)
+        stopServer(complainIfError = true)
         fun
       } finally {
         stopServer(complainIfError = true)
