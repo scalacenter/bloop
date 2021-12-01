@@ -77,13 +77,20 @@ object Server {
         case Left(socket) => socket
         case Right(channel) => libdaemonjvm.Util.serverSocketFromChannel(channel)
       }
-      val socketPath =
-        if (SocketHandler.usesWindowsPipe) socketPaths.windowsPipeName
-        else socketPaths.path.toString
-      (socket, socketPath)
+      val (socketPathStr, socketPathOpt) =
+        if (SocketHandler.usesWindowsPipe) (socketPaths.windowsPipeName, None)
+        else (socketPaths.path.toString, Some(socketPaths.path))
+      (socket, socketPathStr, socketPathOpt)
     }
-    val server = instantiateServer(socketAndPathOrHostPort)
-    val runServer: Runnable = () => server.run()
+    val server = instantiateServer(socketAndPathOrHostPort.map {
+      case (sock, path, _) => (sock, path)
+    })
+    val runServer: Runnable = () =>
+      try server.run()
+      finally {
+        for (path <- socketAndPathOrHostPort.toOption.flatMap(_._3))
+          Files.deleteIfExists(path)
+      }
     // FIXME Small delay between the time this method returns, and the time we actually
     // accept connections on the socket. This might make concurrent attempts to start a server
     // think we are a zombie server, and attempt to listen on the socket too.
