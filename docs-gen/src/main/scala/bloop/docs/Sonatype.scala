@@ -27,7 +27,7 @@ object Sonatype {
   /** Returns the latest published snapshot release, or the current release if. */
   private def fetchLatest(artifact: String): Release = {
     val artifacts = List(
-      DependencyResolution.Artifact("ch.epfl.scala", artifact, "latest.stable")
+      DependencyResolution.Artifact("io.github.alexarchambault.compserv", artifact, "latest.stable")
     )
     val resolvedJars = DependencyResolution.resolve(
       artifacts,

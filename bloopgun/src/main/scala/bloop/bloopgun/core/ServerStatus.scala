@@ -21,7 +21,7 @@ object ServerStatus {
   def resolveServer(bloopVersion: String, logger: Logger) = {
     import scala.concurrent.ExecutionContext.Implicits.global
     DependencyResolution.resolveWithErrors(
-      "ch.epfl.scala",
+      "io.github.alexarchambault.compserv",
       "bloop-frontend_2.12",
       bloopVersion,
       logger

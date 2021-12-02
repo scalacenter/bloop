@@ -143,7 +143,7 @@ object BuildImplementation {
 
   private final val ThisRepo = GitHub("scalacenter", "bloop")
   final val buildSettings: Seq[Def.Setting[_]] = Seq(
-    Keys.organization := "ch.epfl.scala",
+    Keys.organization := "io.github.alexarchambault.compserv",
     Keys.updateOptions := Keys.updateOptions.value.withCachedResolution(true),
     Keys.scalaVersion := Dependencies.Scala212Version,
     Keys.homepage := Some(ThisRepo),

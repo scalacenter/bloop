@@ -111,7 +111,7 @@ class BloopComponentManager(
   }
 
   private def secondaryCacheFile(id: String, dir: File): File = {
-    new File(new File(dir, "ch.epfl.scala"), s"$id-${BloopComponentManager.stampedVersion}.jar")
+    new File(new File(dir, "io.github.alexarchambault.compserv"), s"$id-${BloopComponentManager.stampedVersion}.jar")
   }
 }
 
