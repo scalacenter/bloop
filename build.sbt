@@ -297,10 +297,7 @@ lazy val bloopgun: Project = project
     },
     graalVMNativeImageOptions ++= {
       val reflectionFile = Keys.sourceDirectory.in(Compile).value./("graal")./("reflection.json")
-      val securityOverridesFile =
-        Keys.sourceDirectory.in(Compile).value./("graal")./("java.security.overrides")
       assert(reflectionFile.exists)
-      assert(securityOverridesFile.exists)
       List(
         "--no-server",
         "--enable-http",
@@ -311,8 +308,6 @@ lazy val bloopgun: Project = project
         s"-H:ReflectionConfigurationFiles=$reflectionFile",
         "--allow-incomplete-classpath",
         "-H:+ReportExceptionStackTraces",
-        s"-J-Djava.security.properties=$securityOverridesFile",
-        s"-Djava.security.properties=$securityOverridesFile",
         "--initialize-at-build-time=scala.Symbol",
         "--initialize-at-build-time=scala.Function1",
         "--initialize-at-build-time=scala.Function2",
