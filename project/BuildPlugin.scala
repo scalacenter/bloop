@@ -54,7 +54,6 @@ object BuildKeys {
 
   val bloopName = Def.settingKey[String]("The name to use in build info generated code")
   val nailgunClientLocation = Def.settingKey[sbt.File]("Where to find the python nailgun client")
-  val publishLocalAllModules = Def.taskKey[Unit]("Publish all modules locally")
 
   // This has to be change every time the bloop config files format changes.
   val schemaVersion = Def.settingKey[String]("The schema version for our bloop build.")
@@ -219,17 +218,6 @@ object BuildImplementation {
         BuildInfoKeys.buildInfoPackage in Test := "bloop.internal.build",
         BuildInfoKeys.buildInfoObject in Test := "BuildTestInfo"
       )
-    }
-
-    def publishLocalAllModules(projects: Seq[sbt.ProjectReference]): Def.Initialize[Task[Unit]] = {
-      Def.taskDyn {
-        val filter = sbt.ScopeFilter(
-          sbt.inProjects(projects: _*),
-          sbt.inConfigurations(sbt.Compile)
-        )
-
-        Keys.publishLocal.all(filter).map(_ => ())
-      }
     }
 
     /**

@@ -15,21 +15,8 @@ lazy val shared = project
     )
   )
 
-/**
- * ************************************************************************************************
- */
-/*                            This is the build definition of the wrapper                          */
-/**
- * ************************************************************************************************
- */
 import build.Dependencies
-import build.Dependencies.{
-  Scala210Version,
-  Scala211Version,
-  Scala212Version,
-  Sbt013Version,
-  Sbt1Version
-}
+import build.Dependencies.Scala212Version
 
 lazy val backend = project
   .enablePlugins(BuildInfoPlugin)
@@ -196,8 +183,7 @@ lazy val frontend: Project = project
       Dependencies.monix,
       Dependencies.caseApp,
       Dependencies.scalaDebugAdapter
-    ),
-    dependencyOverrides += Dependencies.shapeless
+    )
   )
 
 lazy val bloopgun = project
@@ -312,52 +298,6 @@ lazy val nativeBridge04 = project
     libraryDependencies += Dependencies.scalaNativeTools04,
     javaOptions in Test ++= jvmOptions,
     fork in Test := true
-  )
-
-val allProjects = Seq(
-  shared,
-  backend,
-  frontend,
-  config.jvm,
-  config.js,
-  jsonConfig213.jvm,
-  jsonConfig213.js,
-  nativeBridge04,
-  jsBridge06,
-  jsBridge1,
-  launcher,
-  sockets,
-  bloopgun
-)
-
-val allProjectReferences = allProjects.map(p => LocalProject(p.id))
-val bloop = project
-  .in(file("."))
-  .aggregate(allProjectReferences: _*)
-  .settings(
-    skip in publish := true,
-    crossSbtVersions := Seq(Sbt1Version, Sbt013Version),
-    publishLocalAllModules := {
-      BuildDefaults
-        .publishLocalAllModules(
-          List(
-            shared,
-            backend,
-            frontend,
-            config.js,
-            config.jvm,
-            jsonConfig213.js,
-            jsonConfig213.jvm,
-            nativeBridge04,
-            jsBridge06,
-            jsBridge1,
-            sockets,
-            bloopgun,
-            launcher
-          )
-        )
-        .value
-    }
   )
 
 lazy val stuff = project
