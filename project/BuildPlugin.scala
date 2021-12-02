@@ -2,8 +2,6 @@ package build
 
 import java.io.File
 
-import ch.epfl.scala.sbt.release.Feedback
-import com.jsuereth.sbtpgp.SbtPgp.{autoImport => Pgp}
 import sbt.{
   AutoPlugin,
   BuildPaths,
@@ -23,19 +21,16 @@ import sbt.librarymanagement.syntax.stringToOrganization
 import sbt.util.FileFunction
 import sbtassembly.PathList
 import sbtdynver.GitDescribeOutput
-import ch.epfl.scala.sbt.release.ReleaseEarlyPlugin.{autoImport => ReleaseEarlyKeys}
 import sbt.internal.BuildLoader
 import sbt.librarymanagement.MavenRepository
 
 object BuildPlugin extends AutoPlugin {
   import sbt.plugins.JvmPlugin
   import sbt.plugins.IvyPlugin
-  import com.jsuereth.sbtpgp.SbtPgp
-  import ch.epfl.scala.sbt.release.ReleaseEarlyPlugin
 
   override def trigger: PluginTrigger = allRequirements
   override def requires: Plugins =
-    JvmPlugin && ReleaseEarlyPlugin && SbtPgp && IvyPlugin
+    JvmPlugin && IvyPlugin
   val autoImport = BuildKeys
 
   override def globalSettings: Seq[Def.Setting[_]] =
@@ -58,46 +53,15 @@ object BuildKeys {
   def inCompileAndTest(ss: Def.Setting[_]*): Seq[Def.Setting[_]] =
     Seq(sbt.Compile, sbt.Test).flatMap(sbt.inConfig(_)(ss))
 
-  // Use absolute paths so that references work even if `ThisBuild` changes
-  final val AbsolutePath = file(".").getCanonicalFile.getAbsolutePath
-
-  private val isCiDisabled = sys.env.get("CI").isEmpty
-  def createScalaCenterProject(name: String, f: File): RootProject = {
-    if (isCiDisabled) RootProject(f)
-    else {
-      val headSha = new _root_.com.typesafe.sbt.git.DefaultReadableGit(f).withGit(_.headCommitSha)
-      headSha match {
-        case Some(commit) => RootProject(uri(s"https://github.com/scalacenter/${name}.git#$commit"))
-        case None => sys.error(s"The 'HEAD' sha of '${f}' could not be retrieved.")
-      }
-    }
-  }
-
-  final val BenchmarkBridgeProject =
-    createScalaCenterProject("compiler-benchmark", file(s"$AbsolutePath/benchmark-bridge"))
-  final val BenchmarkBridgeBuild = BuildRef(BenchmarkBridgeProject.build)
-  final val BenchmarkBridgeCompilation = ProjectRef(BenchmarkBridgeProject.build, "compilation")
-
   import sbt.{Test, TestFrameworks, Tests}
   val buildBase = Keys.baseDirectory in ThisBuild
-  val buildIntegrationsBase = Def.settingKey[File]("The base directory for our integration builds.")
 
   val bloopName = Def.settingKey[String]("The name to use in build info generated code")
   val nailgunClientLocation = Def.settingKey[sbt.File]("Where to find the python nailgun client")
-  val updateHomebrewFormula = Def.taskKey[Unit]("Update Homebrew formula")
-  val updateScoopFormula = Def.taskKey[Unit]("Update Scoop formula")
-  val updateArchPackage = Def.taskKey[Unit]("Update AUR package")
-  val createLocalHomebrewFormula = Def.taskKey[Unit]("Create local Homebrew formula")
-  val createLocalScoopFormula = Def.taskKey[Unit]("Create local Scoop formula")
-  val createLocalArchPackage = Def.taskKey[Unit]("Create local ArchLinux package build files")
   val bloopCoursierJson = Def.taskKey[File]("Generate a versioned install script")
   val bloopLocalCoursierJson = Def.taskKey[File]("Generate a versioned install script")
-  val releaseEarlyAllModules = Def.taskKey[Unit]("Release early all modules")
   val releaseSonatypeBundle = Def.taskKey[Unit]("Release sonatype bundle, do nothing if no release")
   val publishLocalAllModules = Def.taskKey[Unit]("Publish all modules locally")
-
-  val gradleIntegrationDirs = sbt.AttributeKey[List[File]]("gradleIntegrationDirs")
-  val fetchGradleApi = Def.taskKey[Unit]("Fetch Gradle API artifact")
 
   // This has to be change every time the bloop config files format changes.
   val schemaVersion = Def.settingKey[String]("The schema version for our bloop build.")
@@ -120,62 +84,6 @@ object BuildKeys {
   )
 
   import sbt.Compile
-  val buildpressSettings: Seq[Def.Setting[_]] = List(
-    Keys.fork in Keys.run := true
-  )
-
-  import ohnosequences.sbt.GithubRelease.{keys => GHReleaseKeys}
-  val releaseSettings = Seq(
-    GHReleaseKeys.ghreleaseTitle := { tagName =>
-      tagName.toString
-    },
-    GHReleaseKeys.ghreleaseNotes := { tagName =>
-      IO.read(buildBase.value / "notes" / s"$tagName.md")
-    },
-    GHReleaseKeys.ghreleaseRepoOrg := "scalacenter",
-    GHReleaseKeys.ghreleaseRepoName := "bloop",
-    GHReleaseKeys.ghreleaseAssets ++= {
-      val baseDir = Keys.baseDirectory.in(ThisBuild).value
-      val releaseTargetDir = Keys.target.value / "ghrelease-assets"
-
-      val originBloopWindowsBinary = Keys.target.value / "graalvm-binaries" / "bloop-windows"
-      val originBloopLinuxBinary = Keys.target.value / "graalvm-binaries" / "bloop-linux"
-      val originBloopMacosBinary = Keys.target.value / "graalvm-binaries" / "bloop-macos"
-      val targetBloopLinuxBinary = releaseTargetDir / "bloop-x86_64-pc-linux"
-      val targetBloopWindowsBinary = releaseTargetDir / "bloop-x86_64-pc-win32.exe"
-      val targetBloopMacosBinary = releaseTargetDir / "bloop-x86_64-apple-darwin"
-      IO.copyFile(originBloopWindowsBinary, targetBloopWindowsBinary)
-      IO.copyFile(originBloopLinuxBinary, targetBloopLinuxBinary)
-      IO.copyFile(originBloopMacosBinary, targetBloopMacosBinary)
-
-      val originBashCompletions = baseDir / "etc" / "bash-completions"
-      val originZshCompletions = baseDir / "etc" / "zsh-completions"
-      val originFishCompletions = baseDir / "etc" / "fish-completions"
-      val targetBashCompletions = releaseTargetDir / "bash-completions"
-      val targetZshCompletions = releaseTargetDir / "zsh-completions"
-      val targetFishCompletions = releaseTargetDir / "fish-completions"
-      IO.copyFile(originBashCompletions, targetBashCompletions)
-      IO.copyFile(originZshCompletions, targetZshCompletions)
-      IO.copyFile(originFishCompletions, targetFishCompletions)
-
-      val coursierJson = ReleaseUtils.bloopCoursierJson.value
-      List(
-        coursierJson,
-        targetBashCompletions,
-        targetZshCompletions,
-        targetFishCompletions,
-        targetBloopLinuxBinary,
-        targetBloopMacosBinary,
-        targetBloopWindowsBinary
-      )
-    },
-    createLocalHomebrewFormula := ReleaseUtils.createLocalHomebrewFormula.value,
-    createLocalScoopFormula := ReleaseUtils.createLocalScoopFormula.value,
-    createLocalArchPackage := ReleaseUtils.createLocalArchPackage.value,
-    updateHomebrewFormula := ReleaseUtils.updateHomebrewFormula.value,
-    updateScoopFormula := ReleaseUtils.updateScoopFormula.value,
-    updateArchPackage := ReleaseUtils.updateArchPackage.value
-  )
 
   import sbtbuildinfo.{BuildInfoKey, BuildInfoKeys}
   final val BloopBackendInfoKeys: List[BuildInfoKey] = {
@@ -225,17 +133,6 @@ object BuildKeys {
     commonKeys ++ extra
   }
 
-  // Unused, just like `cloneKafka`
-  val GradleInfoKeys: List[BuildInfoKey] = List(
-    BuildInfoKey.map(Keys.state) {
-      case (_, state) =>
-        val integrationDirs = state
-          .get(gradleIntegrationDirs)
-          .getOrElse(sys.error("Fatal: integration dirs for gradle were not computed"))
-        "integrationDirs" -> integrationDirs
-    }
-  )
-
   import sbtassembly.{AssemblyKeys, MergeStrategy}
   val assemblySettings: Seq[Def.Setting[_]] = List(
     Keys.mainClass in AssemblyKeys.assembly := Some("bloop.Bloop"),
@@ -248,18 +145,6 @@ object BuildKeys {
         val oldStrategy = (AssemblyKeys.assemblyMergeStrategy in AssemblyKeys.assembly).value
         oldStrategy(x)
     }
-  )
-
-  def sbtPluginSettings(
-      name: String,
-      sbtVersion: String
-  ): Seq[Def.Setting[_]] = List(
-    Keys.name := name,
-    Keys.sbtPlugin := true,
-    Keys.sbtVersion := sbtVersion,
-    Keys.target := (file("integrations") / "sbt-bloop" / "target" / sbtVersion).getAbsoluteFile,
-    Keys.publishMavenStyle :=
-      ReleaseEarlyKeys.releaseEarlyWith.value == ReleaseEarlyKeys.SonatypePublisher
   )
 }
 
@@ -275,12 +160,7 @@ object BuildImplementation {
     Developer(handle, fullName, email, url(s"https://github.com/$handle"))
 
   final val globalSettings: Seq[Def.Setting[_]] = Seq(
-    Keys.cancelable := true,
-    BuildKeys.schemaVersion := "4.2-refresh-3",
-    Keys.testOptions in Test += sbt.Tests.Argument("-oD"),
-    Keys.onLoadMessage := Header.intro,
-    Keys.onLoad := BuildDefaults.bloopOnLoad.value,
-    Keys.publishArtifact in Test := false
+    BuildKeys.schemaVersion := "4.2-refresh-3"
   )
 
   private final val ThisRepo = GitHub("scalacenter", "bloop")
@@ -288,19 +168,6 @@ object BuildImplementation {
     Keys.organization := "ch.epfl.scala",
     Keys.updateOptions := Keys.updateOptions.value.withCachedResolution(true),
     Keys.scalaVersion := Dependencies.Scala212Version,
-    sbt.nio.Keys.watchTriggeredMessage := sbt.Watch.clearScreenOnTrigger,
-    // Keys.triggeredMessage := Watched.clearWhenTriggered,
-    Keys.resolvers := {
-      val oldResolvers = Keys.resolvers.value
-      val sonatypeStaging = Resolver.sonatypeRepo("staging")
-      (oldResolvers :+ sonatypeStaging).distinct
-    },
-    ReleaseEarlyKeys.releaseEarlyWith := {
-      ReleaseEarlyKeys.SonatypePublisher
-    },
-    Keys.startYear := Some(2017),
-    Keys.autoAPIMappings := true,
-    Keys.publishMavenStyle := true,
     Keys.homepage := Some(ThisRepo),
     Keys.licenses := Seq("Apache-2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0")),
     Keys.developers := List(
@@ -315,23 +182,9 @@ object BuildImplementation {
     )
   )
 
-  import sbt.{CrossVersion, compilerPlugin}
-  final val metalsSettings: Seq[Def.Setting[_]] = Seq(
-    Keys.scalacOptions ++= {
-      if (Keys.scalaBinaryVersion.value.startsWith("2.10")) Nil
-      else List("-Yrangepos")
-    },
-    Keys.libraryDependencies ++= {
-      if (Keys.scalaBinaryVersion.value.startsWith("2.10")) Nil
-      else
-        List(
-          compilerPlugin("org.scalameta" % "semanticdb-scalac" % "2.1.5" cross CrossVersion.full)
-        )
-    }
-  )
+  import sbt.CrossVersion
 
   final val projectSettings: Seq[Def.Setting[_]] = Seq(
-    ReleaseEarlyKeys.releaseEarlyPublish := BuildDefaults.releaseEarlyPublish.value,
     Keys.scalacOptions := {
       CrossVersion.partialVersion(Keys.scalaVersion.value) match {
         case Some((2, 13)) =>
@@ -341,8 +194,6 @@ object BuildImplementation {
           reasonableCompileOptions
       }
     },
-    // Legal requirement: license and notice files must be in the published jar
-    Keys.resources in Compile ++= BuildDefaults.getLicense.value,
     Keys.sources in (Compile, Keys.doc) := Nil,
     Keys.sources in (Test, Keys.doc) := Nil,
     Keys.publishArtifact in Test := false,
@@ -358,7 +209,7 @@ object BuildImplementation {
     },
     Keys.publishLocalConfiguration in Compile :=
       Keys.publishLocalConfiguration.value.withOverwrite(true)
-  ) // ++ metalsSettings
+  )
 
   final val reasonableCompileOptions = (
     "-deprecation" :: "-encoding" :: "UTF-8" :: "-feature" :: "-language:existentials" ::
@@ -370,107 +221,11 @@ object BuildImplementation {
     "-Xmx3g" :: "-Xms1g" :: "-XX:ReservedCodeCacheSize=512m" :: "-XX:MaxInlineLevel=20" :: Nil
 
   object BuildDefaults {
-    private final val kafka =
-      uri("https://github.com/apache/kafka.git#57320981bb98086a0b9f836a29df248b1c0378c3")
-
-    // Currently unused, we leave it here because we might need it in the future
-    private def cloneKafka(state: State): State = {
-      val staging = getStagingDirectory(state)
-      sbt.Resolvers.git(new BuildLoader.ResolveInfo(kafka, staging, null, state)) match {
-        case Some(f) => state.put(BuildKeys.gradleIntegrationDirs, List(f()))
-        case None =>
-          state.log.error("Kafka git reference is invalid and cannot be cloned"); state
-      }
-    }
-
-    /**
-     * This onLoad hook will clone any repository required for the build tool integration tests.
-     * In this case, we clone kafka so that the gradle plugin unit tests can access to its directory.
-     */
-    val bloopOnLoad: Def.Initialize[State => State] = Def.setting {
-      Keys.onLoad.value.andThen { state =>
-        if (sys.env.isDefinedAt("SKIP_TEST_RESOURCES_GENERATION")) state
-        else exportProjectsInTestResources(state, enableCache = true)
-      }
-    }
-
-    def exportProjectsInTestResources(state: State, enableCache: Boolean): State = {
-      import java.util.Locale
-      val isWindows: Boolean =
-        System.getProperty("os.name").toLowerCase(Locale.ENGLISH).contains("windows")
-
-      // Generate bloop configuration files for projects we use in our test suite upfront
-      val resourcesDir = state.baseDir / "frontend" / "src" / "test" / "resources"
-      val pluginSourceDir = state.baseDir / "integrations" / "sbt-bloop" / "src" / "main"
-      val projectDirs = resourcesDir.listFiles().filter(_.isDirectory)
-      projectDirs.foreach { projectDir =>
-        val targetDir = projectDir / "target"
-        val cacheDirectory = targetDir / "generation-cache-dir"
-        if (sys.env.isDefinedAt("FORCE_TEST_RESOURCES_GENERATION"))
-          IO.delete(cacheDirectory)
-        java.nio.file.Files.createDirectories(cacheDirectory.toPath)
-
-        val projectsFiles = sbt.io.Path
-          .allSubpaths(projectDir)
-          .map(_._1)
-          .filter { f =>
-            val filename = f.toString
-            filename.endsWith(".sbt") || filename.endsWith(".scala")
-          }
-          .toSet
-
-        val pluginFiles = sbt.io.Path
-          .allSubpaths(pluginSourceDir)
-          .map(_._1)
-          .filter(f => f.toString.endsWith(".scala"))
-          .toSet
-
-        import scala.sys.process.Process
-
-        val generate = { (changedFiles: Set[File]) =>
-          state.log.info(s"Generating bloop configuration files for ${projectDir}")
-          val cmd = {
-            val isGithubAction = sys.env.get("GITHUB_WORKFLOW").nonEmpty
-            if (isWindows && isGithubAction) "sh" :: "-c" :: "sbt bloopInstall" :: Nil
-            else if (isWindows) "cmd.exe" :: "/C" :: "sbt.bat" :: "bloopInstall" :: Nil
-            else "sbt" :: "bloopInstall" :: Nil
-          }
-          val exitGenerate = Process(cmd, projectDir).!
-          if (exitGenerate != 0)
-            throw new sbt.MessageOnlyException(
-              s"Failed to generate bloop config for ${projectDir}."
-            )
-          state.log.success(s"Generated bloop configuration files for ${projectDir}")
-          changedFiles
-        }
-
-        if (enableCache) {
-          val cached = FileFunction.cached(cacheDirectory, sbt.util.FileInfo.hash) { changedFiles =>
-            generate(changedFiles)
-          }
-
-          cached(projectsFiles ++ pluginFiles)
-        } else generate(Set.empty)
-      }
-
-      state
-    }
-
-    val exportProjectsInTestResourcesCmd: sbt.Command =
-      sbt.Command.command("exportProjectsInTestResources")(exportProjectsInTestResources(_, false))
-
-    def getStagingDirectory(state: State): File = {
-      // Use the default staging directory, we don't care if the user changed it.
-      val globalBase = sbt.BuildPaths.getGlobalBase(state)
-      sbt.BuildPaths.getStagingDirectory(state, globalBase)
-    }
 
     import sbtbuildinfo.BuildInfoPlugin.{autoImport => BuildInfoKeys}
 
     val frontendTestBuildSettings: Seq[Def.Setting[_]] = {
       sbtbuildinfo.BuildInfoPlugin.buildInfoScopedSettings(Test) ++ List(
-        BuildKeys.bloopCoursierJson := ReleaseUtils.bloopCoursierJson.value,
-        BuildKeys.bloopLocalCoursierJson := ReleaseUtils.bloopLocalCoursierJson.value,
         BuildInfoKeys.buildInfoKeys in Test := {
           import sbtbuildinfo.BuildInfoKey
           val junitTestJars = BuildInfoKey.map(Keys.externalDependencyClasspath in Test) {
@@ -487,40 +242,6 @@ object BuildImplementation {
       )
     }
 
-    lazy val unmanagedJarsWithGradleApi: Def.Initialize[Task[Keys.Classpath]] = Def.taskDyn {
-      val unmanagedJarsTask = Keys.unmanagedJars.in(Compile).taskValue
-      val _ = BuildKeys.fetchGradleApi.value
-      Def.task(unmanagedJarsTask.value)
-    }
-
-    import sbt.ScriptedPlugin.{autoImport => ScriptedKeys}
-    val scriptedSettings: Seq[Def.Setting[_]] = List(
-      ScriptedKeys.scriptedBufferLog := false,
-      ScriptedKeys.scriptedLaunchOpts := {
-        ScriptedKeys.scriptedLaunchOpts.value ++
-          Seq("-Xmx1024M", "-Dplugin.version=" + Keys.version.value)
-      }
-    )
-
-    val releaseEarlyPublish: Def.Initialize[Task[Unit]] = Def.task {
-      val logger = Keys.streams.value.log
-      val name = Keys.name.value
-      // We force publishSigned for all of the modules, yes or yes.
-      logger.info(Feedback.logReleaseSonatype(name))
-      Pgp.PgpKeys.publishSigned.value
-    }
-
-    def releaseEarlyAllModules(projects: Seq[sbt.ProjectReference]): Def.Initialize[Task[Unit]] = {
-      Def.taskDyn {
-        val filter = sbt.ScopeFilter(
-          sbt.inProjects(projects: _*),
-          sbt.inConfigurations(sbt.Compile)
-        )
-
-        ReleaseEarlyKeys.releaseEarly.all(filter).map(_ => ())
-      }
-    }
-
     def publishLocalAllModules(projects: Seq[sbt.ProjectReference]): Def.Initialize[Task[Unit]] = {
       Def.taskDyn {
         val filter = sbt.ScopeFilter(
@@ -530,26 +251,6 @@ object BuildImplementation {
 
         Keys.publishLocal.all(filter).map(_ => ())
       }
-    }
-
-    val fixScalaVersionForSbtPlugin: Def.Initialize[String] = Def.setting {
-      val orig = Keys.scalaVersion.value
-      val is013 = (Keys.sbtVersion in Keys.pluginCrossBuild).value.startsWith("0.13")
-      if (is013) "2.10.7" else orig
-    }
-
-    // From sbt-sensible https://gitlab.com/fommil/sbt-sensible/issues/5, legal requirement
-    val getLicense: Def.Initialize[Task[Seq[File]]] = Def.task {
-      val orig = (Keys.resources in Compile).value
-      val base = Keys.baseDirectory.value
-      val root = (Keys.baseDirectory in ThisBuild).value
-
-      def fileWithFallback(name: String): File =
-        if ((base / name).exists) base / name
-        else if ((root / name).exists) root / name
-        else throw new IllegalArgumentException(s"legal file $name must exist")
-
-      Seq(fileWithFallback("LICENSE.md"), fileWithFallback("NOTICE.md"))
     }
 
     /**
@@ -565,59 +266,4 @@ object BuildImplementation {
       !isStable.exists(stable => !stable || version.endsWith("-SNAPSHOT"))
     }
   }
-
-  import java.util.Locale
-  import sbt.MessageOnlyException
-  import sbt.{Compile}
-  import scala.sys.process.Process
-  import java.nio.file.Files
-
-
-  import java.io.IOException
-  import java.nio.file.attribute.BasicFileAttributes
-  import java.nio.file.{FileSystems, FileVisitOption, FileVisitResult, FileVisitor, Files, Path}
-
-  final lazy val lazyInternalDependencyClasspath: Def.Initialize[Task[Seq[File]]] = {
-    Def.taskDyn {
-      val currentProject = Keys.thisProjectRef.value
-      val data = Keys.settingsData.value
-      val deps = Keys.buildDependencies.value
-      val conf = Keys.classpathConfiguration.value
-      val self = Keys.configuration.value
-
-      import scala.collection.JavaConverters._
-      val visited = sbt.Classpaths.interSort(currentProject, conf, data, deps)
-      val productDirs = (new java.util.LinkedHashSet[Task[Seq[File]]]).asScala
-      for ((dep, c) <- visited) {
-        if ((dep != currentProject) || (conf.name != c && self.name != c)) {
-          val classpathKey = Keys.productDirectories in (dep, sbt.ConfigKey(c))
-          productDirs += classpathKey.get(data).getOrElse(sbt.std.TaskExtra.constant(Nil))
-        }
-      }
-
-      val generatedTask = productDirs.toList.join.map(_.flatten.distinct)
-      Def.task(generatedTask.value)
-    }
-  }
-
-  final lazy val lazyDependencyClasspath: Def.Initialize[Task[Seq[File]]] = Def.task {
-    val internalClasspath = lazyInternalDependencyClasspath.value
-    val externalClasspath = Keys.externalDependencyClasspath.value.map(_.data)
-    internalClasspath ++ externalClasspath
-  }
-}
-
-object Header {
-  val intro: String =
-    """      _____            __         ______           __
-      |     / ___/_________ _/ /___ _   / ____/__  ____  / /____  _____
-      |     \__ \/ ___/ __ `/ / __ `/  / /   / _ \/ __ \/ __/ _ \/ ___/
-      |    ___/ / /__/ /_/ / / /_/ /  / /___/ /__/ / / / /_/ /__/ /
-      |   /____/\___/\__,_/_/\__,_/   \____/\___/_/ /_/\__/\___/_/
-      |
-      |   ***********************************************************
-      |   ***       Welcome to the build of `loooooooooop`        ***
-      |   ***        An effort funded by the Scala Center         ***
-      |   ***********************************************************
-    """.stripMargin
 }

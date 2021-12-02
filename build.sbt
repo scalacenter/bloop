@@ -1,7 +1,4 @@
 import build.BuildImplementation.BuildDefaults
-import xerial.sbt.Sonatype.SonatypeKeys
-
-useGpg in Global := false
 
 dynverSeparator in ThisBuild := "-"
 
@@ -225,7 +222,7 @@ lazy val frontend: Project = project
   .disablePlugins(ScriptedPlugin)
   .enablePlugins(BuildInfoPlugin)
   .configs(IntegrationTest)
-  .settings(assemblySettings, releaseSettings)
+  .settings(assemblySettings)
   .settings(
     testSettings,
     testSuiteSettings,
@@ -434,11 +431,8 @@ val bloop = project
   .disablePlugins(ScriptedPlugin)
   .aggregate(allProjectReferences: _*)
   .settings(
-    releaseEarly := { () },
     skip in publish := true,
     crossSbtVersions := Seq(Sbt1Version, Sbt013Version),
-    commands += BuildDefaults.exportProjectsInTestResourcesCmd,
-    buildIntegrationsBase := (Keys.baseDirectory in ThisBuild).value / "build-integrations",
     publishLocalAllModules := {
       BuildDefaults
         .publishLocalAllModules(
@@ -462,60 +456,8 @@ val bloop = project
           )
         )
         .value
-    },
-    releaseEarlyAllModules := {
-      BuildDefaults
-        .releaseEarlyAllModules(
-          List(
-            bloopShared,
-            backend,
-            frontend,
-            jsonConfig210.jvm,
-            jsonConfig211.js,
-            jsonConfig211.jvm,
-            jsonConfig212.js,
-            jsonConfig212.jvm,
-            jsonConfig213.js,
-            jsonConfig213.jvm,
-            nativeBridge04,
-            jsBridge06,
-            jsBridge1,
-            sockets,
-            bloopgun,
-            launcher
-          )
-        )
-        .value
-    },
-    releaseSonatypeBundle := {
-      Def.taskDyn {
-        val bundleDir = SonatypeKeys.sonatypeBundleDirectory.value
-        // Do nothing if sonatype bundle doesn't exist
-        if (!bundleDir.exists) Def.task("")
-        else SonatypeKeys.sonatypeBundleRelease
-      }.value
     }
   )
-
-// Runs the scripted tests to setup integration tests
-// ! This is used by the benchmarks too !
-val isWindows = scala.util.Properties.isWin
-addCommandAlias(
-  "install",
-  Seq(
-    "publishLocalAllModules",
-    // Don't generate graalvm image if running in Windows
-    if (isWindows) "" else "bloopgun/graalvm-native-image:packageBin",
-    s"${frontend.id}/test:compile",
-    "createLocalHomebrewFormula",
-    "createLocalScoopFormula",
-    "createLocalArchPackage"
-  ).filter(!_.isEmpty)
-    .mkString(";", ";", "")
-)
-
-val allReleaseActions = List("releaseEarlyAllModules", "sonatypeBundleRelease")
-addCommandAlias("releaseBloop", allReleaseActions.mkString(";", ";", ""))
 
 lazy val stuff = project
   .aggregate(
@@ -524,7 +466,6 @@ lazy val stuff = project
     backend,
     launcher,
     bloopgun,
-    launcherShaded,
     bloopShared,
     jsonConfig212.jvm,
     jsBridge1
