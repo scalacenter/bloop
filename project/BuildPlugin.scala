@@ -58,9 +58,6 @@ object BuildKeys {
 
   val bloopName = Def.settingKey[String]("The name to use in build info generated code")
   val nailgunClientLocation = Def.settingKey[sbt.File]("Where to find the python nailgun client")
-  val bloopCoursierJson = Def.taskKey[File]("Generate a versioned install script")
-  val bloopLocalCoursierJson = Def.taskKey[File]("Generate a versioned install script")
-  val releaseSonatypeBundle = Def.taskKey[Unit]("Release sonatype bundle, do nothing if no release")
   val publishLocalAllModules = Def.taskKey[Unit]("Publish all modules locally")
 
   // This has to be change every time the bloop config files format changes.
@@ -235,7 +232,7 @@ object BuildImplementation {
               "junitTestJars" -> junitJars
           }
 
-          List(junitTestJars, BuildKeys.bloopCoursierJson, Keys.baseDirectory in ThisBuild)
+          List(junitTestJars, Keys.baseDirectory in ThisBuild)
         },
         BuildInfoKeys.buildInfoPackage in Test := "bloop.internal.build",
         BuildInfoKeys.buildInfoObject in Test := "BuildTestInfo"
