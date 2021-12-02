@@ -13,8 +13,13 @@ import scala.tools.nsc.Properties
 
 object HydraCompileSpec extends BaseCompileSpec {
   override protected val TestProject = HydraTestProject
+
   override protected def extraCompilationMessageOutput: String =
     " [E-1] Using 1 Hydra worker to compile Scala sources."
+
+  override protected def processOutput(message: String) = {
+    message.replaceAll(" \\[E-1\\] License will expire in \\d+ days.\n", "")
+  }
 
   private val TriplequoteResolver = MavenRepository.of(
     "https://repo.triplequote.com/artifactory/libs-release/"
