@@ -49,6 +49,7 @@ jobs:
         shell: bash
       - name: Compile and test main projects
         run: |
+          .github/setup-test-projects.sh &&\
           ./bin/sbt-ci.sh \
               "frontend/test:compile" \
               "backend/test" \
