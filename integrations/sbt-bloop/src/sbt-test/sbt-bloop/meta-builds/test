@@ -1,4 +1,0 @@
-> checkMetaBuildInfo
-$ copy-file changes/set-sources.sbt project/set-sources.sbt
-> reload
-> checkSourceJars

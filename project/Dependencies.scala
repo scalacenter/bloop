@@ -32,7 +32,6 @@ object Dependencies {
   val mavenApiVersion = "3.6.1"
   val mavenAnnotationsVersion = "3.5"
   val mavenScalaPluginVersion = "4.5.3"
-  val gradleVersion = GradleIntegration.version
   val groovyVersion = "2.5.4"
   val gradleAndroidPluginVersion = "4.2.0"
   val ipcsocketVersion = "1.0.1"
@@ -89,20 +88,6 @@ object Dependencies {
   val difflib = "com.googlecode.java-diff-utils" % "diffutils" % difflibVersion
 
   import sbt.Provided
-  val mavenCore = "org.apache.maven" % "maven-core" % mavenApiVersion % Provided
-  val mavenPluginApi = "org.apache.maven" % "maven-plugin-api" % mavenApiVersion
-  val mavenPluginAnnotations =
-    "org.apache.maven.plugin-tools" % "maven-plugin-annotations" % mavenAnnotationsVersion % Provided
-  val mavenScalaPlugin = "net.alchim31.maven" % "scala-maven-plugin" % mavenScalaPluginVersion
-
-  val gradleCore = "org.gradle" % "gradle-core" % gradleVersion % Provided
-  val gradleWorkers = "org.gradle" % "gradle-workers" % gradleVersion % Provided
-  val gradleDependencyManagement =
-    "org.gradle" % "gradle-dependency-management" % gradleVersion % Provided
-  val gradleToolingApi = "org.gradle" % "gradle-tooling-api" % gradleVersion % Provided
-  val groovy = "org.codehaus.groovy" % "groovy" % groovyVersion % Provided
-  val gradleAndroidPlugin =
-    "com.android.tools.build" % "gradle" % gradleAndroidPluginVersion % Provided
 
   val monix = "io.monix" %% "monix" % monixVersion
   val jsoniterCore =

@@ -26,7 +26,6 @@ import sbtdynver.GitDescribeOutput
 import ch.epfl.scala.sbt.release.ReleaseEarlyPlugin.{autoImport => ReleaseEarlyKeys}
 import sbt.internal.BuildLoader
 import sbt.librarymanagement.MavenRepository
-import build.BloopShadingPlugin.{autoImport => BloopShadingKeys}
 
 object BuildPlugin extends AutoPlugin {
   import sbt.plugins.JvmPlugin
@@ -82,10 +81,6 @@ object BuildKeys {
   import sbt.{Test, TestFrameworks, Tests}
   val buildBase = Keys.baseDirectory in ThisBuild
   val buildIntegrationsBase = Def.settingKey[File]("The base directory for our integration builds.")
-  val twitterDodo = Def.settingKey[File]("The location of Twitter's dodo build tool")
-  val exportCommunityBuild = Def.taskKey[Unit]("Clone and export the community build.")
-  val lazyFullClasspath =
-    Def.taskKey[Seq[File]]("Return full classpath without forcing compilation")
 
   val bloopName = Def.settingKey[String]("The name to use in build info generated code")
   val nailgunClientLocation = Def.settingKey[sbt.File]("Where to find the python nailgun client")
@@ -255,10 +250,6 @@ object BuildKeys {
     }
   )
 
-  def shadedModuleSettings = List(
-    BloopShadingKeys.shadingNamespace := "bloop.shaded"
-  )
-
   def sbtPluginSettings(
       name: String,
       sbtVersion: String
@@ -269,40 +260,6 @@ object BuildKeys {
     Keys.target := (file("integrations") / "sbt-bloop" / "target" / sbtVersion).getAbsoluteFile,
     Keys.publishMavenStyle :=
       ReleaseEarlyKeys.releaseEarlyWith.value == ReleaseEarlyKeys.SonatypePublisher
-  )
-
-  def benchmarksSettings(dep: Reference): Seq[Def.Setting[_]] = List(
-    Keys.skip in Keys.publish := true,
-    BuildInfoKeys.buildInfoKeys := {
-      val fullClasspathFiles =
-        BuildInfoKey.map(BuildKeys.lazyFullClasspath.in(sbt.Compile).in(dep)) {
-          case (key, value) => ("fullCompilationClasspath", value.toList)
-        }
-      Seq[BuildInfoKey](
-        Keys.resourceDirectory in sbt.Test in dep,
-        fullClasspathFiles
-      )
-    },
-    BuildInfoKeys.buildInfoPackage := "bloop.benchmarks",
-    Keys.javaOptions ++= {
-      def refOf(version: String) = {
-        val HasSha = """(?:.+?)-([0-9a-f]{8})(?:\+\d{8}-\d{4})?""".r
-        version match {
-          case HasSha(sha) => sha
-          case _ => version
-        }
-      }
-      List(
-        "-Dsbt.launcher=" + (sys
-          .props("java.class.path")
-          .split(java.io.File.pathSeparatorChar)
-          .find(_.contains("sbt-launch"))
-          .getOrElse("")),
-        "-DbloopVersion=" + Keys.version.in(dep).value,
-        "-DbloopRef=" + refOf(Keys.version.in(dep).value),
-        "-Dgit.localdir=" + buildBase.value.getAbsolutePath
-      )
-    }
   )
 }
 
@@ -508,53 +465,7 @@ object BuildImplementation {
       sbt.BuildPaths.getStagingDirectory(state, globalBase)
     }
 
-    import sbt.librarymanagement.Artifact
-    import ch.epfl.scala.sbt.maven.MavenPluginKeys
-    val mavenPluginBuildSettings: Seq[Def.Setting[_]] = List(
-      MavenPluginKeys.mavenPlugin := true,
-      Keys.publishLocal := Keys.publishM2.value,
-      Keys.classpathTypes += "maven-plugin",
-      // This is a bug in sbt, so we fix it here.
-      Keys.makePomConfiguration :=
-        Keys.makePomConfiguration.value.withIncludeTypes(Keys.classpathTypes.value),
-      Keys.libraryDependencies ++= List(
-        Dependencies.mavenCore,
-        Dependencies.mavenPluginApi,
-        Dependencies.mavenPluginAnnotations,
-        // We add an explicit dependency to the maven-plugin artifact in the dependent plugin
-        Dependencies.mavenScalaPlugin
-          .withExplicitArtifacts(Vector(Artifact("scala-maven-plugin", "maven-plugin", "jar")))
-      )
-    )
-
     import sbtbuildinfo.BuildInfoPlugin.{autoImport => BuildInfoKeys}
-    val gradlePluginBuildSettings: Seq[Def.Setting[_]] = {
-      sbtbuildinfo.BuildInfoPlugin.buildInfoScopedSettings(Test) ++ List(
-        Keys.fork in Test := true,
-        Keys.resolvers ++= List(
-          MavenRepository("Gradle releases", "https://repo.gradle.org/gradle/libs-releases-local/"),
-          MavenRepository("Android plugin", "https://maven.google.com/"),
-          MavenRepository("Android dependencies", "https://repo.spring.io/plugins-release/")
-        ),
-        Keys.libraryDependencies ++= List(
-          Dependencies.gradleCore,
-          Dependencies.gradleToolingApi,
-          Dependencies.groovy,
-          Dependencies.gradleAndroidPlugin
-        ),
-        Keys.publishLocal := Keys.publishLocal.dependsOn(Keys.publishM2).value,
-        Keys.unmanagedJars.in(Compile) := unmanagedJarsWithGradleApi.value,
-        BuildKeys.fetchGradleApi := {
-          val logger = Keys.streams.value.log
-          val targetDir = (Keys.baseDirectory in Compile).value / "lib"
-          GradleIntegration.fetchGradleApi(Dependencies.gradleVersion, targetDir, logger)
-        },
-        // Only generate for tests (they are not published and can contain user-dependent data)
-        BuildInfoKeys.buildInfo in Compile := Nil,
-        BuildInfoKeys.buildInfoPackage in Test := "bloop.internal.build",
-        BuildInfoKeys.buildInfoObject in Test := "BloopGradleIntegration"
-      )
-    }
 
     val frontendTestBuildSettings: Seq[Def.Setting[_]] = {
       sbtbuildinfo.BuildInfoPlugin.buildInfoScopedSettings(Test) ++ List(
@@ -660,138 +571,11 @@ object BuildImplementation {
   import sbt.{Compile}
   import scala.sys.process.Process
   import java.nio.file.Files
-  val buildpressHomePath = System.getProperty("user.home") + "/.buildpress"
-  def exportCommunityBuild(
-      buildpress: Reference,
-      circeConfig210: Reference,
-      circeConfig212: Reference,
-      sbtBloop013: Reference,
-      sbtBloop10: Reference
-  ) = Def.taskDyn {
-    val isWindows: Boolean =
-      System.getProperty("os.name").toLowerCase(Locale.ENGLISH).contains("windows")
-    if (isWindows) Def.task(println("Skipping export community build in Windows."))
-    else {
-      val baseDir = Keys.baseDirectory.in(ThisBuild).value
-      val pluginMainDir = baseDir / "integrations" / "sbt-bloop" / "src" / "main"
 
-      // Only sbt sources are added, add new plugin sources when other build tools are supported
-      val allPluginSourceDirs = Set(
-        baseDir / "config" / "src" / "main" / "scala",
-        baseDir / "config" / "src" / "main" / "scala-2.10",
-        baseDir / "config" / "src" / "main" / "scala-2.11",
-        baseDir / "config" / "src" / "main" / "scala-2.12",
-        baseDir / "config" / "src" / "main" / "scala-2.11-12",
-        pluginMainDir / "scala",
-        pluginMainDir / "scala-2.10",
-        pluginMainDir / "scala-2.12",
-        pluginMainDir / s"scala-sbt-0.13",
-        pluginMainDir / s"scala-sbt-1.0"
-      )
-
-      val allPluginSourceFiles = allPluginSourceDirs.flatMap { sourceDir =>
-        val sourcePath = sourceDir.toPath
-        if (!Files.exists(sourcePath)) Nil
-        else pathFilesUnder(sourcePath, "glob:**.{scala,java}").map(_.toFile)
-      }.toSet
-
-      var regenerate: Boolean = false
-      val state = Keys.state.value
-      val globalBase = sbt.BuildPaths.getGlobalBase(state)
-      val stagingDir = sbt.BuildPaths.getStagingDirectory(state, globalBase)
-      java.nio.file.Files.createDirectories(stagingDir.toPath)
-      val cacheDirectory = stagingDir./("community-build-cache")
-      val regenerationFile = stagingDir./("regeneration-file.txt")
-      val cachedGenerate = FileFunction.cached(cacheDirectory, sbt.util.FileInfo.hash) { _ =>
-        // Publish local snapshots via Twitter dodo's build tool for exporting the build to work
-        val cmd =
-          "bash" :: BuildKeys.twitterDodo.value.getAbsolutePath :: "--no-test" :: "finagle" :: Nil
-        val dodoSetUp = Process(cmd, baseDir).!
-        if (dodoSetUp != 0)
-          throw new MessageOnlyException(
-            "Failed to publish local snapshots for twitter projects."
-          )
-
-        // Write a dummy regeneration file for the caching to work
-        regenerate = true
-        IO.write(regenerationFile, "true")
-        Set(regenerationFile)
-      }
-
-      val s = Keys.streams.value
-      val mainClass = "buildpress.Main"
-      val bloopVersion = Keys.version.value
-
-      cachedGenerate(allPluginSourceFiles)
-      Def.task {
-        // Publish the projects before we invoke buildpress
-        Keys.publishLocal.in(circeConfig210).value
-        Keys.publishLocal.in(circeConfig212).value
-        Keys.publishLocal.in(sbtBloop013).value
-        Keys.publishLocal.in(sbtBloop10).value
-
-        val file = Keys.resourceDirectory
-          .in(Compile)
-          .in(buildpress)
-          .value
-          ./("bloop-community-build.buildpress")
-
-        // We regenerate again if something in the plugin sources has changed
-        val regenerateArgs = if (regenerate) List("--regenerate") else Nil
-        val buildpressArgs = List(
-          "--input",
-          file.toString,
-          "--buildpress-home",
-          buildpressHomePath,
-          "--bloop-version",
-          bloopVersion
-        ) ++ regenerateArgs
-
-        import sbt.internal.util.Attributed.data
-        val classpath = (Keys.fullClasspath in Compile in buildpress).value
-        val runner = (Keys.runner in (Compile, Keys.run) in buildpress).value
-        runner.run(mainClass, data(classpath), buildpressArgs, s.log).get
-      }
-    }
-  }
 
   import java.io.IOException
   import java.nio.file.attribute.BasicFileAttributes
   import java.nio.file.{FileSystems, FileVisitOption, FileVisitResult, FileVisitor, Files, Path}
-  def pathFilesUnder(
-      base: Path,
-      pattern: String,
-      maxDepth: Int = Int.MaxValue
-  ): List[Path] = {
-    val out = collection.mutable.ListBuffer.empty[Path]
-    val matcher = FileSystems.getDefault.getPathMatcher(pattern)
-
-    val visitor = new FileVisitor[Path] {
-      def visitFile(file: Path, attributes: BasicFileAttributes): FileVisitResult = {
-        if (matcher.matches(file)) out += file
-        FileVisitResult.CONTINUE
-      }
-
-      def visitFileFailed(
-          t: Path,
-          e: IOException
-      ): FileVisitResult = FileVisitResult.CONTINUE
-
-      def preVisitDirectory(
-          directory: Path,
-          attributes: BasicFileAttributes
-      ): FileVisitResult = FileVisitResult.CONTINUE
-
-      def postVisitDirectory(
-          directory: Path,
-          exception: IOException
-      ): FileVisitResult = FileVisitResult.CONTINUE
-    }
-
-    val opts = java.util.EnumSet.of(FileVisitOption.FOLLOW_LINKS)
-    Files.walkFileTree(base, opts, maxDepth, visitor)
-    out.toList
-  }
 
   final lazy val lazyInternalDependencyClasspath: Def.Initialize[Task[Seq[File]]] = {
     Def.taskDyn {
