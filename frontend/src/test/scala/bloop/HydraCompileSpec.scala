@@ -18,7 +18,8 @@ object HydraCompileSpec extends BaseCompileSpec {
     " [E-1] Using 1 Hydra worker to compile Scala sources."
 
   override protected def processOutput(message: String) = {
-    message.replaceAll(" \\[E-1\\] License will expire in \\d+ days.\n", "")
+    val regex = raw" \[E-1\] License will expire in \d+ days.\n"
+    message.replaceAll(regex, "")
   }
 
   private val TriplequoteResolver = MavenRepository.of(
