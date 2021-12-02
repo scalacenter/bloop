@@ -1,4 +1,4 @@
-name: Continuous Integration
+name: CI
 on:
   push:
     tags:
@@ -9,7 +9,7 @@ on:
   pull_request:
 
 jobs:
-  scalafmt: 
+  scalafmt:
     name: Formatting
     runs-on: ubuntu-latest
     steps:
@@ -19,38 +19,6 @@ jobs:
           java-version: graalvm-ce-java11@20.1.0
       - name: Check formatting
         run: ./bin/scalafmt --test
-  integrations: 
-    name: Build integrations tests
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macOS-latest]
-        jdk: [graalvm-ce-java11@20.1.0]
-    steps:
-      - uses: actions/checkout@v2.4.0
-        with:
-          submodules: true
-      - uses: olafurpg/setup-scala@v13
-        with:
-          java-version: ${{ matrix.jdk }}
-      - name: Cache Gradle API
-        uses: actions/cache@v2
-        with:
-          path: |
-            integrations/gradle-bloop/lib
-          key: ${{ hashFiles('project/GradleIntegration.scala') }}
-      - name: Tests
-        run: |
-          ./bin/sbt-ci.sh \
-              "mavenBloop/publishM2" \
-              "mavenBloop/test" \
-              "gradleBloop211/compile" \
-              "gradleBloop212/compile" \
-              "gradleBloop212/test" \
-              "sbtBloop10Shaded/publishLocal" \
-              "sbtBloop10/scripted"
-        shell: bash
   test:
     runs-on: ${{ matrix.os }}
     strategy:
@@ -69,15 +37,6 @@ jobs:
       - uses: olafurpg/setup-scala@v13
         with:
           java-version: ${{ matrix.jdk }}
-      - name: Cache Gradle API
-        # only launcher tests cause gradle API to be downloaded
-        # and they are only run on grallvm
-        if: matrix.jdk == 'graalvm-ce-java11@20.1.0'
-        uses: actions/cache@v2
-        with:
-          path: |
-            integrations/gradle-bloop/lib
-          key: ${{ hashFiles('project/GradleIntegration.scala') }}
       - uses: actions/setup-node@v2.5.0
         with:
           node-version: "10.x"
@@ -92,9 +51,6 @@ jobs:
         run: |
           ./bin/sbt-ci.sh \
               "frontend/test:compile" \
-              "sbtBloop013/compile" \
-              "sbtBloop10/compile" \
-              "mavenBloop/compile" \
               "backend/test" \
               "docs/compile" \
               "jsBridge06/publishLocal" \
@@ -226,7 +182,7 @@ jobs:
         with:
           name: bloop-artifacts
           path: bloop-artifacts/${{ matrix.artifact }}
-      
+
 
   release:
     name: Release version on ${{ matrix.os }}
