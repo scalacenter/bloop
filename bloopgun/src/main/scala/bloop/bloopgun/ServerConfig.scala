@@ -3,7 +3,7 @@ import java.nio.file.Path
 import libdaemonjvm.LockFiles
 
 final case class ServerConfig(
-    listenOn: Either[(Option[String], Option[Int]), Option[Path]] = Right(None),
+    listenOn: Either[(Option[String], Option[Int]), (Option[Path], Option[String])] = Right((None, None)),
     serverArgs: List[String] = Nil,
     serverLocation: Option[Path] = None,
     startTimeout: Option[Int] = None,
@@ -15,9 +15,10 @@ final case class ServerConfig(
         val host = hostOpt.getOrElse(Defaults.Host)
         val port = portOpt.getOrElse(Defaults.Port)
         Left((host, port))
-      case Right(daemonDirOpt) =>
+      case Right((daemonDirOpt, pipeNameOpt)) =>
         val daemonDir = daemonDirOpt.getOrElse(Defaults.daemonDir)
-        Right(LockFiles.under(daemonDir, "scala_bloop_server"))
+        val pipeName = pipeNameOpt.getOrElse(Defaults.daemonPipeName)
+        Right(LockFiles.under(daemonDir, pipeName))
     }
   override def toString(): String = listenOnWithDefaults match {
     case Left((host, port)) => s"$host:$port"

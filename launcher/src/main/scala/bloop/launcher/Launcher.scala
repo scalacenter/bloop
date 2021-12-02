@@ -31,7 +31,7 @@ object Launcher
       System.err,
       StandardCharsets.UTF_8,
       Shell.default,
-      Right(None),
+      Right((None, None)),
       Promise[Unit]()
     )
 
@@ -41,7 +41,7 @@ class LauncherMain(
     val out: PrintStream,
     charset: Charset,
     val shell: Shell,
-    val userListenOn: Either[(Option[String], Option[Int]), Option[Path]],
+    val userListenOn: Either[(Option[String], Option[Int]), (Option[Path], Option[String])],
     startedServer: Promise[Unit]
 ) {
   private final val launcherTmpDir = Files.createTempDirectory(s"bsp-launcher")
@@ -50,16 +50,17 @@ class LauncherMain(
       val host = hostOpt.getOrElse(Defaults.Host)
       val port = portOpt.getOrElse(Defaults.Port).toString
       Left((host, port))
-    case Right(pathOpt) =>
-      Right(pathOpt.getOrElse(Defaults.daemonDir))
+    case Right((pathOpt, pipeNameOpt)) =>
+      Right((pathOpt.getOrElse(Defaults.daemonDir), pipeNameOpt.getOrElse(Defaults.daemonPipeName)))
   }
   private final val bloopAdditionalCliArgs: List[String] = userListenOn match {
     case Left((hostOpt, portOpt)) =>
       val hostArg = hostOpt.toList.flatMap(host => List("--nailgun-host", host))
       val portArg = portOpt.toList.flatMap(port => List("--nailgun-port", port.toString))
       portArg ++ hostArg
-    case Right(pathOpt) =>
-      pathOpt.toList.flatMap(dir => List("--daemon-dir", dir.toString))
+    case Right((pathOpt, pipeNameOpt)) =>
+      pathOpt.toList.flatMap(dir => List("--daemon-dir", dir.toString)) :::
+        pipeNameOpt.toList.flatMap(pipeName => List("--pipe-name", pipeName))
   }
 
   def main(args: Array[String]): Unit = {
@@ -161,11 +162,11 @@ class LauncherMain(
     }
 
     if (skipBspConnection) {
-      val extraArg = listenOn match {
-        case Left((_, port)) => port.toString
-        case Right(path) => s"daemon:$path"
+      val extraArgs = listenOn match {
+        case Left((_, port)) => List(port.toString)
+        case Right((path, pipe)) => List(s"daemon:$path${File.pathSeparator}$pipe")
       }
-      val bloopgunArgs = List("server", "--fire-and-forget", extraArg) ++ serverJvmOptions
+      val bloopgunArgs = List("server", "--fire-and-forget") ++ extraArgs ++ serverJvmOptions
       val bloopgun = newBloopgunCli(bloopVersion, out)
       Try(bloopgun.run(bloopgunArgs.toArray)).toEither match {
         case Right(code) if code == 0 => Right(Left(()))

@@ -30,4 +30,5 @@ object Defaults {
       else bloopDataDir
     baseDir.resolve("daemon")
   }
+  final val daemonPipeName: String = "scala_bloop_server"
 }

@@ -26,9 +26,9 @@ import bloop.bloopgun.core.AvailableAtPath
 object LatestStableLauncherSpec extends LauncherSpec("1.3.2", Left(9014))
 object LatestMasterLauncherSpec extends LauncherSpec(BuildInfo.version, Left(9014))
 object LatestMasterLauncherDomainSocketSpec
-    extends LauncherSpec(BuildInfo.version, Right(TestUtil.tmpDir(strictPermissions = true)))
+    extends LauncherSpec(BuildInfo.version, Right((TestUtil.tmpDir(strictPermissions = true), "bloop_tests\\daemon")))
 
-class LauncherSpec(bloopVersion: String, bloopServerPortOrDaemonDir: Either[Int, Path])
+class LauncherSpec(bloopVersion: String, bloopServerPortOrDaemonDir: Either[Int, (Path, String)])
     extends LauncherBaseSuite(bloopVersion, BuildInfo.bspVersion, bloopServerPortOrDaemonDir) {
   private final val bloopDependency = s"ch.epfl.scala:bloop-frontend_2.12:${bloopVersion}"
   test("fail if arguments are empty") {

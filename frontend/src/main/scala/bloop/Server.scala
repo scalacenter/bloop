@@ -30,6 +30,7 @@ import java.net.SocketAddress
 import java.nio.channels.Channels
 import libdaemonjvm.internal.SocketMaker
 import java.nio.ByteBuffer
+import java.io.File
 
 class Server
 object Server {
@@ -38,21 +39,28 @@ object Server {
     def toPortNumber(userPort: String) = Try(userPort.toInt).getOrElse(Server.defaultPort)
     val lockFilesOrHostPort = args match {
       case Array() =>
-        val lockFiles = LockFiles.under(bloop.io.Paths.daemonDir.underlying, "scala_bloop_server")
+        val lockFiles = LockFiles.under(
+          bloop.io.Paths.daemonDir.underlying,
+          bloop.io.Paths.pipeName
+        )
+        Right(lockFiles)
+      case Array(daemonArg) if daemonArg.startsWith("daemon:") =>
+        val arg = daemonArg.stripPrefix("daemon:")
+        val (dirStr, pipeName) = arg.split(File.pathSeparator, 2) match {
+          case Array(dir, pipeName) => (dir, pipeName)
+          case Array(dir) => (dir, bloop.io.Paths.pipeName)
+        }
+        val dir = Paths.get(dirStr)
+        val lockFiles = LockFiles.under(dir, pipeName)
         Right(lockFiles)
       case Array(arg) =>
-        if (arg.startsWith("daemon:")) {
-          val dir = Paths.get(arg.stripPrefix("daemon:"))
-          val lockFiles = LockFiles.under(dir, "scala_bloop_server")
-          Right(lockFiles)
-        } else
-          Left((InetAddress.getLoopbackAddress(), toPortNumber(args(0))))
+        Left((InetAddress.getLoopbackAddress(), toPortNumber(args(0))))
       case Array(host, portStr) =>
         val addr = InetAddress.getByName(host)
         Left((addr, toPortNumber(portStr)))
       case _ =>
         throw new IllegalArgumentException(
-          s"Invalid arguments to bloop server: $args, expected: ([address] [port] | [daemon:path])"
+          s"Invalid arguments to bloop server: $args, expected: ([address] [port] | [daemon:path] [pipeName])"
         )
     }
 

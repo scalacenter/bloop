@@ -34,11 +34,14 @@ import snailgun.logging.SnailgunLogger
 abstract class LauncherBaseSuite(
     val bloopVersion: String,
     val bspVersion: String,
-    val bloopServerPortOrDaemonDir: Either[Int, Path]
+    val bloopServerPortOrDaemonDir: Either[Int, (Path, String)]
 ) extends BaseSuite {
   private val listenOn = bloopServerPortOrDaemonDir.left
     .map(port => (None, Some(port)))
-    .map(path => Some(path))
+    .map {
+      case (path, pipeName) =>
+        (Some(path), Some(pipeName))
+    }
   val defaultConfig = ServerConfig(listenOn = listenOn)
 
   protected val shellWithPython = new Shell(true, true)
@@ -72,8 +75,8 @@ abstract class LauncherBaseSuite(
       val ngArgs = bloopServerPortOrDaemonDir match {
         case Left(port) =>
           List("--nailgun-port", port.toString)
-        case Right(path) =>
-          List("--daemon-dir", path.toString)
+        case Right((path, pipeName)) =>
+          List("--daemon-dir", path.toString, "--pipe-name", pipeName)
       }
       ngArgs ::: List("exit")
     }

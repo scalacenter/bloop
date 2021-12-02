@@ -46,6 +46,8 @@ object Paths {
     dir
   }
 
+  final val pipeName: String = "scala_bloop_server"
+
   def getCacheDirectory(dirName: String): AbsolutePath = {
     val dir = bloopCacheDir.resolve(dirName)
     val dirPath = dir.underlying

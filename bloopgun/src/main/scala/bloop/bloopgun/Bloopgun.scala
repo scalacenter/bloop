@@ -45,6 +45,10 @@ import java.io.BufferedReader
 import java.io.IOException
 import snailgun.Client
 import libdaemonjvm.LockFiles
+import scala.util.Properties
+import libdaemonjvm.internal.SocketMaker
+import libdaemonjvm.internal.SocketHandler
+import java.io.File
 
 /**
  * The main library entrypoint for bloopgun, the Bloop binary CLI.
@@ -129,9 +133,27 @@ class BloopgunCli(
       val daemonDirOpt = builder
         .opt[String]("daemon-dir")
         .action((dir, params) => {
+          val pipeNameOpt = params.serverConfig.listenOn match {
+            case Left(_) => None
+            case Right((_, opt)) => opt
+          }
           params.copy(
             serverConfig = params.serverConfig.copy(
-              listenOn = Right(Some(Paths.get(dir)))
+              listenOn = Right((Some(Paths.get(dir)), pipeNameOpt))
+            )
+          )
+        })
+        .text("Specify the daemon directory of the target Bloop server")
+      val pipeNameOpt = builder
+        .opt[String]("pipe-name")
+        .action((pipeName, params) => {
+          val daemonDirOpt = params.serverConfig.listenOn match {
+            case Left(_) => None
+            case Right((opt, _)) => opt
+          }
+          params.copy(
+            serverConfig = params.serverConfig.copy(
+              listenOn = Right((daemonDirOpt, Some(pipeName)))
             )
           )
         })
@@ -169,8 +191,13 @@ class BloopgunCli(
             .action {
               case (arg, params) =>
                 if (arg.startsWith("daemon:")) {
-                  val path = Paths.get(arg.stripPrefix("daemon:"))
-                  params.copy(serverConfig = params.serverConfig.copy(listenOn = Right(Some(path))))
+                  val arg0 = arg.stripPrefix("daemon:")
+                  val (dir, pipeNameOpt) = arg0.split(File.pathSeparator, 2) match {
+                    case Array(dir) => (dir, None)
+                    case Array(dir, pipeName) => (dir, Some(pipeName))
+                  }
+                  val listenOn = (Some(Paths.get(dir)), pipeNameOpt)
+                  params.copy(serverConfig = params.serverConfig.copy(listenOn = Right(listenOn)))
                 } else {
                   val port = arg.toInt // FIXME Catch exceptions?
                   val hostOpt = params.serverConfig.listenOn match {
@@ -218,6 +245,7 @@ class BloopgunCli(
           nailgunServerOpt,
           nailgunPortOpt,
           daemonDirOpt,
+          pipeNameOpt,
           nailgunHelpOpt,
           nailgunShowVersionOpt,
           nailgunVerboseOpt,
@@ -332,7 +360,7 @@ class BloopgunCli(
 
     try executeCmd(client)
     catch {
-      case _: ConnectException | _: libdaemonjvm.errors.ConnectExceptionLike =>
+      case _: ConnectException | _: libdaemonjvm.errors.ConnectExceptionLike | _: libdaemonjvm.errors.SocketExceptionLike =>
         noServer()
       case e: IOException if e.getCause.isInstanceOf[org.scalasbt.ipcsocket.NativeErrorException] =>
         noServer()
@@ -464,9 +492,11 @@ class BloopgunCli(
           case Left((Some(host), None)) =>
             logger.warn(Feedback.unexpectedServerArgsSyntax(host))
             Nil
-          case Right(Some(path)) =>
-            List(s"daemon:$path")
-          case Right(None) =>
+          case Right((pathOpt, pipeOpt)) =>
+            val path = pathOpt.getOrElse(Defaults.daemonDir)
+            val pipe = pipeOpt.getOrElse(Defaults.daemonPipeName)
+            List(s"daemon:$path${File.pathSeparator}$pipe")
+          case Right(_) =>
             Nil
         }
       }

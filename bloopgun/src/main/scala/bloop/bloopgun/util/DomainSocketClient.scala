@@ -17,6 +17,7 @@ import java.net.SocketException
 import snailgun.Client
 import libdaemonjvm.SocketPaths
 import libdaemonjvm.client.Connect
+import libdaemonjvm.errors.SocketExceptionLike
 import libdaemonjvm.internal.SocketHandler
 import java.io.IOException
 import java.nio.channels.Channels
@@ -35,35 +36,37 @@ final case class DomainSocketClient(socketPaths: SocketPaths) extends Client {
       stop: AtomicBoolean,
       interactiveSession: Boolean
   ): Int = {
-    val socket = SocketHandler.client(socketPaths) match {
-      case Left(socket0) => socket0
-      case Right(channel) => libdaemonjvm.Util.socketFromChannel(channel)
-    }
+    var socket: Socket = null
     try {
+      socket = SocketHandler.client(socketPaths) match {
+        case Left(socket0) => socket0
+        case Right(channel) => libdaemonjvm.Util.socketFromChannel(channel)
+      }
       val in = socket.getInputStream()
       val out = socket.getOutputStream()
       val protocol = new Protocol(streams, cwd, env, logger, stop, interactiveSession)
       protocol.sendCommand(cmd, args, out, in)
     } finally {
-      try {
-        if (socket.isClosed()) ()
-        else {
-          try socket.shutdownInput()
-          finally {
-            try socket.shutdownOutput()
-            finally socket.close()
+      if (socket != null)
+        try {
+          if (socket.isClosed()) ()
+          else {
+            try socket.shutdownInput()
+            finally {
+              try socket.shutdownOutput()
+              finally socket.close()
+            }
           }
+        } catch {
+          case t: IOException =>
+            logger.debug("Tracing an ignored socket exception...")
+            // logger.trace(t)
+            ()
+          case t: SocketException =>
+            logger.debug("Tracing an ignored socket exception...")
+            logger.trace(t)
+            ()
         }
-      } catch {
-        case t: IOException =>
-          logger.debug("Tracing an ignored socket exception...")
-          // logger.trace(t)
-          ()
-        case t: SocketException =>
-          logger.debug("Tracing an ignored socket exception...")
-          logger.trace(t)
-          ()
-      }
     }
   }
 }
