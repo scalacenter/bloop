@@ -57,7 +57,6 @@ jobs:
           ./bin/sbt-ci.sh \
               "frontend/test:compile" \
               "backend/test" \
-              "docs/compile" \
               "jsBridge06/publishLocal" \
               "jsBridge1/publishLocal" \
               "frontend/testOnly bloop.ScalaVersionsSpec" \
@@ -66,10 +65,6 @@ jobs:
               "jsBridge1/test" \
               "frontend/runMain bloop.util.CommandsDocGenerator --test" \
               "frontend/runMain bloop.util.CommandsDocGenerator --out ../docs/cli/reference.md"
-        shell: bash
-      - name: Check docs are up-to-date
-        run: |
-          ./bin/check-good-practices.sh
         shell: bash
       - name: Run launcher tests
         if: matrix.jdk == 'graalvm-ce-java11@20.1.0'
@@ -230,30 +225,5 @@ jobs:
         with:
           name: bloop-artifacts
           path: bloop-artifacts
-      - name: Set up environment
-        run: |
-          curl -Lo coursier https://git.io/coursier-cli && chmod +x coursier && ./coursier --help
-          yarn --help
-        shell: bash
-      - name: Publish docs and binaries to Maven Central
-        run: |
-          yarn install
-          touch ~/.profile
-          mkdir "$HOME/.ssh"
-          mkdir "$HOME/.sbt"
-          mkdir "$HOME/.sbt/gpg"
-          git config --global user.name "Bloopoid"
-          git config --global user.email "bloop@vican.me"
-          git config --global push.default simple
-          echo "$PGP_PUBLIC_KEY" > "$HOME/.sbt/gpg/pubring.asc"
-          echo "$PGP_PRIVATE_KEY" > "$HOME/.sbt/gpg/secring.asc"
-          ls -l bloop-artifacts
-          mkdir -p frontend/target
-          mv bloop-artifacts frontend/target/graalvm-binaries
-          ./bin/sbt-ci-publish.sh "releaseBloop" "docs/docusaurusPublishGhpages"
-        shell: bash
-      - name: Cut GitHub release and update installers on ${{ matrix.os }}
-        run: |
-          . bin/ci-setup-bloopoid-keys.sh
-          export GITHUB_TOKEN="$BLOOPOID_GITHUB_TOKEN"
-          ./bin/sbt-ci-release.sh "frontend/updateHomebrewFormula" "frontend/updateScoopFormula" "frontend/githubRelease"
+      # - name: Publish docs and binaries to Maven Central
+      # - name: Cut GitHub release and update installers on ${{ matrix.os }}
