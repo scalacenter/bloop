@@ -62,9 +62,7 @@ jobs:
               "frontend/testOnly bloop.ScalaVersionsSpec" \
               "frontend/testOnly -bloop.ScalaVersionsSpec" \
               "jsBridge06/test" \
-              "jsBridge1/test" \
-              "frontend/runMain bloop.util.CommandsDocGenerator --test" \
-              "frontend/runMain bloop.util.CommandsDocGenerator --out ../docs/cli/reference.md"
+              "jsBridge1/test"
         shell: bash
       - name: Prepare launcher tests
         if: matrix.jdk == 'graalvm-ce-java11@20.1.0'
@@ -80,12 +78,6 @@ jobs:
         if: matrix.jdk == 'graalvm-ce-java11@20.1.0'
         run: |
           ./bin/sbt-ci.sh "launcher/test"
-        shell: bash
-      - name: Benchmark
-        if: matrix.jdk == 'graalvm-ce-java11@20.1.0' && matrix.os != 'windows-latest'
-        run: |
-          ./bin/sbt-ci.sh \
-              "benchmarks/jmh:run .*HotBloopBenchmark.* -wi 0 -i 1 -f1 -t1 -p project=with-tests -p projectName=with-tests"
         shell: bash
 
   publish-binaries:
