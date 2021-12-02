@@ -8,9 +8,6 @@ import ch.epfl.scala.bsp.BuildTargetIdentifier
 import ch.epfl.scala.bsp.endpoints.Build
 import ch.epfl.scala.bsp.endpoints.BuildTarget
 import ch.epfl.scala.debugadapter.DebuggeeListener
-import ch.epfl.scala.debugadapter.SingleTestResult
-import ch.epfl.scala.debugadapter.TestSuiteResult
-import ch.epfl.scala.debugadapter.TestResultEvent
 import ch.epfl.scala.debugadapter.testing.TestSuiteEvent
 import ch.epfl.scala.debugadapter.testing.TestSuiteEventHandler
 import ch.epfl.scala.debugadapter.testing.TestUtils
@@ -157,7 +154,8 @@ final class DebugLoggingEventHandler(logger: Logger, listener: DebuggeeListener)
   override def handle(event: TestSuiteEvent): Unit =
     event match {
       case results: TestSuiteEvent.Results =>
-        TestSuiteEventHandler.summarizeResults(results)
+        val summary = TestSuiteEventHandler.summarizeResults(results)
+        listener.testResult(summary)
         super.handle(event)
       case _ =>
         super.handle(event)
