@@ -31,6 +31,7 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
   protected def TestProject: BaseTestProject
 
   protected def extraCompilationMessageOutput: String = ""
+  protected def processOutput(output: String) = output
 
   test("compile a project twice with no input changes produces a no-op") {
     TestUtil.withinWorkspace { workspace =>
@@ -1494,7 +1495,7 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
 
       try {
         assertNoDiff(
-          expected,
+          processOutput(expected),
           s"""Compiling a (1 Scala source)
              |Deduplicating compilation of a from cli client ??? (since ???
              |Compiling a (1 Scala source)
@@ -1504,7 +1505,7 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
       } catch {
         case _: DiffAssertions.TestFailedException =>
           assertNoDiff(
-            expected,
+            processOutput(expected),
             s"""
                |Deduplicating compilation of a from cli client ??? (since ???
                |Compiling a (1 Scala source)
