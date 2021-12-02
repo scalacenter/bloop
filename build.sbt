@@ -33,7 +33,6 @@ import build.Dependencies.{
 
 lazy val backend = project
   .enablePlugins(BuildInfoPlugin)
-  .disablePlugins(ScriptedPlugin)
   .settings(testSettings ++ testSuiteSettings)
   .dependsOn(bloopShared)
   .settings(
@@ -92,7 +91,6 @@ val testResourceSettings = {
 lazy val jsonConfig210 = crossProject(JVMPlatform)
   .crossType(CrossType.Pure)
   .in(file("config"))
-  .disablePlugins(ScriptedPlugin)
   .settings(publishJsonModuleSettings)
   .settings(
     name := "bloop-config",
@@ -114,7 +112,6 @@ lazy val jsonConfig210 = crossProject(JVMPlatform)
 lazy val jsonConfig211 = crossProject(JSPlatform, JVMPlatform)
   .crossType(CrossType.Pure)
   .in(file("config"))
-  .disablePlugins(ScriptedPlugin)
   .settings(publishJsonModuleSettings)
   .settings(
     name := "bloop-config",
@@ -144,7 +141,6 @@ lazy val jsonConfig211 = crossProject(JSPlatform, JVMPlatform)
 lazy val jsonConfig212 = crossProject(JSPlatform, JVMPlatform)
   .crossType(CrossType.Pure)
   .in(file("config"))
-  .disablePlugins(ScriptedPlugin)
   .settings(publishJsonModuleSettings)
   .settings(
     name := "bloop-config",
@@ -176,7 +172,6 @@ lazy val jsonConfig212 = crossProject(JSPlatform, JVMPlatform)
 lazy val jsonConfig213 = crossProject(JSPlatform, JVMPlatform)
   .crossType(CrossType.Pure)
   .in(file("config"))
-  .disablePlugins(ScriptedPlugin)
   .settings(publishJsonModuleSettings)
   .settings(
     name := "bloop-config",
@@ -219,7 +214,6 @@ lazy val frontend: Project = project
     backend % "test->test",
     jsonConfig212.jvm
   )
-  .disablePlugins(ScriptedPlugin)
   .enablePlugins(BuildInfoPlugin)
   .configs(IntegrationTest)
   .settings(assemblySettings)
@@ -266,7 +260,6 @@ lazy val frontend: Project = project
   )
 
 lazy val bloopgun: Project = project
-  .disablePlugins(ScriptedPlugin)
   .enablePlugins(BuildInfoPlugin)
   .enablePlugins(GraalVMNativeImagePlugin)
   .settings(testSuiteSettings)
@@ -318,7 +311,6 @@ lazy val bloopgun: Project = project
   )
 
 lazy val launcher: Project = project
-  .disablePlugins(ScriptedPlugin)
   .dependsOn(sockets, bloopgun, frontend % "test->test")
   .settings(testSuiteSettings)
   .settings(
@@ -331,7 +323,6 @@ lazy val launcher: Project = project
   )
 
 lazy val bloop4j = project
-  .disablePlugins(ScriptedPlugin)
   .dependsOn(jsonConfig212.jvm)
   .settings(
     name := "bloop4j",
@@ -361,7 +352,6 @@ val docs = project
 lazy val jsBridge06 = project
   .dependsOn(frontend % Provided, frontend % "test->test")
   .in(file("bridges") / "scalajs-0.6")
-  .disablePlugins(ScriptedPlugin)
   .settings(testSettings)
   .settings(
     name := "bloop-js-bridge-0.6",
@@ -375,7 +365,6 @@ lazy val jsBridge06 = project
 lazy val jsBridge1 = project
   .dependsOn(frontend % Provided, frontend % "test->test")
   .in(file("bridges") / "scalajs-1")
-  .disablePlugins(ScriptedPlugin)
   .settings(testSettings)
   .settings(
     name := "bloop-js-bridge-1",
@@ -392,7 +381,6 @@ lazy val jsBridge1 = project
 lazy val nativeBridge04 = project
   .dependsOn(frontend % Provided, frontend % "test->test")
   .in(file("bridges") / "scala-native-0.4")
-  .disablePlugins(ScriptedPlugin)
   .settings(testSettings)
   .settings(
     name := "bloop-native-bridge-0.4",
@@ -423,7 +411,6 @@ val allProjects = Seq(
 val allProjectReferences = allProjects.map(p => LocalProject(p.id))
 val bloop = project
   .in(file("."))
-  .disablePlugins(ScriptedPlugin)
   .aggregate(allProjectReferences: _*)
   .settings(
     skip in publish := true,
