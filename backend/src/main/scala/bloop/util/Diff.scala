@@ -8,8 +8,8 @@ object Diff {
       expected: String
   ): String =
     compareContents(
-      splitIntoLines(original),
-      splitIntoLines(revised),
+      splitIntoLines(original).map(_.trim),
+      splitIntoLines(revised).map(_.trim),
       obtained,
       expected
     )
