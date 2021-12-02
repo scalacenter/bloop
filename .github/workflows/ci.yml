@@ -64,18 +64,44 @@ jobs:
               "jsBridge06/test" \
               "jsBridge1/test"
         shell: bash
+  launcher-test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macOS-latest]
+        jdk: [graalvm-ce-java11@20.1.0]
+    name: Launcher tests ${{ matrix.os }} -- ${{ matrix.jdk }}
+    env:
+      HYDRA_LICENSE: ${{ secrets.HYDRA_LICENSE }}
+    steps:
+      - uses: actions/checkout@v2.4.0
+        with:
+          submodules: true
+          fetch-depth: 0
+      - uses: olafurpg/setup-scala@v13
+        with:
+          java-version: ${{ matrix.jdk }}
+      - uses: actions/setup-node@v2.5.0
+        with:
+          node-version: "10.x"
+      - name: Set up environment
+        run: |
+          curl -Lo coursier https://git.io/coursier-cli && chmod +x coursier && ./coursier --help
+          yarn --help
+          java -version
+          [[ $HYDRA_LICENSE == floating-key=* ]] && mkdir -p $HOME/.triplequote && echo "$HYDRA_LICENSE" > "$HOME/.triplequote/hydra.license" || echo "Hydra license file was not created"
+        shell: bash
       - name: Prepare launcher tests
-        if: matrix.jdk == 'graalvm-ce-java11@20.1.0'
         run: |
           echo $JAVA_HOME
           which gu && gu install native-image
           ./bin/sbt-ci.sh publishLocal
       - name: Prepare launcher tests
-        if: matrix.jdk == 'graalvm-ce-java11@20.1.0' && matrix.os != 'windows-latest'
+        if: matrix.os != 'windows-latest'
         run: |
           ./bin/sbt-ci.sh bloopgun/graalvm-native-image:packageBin
       - name: Run launcher tests
-        if: matrix.jdk == 'graalvm-ce-java11@20.1.0'
         run: |
           ./bin/sbt-ci.sh "launcher/test"
         shell: bash
