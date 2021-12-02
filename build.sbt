@@ -271,7 +271,7 @@ lazy val bloopgun: Project = project
   .enablePlugins(GraalVMNativeImagePlugin)
   .settings(testSuiteSettings)
   .settings(
-    name := "bloopgun-core",
+    name := "bloopgun",
     fork in run := true,
     fork in Test := true,
     parallelExecution in Test := false,
@@ -322,7 +322,7 @@ lazy val launcher: Project = project
   .dependsOn(sockets, bloopgun, frontend % "test->test")
   .settings(testSuiteSettings)
   .settings(
-    name := "bloop-launcher-core",
+    name := "bloop-launcher",
     fork in Test := true,
     parallelExecution in Test := false,
     libraryDependencies ++= List(
