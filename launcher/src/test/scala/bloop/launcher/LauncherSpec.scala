@@ -26,7 +26,7 @@ import bloop.bloopgun.core.AvailableAtPath
 object LatestStableLauncherSpec extends LauncherSpec("1.3.2", Left(9014))
 object LatestMasterLauncherSpec extends LauncherSpec(BuildInfo.version, Left(9014))
 object LatestMasterLauncherDomainSocketSpec
-    extends LauncherSpec(BuildInfo.version, Right(TestUtil.tmpDir()))
+    extends LauncherSpec(BuildInfo.version, Right(TestUtil.tmpDir(strictPermissions = true)))
 
 class LauncherSpec(bloopVersion: String, bloopServerPortOrDaemonDir: Either[Int, Path])
     extends LauncherBaseSuite(bloopVersion, BuildInfo.bspVersion, bloopServerPortOrDaemonDir) {

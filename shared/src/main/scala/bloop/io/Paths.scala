@@ -1,7 +1,7 @@
 package bloop.io
 
 import java.io.IOException
-import java.nio.file.attribute.{BasicFileAttributes, FileTime}
+import java.nio.file.attribute.{BasicFileAttributes, FileTime, PosixFilePermissions}
 import java.nio.file.{
   DirectoryNotEmptyException,
   FileSystems,
@@ -33,7 +33,17 @@ object Paths {
     val baseDir =
       if (Properties.isMac) bloopCacheDir
       else bloopDataDir
-    baseDir.resolve("daemon")
+    val dir = baseDir.resolve("daemon")
+    if (!Files.exists(dir.underlying)) {
+      Files.createDirectories(dir.underlying)
+      if (!Properties.isWin) {
+        Files.setPosixFilePermissions(
+          dir.underlying,
+          PosixFilePermissions.fromString("rwx------")
+        )
+      }
+    }
+    dir
   }
 
   def getCacheDirectory(dirName: String): AbsolutePath = {
