@@ -15,14 +15,10 @@ import sbt.{
   uri,
   Reference
 }
-import sbt.io.IO
 import sbt.io.syntax.fileToRichFile
 import sbt.librarymanagement.syntax.stringToOrganization
 import sbt.util.FileFunction
-import sbtassembly.PathList
 import sbtdynver.GitDescribeOutput
-import sbt.internal.BuildLoader
-import sbt.librarymanagement.MavenRepository
 
 object BuildPlugin extends AutoPlugin {
   import sbt.plugins.JvmPlugin
@@ -129,20 +125,6 @@ object BuildKeys {
     )
     commonKeys ++ extra
   }
-
-  import sbtassembly.{AssemblyKeys, MergeStrategy}
-  val assemblySettings: Seq[Def.Setting[_]] = List(
-    Keys.mainClass in AssemblyKeys.assembly := Some("bloop.Bloop"),
-    Keys.test in AssemblyKeys.assembly := {},
-    AssemblyKeys.assemblyMergeStrategy in AssemblyKeys.assembly := {
-      case "LICENSE.md" => MergeStrategy.first
-      case "NOTICE.md" => MergeStrategy.first
-      case PathList("io", "github", "soc", "directories", _ @_*) => MergeStrategy.first
-      case x =>
-        val oldStrategy = (AssemblyKeys.assemblyMergeStrategy in AssemblyKeys.assembly).value
-        oldStrategy(x)
-    }
-  )
 }
 
 object BuildImplementation {

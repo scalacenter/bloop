@@ -60,13 +60,6 @@ lazy val backend = project
     )
   )
 
-val publishJsonModuleSettings = List(
-  publishM2Configuration := publishM2Configuration.value.withOverwrite(true),
-  publishLocalConfiguration := publishLocalConfiguration.value.withOverwrite(true),
-  // We compile in both so that the maven integration can be tested locally
-  publishLocal := publishLocal.dependsOn(publishM2).value
-)
-
 val testJSSettings = List(
   testOptions += Tests.Argument(TestFrameworks.JUnit, "-v", "-a"),
   scalaJSLinkerConfig ~= (_.withModuleKind(ModuleKind.CommonJSModule)),
@@ -89,15 +82,14 @@ val testResourceSettings = {
 }
 
 // Needs to be called `jsonConfig` because of naming conflict with sbt universe...
-lazy val jsonConfig212 = crossProject(JSPlatform, JVMPlatform)
+lazy val config = crossProject(JSPlatform, JVMPlatform)
   .crossType(CrossType.Pure)
   .in(file("config"))
-  .settings(publishJsonModuleSettings)
   .settings(
     name := "bloop-config",
     unmanagedSourceDirectories in Compile +=
-      Keys.baseDirectory.value / ".." / "src" / "main" / "scala-2.11-13",
-    scalaVersion := Keys.scalaVersion.in(backend).value,
+      baseDirectory.value / ".." / "src" / "main" / "scala-2.11-13",
+    scalaVersion := scalaVersion.in(backend).value,
     scalacOptions := {
       scalacOptions.value.filterNot(opt => opt == "-deprecation"),
     },
@@ -123,11 +115,10 @@ lazy val jsonConfig212 = crossProject(JSPlatform, JVMPlatform)
 lazy val jsonConfig213 = crossProject(JSPlatform, JVMPlatform)
   .crossType(CrossType.Pure)
   .in(file("config"))
-  .settings(publishJsonModuleSettings)
   .settings(
     name := "bloop-config",
     unmanagedSourceDirectories in Compile +=
-      Keys.baseDirectory.value / ".." / "src" / "main" / "scala-2.11-13",
+      baseDirectory.value / ".." / "src" / "main" / "scala-2.11-13",
     scalaVersion := "2.13.1",
     testResourceSettings
   )
@@ -145,7 +136,7 @@ lazy val jsonConfig213 = crossProject(JSPlatform, JVMPlatform)
     target := (file("config") / "target" / "json-config-2.13" / "js").getAbsoluteFile
   )
 
-lazy val sockets: Project = project
+lazy val sockets = project
   .settings(
     crossPaths := false,
     autoScalaLibrary := false,
@@ -163,11 +154,10 @@ lazy val frontend: Project = project
     shared,
     backend,
     backend % "test->test",
-    jsonConfig212.jvm
+    config.jvm
   )
   .enablePlugins(BuildInfoPlugin)
   .configs(IntegrationTest)
-  .settings(assemblySettings)
   .settings(
     testSettings,
     testSuiteSettings,
@@ -210,7 +200,7 @@ lazy val frontend: Project = project
     dependencyOverrides += Dependencies.shapeless
   )
 
-lazy val bloopgun: Project = project
+lazy val bloopgun = project
   .enablePlugins(BuildInfoPlugin)
   .enablePlugins(GraalVMNativeImagePlugin)
   .settings(testSuiteSettings)
@@ -220,7 +210,7 @@ lazy val bloopgun: Project = project
     fork in Test := true,
     parallelExecution in Test := false,
     buildInfoPackage := "bloopgun.internal.build",
-    buildInfoKeys := List(Keys.version),
+    buildInfoKeys := List(version),
     buildInfoObject := "BloopgunInfo",
     libraryDependencies ++= List(
       //Dependencies.configDirectories,
@@ -240,7 +230,7 @@ lazy val bloopgun: Project = project
       else "C:/Users/runneradmin/.jabba/jdk/graalvm-ce-java11@20.1.0/bin/native-image.cmd"
     },
     graalVMNativeImageOptions ++= {
-      val reflectionFile = Keys.sourceDirectory.in(Compile).value./("graal")./("reflection.json")
+      val reflectionFile = sourceDirectory.in(Compile).value./("graal")./("reflection.json")
       assert(reflectionFile.exists)
       List(
         "--no-server",
@@ -261,7 +251,7 @@ lazy val bloopgun: Project = project
     }
   )
 
-lazy val launcher: Project = project
+lazy val launcher = project
   .dependsOn(sockets, bloopgun, frontend % "test->test")
   .settings(testSuiteSettings)
   .settings(
@@ -274,7 +264,7 @@ lazy val launcher: Project = project
   )
 
 lazy val bloop4j = project
-  .dependsOn(jsonConfig212.jvm)
+  .dependsOn(config.jvm)
   .settings(
     name := "bloop4j",
     fork in run := true,
@@ -328,8 +318,8 @@ val allProjects = Seq(
   shared,
   backend,
   frontend,
-  jsonConfig212.jvm,
-  jsonConfig212.js,
+  config.jvm,
+  config.js,
   jsonConfig213.jvm,
   jsonConfig213.js,
   nativeBridge04,
@@ -354,8 +344,8 @@ val bloop = project
             shared,
             backend,
             frontend,
-            jsonConfig212.js,
-            jsonConfig212.jvm,
+            config.js,
+            config.jvm,
             jsonConfig213.js,
             jsonConfig213.jvm,
             nativeBridge04,
@@ -378,6 +368,6 @@ lazy val stuff = project
     launcher,
     bloopgun,
     shared,
-    jsonConfig212.jvm,
+    config.jvm,
     jsBridge1
   )
