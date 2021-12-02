@@ -2,7 +2,7 @@ import build.BuildImplementation.BuildDefaults
 
 dynverSeparator in ThisBuild := "-"
 
-lazy val bloopShared = (project in file("shared"))
+lazy val shared = project
   .settings(
     name := "bloop-shared",
     libraryDependencies ++= Seq(
@@ -34,7 +34,7 @@ import build.Dependencies.{
 lazy val backend = project
   .enablePlugins(BuildInfoPlugin)
   .settings(testSettings ++ testSuiteSettings)
-  .dependsOn(bloopShared)
+  .dependsOn(shared)
   .settings(
     name := "bloop-backend",
     buildInfoPackage := "bloop.internal.build",
@@ -87,55 +87,6 @@ val testResourceSettings = {
     }
   })
 }
-
-lazy val jsonConfig210 = crossProject(JVMPlatform)
-  .crossType(CrossType.Pure)
-  .in(file("config"))
-  .settings(publishJsonModuleSettings)
-  .settings(
-    name := "bloop-config",
-    scalaVersion := Scala210Version,
-    libraryDependencies +=
-      compilerPlugin("org.scalamacros" % "paradise" % "2.1.1" cross CrossVersion.full),
-    testResourceSettings
-  )
-  .jvmSettings(
-    testSettings,
-    target := (file("config") / "target" / "json-config-2.10" / "jvm").getAbsoluteFile,
-    libraryDependencies ++= Seq(
-      Dependencies.circeParser,
-      Dependencies.circeCore,
-      Dependencies.circeGeneric
-    )
-  )
-
-lazy val jsonConfig211 = crossProject(JSPlatform, JVMPlatform)
-  .crossType(CrossType.Pure)
-  .in(file("config"))
-  .settings(publishJsonModuleSettings)
-  .settings(
-    name := "bloop-config",
-    scalaVersion := Scala211Version,
-    unmanagedSourceDirectories in Compile +=
-      Keys.baseDirectory.value / ".." / "src" / "main" / "scala-2.11-13",
-    testResourceSettings
-  )
-  .jvmSettings(
-    testSettings,
-    target := (file("config") / "target" / "json-config-2.11" / "jvm").getAbsoluteFile,
-    libraryDependencies ++= {
-      List(
-        Dependencies.jsoniterCore,
-        Dependencies.jsoniterMacros % Provided,
-        Dependencies.scalacheck % Test
-      )
-    }
-  )
-  .jsConfigure(_.enablePlugins(ScalaJSJUnitPlugin))
-  .jsSettings(
-    testJSSettings,
-    target := (file("config") / "target" / "json-config-2.11" / "js").getAbsoluteFile
-  )
 
 // Needs to be called `jsonConfig` because of naming conflict with sbt universe...
 lazy val jsonConfig212 = crossProject(JSPlatform, JVMPlatform)
@@ -209,7 +160,7 @@ import build.BuildImplementation.jvmOptions
 lazy val frontend: Project = project
   .dependsOn(
     sockets,
-    bloopShared,
+    shared,
     backend,
     backend % "test->test",
     jsonConfig212.jvm
@@ -333,22 +284,6 @@ lazy val bloop4j = project
     )
   )
 
-val docs = project
-  .in(file("docs-gen"))
-  .dependsOn(frontend)
-  .enablePlugins(MdocPlugin, DocusaurusPlugin)
-  .settings(
-    name := "bloop-docs",
-    moduleName := "bloop-docs",
-    skip in publish := true,
-    scalaVersion := Scala212Version,
-    mdoc := run.in(Compile).evaluated,
-    mainClass.in(Compile) := Some("bloop.Docs"),
-    resources.in(Compile) ++= {
-      List(baseDirectory.in(ThisBuild).value / "docs")
-    }
-  )
-
 lazy val jsBridge06 = project
   .dependsOn(frontend % Provided, frontend % "test->test")
   .in(file("bridges") / "scalajs-0.6")
@@ -390,12 +325,9 @@ lazy val nativeBridge04 = project
   )
 
 val allProjects = Seq(
-  bloopShared,
+  shared,
   backend,
   frontend,
-  jsonConfig210.jvm,
-  jsonConfig211.jvm,
-  jsonConfig211.js,
   jsonConfig212.jvm,
   jsonConfig212.js,
   jsonConfig213.jvm,
@@ -419,12 +351,9 @@ val bloop = project
       BuildDefaults
         .publishLocalAllModules(
           List(
-            bloopShared,
+            shared,
             backend,
             frontend,
-            jsonConfig210.jvm,
-            jsonConfig211.js,
-            jsonConfig211.jvm,
             jsonConfig212.js,
             jsonConfig212.jvm,
             jsonConfig213.js,
@@ -448,7 +377,7 @@ lazy val stuff = project
     backend,
     launcher,
     bloopgun,
-    bloopShared,
+    shared,
     jsonConfig212.jvm,
     jsBridge1
   )
