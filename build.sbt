@@ -529,7 +529,7 @@ def shadeSbtSettingsForModule(
       "coursier.jniutils"
     ),
     libraryDependencies ++= List(
-      "io.github.alexarchambault.libdaemon" %% "libdaemon" % "0.0.2",
+      Dependencies.libdaemonjvm,
       "org.scala-sbt.ipcsocket" % "ipcsocket" % "1.4.0"
     ),
     toShadeJars := {

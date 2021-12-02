@@ -60,11 +60,9 @@ object Server {
       case Left(hostPort) =>
         startServer(Left(hostPort))
       case Right(lockFiles) =>
-        Lock.tryAcquire(
-          lockFiles,
-          LockProcess.default,
+        Lock.tryAcquire(lockFiles, LockProcess.default) {
           startServer(Right(lockFiles.socketPaths))
-        ) match {
+        } match {
           case Left(err) => throw new Exception(err)
           case Right(()) =>
         }

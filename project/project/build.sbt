@@ -37,7 +37,7 @@ val sbtBloopBuildShadedJar = project
       "me.vican.jorge" %% "snailgun-cli" % "0.3.1",
       "io.get-coursier" % "interface" % "1.0.4",
       "ch.epfl.scala" % "bsp4j" % "2.0.0-M4+10-61e61e87",
-      "io.github.alexarchambault.libdaemon" %% "libdaemon" % "0.0.2",
+      "io.github.alexarchambault.libdaemon" %% "libdaemon" % "0.0.4",
       "org.scala-sbt.ipcsocket" % "ipcsocket" % "1.4.0"
     ),
     toShadeClasses := {
