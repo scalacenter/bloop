@@ -1,6 +1,7 @@
 package bloop.testing
 
 import bloop.logging.{DebugFilter, Logger, RecordingLogger}
+import ch.epfl.scala.debugadapter.testing.TestSuiteEvent
 import sbt.testing.{Event, Fingerprint, OptionalThrowable, Selector, Status, TestSelector}
 
 object LoggingEventHandlerSpec extends BaseSuite {

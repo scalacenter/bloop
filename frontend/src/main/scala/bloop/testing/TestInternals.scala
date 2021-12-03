@@ -10,6 +10,7 @@ import bloop.engine.ExecutionContext
 import bloop.exec.{Forker, JvmProcessForker}
 import bloop.io.AbsolutePath
 import bloop.logging.{DebugFilter, Logger}
+import ch.epfl.scala.debugadapter.testing.TestSuiteEvent
 import monix.eval.Task
 import monix.execution.atomic.AtomicBoolean
 import sbt.testing.{
@@ -119,7 +120,7 @@ object TestInternals {
       discovered: Map[Framework, List[TaskDef]],
       args: List[Config.TestArgument],
       jvmOptions: List[String],
-      testEventHandler: TestSuiteEventHandler,
+      testEventHandler: BloopTestSuiteEventHandler,
       logger: Logger,
       opts: CommonOptions
   ): Task[Int] = {
