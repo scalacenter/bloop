@@ -212,7 +212,7 @@ object ConfigCodecs {
 
   def read(bytes: Array[Byte]): Either[Throwable, Config.File] = {
     Try(jsoniter.readFromArray[Config.File](bytes)) match {
-      case Failure(exception) => Left(exception)
+      case Failure(exception) => Left(new Exception(exception))
       case Success(value) => Right(value)
     }
   }

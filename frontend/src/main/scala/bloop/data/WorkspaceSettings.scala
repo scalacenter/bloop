@@ -10,7 +10,7 @@ import scala.util.Success
 import java.nio.file.Files
 import bloop.tracing.TraceProperties
 import com.github.plokhotnyuk.jsoniter_scala.core.{JsonValueCodec, WriterConfig}
-import com.github.plokhotnyuk.jsoniter_scala.macros.{CodecMakerConfig, JsonCodecMaker}
+import com.github.plokhotnyuk.jsoniter_scala.macros.JsonCodecMaker
 
 /**
  * Defines the settings of a given workspace. A workspace is a URI that has N

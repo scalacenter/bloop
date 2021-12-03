@@ -42,7 +42,7 @@ object GlobalSettings {
         case Failure(e: JsonReaderException) =>
           Left(e.getMessage())
         case Failure(e) =>
-          throw e
+          throw new Exception(e)
       }
     }
   }
