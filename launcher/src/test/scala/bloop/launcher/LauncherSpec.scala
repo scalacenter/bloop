@@ -38,11 +38,13 @@ class LauncherSpec(bloopVersion: String)
     version.split('.') match {
       case Array(Num(maj), Num(min), Num(patch), _*) =>
         import scala.math.Ordering.Implicits._
-        if (Seq(maj, min, patch) >= Seq(1, 4, 11) && version != "1.4.11") "io.github.alexarchambault.compserv"
+        if (Seq(maj, min, patch) >= Seq(1, 4, 11) && version != "1.4.11")
+          "io.github.alexarchambault.compserv"
         else "ch.epfl.scala"
     }
 
-  private final val bloopDependency = s"${bloopOrg(bloopVersion)}:bloop-frontend_2.12:${bloopVersion}"
+  private final val bloopDependency =
+    s"${bloopOrg(bloopVersion)}:bloop-frontend_2.12:${bloopVersion}"
   test("fail if arguments are empty") {
     setUpLauncher(shellWithPython) { run =>
       val status = run.launcher.cli(Array())
