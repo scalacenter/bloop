@@ -54,11 +54,6 @@ class LauncherSpec(bloopVersion: String)
     }
   }
 
-  test("check that python is in the classpath") {
-    // Python must always be in the classpath in order to run these tests, if this fails install it
-    assert(shellWithPython.isPythonInClasspath)
-  }
-
   ignore("fail for bloop version not supporting launcher") {
     setUpLauncher(shellWithPython) { run =>
       val args = Array("1.0.0")
