@@ -27,7 +27,22 @@ object LatestMasterLauncherSpec extends LauncherSpec(BuildInfo.version)
 
 class LauncherSpec(bloopVersion: String)
     extends LauncherBaseSuite(bloopVersion, BuildInfo.bspVersion, 9014) {
-  private final val bloopDependency = s"io.github.alexarchambault.compserv:bloop-frontend_2.12:${bloopVersion}"
+
+  // Copied from elsewhere here
+  private object Num {
+    def unapply(s: String): Option[Int] =
+      if (s.nonEmpty && s.forall(_.isDigit)) Some(s.toInt)
+      else None
+  }
+  private def bloopOrg(version: String): String =
+    version.split('.') match {
+      case Array(Num(maj), Num(min), Num(patch), _*) =>
+        import scala.math.Ordering.Implicits._
+        if (Seq(maj, min, patch) >= Seq(1, 4, 11) && version != "1.4.11") "io.github.alexarchambault.compserv"
+        else "ch.epfl.scala"
+    }
+
+  private final val bloopDependency = s"${bloopOrg(bloopVersion)}:bloop-frontend_2.12:${bloopVersion}"
   test("fail if arguments are empty") {
     setUpLauncher(shellWithPython) { run =>
       val status = run.launcher.cli(Array())
