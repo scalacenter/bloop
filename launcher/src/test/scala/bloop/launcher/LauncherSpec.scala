@@ -22,13 +22,45 @@ import bloop.bloopgun.ServerConfig
 import bloop.launcher.core.{Feedback => LauncherFeedback}
 import bloop.bloopgun.util.{Feedback => BloopgunFeedback}
 import bloop.bloopgun.core.AvailableAtPath
+import java.util.concurrent.atomic.AtomicInteger
+import java.security.SecureRandom
+import java.nio.file.attribute.PosixFilePermissions
+import java.net.ServerSocket
 
-object LatestStableLauncherSpec extends LauncherSpec("1.3.2", () => Left(9014))
-object LatestMasterLauncherSpec extends LauncherSpec(BuildInfo.version, () => Left(9014))
+object LatestStableLauncherSpec
+    extends LauncherSpec("1.3.2", () => Left(LauncherSpecHelper.openPort()))
+object LatestMasterLauncherSpec
+    extends LauncherSpec(BuildInfo.version, () => Left(LauncherSpecHelper.openPort()))
+
+object LauncherSpecHelper {
+  val count = new AtomicInteger
+  val rng = math.abs(new SecureRandom().nextInt().toLong)
+
+  def openPort(): Int = {
+    val s = new ServerSocket(0)
+    val port = s.getLocalPort()
+    s.close()
+    port
+  }
+}
+
 object LatestMasterLauncherDomainSocketSpec
     extends LauncherSpec(
       BuildInfo.version,
-      () => Right((TestUtil.tmpDir(strictPermissions = true), "bloop_tests\\daemon"))
+      () => {
+        import LauncherSpecHelper.{count, rng}
+        val count0 = count.incrementAndGet()
+        val dir = TestUtil.tmpDir(strictPermissions = true).resolve(count0.toString)
+        Files.createDirectories(dir)
+        if (!scala.util.Properties.isWin) {
+          Files.setPosixFilePermissions(
+            dir,
+            PosixFilePermissions.fromString("rwx------")
+          )
+        }
+        val pipeName = s"bloop_tests\\run-$rng\\test-$count0\\daemon"
+        Right((dir, pipeName))
+      }
     )
 
 class LauncherSpec(
