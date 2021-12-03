@@ -490,6 +490,7 @@ class BloopgunCli(
       val process = new ProcessBuilder()
         .command(cmd.toArray: _*)
         .directory(cwd.toFile)
+        .inheritIO()
 
       if (redirectOutErr) {
         process.redirectOutput()
