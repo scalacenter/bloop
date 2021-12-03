@@ -97,6 +97,7 @@ jobs:
           echo $JAVA_HOME
           which gu && gu install native-image
           ./bin/sbt-ci.sh publishLocal
+        shell: bash
       - name: Prepare launcher tests
         if: matrix.os != 'windows-latest'
         run: |
