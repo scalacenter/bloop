@@ -112,7 +112,7 @@ class BloopComponentManager(
 
   private def secondaryCacheFile(id: String, dir: File): File = {
     new File(
-      new File(dir, "io.github.alexarchambault.compserv"),
+      new File(dir, "io.github.alexarchambault.bleep"),
       s"$id-${BloopComponentManager.stampedVersion}.jar"
     )
   }

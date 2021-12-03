@@ -39,7 +39,7 @@ class LauncherSpec(bloopVersion: String)
       case Array(Num(maj), Num(min), Num(patch), _*) =>
         import scala.math.Ordering.Implicits._
         if (Seq(maj, min, patch) >= Seq(1, 4, 11) && version != "1.4.11")
-          "io.github.alexarchambault.compserv"
+          "io.github.alexarchambault.bleep"
         else "ch.epfl.scala"
       case _ => "ch.epfl.scala"
     }

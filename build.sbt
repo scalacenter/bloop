@@ -1,5 +1,19 @@
 import build.BuildImplementation.BuildDefaults
 
+inThisBuild(List(
+  organization := "io.github.alexarchambault.bleep",
+  homepage := Some(url("https://github.com/alexarchambault/bleep")),
+  licenses := List("Apache-2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0")),
+  developers := List(
+    Developer(
+      "alexarchambault",
+      "Alex Archambault",
+      "",
+      url("https://github.com/alexarchambault")
+    )
+  )
+))
+
 dynverSeparator in ThisBuild := "-"
 
 lazy val shared = project

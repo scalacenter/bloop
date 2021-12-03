@@ -253,4 +253,10 @@ jobs:
           name: bloop-artifacts
           path: bloop-artifacts
       # - name: Publish docs and binaries to Maven Central
-      # - name: Cut GitHub release and update installers on ${{ matrix.os }}
+      - name: Cut GitHub release # and update installers on ${{ matrix.os }}
+        run: ./bin/sbt-ci.sh ci-release
+        env:
+          PGP_PASSPHRASE: ${{ secrets.PGP_PASSPHRASE }}
+          PGP_SECRET: ${{ secrets.PGP_SECRET }}
+          SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
+          SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
