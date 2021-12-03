@@ -35,7 +35,7 @@ class LauncherSpec(bloopVersion: String)
       else None
   }
   private def bloopOrg(version: String): String =
-    version.split('.') match {
+    version.split("[-.]") match {
       case Array(Num(maj), Num(min), Num(patch), _*) =>
         import scala.math.Ordering.Implicits._
         if (Seq(maj, min, patch) >= Seq(1, 4, 11) && version != "1.4.11")
