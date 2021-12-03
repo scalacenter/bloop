@@ -101,7 +101,8 @@ abstract class LauncherBaseSuite(
     import java.io.ByteArrayOutputStream
     import java.io.PrintStream
     val baos = new ByteArrayOutputStream()
-    val ps = new PrintStream(baos, true, "UTF-8")
+    val tee = new util.TeeOutputStream(baos, System.err)
+    val ps = new PrintStream(tee, true, "UTF-8")
     val port = Some(bloopServerPort)
     val launcher = new LauncherMain(
       in,
