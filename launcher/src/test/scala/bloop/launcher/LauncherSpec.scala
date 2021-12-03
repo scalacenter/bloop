@@ -41,6 +41,7 @@ class LauncherSpec(bloopVersion: String)
         if (Seq(maj, min, patch) >= Seq(1, 4, 11) && version != "1.4.11")
           "io.github.alexarchambault.compserv"
         else "ch.epfl.scala"
+      case _ => "ch.epfl.scala"
     }
 
   private final val bloopDependency =
