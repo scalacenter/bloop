@@ -82,7 +82,8 @@ final class BspBridge(
     val cli = createCli(new PrintStream(cliOut))
     val (bspCmd, openConnection) = deriveBspInvocation(useTcp, launcherTmpDir)
     println(Feedback.openingBspConnection(bspCmd), out)
-    val thread = new Thread {
+    val thread = new Thread("establishBspConnectionViaBinary") {
+      setDaemon(true)
       override def run(): Unit = {
         val args = bspCmd ++ bloopAdditionalArgs ++ List("--verbose")
         try {

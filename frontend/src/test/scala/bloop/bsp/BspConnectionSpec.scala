@@ -10,6 +10,7 @@ import monix.eval.Task
 import monix.execution.{Scheduler, ExecutionModel}
 
 import scala.concurrent.duration.FiniteDuration
+import bloop.TestSchedulers
 
 object TcpBspConnectionSpec extends BspConnectionSpec(BspProtocol.Tcp)
 object LocalBspConnectionSpec extends BspConnectionSpec(BspProtocol.Local)
@@ -19,7 +20,7 @@ class BspConnectionSpec(
 ) extends BspBaseSuite {
   // A custom pool we use to make sure we don't block on threads
   val poolFor6Clients: Scheduler = Scheduler(
-    java.util.concurrent.Executors.newFixedThreadPool(20),
+    java.util.concurrent.Executors.newFixedThreadPool(20, TestSchedulers.threadFactory("poolFor6Clients")),
     ExecutionModel.Default
   )
 
@@ -138,7 +139,7 @@ class BspConnectionSpec(
   }
 
   val poolFor1Client: Scheduler = Scheduler(
-    java.util.concurrent.Executors.newFixedThreadPool(6),
+    java.util.concurrent.Executors.newFixedThreadPool(6, TestSchedulers.threadFactory("poolFor1Client")),
     ExecutionModel.Default
   )
 

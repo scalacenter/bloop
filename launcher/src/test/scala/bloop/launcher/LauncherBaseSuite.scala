@@ -23,6 +23,7 @@ import java.io.PrintStream
 import bloop.bloopgun.ServerConfig
 import bloop.bloopgun.core.ServerStatus
 import snailgun.logging.SnailgunLogger
+import bloop.TestSchedulers
 
 /**
  * Defines a base suite to test the launcher. The test suite hijacks system
@@ -132,7 +133,8 @@ abstract class LauncherBaseSuite(
   import monix.execution.Scheduler
   import monix.execution.ExecutionModel
   private val bspScheduler: Scheduler = Scheduler(
-    java.util.concurrent.Executors.newFixedThreadPool(4),
+    java.util.concurrent.Executors
+      .newFixedThreadPool(4, TestSchedulers.threadFactory("bspScheduler")),
     ExecutionModel.AlwaysAsyncExecution
   )
 

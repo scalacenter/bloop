@@ -26,6 +26,7 @@ import scala.collection.mutable
 import scala.concurrent.duration.FiniteDuration
 import scala.meta.jsonrpc.{BaseProtocolMessage, LanguageClient, LanguageServer, Response, Services}
 import scala.concurrent.Promise
+import bloop.TestSchedulers
 
 object BspClientTest extends BspClientTest
 trait BspClientTest {
@@ -94,7 +95,7 @@ trait BspClientTest {
 
   // We limit the scheduler on purpose so that we don't have any thread leak.
   val defaultScheduler: Scheduler = Scheduler(
-    java.util.concurrent.Executors.newFixedThreadPool(4),
+    java.util.concurrent.Executors.newFixedThreadPool(4, TestSchedulers.threadFactory("defaultScheduler")),
     ExecutionModel.AlwaysAsyncExecution
   )
 
