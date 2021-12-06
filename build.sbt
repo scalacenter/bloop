@@ -218,7 +218,6 @@ lazy val bloopgun = project
       Dependencies.snailgun,
       // Use zt-exec instead of nuprocess because it doesn't require JNA (good for graalvm)
       Dependencies.ztExec,
-      Dependencies.logback,
       Dependencies.coursierInterface,
       Dependencies.coursierInterfaceSubs,
       Dependencies.jsoniterCore,
