@@ -11,7 +11,6 @@ import bloop.data.WorkspaceSettings
 import bloop.internal.build.BuildInfo
 import bloop.tracing.TraceProperties
 import monix.eval.Task
-import com.github.plokhotnyuk.jsoniter_scala.core.JsonReaderException
 import scala.util.Try
 import bloop.data.TraceSettings
 

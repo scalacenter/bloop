@@ -206,7 +206,8 @@ lazy val frontend: Project = project
       Dependencies.scalazCore,
       Dependencies.monix,
       Dependencies.caseApp,
-      Dependencies.scalaDebugAdapter
+      Dependencies.scalaDebugAdapter,
+      Dependencies.logback
     )
   )
 
@@ -227,7 +228,7 @@ lazy val bloopgun = project
       Dependencies.snailgun,
       // Use zt-exec instead of nuprocess because it doesn't require JNA (good for graalvm)
       Dependencies.ztExec,
-      Dependencies.slf4jNop,
+      Dependencies.logback,
       Dependencies.coursierInterface,
       Dependencies.coursierInterfaceSubs,
       Dependencies.jsoniterCore,

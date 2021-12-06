@@ -8,10 +8,6 @@ on:
       - master
   pull_request:
 
-concurrency:
-  group: ${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
   scalafmt:
     name: Formatting
@@ -41,9 +37,6 @@ jobs:
       - uses: olafurpg/setup-scala@v13
         with:
           java-version: ${{ matrix.jdk }}
-      - uses: actions/setup-node@v2.5.0
-        with:
-          node-version: "10.x"
       - name: Set up environment
         run: |
           curl -Lo coursier https://git.io/coursier-cli && chmod +x coursier && ./coursier --help
@@ -82,9 +75,6 @@ jobs:
       - uses: olafurpg/setup-scala@v13
         with:
           java-version: ${{ matrix.jdk }}
-      - uses: actions/setup-node@v2.5.0
-        with:
-          node-version: "10.x"
       - name: Set up environment
         run: |
           curl -Lo coursier https://git.io/coursier-cli && chmod +x coursier && ./coursier --help
@@ -244,9 +234,6 @@ jobs:
       - uses: olafurpg/setup-scala@v13
         with:
           java-version: ${{ matrix.jdk }}
-      - uses: actions/setup-node@v2.5.0
-        with:
-          node-version: "10.x"
       - name: Download built GraalVM binaries
         uses: actions/download-artifact@v2.0.10
         with:

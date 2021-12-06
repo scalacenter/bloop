@@ -21,6 +21,7 @@ import java.nio.channels.ReadableByteChannel
 import java.nio.channels.WritableByteChannel
 import java.nio.ByteBuffer
 import java.nio.file.Files
+import org.slf4j.LoggerFactory
 
 object BspBridge {
   def printEx(t: Throwable): Unit =
@@ -40,6 +41,7 @@ final class BspBridge(
     shell: Shell,
     launcherTmpDir: Path
 ) {
+  private lazy val log = LoggerFactory.getLogger(getClass)
   private val alreadyInUseMsg = "Address already in use"
   private var bspServerStatus: Option[(String, StatusCommand)] = None
 
@@ -82,7 +84,8 @@ final class BspBridge(
     val cli = createCli(new PrintStream(cliOut))
     val (bspCmd, openConnection) = deriveBspInvocation(useTcp, launcherTmpDir)
     println(Feedback.openingBspConnection(bspCmd), out)
-    val thread = new Thread {
+    val thread = new Thread("establishBspConnectionViaBinary") {
+      setDaemon(true)
       override def run(): Unit = {
         val args = bspCmd ++ bloopAdditionalArgs ++ List("--verbose")
         try {
@@ -97,6 +100,7 @@ final class BspBridge(
         } catch {
           case t: Throwable =>
             System.err.println(s"Caught $t when running $args")
+            log.error(s"Caught exception when running $args", t)
             BspBridge.printEx(t)
         }
       }

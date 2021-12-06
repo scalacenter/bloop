@@ -24,7 +24,7 @@ class ProjectBaseSuite(buildName: String) extends BaseSuite {
     super.test(name)(fun)
   }
 
-  override def afterAll(): Unit = {
+  override def utestAfterAll(): Unit = {
     Paths.delete(workspace)
   }
 }

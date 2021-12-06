@@ -3,13 +3,21 @@ import java.util.concurrent.{Executors, ThreadFactory}
 
 import monix.execution.{ExecutionModel, Scheduler}
 import monix.execution.atomic.Atomic
+import java.util.concurrent.atomic.AtomicInteger
 
 object TestSchedulers {
+
+  def threadFactory(name: String): ThreadFactory = {
+    val i = new AtomicInteger
+    r =>
+      val t = new Thread(r, s"$name-${i.incrementAndGet()}")
+      t.setDaemon(true)
+      t
+  }
+
   // We limit the threads count so that we don't have any thread leak
   def async(name: String, threads: Int): Scheduler = {
-    val i = Atomic(0)
-    val factory: ThreadFactory = new Thread(_, s"$name-${i.getAndIncrement()}")
-
+    val factory = threadFactory(name)
     val pool = Executors.newFixedThreadPool(threads, factory)
     Scheduler(pool, ExecutionModel.AlwaysAsyncExecution)
   }

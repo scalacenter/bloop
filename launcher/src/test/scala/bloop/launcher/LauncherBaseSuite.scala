@@ -23,6 +23,7 @@ import java.io.PrintStream
 import bloop.bloopgun.ServerConfig
 import bloop.bloopgun.core.ServerStatus
 import snailgun.logging.SnailgunLogger
+import bloop.TestSchedulers
 
 /**
  * Defines a base suite to test the launcher. The test suite hijacks system
@@ -76,36 +77,6 @@ abstract class LauncherBaseSuite(
 
   import java.{util => ju}
 
-  private def changeEnvironment(newEnv: ju.Map[String, String]): Unit = {
-    // From https://stackoverflow.com/questions/318239/how-do-i-set-environment-variables-from-java
-    try {
-      val envClass = Class.forName("java.lang.ProcessEnvironment")
-      val envField = envClass.getDeclaredField("theEnvironment")
-      envField.setAccessible(true)
-      val currentEnv = envField.get(null).asInstanceOf[ju.Map[String, String]]
-      currentEnv.putAll(newEnv)
-      val caseInsensitiveEnvField =
-        envClass.getDeclaredField("theCaseInsensitiveEnvironment")
-      caseInsensitiveEnvField.setAccessible(true)
-      val currentCaseInsensitiveEnv =
-        caseInsensitiveEnvField.get(null).asInstanceOf[ju.Map[String, String]]
-      currentCaseInsensitiveEnv.putAll(newEnv)
-    } catch {
-      case _: NoSuchFieldException =>
-        val classes = classOf[ju.Collections].getDeclaredClasses()
-        val currentEnv = System.getenv()
-        classes.foreach { currentClass =>
-          if (currentClass.getName() == "java.util.Collections$UnmodifiableMap") {
-            val mField = currentClass.getDeclaredField("m")
-            mField.setAccessible(true)
-            val currentEnvMap = mField.get(currentEnv).asInstanceOf[ju.Map[String, String]]
-            currentEnvMap.clear()
-            currentEnvMap.putAll(newEnv)
-          }
-        }
-    }
-  }
-
   case class LauncherRun(launcher: LauncherMain, output: ByteArrayOutputStream) {
     def logs: List[String] =
       (new String(output.toByteArray, StandardCharsets.UTF_8)).splitLines.toList
@@ -131,7 +102,8 @@ abstract class LauncherBaseSuite(
     import java.io.ByteArrayOutputStream
     import java.io.PrintStream
     val baos = new ByteArrayOutputStream()
-    val ps = new PrintStream(baos, true, "UTF-8")
+    val tee = new util.TeeOutputStream(baos, System.err)
+    val ps = new PrintStream(tee, true, "UTF-8")
     val port = Some(bloopServerPort)
     val launcher = new LauncherMain(
       in,
@@ -161,7 +133,8 @@ abstract class LauncherBaseSuite(
   import monix.execution.Scheduler
   import monix.execution.ExecutionModel
   private val bspScheduler: Scheduler = Scheduler(
-    java.util.concurrent.Executors.newFixedThreadPool(4),
+    java.util.concurrent.Executors
+      .newFixedThreadPool(4, TestSchedulers.threadFactory("bspScheduler")),
     ExecutionModel.AlwaysAsyncExecution
   )
 

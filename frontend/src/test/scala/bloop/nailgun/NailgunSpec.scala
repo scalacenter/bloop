@@ -203,7 +203,7 @@ object NailgunSpec extends BaseSuite with NailgunTestUtils {
     }
   }
 
-  override def afterAll(): Unit = {
+  override def utestAfterAll(): Unit = {
     // Make sure that we never end up with a background nailgun server running
     val cwd = Paths.get(System.getProperty("user.dir"))
     val client = Client(super.TEST_PORT, new RecordingLogger(), cwd)

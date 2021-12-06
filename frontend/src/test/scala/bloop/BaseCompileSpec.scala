@@ -1277,10 +1277,7 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
       val backgroundCompiledUserState =
         compiledMacrosState.compileHandle(build.userProject)
 
-      val waitTimeToCancel = {
-        val randomMs = scala.util.Random.nextInt(1000)
-        (if (randomMs < 250) 250 else randomMs).toLong
-      }
+      val waitTimeToCancel = 250L
 
       ExecutionContext.ioScheduler.scheduleOnce(
         waitTimeToCancel,
@@ -1294,8 +1291,8 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
         // There are two macro calls in two different sources, cancellation must avoid one
         try Await.result(backgroundCompiledUserState, Duration(2950, "ms"))
         catch {
-          case NonFatal(t) => backgroundCompiledUserState.cancel(); throw t
           case i: InterruptedException => backgroundCompiledUserState.cancel(); compiledMacrosState
+          case NonFatal(t) => backgroundCompiledUserState.cancel(); throw t
         }
       }
 
