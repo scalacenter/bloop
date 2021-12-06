@@ -76,36 +76,6 @@ abstract class LauncherBaseSuite(
 
   import java.{util => ju}
 
-  private def changeEnvironment(newEnv: ju.Map[String, String]): Unit = {
-    // From https://stackoverflow.com/questions/318239/how-do-i-set-environment-variables-from-java
-    try {
-      val envClass = Class.forName("java.lang.ProcessEnvironment")
-      val envField = envClass.getDeclaredField("theEnvironment")
-      envField.setAccessible(true)
-      val currentEnv = envField.get(null).asInstanceOf[ju.Map[String, String]]
-      currentEnv.putAll(newEnv)
-      val caseInsensitiveEnvField =
-        envClass.getDeclaredField("theCaseInsensitiveEnvironment")
-      caseInsensitiveEnvField.setAccessible(true)
-      val currentCaseInsensitiveEnv =
-        caseInsensitiveEnvField.get(null).asInstanceOf[ju.Map[String, String]]
-      currentCaseInsensitiveEnv.putAll(newEnv)
-    } catch {
-      case _: NoSuchFieldException =>
-        val classes = classOf[ju.Collections].getDeclaredClasses()
-        val currentEnv = System.getenv()
-        classes.foreach { currentClass =>
-          if (currentClass.getName() == "java.util.Collections$UnmodifiableMap") {
-            val mField = currentClass.getDeclaredField("m")
-            mField.setAccessible(true)
-            val currentEnvMap = mField.get(currentEnv).asInstanceOf[ju.Map[String, String]]
-            currentEnvMap.clear()
-            currentEnvMap.putAll(newEnv)
-          }
-        }
-    }
-  }
-
   case class LauncherRun(launcher: LauncherMain, output: ByteArrayOutputStream) {
     def logs: List[String] =
       (new String(output.toByteArray, StandardCharsets.UTF_8)).splitLines.toList

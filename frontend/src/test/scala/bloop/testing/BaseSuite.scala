@@ -38,8 +38,6 @@ abstract class BaseSuite extends TestSuite with BloopHelpers {
   val pprint = _root_.pprint.PPrinter.BlackWhite
   def isWindows: Boolean = bloop.util.CrossPlatform.isWindows
   def isAppveyor: Boolean = "True" == System.getenv("APPVEYOR")
-  def beforeAll(): Unit = ()
-  def afterAll(): Unit = ()
   def intercept[T: ClassTag](exprs: Unit): T = macro Asserts.interceptProxy[T]
 
   def assertNotEmpty(string: String): Unit = {
@@ -510,7 +508,6 @@ abstract class BaseSuite extends TestSuite with BloopHelpers {
     else AbsolutePath(resource.toURI())
   }
 
-  override def utestAfterAll(): Unit = afterAll()
   override def utestFormatter: Formatter = new Formatter {
     override def exceptionMsgColor: Attrs = Attrs.Empty
     override def exceptionStackFrameHighlighter(
@@ -596,7 +593,6 @@ abstract class BaseSuite extends TestSuite with BloopHelpers {
     val ts = myTests.result()
     val names = Tree("", ts.map(x => Tree(x.name)): _*)
     val thunks = new TestCallTree({
-      this.beforeAll()
       Right(ts.map(x => new TestCallTree(Left(x.thunk()))))
     })
     Tests(names, thunks)
