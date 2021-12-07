@@ -4,15 +4,6 @@ Copyright 2017-2018 Martin Duhem
 Copyright 2017-2018 Jorge Vicente Cantero
 Copyright 2017-2018 Scala Center (EPFL)
 
-## Nailgun
-
-[Repository website](https://github.com/scalacenter/nailgun/). Fork from
-[facebook/nailgun](https://github.com/facebook/nailgun).
-
-Licensed under the [Apache 2.0 license](https://github.com/scalacenter/nailgun/blob/master/LICENSE.txt).
-
-It includes minor modifications to the core algorithms and Nailgun protocol to suit Bloop's needs.
-
 ## Zinc
 
 [Repository website](https://github.com/scalacenter/zinc/). Fork from

@@ -171,10 +171,9 @@ object NailgunSpec extends BaseSuite with NailgunTestUtils {
       assertNoErrors(logger)
       assertNoDiff(
         logger.captureTimeInsensitiveInfos
-          .filterNot(
-            msg =>
-              msg == "" || msg.startsWith("Non-compiled module") || msg
-                .startsWith(" Compilation completed in")
+          .filterNot(msg =>
+            msg == "" || msg.startsWith("Non-compiled module") || msg
+              .startsWith(" Compilation completed in")
           )
           .mkString(lineSeparator),
         """|Compiling a (1 Scala source)
