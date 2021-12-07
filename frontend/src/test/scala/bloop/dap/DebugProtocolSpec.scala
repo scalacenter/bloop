@@ -44,6 +44,11 @@ object DebugProtocolSpec extends DebugBspBaseSuite {
 
   // when the session detaches from the JVM, the JDI once again writes to the standard output
   test("restarted session does not contain JDI output") {
+    TestUtil.retry() {
+      jdiOutputTest()
+    }
+  }
+  def jdiOutputTest(): Unit = {
     TestUtil.withinWorkspace { workspace =>
       val main =
         """|/main/scala/Main.scala
@@ -80,6 +85,11 @@ object DebugProtocolSpec extends DebugBspBaseSuite {
   }
 
   test("picks up source changes across sessions") {
+    TestUtil.retry() {
+      crossSessionsSourceChangesTest()
+    }
+  }
+  def crossSessionsSourceChangesTest(): Unit = {
     val correctMain =
       """
         |object Main {
