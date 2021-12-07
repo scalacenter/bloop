@@ -86,9 +86,9 @@ object ScalaVersionsSpec extends bloop.testing.BaseSuite {
       case NonFatal(t) =>
         loggers.foreach(logger => logger.dump())
         Thread.sleep(100)
-        System.err.println(TestUtil.threadDump)
+        TestUtil.printThreadDump()
         Thread.sleep(100)
         throw t
-    } finally {}
+    }
   }
 }
