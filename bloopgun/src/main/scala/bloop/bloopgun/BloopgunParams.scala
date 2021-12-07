@@ -1,9 +1,9 @@
 package bloop.bloopgun
 
+import java.nio.file.Path
+
 final case class BloopgunParams(
     bloopVersion: String,
-    nailgunServer: String = Defaults.Host,
-    nailgunPort: Int = Defaults.Port,
     nailgunHelp: Boolean = false,
     verbose: Boolean = false,
     nailgunShowVersion: Boolean = false,

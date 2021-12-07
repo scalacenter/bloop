@@ -43,6 +43,7 @@ import sbt.internal.inc.BloopComponentCompiler
 import java.util.concurrent.TimeoutException
 import java.security.SecureRandom
 import java.util.concurrent.atomic.AtomicInteger
+import java.nio.file.attribute.PosixFilePermissions
 
 object TestUtil {
   def projectDir(base: Path, name: String) = base.resolve(name)
@@ -462,6 +463,18 @@ object TestUtil {
   }
 
   private val tmpDirCount = new AtomicInteger
+
+  def tmpDir(strictPermissions: Boolean = false): Path = {
+    val dir = baseTmpDir.resolve(s"tmp-dir-${tmpDirCount.incrementAndGet()}")
+    Files.createDirectories(dir)
+    if (strictPermissions && !scala.util.Properties.isWin) {
+      Files.setPosixFilePermissions(
+        dir,
+        PosixFilePermissions.fromString("rwx------")
+      )
+    }
+    dir
+  }
 
   /** Creates an empty workspace where operations can happen. */
   def withinWorkspace[T](op: AbsolutePath => T): T = {

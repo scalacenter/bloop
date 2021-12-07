@@ -18,6 +18,12 @@ import org.zeroturnaround.exec.stream.ExecuteStreamHandler
 import org.zeroturnaround.exec.stream.LogOutputStream
 import snailgun.logging.Logger
 import bloop.bloopgun.ServerConfig
+import libdaemonjvm.client.Connect
+import libdaemonjvm.client.ConnectError
+import java.net.Socket
+import java.nio.channels.SocketChannel
+import java.io.InputStream
+import java.io.ByteArrayOutputStream
 
 /**
  * Defines shell utilities to run programs via system process.
@@ -154,30 +160,60 @@ final class Shell(runWithInterpreter: Boolean, detectPython: Boolean) {
       config: ServerConfig,
       logger: Logger
   ): Boolean = {
-    import java.net.Socket
-    var socket: Socket = null
     import scala.util.control.NonFatal
-    try {
-      socket = new Socket()
-      socket.setReuseAddress(true)
-      socket.setTcpNoDelay(true)
-      import java.net.InetAddress
-      import java.net.InetSocketAddress
-      logger.info("Attempting a connection to the server...")
-      socket.connect(new InetSocketAddress(config.userOrDefaultHost, config.userOrDefaultPort))
-      socket.isConnected()
-    } catch {
-      case NonFatal(t) =>
-        logger.debug(s"Connection to port $config failed with '${t.getMessage()}'")
-        false
-    } finally {
-      if (socket != null) {
+
+    config.listenOnWithDefaults match {
+      case Left((host, port)) =>
+        import java.net.Socket
+        var socket: Socket = null
         try {
-          socket.shutdownInput()
-          socket.shutdownOutput()
-          socket.close()
-        } catch { case NonFatal(_) => }
-      }
+          socket = new Socket()
+          socket.setReuseAddress(true)
+          socket.setTcpNoDelay(true)
+          import java.net.InetAddress
+          import java.net.InetSocketAddress
+          logger.info("Attempting a connection to the server...")
+          socket.connect(new InetSocketAddress(host, port))
+          socket.isConnected()
+        } catch {
+          case NonFatal(t) =>
+            logger.debug(s"Connection to port $config failed with '${t.getMessage()}'")
+            false
+        } finally {
+          if (socket != null) {
+            try {
+              socket.shutdownInput()
+              socket.shutdownOutput()
+              socket.close()
+            } catch { case NonFatal(_) => }
+          }
+        }
+      case Right(daemonFiles) =>
+        var res = Option.empty[Either[ConnectError, Either[Socket, SocketChannel]]]
+        try {
+          logger.info("Attempting a connection to the server...")
+          res = Connect.tryConnect(daemonFiles)
+          res.exists(_.isRight)
+        } catch {
+          case NonFatal(t) =>
+            logger.debug(s"Connection to $daemonFiles failed with '${t.getMessage()}'")
+            false
+        } finally {
+          res.foreach(_.foreach {
+            case Left(socket) =>
+              try {
+                socket.shutdownInput()
+                socket.shutdownOutput()
+                socket.close()
+              } catch { case NonFatal(_) => }
+            case Right(channel) =>
+              try {
+                channel.shutdownInput()
+                channel.shutdownOutput()
+                channel.close()
+              } catch { case NonFatal(_) => }
+          })
+        }
     }
   }
 

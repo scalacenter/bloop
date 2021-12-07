@@ -9,6 +9,7 @@ import bloop.bloopgun.util.Environment
 import bloop.internal.build.BuildTestInfo
 
 import java.nio.file.Files
+import java.nio.file.Path
 import java.io.InputStream
 import java.io.OutputStream
 import java.nio.charset.StandardCharsets
@@ -33,31 +34,15 @@ import bloop.TestSchedulers
  */
 abstract class LauncherBaseSuite(
     val bloopVersion: String,
-    val bspVersion: String,
-    val bloopServerPort: Int
+    val bspVersion: String
 ) extends BaseSuite {
-  val defaultConfig = ServerConfig(port = Some(bloopServerPort))
 
   protected val shellWithPython = new Shell(true, true)
 
-  // Init code acting as beforeAll()
-  stopServer(complainIfError = false)
-
-  override def test(name: String)(fun: => Any): Unit = {
-    val newFun = () => {
-      try {
-        stopServer(complainIfError = false)
-        fun
-      } finally {
-        stopServer(complainIfError = true)
-        ()
-      }
-    }
-
-    super.test(name)(newFun())
-  }
-
-  def stopServer(complainIfError: Boolean): Unit = {
+  def stopServer(
+      bloopServerPortOrDaemonDir: Either[Int, (Path, String)],
+      complainIfError: Boolean
+  ): Unit = {
     val dummyIn = new ByteArrayInputStream(new Array(0))
     val out = new ByteArrayOutputStream()
     val ps = new PrintStream(out)
@@ -65,7 +50,15 @@ abstract class LauncherBaseSuite(
     val cli = new BloopgunCli(bloopVersion, dummyIn, ps, ps, bloopgunShell)
 
     // Use ng-stop instead of exit b/c it closes the nailgun server but leaves threads hanging
-    val exitCmd = List("--nailgun-port", bloopServerPort.toString, "exit")
+    val exitCmd = {
+      val ngArgs = bloopServerPortOrDaemonDir match {
+        case Left(port) =>
+          List("--nailgun-port", port.toString)
+        case Right((path, pipeName)) =>
+          List("--daemon-dir", path.toString, "--pipe-name", pipeName)
+      }
+      ngArgs ::: List("exit")
+    }
     val code = cli.run(exitCmd.toArray)
 
     if (code != 0 && complainIfError) {
@@ -82,37 +75,51 @@ abstract class LauncherBaseSuite(
       (new String(output.toByteArray, StandardCharsets.UTF_8)).splitLines.toList
   }
 
-  def setUpLauncher(shell: Shell, startedServer: Promise[Unit] = Promise[Unit]())(
+  def setUpLauncher(
+      shell: Shell,
+      bloopServerPortOrDaemonDir: Either[Int, (Path, String)],
+      startedServer: Promise[Unit] = Promise[Unit]()
+  )(
       launcherLogic: LauncherRun => Unit
   ): Unit = {
     import java.io.ByteArrayInputStream
     val clientIn = new ByteArrayInputStream(new Array[Byte](0))
     val clientOut = new ByteArrayOutputStream()
-    setUpLauncher(clientIn, clientOut, shell, startedServer)(launcherLogic)
+    setUpLauncher(clientIn, clientOut, shell, startedServer, bloopServerPortOrDaemonDir)(
+      launcherLogic
+    )
   }
 
-  def setUpLauncher(
+  def setUpLauncher[T](
       in: InputStream,
       out: OutputStream,
       shell: Shell,
-      startedServer: Promise[Unit]
+      startedServer: Promise[Unit],
+      bloopServerPortOrDaemonDir: Either[Int, (Path, String)]
   )(
-      launcherLogic: LauncherRun => Unit
-  ): Unit = {
+      launcherLogic: LauncherRun => T
+  ): T = {
     import java.io.ByteArrayOutputStream
     import java.io.PrintStream
+
+    val listenOn = bloopServerPortOrDaemonDir.left
+      .map(port => (None, Some(port)))
+      .map {
+        case (path, pipeName) =>
+          (Some(path), Some(pipeName))
+      }
+    val defaultConfig = ServerConfig(listenOn = listenOn)
+
     val baos = new ByteArrayOutputStream()
     val tee = new util.TeeOutputStream(baos, System.err)
     val ps = new PrintStream(tee, true, "UTF-8")
-    val port = Some(bloopServerPort)
     val launcher = new LauncherMain(
       in,
       out,
       ps,
       StandardCharsets.UTF_8,
       shell,
-      None,
-      port,
+      listenOn,
       startedServer
     )
     val run = new LauncherRun(launcher, baos)
@@ -126,6 +133,7 @@ abstract class LauncherBaseSuite(
         throw t
     } finally {
       if (ps != null) ps.close()
+      stopServer(bloopServerPortOrDaemonDir, complainIfError = true)
     }
   }
 
@@ -144,7 +152,7 @@ abstract class LauncherBaseSuite(
   import bloop.util.TestUtil
   import scala.meta.jsonrpc.Response
   import bloop.bsp.BloopLanguageClient
-  def startBspInitializeHandshake[T](
+  private def startBspInitializeHandshake[T](
       in: InputStream,
       out: OutputStream,
       logger: BspClientLogger[_]
@@ -204,7 +212,11 @@ abstract class LauncherBaseSuite(
     }
   }
 
-  def runBspLauncherWithEnvironment(args: Array[String], shell: Shell): BspLauncherResult = {
+  def runBspLauncherWithEnvironment(
+      args: Array[String],
+      shell: Shell,
+      bloopServerPortOrDaemonDir: Either[Int, (Path, String)]
+  ): BspLauncherResult = {
     import java.io.PipedInputStream
     import java.io.PipedOutputStream
     import bloop.logging.RecordingLogger
@@ -217,51 +229,53 @@ abstract class LauncherBaseSuite(
     var serverRun: Option[LauncherRun] = None
     var serverStatus: Option[LauncherStatus] = None
     val startedServer = Promise[Unit]()
-    val startServer = Task {
-      setUpLauncher(
-        in = launcherIn,
-        out = launcherOut,
-        startedServer = startedServer,
-        shell = shell
-      ) { run =>
-        serverRun = Some(run)
+    setUpLauncher(
+      in = launcherIn,
+      out = launcherOut,
+      shell = shell,
+      startedServer = startedServer,
+      bloopServerPortOrDaemonDir = bloopServerPortOrDaemonDir
+    ) { run =>
+      serverRun = Some(run)
+      val l = new ju.concurrent.CountDownLatch(1)
+      val serverStatusTask = Task {
         serverStatus = Some(run.launcher.cli(args))
+        l.countDown()
       }
-    }
+      serverStatusTask.runAsync(bspScheduler)
 
-    val runServer = startServer.runAsync(bspScheduler)
-
-    val logger = new RecordingLogger()
-    val connectToServer = Task.fromFuture(startedServer.future).flatMap { _ =>
-      val bspLogger = new BspClientLogger(logger)
-      startBspInitializeHandshake(clientIn, clientOut, bspLogger) { c =>
-        // Just return, we're only interested in the init handhake + exit
-        monix.eval.Task.eval(Right(()))
+      val logger = new RecordingLogger()
+      val connectToServer = Task.fromFuture(startedServer.future).flatMap { _ =>
+        val bspLogger = new BspClientLogger(logger)
+        startBspInitializeHandshake(clientIn, clientOut, bspLogger) { c =>
+          // Just return, we're only interested in the init handhake + exit
+          monix.eval.Task.eval(Right(()))
+        }
       }
-    }
 
-    def captureLogs: BspLauncherResult = {
-      val clientLogs = logger.getMessages().map(kv => s"${kv._1}: ${kv._2}")
-      val launcherLogs = serverRun.map(_.logs).getOrElse(Nil)
-      BspLauncherResult(serverStatus, launcherLogs, clientLogs)
-    }
+      def captureLogs: BspLauncherResult = {
+        val clientLogs = logger.getMessages().map(kv => s"${kv._1}: ${kv._2}")
+        val launcherLogs = serverRun.map(_.logs).getOrElse(Nil)
+        BspLauncherResult(serverStatus, launcherLogs, clientLogs)
+      }
 
-    import scala.util.control.NonFatal
-    try {
-      import scala.concurrent.Await
-      import scala.concurrent.duration.FiniteDuration
-      // Test can be slow in Windows...
-      TestUtil.await(FiniteDuration(40, "s"))(connectToServer)
-      Await.result(runServer, FiniteDuration(10, "s"))
-      captureLogs
-    } catch {
-      case NonFatal(t) =>
-        t.printStackTrace(System.err)
-        logger.trace(t)
+      import scala.util.control.NonFatal
+      try {
+        import scala.concurrent.Await
+        import scala.concurrent.duration.FiniteDuration
+        // Test can be slow in Windows...
+        TestUtil.await(FiniteDuration(40, "s"))(connectToServer)
+        l.await()
         captureLogs
-    } finally {
-      closeForcibly(launcherIn)
-      closeForcibly(launcherOut)
+      } catch {
+        case NonFatal(t) =>
+          t.printStackTrace(System.err)
+          logger.trace(t)
+          captureLogs
+      } finally {
+        closeForcibly(launcherIn)
+        closeForcibly(launcherOut)
+      }
     }
   }
 

@@ -133,7 +133,7 @@ final class BspBridge(
   def waitForOpenBsp(conn: RunningBspConnection, attempts: Int = 0): Option[BspConnection] = {
     def printLogs = printQuoted(conn.logs.toList.mkString(System.lineSeparator()), out)
     if (attempts % 100 == 0) println("Waiting for the bsp connection to come up...", out)
-    Thread.sleep(10)
+    Thread.sleep(100L)
     if (attempts == 3000) {
       printError("Giving up on waiting for a connection, printing embedded bloop logs:", out)
       printLogs
