@@ -32,6 +32,11 @@ object NailgunSpec extends BaseSuite with NailgunTestUtils {
   }
 
   test("nailgun help works in simple build") {
+    TestUtil.retry() {
+      simpleBuildNailgunHelpTest()
+    }
+  }
+  def simpleBuildNailgunHelpTest(): Unit = {
     withServerInProject { (logger, client) =>
       client.expectSuccess("help")
       assertNoErrors(logger)
@@ -62,6 +67,11 @@ object NailgunSpec extends BaseSuite with NailgunTestUtils {
   }
 
   test("nailgun help works in empty build") {
+    TestUtil.retry() {
+      emptyBuildNailgunHelpTest()
+    }
+  }
+  def emptyBuildNailgunHelpTest(): Unit = {
     TestUtil.withinWorkspace { workspace =>
       import java.nio.file.Files
       val configDir = Files.createDirectories(workspace.resolve(".bloop").underlying)
