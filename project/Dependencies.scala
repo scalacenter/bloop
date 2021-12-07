@@ -4,8 +4,6 @@ object Dependencies {
   val Scala212Version = "2.12.8"
 
   val nailgunVersion = "ee3c4343"
-  // Used to download the python client instead of resolving
-  val nailgunCommit = "a2520c1e"
 
   // Keep in sync in BloopComponentCompiler
   val zincVersion = "1.3.0-M4+47-d881fa2f"
