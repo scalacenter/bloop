@@ -66,7 +66,7 @@ class BspConnectionSpec(
 
       // A pool of 20 threads can only support 6 clients concurrently (more will make it fail)
       val firstBatchOfClients = List(client1, client2, client3, client4, client5, client6)
-      TestUtil.await(FiniteDuration(5, "s"), poolFor6Clients) {
+      TestUtil.await(FiniteDuration(10, "s"), poolFor6Clients) {
         Task.gatherUnordered(firstBatchOfClients).map(_ => ())
       }
 
@@ -79,7 +79,7 @@ class BspConnectionSpec(
 
       // If we can connect six more clients, it means resources were correctly cleaned up
       val secondBatchOfClients = List(client7, client8, client9, client10, client11, client12)
-      TestUtil.await(FiniteDuration(5, "s"), poolFor6Clients) {
+      TestUtil.await(FiniteDuration(10, "s"), poolFor6Clients) {
         Task.gatherUnordered(secondBatchOfClients).map(_ => ())
       }
     }
@@ -265,7 +265,7 @@ class BspConnectionSpec(
 
       // Time out is 5 to check cancellation works and we don't finish until end
       // of compilation, which would take more than 6 seconds as there are 12 sleeps
-      val safeDelay = FiniteDuration(5, "s")
+      val safeDelay = FiniteDuration(10, "s")
       import java.util.concurrent.TimeoutException
       TestUtil.await(safeDelay, poolFor1Client)(createHangingCompilationViaBsp)
     }
