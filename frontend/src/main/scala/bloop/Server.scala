@@ -62,17 +62,7 @@ object Server {
 
   def nailMain(ngContext: NGContext): Unit = {
     val server = ngContext.getNGServer
-    import java.util.concurrent.ForkJoinPool
-
-    ForkJoinPool
-      .commonPool()
-      .submit(new Runnable {
-        override def run(): Unit = {
-          server.shutdown(false)
-        }
-      })
-
-    ()
+    server.shutdown(false)
   }
 
   private def run(server: NGServer): Unit = {
