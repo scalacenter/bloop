@@ -16,6 +16,11 @@ class BspSbtClientSpec(
     override val protocol: BspProtocol
 ) extends BspBaseSuite {
   test("compilations with same origin id are cached if used from sbt") {
+    TestUtil.retry() {
+      sbtCachedSameOriginIdCompilationsTest()
+    }
+  }
+  def sbtCachedSameOriginIdCompilationsTest(): Unit = {
     TestUtil.withinWorkspace { workspace =>
       object Sources {
         val `Foo.scala` =
