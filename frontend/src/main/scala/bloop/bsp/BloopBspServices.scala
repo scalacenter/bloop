@@ -270,7 +270,7 @@ final class BloopBspServices(
 
     reloadState(configDir, client, metalsSettings, bspLogger).flatMap { state =>
       callSiteState.logger.info(s"request received: build/initialize")
-      clientInfo.success(client)
+      clientInfo.tryComplete(Success(client))
       connectedBspClients.put(client, configDir)
       publishStateInObserver(state.copy(client = client)).map { _ =>
         Right(
