@@ -16,10 +16,15 @@ inThisBuild(
   )
 )
 
+lazy val sonatypeSetting = Def.settings(
+  sonatypeProfileName := "io.github.alexarchambault"
+)
+
 dynverSeparator in ThisBuild := "-"
 
 lazy val shared = project
   .settings(
+    sonatypeSetting,
     name := "bloop-shared",
     libraryDependencies ++= Seq(
       Dependencies.bsp4s,
@@ -39,6 +44,7 @@ lazy val backend = project
   .settings(testSettings ++ testSuiteSettings)
   .dependsOn(shared)
   .settings(
+    sonatypeSetting,
     name := "bloop-backend",
     buildInfoPackage := "bloop.internal.build",
     buildInfoKeys := BloopBackendInfoKeys,
@@ -89,6 +95,7 @@ lazy val config = crossProject(JSPlatform, JVMPlatform)
   .crossType(CrossType.Pure)
   .in(file("config"))
   .settings(
+    sonatypeSetting,
     name := "bloop-config",
     unmanagedSourceDirectories in Compile +=
       baseDirectory.value / ".." / "src" / "main" / "scala-2.11-13",
@@ -119,6 +126,7 @@ lazy val jsonConfig213 = crossProject(JSPlatform, JVMPlatform)
   .crossType(CrossType.Pure)
   .in(file("config"))
   .settings(
+    sonatypeSetting,
     name := "bloop-config",
     unmanagedSourceDirectories in Compile +=
       baseDirectory.value / ".." / "src" / "main" / "scala-2.11-13",
@@ -141,6 +149,7 @@ lazy val jsonConfig213 = crossProject(JSPlatform, JVMPlatform)
 
 lazy val sockets = project
   .settings(
+    sonatypeSetting,
     crossPaths := false,
     autoScalaLibrary := false,
     description := "IPC: Unix Domain Socket and Windows Named Pipes for Java",
@@ -169,6 +178,7 @@ lazy val frontend: Project = project
   .enablePlugins(BuildInfoPlugin)
   .configs(IntegrationTest)
   .settings(
+    sonatypeSetting,
     testSettings,
     testSuiteSettings,
     Defaults.itSettings,
@@ -217,6 +227,7 @@ lazy val bloopgun = project
   .enablePlugins(GraalVMNativeImagePlugin)
   .settings(testSuiteSettings)
   .settings(
+    sonatypeSetting,
     name := "bloopgun",
     fork in run := true,
     fork in Test := true,
@@ -267,6 +278,7 @@ lazy val launcher = project
   .dependsOn(sockets, bloopgun, frontend % "test->test")
   .settings(testSuiteSettings)
   .settings(
+    sonatypeSetting,
     name := "bloop-launcher",
     fork in Test := true,
     parallelExecution in Test := false,
@@ -279,6 +291,7 @@ lazy val launcher = project
 lazy val bloop4j = project
   .dependsOn(config.jvm)
   .settings(
+    sonatypeSetting,
     name := "bloop4j",
     fork in run := true,
     fork in Test := true,
@@ -292,6 +305,7 @@ lazy val jsBridge06 = project
   .in(file("bridges") / "scalajs-0.6")
   .settings(testSettings)
   .settings(
+    sonatypeSetting,
     name := "bloop-js-bridge-0.6",
     libraryDependencies ++= List(
       Dependencies.scalaJsTools06,
@@ -305,6 +319,7 @@ lazy val jsBridge1 = project
   .in(file("bridges") / "scalajs-1")
   .settings(testSettings)
   .settings(
+    sonatypeSetting,
     name := "bloop-js-bridge-1",
     libraryDependencies ++= List(
       Dependencies.scalaJsLinker1,
@@ -321,6 +336,7 @@ lazy val nativeBridge04 = project
   .in(file("bridges") / "scala-native-0.4")
   .settings(testSettings)
   .settings(
+    sonatypeSetting,
     name := "bloop-native-bridge-0.4",
     libraryDependencies += Dependencies.scalaNativeTools04,
     javaOptions in Test ++= jvmOptions,
@@ -338,3 +354,10 @@ lazy val stuff = project
     config.jvm,
     jsBridge1
   )
+  .settings(
+    sonatypeSetting,
+    skip.in(publish) := true
+  )
+
+skip.in(publish) := true
+sonatypeSetting
