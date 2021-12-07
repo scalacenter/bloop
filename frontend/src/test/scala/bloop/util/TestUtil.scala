@@ -129,7 +129,7 @@ object TestUtil {
         System.err.println("Error: timeout detected, printing logs!")
         logger.foreach(_.dump())
         System.err.println("Now, taking a thread dump!")
-        System.err.println(threadDump)
+        printThreadDump()
         System.err.println("Rethrowing exception to the caller!")
         throw t
     }
@@ -616,21 +616,18 @@ object TestUtil {
     TestUtil.loadTestProject(configDir.underlying, logger, false, identity(_))
   }
 
-  def threadDump: String = {
-    // Get the PID of the current JVM process
-    val selfName = java.lang.management.ManagementFactory.getRuntimeMXBean().getName()
-    val selfPid = selfName.substring(0, selfName.indexOf('@'))
-
-    // Attach to the VM
-    import com.sun.tools.attach.VirtualMachine
-    import sun.tools.attach.HotSpotVirtualMachine;
-    val vm = VirtualMachine.attach(selfPid);
-    val hotSpotVm = vm.asInstanceOf[HotSpotVirtualMachine];
-
-    // Request a thread dump
-    val inputStream = hotSpotVm.remoteDataDump()
-    try new String(Stream.continually(inputStream.read).takeWhile(_ != -1).map(_.toByte).toArray)
-    finally inputStream.close()
+  def printThreadDump(): Unit = {
+    import scala.collection.JavaConverters._
+    val l = Thread.getAllStackTraces().asScala.toVector.sortBy(_._1.getName)
+    System.err.println("Thread dump:")
+    System.err.println()
+    for ((thread, trace) <- l) {
+      System.err.println(thread.getName)
+      for (e <- trace)
+        System.err.println(s"  $e")
+      System.err.println("")
+    }
+    System.err.println("----------")
   }
 
   def retry[T](

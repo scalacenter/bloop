@@ -4,7 +4,7 @@ set -e
 cd frontend/src/test/resources/
 
 for d in *; do
-  if test -d "$d"; then
+  if test -f "$d/build.sbt"; then
     cd "$d"
     sbt bloopInstall
     cd -

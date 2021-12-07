@@ -134,6 +134,8 @@ Server reference](server.md) explains the available startup mechanisms.
 
 #### Generic installation (most common)
 
+DEFINITELY **NOT** UP TO DATE
+
 If you have installed bloop via the CURL script in the website, you can use a
 local Python script to override your installation in `$HOME/.bloop`:
 

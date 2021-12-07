@@ -9,6 +9,8 @@ import bloop.data.ClientInfo
 import bloop.engine.{ExecutionContext, State}
 import bloop.io.{AbsolutePath, RelativePath, ServerHandle}
 import bloop.logging.{BspClientLogger, DebugFilter}
+import bloop.sockets.UnixDomainServerSocket
+import bloop.sockets.Win32NamedPipeServerSocket
 import monix.eval.Task
 import monix.execution.Ack
 import monix.execution.Scheduler
@@ -20,8 +22,6 @@ import monix.reactive.observers.Subscriber
 import monix.reactive.{Observable, Observer}
 import monix.reactive.observables.ObservableLike
 import monix.execution.cancelables.CompositeCancelable
-import org.scalasbt.ipcsocket.UnixDomainServerSocket
-import org.scalasbt.ipcsocket.Win32NamedPipeServerSocket
 
 import scala.concurrent.Future
 import scala.concurrent.Promise
@@ -271,10 +271,6 @@ object BspServer {
   ): Unit = {
     // Close any socket communication asap and swallow exceptions
     try {
-      try socket.shutdownInput()
-      catch { case NonFatal(t) => () }
-      try socket.shutdownOutput()
-      catch { case NonFatal(t) => () }
       try socket.close()
       catch { case NonFatal(t) => () } finally {
         try serverSocket.close()

@@ -72,7 +72,7 @@ object BuildKeys {
       Dependencies.junit % Test,
       Dependencies.difflib % Test
     ),
-    nailgunClientLocation := buildBase.value / "nailgun" / "pynailgun" / "ng.py"
+    nailgunClientLocation := buildBase.value / "frontend" / "src" / "test" / "resources" / "pynailgun" / "ng.py"
   )
 
   import sbt.Compile

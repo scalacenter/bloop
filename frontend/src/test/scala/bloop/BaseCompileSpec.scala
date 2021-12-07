@@ -1266,6 +1266,11 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
   }
 
   test("cancel slow compilation") {
+    TestUtil.retry() {
+      cancelSlowCompilationTest()
+    }
+  }
+  def cancelSlowCompilationTest(): Unit = {
     val logger = new RecordingLogger(ansiCodesSupported = false)
     BuildUtil.testSlowBuild(logger) { build =>
       val state = new TestState(build.state)
