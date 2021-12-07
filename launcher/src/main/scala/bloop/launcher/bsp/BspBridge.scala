@@ -223,8 +223,8 @@ final class BspBridge(
               // Mark this as active so that we don't attempt more read/writes
               hasReportedClientError = true
               isConnectionOpen = false
-              printError("Unexpected error when forwarding client stdin ---> server stdout", out)
-              e.printStackTrace(out)
+              log.error("Unexpected error when forwarding client stdin ---> server stdout", e)
+              printError(s"Unexpected error when forwarding client stdin ---> server stdout: $e", out)
             }
         } finally {
           closeUnconditionally(clientIn)
@@ -255,8 +255,8 @@ final class BspBridge(
               hasReportedServerError = true
               // Mark this as active so that we don't attempt more read/writes
               isConnectionOpen = false
-              println("Unexpected exception when forwarding server stdin ---> client stdout", out)
-              e.printStackTrace(out)
+              log.error("Unexpected exception when forwarding server stdin ---> client stdout", e)
+              println(s"Unexpected exception when forwarding server stdin ---> client stdout: $e", out)
             }
         } finally {
           closeUnconditionally(socketIn)
