@@ -4,6 +4,7 @@ import monix.eval.Task
 import monix.execution.{Cancelable, Scheduler}
 
 import scala.concurrent.{Future, Promise}
+import scala.util.Success
 
 private class DapCancellableFuture(future: Future[Unit], cancelable: Cancelable)
     extends ch.epfl.scala.debugadapter.CancelableFuture[Unit] {
@@ -22,7 +23,7 @@ object DapCancellableFuture {
         case None => Task(promise.success(()))
         case Some(t) => Task(promise.failure(t))
       }
-      .doOnCancel(Task(promise.success(())))
+      .doOnCancel(Task(promise.tryComplete(Success(()))))
       .runAsync(ioScheduler)
     new DapCancellableFuture(promise.future, cancelable)
   }
