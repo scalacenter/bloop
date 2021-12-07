@@ -2,7 +2,7 @@ package bloop.io
 
 import java.net.{InetAddress, InetSocketAddress, ServerSocket}
 
-import bloop.sockets.{UnixDomainServerSocket, Win32NamedPipeServerSocket}
+import org.scalasbt.ipcsocket.{UnixDomainServerSocket, Win32NamedPipeServerSocket}
 
 sealed trait ServerHandle {
   def uri: String
