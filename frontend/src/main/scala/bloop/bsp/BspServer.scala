@@ -271,10 +271,6 @@ object BspServer {
   ): Unit = {
     // Close any socket communication asap and swallow exceptions
     try {
-      try socket.shutdownInput()
-      catch { case NonFatal(t) => () }
-      try socket.shutdownOutput()
-      catch { case NonFatal(t) => () }
       try socket.close()
       catch { case NonFatal(t) => () } finally {
         try serverSocket.close()

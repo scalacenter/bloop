@@ -31,7 +31,6 @@ import bloop.logging.Logger
 import bloop.cli.ExitStatus
 import bloop.util.CrossPlatform
 import monix.reactive.subjects.BehaviorSubject
-import scala.util.control.NonFatal
 
 abstract class BspBaseSuite extends BaseSuite with BspClientTest {
   final class UnmanagedBspTestState(
@@ -669,14 +668,6 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
       // This task closes the streams to simulate a client dropping out,
       // but doesn't properly close the server. This happens on purpose.
       val closeStreamsForcibly = () => {
-        try socket.shutdownInput()
-        catch {
-          case NonFatal(_) =>
-        }
-        try socket.shutdownOutput()
-        catch {
-          case NonFatal(_) =>
-        }
         socket.close()
       }
 
