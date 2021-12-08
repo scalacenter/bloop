@@ -23,6 +23,7 @@ import monix.execution.CancelableFuture
 import ch.epfl.scala.{bsp => scalabsp}
 import bloop.logging.Logger
 import bloop.util.CrossPlatform
+import scala.util.Properties
 
 object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
   // Use only TCP to run deduplication
@@ -181,6 +182,12 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
   }
 
   test("deduplication removes invalidated class files from all external classes dirs") {
+    val attempts = if (System.getenv("CI") != null && Properties.isWin) 3 else 1
+    TestUtil.retry(attempts) {
+      deduplicationInvalidatedClassFilesRemovalTest()
+    }
+  }
+  def deduplicationInvalidatedClassFilesRemovalTest(): Unit = {
     val logger = new RecordingLogger(ansiCodesSupported = false)
     BuildUtil.testSlowBuild(logger) { build =>
       val state = new TestState(build.state)
