@@ -14,6 +14,11 @@ import java.lang.management.ManagementFactory
 
 object ScalaVersionsSpec extends bloop.testing.BaseSuite {
   test("cross-compile build to latest Scala versions") {
+    TestUtil.retry() {
+      latestScalaVersionsCrossCompileBuildTest()
+    }
+  }
+  def latestScalaVersionsCrossCompileBuildTest(): Unit = {
     var loggers: List[RecordingLogger] = Nil
     def compileProjectFor(scalaVersion: String): Task[Unit] = Task {
       TestUtil.withinWorkspace { workspace =>

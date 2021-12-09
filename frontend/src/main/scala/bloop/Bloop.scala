@@ -1,115 +1,187 @@
 package bloop
 
-import bloop.data.ClientInfo
-import bloop.cli.{CliOptions, Commands, ExitStatus}
-import bloop.cli.CliParsers.{inputStreamRead, pathParser, printStreamRead, propertiesParser}
-import bloop.engine.{Action, Build, BuildLoader, Exit, Interpreter, NoPool, Print, Run, State}
-import bloop.engine.tasks.Tasks
-import bloop.io.AbsolutePath
+import java.net.InetAddress
+
 import bloop.logging.BloopLogger
-import caseapp.{CaseApp, RemainingArgs}
-import jline.console.ConsoleReader
-import _root_.monix.eval.Task
-import bloop.data.WorkspaceSettings
-import scala.annotation.tailrec
-import scala.concurrent.Promise
+import bloop.logging.Logger
+import bloop.util.ProxySetup
 
-object Bloop extends CaseApp[CliOptions] {
-  private val reader = consoleReader()
+import java.io.InputStream
+import java.io.PrintStream
+import java.nio.channels.ReadableByteChannel
+import java.nio.file.Files
+import java.nio.file.Paths
+import java.util.concurrent.atomic.AtomicBoolean
 
-  override def run(options: CliOptions, remainingArgs: RemainingArgs): Unit = {
-    val configDirectory =
-      options.configDir.map(AbsolutePath.apply).getOrElse(AbsolutePath(".bloop"))
-    val logger = BloopLogger.default(configDirectory.syntax)
-    logger.warn("The Nailgun integration should be preferred over the Bloop shell.")
-    logger.warn(
-      "The Bloop shell provides less features, is not supported and can be removed without notice."
-    )
-    logger.warn("Please refer to our documentation for more information.")
-    val client = ClientInfo.CliClientInfo(useStableCliDirs = true, () => true)
-    val loadedProjects = BuildLoader.loadSynchronously(configDirectory, logger)
-    val workspaceSettings = WorkspaceSettings.readFromFile(configDirectory, logger)
-    val build = Build(configDirectory, loadedProjects, workspaceSettings)
-    val state = State(build, client, NoPool, options.common, logger)
-    run(state, options)
-  }
+import com.martiansoftware.nailgun.NGListeningAddress
+import com.martiansoftware.nailgun.NGConstants
+import com.martiansoftware.nailgun.{Alias, NGContext, NGServer}
+import libdaemonjvm._
+import libdaemonjvm.internal.{LockProcess, SocketHandler}
+import libdaemonjvm.server._
 
-  @tailrec
-  def run(state: State, options: CliOptions): Unit = {
-    val origin = state.build.origin
-    val config = origin.underlying
-    def waitForState(a: Action, t: Task[State]): State = {
-      // Ignore the exit status here, all we want is the task to finish execution or fail.
-      Cli.waitUntilEndOfWorld(a, options, state.pool, config, state.logger) {
-        t.map(s => { State.stateCache.updateBuild(s.copy(status = ExitStatus.Ok)); s.status })
-      }
+import scala.util.Properties
+import scala.util.Try
+import java.net.ServerSocket
+import java.net.Socket
+import java.io.OutputStream
+import java.net.SocketAddress
+import java.nio.channels.Channels
+import libdaemonjvm.internal.SocketMaker
+import java.nio.ByteBuffer
+import java.io.File
+import org.slf4j
 
-      // Recover the state if the previous task has been successful.
-      State.stateCache
-        .getStateFor(origin, state.client, state.pool, options.common, state.logger)
-        .getOrElse(state)
+sealed abstract class Bloop
 
-    }
-
-    val input = reader.readLine()
-    input.split(" ") match {
-      case Array("exit") =>
-        val persistOut = (msg: String) => state.commonOptions.ngout.println(msg)
-        waitForState(Exit(ExitStatus.Ok), Task.now(state))
-        ()
-
-      case Array("projects") =>
-        val action = Run(Commands.Projects(), Exit(ExitStatus.Ok))
-        run(waitForState(action, Interpreter.execute(action, Task.now(state))), options)
-
-      case Array("clean") =>
-        val allProjects = state.build.loadedProjects.map(_.project.name)
-        val action = Run(Commands.Clean(allProjects), Exit(ExitStatus.Ok))
-        run(waitForState(action, Interpreter.execute(action, Task.now(state))), options)
-
-      case Array("compile", projectName) =>
-        val action = Run(Commands.Compile(List(projectName)), Exit(ExitStatus.Ok))
-        run(waitForState(action, Interpreter.execute(action, Task.now(state))), options)
-
-      case Array("compile", "--pipeline", projectName1) =>
-        val action = Run(Commands.Compile(List(projectName1), pipeline = true))
-        run(waitForState(action, Interpreter.execute(action, Task.now(state))), options)
-
-      case Array("compile", projectName1, projectName2) =>
-        val action =
-          Run(Commands.Compile(List(projectName1)), Run(Commands.Compile(List(projectName2))))
-        run(waitForState(action, Interpreter.execute(action, Task.now(state))), options)
-
-      case Array("console", projectName) =>
-        val action = Run(Commands.Console(List(projectName)), Exit(ExitStatus.Ok))
-        run(waitForState(action, Interpreter.execute(action, Task.now(state))), options)
-
-      case Array("test", projectName) =>
-        val command = Commands.Test(List(projectName))
-        val action = Run(command, Exit(ExitStatus.Ok))
-        run(waitForState(action, Interpreter.execute(action, Task.now(state))), options)
-
-      case Array("runMain", projectName, mainClass, args @ _*) =>
-        val command = Commands.Run(List(projectName), Some(mainClass), args = args.toList)
-        val action = Run(command, Exit(ExitStatus.Ok))
-        run(waitForState(action, Interpreter.execute(action, Task.now(state))), options)
-
-      case Array("run", projectName, args @ _*) =>
-        val command = Commands.Run(List(projectName), None, args = args.toList)
-        val action = Run(command, Exit(ExitStatus.Ok))
-        run(waitForState(action, Interpreter.execute(action, Task.now(state))), options)
-
+object Bloop {
+  private val defaultPort: Int = 8212 // 8100 + 'p'
+  def main(args: Array[String]): Unit = {
+    def toPortNumber(userPort: String) = Try(userPort.toInt).getOrElse(Bloop.defaultPort)
+    val lockFilesOrHostPort = args match {
+      case Array() =>
+        val lockFiles = LockFiles.under(
+          bloop.io.Paths.daemonDir.underlying,
+          bloop.io.Paths.pipeName
+        )
+        Right(lockFiles)
+      case Array(daemonArg) if daemonArg.startsWith("daemon:") =>
+        val arg = daemonArg.stripPrefix("daemon:")
+        val (dirStr, pipeName) = arg.split(File.pathSeparator, 2) match {
+          case Array(dir, pipeName) => (dir, pipeName)
+          case Array(dir) => (dir, bloop.io.Paths.pipeName)
+        }
+        val dir = Paths.get(dirStr)
+        val lockFiles = LockFiles.under(dir, pipeName)
+        Right(lockFiles)
+      case Array(arg) =>
+        Left((InetAddress.getLoopbackAddress(), toPortNumber(args(0))))
+      case Array(host, portStr) =>
+        val addr = InetAddress.getByName(host)
+        Left((addr, toPortNumber(portStr)))
       case _ =>
-        val dummyAction =
-          Print(s"Not understood: '$input'", state.commonOptions, Exit(ExitStatus.Ok))
-        run(waitForState(dummyAction, Task.now(state)), options)
+        throw new IllegalArgumentException(
+          s"Invalid arguments to bloop server: $args, expected: ([address] [port] | [daemon:path] [pipeName])"
+        )
+    }
+
+    lockFilesOrHostPort match {
+      case Left(hostPort) =>
+        startServer(Left(hostPort))
+      case Right(lockFiles) =>
+        Lock.tryAcquire(lockFiles, LockProcess.default) {
+          startServer(Right(lockFiles.socketPaths))
+        } match {
+          case Left(err) => throw new Exception(err)
+          case Right(()) =>
+        }
     }
   }
 
-  private def consoleReader(): ConsoleReader = {
-    val reader = new ConsoleReader()
-    reader.setPrompt("shell> ")
-    reader
+  def startServer(socketPathsOrHostPort: Either[(InetAddress, Int), SocketPaths]): Unit = {
+    val socketAndPathOrHostPort = socketPathsOrHostPort.map { socketPaths =>
+      val socket = SocketHandler.server(socketPaths) match {
+        case Left(socket) => socket
+        case Right(channel) => libdaemonjvm.Util.serverSocketFromChannel(channel)
+      }
+      val (socketPathStr, socketPathOpt) =
+        if (SocketHandler.usesWindowsPipe) (socketPaths.windowsPipeName, None)
+        else (socketPaths.path.toString, Some(socketPaths.path))
+      (socket, socketPathStr, socketPathOpt)
+    }
+    val server = instantiateServer(socketAndPathOrHostPort.map {
+      case (sock, path, _) => (sock, path)
+    })
+    val runServer: Runnable = () =>
+      try server.run()
+      finally {
+        for (path <- socketAndPathOrHostPort.toOption.flatMap(_._3))
+          Files.deleteIfExists(path)
+      }
+    // FIXME Small delay between the time this method returns, and the time we actually
+    // accept connections on the socket. This might make concurrent attempts to start a server
+    // think we are a zombie server, and attempt to listen on the socket too.
+    new Thread(runServer, "bloop-server").start()
   }
 
+  private[bloop] def instantiateServer(
+      socketAndPathOrHostPort: Either[(InetAddress, Int), (ServerSocket, String)]
+  ): NGServer = {
+    val logger = BloopLogger.default("bloop-nailgun-main")
+    socketAndPathOrHostPort match {
+      case Left((addr, port)) =>
+        val tcpAddress = new NGListeningAddress(addr, port)
+        launchServer(System.in, System.out, System.err, tcpAddress, logger, None)
+      case Right((socket, socketPath)) =>
+        val socketAddress = new NGListeningAddress(socketPath)
+        launchServer(System.in, System.out, System.err, socketAddress, logger, Some(socket))
+    }
+  }
+
+  private[bloop] def launchServer(
+      in: InputStream,
+      out: PrintStream,
+      err: PrintStream,
+      address: NGListeningAddress,
+      logger: Logger,
+      serverSocketOpt: Option[ServerSocket]
+  ): NGServer = {
+    val javaLogger = slf4j.LoggerFactory.getLogger(classOf[NGServer])
+    val poolSize = NGServer.DEFAULT_SESSIONPOOLSIZE
+    val heartbeatMs = NGConstants.HEARTBEAT_TIMEOUT_MILLIS.toInt
+
+    val domainSocketProvider: NGServer.DomainSocketProvider = { () =>
+      serverSocketOpt.getOrElse(
+        sys.error("Shouldn't be called")
+      )
+    }
+
+    val server =
+      new NGServer(address, poolSize, heartbeatMs, in, out, err, javaLogger, domainSocketProvider)
+    registerAliases(server)
+    ProxySetup.init()
+    server
+  }
+
+  def nailMain(ngContext: NGContext): Unit = {
+    val server = ngContext.getNGServer
+
+    val soft = ngContext.getArgs.contains("--soft")
+
+    // Passing true by default to force exiting the JVM (System.exit).
+    // When using JNI/JNA-based domain sockets, it seems the call to accept()
+    // isn't interrupted when the underlying socket is closed (on Linux at least).
+    // So we have to force a call to System.exit to actually exit.
+    server.shutdown(!soft)
+  }
+
+  private def registerAliases(server: NGServer): Unit = {
+    val aliasManager = server.getAliasManager
+    aliasManager.addAlias(new Alias("about", "Show bloop information.", classOf[Cli]))
+    aliasManager.addAlias(new Alias("clean", "Clean project(s) in the build.", classOf[Cli]))
+    aliasManager.addAlias(new Alias("compile", "Compile project(s) in the build.", classOf[Cli]))
+    aliasManager.addAlias(new Alias("test", "Run project(s)' tests in the build.", classOf[Cli]))
+    aliasManager.addAlias(
+      new Alias("run", "Run a main entrypoint for project(s) in the build.", classOf[Cli])
+    )
+    aliasManager.addAlias(new Alias("bsp", "Spawn a build server protocol instance.", classOf[Cli]))
+    aliasManager.addAlias(
+      new Alias("console", "Run the console for project(s) in the build.", classOf[Cli])
+    )
+    aliasManager.addAlias(new Alias("projects", "Show projects in the build.", classOf[Cli]))
+    aliasManager.addAlias(new Alias("configure", "Configure the bloop server.", classOf[Cli]))
+    aliasManager.addAlias(new Alias("help", "Show bloop help message.", classOf[Cli]))
+    aliasManager.addAlias(
+      new Alias(
+        "exit",
+        "Kill the bloop server.",
+        classOf[Bloop]
+      )
+    )
+
+    // Register the default entrypoint in case the user doesn't use the right alias
+    server.setDefaultNailClass(classOf[Cli])
+    // Disable nails by class name so that we prevent classloading incorrect aliases
+    server.setAllowNailsByClassName(false)
+  }
 }

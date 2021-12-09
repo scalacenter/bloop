@@ -5,7 +5,7 @@ import java.io.PrintStream
 import java.nio.file.{Files, Path, Paths}
 import java.util.concurrent.{ExecutionException, TimeUnit}
 
-import bloop.Server
+import bloop.Bloop
 import bloop.bsp.BspServer
 import bloop.testing.BaseSuite
 import bloop.logging.{DebugFilter, ProcessLogger, RecordingLogger}
@@ -79,7 +79,7 @@ trait NailgunTestUtils {
       val addr = InetAddress.getLoopbackAddress
       import monix.execution.misc.NonFatal
       try {
-        val server = Server.launchServer(
+        val server = Bloop.launchServer(
           localIn,
           localOut,
           localErr,
