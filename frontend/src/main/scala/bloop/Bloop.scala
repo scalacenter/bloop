@@ -31,19 +31,26 @@ import libdaemonjvm.internal.SocketMaker
 import java.nio.ByteBuffer
 import java.io.File
 import org.slf4j
+import java.nio.file.attribute.PosixFilePermissions
+import java.nio.file.Path
 
 sealed abstract class Bloop
 
 object Bloop {
+  private def ensureSafeDirectoryExists(dir: Path): Unit =
+    if (!Files.exists(dir)) {
+      Files.createDirectories(dir)
+      if (!Properties.isWin)
+        Files.setPosixFilePermissions(dir, PosixFilePermissions.fromString("rwx------"))
+    }
   private val defaultPort: Int = 8212 // 8100 + 'p'
   def main(args: Array[String]): Unit = {
     def toPortNumber(userPort: String) = Try(userPort.toInt).getOrElse(Bloop.defaultPort)
     val lockFilesOrHostPort = args match {
       case Array() =>
-        val lockFiles = LockFiles.under(
-          bloop.io.Paths.daemonDir.underlying,
-          bloop.io.Paths.pipeName
-        )
+        val dir = bloop.io.Paths.daemonDir.underlying
+        ensureSafeDirectoryExists(dir)
+        val lockFiles = LockFiles.under(dir, bloop.io.Paths.pipeName)
         Right(lockFiles)
       case Array(daemonArg) if daemonArg.startsWith("daemon:") =>
         val arg = daemonArg.stripPrefix("daemon:")
@@ -52,6 +59,7 @@ object Bloop {
           case Array(dir) => (dir, bloop.io.Paths.pipeName)
         }
         val dir = Paths.get(dirStr)
+        ensureSafeDirectoryExists(dir)
         val lockFiles = LockFiles.under(dir, pipeName)
         Right(lockFiles)
       case Array(arg) =>

@@ -1,5 +1,8 @@
 package bloop.bloopgun
+import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.attribute.PosixFilePermissions
+import scala.util.Properties
 import libdaemonjvm.LockFiles
 
 final case class ServerConfig(
@@ -20,10 +23,20 @@ final case class ServerConfig(
       case Right((daemonDirOpt, pipeNameOpt)) =>
         val daemonDir = daemonDirOpt.getOrElse(Defaults.daemonDir)
         val pipeName = pipeNameOpt.getOrElse(Defaults.daemonPipeName)
+        ServerConfig.ensureSafeDirectoryExists(daemonDir)
         Right(LockFiles.under(daemonDir, pipeName))
     }
   override def toString(): String = listenOnWithDefaults match {
     case Left((host, port)) => s"$host:$port"
     case Right(daemonDir) => daemonDir.toString
   }
+}
+
+object ServerConfig {
+  private def ensureSafeDirectoryExists(dir: Path): Unit =
+    if (!Files.exists(dir)) {
+      Files.createDirectories(dir)
+      if (!Properties.isWin)
+        Files.setPosixFilePermissions(dir, PosixFilePermissions.fromString("rwx------"))
+    }
 }
