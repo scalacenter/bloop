@@ -118,6 +118,6 @@ object Dependencies {
   val asm = "org.ow2.asm" % "asm" % asmVersion
   val asmUtil = "org.ow2.asm" % "asm-util" % asmVersion
 
-  val libdaemonjvm = "io.github.alexarchambault.libdaemon" %% "libdaemon" % "0.0.5"
+  val libdaemonjvm = "io.github.alexarchambault.libdaemon" %% "libdaemon" % "0.0.6"
   val ipcsocket = "com.github.alexarchambault.tmp.ipcsocket" % "ipcsocket" % "1.4.1-aa-3"
 }

@@ -205,7 +205,7 @@ lazy val frontend: Project = project
       Dependencies.monix,
       Dependencies.caseApp,
       Dependencies.scalaDebugAdapter,
-      Dependencies.libdaemonjvm,
+      Dependencies.libdaemonjvm.exclude("org.scala-sbt.ipcsocket", "ipcsocket"),
       Dependencies.logback,
       Dependencies.ipcsocket
     )
@@ -232,7 +232,8 @@ lazy val `bloopgun-core` = project
       Dependencies.coursierInterfaceSubs,
       Dependencies.jsoniterCore,
       Dependencies.jsoniterMacros % Provided,
-      Dependencies.libdaemonjvm
+      Dependencies.libdaemonjvm.exclude("org.scala-sbt.ipcsocket", "ipcsocket"),
+      Dependencies.ipcsocket
     )
   )
 
