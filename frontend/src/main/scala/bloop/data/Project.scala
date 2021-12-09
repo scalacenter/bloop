@@ -2,17 +2,28 @@ package bloop.data
 
 import bloop.ScalaInstance
 import bloop.bsp.ProjectUris
-import bloop.config.{Config, ConfigCodecs}
+import bloop.config.Config
+import bloop.config.ConfigCodecs
 import bloop.engine.Dag
-import bloop.engine.tasks.toolchains.{JvmToolchain, ScalaJsToolchain, ScalaNativeToolchain}
-import bloop.io.{AbsolutePath, ByteHasher}
-import bloop.logging.{DebugFilter, Logger}
+import bloop.engine.tasks.toolchains.JvmToolchain
+import bloop.engine.tasks.toolchains.ScalaJsToolchain
+import bloop.engine.tasks.toolchains.ScalaNativeToolchain
+import bloop.io.AbsolutePath
+import bloop.io.ByteHasher
+import bloop.logging.DebugFilter
+import bloop.logging.Logger
 import ch.epfl.scala.{bsp => Bsp}
+import com.typesafe.config.ConfigException
+import com.typesafe.config.ConfigFactory
+import com.typesafe.config.ConfigParseOptions
+import com.typesafe.config.ConfigSyntax
 import monix.eval.Task
-import xsbti.compile.{ClasspathOptions, CompileOrder}
+import xsbti.compile.ClasspathOptions
+import xsbti.compile.CompileOrder
 
 import java.nio.charset.StandardCharsets
 import scala.collection.mutable
+import scala.util.Properties
 import scala.util.Try
 import scala.util.control.NonFatal
 
@@ -166,6 +177,78 @@ final case class Project(
       case jvm: Platform.Jvm => jvm.runtimeConfig.orElse(compileJdkConfig)
       case _ => compileJdkConfig
     }
+  }
+
+  def javaVersionAtLeast(version: String, logger: Logger): Boolean = {
+
+    def compareVersions(a: String, b: String): Int = {
+      def versionOf(s: String, depth: Int): (Int, String) =
+        s.indexOf('.') match {
+          case 0 =>
+            (-2, s.substring(1))
+          case 1 if depth == 0 && s.charAt(0) == '1' =>
+            val r0 = s.substring(2)
+            val (v, r) = versionOf(r0, 1)
+            val n = if (v > 8 || r0.isEmpty) -2 else v // accept 1.8, not 1.9 or 1.
+            (n, r)
+          case -1 =>
+            val n = if (!s.isEmpty) s.toInt else if (depth == 0) -2 else 0
+            (n, "")
+          case i =>
+            val r = s.substring(i + 1)
+            val n = if (depth < 2 && r.isEmpty) -2 else s.substring(0, i).toInt
+            (n, r)
+        }
+      def compareVersions(s: String, v: String, depth: Int): Int = {
+        if (depth >= 3) 0
+        else {
+          val (sn, srest) = versionOf(s, depth)
+          val (vn, vrest) = versionOf(v, depth)
+          if (vn < 0) -2
+          else if (sn < 0) -2
+          else if (sn < vn) -1
+          else if (sn > vn) 1
+          else compareVersions(srest, vrest, depth + 1)
+        }
+      }
+      compareVersions(a, b, 0) match {
+        case -2 => throw new NumberFormatException(s"Not a version: $version")
+        case i => i
+      }
+    }
+    def getJavaVersionFromJavaHome(javaHome: AbsolutePath): String = {
+      val releaseFile = javaHome.resolve("release")
+      if (releaseFile.exists) {
+        val properties = ConfigFactory.parseFile(
+          releaseFile.toFile,
+          ConfigParseOptions.defaults().setSyntax(ConfigSyntax.PROPERTIES)
+        )
+        try properties.getString("JAVA_VERSION").stripPrefix("\"").stripSuffix("\"")
+        catch {
+          case _: ConfigException =>
+            logger.error(
+              s"$javaHome release file missing JAVA_VERSION property - using Bloop's JVM version ${Properties.javaVersion}"
+            )
+            Properties.javaVersion
+        }
+      } else {
+        logger.error(
+          s"No `release` file found in $javaHome - using Bloop's JVM version ${Properties.javaVersion}"
+        )
+        Properties.javaVersion
+      }
+    }
+
+    val compileVersion = compileJdkConfig
+      .map(f =>
+        if (f.javaHome == AbsolutePath(Properties.javaHome))
+          Properties.javaVersion
+        else
+          getJavaVersionFromJavaHome(f.javaHome)
+      )
+      .getOrElse(Properties.javaVersion)
+
+    compareVersions(compileVersion, version) >= 0
   }
 }
 
@@ -368,9 +451,24 @@ object Project {
     }
 
     def enableJavaSemanticdbOptions(options: List[String]): List[String] = {
-      if (hasJavaSemanticDBEnabledInCompilerOptions(options)) options
-      else
-        s"-Xplugin:semanticdb -sourceroot:${workspaceDir} -targetroot:javac-classes-directory" :: options
+      val moreOptions =
+        if (hasJavaSemanticDBEnabledInCompilerOptions(options)) options
+        else
+          s"-Xplugin:semanticdb -sourceroot:${workspaceDir} -targetroot:javac-classes-directory" :: options
+      if (project.javaVersionAtLeast("17", logger))
+        List(
+          "-J--add-exports",
+          "-Jjdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
+          "-J--add-exports",
+          "-Jjdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
+          "-J--add-exports",
+          "-Jjdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED",
+          "-J--add-exports",
+          "-Jjdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
+          "-J--add-exports",
+          "-Jjdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED"
+        ) ::: moreOptions
+      else moreOptions
     }
 
     def enableJavaSemanticdbClasspath(
