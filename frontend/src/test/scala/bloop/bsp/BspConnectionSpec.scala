@@ -25,6 +25,11 @@ class BspConnectionSpec(
   )
 
   test("initialize several clients concurrently and simulate a hard disconnection") {
+    TestUtil.retry() {
+      severalClientsHardDisconnectionTest()
+    }
+  }
+  def severalClientsHardDisconnectionTest(): Unit = {
     TestUtil.withinWorkspace { workspace =>
       val `A` = TestProject(workspace, "a", Nil)
       val projects = List(`A`)
