@@ -552,7 +552,7 @@ class BloopgunCli(
           val cmd = javaBinary ++ finalJvmOpts(jvmOpts) ++ List(
             "-classpath",
             stringClasspath,
-            "bloop.Server"
+            "bloop.Server" // "bloop.Bloop" works too in recent versions (>= 1.4.13)
           ) ++ serverArgs
           cmd -> usedExtraJvmOpts
       }
