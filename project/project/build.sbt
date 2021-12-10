@@ -1,5 +1,4 @@
 version in ThisBuild := "1.0.0-SNAPSHOT"
-scalaVersion in ThisBuild := "2.12.10"
 organization in ThisBuild := "ch.epfl.scala"
 
 val sharedSettings = List(
