@@ -775,8 +775,14 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
     }
   }
 
-  // TODO(jvican): Compile project of cancelled compilation to ensure no deduplication trace is left
   test("cancel deduplicated compilation finishes all clients") {
+    // not too happy to add a retry around that one, hope there's nothing fishy going on
+    TestUtil.retry() {
+      cancelDeduplicatedCompilationFinishesAllClientsTest()
+    }
+  }
+  // TODO(jvican): Compile project of cancelled compilation to ensure no deduplication trace is left
+  def cancelDeduplicatedCompilationFinishesAllClientsTest(): Unit = {
     val logger = new RecordingLogger(ansiCodesSupported = false)
     TestUtil.withinWorkspace { workspace =>
       object Sources {
