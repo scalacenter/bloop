@@ -768,9 +768,8 @@ class BloopConverter(parameters: BloopParameters, info: String => Unit) {
     }
 
     // Need to namespace only those projects that can run bloop. Others would not cause collision.
-    val projectsWithSameName =
-      getAllBloopCapableProjects(project.getRootProject())
-        .filter(_.getName == project.getName)
+    val allProjects = getAllBloopCapableProjects(project.getRootProject())
+    val projectsWithSameName = allProjects.filter(_.getName == project.getName)
 
     val uniqueProjectName =
       if (projectsWithSameName.size == 1) project.getName
@@ -780,7 +779,17 @@ class BloopConverter(parameters: BloopParameters, info: String => Unit) {
           projectsWithSameName.map(getReversedFQNameParts).filter(!_.sameElements(fqNameParts))
         getUniqueSections(1, fqNameParts, fqNamesParts).reverse.mkString("-")
       }
-    suffix.map(s => s"${uniqueProjectName}-$s").getOrElse(uniqueProjectName)
+    val fullName = suffix.map(s => s"${uniqueProjectName}-$s").getOrElse(uniqueProjectName)
+    if (suffix.nonEmpty) {
+      // has the suffix caused a clash - no nice way to resolve so just apply a numbered suffix
+      var usedName = fullName
+      var i = 2
+      while (allProjects.exists(_.getName == usedName)) {
+        usedName = s"$fullName-$i"
+        i = i + 1
+      }
+      usedName
+    } else fullName
   }
 
   def getProjectName(project: Project, sourceSet: SourceSet): String = {
