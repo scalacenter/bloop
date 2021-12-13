@@ -35,6 +35,11 @@ class BspMetalsClientSpec(
 ) extends BspBaseSuite {
   private val testedScalaVersion = "2.12.8"
 
+  override def test(name: String)(fun: => Any): Unit =
+    super.test(name) {
+      TestUtil.retry()(fun)
+    }
+
   test("initialize metals client and save settings") {
     TestUtil.withinWorkspace { workspace =>
       val `A` = TestProject(workspace, "A", Nil, scalaVersion = Some(testedScalaVersion))
