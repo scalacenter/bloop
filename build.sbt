@@ -211,13 +211,12 @@ lazy val frontend: Project = project
     )
   )
 
-lazy val bloopgun = project
+lazy val `bloopgun-core` = project
   .enablePlugins(BuildInfoPlugin)
-  .enablePlugins(GraalVMNativeImagePlugin)
   .settings(testSuiteSettings)
   .settings(
     sonatypeSetting,
-    name := "bloopgun",
+    name := "bloopgun-core",
     fork in run := true,
     fork in Test := true,
     parallelExecution in Test := false,
@@ -234,6 +233,17 @@ lazy val bloopgun = project
       Dependencies.jsoniterCore,
       Dependencies.jsoniterMacros % Provided,
       Dependencies.libdaemonjvm
+    )
+  )
+
+lazy val bloopgun = project
+  .enablePlugins(GraalVMNativeImagePlugin)
+  .dependsOn(`bloopgun-core`)
+  .settings(
+    sonatypeSetting,
+    name := "bloopgun",
+    libraryDependencies ++= List(
+      Dependencies.logback
     ),
     mainClass in GraalVMNativeImage := Some("bloop.bloopgun.Bloopgun"),
     graalVMNativeImageCommand := {
@@ -264,7 +274,7 @@ lazy val bloopgun = project
   )
 
 lazy val launcher = project
-  .dependsOn(bloopgun, frontend % "test->test")
+  .dependsOn(`bloopgun-core`, frontend % "test->test")
   .settings(testSuiteSettings)
   .settings(
     sonatypeSetting,
@@ -339,6 +349,7 @@ lazy val stuff = project
     backend,
     launcher,
     bloopgun,
+    `bloopgun-core`,
     shared,
     config.jvm,
     jsBridge1
