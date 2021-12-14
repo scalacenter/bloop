@@ -10,12 +10,13 @@ import bloop.logging.BspClientLogger
 import bloop.logging.RecordingLogger
 import bloop.util.TestProject
 import bloop.util.TestUtil
+import bloop.TestSchedulers
 
 import monix.eval.Task
 import monix.execution.{Scheduler, ExecutionModel}
 
 import scala.concurrent.duration.FiniteDuration
-import bloop.TestSchedulers
+import scala.util.Properties
 
 object TcpBspConnectionSpec extends BspConnectionSpec(BspProtocol.Tcp)
 object LocalBspConnectionSpec extends BspConnectionSpec(BspProtocol.Local)
@@ -29,11 +30,12 @@ class BspConnectionSpec(
     ExecutionModel.Default
   )
 
-  test("initialize several clients concurrently and simulate a hard disconnection") {
-    TestUtil.retry() {
-      severalClientsHardDisconnectionTest()
+  if (!Properties.isWin)
+    test("initialize several clients concurrently and simulate a hard disconnection") {
+      TestUtil.retry() {
+        severalClientsHardDisconnectionTest()
+      }
     }
-  }
   def severalClientsHardDisconnectionTest(): Unit = {
     TestUtil.withinWorkspace { workspace =>
       val `A` = TestProject(workspace, "a", Nil)
