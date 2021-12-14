@@ -106,6 +106,11 @@ class BspCompileSpec(
   }
 
   test("no-op compile simple build") {
+    TestUtil.retry() {
+      noOpCompileSimpleBuildTest()
+    }
+  }
+  def noOpCompileSimpleBuildTest(): Unit = {
     TestUtil.withinWorkspace { workspace =>
       val sources = List(
         """/main/scala/Foo.scala
