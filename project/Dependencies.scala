@@ -3,8 +3,6 @@ package build
 object Dependencies {
   val Scala212Version = "2.12.8"
 
-  val nailgunVersion = "1.0.1"
-
   // Keep in sync in BloopComponentCompiler
   val zincVersion = "1.3.0-M4+47-d881fa2f"
 
@@ -52,7 +50,7 @@ object Dependencies {
   val zinc = "ch.epfl.scala" %% "zinc" % zincVersion
   val bsp4s = "ch.epfl.scala" %% "bsp4s" % bspVersion
   val bsp4j = "ch.epfl.scala" % "bsp4j" % bspVersion
-  val nailgun = "io.github.alexarchambault.bleep" % "nailgun-server" % nailgunVersion
+  val nailgun = "io.github.alexarchambault.bleep" % "nailgun-server" % "1.0.1"
   val javaDebug = "ch.epfl.scala" % "com-microsoft-java-debug-core" % javaDebugVersion
 
   val configDirectories = "io.github.soc" % "directories" % configDirsVersion
