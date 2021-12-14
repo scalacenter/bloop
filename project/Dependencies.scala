@@ -50,7 +50,7 @@ object Dependencies {
   val zinc = "ch.epfl.scala" %% "zinc" % zincVersion
   val bsp4s = "ch.epfl.scala" %% "bsp4s" % bspVersion
   val bsp4j = "ch.epfl.scala" % "bsp4j" % bspVersion
-  val nailgun = "io.github.alexarchambault.bleep" % "nailgun-server" % "1.0.1"
+  val nailgun = "io.github.alexarchambault.bleep" % "nailgun-server" % "1.0.2"
   val javaDebug = "ch.epfl.scala" % "com-microsoft-java-debug-core" % javaDebugVersion
 
   val configDirectories = "io.github.soc" % "directories" % configDirsVersion
