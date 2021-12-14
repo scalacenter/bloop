@@ -147,17 +147,6 @@ lazy val jsonConfig213 = crossProject(JSPlatform, JVMPlatform)
     target := (file("config") / "target" / "json-config-2.13" / "js").getAbsoluteFile
   )
 
-lazy val sockets = project
-  .settings(
-    sonatypeSetting,
-    crossPaths := false,
-    autoScalaLibrary := false,
-    description := "IPC: Unix Domain Socket and Windows Named Pipes for Java",
-    libraryDependencies ++= Seq(Dependencies.jna, Dependencies.jnaPlatform),
-    javacOptions ++= Seq("-source", "1.8", "-target", "1.8"),
-    sources in (Compile, doc) := Nil
-  )
-
 lazy val tmpDirSettings = Def.settings(
   javaOptions in Test += {
     val tmpDir = (baseDirectory in ThisBuild).value / "target" / "tests-tmp"
@@ -169,7 +158,6 @@ import build.BuildImplementation.jvmOptions
 // For the moment, the dependency is fixed
 lazy val frontend: Project = project
   .dependsOn(
-    sockets,
     shared,
     backend,
     backend % "test->test",
@@ -218,7 +206,8 @@ lazy val frontend: Project = project
       Dependencies.caseApp,
       Dependencies.scalaDebugAdapter,
       Dependencies.libdaemonjvm,
-      Dependencies.logback
+      Dependencies.logback,
+      Dependencies.ipcsocket
     )
   )
 
@@ -275,7 +264,7 @@ lazy val bloopgun = project
   )
 
 lazy val launcher = project
-  .dependsOn(sockets, bloopgun, frontend % "test->test")
+  .dependsOn(bloopgun, frontend % "test->test")
   .settings(testSuiteSettings)
   .settings(
     sonatypeSetting,
@@ -283,7 +272,8 @@ lazy val launcher = project
     fork in Test := true,
     parallelExecution in Test := false,
     libraryDependencies ++= List(
-      Dependencies.coursierInterface
+      Dependencies.coursierInterface,
+      Dependencies.ipcsocket
     ),
     tmpDirSettings
   )
@@ -345,7 +335,6 @@ lazy val nativeBridge04 = project
 
 lazy val stuff = project
   .aggregate(
-    sockets,
     frontend,
     backend,
     launcher,
