@@ -79,8 +79,6 @@ object BloopKeys {
 
   val bloopCompile: TaskKey[CompileResult] =
     taskKey[CompileResult]("Offload compilation to Bloop via BSP.")
-  val bloopAnalysisOut: TaskKey[Option[File]] =
-    taskKey[Option[File]]("User-defined location for the incremental analysis file")
   val bloopScalaJSStage: SettingKey[Option[String]] =
     settingKey[Option[String]]("Scala.js-independent definition of `scalaJSStage`")
   val bloopScalaJSModuleKind: SettingKey[Option[String]] =
@@ -168,7 +166,7 @@ object BloopDefaults {
       Provided,
       Optional
     )
-  ) ++ Offloader.bloopCompileGlobalSettings ++ Compat.bloopCompatSettings
+  ) ++ Compat.bloopCompatSettings
 
   // From the infamous https://stackoverflow.com/questions/40741244/in-sbt-how-to-execute-a-command-in-task
   def runCommandAndRemaining(command: String): State => State = { st: State =>
@@ -214,10 +212,9 @@ object BloopDefaults {
       BloopKeys.bloopInternalClasspath := bloopInternalDependencyClasspath.value,
       BloopKeys.bloopGenerate := bloopGenerate.value,
       BloopKeys.bloopPostGenerate := bloopPostGenerate.value,
-      BloopKeys.bloopAnalysisOut := Offloader.bloopAnalysisOut.value,
       BloopKeys.bloopMainClass := None,
       BloopKeys.bloopMainClass in Keys.run := BloopKeys.bloopMainClass.value
-    ) ++ discoveredSbtPluginsSettings ++ Offloader.bloopCompileConfigSettings
+    ) ++ discoveredSbtPluginsSettings
 
   lazy val projectSettings: Seq[Def.Setting[_]] = {
     sbt.inConfig(Compile)(configSettings) ++
@@ -244,7 +241,7 @@ object BloopDefaults {
             }
           }
         }.value
-      ) ++ Offloader.bloopCompileProjectSettings
+      )
   }
 
   /**
@@ -336,15 +333,9 @@ object BloopDefaults {
   def generateBloopProductDirectories: Def.Initialize[File] = Def.setting {
     val configuration = Keys.configuration.value
     val bloopTarget = BloopKeys.bloopTargetDir.value
-    val isOffloadingEnabled = Offloader.isOffloadingEnabled.value
-    Keys.classDirectory.?.value match {
-      // TODO: Use shared classes dir between bloop and sbt by default in next release
-      case Some(value) if isOffloadingEnabled => value
-      case _ =>
-        val bloopClassesDir = bloopTarget / (Defaults.prefix(configuration.name) + "classes")
-        if (!bloopClassesDir.exists()) sbt.IO.createDirectory(bloopClassesDir)
-        bloopClassesDir
-    }
+    val bloopClassesDir = bloopTarget / (Defaults.prefix(configuration.name) + "classes")
+    if (!bloopClassesDir.exists()) sbt.IO.createDirectory(bloopClassesDir)
+    bloopClassesDir
   }
 
   lazy val bloopMainDependency: Def.Initialize[Seq[ClasspathDependency]] = Def.setting {
@@ -1031,9 +1022,8 @@ object BloopDefaults {
           val config = {
             val c = Keys.classpathOptions.value
             val java = Config.Java(javacOptions)
-            val analysisOut = BloopKeys.bloopAnalysisOut.value.map(_.toPath)//.getOrElse(out.resolve(s"${projectName}-analysis.bin"))
             val compileSetup = Config.CompileSetup(compileOrder, c.bootLibrary, c.compiler, c.extra, c.autoBoot, c.filterLibrary)
-            val `scala` = Config.Scala(scalaOrg, scalaName, scalaVersion, scalacOptions, allScalaJars, analysisOut, Some(compileSetup))
+            val `scala` = Config.Scala(scalaOrg, scalaName, scalaVersion, scalacOptions, allScalaJars, None, Some(compileSetup))
             val resources = Some(bloopResourcesTask.value)
 
             val sbt = None // Written by `postGenerate` instead
