@@ -891,6 +891,11 @@ class BspCompileSpec(
   }
 
   test("compile incrementally and clear old errors fixed in previous CLI compilations") {
+    TestUtil.retry() {
+      compileIncClearOldErrorsPrevCliCompilation()
+    }
+  }
+  def compileIncClearOldErrorsPrevCliCompilation(): Unit = {
     TestUtil.withinWorkspace { workspace =>
       object Sources {
         val `Foo.scala` =
