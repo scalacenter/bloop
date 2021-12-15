@@ -21,23 +21,30 @@ object Defaults {
   }
 
   // also more or less in bloop.io.Paths…
-  private val projectDirectories = ProjectDirectories.from("", "", "bloop")
-  private final val bloopCacheDir: Path = Paths.get(projectDirectories.cacheDir)
-  private final val bloopDataDir: Path = Paths.get(projectDirectories.dataDir)
+  private lazy val projectDirectories = ProjectDirectories.from("", "", "bloop")
+  private lazy val bloopCacheDir: Path = Paths.get(projectDirectories.cacheDir)
+  private lazy val bloopDataDir: Path = Paths.get(projectDirectories.dataDir)
 
-  final val daemonDir: Path = {
-    val baseDir =
-      if (Properties.isMac) bloopCacheDir
-      else bloopDataDir
-    val dir = baseDir.resolve("daemon")
-    Files.createDirectories(dir)
-    if (!Properties.isWin) {
-      Files.setPosixFilePermissions(
-        dir,
-        PosixFilePermissions.fromString("rwx------")
-      )
+  lazy val daemonDir: Path = {
+    def defaultDir = {
+      val baseDir =
+        if (Properties.isMac) bloopCacheDir
+        else bloopDataDir
+      baseDir.resolve("daemon")
+    }
+    val dir = Option(System.getenv("BLOOP_DAEMON_DIR")).filter(_.trim.nonEmpty) match {
+      case Some(dirStr) => Paths.get(dirStr)
+      case None => defaultDir
+    }
+    if (!Files.exists(dir)) {
+      Files.createDirectories(dir)
+      if (!Properties.isWin)
+        Files.setPosixFilePermissions(
+          dir,
+          PosixFilePermissions.fromString("rwx------")
+        )
     }
     dir
   }
-  final val daemonPipeName: String = "scala_bloop_server"
+  def daemonPipeName: String = "scala_bloop_server"
 }

@@ -20,33 +20,35 @@ import java.nio.file.NoSuchFileException
 import scala.util.Properties
 
 object Paths {
-  private val projectDirectories = ProjectDirectories.from("", "", "bloop")
+  private lazy val projectDirectories = ProjectDirectories.from("", "", "bloop")
   private def createDirFor(filepath: String): AbsolutePath =
     AbsolutePath(Files.createDirectories(NioPaths.get(filepath)))
 
-  final val bloopCacheDir: AbsolutePath = createDirFor(projectDirectories.cacheDir)
-  final val bloopDataDir: AbsolutePath = createDirFor(projectDirectories.dataDir)
-  final val bloopLogsDir: AbsolutePath = createDirFor(bloopDataDir.resolve("logs").syntax)
-  final val bloopConfigDir: AbsolutePath = createDirFor(projectDirectories.configDir)
+  private lazy val bloopCacheDir: AbsolutePath = createDirFor(projectDirectories.cacheDir)
+  private lazy val bloopDataDir: AbsolutePath = createDirFor(projectDirectories.dataDir)
 
-  final val daemonDir: AbsolutePath = {
-    val baseDir =
-      if (Properties.isMac) bloopCacheDir
-      else bloopDataDir
-    val dir = baseDir.resolve("daemon")
-    if (!Files.exists(dir.underlying)) {
-      Files.createDirectories(dir.underlying)
-      if (!Properties.isWin) {
+  lazy val daemonDir: AbsolutePath = {
+    def defaultDir = {
+      val baseDir =
+        if (Properties.isMac) bloopCacheDir.underlying
+        else bloopDataDir.underlying
+      baseDir.resolve("daemon")
+    }
+    val dir = Option(System.getenv("BLOOP_DAEMON_DIR")).filter(_.trim.nonEmpty) match {
+      case Some(dirStr) => java.nio.file.Paths.get(dirStr)
+      case None => defaultDir
+    }
+    if (!Files.exists(dir)) {
+      Files.createDirectories(dir)
+      if (!Properties.isWin)
         Files.setPosixFilePermissions(
-          dir.underlying,
+          dir,
           PosixFilePermissions.fromString("rwx------")
         )
-      }
     }
-    dir
+    AbsolutePath(dir)
   }
-
-  final val pipeName: String = "scala_bloop_server"
+  def pipeName: String = "scala_bloop_server"
 
   def getCacheDirectory(dirName: String): AbsolutePath = {
     val dir = bloopCacheDir.resolve(dirName)
