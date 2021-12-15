@@ -3,7 +3,7 @@ package bloop.bloopgun
 import java.nio.file.attribute.PosixFilePermissions
 import java.nio.file.{Files, Path, Paths}
 import scala.util.Properties
-import dev.dirs.ProjectDirectories
+import coursierapi.shaded.coursier.cache.shaded.dirs.dev.dirs.ProjectDirectories
 
 object Defaults {
   val Version = "0.9.3"

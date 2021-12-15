@@ -14,7 +14,7 @@ import java.nio.file.{
   Paths => NioPaths
 }
 import java.util
-import io.github.soc.directories.ProjectDirectories
+import coursierapi.shaded.coursier.cache.shaded.dirs.dev.dirs.ProjectDirectories // GetWinDirs
 import scala.collection.mutable
 import java.nio.file.NoSuchFileException
 import scala.util.Properties
