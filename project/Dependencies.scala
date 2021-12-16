@@ -53,11 +53,10 @@ object Dependencies {
   val nailgun = "io.github.alexarchambault.bleep" % "nailgun-server" % "1.0.2"
   val javaDebug = "ch.epfl.scala" % "com-microsoft-java-debug-core" % javaDebugVersion
 
-  val configDirectories = "io.github.soc" % "directories" % configDirsVersion
   val libraryManagement = "org.scala-sbt" %% "librarymanagement-ivy" % lmVersion
   val scalazCore = "org.scalaz" %% "scalaz-core" % scalazVersion
   val scalazConcurrent = "org.scalaz" %% "scalaz-concurrent" % scalazVersion
-  val coursierInterface = "io.get-coursier" % "interface" % "1.0.4"
+  val coursierInterface = "io.get-coursier" % "interface" % "1.0.5"
   val coursierInterfaceSubs = "io.get-coursier" % "interface-svm-subs" % "1.0.4"
   val scalaXml = "org.scala-lang.modules" %% "scala-xml" % scalaXmlVersion
   val scalaCollectionCompat = "org.scala-lang.modules" %% "scala-collection-compat" % "2.4.2"

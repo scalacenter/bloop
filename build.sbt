@@ -28,9 +28,9 @@ lazy val shared = project
     name := "bloop-shared",
     libraryDependencies ++= Seq(
       Dependencies.bsp4s,
+      Dependencies.coursierInterface,
       Dependencies.zinc,
       Dependencies.xxHashLibrary,
-      Dependencies.configDirectories,
       Dependencies.sbtTestInterface,
       Dependencies.sbtTestAgent
     )
@@ -224,7 +224,6 @@ lazy val `bloopgun-core` = project
     buildInfoKeys := List(version),
     buildInfoObject := "BloopgunInfo",
     libraryDependencies ++= List(
-      //Dependencies.configDirectories,
       Dependencies.snailgun,
       // Use zt-exec instead of nuprocess because it doesn't require JNA (good for graalvm)
       Dependencies.ztExec,
@@ -232,7 +231,11 @@ lazy val `bloopgun-core` = project
       Dependencies.coursierInterfaceSubs,
       Dependencies.jsoniterCore,
       Dependencies.jsoniterMacros % Provided,
-      Dependencies.libdaemonjvm.exclude("org.scala-sbt.ipcsocket", "ipcsocket"),
+      Dependencies.libdaemonjvm
+        .exclude("org.scala-sbt.ipcsocket", "ipcsocket")
+        // remove these two when switching to libdaemon-jvm >= 0.0.8
+        .exclude("dev.dirs", "directories")
+        .exclude("io.get-coursier.jniutils", "windows-jni-utils"),
       Dependencies.ipcsocket
     )
   )
