@@ -353,6 +353,11 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
   }
 
   test("deduplication doesn't work if project definition changes") {
+    TestUtil.retry() {
+      deduplicationIfProjectDefinitionChangesTest()
+    }
+  }
+  def deduplicationIfProjectDefinitionChangesTest(): Unit = {
     val logger = new RecordingLogger(ansiCodesSupported = false)
     BuildUtil.testSlowBuild(logger) { build =>
       val state = new TestState(build.state)
