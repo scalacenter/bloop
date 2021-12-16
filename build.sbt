@@ -12,7 +12,8 @@ inThisBuild(
         "",
         url("https://github.com/alexarchambault")
       )
-    )
+    ),
+    sonatypeCredentialHost := "s01.oss.sonatype.org"
   )
 )
 
