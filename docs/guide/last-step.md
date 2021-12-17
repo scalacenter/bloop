@@ -7,4 +7,4 @@ You can either use an IDE such as [Metals](docs/ides/metals) or
 available.
 
 If you need help, you can always come over our [Discord
-channel](hhttps://discord.gg/KWF9zMhJWS).
+channel](https://discord.gg/KWF9zMhJWS).
