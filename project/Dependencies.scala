@@ -50,7 +50,7 @@ object Dependencies {
   val zinc = "ch.epfl.scala" %% "zinc" % zincVersion
   val bsp4s = "ch.epfl.scala" %% "bsp4s" % bspVersion
   val bsp4j = "ch.epfl.scala" % "bsp4j" % bspVersion
-  val nailgun = "io.github.alexarchambault.bleep" % "nailgun-server" % "1.0.2"
+  val nailgun = "io.github.alexarchambault.bleep" % "nailgun-server" % "1.0.3"
   val javaDebug = "ch.epfl.scala" % "com-microsoft-java-debug-core" % javaDebugVersion
 
   val libraryManagement = "org.scala-sbt" %% "librarymanagement-ivy" % lmVersion
@@ -117,6 +117,6 @@ object Dependencies {
   val asm = "org.ow2.asm" % "asm" % asmVersion
   val asmUtil = "org.ow2.asm" % "asm-util" % asmVersion
 
-  val libdaemonjvm = "io.github.alexarchambault.libdaemon" %% "libdaemon" % "0.0.6"
+  val libdaemonjvm = "io.github.alexarchambault.libdaemon" %% "libdaemon" % "0.0.8"
   val ipcsocket = "io.github.alexarchambault.tmp.ipcsocket" % "ipcsocket" % "1.4.1-aa-5-1"
 }
