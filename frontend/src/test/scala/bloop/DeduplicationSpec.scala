@@ -458,6 +458,11 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
   }
 
   test("three concurrent clients receive error diagnostics appropriately") {
+    TestUtil.retry() {
+      threeConcurrentClientsDiagnosticsTest()
+    }
+  }
+  def threeConcurrentClientsDiagnosticsTest(): Unit = {
     val logger = new RecordingLogger(ansiCodesSupported = false)
     TestUtil.withinWorkspace { workspace =>
       object Sources {
