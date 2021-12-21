@@ -45,6 +45,7 @@ object Dependencies {
   val snailgunVersion = "0.4.0"
   val ztExecVersion = "1.11"
   val debugAdapterVersion = "2.0.12"
+  val coursierInterfaceVersion = "1.0.6"
 
   import sbt.librarymanagement.syntax.stringToOrganization
   val zinc = "ch.epfl.scala" %% "zinc" % zincVersion
@@ -56,8 +57,8 @@ object Dependencies {
   val libraryManagement = "org.scala-sbt" %% "librarymanagement-ivy" % lmVersion
   val scalazCore = "org.scalaz" %% "scalaz-core" % scalazVersion
   val scalazConcurrent = "org.scalaz" %% "scalaz-concurrent" % scalazVersion
-  val coursierInterface = "io.get-coursier" % "interface" % "1.0.5"
-  val coursierInterfaceSubs = "io.get-coursier" % "interface-svm-subs" % "1.0.4"
+  val coursierInterface = "io.get-coursier" % "interface" % coursierInterfaceVersion
+  val coursierInterfaceSubs = "io.get-coursier" % "interface-svm-subs" % coursierInterfaceVersion
   val scalaXml = "org.scala-lang.modules" %% "scala-xml" % scalaXmlVersion
   val scalaCollectionCompat = "org.scala-lang.modules" %% "scala-collection-compat" % "2.4.2"
   val shapeless = "com.chuusai" %% "shapeless" % shapelessVersion
