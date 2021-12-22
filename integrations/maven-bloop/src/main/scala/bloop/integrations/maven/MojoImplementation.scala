@@ -80,28 +80,31 @@ object MojoImplementation {
       file.toPath().toRealPath().toAbsolutePath()
     }
 
-    def resolveArtifact(artifact: Artifact, classifier: String = ""): Option[File] = try {
-      val suffix = if (classifier.nonEmpty) s":$classifier" else ""
-      log.info("Resolving artifact: " + artifact + suffix)
-      val request = new ArtifactRequest()
-      request.setArtifact(
-        new DefaultArtifact(
-          artifact.getGroupId(),
-          artifact.getArtifactId(),
-          classifier,
-          "jar",
-          artifact.getVersion()
+    def resolveArtifact(artifact: Artifact, classifierOpt: Option[String] = None): Option[File] =
+      try {
+        val classifier = classifierOpt.orElse(Option(artifact.getClassifier())).getOrElse("")
+        val suffix = if (classifier.nonEmpty) s":$classifier" else ""
+        log.info("Resolving artifact: " + artifact + suffix)
+        val request = new ArtifactRequest()
+        request.setArtifact(
+          new DefaultArtifact(
+            artifact.getGroupId(),
+            artifact.getArtifactId(),
+            classifier,
+            artifact.getType(),
+            artifact.getVersion()
+          )
         )
-      )
-      request.setRepositories(mojo.getRemoteRepositories())
-      val result = mojo.getRepoSystem().resolveArtifact(session.getRepositorySession(), request)
-      log.info("SUCCESS " + artifact)
-      Some(result.getArtifact().getFile())
-    } catch {
-      case t: Throwable =>
-        log.error("FAILURE " + artifact, t)
-        None
-    }
+        request.setRepositories(mojo.getRemoteRepositories())
+        val result = mojo.getRepoSystem().resolveArtifact(session.getRepositorySession(), request)
+        log.info("SUCCESS " + artifact)
+        Some(result.getArtifact().getFile())
+
+      } catch {
+        case t: Throwable =>
+          log.error("FAILURE " + artifact, t)
+          None
+      }
 
     val reactorProjectsSet = mojo
       .getReactorProjects()
@@ -200,7 +203,7 @@ object MojoImplementation {
               art.setFile(resolvedFile)
             }
             if (mojo.shouldDownloadSources()) {
-              resolveArtifact(art, "sources")
+              resolveArtifact(art, Some("sources"))
             }
             artifactToConfigModule(art, project, session)
         }
