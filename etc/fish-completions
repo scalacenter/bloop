@@ -102,13 +102,13 @@ for cmd in (_commands)
     set -l flags (_flags_for_command $cmd)
     for flag in $flags
         set -l parsed (string split '#' $flag)
-        if test -n $parsed[1] -a -n $parsed[2] -a -n $parsed[3]
+        if test -n "$parsed[1]" -a -n "$parsed[2]" -a -n "$parsed[3]"
             _bloop_cmpl_ $minTokens $cmd -l $parsed[1] -d $parsed[2] -xa $parsed[3]
-        else if test -n $parsed[1] -a -z $parsed[2] -a -n $parsed[3]
+        else if test -n "$parsed[1]" -a -z "$parsed[2]" -a -n "$parsed[3]"
             _bloop_cmpl_ $minTokens $cmd -l $parsed[1] -xa $parsed[3]
-        else if test -n $parsed[1] -a -n $parsed[2] -a -z $parsed[3]
+        else if test -n "$parsed[1]" -a -n "$parsed[2]" -a -z "$parsed[3]"
             _bloop_cmpl_ $minTokens $cmd -l $parsed[1] -d $parsed[2]
-        else if test -n $parsed[1] -a -z $parsed[2] -a -z $parsed[3]
+        else if test -n "$parsed[1]" -a -z "$parsed[2]" -a -z "$parsed[3]"
             _bloop_cmpl_ $minTokens $cmd -l $parsed[1]
         end
     end
