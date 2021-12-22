@@ -26,7 +26,9 @@ function _testsfqcn
     set -l cmd (commandline -poc)
     set -e cmd[1]
     set -l project $cmd[2]
-    bloop autocomplete --format fish --mode testsfqcn --project $project
+    if test -n "$project"
+        bloop autocomplete --format fish --mode testsfqcn --project $project
+    end
 end
 
 function _mainsfqcn
