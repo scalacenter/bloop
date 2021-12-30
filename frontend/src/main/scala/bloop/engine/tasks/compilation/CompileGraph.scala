@@ -17,7 +17,6 @@ import bloop.reporter.ReporterAction
 import bloop.logging.{Logger, ObservedLogger, LoggerAction, DebugFilter}
 import bloop.{Compiler, JavaSignal, CompileProducts}
 import bloop.engine.caches.LastSuccessfulResult
-import bloop.UniqueCompileInputs
 import bloop.PartialCompileProducts
 import bloop.engine.tasks.compilation.CompileDefinitions.CompileTraversal
 

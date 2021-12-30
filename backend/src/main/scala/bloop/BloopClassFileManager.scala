@@ -122,14 +122,14 @@ final class BloopClassFileManager(
           inputs.dependentResults
         ) match {
           case None => ()
-          case Some(foundClassFile) =>
+          case Some(foundClassFilePath) =>
             weakClassFileInvalidations.+=(classFilePath)
             val newLink = newClassesDir.resolve(relativeFilePath)
-            BloopClassFileManager.link(newLink, foundClassFile.toPath) match {
+            BloopClassFileManager.link(newLink, foundClassFilePath) match {
               case Success(_) => dependentClassFilesLinks.+=(newLink)
               case Failure(exception) =>
                 inputs.logger.error(
-                  s"Failed to create link for invalidated file $foundClassFile: ${exception.getMessage()}"
+                  s"Failed to create link for invalidated file $foundClassFilePath: ${exception.getMessage()}"
                 )
                 inputs.logger.trace(exception)
             }

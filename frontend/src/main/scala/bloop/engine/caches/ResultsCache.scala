@@ -217,9 +217,8 @@ object ResultsCache {
               val r = PreviousResult.of(Optional.of(res.getAnalysis), Optional.of(res.getMiniSetup))
               res.getAnalysis.readCompilations.getAllCompilations.lastOption match {
                 case Some(lastCompilation) =>
-                  lastCompilation.getOutput.getSingleOutput.toOption match {
-                    case Some(classesDirFile) =>
-                      val classesDir = classesDirFile.toPath
+                  lastCompilation.getOutput.getSingleOutputAsPath.toOption match {
+                    case Some(classesDir) =>
                       val originPath = p.origin.path.syntax
                       val originHash = p.origin.hash
                       val inputs = UniqueCompileInputs.emptyFor(originPath)

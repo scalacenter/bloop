@@ -31,6 +31,8 @@ import monix.reactive.internal.operators.MapAsyncParallelObservable
 import monix.execution.Cancelable
 import monix.execution.cancelables.CompositeCancelable
 
+import sbt.internal.inc.PlainVirtualFileConverter
+
 object SourceHasher {
   private final val sourceMatcher =
     FileSystems.getDefault.getPathMatcher("glob:**/[!.]*.{scala,java}")
@@ -141,7 +143,7 @@ object SourceHasher {
         val hashSourcesInParallel = observable.mapAsync(parallelUnits) { (source: Path) =>
           Task.eval {
             val hash = ByteHasher.hashFileContents(source.toFile)
-            HashedSource(AbsolutePath(source), hash)
+            HashedSource(PlainVirtualFileConverter.converter.toVirtualFile(source), hash)
           }
         }
 

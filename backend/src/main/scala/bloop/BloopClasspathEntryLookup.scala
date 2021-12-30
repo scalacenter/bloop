@@ -1,45 +1,53 @@
 package bloop
 
-import java.io.File
-import java.{util => ju}
-
-import sbt.util.InterfaceUtil
-import sbt.internal.inc.classpath.ClasspathUtilities
-
-import xsbti.compile.PreviousResult
-import xsbti.compile.PerClasspathEntryLookup
-import xsbti.compile.CompileAnalysis
-import xsbti.compile.DefinesClass
-import java.util.zip.ZipFile
-import java.util.zip.ZipException
-import java.util.concurrent.ConcurrentHashMap
-import xsbti.compile.FileHash
+import bloop.util.AnalysisUtils
+import sbt.internal.inc.PlainVirtualFileConverter
 import sbt.internal.inc.bloop.internal.BloopNameHashing
 import sbt.internal.inc.bloop.internal.BloopStamps
+import sbt.internal.inc.classpath.ClasspathUtil
+import sbt.internal.inc.classpath.ClasspathUtilities
+import sbt.util.InterfaceUtil
+import xsbti.FileConverter
+import xsbti.VirtualFile
+import xsbti.compile.CompileAnalysis
+import xsbti.compile.DefinesClass
+import xsbti.compile.FileHash
+import xsbti.compile.PerClasspathEntryLookup
+import xsbti.compile.PreviousResult
+
+import java.io.File
+import java.nio.file.Path
+import java.util.concurrent.ConcurrentHashMap
+import java.util.zip.ZipException
+import java.util.zip.ZipFile
+import java.{util => ju}
 
 final class BloopClasspathEntryLookup(
     results: Map[File, PreviousResult],
-    classpathHashes: Vector[FileHash]
+    classpathHashes: Vector[FileHash],
+    converter: FileConverter
 ) extends PerClasspathEntryLookup {
-  override def analysis(classpathEntry: File): ju.Optional[CompileAnalysis] = {
-    InterfaceUtil.toOptional(results.get(classpathEntry)).flatMap(_.analysis())
+  override def analysis(classpathEntry: VirtualFile): ju.Optional[CompileAnalysis] = {
+    val file = converter.toPath(classpathEntry).toFile()
+    InterfaceUtil.toOptional(results.get(file)).flatMap(_.analysis())
   }
 
-  override def definesClass(entry: File): DefinesClass = {
-    if (!entry.exists) FalseDefinesClass
+  override def definesClass(entry: VirtualFile): DefinesClass = {
+    val file = converter.toPath(entry).toFile()
+    if (!file.exists) FalseDefinesClass
     else {
-      classpathHashes.find(fh => fh.file() == entry) match {
+      classpathHashes.find(fh => fh.file() == file) match {
         case None => FalseDefinesClass
         case Some(entryHash) =>
           def computeDefinesClassForJar = {
-            if (!ClasspathUtilities.isArchive(entry, contentFallback = true)) FalseDefinesClass
-            else new JarDefinesClass(entry)
+            if (!ClasspathUtil.isArchive(file.toPath(), contentFallback = true)) FalseDefinesClass
+            else new JarDefinesClass(file)
           }
 
-          if (BloopStamps.isDirectoryHash(entryHash)) new DirectoryDefinesClass(entry)
+          if (BloopStamps.isDirectoryHash(entryHash)) new DirectoryDefinesClass(file)
           else {
             val (_, cachedDefinesClass) = BloopClasspathEntryLookup.definedClasses.compute(
-              entry,
+              file,
               (entry, definesClass) => {
                 definesClass match {
                   case null =>
@@ -116,14 +124,15 @@ object BloopClasspathEntryLookup {
   def definedClassFileInDependencies(
       relativeClassFile: String,
       results: Map[File, PreviousResult]
-  ): Option[File] = {
-    def findClassFile(t: (File, PreviousResult)): Option[File] = {
+  ): Option[Path] = {
+    def findClassFile(t: (File, PreviousResult)): Option[Path] = {
       val (classesDir, result) = t
-      val targetClassFile = new File(classesDir, relativeClassFile)
+      val targetFile = classesDir.toPath().resolve(relativeClassFile)
+      val targetClassFile = PlainVirtualFileConverter.converter.toVirtualFile(targetFile)
       InterfaceUtil.toOption(result.analysis()).flatMap { analysis0 =>
         val analysis = analysis0.asInstanceOf[sbt.internal.inc.Analysis]
         val definedClass = analysis.relations.allProducts.contains(targetClassFile)
-        if (definedClass) Some(targetClassFile) else None
+        if (definedClass) Some(targetFile) else None
       }
     }
 

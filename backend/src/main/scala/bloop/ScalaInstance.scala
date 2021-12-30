@@ -21,6 +21,16 @@ final class ScalaInstance private (
     override val allJars: Array[File]
 ) extends xsbti.compile.ScalaInstance {
 
+  override lazy val loaderCompilerOnly: ClassLoader =
+    new URLClassLoader(compilerJars().map(_.toURI.toURL), ScalaInstance.topClassLoader)
+
+  override def compilerJars(): Array[File] = {
+    val all = allJars
+      .filter(f => isJar(f.getName) && isCompilerJar(f))
+    if (all.isEmpty) sys.error(s"Missing compiler jars in Scala jars ${allJars.mkString(", ")}")
+    all
+  }
+
   override def libraryJars(): Array[File] = {
     allJars
       .filter(f => isJar(f.getName) && hasScalaLibraryName(f.getName))
@@ -58,7 +68,25 @@ final class ScalaInstance private (
     filename.startsWith(ScalacCompilerName) ||
       (isDotty && (filename.startsWith("dotty-compiler") || filename.startsWith("scala3-compiler")))
   private def hasScalaLibraryName(filename: String): Boolean =
-    filename.startsWith("scala-library")
+    filename.startsWith("scala-library") || filename.startsWith("scala3-library")
+
+  private def hasScalaReflectName(filename: String): Boolean =
+    filename.startsWith("scala-reflect")
+
+  private def hasScalaXmlName(filename: String): Boolean =
+    filename.startsWith("scala-xml")
+
+  private def hasScala3AdditionalLibraryName(filename: String): Boolean =
+    isDotty &&
+      (filename.startsWith("scala3-interfaces") || filename.startsWith("tasty-core") ||
+        filename.startsWith("scala-asm"))
+
+  private def isCompilerJar(file: File) = {
+    val name = file.getName()
+    hasScalaReflectName(name) || hasScalaCompilerName(name) ||
+    hasScalaLibraryName(name) || hasScalaXmlName(name) ||
+    hasScala3AdditionalLibraryName(name)
+  }
 
   /** Tells us what the real version of the classloaded scalac compiler in this instance is. */
   override def actualVersion(): String = {

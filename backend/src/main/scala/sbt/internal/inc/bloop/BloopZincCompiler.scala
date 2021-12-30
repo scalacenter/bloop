@@ -18,6 +18,9 @@ import xsbti.compile._
 import bloop.UniqueCompileInputs
 
 import scala.concurrent.Promise
+import sbt.internal.inc.PlainVirtualFileConverter
+import bloop.util.AnalysisUtils
+import xsbti.VirtualFile
 
 object BloopZincCompiler {
   import bloop.logging.DebugFilter
@@ -90,8 +93,8 @@ object BloopZincCompiler {
   def compileIncrementally(
       scalaCompiler: xsbti.compile.ScalaCompiler,
       javaCompiler: xsbti.compile.JavaCompiler,
-      sources: Array[File],
-      classpath: Seq[File],
+      sources: Array[VirtualFile],
+      classpath: Seq[VirtualFile],
       uniqueInputs: UniqueCompileInputs,
       output: Output,
       cache: GlobalsCache,
@@ -128,7 +131,7 @@ object BloopZincCompiler {
         val analysis = invalidateAnalysisFromSetup(config.currentSetup, previousSetup, incrementalOptions.ignoredScalacOptions(), setOfSources, prev, manager, logger)
 
         // Scala needs the explicit type signature to infer the function type arguments
-        val compile: (Set[File], DependencyChanges, AnalysisCallback, ClassFileManager) => Task[Unit] = compiler.compile(_, _, _, _, cancelPromise, classpathOptions)
+        val compile: (Set[VirtualFile], DependencyChanges, AnalysisCallback, ClassFileManager) => Task[Unit] = compiler.compile(_, _, _, _, cancelPromise, classpathOptions)
         BloopIncremental
           .compile(
             setOfSources,
@@ -169,15 +172,18 @@ object BloopZincCompiler {
       setup: MiniSetup,
       previousSetup: Option[MiniSetup],
       ignoredScalacOptions: Array[String],
-      sources: Set[File],
+      sources: Set[VirtualFile],
       previousAnalysis: CompileAnalysis,
       manager: ClassFileManager,
       logger: ObservedLogger[_]
   ): CompileAnalysis = {
     // Copied from `Incremental` to pass in the class file manager we want
-    def prune(invalidatedSrcs: Set[File], previous0: CompileAnalysis, classfileManager: ClassFileManager): Analysis = {
+    def prune(invalidatedSrcs: Set[VirtualFile], previous0: CompileAnalysis, classfileManager: ClassFileManager): Analysis = {
       val previous = previous0 match { case a: Analysis => a }
-      classfileManager.delete(invalidatedSrcs.flatMap(previous.relations.products).toArray)
+      val toDelete = invalidatedSrcs.flatMap(previous.relations.products).toArray.collect {
+        case vf: VirtualFile => vf
+      }
+      classfileManager.delete(toDelete)
       previous -- invalidatedSrcs
     }
 
@@ -222,8 +228,8 @@ object BloopZincCompiler {
   def configureAnalyzingCompiler(
       scalac: xsbti.compile.ScalaCompiler,
       javac: xsbti.compile.JavaCompiler,
-      sources: Seq[File],
-      classpath: Seq[File],
+      sources: Seq[VirtualFile],
+      classpath: Seq[VirtualFile],
       classpathHashes: Seq[FileHash],
       output: Output,
       cache: GlobalsCache,
@@ -259,6 +265,7 @@ object BloopZincCompiler {
     val outputJar = JarUtils.createOutputJarContent(output)
     MixedAnalyzingCompiler.config(
       sources,
+      PlainVirtualFileConverter.converter,
       classpath,
       compileSetup,
       progress,
@@ -271,7 +278,12 @@ object BloopZincCompiler {
       skip,
       cache,
       incrementalCompilerOptions,
-      outputJar
+      outputJar,
+      // deals with pipelining, not supported yet
+      earlyOutput = None,
+      // deals with pipelining, not supported yet
+      earlyAnalysisStore = None,
+      stamper = BloopStamps.initial
     )
   }
 }

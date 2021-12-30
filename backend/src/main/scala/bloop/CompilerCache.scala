@@ -38,6 +38,11 @@ import javax.tools.JavaFileObject.Kind
 import javax.tools.{JavaCompiler => JavaxCompiler}
 import scala.collection.mutable.HashSet
 import scala.concurrent.ExecutionContext
+import xsbti.VirtualFile
+import bloop.util.AnalysisUtils
+import xsbti.compile.{IncToolOptions, Output}
+import sbt.internal.inc.CompilerArguments
+import sbt.internal.inc.PlainVirtualFileConverter
 
 final class CompilerCache(
     componentProvider: ComponentProvider,
@@ -155,9 +160,12 @@ final class CompilerCache(
   final class BloopForkedJavaCompiler(javaHome: Option[File]) extends JavaCompiler {
     import xsbti.compile.IncToolOptions
 
+    private val converter = PlainVirtualFileConverter.converter
+
     def run(
-        sources: Array[File],
+        sources: Array[VirtualFile],
         options: Array[String],
+        output: Output,
         topts: IncToolOptions,
         reporter: XReporter,
         log: XLogger
@@ -205,7 +213,14 @@ final class CompilerCache(
 
             try {
               import sbt.internal.inc.javac.BloopForkedJavaUtils
-              BloopForkedJavaUtils.launch(javaHome, "javac", sources, options, log, reporter)
+              BloopForkedJavaUtils.launch(
+                javaHome,
+                "javac",
+                sources.map(converter.toPath(_).toFile()),
+                options,
+                log,
+                reporter
+              )
             } finally {
               Paths.delete(newInvalidatedEntry)
             }
@@ -225,9 +240,11 @@ final class CompilerCache(
     import java.io.File
     import xsbti.compile.IncToolOptions
     import xsbti.Reporter
+    private val converter = PlainVirtualFileConverter.converter
     override def run(
-        sources: Array[File],
+        sources: Array[VirtualFile],
         options: Array[String],
+        output: Output,
         incToolOptions: IncToolOptions,
         reporter: Reporter,
         log0: xsbti.Logger
@@ -251,8 +268,8 @@ final class CompilerCache(
       import sbt.internal.inc.javac.WriteReportingFileManager
       val zincFileManager = incToolOptions.classFileManager().get()
       val fileManager = new BloopInvalidatingFileManager(fileManager0, zincFileManager)
-
-      val jfiles = fileManager0.getJavaFileObjectsFromFiles(sources.toList.asJava)
+      val sourceFiles: Array[File] = sources.map(converter.toPath(_).toFile())
+      val jfiles = fileManager0.getJavaFileObjectsFromFiles(sourceFiles.toList.asJava)
       try {
         // Create directories of java args that trigger error if they don't exist
         def processJavaDirArgument(idx: Int): Unit = {
@@ -274,7 +291,13 @@ final class CompilerCache(
         processJavaDirArgument(cleanedOptions.indexOf("-s"))
         processJavaDirArgument(cleanedOptions.indexOf("-h"))
 
-        val newJavacOptions = cleanedOptions.toList.asJava
+        output.getSingleOutputAsPath match {
+          case p if p.isPresent => java.nio.file.Files.createDirectories(p.get)
+          case _ =>
+        }
+
+        val outputOption = CompilerArguments.outputOption(output)
+        val newJavacOptions = (cleanedOptions.toList ++ outputOption).asJava
         log.debug(s"Invoking javac with ${newJavacOptions.asScala.mkString(" ")}")
         val success = compiler
           .getTask(logWriter, fileManager, diagnostics, newJavacOptions, null, jfiles)

@@ -45,9 +45,9 @@ object BloopLookup {
       // bloop server sessions, it's just an optimization to avoid checking for isDir
       BloopStamps.isDirectoryHash(fh) ||
       // If directory exists, filter it out
-      fh.file.isDirectory() ||
+      fh.file.toFile().isDirectory() ||
       // If directory is empty classes dir, filter it out
-      CompileOutPaths.hasEmptyClassesDir(AbsolutePath(fh.file.toPath))
+      CompileOutPaths.hasEmptyClassesDir(AbsolutePath(fh.file))
     }
   }
 }

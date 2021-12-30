@@ -11,6 +11,10 @@ import sbt.util.Logger
 import sbt.internal.inc._
 import xsbti.compile.{ClassFileManager, DependencyChanges, IncOptions}
 import xsbti.compile.Output
+import xsbti.VirtualFile
+import xsbti.VirtualFile
+import xsbti.VirtualFileRef
+import xsbti.FileConverter
 
 /**
  * Defines Bloop's version of `IncrementalNameHashing` that extends Zinc's original
@@ -59,12 +63,12 @@ private final class BloopNameHashing(
    */
   def entrypoint(
       invalidatedClasses: Set[String],
-      initialChangedSources: Set[File],
-      allSources: Set[File],
+      initialChangedSources: Set[VirtualFileRef],
+      allSources: Set[VirtualFile],
       binaryChanges: DependencyChanges,
       lookup: ExternalLookup,
       previous: Analysis,
-      compileTask: (Set[File], DependencyChanges) => Task[Analysis],
+      compileTask: (Set[VirtualFile], DependencyChanges) => Task[Analysis],
       manager: ClassFileManager,
       cycleNum: Int
   ): Task[Analysis] = {
@@ -77,7 +81,12 @@ private final class BloopNameHashing(
 
       // Computes which source files are mapped to the invalidated classes and recompile them
       val invalidatedSources =
-        mapInvalidationsToSources(classesToRecompile, initialChangedSources, allSources, previous)
+        mapInvalidationsToSources(
+          classesToRecompile,
+          initialChangedSources,
+          allSources.map(v => v: VirtualFileRef),
+          previous
+        ).collect { case f: VirtualFile => f }
 
       recompileClasses(invalidatedSources, binaryChanges, previous, compileTask, manager).flatMap {
         current =>
@@ -138,26 +147,27 @@ private final class BloopNameHashing(
 
   import xsbti.compile.analysis.{ReadStamps, Stamp => XStamp}
   override def detectInitialChanges(
-      sources: Set[File],
+      sources: Set[VirtualFile],
       previousAnalysis: Analysis,
       stamps: ReadStamps,
       lookup: Lookup,
+      converter: FileConverter,
       output: Output
   )(implicit equivS: Equiv[XStamp]): InitialChanges = {
     tracer.traceVerbose("detecting initial changes") { tracer =>
       // Copy pasting from IncrementalCommon to optimize/remove IO work
-      import IncrementalCommon.{isBinaryModified, findExternalAnalyzedClass}
       val previous = previousAnalysis.stamps
       val previousRelations = previousAnalysis.relations
 
-      val hashesMap = uniqueInputs.sources.map(kv => kv.source.toFile -> kv.hash).toMap
+      val hashesMap = uniqueInputs.sources.map(kv => kv.source -> kv.hash).toMap
       val sourceChanges = tracer.traceVerbose("source changes") { _ =>
         lookup.changedSources(previousAnalysis).getOrElse {
           val previousSources = previous.allSources.toSet
-          new UnderlyingChanges[File] {
-            private val inBoth = previousSources & sources
+          new UnderlyingChanges[VirtualFileRef] {
+            private val sourceRefs = sources.map(f => f: VirtualFileRef)
+            private val inBoth = previousSources & sourceRefs
             val removed = previousSources -- inBoth
-            val added = sources -- inBoth
+            val added = sourceRefs -- inBoth
             val (changed, unmodified) = inBoth.partition { f =>
               import sbt.internal.inc.Hash
               // We compute hashes via xxHash in Bloop, so we adapt them to the zinc hex format
@@ -165,26 +175,34 @@ private final class BloopNameHashing(
                 .get(f)
                 .map(bloopHash => BloopStamps.fromBloopHashToZincHash(bloopHash))
                 .getOrElse(BloopStamps.forHash(f))
-              !equivS.equiv(previous.source(f), newStamp)
+              !equivS.equiv(previous.sources(f), newStamp)
             }
           }
         }
       }
 
       // Unnecessary to compute removed products because we can ensure read-only classes dir is untouched
-      val removedProducts = Set.empty[File]
-      val changedBinaries: Set[File] = tracer.traceVerbose("changed binaries") { _ =>
+      val removedProducts = Set.empty[VirtualFileRef]
+      val changedBinaries: Set[VirtualFileRef] = tracer.traceVerbose("changed binaries") { _ =>
         lookup.changedBinaries(previousAnalysis).getOrElse {
-          val detectChange =
-            isBinaryModified(false, lookup, previous, stamps, previousRelations, log)
-          previous.allBinaries.filter(detectChange).toSet
+          val detectChange = IncrementalCommon.isLibraryModified(
+            false,
+            lookup,
+            previous,
+            stamps,
+            previousRelations,
+            PlainVirtualFileConverter.converter,
+            log
+          )
+          previous.allLibraries.filter(detectChange).toSet
         }
       }
 
       val externalApiChanges: APIChanges = tracer.traceVerbose("external api changes") { _ =>
         val incrementalExternalChanges = {
           val previousAPIs = previousAnalysis.apis
-          val externalFinder = findExternalAnalyzedClass(lookup) _
+          val externalFinder =
+            lookup.lookupAnalyzedClass(_: String, None).getOrElse(APIs.emptyAnalyzedClass)
           detectAPIChanges(
             previousAPIs.allExternals,
             previousAPIs.externalAPI,
@@ -205,21 +223,28 @@ private final class BloopNameHashing(
   }
 
   def recompileClasses(
-      sources: Set[File],
+      sources: Set[VirtualFile],
       binaryChanges: DependencyChanges,
       previous: Analysis,
-      compileTask: (Set[File], DependencyChanges) => Task[Analysis],
+      compileTask: (Set[VirtualFile], DependencyChanges) => Task[Analysis],
       classfileManager: ClassFileManager
   ): Task[Analysis] = {
     val pruned =
-      IncrementalCommon.pruneClassFilesOfInvalidations(sources, previous, classfileManager)
+      IncrementalCommon.pruneClassFilesOfInvalidations(
+        sources,
+        previous,
+        classfileManager,
+        PlainVirtualFileConverter.converter
+      )
     debug("********* Pruned: \n" + pruned.relations + "\n*********")
     compileTask(sources, binaryChanges).map { fresh =>
       debug("********* Fresh: \n" + fresh.relations + "\n*********")
 
       /* This is required for both scala compilation and forked java compilation, despite
        *  being redundant for the most common Java compilation (using the local compiler). */
-      classfileManager.generated(fresh.relations.allProducts.toArray)
+      classfileManager.generated(fresh.relations.allProducts.collect {
+        case v: VirtualFile => v
+      }.toArray)
 
       val merged = pruned ++ fresh
       debug("********* Merged: \n" + merged.relations + "\n*********")

@@ -27,13 +27,14 @@ import sbt.internal.inc.bloop.internal.BloopStamps
 import sbt.io.IO
 import java.util.concurrent.TimeUnit
 import java.io.PrintStream
+import xsbti.VirtualFile
 
 object ClasspathHasher {
 
   // For more safety, store both the time and size
   private type JarMetadata = (FileTime, Long)
-  private[this] val hashingPromises = new ConcurrentHashMap[File, Promise[FileHash]]()
-  private[this] val cacheMetadataJar = new ConcurrentHashMap[File, (JarMetadata, FileHash)]()
+  private[this] val hashingPromises = new ConcurrentHashMap[Path, Promise[FileHash]]()
+  private[this] val cacheMetadataJar = new ConcurrentHashMap[Path, (JarMetadata, FileHash)]()
 
   /**
    * Hash the classpath in parallel with Monix's task.
@@ -73,35 +74,35 @@ object ClasspathHasher {
     val timeoutSeconds: Long = 20L
     // We'll add the file hashes to the indices here and return it at the end
     val classpathHashes = new Array[FileHash](classpath.length)
-    case class AcquiredTask(file: File, idx: Int, p: Promise[FileHash])
+    case class AcquiredTask(file: Path, idx: Int, p: Promise[FileHash])
 
     val isCancelled = AtomicBoolean(false)
     val parallelConsumer = {
       Consumer.foreachParallelAsync[AcquiredTask](parallelUnits) {
-        case AcquiredTask(file, idx, p) =>
+        case AcquiredTask(path, idx, p) =>
           // Use task.now because Monix's load balancer already forces an async boundary
           val hashingTask = Task.now {
             val hash =
               try {
                 if (cancelCompilation.isCompleted) {
-                  BloopStamps.cancelledHash(file)
+                  BloopStamps.cancelledHash(path)
                 } else if (isCancelled.get) {
                   cancelCompilation.trySuccess(())
-                  BloopStamps.cancelledHash(file)
+                  BloopStamps.cancelledHash(path)
                 } else {
-                  val filePath = file.toPath
-                  val attrs = Files.readAttributes(filePath, classOf[BasicFileAttributes])
-                  if (attrs.isDirectory) BloopStamps.directoryHash(file)
+                  val attrs = Files.readAttributes(path, classOf[BasicFileAttributes])
+                  if (attrs.isDirectory) BloopStamps.directoryHash(path)
                   else {
                     val currentMetadata =
-                      (FileTime.fromMillis(IO.getModifiedTimeOrZero(file)), attrs.size())
-                    Option(cacheMetadataJar.get(file)) match {
+                      (FileTime.fromMillis(IO.getModifiedTimeOrZero(path.toFile)), attrs.size())
+                    Option(cacheMetadataJar.get(path)) match {
                       case Some((metadata, hashHit)) if metadata == currentMetadata => hashHit
                       case _ =>
-                        tracer.traceVerbose(s"computing hash ${filePath.toAbsolutePath.toString}") {
+                        tracer.traceVerbose(s"computing hash ${path.toAbsolutePath.toString}") {
                           _ =>
-                            val newHash = FileHash.of(file, ByteHasher.hashFileContents(file))
-                            cacheMetadataJar.put(file, (currentMetadata, newHash))
+                            val newHash =
+                              FileHash.of(path, ByteHasher.hashFileContents(path.toFile))
+                            cacheMetadataJar.put(path, (currentMetadata, newHash))
                             newHash
                         }
                     }
@@ -109,10 +110,10 @@ object ClasspathHasher {
                 }
               } catch {
                 // Can happen when a file doesn't exist, for example
-                case monix.execution.misc.NonFatal(t) => BloopStamps.emptyHash(file)
+                case monix.execution.misc.NonFatal(t) => BloopStamps.emptyHash(path)
               }
             classpathHashes(idx) = hash
-            hashingPromises.remove(file, p)
+            hashingPromises.remove(path, p)
             p.trySuccess(hash)
             ()
           }
@@ -131,12 +132,12 @@ object ClasspathHasher {
             TimeUnit.SECONDS,
             new Runnable {
               def run(): Unit = {
-                val hash = BloopStamps.cancelledHash(file)
+                val hash = BloopStamps.cancelledHash(path)
                 // Complete if hashing for this entry hasn't finished in 15s, otherwise ignore
-                hashingPromises.remove(file, p)
+                hashingPromises.remove(path, p)
                 if (p.trySuccess(hash)) {
                   val msg =
-                    s"Hashing ${file} is taking more than ${timeoutSeconds}s, detaching downstream clients to unblock them..."
+                    s"Hashing ${path} is taking more than ${timeoutSeconds}s, detaching downstream clients to unblock them..."
                   try {
                     logger.warn(msg)
                     serverOut.println(msg)
@@ -157,7 +158,7 @@ object ClasspathHasher {
       val acquiredByOtherTasks = new mutable.ListBuffer[Task[Unit]]()
       val acquiredByThisHashingProcess = new mutable.ListBuffer[AcquiredTask]()
 
-      def acquireHashingEntry(entry: File, entryIdx: Int): Unit = {
+      def acquireHashingEntry(entry: Path, entryIdx: Int): Unit = {
         if (isCancelled.get) ()
         else {
           val entryPromise = Promise[FileHash]()
@@ -191,8 +192,7 @@ object ClasspathHasher {
       val initEntries = Task {
         classpath.zipWithIndex.foreach {
           case t @ (absoluteEntry, idx) =>
-            val entry = absoluteEntry.toFile
-            acquireHashingEntry(entry, idx)
+            acquireHashingEntry(absoluteEntry.underlying, idx)
         }
       }.doOnCancel(Task { isCancelled.compareAndSet(false, true); () })
 

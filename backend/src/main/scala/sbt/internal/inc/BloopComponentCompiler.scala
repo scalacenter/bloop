@@ -31,6 +31,8 @@ import _root_.bloop.logging.{Logger => BloopLogger}
 import _root_.bloop.{DependencyResolution => BloopDependencyResolution}
 import _root_.bloop.logging.DebugFilter
 import scala.concurrent.ExecutionContext
+import java.nio.file.Path
+import sbt.internal.inc.classpath.ClasspathUtil
 
 object BloopComponentCompiler {
   import xsbti.compile.ScalaInstance
@@ -159,18 +161,19 @@ object BloopComponentCompiler {
       val scalaLibrary = scalaArtifacts.library
       val jarsToLoad = (scalaCompiler +: scalaLibrary +: scalaArtifacts.others).toArray
       assert(jarsToLoad.forall(_.exists), "One or more jar(s) in the Scala instance do not exist.")
-      val loaderLibraryOnly = ClasspathUtilities.toLoader(Vector(scalaLibrary))
+      val loaderLibraryOnly = ClasspathUtil.toLoader(Vector(scalaLibrary.toPath()))
       val jarsToLoad2 = jarsToLoad.toVector.filterNot(_ == scalaLibrary)
-      val loader = ClasspathUtilities.toLoader(jarsToLoad2, loaderLibraryOnly)
+      val loader = ClasspathUtil.toLoader(jarsToLoad2.map(_.toPath()), loaderLibraryOnly)
       val properties = ResourceLoader.getSafePropertiesFor("compiler.properties", loader)
       val loaderVersion = Option(properties.getProperty("version.number"))
       val scalaV = loaderVersion.getOrElse("unknown")
       new inc.ScalaInstance(
         scalaV,
         loader,
+        loader,
         loaderLibraryOnly,
-        scalaLibrary,
-        scalaCompiler,
+        Array(scalaLibrary),
+        jarsToLoad,
         jarsToLoad,
         loaderVersion
       )
@@ -264,7 +267,7 @@ private[inc] class BloopComponentCompiler(
           logger,
           resolveSources = shouldResolveSources
         )(scheduler) match {
-          case Right(paths) => paths.map(_.toFile).toVector
+          case Right(paths) => paths.map(_.underlying).toVector
           case Left(t) =>
             val msg = s"Couldn't retrieve module $bridgeSources"
             throw new InvalidComponent(msg, t)
@@ -272,9 +275,10 @@ private[inc] class BloopComponentCompiler(
 
         if (!shouldResolveSources) {
           // This is usually true in the Dotty case, that has a pre-compiled compiler
-          manager.define(compilerBridgeId, allArtifacts)
+          manager.define(compilerBridgeId, allArtifacts.map(_.toFile()))
         } else {
-          val (sources, xsbtiJars) = allArtifacts.partition(_.getName.endsWith("-sources.jar"))
+          val (sources, xsbtiJars) =
+            allArtifacts.partition(_.toFile.getName.endsWith("-sources.jar"))
           val (toCompileID, allSources) = {
             val instance = compiler.scalaInstance
             if (!HydraSupport.isEnabled(compiler.scalaInstance)) (bridgeSources.name, sources)
@@ -296,7 +300,7 @@ private[inc] class BloopComponentCompiler(
 
           AnalyzingCompiler.compileSources(
             allSources,
-            target,
+            target.toPath(),
             xsbtiJars,
             toCompileID,
             compiler,
@@ -311,9 +315,9 @@ private[inc] class BloopComponentCompiler(
 
   import xsbti.compile.ScalaInstance
   private def mergeBloopAndHydraBridges(
-      bloopBridgeSourceJars: Vector[File],
+      bloopBridgeSourceJars: Vector[Path],
       hydraBridgeModule: ModuleID
-  ): Either[InvalidComponent, Vector[File]] = {
+  ): Either[InvalidComponent, Vector[Path]] = {
     val hydraSourcesJars = BloopDependencyResolution.resolveWithErrors(
       List(
         BloopDependencyResolution
@@ -327,7 +331,7 @@ private[inc] class BloopComponentCompiler(
       resolveSources = true,
       additionalRepositories = List(HydraSupport.resolver)
     )(scheduler) match {
-      case Right(paths) => Right(paths.map(_.toFile).toVector)
+      case Right(paths) => Right(paths.map(_.underlying).toVector)
       case Left(t) =>
         val msg = s"Couldn't retrieve module $hydraBridgeModule"
         Left(new InvalidComponent(msg, t))
@@ -350,7 +354,7 @@ private[inc] class BloopComponentCompiler(
         }
 
         withTemporaryDirectory { tempDir =>
-          val hydraSourceContents = unzip(sourceJar, tempDir)
+          val hydraSourceContents = unzip(sourceJar.toFile, tempDir)
           logger.debug(s"Sources from hydra bridge: $hydraSourceContents")
 
           // Unfortunately we can only use names to filter out, let's hope there's no clashes
@@ -366,7 +370,7 @@ private[inc] class BloopComponentCompiler(
           // Extract bridge source contens in same folder with Hydra contents having preference
           val regularSourceContents = bloopBridgeSourceJars.foldLeft(Set.empty[File]) {
             case (extracted, sourceJar) =>
-              extracted ++ unzip(sourceJar, tempDir, filter = filterOutConflicts)
+              extracted ++ unzip(sourceJar.toFile(), tempDir, filter = filterOutConflicts)
           }
 
           logger.debug(s"Sources from bloop bridge: $regularSourceContents")
@@ -376,8 +380,8 @@ private[inc] class BloopComponentCompiler(
           val allSourceContents =
             (hydraSourceContents ++ regularSourceContents).map(s => s -> relativize(tempDir, s).get)
 
-          zip(allSourceContents.toSeq, mergedJar)
-          Right(Vector(mergedJar))
+          zip(allSourceContents.toSeq, mergedJar, time = None)
+          Right(Vector(mergedJar.toPath()))
         }
 
       case Right(Seq()) =>

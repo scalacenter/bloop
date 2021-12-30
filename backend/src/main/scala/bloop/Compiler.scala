@@ -34,6 +34,9 @@ import sbt.internal.inc.bloop.internal.BloopStamps
 import sbt.internal.inc.bloop.internal.BloopLookup
 import bloop.reporter.Reporter
 import bloop.logging.CompilationEvent
+import xsbti.VirtualFile
+import xsbti.VirtualFileRef
+import sbt.internal.inc.PlainVirtualFileConverter
 
 case class CompileInputs(
     scalaInstance: ScalaInstance,
@@ -160,6 +163,7 @@ object CompileOutPaths {
 
 object Compiler {
   private implicit val filter = bloop.logging.DebugFilter.Compilation
+  private val converter = PlainVirtualFileConverter.converter
   private final class BloopProgress(
       reporter: ZincReporter,
       cancelPromise: Promise[Unit]
@@ -168,7 +172,12 @@ object Compiler {
       reporter.reportNextPhase(phase, new java.io.File(unitPath))
     }
 
-    override def advance(current: Int, total: Int): Boolean = {
+    override def advance(
+        current: Int,
+        total: Int,
+        prevPhase: String,
+        nextPhase: String
+    ): Boolean = {
       val isNotCancelled = !cancelPromise.isCompleted
       if (isNotCancelled) {
         reporter.reportCompilationProgress(current.toLong, total.toLong)
@@ -276,8 +285,10 @@ object Compiler {
     }
 
     def getCompilationOptions(inputs: CompileInputs): CompileOptions = {
-      val sources = inputs.sources // Sources are all files
-      val classpath = inputs.classpath.map(_.toFile)
+      // Sources are all files
+      val sources = inputs.sources.map(path => converter.toVirtualFile(path.underlying))
+
+      val classpath = inputs.classpath.map(path => converter.toVirtualFile(path.underlying))
       val optionsWithoutFatalWarnings = inputs.scalacOptions.flatMap { option =>
         if (option != "-Xfatal-warnings") List(option)
         else {
@@ -292,8 +303,8 @@ object Compiler {
 
       CompileOptions
         .create()
-        .withClassesDirectory(newClassesDir.toFile)
-        .withSources(sources.map(_.toFile))
+        .withClassesDirectory(newClassesDir)
+        .withSources(sources)
         .withClasspath(classpath)
         .withScalacOptions(optionsWithoutFatalWarnings)
         .withJavacOptions(inputs.javacOptions)
@@ -308,7 +319,11 @@ object Compiler {
         newClassesDir.toFile -> compileInputs.previousResult
       )
 
-      val lookup = new BloopClasspathEntryLookup(results, compileInputs.uniqueInputs.classpath)
+      val lookup = new BloopClasspathEntryLookup(
+        results,
+        compileInputs.uniqueInputs.classpath,
+        converter
+      )
       val reporter = compileInputs.reporter
       val compilerCache = new FreshCompilerCache
       val cacheFile = compileInputs.baseDirectory.resolve("cache").toFile
@@ -520,7 +535,7 @@ object Compiler {
 
             val resultForFutureCompilationRuns = {
               resultForDependentCompilationsInSameRun.withAnalysis(
-                Optional.of(analysisForFutureCompilationRuns)
+                Optional.of(analysisForFutureCompilationRuns): Optional[CompileAnalysis]
               )
             }
 
@@ -722,12 +737,14 @@ object Compiler {
   ): Analysis = {
     // Cast to the only internal analysis that we support
     val analysis = analysis0.asInstanceOf[Analysis]
-    def rebase(file: File): File = {
-      val filePath = file.toPath.toAbsolutePath
+    def rebase(file: VirtualFileRef): VirtualFileRef = {
+
+      val filePath = converter.toPath(file).toAbsolutePath()
       if (!filePath.startsWith(readOnlyClassesDir)) file
       else {
         // Hash for class file is the same because the copy duplicates metadata
-        newClassesDir.resolve(readOnlyClassesDir.relativize(filePath)).toFile
+        val path = newClassesDir.resolve(readOnlyClassesDir.relativize(filePath))
+        converter.toVirtualFile(path)
       }
     }
 
@@ -736,11 +753,12 @@ object Compiler {
       val oldStamps = analysis.stamps
       // Use empty stamps for files that have fatal warnings so that next compile recompiles them
       val rebasedSources = oldStamps.sources.map {
-        case t @ (file, _) =>
+        case t @ (virtualFile, _) =>
+          val file = converter.toPath(virtualFile).toFile()
           // Assumes file in reported diagnostic matches path in here
           val fileHasFatalWarnings = sourceFilesWithFatalWarnings.contains(file)
           if (!fileHasFatalWarnings) t
-          else file -> BloopStamps.emptyStampFor(file)
+          else virtualFile -> BloopStamps.emptyStamps
       }
       val rebasedProducts = oldStamps.products.map {
         case t @ (file, _) =>
@@ -748,7 +766,7 @@ object Compiler {
           if (rebased == file) t else rebased -> t._2
       }
       // Changes the paths associated with the class file paths
-      Stamps(rebasedProducts, rebasedSources, oldStamps.binaries)
+      Stamps(rebasedProducts, rebasedSources, oldStamps.libraries)
     }
 
     val newRelations = {

@@ -25,6 +25,7 @@ import xsbti.compile.PreviousResult
 import scala.concurrent.ExecutionContext
 import bloop.CompileOutPaths
 import bloop.cli.CommonOptions
+import sbt.internal.inc.PlainVirtualFileConverter
 
 sealed trait CompileBundle
 
@@ -187,7 +188,7 @@ object CompileBundle {
       val sourceHashesTask = tracer.traceTaskVerbose("discovering and hashing sources") { _ =>
         bloop.io.SourceHasher
           .findAndHashSourcesInProject(project, 20, cancelCompilation, ioScheduler)
-          .map(res => res.map(_.sortBy(_.source.syntax)))
+          .map(res => res.map(_.sortBy(_.source.id())))
           .executeOn(ioScheduler)
       }
 
@@ -203,7 +204,7 @@ object CompileBundle {
             val javaSources = new ListBuffer[AbsolutePath]()
             val scalaSources = new ListBuffer[AbsolutePath]()
             sourceHashes.foreach { hashed =>
-              val source = hashed.source
+              val source = AbsolutePath(PlainVirtualFileConverter.converter.toPath(hashed.source))
               val sourceName = source.underlying.getFileName().toString
               if (sourceName.endsWith(".scala")) {
                 scalaSources += source

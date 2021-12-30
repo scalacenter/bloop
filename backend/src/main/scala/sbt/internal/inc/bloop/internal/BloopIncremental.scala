@@ -15,12 +15,23 @@ import xsbti.AnalysisCallback
 import xsbti.api.AnalyzedClass
 import xsbti.compile.analysis.{ReadStamps, Stamp}
 import xsbti.compile._
+import xsbti.VirtualFile
+import xsbti.VirtualFileRef
+import bloop.util.AnalysisUtils
+import sbt.internal.inc.PlainVirtualFileConverter
+import java.nio.file.Path
+import xsbti.PathBasedFile
+import sbt.internal.inc.MappedFileConverter
+import scala.tools.nsc.Properties
 
 object BloopIncremental {
   type CompileFunction =
-    (Set[File], DependencyChanges, AnalysisCallback, ClassFileManager) => Task[Unit]
+    (Set[VirtualFile], DependencyChanges, AnalysisCallback, ClassFileManager) => Task[Unit]
+
+  private val converter = PlainVirtualFileConverter.converter
+
   def compile(
-      sources: Iterable[File],
+      sources: Iterable[VirtualFile],
       uniqueInputs: UniqueCompileInputs,
       lookup: Lookup,
       compile: CompileFunction,
@@ -33,7 +44,7 @@ object BloopIncremental {
       tracer: BraveTracer,
       isHydraEnabled: Boolean
   ): Task[(Boolean, Analysis)] = {
-    def getExternalAPI(lookup: Lookup): (File, String) => Option[AnalyzedClass] = { (_: File, binaryClassName: String) =>
+    def getExternalAPI(lookup: Lookup): (Path, String) => Option[AnalyzedClass] = { (_: Path, binaryClassName: String) =>
       lookup.lookupAnalysis(binaryClassName) flatMap {
         case (analysis: Analysis) =>
           val sourceClassName =
@@ -47,7 +58,7 @@ object BloopIncremental {
     val previous = previous0 match { case a: Analysis => a }
     val previousRelations = previous.relations
     val internalBinaryToSourceClassName = (binaryClassName: String) => previousRelations.productClassName.reverse(binaryClassName).headOption
-    val internalSourceToClassNamesMap: File => Set[String] = (f: File) => previousRelations.classNames(f)
+    val internalSourceToClassNamesMap: VirtualFile => Set[String] = (f: VirtualFile) => previousRelations.classNames(f)
 
     val builder: () => IBloopAnalysisCallback = {
       if (!isHydraEnabled) () => new BloopAnalysisCallback(internalBinaryToSourceClassName, internalSourceToClassNamesMap, externalAPI, current, output, options, manager)
@@ -59,7 +70,7 @@ object BloopIncremental {
   }
 
   def compileIncremental(
-      sources: Iterable[File],
+      sources: Iterable[VirtualFile],
       uniqueInputs: UniqueCompileInputs,
       lookup: Lookup,
       previous: Analysis,
@@ -77,11 +88,21 @@ object BloopIncremental {
   )(implicit equivS: Equiv[Stamp]): Task[(Boolean, Analysis)] = {
     val setOfSources = sources.toSet
     val incremental = new BloopNameHashing(log, reporter, uniqueInputs, options, profiler.profileRun, tracer)
-    val initialChanges = incremental.detectInitialChanges(setOfSources, previous, current, lookup, output)
+    val initialChanges = incremental.detectInitialChanges(setOfSources, previous, current, lookup, converter, output)
+    def isJrt(path: Path) = path.getFileSystem.provider().getScheme == "jrt"
     val binaryChanges = new DependencyChanges {
-      val modifiedBinaries = initialChanges.binaryDeps.toArray
+      val modifiedLibraries = initialChanges.libraryDeps.toArray
+
+      val modifiedBinaries: Array[File] = modifiedLibraries
+        .map(converter.toPath(_))
+        .collect {
+          // jrt path is neither a jar nor a normal file
+          case path if !isJrt(path) =>
+            path.toFile()
+        }
+        .distinct
       val modifiedClasses = initialChanges.external.allModified.toArray
-      def isEmpty = modifiedBinaries.isEmpty && modifiedClasses.isEmpty
+      def isEmpty = modifiedLibraries.isEmpty && modifiedClasses.isEmpty
     }
 
     val (initialInvClasses, initialInvSources) =
@@ -99,7 +120,7 @@ object BloopIncremental {
 
     import sbt.internal.inc.{ClassFileManager => ClassFileManagerImpl}
     val analysisTask = {
-      val doCompile = (srcs: Set[File], changes: DependencyChanges) => {
+      val doCompile = (srcs: Set[VirtualFile], changes: DependencyChanges) => {
         for {
           callback <- Task.now(callbackBuilder())
           _ <- compile(srcs, changes, callback, manager)
