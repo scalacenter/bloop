@@ -1,8 +1,9 @@
 package bloop.config.utils
 
 import bloop.config.Config
+import bloop.config.PlatformFiles.Path
+import bloop.config.PlatformFiles
 import java.io.File
-import java.nio.file.Path
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 
@@ -172,7 +173,9 @@ trait BaseConfigSuite {
             s"${config.project.name} $jarName",
             config.project.resolution.exists(
               _.modules.exists(
-                _.artifacts.exists(a => matchMethod(a.path.getFileName.toString, jarName))
+                _.artifacts.exists(a =>
+                  matchMethod(PlatformFiles.getFileName(a.path).toString, jarName)
+                )
               )
             )
           )

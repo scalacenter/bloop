@@ -6,6 +6,7 @@ object PlatformFiles {
   type Path = java.nio.file.Path
   val emptyPath: Path = Paths.get("")
   def getPath(path: String): Path = Paths.get(path)
+  def getFileName(path: Path): Path = path.getFileName()
 
   def userDir: Path = getPath(System.getProperty("user.dir"))
 
