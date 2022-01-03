@@ -655,7 +655,7 @@ lazy val gradleBloop211 = project
     Test / bloopGenerate := None,
     Test / compile / skip := true,
     Test / test / skip := true,
-    publishLocal := publishLocal.dependsOn(publishLocal.in(jsonConfig211.jvm)).value,
+    publishLocal := publishLocal.dependsOn(publishLocal.in(jsonConfig211.jvm)).value
   )
 
 lazy val gradleBloop212 = project
