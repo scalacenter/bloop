@@ -651,12 +651,11 @@ lazy val gradleBloop211 = project
     ) / "gradle-bloop" / "target" / "gradle-bloop-2.11").getAbsoluteFile
   )
   .settings(
-    sourceDirectories in Test := Nil,
+    Test / sourceDirectories := Nil,
+    Test / bloopGenerate := None,
+    Test / compile / skip := true,
+    Test / test / skip := true,
     publishLocal := publishLocal.dependsOn(publishLocal.in(jsonConfig211.jvm)).value,
-    bloopGenerate in Test := None,
-    test in Test := Def.task {
-      Keys.streams.value.log.error("Run 'gradleBloopTests/test' instead to test the gradle plugin.")
-    }
   )
 
 lazy val gradleBloop212 = project
