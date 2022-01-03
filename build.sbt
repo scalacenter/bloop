@@ -452,6 +452,7 @@ lazy val launcherShaded = project
   .disablePlugins(SbtJdiTools)
   .enablePlugins(BloopShadingPlugin)
   .settings(shadedModuleSettings)
+  .settings(crossScalaVersions := Seq(Dependencies.Scala212Version, Dependencies.Scala213Version))
   .settings(shadeSettingsForModule("bloop-launcher-core", launcher))
   .settings(
     name := "bloop-launcher",
