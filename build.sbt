@@ -316,6 +316,7 @@ lazy val bloopgun: Project = project
     buildInfoPackage := "bloopgun.internal.build",
     buildInfoKeys := List(Keys.version),
     buildInfoObject := "BloopgunInfo",
+    crossScalaVersions := Seq(Dependencies.Scala212Version, Dependencies.Scala213Version),
     libraryDependencies ++= List(
       //Dependencies.configDirectories,
       Dependencies.snailgun,
@@ -422,11 +423,22 @@ lazy val bloopgunShaded = project
   )
 
 lazy val launcher: Project = project
+  .in(file("launcher-core"))
+  .disablePlugins(ScriptedPlugin)
+  .dependsOn(sockets, bloopgun)
+  .settings(testSuiteSettings)
+  .settings(
+    name := "bloop-launcher-core",
+    crossScalaVersions := Seq(Dependencies.Scala212Version, Dependencies.Scala213Version)
+  )
+
+lazy val launcherTest: Project = project
+  .in(file("launcher-test"))
   .disablePlugins(ScriptedPlugin)
   .dependsOn(sockets, bloopgun, frontend % "test->test")
   .settings(testSuiteSettings)
   .settings(
-    name := "bloop-launcher-core",
+    name := "bloop-launcher-test",
     fork in Test := true,
     parallelExecution in Test := false,
     libraryDependencies ++= List(
@@ -435,7 +447,7 @@ lazy val launcher: Project = project
   )
 
 lazy val launcherShaded = project
-  .in(file("launcher/target/shaded-module"))
+  .in(file("launcher-core/target/shaded-module"))
   .disablePlugins(ScriptedPlugin)
   .disablePlugins(SbtJdiTools)
   .enablePlugins(BloopShadingPlugin)

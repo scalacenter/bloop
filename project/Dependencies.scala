@@ -4,6 +4,7 @@ object Dependencies {
   val Scala210Version = "2.10.7"
   val Scala211Version = "2.11.12"
   val Scala212Version = "2.12.8"
+  val Scala213Version = "2.13.7"
 
   val Sbt013Version = "0.13.18"
   val Sbt1Version = "1.3.3"
@@ -80,8 +81,8 @@ object Dependencies {
   val ztExec = "org.zeroturnaround" % "zt-exec" % ztExecVersion
   val slf4jNop = "org.slf4j" % "slf4j-nop" % "1.7.2"
 
-  val utest = "com.lihaoyi" %% "utest" % "0.6.6"
-  val pprint = "com.lihaoyi" %% "pprint" % "0.5.3"
+  val utest = "com.lihaoyi" %% "utest" % "0.6.9"
+  val pprint = "com.lihaoyi" %% "pprint" % "0.5.5"
   val scalacheck = "org.scalacheck" %% "scalacheck" % "1.13.4"
   val junit = "com.novocode" % "junit-interface" % junitVersion
   val graphviz = "guru.nidi" % "graphviz-java" % graphvizVersion
