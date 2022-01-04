@@ -3,7 +3,6 @@ package bloop.bloopgun
 import java.nio.file.attribute.PosixFilePermissions
 import java.nio.file.{Files, Path, Paths}
 import scala.util.Properties
-import coursierapi.shaded.coursier.cache.shaded.dirs.{GetWinDirs, ProjectDirectories}
 
 object Defaults {
   val Version = "0.9.3"
@@ -20,23 +19,10 @@ object Defaults {
     val SendThreadWaitTerminationMillis = 5000.toLong
   }
 
-  // also more or less in bloop.io.Paths…
-  private lazy val projectDirectories = {
-    val getWinDirs: GetWinDirs =
-      if (coursierapi.shaded.coursier.paths.Util.useJni())
-        new GetWinDirs {
-          def getWinDirs(guids: String*) =
-            guids.map { guid =>
-              coursierapi.shaded.coursier.jniutils.WindowsKnownFolders
-                .knownFolderPath("{" + guid + "}")
-            }.toArray
-        }
-      else
-        GetWinDirs.powerShellBased
-    ProjectDirectories.from("", "", "bloop", getWinDirs)
+  private lazy val (bloopCacheDir, bloopDataDir) = {
+    import bloop.bloopgun.internal.ProjDirHelper
+    (Paths.get(ProjDirHelper.cacheDir()), Paths.get(ProjDirHelper.dataDir()))
   }
-  private lazy val bloopCacheDir: Path = Paths.get(projectDirectories.cacheDir)
-  private lazy val bloopDataDir: Path = Paths.get(projectDirectories.dataDir)
 
   lazy val daemonDir: Path = {
     def defaultDir = {

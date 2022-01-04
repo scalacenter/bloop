@@ -33,7 +33,7 @@ object TcpBspMetalsClientSpec extends BspMetalsClientSpec(BspProtocol.Tcp)
 class BspMetalsClientSpec(
     override val protocol: BspProtocol
 ) extends BspBaseSuite {
-  private val testedScalaVersion = "2.12.8"
+  private val testedScalaVersion = "2.12.15"
 
   override def test(name: String)(fun: => Any): Unit =
     super.test(name) {
@@ -46,7 +46,7 @@ class BspMetalsClientSpec(
       val projects = List(`A`)
       val configDir = TestProject.populateWorkspace(workspace, projects)
       val logger = new RecordingLogger(ansiCodesSupported = false)
-      val semanticdbVersion = "4.2.0"
+      val semanticdbVersion = "4.4.31"
       val extraParams = BloopExtraBuildParams(
         ownsBuildFiles = None,
         clientClassesRootDir = None,
@@ -61,9 +61,9 @@ class BspMetalsClientSpec(
           configDir,
           """|{
              |    "javaSemanticDBVersion": "0.5.7",
-             |    "semanticDBVersion": "4.2.0",
+             |    "semanticDBVersion": "4.4.31",
              |    "supportedScalaVersions": [
-             |        "2.12.8"
+             |        "2.12.15"
              |    ]
              |}
              |""".stripMargin
@@ -75,7 +75,7 @@ class BspMetalsClientSpec(
              |-P:semanticdb:failures:warning
              |-P:semanticdb:sourceroot:$workspace
              |-P:semanticdb:synthetics:on
-             |-Xplugin:semanticdb-scalac_2.12.8-4.2.0.jar
+             |-Xplugin:semanticdb-scalac_2.12.15-4.4.31.jar
              |-Yrangepos
              |""".stripMargin
         )
@@ -91,7 +91,7 @@ class BspMetalsClientSpec(
 
   test("do not initialize metals client and save settings with unsupported scala version") {
     TestUtil.withinWorkspace { workspace =>
-      val semanticdbVersion = "4.2.0" // Doesn't support 2.12.4
+      val semanticdbVersion = "4.4.31" // Doesn't support 2.12.4
       val `A` = TestProject(workspace, "A", Nil, scalaVersion = Some("2.12.4"))
       val projects = List(`A`)
       val configDir = TestProject.populateWorkspace(workspace, projects)
@@ -100,7 +100,7 @@ class BspMetalsClientSpec(
         ownsBuildFiles = None,
         clientClassesRootDir = None,
         semanticdbVersion = Some(semanticdbVersion),
-        supportedScalaVersions = Some(List("2.12.8")),
+        supportedScalaVersions = Some(List("2.12.15")),
         javaSemanticdbVersion = Some("0.5.7")
       )
 
@@ -109,9 +109,9 @@ class BspMetalsClientSpec(
           configDir,
           """|{
              |    "javaSemanticDBVersion": "0.5.7",
-             |    "semanticDBVersion": "4.2.0",
+             |    "semanticDBVersion": "4.4.31",
              |    "supportedScalaVersions": [
-             |        "2.12.8"
+             |        "2.12.15"
              |    ]
              |}
              |""".stripMargin
@@ -125,7 +125,7 @@ class BspMetalsClientSpec(
 
   test("initialize metals client in workspace with already enabled semanticdb") {
     TestUtil.withinWorkspace { workspace =>
-      val pluginPath = s"-Xplugin:path-to-plugin/semanticdb-scalac_2.12.8-4.2.0.jar.jar"
+      val pluginPath = s"-Xplugin:path-to-plugin/semanticdb-scalac_2.12.15-4.4.31.jar.jar"
       val defaultScalacOptions = List(
         "-P:semanticdb:failures:warning",
         s"-P:semanticdb:sourceroot:$workspace",
@@ -144,7 +144,7 @@ class BspMetalsClientSpec(
       val projects = List(`A`)
       val configDir = TestProject.populateWorkspace(workspace, projects)
       val logger = new RecordingLogger(ansiCodesSupported = false)
-      val semanticdbVersion = "4.2.0"
+      val semanticdbVersion = "4.4.31"
       val extraParams = BloopExtraBuildParams(
         ownsBuildFiles = None,
         clientClassesRootDir = None,
@@ -158,9 +158,9 @@ class BspMetalsClientSpec(
           configDir,
           """|{
              |    "javaSemanticDBVersion": "0.5.7",
-             |    "semanticDBVersion": "4.2.0",
+             |    "semanticDBVersion": "4.4.31",
              |    "supportedScalaVersions": [
-             |        "2.12.8"
+             |        "2.12.15"
              |    ]
              |}
              |""".stripMargin
@@ -183,7 +183,7 @@ class BspMetalsClientSpec(
         "-P:semanticdb:failures:warning",
         "-P:semanticdb:synthetics:on",
         "-Xplugin-require:semanticdb",
-        s"-Xplugin:path-to-plugin/semanticdb-scalac_2.12.8-4.2.0.jar.jar",
+        s"-Xplugin:path-to-plugin/semanticdb-scalac_2.12.15-4.4.31.jar.jar",
         "-Yrangepos"
       )
       val `A` = TestProject(
@@ -196,7 +196,7 @@ class BspMetalsClientSpec(
       val projects = List(`A`)
       val configDir = TestProject.populateWorkspace(workspace, projects)
       val logger = new RecordingLogger(ansiCodesSupported = false)
-      val semanticdbVersion = "4.2.0"
+      val semanticdbVersion = "4.4.31"
       val extraParams = BloopExtraBuildParams(
         ownsBuildFiles = None,
         clientClassesRootDir = None,
@@ -210,9 +210,9 @@ class BspMetalsClientSpec(
           configDir,
           """|{
              |    "javaSemanticDBVersion": "0.5.7",
-             |    "semanticDBVersion": "4.2.0",
+             |    "semanticDBVersion": "4.4.31",
              |    "supportedScalaVersions": [
-             |        "2.12.8"
+             |        "2.12.15"
              |    ]
              |}
              |""".stripMargin
@@ -226,7 +226,7 @@ class BspMetalsClientSpec(
 
   test("should save workspace settings with cached build") {
     TestUtil.withinWorkspace { workspace =>
-      val semanticdbVersion = "4.2.0"
+      val semanticdbVersion = "4.4.31"
       val javaSemanticdbVersion = "0.5.7"
       val extraParams = BloopExtraBuildParams(
         ownsBuildFiles = None,
@@ -303,7 +303,7 @@ class BspMetalsClientSpec(
 
       val javaNormalClientsVersion = "0.5.7"
       val javaMetalsVersion = "0.1.0"
-      val normalClientsVersion = "4.2.0"
+      val normalClientsVersion = "4.4.31"
       val metalsClientVersion = "4.1.11"
       val client1 = createClient(javaNormalClientsVersion, normalClientsVersion)
       val client2 = createClient(javaNormalClientsVersion, normalClientsVersion)
@@ -329,7 +329,7 @@ class BspMetalsClientSpec(
       val logger = new RecordingLogger(ansiCodesSupported = false)
       WorkspaceSettings.writeToFile(
         configDir,
-        WorkspaceSettings.fromSemanticdbSettings("0.5.7", "4.2.0", List(testedScalaVersion)),
+        WorkspaceSettings.fromSemanticdbSettings("0.5.7", "4.4.31", List(testedScalaVersion)),
         logger
       )
       loadBspState(workspace, projects, logger) { state =>
@@ -349,7 +349,7 @@ class BspMetalsClientSpec(
       val logger = new RecordingLogger(ansiCodesSupported = false)
       WorkspaceSettings.writeToFile(
         configDir,
-        WorkspaceSettings.fromSemanticdbSettings("0.5.7", "4.1.11", List(testedScalaVersion)),
+        WorkspaceSettings.fromSemanticdbSettings("0.5.7", "4.4.31", List(testedScalaVersion)),
         logger
       )
       loadBspState(workspace, projects, logger) { state =>
@@ -455,7 +455,7 @@ class BspMetalsClientSpec(
       val extraParams = BloopExtraBuildParams(
         ownsBuildFiles = None,
         clientClassesRootDir = None,
-        semanticdbVersion = Some("4.2.0"),
+        semanticdbVersion = Some("4.4.31"),
         supportedScalaVersions = Some(List(testedScalaVersion)),
         javaSemanticdbVersion = Some("0.5.7")
       )
