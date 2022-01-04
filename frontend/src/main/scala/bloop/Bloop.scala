@@ -27,7 +27,6 @@ import java.net.Socket
 import java.io.OutputStream
 import java.net.SocketAddress
 import java.nio.channels.Channels
-import libdaemonjvm.internal.SocketMaker
 import java.nio.ByteBuffer
 import java.io.File
 import org.slf4j
@@ -50,17 +49,12 @@ object Bloop {
       case Array() =>
         val dir = bloop.io.Paths.daemonDir.underlying
         ensureSafeDirectoryExists(dir)
-        val lockFiles = LockFiles.under(dir, bloop.io.Paths.pipeName)
+        val lockFiles = LockFiles.under(dir)
         Right(lockFiles)
       case Array(daemonArg) if daemonArg.startsWith("daemon:") =>
-        val arg = daemonArg.stripPrefix("daemon:")
-        val (dirStr, pipeName) = arg.split(File.pathSeparator, 2) match {
-          case Array(dir, pipeName) => (dir, pipeName)
-          case Array(dir) => (dir, bloop.io.Paths.pipeName)
-        }
-        val dir = Paths.get(dirStr)
+        val dir = Paths.get(daemonArg)
         ensureSafeDirectoryExists(dir)
-        val lockFiles = LockFiles.under(dir, pipeName)
+        val lockFiles = LockFiles.under(dir)
         Right(lockFiles)
       case Array(arg) =>
         Left((InetAddress.getLoopbackAddress(), toPortNumber(args(0))))
@@ -69,7 +63,7 @@ object Bloop {
         Left((addr, toPortNumber(portStr)))
       case _ =>
         throw new IllegalArgumentException(
-          s"Invalid arguments to bloop server: $args, expected: ([address] [port] | [daemon:path] [pipeName])"
+          s"Invalid arguments to bloop server: $args, expected: ([address] [port] | [daemon:path])"
         )
     }
 
@@ -92,18 +86,15 @@ object Bloop {
         case Left(socket) => socket
         case Right(channel) => libdaemonjvm.Util.serverSocketFromChannel(channel)
       }
-      val (socketPathStr, socketPathOpt) =
-        if (SocketHandler.usesWindowsPipe) (socketPaths.windowsPipeName, None)
-        else (socketPaths.path.toString, Some(socketPaths.path))
-      (socket, socketPathStr, socketPathOpt)
+      (socket, socketPaths.path)
     }
     val server = instantiateServer(socketAndPathOrHostPort.map {
-      case (sock, path, _) => (sock, path)
+      case (sock, path) => (sock, path.toString)
     })
     val runServer: Runnable = () =>
       try server.run()
       finally {
-        for (path <- socketAndPathOrHostPort.toOption.flatMap(_._3))
+        for (path <- socketAndPathOrHostPort.toOption.map(_._2))
           Files.deleteIfExists(path)
       }
     // FIXME Small delay between the time this method returns, and the time we actually

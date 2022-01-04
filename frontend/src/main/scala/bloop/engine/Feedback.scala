@@ -75,7 +75,6 @@ object Feedback {
        |     Check the installation instructions https://scalacenter.github.io/bloop/setup
     """.stripMargin
 
-  val MissingPipeName = "Missing pipe name to establish a local connection in Windows"
   val MissingSocket =
     "A socket file is required to establish a local connection through Unix sockets"
   def excessiveSocketLengthInMac(socket: Path): String =
@@ -86,8 +85,6 @@ object Feedback {
     s"Bloop bsp server cannot establish a connection with an existing socket file '${socket.toAbsolutePath}'"
   def missingParentOfSocket(socket: Path): String =
     s"'${socket.toAbsolutePath}' cannot be created because its parent does not exist"
-  def unexpectedPipeFormat(pipeName: String): String =
-    s"Pipe name '${pipeName}' does not start with '\\\\.\\pipe\\'"
   def outOfRangePort(n: Int): String =
     s"Port number '${n}' is either negative or bigger than 65535"
   def reservedPortNumber(n: Int): String =

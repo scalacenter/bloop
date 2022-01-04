@@ -40,7 +40,7 @@ abstract class LauncherBaseSuite(
   protected val shellWithPython = new Shell(true, true)
 
   def stopServer(
-      bloopServerPortOrDaemonDir: Either[Int, (Path, String)],
+      bloopServerPortOrDaemonDir: Either[Int, Path],
       complainIfError: Boolean
   ): Unit = {
     val dummyIn = new ByteArrayInputStream(new Array(0))
@@ -54,8 +54,8 @@ abstract class LauncherBaseSuite(
       val ngArgs = bloopServerPortOrDaemonDir match {
         case Left(port) =>
           List("--nailgun-port", port.toString)
-        case Right((path, pipeName)) =>
-          List("--daemon-dir", path.toString, "--pipe-name", pipeName)
+        case Right(path) =>
+          List("--daemon-dir", path.toString)
       }
       ngArgs ::: List("exit")
     }
@@ -77,7 +77,7 @@ abstract class LauncherBaseSuite(
 
   def setUpLauncher(
       shell: Shell,
-      bloopServerPortOrDaemonDir: Either[Int, (Path, String)],
+      bloopServerPortOrDaemonDir: Either[Int, Path],
       startedServer: Promise[Unit] = Promise[Unit]()
   )(
       launcherLogic: LauncherRun => Unit
@@ -95,7 +95,7 @@ abstract class LauncherBaseSuite(
       out: OutputStream,
       shell: Shell,
       startedServer: Promise[Unit],
-      bloopServerPortOrDaemonDir: Either[Int, (Path, String)]
+      bloopServerPortOrDaemonDir: Either[Int, Path]
   )(
       launcherLogic: LauncherRun => T
   ): T = {
@@ -104,10 +104,7 @@ abstract class LauncherBaseSuite(
 
     val listenOn = bloopServerPortOrDaemonDir.left
       .map(port => (None, Some(port)))
-      .map {
-        case (path, pipeName) =>
-          (Some(path), Some(pipeName))
-      }
+      .map(Some(_))
     val defaultConfig = ServerConfig(listenOn = listenOn)
 
     val baos = new ByteArrayOutputStream()
@@ -215,7 +212,7 @@ abstract class LauncherBaseSuite(
   def runBspLauncherWithEnvironment(
       args: Array[String],
       shell: Shell,
-      bloopServerPortOrDaemonDir: Either[Int, (Path, String)]
+      bloopServerPortOrDaemonDir: Either[Int, Path]
   ): BspLauncherResult = {
     import java.io.PipedInputStream
     import java.io.PipedOutputStream

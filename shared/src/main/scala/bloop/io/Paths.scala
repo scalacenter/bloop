@@ -50,7 +50,6 @@ object Paths {
     }
     AbsolutePath(dir)
   }
-  def pipeName: String = "scala_bloop_server"
 
   def getCacheDirectory(dirName: String): AbsolutePath = {
     val dir = bloopCacheDir.resolve(dirName)

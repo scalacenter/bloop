@@ -10,7 +10,6 @@ import bloop.bloopgun.core.Shell
 import bloop.bloopgun.util.Environment
 import bloop.launcher.{printError, printQuoted, println}
 import bloop.bloopgun.core.Shell.StatusCommand
-import org.scalasbt.ipcsocket.UnixDomainSocket
 
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.Promise
@@ -22,6 +21,8 @@ import java.nio.channels.WritableByteChannel
 import java.nio.ByteBuffer
 import java.nio.file.Files
 import org.slf4j.LoggerFactory
+import java.net.{StandardProtocolFamily, UnixDomainSocketAddress}
+import java.nio.channels.SocketChannel
 
 object BspBridge {
   def printEx(t: Throwable): Unit =
@@ -174,7 +175,10 @@ final class BspBridge(
         connection match {
           case BspConnection.Tcp(host, port) => new Socket(host, port)
           case BspConnection.UnixLocal(socketPath) =>
-            new UnixDomainSocket(socketPath.toAbsolutePath.toString)
+            val addr = UnixDomainSocketAddress.of(socketPath)
+            val s = SocketChannel.open(StandardProtocolFamily.UNIX)
+            s.connect(addr)
+            libdaemonjvm.Util.socketFromChannel(s)
         }
       }
     }

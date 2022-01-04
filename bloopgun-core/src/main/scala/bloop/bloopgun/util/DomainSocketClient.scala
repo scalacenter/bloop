@@ -28,6 +28,8 @@ import scala.util.Properties
 import scala.annotation.tailrec
 import scala.concurrent.duration._
 import org.slf4j.LoggerFactory
+import java.nio.file.Files
+import java.net.ConnectException
 
 final case class DomainSocketClient(socketPaths: SocketPaths) extends Client {
 
@@ -48,22 +50,25 @@ final case class DomainSocketClient(socketPaths: SocketPaths) extends Client {
     @tailrec
     def openSocket(maxAttempts: Int, delay: FiniteDuration): Socket = {
       val socketOpt =
-        try {
-          val socket = SocketHandler.client(socketPaths) match {
-            case Left(socket0) => socket0
-            case Right(channel) => libdaemonjvm.Util.socketFromChannel(channel)
+        if (Files.exists(socketPaths.path))
+          try {
+            val socket = SocketHandler.client(socketPaths) match {
+              case Left(socket0) => socket0
+              case Right(channel) => libdaemonjvm.Util.socketFromChannel(channel)
+            }
+            Some(socket)
+          } catch {
+            case ex: libdaemonjvm.errors.SocketExceptionLike
+                if maxAttempts > 1 && Properties.isWin && ex.getCause
+                  .isInstanceOf[IOException] && ex.getCause.getMessage.contains("error code 231") =>
+              log.debug(
+                s"Caught All pipe instances are busy error on $socketPaths, trying again in $delay",
+                ex
+              )
+              None
           }
-          Some(socket)
-        } catch {
-          case ex: libdaemonjvm.errors.SocketExceptionLike
-              if maxAttempts > 1 && Properties.isWin && ex.getCause
-                .isInstanceOf[IOException] && ex.getCause.getMessage.contains("error code 231") =>
-            log.debug(
-              s"Caught All pipe instances are busy error on $socketPaths, trying again in $delay",
-              ex
-            )
-            None
-        }
+        else
+          throw new ConnectException(s"${socketPaths.path} not found")
       socketOpt match {
         case Some(socket) => socket
         case None =>
