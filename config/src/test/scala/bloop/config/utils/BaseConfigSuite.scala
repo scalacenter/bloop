@@ -98,10 +98,13 @@ trait BaseConfigSuite {
     }
   }
 
-  protected def hasPathEntryName(entryName: String, paths: List[Path]): Boolean = {
+  protected def hasPathEntryName(
+      entryName: String,
+      paths: List[bloop.config.PlatformFiles.Path]
+  ): Boolean = {
     val pathValidEntryName = entryName.replace('/', File.separatorChar)
-    val pathAsStr = paths.map(_.toString)
-    pathAsStr.exists(_.contains(pathValidEntryName))
+    val pathStr = paths.map(_.toString)
+    pathStr.exists(_.contains(pathValidEntryName))
   }
 
   protected def hasRuntimeClasspathEntryName(config: Config.File, entryName: String): Boolean = {
@@ -166,6 +169,15 @@ trait BaseConfigSuite {
       matchMethod: (String, String) => Boolean,
       assertMethod: (String, Boolean) => Unit
   ): Unit = {
+    def getFileName(path: bloop.config.PlatformFiles.Path): String = {
+      // possibly broken in some corner cases, but should do the job in the tests here
+      val pathStr = path.toString
+      val slashIdx = pathStr.lastIndexOf('/')
+      val bslashIdx = pathStr.lastIndexOf('\\')
+      val idx = slashIdx.max(bslashIdx)
+      if (idx >= 0) pathStr.drop(idx + 1)
+      else pathStr
+    }
     configs.foreach(config =>
       jarNames
         .foreach(jarName =>
