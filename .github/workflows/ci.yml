@@ -14,9 +14,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2.4.0
-      - uses: olafurpg/setup-scala@v13
+      - uses: coursier/setup-action@v1.2.0-M1
         with:
-          java-version: graalvm-ce-java11@20.1.0
+          jvm: "graalvm-java11:20.1.0"
       - name: Check formatting
         run: ./bin/scalafmt --test
   test:
@@ -25,7 +25,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macOS-latest]
-        jdk: [graalvm-ce-java11@20.1.0, adopt@1.11]
+        jdk: ["graalvm-java11:20.1.0", adopt@1.11]
     name: Test ${{ matrix.os }} -- ${{ matrix.jdk }}
     env:
       HYDRA_LICENSE: ${{ secrets.HYDRA_LICENSE }}
@@ -34,9 +34,9 @@ jobs:
         with:
           submodules: true
           fetch-depth: 0
-      - uses: olafurpg/setup-scala@v13
+      - uses: coursier/setup-action@v1.2.0-M1
         with:
-          java-version: ${{ matrix.jdk }}
+          jvm: ${{ matrix.jdk }}
       - name: Set up environment
         run: |
           curl -Lo coursier https://git.io/coursier-cli && chmod +x coursier && ./coursier --help
@@ -63,7 +63,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macOS-latest]
-        jdk: [graalvm-ce-java11@20.1.0]
+        jdk: ["graalvm-java11:20.1.0"]
     name: Launcher tests ${{ matrix.os }} -- ${{ matrix.jdk }}
     env:
       HYDRA_LICENSE: ${{ secrets.HYDRA_LICENSE }}
@@ -72,9 +72,9 @@ jobs:
         with:
           submodules: true
           fetch-depth: 0
-      - uses: olafurpg/setup-scala@v13
+      - uses: coursier/setup-action@v1.2.0-M1
         with:
-          java-version: ${{ matrix.jdk }}
+          jvm: ${{ matrix.jdk }}
       - name: Set up environment
         run: |
           curl -Lo coursier https://git.io/coursier-cli && chmod +x coursier && ./coursier --help
@@ -105,7 +105,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macOS-latest]
-        jdk: [graalvm-ce-java11@20.1.0]
+        jdk: ["graalvm-java11:20.1.0"]
         include:
           - os: ubuntu-latest
             artifact: bloop-linux
@@ -122,9 +122,9 @@ jobs:
         with:
           submodules: true
           fetch-depth: 0
-      - uses: olafurpg/setup-scala@v13
+      - uses: coursier/setup-action@v1.2.0-M1
         with:
-          java-version: ${{ matrix.jdk }}
+          jvm: ${{ matrix.jdk }}
       - name: Publish GraalVM Native artifacts
         run: |
           echo $JAVA_HOME
@@ -147,7 +147,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [windows-latest]
-        jdk: [graalvm-ce-java11@20.1.0]
+        jdk: ["graalvm-java11:20.1.0"]
         include:
           - os: windows-latest
             artifact: bloop-windows
@@ -167,9 +167,9 @@ jobs:
         with:
           submodules: true
           fetch-depth: 0
-      - uses: olafurpg/setup-scala@v13
+      - uses: coursier/setup-action@v1.2.0-M1
         with:
-          java-version: ${{ matrix.jdk }}
+          jvm: ${{ matrix.jdk }}
       - name: Install GraalVM Native Image
         run: |
           echo $JAVA_HOME
@@ -231,9 +231,9 @@ jobs:
         with:
           submodules: true
           fetch-depth: 0
-      - uses: olafurpg/setup-scala@v13
+      - uses: coursier/setup-action@v1.2.0-M1
         with:
-          java-version: ${{ matrix.jdk }}
+          jvm: ${{ matrix.jdk }}
       - name: Download built GraalVM binaries
         uses: actions/download-artifact@v2.1.0
         with:
