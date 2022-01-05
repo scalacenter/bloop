@@ -52,7 +52,7 @@ object Bloop {
         val lockFiles = LockFiles.under(dir)
         Right(lockFiles)
       case Array(daemonArg) if daemonArg.startsWith("daemon:") =>
-        val dir = Paths.get(daemonArg)
+        val dir = Paths.get(daemonArg.stripPrefix("daemon:"))
         ensureSafeDirectoryExists(dir)
         val lockFiles = LockFiles.under(dir)
         Right(lockFiles)
