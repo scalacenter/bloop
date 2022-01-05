@@ -516,14 +516,26 @@ class BloopgunCli(
         case AvailableWithCommand(cmd) =>
           val jargs = finalJvmOpts(Nil).map(arg => s"-J$arg")
           (cmd ++ serverArgs ++ jargs) -> usedExtraJvmOpts
-        case ResolvedAt(classpath) =>
+        case ResolvedAt(classpath, bloopVersion) =>
           val delimiter = java.io.File.pathSeparator
           val jvmOpts = Environment.detectJvmOptionsForServer(found, serverArgs, logger)
           val stringClasspath = classpath.map(_.normalize.toAbsolutePath).mkString(delimiter)
+          val isBloopFork = {
+            import Ordering.Implicits.seqDerivedOrdering
+            val ver = bloopVersion
+              .split('.')
+              .toSeq
+              .map(s => scala.util.Try(s.toInt).toOption)
+              .takeWhile(_.nonEmpty)
+              .flatten
+            val ord = seqDerivedOrdering[Seq, Int]
+            ord.compare(ver, Seq(1, 4, 13)) >= 0
+          }
+          val mainClass = if (isBloopFork) "bloop.Bloop" else "bloop.Server"
           val cmd = javaBinary ++ finalJvmOpts(jvmOpts) ++ List(
             "-classpath",
             stringClasspath,
-            "bloop.Server" // "bloop.Bloop" works too in recent versions (>= 1.4.13)
+            mainClass
           ) ++ serverArgs
           cmd -> usedExtraJvmOpts
       }
