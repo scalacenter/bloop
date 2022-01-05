@@ -248,7 +248,8 @@ lazy val bloopgun = project
     sonatypeSetting,
     name := "bloopgun",
     libraryDependencies ++= List(
-      Dependencies.logback
+      Dependencies.logback,
+      Dependencies.svmSubs
     ),
     mainClass in GraalVMNativeImage := Some("bloop.bloopgun.Bloopgun"),
     graalVMNativeImageCommand := {
@@ -273,7 +274,9 @@ lazy val bloopgun = project
         "--initialize-at-build-time=scala.Function1",
         "--initialize-at-build-time=scala.Function2",
         "--initialize-at-build-time=scala.runtime.StructuralCallSite",
-        "--initialize-at-build-time=scala.runtime.EmptyMethodCache"
+        "--initialize-at-build-time=scala.runtime.EmptyMethodCache",
+        "--initialize-at-build-time=scala.runtime.LambdaDeserialize",
+        "--initialize-at-build-time=scala.collection.immutable.VM"
       )
     }
   )
