@@ -186,6 +186,13 @@ object Bloop {
         classOf[Bloop]
       )
     )
+    aliasManager.addAlias(
+      new Alias(
+        "ng-stop",
+        "Kill the bloop server.",
+        classOf[Bloop]
+      )
+    )
 
     // Register the default entrypoint in case the user doesn't use the right alias
     server.setDefaultNailClass(classOf[Cli])
