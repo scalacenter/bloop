@@ -82,22 +82,8 @@ final class CompilerCache(
     )
   }
 
-  def getJavaCompiler(logger: Logger, javacBin: Option[AbsolutePath]): JavaCompiler = {
-    javacBin match {
-      case Some(bin) if JavaRuntime.javac.exists(isSameCompiler(logger, _, bin)) =>
-        // Same bin as the one derived from this VM? Prefer built-in compiler if JDK
-        JavaRuntime.javaCompiler match {
-          case Some(compiler) => new BloopJavaCompiler(compiler)
-          case None => new BloopForkedJavaCompiler(Some(bin.toFile))
-        }
-      case Some(bin) => new BloopForkedJavaCompiler(Some(bin.toFile))
-      case None =>
-        JavaRuntime.javaCompiler match {
-          case Some(compiler) => new BloopJavaCompiler(compiler)
-          case None => new BloopForkedJavaCompiler(None)
-        }
-    }
-  }
+  def getJavaCompiler(logger: Logger, javacBin: Option[AbsolutePath]): JavaCompiler =
+    new BloopForkedJavaCompiler(javacBin.map(_.toFile))
 
   def getScalaCompiler(
       scalaInstance: ScalaInstance,
