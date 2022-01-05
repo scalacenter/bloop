@@ -27,8 +27,6 @@ import java.security.SecureRandom
 import java.nio.file.attribute.PosixFilePermissions
 import java.net.ServerSocket
 
-object LatestStableLauncherSpec
-    extends LauncherSpec("1.3.2", () => Left(LauncherSpecHelper.openPort()))
 object LatestMasterLauncherSpec
     extends LauncherSpec(BuildInfo.version, () => Left(LauncherSpecHelper.openPort()))
 
