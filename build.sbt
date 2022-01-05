@@ -207,9 +207,8 @@ lazy val frontend: Project = project
       Dependencies.monix,
       Dependencies.caseApp,
       Dependencies.scalaDebugAdapter,
-      Dependencies.libdaemonjvm.exclude("org.scala-sbt.ipcsocket", "ipcsocket"),
-      Dependencies.logback,
-      Dependencies.ipcsocket
+      Dependencies.libdaemonjvm,
+      Dependencies.logback
     )
   )
 
@@ -234,11 +233,6 @@ lazy val `bloopgun-core` = project
       Dependencies.jsoniterCore,
       Dependencies.jsoniterMacros % Provided,
       Dependencies.libdaemonjvm
-        .exclude("org.scala-sbt.ipcsocket", "ipcsocket")
-        // remove these two when switching to libdaemon-jvm >= 0.0.8
-        .exclude("dev.dirs", "directories")
-        .exclude("io.get-coursier.jniutils", "windows-jni-utils"),
-      Dependencies.ipcsocket
     )
   )
 
@@ -261,9 +255,6 @@ lazy val bloopgun = project
     graalVMNativeImageOptions ++= {
       val reflectionFile = sourceDirectory.in(Compile).value./("graal")./("reflection.json")
       assert(reflectionFile.exists)
-      val extra =
-        if (Properties.isMac) List("-H:IncludeResources=META-INF/native/darwin/ipcsocket.dylib")
-        else Nil
       List(
         "--no-server",
         "--enable-http",
@@ -281,7 +272,7 @@ lazy val bloopgun = project
         "--initialize-at-build-time=scala.runtime.EmptyMethodCache",
         "--initialize-at-build-time=scala.runtime.LambdaDeserialize",
         "--initialize-at-build-time=scala.collection.immutable.VM"
-      ) ++ extra
+      )
     }
   )
 
@@ -294,8 +285,7 @@ lazy val launcher = project
     fork in Test := true,
     parallelExecution in Test := false,
     libraryDependencies ++= List(
-      Dependencies.coursierInterface,
-      Dependencies.ipcsocket
+      Dependencies.coursierInterface
     ),
     tmpDirSettings
   )

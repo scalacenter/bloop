@@ -20,8 +20,6 @@ import monix.reactive.observers.Subscriber
 import monix.reactive.{Observable, Observer}
 import monix.reactive.observables.ObservableLike
 import monix.execution.cancelables.CompositeCancelable
-import org.scalasbt.ipcsocket.UnixDomainServerSocket
-import org.scalasbt.ipcsocket.Win32NamedPipeServerSocket
 
 import scala.concurrent.Future
 import scala.concurrent.Promise
@@ -244,8 +242,6 @@ object BspServer {
     }
 
     val handle = cmd match {
-      case Commands.WindowsLocalBsp(pipeName, _) =>
-        ServerHandle.WindowsLocal(pipeName)
       case Commands.UnixLocalBsp(socketFile, _) =>
         ServerHandle.UnixLocal(socketFile)
       case Commands.TcpBsp(address, portNumber, _) =>

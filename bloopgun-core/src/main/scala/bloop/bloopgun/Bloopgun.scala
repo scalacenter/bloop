@@ -46,7 +46,6 @@ import java.io.IOException
 import snailgun.Client
 import libdaemonjvm.LockFiles
 import scala.util.Properties
-import libdaemonjvm.internal.SocketMaker
 import libdaemonjvm.internal.SocketHandler
 import java.io.File
 
@@ -133,27 +132,9 @@ class BloopgunCli(
       val daemonDirOpt = builder
         .opt[String]("daemon-dir")
         .action((dir, params) => {
-          val pipeNameOpt = params.serverConfig.listenOn match {
-            case Left(_) => None
-            case Right((_, opt)) => opt
-          }
           params.copy(
             serverConfig = params.serverConfig.copy(
-              listenOn = Right((Some(Paths.get(dir)), pipeNameOpt))
-            )
-          )
-        })
-        .text("Specify the daemon directory of the target Bloop server")
-      val pipeNameOpt = builder
-        .opt[String]("pipe-name")
-        .action((pipeName, params) => {
-          val daemonDirOpt = params.serverConfig.listenOn match {
-            case Left(_) => None
-            case Right((opt, _)) => opt
-          }
-          params.copy(
-            serverConfig = params.serverConfig.copy(
-              listenOn = Right((daemonDirOpt, Some(pipeName)))
+              listenOn = Right(Some(Paths.get(dir)))
             )
           )
         })
@@ -191,12 +172,8 @@ class BloopgunCli(
             .action {
               case (arg, params) =>
                 if (arg.startsWith("daemon:")) {
-                  val arg0 = arg.stripPrefix("daemon:")
-                  val (dir, pipeNameOpt) = arg0.split(File.pathSeparator, 2) match {
-                    case Array(dir) => (dir, None)
-                    case Array(dir, pipeName) => (dir, Some(pipeName))
-                  }
-                  val listenOn = (Some(Paths.get(dir)), pipeNameOpt)
+                  val dir = arg.stripPrefix("daemon:")
+                  val listenOn = Some(Paths.get(dir))
                   params.copy(serverConfig = params.serverConfig.copy(listenOn = Right(listenOn)))
                 } else {
                   val port = arg.toInt // FIXME Catch exceptions?
@@ -245,7 +222,6 @@ class BloopgunCli(
           nailgunServerOpt,
           nailgunPortOpt,
           daemonDirOpt,
-          pipeNameOpt,
           nailgunHelpOpt,
           nailgunShowVersionOpt,
           nailgunVerboseOpt,
@@ -362,8 +338,6 @@ class BloopgunCli(
     catch {
       case _: ConnectException | _: libdaemonjvm.errors.ConnectExceptionLike |
           _: libdaemonjvm.errors.SocketExceptionLike =>
-        noServer()
-      case e: IOException if e.getCause.isInstanceOf[org.scalasbt.ipcsocket.NativeErrorException] =>
         noServer()
     } finally {
       if (consoleCmdOutFile != null) {
@@ -493,12 +467,9 @@ class BloopgunCli(
           case Left((Some(host), None)) =>
             logger.warn(Feedback.unexpectedServerArgsSyntax(host))
             Nil
-          case Right((pathOpt, pipeOpt)) =>
+          case Right(pathOpt) =>
             val path = pathOpt.getOrElse(Defaults.daemonDir)
-            val pipe = pipeOpt.getOrElse(Defaults.daemonPipeName)
-            List(s"daemon:$path${File.pathSeparator}$pipe")
-          case Right(_) =>
-            Nil
+            List(s"daemon:$path")
         }
       }
     }
@@ -545,14 +516,26 @@ class BloopgunCli(
         case AvailableWithCommand(cmd) =>
           val jargs = finalJvmOpts(Nil).map(arg => s"-J$arg")
           (cmd ++ serverArgs ++ jargs) -> usedExtraJvmOpts
-        case ResolvedAt(classpath) =>
+        case ResolvedAt(classpath, bloopVersion) =>
           val delimiter = java.io.File.pathSeparator
           val jvmOpts = Environment.detectJvmOptionsForServer(found, serverArgs, logger)
           val stringClasspath = classpath.map(_.normalize.toAbsolutePath).mkString(delimiter)
+          val isBloopFork = {
+            import Ordering.Implicits.seqDerivedOrdering
+            val ver = bloopVersion
+              .split('.')
+              .toSeq
+              .map(s => scala.util.Try(s.toInt).toOption)
+              .takeWhile(_.nonEmpty)
+              .flatten
+            val ord = seqDerivedOrdering[Seq, Int]
+            ord.compare(ver, Seq(1, 4, 13)) >= 0
+          }
+          val mainClass = if (isBloopFork) "bloop.Bloop" else "bloop.Server"
           val cmd = javaBinary ++ finalJvmOpts(jvmOpts) ++ List(
             "-classpath",
             stringClasspath,
-            "bloop.Server" // "bloop.Bloop" works too in recent versions (>= 1.4.13)
+            mainClass
           ) ++ serverArgs
           cmd -> usedExtraJvmOpts
       }

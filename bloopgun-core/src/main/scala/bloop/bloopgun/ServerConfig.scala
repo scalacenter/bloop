@@ -6,9 +6,7 @@ import scala.util.Properties
 import libdaemonjvm.LockFiles
 
 final case class ServerConfig(
-    listenOn: Either[(Option[String], Option[Int]), (Option[Path], Option[String])] = Right(
-      (None, None)
-    ),
+    listenOn: Either[(Option[String], Option[Int]), Option[Path]] = Right(None),
     serverArgs: List[String] = Nil,
     serverLocation: Option[Path] = None,
     startTimeout: Option[Int] = None,
@@ -20,11 +18,10 @@ final case class ServerConfig(
         val host = hostOpt.getOrElse(Defaults.Host)
         val port = portOpt.getOrElse(Defaults.Port)
         Left((host, port))
-      case Right((daemonDirOpt, pipeNameOpt)) =>
+      case Right(daemonDirOpt) =>
         val daemonDir = daemonDirOpt.getOrElse(Defaults.daemonDir)
-        val pipeName = pipeNameOpt.getOrElse(Defaults.daemonPipeName)
         ServerConfig.ensureSafeDirectoryExists(daemonDir)
-        Right(LockFiles.under(daemonDir, pipeName))
+        Right(LockFiles.under(daemonDir))
     }
   override def toString(): String = listenOnWithDefaults match {
     case Left((host, port)) => s"$host:$port"

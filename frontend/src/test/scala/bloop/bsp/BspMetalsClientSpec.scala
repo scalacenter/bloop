@@ -534,7 +534,7 @@ class BspMetalsClientSpec(
       .sorted
       .mkString(lineSeparator)
     assertNoDiff(
-      javacOptions.sorted.mkString(lineSeparator),
+      javacOptions.filter(!_.startsWith("-J")).sorted.mkString(lineSeparator),
       expectedOptions
     )
   }

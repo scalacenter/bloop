@@ -20,7 +20,6 @@ object Commands {
   sealed trait ValidatedCommand extends Command
 
   sealed trait ValidatedBsp extends ValidatedCommand
-  case class WindowsLocalBsp(pipeName: String, cliOptions: CliOptions) extends ValidatedBsp
   case class UnixLocalBsp(socket: AbsolutePath, cliOptions: CliOptions) extends ValidatedBsp
   case class TcpBsp(host: InetAddress, port: Int, cliOptions: CliOptions) extends ValidatedBsp
 
@@ -126,10 +125,6 @@ object Commands {
       port: Int = 5101,
       @HelpMessage("A path to a socket file to communicate through Unix sockets (local only).")
       socket: Option[Path] = None,
-      @HelpMessage(
-        "A path to a new existing socket file to communicate through Unix sockets (local only)."
-      )
-      pipeName: Option[String] = None,
       @Recurse cliOptions: CliOptions = CliOptions.default
   ) extends RawCommand
 

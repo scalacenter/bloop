@@ -118,9 +118,7 @@ object Dependencies {
   val asm = "org.ow2.asm" % "asm" % asmVersion
   val asmUtil = "org.ow2.asm" % "asm-util" % asmVersion
 
-  val libdaemonjvm = "io.github.alexarchambault.libdaemon" %% "libdaemon" % "0.0.8"
-  val ipcsocket = "io.github.alexarchambault.tmp.ipcsocket" % "ipcsocket" % "1.4.1-aa-5-1"
+  val libdaemonjvm = "io.github.alexarchambault.libdaemon" %% "libdaemon" % "0.0.9"
 
   val svmSubs = "org.scalameta" %% "svm-subs" % "20.1.0"
-
 }

@@ -50,7 +50,6 @@ object Paths {
     }
     AbsolutePath(dir)
   }
-  def pipeName: String = "scala_bloop_server"
 
   def getCacheDirectory(dirName: String): AbsolutePath = {
     val dir = bloopCacheDir.resolve(dirName)
@@ -133,7 +132,8 @@ object Paths {
         if (matcher.matches(file)) {
           out += AttributedPath(
             AbsolutePath(file),
-            attributes.lastModifiedTime(),
+            // Truncate to milliseconds, to workaround precision discrepancy issues in the tests
+            FileTime.fromMillis(attributes.lastModifiedTime().toMillis),
             attributes.size()
           )
         }

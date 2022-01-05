@@ -14,7 +14,7 @@ sealed trait ServerStatus
 sealed trait LocatedServer extends ServerStatus
 case class AvailableWithCommand(binary: List[String]) extends LocatedServer
 case class AvailableAtPath(binary: Path) extends LocatedServer
-case class ResolvedAt(files: Seq[Path]) extends LocatedServer
+case class ResolvedAt(files: Seq[Path], version: String) extends LocatedServer
 case class ListeningAndAvailableAt(binary: List[String]) extends ServerStatus
 
 object ServerStatus {
@@ -42,7 +42,7 @@ object ServerStatus {
       bloopVersion,
       logger
     ) match {
-      case Right(jars) => Some(ResolvedAt(jars))
+      case Right(jars) => Some(ResolvedAt(jars, bloopVersion))
       case Left(value) =>
         logger.error("Unexpected error when resolving Bloop server via coursier!")
         logger.error(value.getMessage())

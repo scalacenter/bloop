@@ -13,29 +13,12 @@ object CliSpec extends BaseSuite {
   val tempDir = Files.createTempDirectory("validate")
   tempDir.toFile.deleteOnExit()
 
-  test("fail at wrong end of pipe name") {
-    checkInvalidPipeName(s"\\\\.\\pie\\test-$uniqueId")
-  }
-
-  test("fail at wrong middle part of pipe name") {
-    checkInvalidPipeName(s"\\,\\pipe\\test-$uniqueId")
-  }
-
-  test("fail at wrong start of pipe name") {
-    checkInvalidPipeName(s"\\.\\pipe\\test-$uniqueId")
-  }
-
-  test("fail at common wrong pipe name") {
-    checkInvalidPipeName("test-pipe-name")
-  }
-
   test("fail at existing socket") {
     val socketPath = tempDir.resolve("test.socket")
     Files.createFile(socketPath)
     val bspCommand = Commands.Bsp(
       protocol = BspProtocol.Local,
-      socket = Some(socketPath),
-      pipeName = None
+      socket = Some(socketPath)
     )
 
     checkIsCliError(
@@ -49,8 +32,7 @@ object CliSpec extends BaseSuite {
     val socketPath = java.nio.file.Paths.get("test.socket")
     val bspCommand = Commands.Bsp(
       protocol = BspProtocol.Local,
-      socket = Some(socketPath),
-      pipeName = None
+      socket = Some(socketPath)
     )
 
     checkIsCommand[Commands.UnixLocalBsp](Validate.bsp(bspCommand, isWindows = false))
@@ -60,8 +42,7 @@ object CliSpec extends BaseSuite {
     val socketPath = tempDir.resolve("folder").resolve("test.socket")
     val bspCommand = Commands.Bsp(
       protocol = BspProtocol.Local,
-      socket = Some(socketPath),
-      pipeName = None
+      socket = Some(socketPath)
     )
 
     checkIsCliError(
@@ -80,8 +61,7 @@ object CliSpec extends BaseSuite {
     val socketPath = tempDir.resolve(s"$lengthyName")
     val bspCommand = Commands.Bsp(
       protocol = BspProtocol.Local,
-      socket = Some(socketPath),
-      pipeName = None
+      socket = Some(socketPath)
     )
 
     val msg =
@@ -93,8 +73,7 @@ object CliSpec extends BaseSuite {
   test("fail at missing socket") {
     val bspCommand = Commands.Bsp(
       protocol = BspProtocol.Local,
-      socket = None,
-      pipeName = None
+      socket = None
     )
 
     checkIsCliError(
@@ -103,36 +82,11 @@ object CliSpec extends BaseSuite {
     )
   }
 
-  test("fail at missing pipe name") {
-    val bspCommand = Commands.Bsp(
-      protocol = BspProtocol.Local,
-      socket = None,
-      pipeName = None
-    )
-
-    checkIsCliError(
-      Validate.bsp(bspCommand, isWindows = true),
-      Feedback.MissingPipeName
-    )
-  }
-
-  test("succeed at correct pipe name") {
-    val pipeName = s"\\\\.\\pipe\\test-$uniqueId"
-    val bspCommand = Commands.Bsp(
-      protocol = BspProtocol.Local,
-      socket = None,
-      pipeName = Some(pipeName)
-    )
-
-    checkIsCommand[Commands.WindowsLocalBsp](Validate.bsp(bspCommand, isWindows = true))
-  }
-
   test("succeed at non-existing socket file") {
     val socketPath = tempDir.resolve("alsjkdflkjasdf.socket")
     val bspCommand = Commands.Bsp(
       protocol = BspProtocol.Local,
-      socket = Some(socketPath),
-      pipeName = None
+      socket = Some(socketPath)
     )
 
     checkIsCommand[Commands.UnixLocalBsp](Validate.bsp(bspCommand, isWindows = false))
@@ -213,19 +167,6 @@ object CliSpec extends BaseSuite {
       case Run(obtained: T, Exit(ExitStatus.Ok)) => ()
       case _ => throw new AssertionError(s"Expected command doesn't exist in ${action}.")
     }
-  }
-
-  def checkInvalidPipeName(pipeName: String): Unit = {
-    val bspCommand = Commands.Bsp(
-      protocol = BspProtocol.Local,
-      socket = None,
-      pipeName = Some(pipeName)
-    )
-
-    checkIsCliError(
-      Validate.bsp(bspCommand, isWindows = true),
-      Feedback.unexpectedPipeFormat(pipeName)
-    )
   }
 
   def checkInvalidAddress(hostName: String): Unit = {

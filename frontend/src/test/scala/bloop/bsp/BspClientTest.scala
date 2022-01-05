@@ -27,13 +27,14 @@ import scala.concurrent.duration.FiniteDuration
 import scala.meta.jsonrpc.{BaseProtocolMessage, LanguageClient, LanguageServer, Response, Services}
 import scala.concurrent.Promise
 import bloop.TestSchedulers
+import java.net.{StandardProtocolFamily, UnixDomainSocketAddress}
+import java.nio.channels.SocketChannel
 
 object BspClientTest extends BspClientTest
 trait BspClientTest {
   private implicit val ctx: DebugFilter = DebugFilter.Bsp
   def cleanUpLastResources(cmd: Commands.ValidatedBsp): Unit = {
     cmd match {
-      case cmd: Commands.WindowsLocalBsp => ()
       case cmd: Commands.UnixLocalBsp =>
         // We delete the socket file created by the BSP communication
         if (!Files.exists(cmd.socket.underlying)) ()
@@ -60,8 +61,7 @@ trait BspClientTest {
     validateBsp(
       Commands.Bsp(
         protocol = BspProtocol.Local,
-        socket = Some(socketFile),
-        pipeName = Some(s"\\\\.\\pipe\\test-$uniqueId")
+        socket = Some(socketFile)
       ),
       configDir
     )
@@ -87,7 +87,6 @@ trait BspClientTest {
     val common = cmd.cliOptions.common.copy(workingDirectory = cwd.syntax)
     val cliOptions = cmd.cliOptions.copy(configDir = Some(configDir.underlying), common = common)
     cmd match {
-      case cmd: Commands.WindowsLocalBsp => cmd.copy(cliOptions = cliOptions)
       case cmd: Commands.UnixLocalBsp => cmd.copy(cliOptions = cliOptions)
       case cmd: Commands.TcpBsp => cmd.copy(cliOptions = cliOptions)
     }
@@ -186,13 +185,14 @@ trait BspClientTest {
   }
 
   def establishClientConnection(cmd: Commands.ValidatedBsp): me.Task[java.net.Socket] = {
-    import org.scalasbt.ipcsocket.UnixDomainSocket
-    import org.scalasbt.ipcsocket.Win32NamedPipeSocket
     val connectToServer = me.Task {
       cmd match {
         case cmd: Commands.TcpBsp => new java.net.Socket(cmd.host, cmd.port)
-        case cmd: Commands.UnixLocalBsp => new UnixDomainSocket(cmd.socket.syntax)
-        case cmd: Commands.WindowsLocalBsp => new Win32NamedPipeSocket(cmd.pipeName)
+        case cmd: Commands.UnixLocalBsp =>
+          val addr = UnixDomainSocketAddress.of(cmd.socket.syntax)
+          val s = SocketChannel.open(StandardProtocolFamily.UNIX)
+          s.connect(addr)
+          libdaemonjvm.Util.socketFromChannel(s)
       }
     }
     retryBackoff(connectToServer, 3, FiniteDuration(1, "s"))

@@ -27,8 +27,6 @@ import java.security.SecureRandom
 import java.nio.file.attribute.PosixFilePermissions
 import java.net.ServerSocket
 
-object LatestStableLauncherSpec
-    extends LauncherSpec("1.3.2", () => Left(LauncherSpecHelper.openPort()))
 object LatestMasterLauncherSpec
     extends LauncherSpec(BuildInfo.version, () => Left(LauncherSpecHelper.openPort()))
 
@@ -58,14 +56,13 @@ object LatestMasterLauncherDomainSocketSpec
             PosixFilePermissions.fromString("rwx------")
           )
         }
-        val pipeName = s"bloop_tests\\run-$rng\\test-$count0\\daemon"
-        Right((dir, pipeName))
+        Right(dir)
       }
     )
 
 class LauncherSpec(
     bloopVersion: String,
-    bloopServerPortOrDaemonDir: () => Either[Int, (Path, String)]
+    bloopServerPortOrDaemonDir: () => Either[Int, Path]
 ) extends LauncherBaseSuite(bloopVersion, BuildInfo.bspVersion) {
 
   // Copied from elsewhere here
@@ -106,10 +103,7 @@ class LauncherSpec(
     val bloopServerPortOrDaemonDir0 = bloopServerPortOrDaemonDir()
     val listenOn = bloopServerPortOrDaemonDir0.left
       .map(port => (None, Some(port)))
-      .map {
-        case (path, pipeName) =>
-          (Some(path), Some(pipeName))
-      }
+      .map(Some(_))
     val defaultConfig = ServerConfig(listenOn = listenOn)
     val result = runBspLauncherWithEnvironment(
       Array(bloopVersion),
@@ -143,10 +137,7 @@ class LauncherSpec(
     val bloopServerPortOrDaemonDir0 = bloopServerPortOrDaemonDir()
     val listenOn = bloopServerPortOrDaemonDir0.left
       .map(port => (None, Some(port)))
-      .map {
-        case (path, pipeName) =>
-          (Some(path), Some(pipeName))
-      }
+      .map(Some(_))
     val defaultConfig = ServerConfig(listenOn = listenOn)
 
     setUpLauncher(

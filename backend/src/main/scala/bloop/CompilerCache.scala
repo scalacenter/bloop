@@ -87,13 +87,13 @@ final class CompilerCache(
       case Some(bin) if JavaRuntime.javac.exists(isSameCompiler(logger, _, bin)) =>
         // Same bin as the one derived from this VM? Prefer built-in compiler if JDK
         JavaRuntime.javaCompiler match {
-          case Some(compiler) => new BloopJavaCompiler(compiler)
+          case Some(compiler) => new BloopMaybeForkedJavaCompiler(compiler, Some(bin.toFile))
           case None => new BloopForkedJavaCompiler(Some(bin.toFile))
         }
       case Some(bin) => new BloopForkedJavaCompiler(Some(bin.toFile))
       case None =>
         JavaRuntime.javaCompiler match {
-          case Some(compiler) => new BloopJavaCompiler(compiler)
+          case Some(compiler) => new BloopMaybeForkedJavaCompiler(compiler, None)
           case None => new BloopForkedJavaCompiler(None)
         }
     }
@@ -325,6 +325,24 @@ final class CompilerCache(
         }
         super.isSameFile(unwrap(a), unwrap(b))
       }
+    }
+  }
+
+  final class BloopMaybeForkedJavaCompiler(compiler: JavaxCompiler, javaHome: Option[File])
+      extends JavaCompiler {
+    import xsbti.compile.IncToolOptions
+    override def run(
+        sources: Array[File],
+        options: Array[String],
+        incToolOptions: IncToolOptions,
+        reporter: xsbti.Reporter,
+        log0: xsbti.Logger
+    ): Boolean = {
+      val hasJavaOpts = options.exists(_.startsWith("-J"))
+      val compiler0 =
+        if (hasJavaOpts) new BloopForkedJavaCompiler(javaHome)
+        else new BloopJavaCompiler(compiler)
+      compiler0.run(sources, options, incToolOptions, reporter, log0)
     }
   }
 
