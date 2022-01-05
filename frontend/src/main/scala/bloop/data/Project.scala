@@ -218,6 +218,7 @@ final case class Project(
     }
     def getJavaVersionFromJavaHome(javaHome: AbsolutePath): String = {
       val releaseFile = javaHome.resolve("release")
+      def rtJar = javaHome.resolve("lib").resolve("rt.jar")
       if (releaseFile.exists) {
         val properties = ConfigFactory.parseFile(
           releaseFile.toFile,
@@ -231,6 +232,9 @@ final case class Project(
             )
             Properties.javaVersion
         }
+      } else if (rtJar.exists) {
+        // jdk 8 doesn't have `release` file
+        "1.8.0"
       } else {
         logger.error(
           s"No `release` file found in $javaHome - using Bloop's JVM version ${Properties.javaVersion}"
