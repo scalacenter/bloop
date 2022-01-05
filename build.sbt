@@ -1,4 +1,5 @@
 import build.BuildImplementation.BuildDefaults
+import scala.util.Properties
 
 inThisBuild(
   List(
@@ -248,7 +249,8 @@ lazy val bloopgun = project
     sonatypeSetting,
     name := "bloopgun",
     libraryDependencies ++= List(
-      Dependencies.logback
+      Dependencies.logback,
+      Dependencies.svmSubs
     ),
     mainClass in GraalVMNativeImage := Some("bloop.bloopgun.Bloopgun"),
     graalVMNativeImageCommand := {
@@ -259,6 +261,9 @@ lazy val bloopgun = project
     graalVMNativeImageOptions ++= {
       val reflectionFile = sourceDirectory.in(Compile).value./("graal")./("reflection.json")
       assert(reflectionFile.exists)
+      val extra =
+        if (Properties.isMac) List("-H:IncludeResources=META-INF/native/darwin/ipcsocket.dylib")
+        else Nil
       List(
         "--no-server",
         "--enable-http",
@@ -273,8 +278,10 @@ lazy val bloopgun = project
         "--initialize-at-build-time=scala.Function1",
         "--initialize-at-build-time=scala.Function2",
         "--initialize-at-build-time=scala.runtime.StructuralCallSite",
-        "--initialize-at-build-time=scala.runtime.EmptyMethodCache"
-      )
+        "--initialize-at-build-time=scala.runtime.EmptyMethodCache",
+        "--initialize-at-build-time=scala.runtime.LambdaDeserialize",
+        "--initialize-at-build-time=scala.collection.immutable.VM"
+      ) ++ extra
     }
   )
 

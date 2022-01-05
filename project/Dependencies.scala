@@ -1,7 +1,7 @@
 package build
 
 object Dependencies {
-  val Scala212Version = "2.12.8"
+  val Scala212Version = "2.12.15"
 
   // Keep in sync in BloopComponentCompiler
   val zincVersion = "1.3.0-M4+47-d881fa2f"
@@ -120,4 +120,7 @@ object Dependencies {
 
   val libdaemonjvm = "io.github.alexarchambault.libdaemon" %% "libdaemon" % "0.0.8"
   val ipcsocket = "io.github.alexarchambault.tmp.ipcsocket" % "ipcsocket" % "1.4.1-aa-5-1"
+
+  val svmSubs = "org.scalameta" %% "svm-subs" % "20.1.0"
+
 }

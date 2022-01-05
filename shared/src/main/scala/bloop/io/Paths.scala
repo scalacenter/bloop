@@ -14,31 +14,20 @@ import java.nio.file.{
   Paths => NioPaths
 }
 import java.util
-import coursierapi.shaded.coursier.cache.shaded.dirs.{GetWinDirs, ProjectDirectories}
 import scala.collection.mutable
 import java.nio.file.NoSuchFileException
 import scala.util.Properties
 
 object Paths {
-  private lazy val projectDirectories = {
-    val getWinDirs: GetWinDirs =
-      if (coursierapi.shaded.coursier.paths.Util.useJni())
-        new GetWinDirs {
-          def getWinDirs(guids: String*) =
-            guids.map { guid =>
-              coursierapi.shaded.coursier.jniutils.WindowsKnownFolders
-                .knownFolderPath("{" + guid + "}")
-            }.toArray
-        }
-      else
-        GetWinDirs.powerShellBased
-    ProjectDirectories.from("", "", "bloop", getWinDirs)
-  }
   private def createDirFor(filepath: String): AbsolutePath =
     AbsolutePath(Files.createDirectories(NioPaths.get(filepath)))
 
-  private lazy val bloopCacheDir: AbsolutePath = createDirFor(projectDirectories.cacheDir)
-  private lazy val bloopDataDir: AbsolutePath = createDirFor(projectDirectories.dataDir)
+  private lazy val bloopCacheDir: AbsolutePath = createDirFor(
+    bloop.io.internal.ProjDirHelper.cacheDir()
+  )
+  private lazy val bloopDataDir: AbsolutePath = createDirFor(
+    bloop.io.internal.ProjDirHelper.dataDir()
+  )
 
   lazy val daemonDir: AbsolutePath = {
     def defaultDir = {
