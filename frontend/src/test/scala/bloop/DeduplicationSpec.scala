@@ -544,9 +544,12 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
         val (secondCompiledState, thirdCompiledState) =
           TestUtil.blockOnTask(mapBoth(secondCompilation, thirdCompilation), 3)
 
-        assert(firstCompiledState.status == ExitStatus.CompilationError)
-        assert(secondCompiledState.status == ExitStatus.CompilationError)
-        assert(thirdCompiledState.status == ExitStatus.CompilationError)
+        val firstStatus = firstCompiledState.status
+        val secondStatus = secondCompiledState.status
+        val thirdStatus = thirdCompiledState.status
+        assert(firstStatus == ExitStatus.CompilationError)
+        assert(secondStatus == ExitStatus.CompilationError)
+        assert(thirdStatus == ExitStatus.CompilationError)
 
         // Check we get the same class files in all their external directories
         assertInvalidCompilationState(
@@ -901,7 +904,8 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
         if (firstCompiledState.status == ExitStatus.CompilationError && CrossPlatform.isWindows) {
           System.err.println("Ignoring failed cancellation with deduplication on Windows")
         } else {
-          assert(firstCompiledState.status == ExitStatus.CompilationError)
+          val firstStatus = firstCompiledState.status
+          assert(firstStatus == ExitStatus.CompilationError)
           assertCancelledCompilation(firstCompiledState.toTestState, List(`B`))
           assertNoDiff(
             bspLogger.infos.filterNot(_.contains("tcp")).mkString(lineSeparator),
@@ -941,6 +945,11 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
   }
 
   test("cancel deduplication on blocked compilation") {
+    TestUtil.retry() {
+      cancelDeduplicationOnBlockedCompilationTest()
+    }
+  }
+  def cancelDeduplicationOnBlockedCompilationTest(): Unit = {
     // Change default value to speed up test and only wait for 2 seconds
     val testWaitingSeconds = 2
     System.setProperty(
@@ -1016,7 +1025,8 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
           val (firstCompiledState, secondCompiledState) =
             TestUtil.blockOnTask(mapBoth(firstCompilation, secondCompilation), 10)
 
-          assert(firstCompiledState.status == ExitStatus.CompilationError)
+          val status = firstCompiledState.status
+          assert(status == ExitStatus.CompilationError)
           assertCancelledCompilation(firstCompiledState.toTestState, List(`B`))
           assertNoDiff(
             bspLogger.infos.filterNot(_.contains("tcp")).mkString(lineSeparator),
