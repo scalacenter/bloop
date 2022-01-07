@@ -419,7 +419,7 @@ lazy val bloopgunShaded = project
     fork in Test := true,
     bloopGenerate in Compile := None,
     bloopGenerate in Test := None,
-    libraryDependencies ++= List(Dependencies.scalaXml, Dependencies.scalaCollectionCompat)
+    libraryDependencies ++= List(Dependencies.scalaCollectionCompat)
   )
 
 lazy val launcher: Project = project
@@ -463,7 +463,6 @@ lazy val launcherShaded = project
     libraryDependencies ++= List(
       "net.java.dev.jna" % "jna" % "4.5.0",
       "net.java.dev.jna" % "jna-platform" % "4.5.0",
-      Dependencies.scalaXml,
       Dependencies.scalaCollectionCompat
     )
   )
