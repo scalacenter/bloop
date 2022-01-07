@@ -109,9 +109,6 @@ object Dependencies {
     "com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-core" % jsoniterVersion
   val jsoniterMacros =
     "com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-macros" % jsoniterVersion
-  val circeParser = "io.circe" %% "circe-parser" % circeVersion
-  val circeCore = "io.circe" %% "circe-core" % circeVersion
-  val circeGeneric = "io.circe" %% "circe-generic" % circeVersion
   val scalaDebugAdapter = "ch.epfl.scala" %% "scala-debug-adapter" % debugAdapterVersion
 
   val scalaNativeTools04 = "org.scala-native" %% "tools" % scalaNative04Version % Provided

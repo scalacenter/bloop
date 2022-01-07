@@ -116,28 +116,6 @@ val testResourceSettings = {
   })
 }
 
-lazy val jsonConfig210 = crossProject(JVMPlatform)
-  .crossType(CrossType.Pure)
-  .in(file("config"))
-  .disablePlugins(ScriptedPlugin)
-  .settings(publishJsonModuleSettings)
-  .settings(
-    name := "bloop-config",
-    scalaVersion := Scala210Version,
-    libraryDependencies +=
-      compilerPlugin("org.scalamacros" % "paradise" % "2.1.1" cross CrossVersion.full),
-    testResourceSettings
-  )
-  .jvmSettings(
-    testSettings,
-    target := (file("config") / "target" / "json-config-2.10" / "jvm").getAbsoluteFile,
-    libraryDependencies ++= Seq(
-      Dependencies.circeParser,
-      Dependencies.circeCore,
-      Dependencies.circeGeneric
-    )
-  )
-
 lazy val jsonConfig211 = crossProject(JSPlatform, JVMPlatform)
   .crossType(CrossType.Pure)
   .in(file("config"))
@@ -606,20 +584,6 @@ lazy val sbtBloop10Shaded: Project =
     )
   )
 
-lazy val sbtBloop013 = project
-  .dependsOn(jsonConfig210.jvm)
-  // Let's remove scripted for 0.13, we only test 1.0
-  .disablePlugins(ScriptedPlugin)
-  .in(integrations / "sbt-bloop")
-  .settings(scalaVersion := Scala210Version)
-  .settings(sbtPluginSettings("sbt-bloop-core", Sbt013Version))
-  .settings(resolvers += Resolver.typesafeIvyRepo("releases"))
-
-lazy val sbtBloop013Shaded =
-  defineShadedSbtPlugin("sbtBloop013Shaded", Sbt013Version, sbtBloop013).settings(
-    scalaVersion := (scalaVersion in sbtBloop013).value
-  )
-
 lazy val mavenBloop = project
   .in(integrations / "maven-bloop")
   .disablePlugins(ScriptedPlugin)
@@ -775,14 +739,12 @@ val allProjects = Seq(
   backend,
   benchmarks,
   frontend,
-  jsonConfig210.jvm,
   jsonConfig211.jvm,
   jsonConfig211.js,
   jsonConfig212.jvm,
   jsonConfig212.js,
   jsonConfig213.jvm,
   jsonConfig213.js,
-  sbtBloop013,
   sbtBloop10,
   mavenBloop,
   gradleBloop211,
@@ -814,16 +776,13 @@ val bloop = project
             bloopShared,
             backend,
             frontend,
-            jsonConfig210.jvm,
             jsonConfig211.js,
             jsonConfig211.jvm,
             jsonConfig212.js,
             jsonConfig212.jvm,
             jsonConfig213.js,
             jsonConfig213.jvm,
-            sbtBloop013,
             sbtBloop10,
-            sbtBloop013Shaded,
             sbtBloop10Shaded,
             mavenBloop,
             gradleBloop211,
@@ -849,16 +808,13 @@ val bloop = project
             bloopShared,
             backend,
             frontend,
-            jsonConfig210.jvm,
             jsonConfig211.js,
             jsonConfig211.jvm,
             jsonConfig212.js,
             jsonConfig212.jvm,
             jsonConfig213.js,
             jsonConfig213.jvm,
-            sbtBloop013,
             sbtBloop10,
-            sbtBloop013Shaded,
             sbtBloop10Shaded,
             mavenBloop,
             gradleBloop211,
@@ -889,9 +845,7 @@ val bloop = project
       build.BuildImplementation
         .exportCommunityBuild(
           buildpress,
-          jsonConfig210.jvm,
           jsonConfig212.jvm,
-          sbtBloop013,
           sbtBloop10
         )
         .value
