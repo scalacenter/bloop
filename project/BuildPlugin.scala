@@ -660,12 +660,11 @@ object BuildImplementation {
   import sbt.{Compile}
   import scala.sys.process.Process
   import java.nio.file.Files
+  
   val buildpressHomePath = System.getProperty("user.home") + "/.buildpress"
   def exportCommunityBuild(
       buildpress: Reference,
-      circeConfig210: Reference,
       circeConfig212: Reference,
-      sbtBloop013: Reference,
       sbtBloop10: Reference
   ) = Def.taskDyn {
     val isWindows: Boolean =
@@ -678,12 +677,10 @@ object BuildImplementation {
       // Only sbt sources are added, add new plugin sources when other build tools are supported
       val allPluginSourceDirs = Set(
         baseDir / "config" / "src" / "main" / "scala",
-        baseDir / "config" / "src" / "main" / "scala-2.10",
         baseDir / "config" / "src" / "main" / "scala-2.11",
         baseDir / "config" / "src" / "main" / "scala-2.12",
         baseDir / "config" / "src" / "main" / "scala-2.11-12",
         pluginMainDir / "scala",
-        pluginMainDir / "scala-2.10",
         pluginMainDir / "scala-2.12",
         pluginMainDir / s"scala-sbt-0.13",
         pluginMainDir / s"scala-sbt-1.0"
@@ -725,9 +722,7 @@ object BuildImplementation {
       cachedGenerate(allPluginSourceFiles)
       Def.task {
         // Publish the projects before we invoke buildpress
-        Keys.publishLocal.in(circeConfig210).value
         Keys.publishLocal.in(circeConfig212).value
-        Keys.publishLocal.in(sbtBloop013).value
         Keys.publishLocal.in(sbtBloop10).value
 
         val file = Keys.resourceDirectory

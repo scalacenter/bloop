@@ -50,13 +50,7 @@ lazy val bloopShared = (project in file("shared"))
  * ************************************************************************************************
  */
 import build.Dependencies
-import build.Dependencies.{
-  Scala210Version,
-  Scala211Version,
-  Scala212Version,
-  Sbt013Version,
-  Sbt1Version
-}
+import build.Dependencies.{Scala211Version, Scala212Version, Sbt1Version}
 
 lazy val backend = project
   .enablePlugins(BuildInfoPlugin)
@@ -765,7 +759,7 @@ val bloop = project
   .settings(
     releaseEarly := { () },
     skip in publish := true,
-    crossSbtVersions := Seq(Sbt1Version, Sbt013Version),
+    sbtVersion := Sbt1Version,
     commands += BuildDefaults.exportProjectsInTestResourcesCmd,
     buildIntegrationsBase := (Keys.baseDirectory in ThisBuild).value / "build-integrations",
     twitterDodo := buildIntegrationsBase.value./("build-twitter"),

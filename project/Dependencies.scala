@@ -1,11 +1,9 @@
 package build
 
 object Dependencies {
-  val Scala210Version = "2.10.7"
   val Scala211Version = "2.11.12"
   val Scala212Version = "2.12.8"
 
-  val Sbt013Version = "0.13.18"
   val Sbt1Version = "1.3.3"
 
   val nailgunVersion = "ee3c4343"
