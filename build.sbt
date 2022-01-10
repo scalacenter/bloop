@@ -316,6 +316,7 @@ lazy val bloopgun: Project = project
     buildInfoPackage := "bloopgun.internal.build",
     buildInfoKeys := List(Keys.version),
     buildInfoObject := "BloopgunInfo",
+    crossScalaVersions := Seq(Dependencies.Scala212Version, Dependencies.Scala213Version),
     libraryDependencies ++= List(
       //Dependencies.configDirectories,
       Dependencies.snailgun,
@@ -418,15 +419,26 @@ lazy val bloopgunShaded = project
     fork in Test := true,
     bloopGenerate in Compile := None,
     bloopGenerate in Test := None,
-    libraryDependencies ++= List(Dependencies.scalaXml, Dependencies.scalaCollectionCompat)
+    libraryDependencies ++= List(Dependencies.scalaCollectionCompat)
   )
 
 lazy val launcher: Project = project
+  .in(file("launcher-core"))
+  .disablePlugins(ScriptedPlugin)
+  .dependsOn(sockets, bloopgun)
+  .settings(testSuiteSettings)
+  .settings(
+    name := "bloop-launcher-core",
+    crossScalaVersions := Seq(Dependencies.Scala212Version, Dependencies.Scala213Version)
+  )
+
+lazy val launcherTest: Project = project
+  .in(file("launcher-test"))
   .disablePlugins(ScriptedPlugin)
   .dependsOn(sockets, bloopgun, frontend % "test->test")
   .settings(testSuiteSettings)
   .settings(
-    name := "bloop-launcher-core",
+    name := "bloop-launcher-test",
     fork in Test := true,
     parallelExecution in Test := false,
     libraryDependencies ++= List(
@@ -435,11 +447,12 @@ lazy val launcher: Project = project
   )
 
 lazy val launcherShaded = project
-  .in(file("launcher/target/shaded-module"))
+  .in(file("launcher-core/target/shaded-module"))
   .disablePlugins(ScriptedPlugin)
   .disablePlugins(SbtJdiTools)
   .enablePlugins(BloopShadingPlugin)
   .settings(shadedModuleSettings)
+  .settings(crossScalaVersions := Seq(Dependencies.Scala212Version, Dependencies.Scala213Version))
   .settings(shadeSettingsForModule("bloop-launcher-core", launcher))
   .settings(
     name := "bloop-launcher",
@@ -450,7 +463,6 @@ lazy val launcherShaded = project
     libraryDependencies ++= List(
       "net.java.dev.jna" % "jna" % "4.5.0",
       "net.java.dev.jna" % "jna-platform" % "4.5.0",
-      Dependencies.scalaXml,
       Dependencies.scalaCollectionCompat
     )
   )
