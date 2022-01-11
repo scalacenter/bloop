@@ -64,7 +64,10 @@ object Tasks {
         val javacBin = project.runtimeJdkConfig.flatMap(_.javacBin)
         val loader = ClasspathUtilities.makeLoader(entries, instance)
         val compiler =
-          state.compilerCache.get(instance, javacBin).scalac.asInstanceOf[AnalyzingCompiler]
+          state.compilerCache
+            .get(instance, javacBin, project.javacOptions)
+            .scalac
+            .asInstanceOf[AnalyzingCompiler]
         val opts = ClasspathOptionsUtil.repl
         val options = project.scalacOptions :+ "-Xnojline"
         // We should by all means add better error handling here!
