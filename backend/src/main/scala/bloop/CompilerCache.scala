@@ -57,13 +57,18 @@ final class CompilerCache(
   private val javaCompilerCache =
     userJavacCache.getOrElse(new ConcurrentHashMap[Option[AbsolutePath], JavaCompiler]())
 
-  def get(scalaInstance: ScalaInstance, javacBin: Option[AbsolutePath]): Compilers = {
+  def get(
+      scalaInstance: ScalaInstance,
+      javacBin: Option[AbsolutePath],
+      javacOptions: List[String]
+  ): Compilers = {
     val scalaCompiler = scalaCompilerCache.computeIfAbsent(
       scalaInstance,
       getScalaCompiler(_, componentProvider)
     )
 
-    val javaCompiler = javaCompilerCache.computeIfAbsent(javacBin, getJavaCompiler(logger, _))
+    val javaCompiler =
+      javaCompilerCache.computeIfAbsent(javacBin, getJavaCompiler(logger, _, javacOptions))
 
     val javaDoc = Javadoc.local.getOrElse(Javadoc.fork())
     val javaTools = JavaTools(javaCompiler, javaDoc)
@@ -82,18 +87,23 @@ final class CompilerCache(
     )
   }
 
-  def getJavaCompiler(logger: Logger, javacBin: Option[AbsolutePath]): JavaCompiler = {
+  def getJavaCompiler(
+      logger: Logger,
+      javacBin: Option[AbsolutePath],
+      javacOptions: List[String]
+  ): JavaCompiler = {
+    val allowLocal = !javacOptions.exists(_.startsWith("-J"))
     javacBin match {
       case Some(bin) if JavaRuntime.javac.exists(isSameCompiler(logger, _, bin)) =>
         // Same bin as the one derived from this VM? Prefer built-in compiler if JDK
         JavaRuntime.javaCompiler match {
-          case Some(compiler) => new BloopJavaCompiler(compiler)
+          case Some(compiler) if allowLocal => new BloopJavaCompiler(compiler)
           case None => new BloopForkedJavaCompiler(Some(bin.toFile))
         }
       case Some(bin) => new BloopForkedJavaCompiler(Some(bin.toFile))
       case None =>
         JavaRuntime.javaCompiler match {
-          case Some(compiler) => new BloopJavaCompiler(compiler)
+          case Some(compiler) if allowLocal => new BloopJavaCompiler(compiler)
           case None => new BloopForkedJavaCompiler(None)
         }
     }
