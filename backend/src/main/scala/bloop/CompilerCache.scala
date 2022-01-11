@@ -98,13 +98,13 @@ final class CompilerCache(
         // Same bin as the one derived from this VM? Prefer built-in compiler if JDK
         JavaRuntime.javaCompiler match {
           case Some(compiler) if allowLocal => new BloopJavaCompiler(compiler)
-          case None => new BloopForkedJavaCompiler(Some(bin.toFile))
+          case _ => new BloopForkedJavaCompiler(Some(bin.toFile))
         }
       case Some(bin) => new BloopForkedJavaCompiler(Some(bin.toFile))
       case None =>
         JavaRuntime.javaCompiler match {
           case Some(compiler) if allowLocal => new BloopJavaCompiler(compiler)
-          case None => new BloopForkedJavaCompiler(None)
+          case _ => new BloopForkedJavaCompiler(None)
         }
     }
   }
