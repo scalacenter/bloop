@@ -152,7 +152,7 @@ private[dap] final class DebugAdapterConnection(
 object DebugAdapterConnection {
   def connectTo(uri: URI)(scheduler: Scheduler): DebugAdapterConnection = {
     val socket = new Socket()
-    socket.connect(new InetSocketAddress(uri.getHost, uri.getPort), 500)
+    socket.connect(new InetSocketAddress(uri.getHost, uri.getPort), 10000)
 
     val proxy = DebugAdapterProxy(socket)
     proxy.startBackgroundListening(scheduler)
