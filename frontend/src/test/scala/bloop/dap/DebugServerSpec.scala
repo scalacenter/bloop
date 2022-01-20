@@ -478,7 +478,7 @@ object DebugServerSpec extends DebugBspBaseSuite {
         assert(debuggeeCanceled, serverClosed)
       }
 
-      TestUtil.await(FiniteDuration(5, SECONDS), ExecutionContext.ioScheduler)(test)
+      TestUtil.await(FiniteDuration(20, SECONDS), ExecutionContext.ioScheduler)(test)
     }
   }
 

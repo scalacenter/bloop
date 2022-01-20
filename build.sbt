@@ -224,6 +224,7 @@ lazy val `bloopgun-core` = project
     buildInfoPackage := "bloopgun.internal.build",
     buildInfoKeys := List(version),
     buildInfoObject := "BloopgunInfo",
+    crossScalaVersions := Seq(Dependencies.Scala212Version, Dependencies.Scala213Version),
     libraryDependencies ++= List(
       Dependencies.snailgun,
       // Use zt-exec instead of nuprocess because it doesn't require JNA (good for graalvm)
@@ -277,11 +278,20 @@ lazy val bloopgun = project
   )
 
 lazy val launcher = project
-  .dependsOn(`bloopgun-core`, frontend % "test->test")
-  .settings(testSuiteSettings)
+  .dependsOn(`bloopgun-core`)
   .settings(
     sonatypeSetting,
     name := "bloop-launcher",
+    crossScalaVersions := Seq(Dependencies.Scala212Version, Dependencies.Scala213Version)
+  )
+
+lazy val launcherTest: Project = project
+  .in(file("launcher-test"))
+  .disablePlugins(ScriptedPlugin)
+  .dependsOn(`bloopgun-core`, frontend % "test->test", launcher)
+  .settings(testSuiteSettings)
+  .settings(
+    name := "bloop-launcher-test",
     fork in Test := true,
     parallelExecution in Test := false,
     libraryDependencies ++= List(
@@ -350,6 +360,7 @@ lazy val stuff = project
     frontend,
     backend,
     launcher,
+    launcherTest,
     bloopgun,
     `bloopgun-core`,
     shared,

@@ -336,7 +336,11 @@ object Compiler {
     val start = System.nanoTime()
     val scalaInstance = compileInputs.scalaInstance
     val classpathOptions = compileInputs.classpathOptions
-    val compilers = compileInputs.compilerCache.get(scalaInstance, compileInputs.javacBin)
+    val compilers = compileInputs.compilerCache.get(
+      scalaInstance,
+      compileInputs.javacBin,
+      compileInputs.javacOptions.toList
+    )
     val inputs = tracer.traceVerbose("creating zinc inputs")(_ => getInputs(compilers))
 
     // We don't need nanosecond granularity, we're happy with milliseconds
