@@ -77,6 +77,7 @@ object BspServer {
       val server = new BloopLanguageServer(messages, client, provider.services, ioScheduler, bspLogger)
       // FORMAT: ON
 
+      def warn(msg: String): Unit = provider.stateAfterExecution.logger.warn(msg)
       def error(msg: String): Unit = provider.stateAfterExecution.logger.error(msg)
 
       /* This implementation of starting a server relies on two observables:
@@ -129,7 +130,7 @@ object BspServer {
           }
 
           try {
-            if (cancelled) error(s"BSP server cancelled, closing socket...")
+            if (cancelled) warn(s"BSP server cancelled, closing socket...")
             else result.foreach(t => error(s"BSP server stopped by ${t.getMessage}"))
             cancelable.cancel()
             server.cancelAllRequests()
