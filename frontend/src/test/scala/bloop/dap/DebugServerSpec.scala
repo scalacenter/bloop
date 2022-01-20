@@ -9,6 +9,7 @@ import bloop.io.AbsolutePath
 import bloop.io.Environment.lineSeparator
 import bloop.logging.LoggerAction.LogInfoMessage
 import bloop.logging.{Logger, LoggerAction, ObservedLogger, RecordingLogger}
+import bloop.testing.TestSuiteSelection
 import bloop.reporter.ReporterAction
 import bloop.util.{TestProject, TestUtil}
 import ch.epfl.scala.bsp.ScalaMainClass
@@ -875,6 +876,7 @@ object DebugServerSpec extends DebugBspBaseSuite {
     BloopDebuggeeRunner.forTestSuite(
       Seq(testState.getProjectFor(project)),
       List("MySuite"),
+      TestSuiteSelection.empty,
       testState.state,
       defaultScheduler
     ) match {

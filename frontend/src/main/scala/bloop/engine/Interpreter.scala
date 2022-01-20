@@ -6,7 +6,7 @@ import bloop.cli._
 import bloop.cli.completion.{Case, Mode}
 import bloop.io.{AbsolutePath, RelativePath, SourceWatcher}
 import bloop.logging.{DebugFilter, Logger, NoopLogger}
-import bloop.testing.{LoggingEventHandler, TestInternals}
+import bloop.testing.{LoggingEventHandler, TestInternals, TestSuiteSelection}
 import bloop.engine.tasks.{CompileTask, LinkTask, Tasks, TestTask, RunMode}
 import bloop.cli.Commands.CompilingCommand
 import bloop.cli.Validate
@@ -360,6 +360,7 @@ object Interpreter {
               projectsToTest,
               cmd.args,
               testFilter,
+              TestSuiteSelection.empty,
               handler,
               cmd.parallel,
               RunMode.Normal
