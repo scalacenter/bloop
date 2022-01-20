@@ -2,6 +2,7 @@ package build
 
 object Dependencies {
   val Scala212Version = "2.12.15"
+  val Scala213Version = "2.13.7"
 
   // Keep in sync in BloopComponentCompiler
   val zincVersion = "1.3.0-M4+47-d881fa2f"
@@ -59,7 +60,6 @@ object Dependencies {
   val scalazConcurrent = "org.scalaz" %% "scalaz-concurrent" % scalazVersion
   val coursierInterface = "io.get-coursier" % "interface" % coursierInterfaceVersion
   val coursierInterfaceSubs = "io.get-coursier" % "interface-svm-subs" % coursierInterfaceVersion
-  val scalaXml = "org.scala-lang.modules" %% "scala-xml" % scalaXmlVersion
   val scalaCollectionCompat = "org.scala-lang.modules" %% "scala-collection-compat" % "2.4.2"
   val shapeless = "com.chuusai" %% "shapeless" % shapelessVersion
   val caseApp = "com.github.alexarchambault" %% "case-app" % caseAppVersion
@@ -70,8 +70,8 @@ object Dependencies {
   val ztExec = "org.zeroturnaround" % "zt-exec" % ztExecVersion
   val logback = "ch.qos.logback" % "logback-classic" % "1.2.3"
 
-  val utest = "com.lihaoyi" %% "utest" % "0.6.6"
-  val pprint = "com.lihaoyi" %% "pprint" % "0.5.3"
+  val utest = "com.lihaoyi" %% "utest" % "0.6.9"
+  val pprint = "com.lihaoyi" %% "pprint" % "0.5.5"
   val scalacheck = "org.scalacheck" %% "scalacheck" % "1.13.4"
   val junit = "com.novocode" % "junit-interface" % junitVersion
   val graphviz = "guru.nidi" % "graphviz-java" % graphvizVersion
