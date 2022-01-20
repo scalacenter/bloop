@@ -189,7 +189,7 @@ final class Shell(runWithInterpreter: Boolean, detectPython: Boolean) {
           }
         }
       case Right(daemonFiles) =>
-        var res = Option.empty[Either[ConnectError, Either[Socket, SocketChannel]]]
+        var res = Option.empty[Either[ConnectError, SocketChannel]]
         try {
           logger.info("Attempting a connection to the server...")
           res = Connect.tryConnect(daemonFiles)
@@ -199,19 +199,12 @@ final class Shell(runWithInterpreter: Boolean, detectPython: Boolean) {
             logger.debug(s"Connection to $daemonFiles failed with '${t.getMessage()}'")
             false
         } finally {
-          res.foreach(_.foreach {
-            case Left(socket) =>
-              try {
-                socket.shutdownInput()
-                socket.shutdownOutput()
-                socket.close()
-              } catch { case NonFatal(_) => }
-            case Right(channel) =>
-              try {
-                channel.shutdownInput()
-                channel.shutdownOutput()
-                channel.close()
-              } catch { case NonFatal(_) => }
+          res.foreach(_.foreach { channel =>
+            try {
+              channel.shutdownInput()
+              channel.shutdownOutput()
+              channel.close()
+            } catch { case NonFatal(_) => }
           })
         }
     }

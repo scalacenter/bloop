@@ -52,9 +52,8 @@ final case class DomainSocketClient(socketPaths: SocketPaths) extends Client {
       val socketOpt =
         if (Files.exists(socketPaths.path))
           try {
-            val socket = SocketHandler.client(socketPaths) match {
-              case Left(socket0) => socket0
-              case Right(channel) => libdaemonjvm.Util.socketFromChannel(channel)
+            val socket = libdaemonjvm.Util.socketFromChannel {
+              SocketHandler.client(socketPaths)
             }
             Some(socket)
           } catch {

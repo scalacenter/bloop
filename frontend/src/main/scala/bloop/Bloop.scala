@@ -82,10 +82,9 @@ object Bloop {
 
   def startServer(socketPathsOrHostPort: Either[(InetAddress, Int), SocketPaths]): Unit = {
     val socketAndPathOrHostPort = socketPathsOrHostPort.map { socketPaths =>
-      val socket = SocketHandler.server(socketPaths) match {
-        case Left(socket) => socket
-        case Right(channel) => libdaemonjvm.Util.serverSocketFromChannel(channel)
-      }
+      val socket = libdaemonjvm.Util.serverSocketFromChannel(
+        SocketHandler.server(socketPaths)
+      )
       (socket, socketPaths.path)
     }
     val server = instantiateServer(socketAndPathOrHostPort.map {
