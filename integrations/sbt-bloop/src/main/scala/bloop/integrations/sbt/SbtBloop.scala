@@ -16,6 +16,7 @@ import sbt.{
   Def,
   File,
   Global,
+  Inc,
   Keys,
   LocalRootProject,
   Logger,
@@ -27,7 +28,8 @@ import sbt.{
   ThisProject,
   KeyRanks,
   Optional,
-  Provided
+  Provided,
+  Value
 }
 import xsbti.compile.CompileOrder
 
@@ -1051,6 +1053,12 @@ object BloopDefaults {
           logger.success(s"Generated $userFriendlyConfigPath")
           Some(outFile)
         }
+    }.result.map {
+      case Inc(_) =>
+        logger.error(s"Couldn't run bloopGenerate for $projectName")
+        None
+      case Value(maybeFile) =>
+        maybeFile
     }
   }
 
