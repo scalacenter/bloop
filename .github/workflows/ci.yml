@@ -55,7 +55,9 @@ jobs:
               "frontend/testOnly bloop.ScalaVersionsSpec" \
               "frontend/testOnly -bloop.ScalaVersionsSpec" \
               "jsBridge06/test" \
-              "jsBridge1/test"
+              "jsBridge1/test" &&\
+          ./bin/sbt-ci.sh \
+            "+test:compile"
         shell: bash
   launcher-test:
     runs-on: ${{ matrix.os }}

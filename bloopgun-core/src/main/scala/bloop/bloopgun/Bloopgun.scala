@@ -11,6 +11,7 @@ import bloop.bloopgun.core.AvailableWithCommand
 import bloop.bloopgun.core.ListeningAndAvailableAt
 import bloop.bloopgun.core.ServerStatus
 import bloop.bloopgun.core.ResolvedAt
+import bloop.bloopgun.util.Helper.seqIntOrdering
 import bloopgun.internal.build.BloopgunInfo
 
 import java.io.PrintStream
@@ -521,15 +522,13 @@ class BloopgunCli(
           val jvmOpts = Environment.detectJvmOptionsForServer(found, serverArgs, logger)
           val stringClasspath = classpath.map(_.normalize.toAbsolutePath).mkString(delimiter)
           val isBloopFork = {
-            import Ordering.Implicits.seqDerivedOrdering
             val ver = bloopVersion
               .split('.')
               .toSeq
               .map(s => scala.util.Try(s.toInt).toOption)
               .takeWhile(_.nonEmpty)
               .flatten
-            val ord = seqDerivedOrdering[Seq, Int]
-            ord.compare(ver, Seq(1, 4, 13)) >= 0
+            seqIntOrdering.compare(ver, Seq(1, 4, 13)) >= 0
           }
           val mainClass = if (isBloopFork) "bloop.Bloop" else "bloop.Server"
           val cmd = javaBinary ++ finalJvmOpts(jvmOpts) ++ List(
