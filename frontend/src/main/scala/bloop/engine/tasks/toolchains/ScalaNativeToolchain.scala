@@ -37,8 +37,13 @@ final class ScalaNativeToolchain private (classLoader: ClassLoader) {
     val bridgeClazz = classLoader.loadClass("bloop.scalanative.NativeBridge")
     val nativeLinkMeth = bridgeClazz.getMethod("nativeLink", paramTypes: _*)
 
-    // The Scala Native toolchain expects to receive the module class' name
-    val fullEntry = if (mainClass.endsWith("$")) mainClass else mainClass + "$"
+    // Scala Native 0.4.{0,1,2} expect to receive the companion object class' name
+    val fullEntry = config.version match {
+      case "0.4.0" | "0.4.1" | "0.4.2" =>
+        if (mainClass.endsWith("$")) mainClass else mainClass + "$"
+      case _ =>
+        mainClass.stripSuffix("$")
+    }
     val linkage = Task {
       nativeLinkMeth
         .invoke(null, config, project, fullClasspath, fullEntry, target.underlying, logger)
