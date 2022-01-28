@@ -35,6 +35,7 @@ lazy val bloopShared = (project in file("shared"))
     libraryDependencies ++= Seq(
       Dependencies.bsp4s,
       Dependencies.zinc,
+      Dependencies.log4j,
       Dependencies.xxHashLibrary,
       Dependencies.configDirectories,
       Dependencies.sbtTestInterface,
