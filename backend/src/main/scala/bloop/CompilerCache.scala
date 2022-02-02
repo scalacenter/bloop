@@ -216,7 +216,7 @@ final class CompilerCache(
               BloopForkedJavaUtils.launch(
                 javaHome,
                 "javac",
-                sources.map(converter.toPath(_).toFile()),
+                sources.map(converter.toPath(_)),
                 options,
                 log,
                 reporter
@@ -342,7 +342,9 @@ final class CompilerCache(
           zincManager match {
             case m: bloop.BloopClassFileManager => m.invalidatedClassFilesSet
             // Bloop uses it's own classfile manager so this should not happen
-            case _ => new HashSet[File]()
+            case _ =>
+              logger.warn("Could not find BloopClassfileManager that is needed for invaldiation.")
+              new HashSet[File]()
 
           }
         }

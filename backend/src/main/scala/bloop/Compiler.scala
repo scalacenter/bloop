@@ -287,7 +287,6 @@ object Compiler {
     def getCompilationOptions(inputs: CompileInputs): CompileOptions = {
       // Sources are all files
       val sources = inputs.sources.map(path => converter.toVirtualFile(path.underlying))
-
       val classpath = inputs.classpath.map(path => converter.toVirtualFile(path.underlying))
       val optionsWithoutFatalWarnings = inputs.scalacOptions.flatMap { option =>
         if (option != "-Xfatal-warnings") List(option)

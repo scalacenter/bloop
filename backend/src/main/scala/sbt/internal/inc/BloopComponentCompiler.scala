@@ -63,10 +63,9 @@ object BloopComponentCompiler {
     }
 
     val (isDotty, organization, version) = scalaInstance match {
-      case instance: BloopScalaInstance =>
-        if (instance.isDotty) (true, instance.organization, instance.version)
-        else (false, "org.scala-sbt", latestVersion)
-      case instance: ScalaInstance => (false, "org.scala-sbt", latestVersion)
+      case instance: BloopScalaInstance if instance.isDotty =>
+        (true, instance.organization, instance.version)
+      case _ => (false, "org.scala-sbt", latestVersion)
     }
 
     val bridgeId = compilerBridgeId(scalaInstance.version)
@@ -375,13 +374,13 @@ private[inc] class BloopComponentCompiler(
 
           logger.debug(s"Sources from bloop bridge: $regularSourceContents")
 
-          val mergedJar = Files.createTempFile(HydraSupport.bridgeNamePrefix, "merged").toFile
+          val mergedJar = Files.createTempFile(HydraSupport.bridgeNamePrefix, "merged")
           logger.debug(s"Merged jar destination: $mergedJar")
           val allSourceContents =
             (hydraSourceContents ++ regularSourceContents).map(s => s -> relativize(tempDir, s).get)
 
-          zip(allSourceContents.toSeq, mergedJar, time = None)
-          Right(Vector(mergedJar.toPath()))
+          zip(allSourceContents.toSeq, mergedJar.toFile(), time = None)
+          Right(Vector(mergedJar))
         }
 
       case Right(Seq()) =>

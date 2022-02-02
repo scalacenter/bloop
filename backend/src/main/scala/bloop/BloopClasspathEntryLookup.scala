@@ -33,14 +33,15 @@ final class BloopClasspathEntryLookup(
   }
 
   override def definesClass(entry: VirtualFile): DefinesClass = {
-    val file = converter.toPath(entry).toFile()
+    val path = converter.toPath(entry)
+    val file = path.toFile()
     if (!file.exists) FalseDefinesClass
     else {
       classpathHashes.find(fh => fh.file() == file) match {
         case None => FalseDefinesClass
         case Some(entryHash) =>
           def computeDefinesClassForJar = {
-            if (!ClasspathUtil.isArchive(file.toPath(), contentFallback = true)) FalseDefinesClass
+            if (!ClasspathUtil.isArchive(path, contentFallback = true)) FalseDefinesClass
             else new JarDefinesClass(file)
           }
 

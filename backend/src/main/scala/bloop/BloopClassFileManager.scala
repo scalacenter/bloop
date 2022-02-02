@@ -154,13 +154,15 @@ final class BloopClassFileManager(
     val toBeBackedUp = (classes ++ invalidatedExtraCompileProducts).filter(c =>
       !movedFiles.contains(c) && !generatedFiles(c)
     )
-    for (c <- toBeBackedUp)
-      if (c.exists)
-        movedFiles.put(c, move(c)).foreach(move)
+    for {
+      c <- toBeBackedUp
+      if c.exists()
+    } movedFiles.put(c, move(c)).foreach(move)
 
-    classes.foreach { f =>
-      if (f.exists()) f.delete()
-    }
+    for {
+      f <- classes
+      if f.exists()
+    } f.delete()
 
     allInvalidatedExtraCompileProducts.++=(invalidatedExtraCompileProducts)
   }
@@ -227,13 +229,12 @@ final class BloopClassFileManager(
        */
       for {
         (orig, tmp) <- movedFiles
+        if tmp.exists
       } {
-        if (tmp.exists) {
-          if (!orig.getParentFile.exists) {
-            Files.createDirectory(orig.getParentFile.toPath())
-          }
-          Files.move(tmp.toPath(), orig.toPath())
+        if (!orig.getParentFile.exists) {
+          Files.createDirectory(orig.getParentFile.toPath())
         }
+        Files.move(tmp.toPath(), orig.toPath())
       }
       backupDir.toFile().delete()
       ()
