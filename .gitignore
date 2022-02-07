@@ -16,6 +16,7 @@ bin/.scalafmt*
 
 target/
 .bloop/
+.bsp/
 
 # Ensime's config and cache
 .ensime
