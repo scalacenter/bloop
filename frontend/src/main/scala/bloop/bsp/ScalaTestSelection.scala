@@ -12,8 +12,8 @@ import io.circe.Encoder
 
 case class ScalaTestSelection(
     jvmOptions: List[String],
-    environmentVariables: List[String],
-    classes: List[ScalaTestSuiteSelection]
+    classes: List[ScalaTestSuiteSelection],
+    env: Map[String, String],
 )
 
 object ScalaTestSelection {
