@@ -288,6 +288,10 @@ object TestTask {
     }
 
     // based on proposal from https://github.com/build-server-protocol/build-server-protocol/issues/249#issuecomment-983435766
+    // TaskDef consists of e.g. fullyQualifiedName and selectors
+    // selectors is a possibly empty array of selectors which determines suites and tests to run
+    // usually it is a Array(new SuiteSelector). However, if only subset of test are supposed to
+    // be run, then it can be altered to Array[TestSelector]
     includedTests.groupBy(_.framework).mapValues { taskDefs =>
       taskDefs.map {
         case TaskDefWithFramework(taskDef, framework) =>
