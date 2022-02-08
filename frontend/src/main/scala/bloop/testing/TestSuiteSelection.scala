@@ -3,6 +3,7 @@ package bloop.testing
 import cats.data.NonEmptyList
 import bloop.bsp.ScalaTestSuiteSelection
 import TestSuiteSelection._
+
 /**
  * https://github.com/sbt/junit-interface/pull/108#issuecomment-1002225661
  */
