@@ -17,6 +17,7 @@ import bloop.data.TraceSettings
 
 object BuildLoaderSpec extends BaseSuite {
   val semanticdbVersion = "4.4.34"
+  val semanticdbVersion2 = "4.4.30"
 
   testLoad("don't reload if nothing changes") { (testBuild, logger) =>
     testBuild.state.build.checkForChange(None, logger).map {
@@ -62,7 +63,7 @@ object BuildLoaderSpec extends BaseSuite {
     val newSettings =
       WorkspaceSettings.fromSemanticdbSettings(
         "0.2.0",
-        semanticdbVersion,
+        semanticdbVersion2,
         List(BuildInfo.scalaVersion)
       )
     testBuild.state.build.checkForChange(Some(newSettings), logger).map {
@@ -80,7 +81,7 @@ object BuildLoaderSpec extends BaseSuite {
     val newSettings =
       WorkspaceSettings.fromSemanticdbSettings(
         "0.1.0",
-        semanticdbVersion,
+        semanticdbVersion2,
         List(BuildInfo.scalaVersion)
       )
     testBuild.state.build.checkForChange(Some(newSettings), logger).map {
@@ -139,7 +140,7 @@ object BuildLoaderSpec extends BaseSuite {
       val newSettings =
         WorkspaceSettings.fromSemanticdbSettings(
           "0.2.0",
-          semanticdbVersion,
+          semanticdbVersion2,
           List(BuildInfo.scalaVersion)
         )
       testBuild.state.build.checkForChange(Some(newSettings), logger).map {
