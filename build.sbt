@@ -436,7 +436,7 @@ lazy val launcher: Project = project
 lazy val launcherTest: Project = project
   .in(file("launcher-test"))
   .disablePlugins(ScriptedPlugin)
-  .dependsOn(sockets, bloopgun, frontend % "test->test")
+  .dependsOn(launcher, frontend % "test->test")
   .settings(testSuiteSettings)
   .settings(
     name := "bloop-launcher-test",
@@ -804,6 +804,7 @@ val allProjects = Seq(
   jsBridge06,
   jsBridge1,
   launcher,
+  launcherTest,
   sockets,
   bloopgun
 )
