@@ -17,7 +17,7 @@ import bloop.data.TraceSettings
 
 object BuildLoaderSpec extends BaseSuite {
   val semanticdbVersion = "4.4.34"
-  
+
   testLoad("don't reload if nothing changes") { (testBuild, logger) =>
     testBuild.state.build.checkForChange(None, logger).map {
       case Build.ReturnPreviousState => ()
@@ -27,7 +27,11 @@ object BuildLoaderSpec extends BaseSuite {
 
   testLoad("reload if settings are added") { (testBuild, logger) =>
     val settings =
-      WorkspaceSettings.fromSemanticdbSettings("0.2.0", semanticdbVersion, List(BuildInfo.scalaVersion))
+      WorkspaceSettings.fromSemanticdbSettings(
+        "0.2.0",
+        semanticdbVersion,
+        List(BuildInfo.scalaVersion)
+      )
     testBuild.state.build.checkForChange(Some(settings), logger).map {
       case Build.ReturnPreviousState =>
         sys.error(s"Expected return updated state, got previous state")
@@ -40,7 +44,11 @@ object BuildLoaderSpec extends BaseSuite {
   }
 
   val sameSettings =
-    WorkspaceSettings.fromSemanticdbSettings("0.2.0", semanticdbVersion, List(BuildInfo.scalaVersion))
+    WorkspaceSettings.fromSemanticdbSettings(
+      "0.2.0",
+      semanticdbVersion,
+      List(BuildInfo.scalaVersion)
+    )
 
   testLoad("do not reload if same settings are added", Some(sameSettings)) { (testBuild, logger) =>
     testBuild.state.build.checkForChange(Some(sameSettings), logger).map {
@@ -52,7 +60,11 @@ object BuildLoaderSpec extends BaseSuite {
 
   testLoad("reload if new Scala settings are added", Some(sameSettings)) { (testBuild, logger) =>
     val newSettings =
-      WorkspaceSettings.fromSemanticdbSettings("0.2.0", semanticdbVersion, List(BuildInfo.scalaVersion))
+      WorkspaceSettings.fromSemanticdbSettings(
+        "0.2.0",
+        semanticdbVersion,
+        List(BuildInfo.scalaVersion)
+      )
     testBuild.state.build.checkForChange(Some(newSettings), logger).map {
       case Build.ReturnPreviousState =>
         sys.error(s"Expected return updated state, got previous state")
@@ -66,7 +78,11 @@ object BuildLoaderSpec extends BaseSuite {
 
   testLoad("reload if new Java settings are added", Some(sameSettings)) { (testBuild, logger) =>
     val newSettings =
-      WorkspaceSettings.fromSemanticdbSettings("0.1.0", semanticdbVersion, List(BuildInfo.scalaVersion))
+      WorkspaceSettings.fromSemanticdbSettings(
+        "0.1.0",
+        semanticdbVersion,
+        List(BuildInfo.scalaVersion)
+      )
     testBuild.state.build.checkForChange(Some(newSettings), logger).map {
       case Build.ReturnPreviousState =>
         sys.error(s"Expected return updated state, got previous state")
@@ -121,7 +137,11 @@ object BuildLoaderSpec extends BaseSuite {
     (testBuild, logger) =>
       changeHashOfRandomFiles(testBuild, 2)
       val newSettings =
-        WorkspaceSettings.fromSemanticdbSettings("0.2.0", semanticdbVersion, List(BuildInfo.scalaVersion))
+        WorkspaceSettings.fromSemanticdbSettings(
+          "0.2.0",
+          semanticdbVersion,
+          List(BuildInfo.scalaVersion)
+        )
       testBuild.state.build.checkForChange(Some(newSettings), logger).map {
         case Build.ReturnPreviousState =>
           sys.error(s"Expected return updated state, got previous state")
