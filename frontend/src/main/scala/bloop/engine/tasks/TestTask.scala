@@ -8,14 +8,8 @@ import bloop.engine.tasks.toolchains.ScalaJsToolchain
 import bloop.exec.{Forker, JvmProcessForker}
 import bloop.io.AbsolutePath
 import bloop.logging.{DebugFilter, Logger}
-import bloop.testing.{
-  DiscoveredTestFrameworks,
-  LoggingEventHandler,
-  TestSuiteSelection,
-  TestInternals
-}
+import bloop.testing.{DiscoveredTestFrameworks, LoggingEventHandler, TestInternals}
 import bloop.util.JavaCompat.EnrichOptional
-import cats.data.NonEmptyList
 import monix.eval.Task
 import monix.execution.atomic.AtomicBoolean
 import sbt.internal.inc.Analysis
@@ -25,6 +19,7 @@ import xsbti.compile.CompileAnalysis
 
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success}
+import bloop.bsp.ScalaTestClasses
 
 object TestTask {
   implicit private val logContext: DebugFilter = DebugFilter.Test
@@ -48,7 +43,7 @@ object TestTask {
       cwd: AbsolutePath,
       rawTestOptions: List[String],
       testFilter: String => Boolean,
-      testSelection: TestSuiteSelection,
+      testClasses: ScalaTestClasses,
       handler: LoggingEventHandler,
       mode: RunMode
   ): Task[Int] = {
@@ -95,7 +90,7 @@ object TestTask {
               configuredFrameworks,
               compileAnalysis,
               testFilter,
-              testSelection
+              testClasses
             )
           val discoveredFrameworks = suites.iterator.filterNot(_._2.isEmpty).map(_._1).toList
           val (userJvmOptions, userTestOptions) = rawTestOptions.partition(_.startsWith("-J"))
@@ -265,7 +260,7 @@ object TestTask {
       frameworks: List[Framework],
       analysis: CompileAnalysis,
       testFilter: String => Boolean,
-      testSelection: TestSuiteSelection
+      testClasses: ScalaTestClasses
   ): Map[Framework, List[TaskDef]] = {
     import state.logger
     val tests = discoverTests(analysis, frameworks)
@@ -292,18 +287,19 @@ object TestTask {
     // selectors is a possibly empty array of selectors which determines suites and tests to run
     // usually it is a Array(new SuiteSelector). However, if only subset of test are supposed to
     // be run, then it can be altered to Array[TestSelector]
+    val selectedTests = testClasses.classes.map(entry => (entry.className, entry.tests)).toMap
     includedTests.groupBy(_.framework).mapValues { taskDefs =>
       taskDefs.map {
         case TaskDefWithFramework(taskDef, framework) =>
-          testSelection.get(taskDef.fullyQualifiedName()) match {
-            case Some(selected) =>
+          selectedTests.get(taskDef.fullyQualifiedName()).getOrElse(Nil) match {
+            case Nil => taskDef
+            case selectedTests =>
               new TaskDef(
                 taskDef.fullyQualifiedName(),
                 taskDef.fingerprint(),
                 false,
-                selected.map(test => new TestSelector(test)).toList.toArray
+                selectedTests.map(test => new TestSelector(test)).toList.toArray
               )
-            case None => taskDef
           }
       }
     }

@@ -9,7 +9,6 @@ import bloop.io.AbsolutePath
 import bloop.io.Environment.lineSeparator
 import bloop.logging.LoggerAction.LogInfoMessage
 import bloop.logging.{Logger, LoggerAction, ObservedLogger, RecordingLogger}
-import bloop.testing.TestSuiteSelection
 import bloop.reporter.ReporterAction
 import bloop.util.{TestProject, TestUtil}
 import ch.epfl.scala.bsp.ScalaMainClass
@@ -28,6 +27,7 @@ import java.util.concurrent.TimeUnit.{MILLISECONDS, SECONDS}
 import scala.collection.mutable
 import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.concurrent.{Future, Promise, TimeoutException}
+import bloop.bsp.ScalaTestClasses
 
 object DebugServerSpec extends DebugBspBaseSuite {
   private val ServerNotListening = new IllegalStateException("Server is not accepting connections")
@@ -875,8 +875,7 @@ object DebugServerSpec extends DebugBspBaseSuite {
     val testState = state.compile(project).toTestState
     BloopDebuggeeRunner.forTestSuite(
       Seq(testState.getProjectFor(project)),
-      List("MySuite"),
-      TestSuiteSelection.empty,
+      ScalaTestClasses(List("MySuite")),
       testState.state,
       defaultScheduler
     ) match {

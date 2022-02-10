@@ -15,7 +15,6 @@ import bloop.bsp.BloopBspDefinitions.BloopExtraBuildParams
 import bloop.{CompileMode, Compiler, ScalaInstance}
 import bloop.cli.{Commands, ExitStatus, Validate}
 import bloop.dap.{BloopDebuggeeRunner, DebugServerLogger}
-import bloop.testing.TestSuiteSelection
 import bloop.data.{ClientInfo, JdkConfig, Platform, Project, WorkspaceSettings}
 import bloop.engine.{Aggregate, Dag, Interpreter, State}
 import bloop.engine.tasks.{CompileTask, RunMode, Tasks, TestTask}
@@ -53,7 +52,6 @@ import bloop.data.ClientInfo.BspClientInfo
 import bloop.exec.Forker
 import bloop.logging.BloopLogger
 import bloop.config.Config
-import cats.data.NonEmptyList
 import ch.epfl.scala.debugadapter.{DebugServer, DebuggeeRunner}
 
 final class BloopBspServices(
@@ -594,16 +592,15 @@ final class BloopBspServices(
           )
         case bsp.DebugSessionParamsDataKind.ScalaTestSuites =>
           convert[List[String]](
-            filters => {
-              BloopDebuggeeRunner.forTestSuite(projects, filters, TestSuiteSelection.empty, state, ioScheduler)
+            classNames => {
+              val testClasses = ScalaTestClasses(classNames)
+              BloopDebuggeeRunner.forTestSuite(projects, testClasses, state, ioScheduler)
             }
           )
         case "scala-test-selection" =>
-          convert[ScalaTestSelection](
-            testSelection => {
-              val filters = testSelection.classes.map(_.className)
-              val selected = TestSuiteSelection(testSelection.classes)
-              BloopDebuggeeRunner.forTestSuite(projects, filters, selected, state, ioScheduler)
+          convert[ScalaTestClasses](
+            testClasses => {
+              BloopDebuggeeRunner.forTestSuite(projects, testClasses, state, ioScheduler)
             }
           )
         case bsp.DebugSessionParamsDataKind.ScalaAttachRemote =>
@@ -671,7 +668,7 @@ final class BloopBspServices(
     ): Task[State] = {
       val testFilter = TestInternals.parseFilters(Nil) // Don't support test only for now
       val handler = new BspLoggingEventHandler(id, state.logger, client)
-      Tasks.test(state, List(project), Nil, testFilter, TestSuiteSelection.empty, handler, mode = RunMode.Normal)
+      Tasks.test(state, List(project), Nil, testFilter, ScalaTestClasses.empty, handler, mode = RunMode.Normal)
     }
 
     val originId = params.originId

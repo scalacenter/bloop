@@ -6,7 +6,7 @@ import bloop.cli._
 import bloop.cli.completion.{Case, Mode}
 import bloop.io.{AbsolutePath, RelativePath, SourceWatcher}
 import bloop.logging.{DebugFilter, Logger, NoopLogger}
-import bloop.testing.{LoggingEventHandler, TestInternals, TestSuiteSelection}
+import bloop.testing.{LoggingEventHandler, TestInternals}
 import bloop.engine.tasks.{CompileTask, LinkTask, Tasks, TestTask, RunMode}
 import bloop.cli.Commands.CompilingCommand
 import bloop.cli.Validate
@@ -26,6 +26,7 @@ import bloop.ScalaInstance
 import scala.collection.immutable.Nil
 import scala.annotation.tailrec
 import java.io.IOException
+import bloop.bsp.ScalaTestClasses
 
 object Interpreter {
   // This is stack-safe because of Monix's trampolined execution
@@ -360,7 +361,7 @@ object Interpreter {
               projectsToTest,
               cmd.args,
               testFilter,
-              TestSuiteSelection.empty,
+              ScalaTestClasses.empty,
               handler,
               cmd.parallel,
               RunMode.Normal

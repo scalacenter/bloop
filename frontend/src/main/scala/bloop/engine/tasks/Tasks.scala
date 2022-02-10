@@ -10,14 +10,14 @@ import bloop.engine.{Dag, State}
 import bloop.exec.{Forker, JvmProcessForker}
 import bloop.io.AbsolutePath
 import bloop.util.JavaCompat.EnrichOptional
-import bloop.testing.{LoggingEventHandler, BloopTestSuiteEventHandler, TestSuiteSelection}
+import bloop.testing.{LoggingEventHandler, BloopTestSuiteEventHandler}
 import ch.epfl.scala.debugadapter.testing.TestSuiteEvent
 import monix.eval.Task
 import sbt.internal.inc.{Analysis, AnalyzingCompiler, ConcreteAnalysisContents, FileAnalysisStore}
 import sbt.internal.inc.classpath.ClasspathUtilities
 import sbt.testing._
 import xsbti.compile.{ClasspathOptionsUtil, CompileAnalysis, MiniSetup, PreviousResult}
-import cats.data.NonEmptyList
+import bloop.bsp.ScalaTestClasses
 
 object Tasks {
   private[bloop] val TestFailedStatus: Set[Status] =
@@ -94,7 +94,7 @@ object Tasks {
       projectsToTest: List[Project],
       userTestOptions: List[String],
       testFilter: String => Boolean,
-      testSelection: TestSuiteSelection,
+      testClasses: ScalaTestClasses,
       testEventHandler: BloopTestSuiteEventHandler,
       runInParallel: Boolean = false,
       mode: RunMode
@@ -125,7 +125,7 @@ object Tasks {
         cwd,
         userTestOptions,
         testFilter,
-        testSelection,
+        testClasses,
         failureHandler,
         mode
       )
