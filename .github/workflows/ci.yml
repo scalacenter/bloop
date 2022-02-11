@@ -115,7 +115,7 @@ jobs:
         run: |
           echo $JAVA_HOME
           which gu && gu install native-image
-          ./bin/sbt-ci.sh "install" "launcher/test"
+          ./bin/sbt-ci.sh "install" "launcherTest/test"
         shell: bash
       - name: Benchmark
         if: matrix.jdk == 'graalvm-ce-java11@21.1.0' && matrix.os != 'windows-latest'
