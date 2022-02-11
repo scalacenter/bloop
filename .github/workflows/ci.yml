@@ -159,7 +159,7 @@ jobs:
           gu install native-image
           ./bin/sbt-ci.sh "bloopgun/graalvm-native-image:packageBin"
           mkdir bloop-artifacts
-          cp bloopgun/target/graalvm-native-image/bloopgun-core bloop-artifacts/$ARTIFACT_NAME
+          cp bloopgun/target/bloopgun-2.12/graalvm-native-image/bloopgun-core bloop-artifacts/$ARTIFACT_NAME
         shell: bash
       - uses: actions/upload-artifact@master
         with:
@@ -218,9 +218,9 @@ jobs:
       - name: Prepare generated Windows GraalVM binary
         run: |
           echo $ARTIFACT_NAME
-          ls bloopgun/target/graalvm-native-image/bloopgun-core.exe
+          ls bloopgun/target/bloopgun-2.12/graalvm-native-image/bloopgun-core.exe
           mkdir bloop-artifacts
-          cp bloopgun/target/graalvm-native-image/bloopgun-core.exe bloop-artifacts/$ARTIFACT_NAME
+          cp bloopgun/target/bloopgun-2.12/graalvm-native-image/bloopgun-core.exe bloop-artifacts/$ARTIFACT_NAME
         shell: bash
       - uses: actions/upload-artifact@master
         with:
