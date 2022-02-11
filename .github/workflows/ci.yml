@@ -16,7 +16,7 @@ jobs:
       - uses: actions/checkout@v2.4.0
       - uses: olafurpg/setup-scala@v13
         with:
-          java-version: graalvm-ce-java11@20.1.0
+          java-version: graalvm-ce-java11@21.1.0
       - name: Check formatting
         run: ./bin/scalafmt --test
   integrations: 
@@ -26,7 +26,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macOS-latest]
-        jdk: [graalvm-ce-java11@20.1.0]
+        jdk: [graalvm-ce-java11@21.1.0]
     steps:
       - uses: actions/checkout@v2.4.0
         with:
@@ -57,7 +57,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macOS-latest]
-        jdk: [graalvm-ce-java11@20.1.0, adopt@1.11]
+        jdk: [graalvm-ce-java11@21.1.0, adopt@1.11]
     name: Test ${{ matrix.os }} -- ${{ matrix.jdk }}
     env:
       HYDRA_LICENSE: ${{ secrets.HYDRA_LICENSE }}
@@ -72,7 +72,7 @@ jobs:
       - name: Cache Gradle API
         # only launcher tests cause gradle API to be downloaded
         # and they are only run on grallvm
-        if: matrix.jdk == 'graalvm-ce-java11@20.1.0'
+        if: matrix.jdk == 'graalvm-ce-java11@21.1.0'
         uses: actions/cache@v2
         with:
           path: |
@@ -111,14 +111,14 @@ jobs:
           ./bin/check-good-practices.sh
         shell: bash
       - name: Run launcher tests
-        if: matrix.jdk == 'graalvm-ce-java11@20.1.0'
+        if: matrix.jdk == 'graalvm-ce-java11@21.1.0'
         run: |
           echo $JAVA_HOME
           which gu && gu install native-image
-          ./bin/sbt-ci.sh "install" "launcher/test"
+          ./bin/sbt-ci.sh "install" "launcherTest/test"
         shell: bash
       - name: Benchmark
-        if: matrix.jdk == 'graalvm-ce-java11@20.1.0' && matrix.os != 'windows-latest'
+        if: matrix.jdk == 'graalvm-ce-java11@21.1.0' && matrix.os != 'windows-latest'
         run: |
           ./bin/sbt-ci.sh \
               "benchmarks/jmh:run .*HotBloopBenchmark.* -wi 0 -i 1 -f1 -t1 -p project=with-tests -p projectName=with-tests"
@@ -132,7 +132,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macOS-latest]
-        jdk: [graalvm-ce-java11@20.1.0]
+        jdk: [graalvm-ce-java11@21.1.0]
         include:
           - os: ubuntu-latest
             artifact: bloop-linux
@@ -174,7 +174,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [windows-latest]
-        jdk: [graalvm-ce-java11@20.1.0]
+        jdk: [graalvm-ce-java11@21.1.0]
         include:
           - os: windows-latest
             artifact: bloop-windows
