@@ -956,5 +956,5 @@ addCommandAlias(
     .mkString(";", ";", "")
 )
 
-val allReleaseActions = List("releaseEarlyAllModules", "releaseLauncher", "sonatypeBundleRelease")
+val allReleaseActions = List("releaseEarlyAllModules", "sonatypeBundleRelease")
 addCommandAlias("releaseBloop", allReleaseActions.mkString(";", ";", ""))
