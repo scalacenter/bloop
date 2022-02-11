@@ -304,63 +304,80 @@ lazy val frontend: Project = project
     dependencyOverrides += Dependencies.shapeless
   )
 
+lazy val bloopgunSettings = Seq(
+  name := "bloopgun-core",
+  fork in run := true,
+  fork in Test := true,
+  parallelExecution in Test := false,
+  buildInfoPackage := "bloopgun.internal.build",
+  buildInfoKeys := List(Keys.version),
+  buildInfoObject := "BloopgunInfo",
+  libraryDependencies ++= List(
+    //Dependencies.configDirectories,
+    Dependencies.snailgun,
+    // Use zt-exec instead of nuprocess because it doesn't require JNA (good for graalvm)
+    Dependencies.ztExec,
+    Dependencies.slf4jNop,
+    Dependencies.coursierInterface,
+    Dependencies.coursierInterfaceSubs,
+    Dependencies.jsoniterCore,
+    Dependencies.jsoniterMacros % Provided
+  ),
+  mainClass in GraalVMNativeImage := Some("bloop.bloopgun.Bloopgun"),
+  graalVMNativeImageCommand := {
+    val oldPath = graalVMNativeImageCommand.value
+    if (!scala.util.Properties.isWin) oldPath
+    else "C:/Users/runneradmin/.jabba/jdk/graalvm-ce-java11@20.1.0/bin/native-image.cmd"
+  },
+  graalVMNativeImageOptions ++= {
+    val reflectionFile = Keys.sourceDirectory.in(Compile).value./("graal")./("reflection.json")
+    val securityOverridesFile =
+      Keys.sourceDirectory.in(Compile).value./("graal")./("java.security.overrides")
+    assert(reflectionFile.exists, s"${reflectionFile.getAbsolutePath()} doesn't exist")
+    assert(
+      securityOverridesFile.exists,
+      s"${securityOverridesFile.getAbsolutePath()} doesn't exist"
+    )
+    List(
+      "--no-server",
+      "--enable-http",
+      "--enable-https",
+      "-H:EnableURLProtocols=http,https",
+      "--enable-all-security-services",
+      "--no-fallback",
+      s"-H:ReflectionConfigurationFiles=$reflectionFile",
+      "--allow-incomplete-classpath",
+      "-H:+ReportExceptionStackTraces",
+      s"-J-Djava.security.properties=$securityOverridesFile",
+      s"-Djava.security.properties=$securityOverridesFile",
+      "--initialize-at-build-time=scala.Symbol",
+      "--initialize-at-build-time=scala.Function1",
+      "--initialize-at-build-time=scala.Function2",
+      "--initialize-at-build-time=scala.runtime.StructuralCallSite",
+      "--initialize-at-build-time=scala.runtime.EmptyMethodCache"
+    )
+  }
+)
+
 lazy val bloopgun: Project = project
   .disablePlugins(ScriptedPlugin)
   .enablePlugins(BuildInfoPlugin)
   .enablePlugins(GraalVMNativeImagePlugin)
   .settings(testSuiteSettings)
+  .settings(bloopgunSettings)
+  .settings(target := (file("bloopgun") / "target" / "bloopgun-2.12").getAbsoluteFile)
+
+lazy val bloopgun213: Project = project
+  .in(file("bloopgun"))
+  .disablePlugins(ScriptedPlugin)
+  .enablePlugins(BuildInfoPlugin)
+  .enablePlugins(GraalVMNativeImagePlugin)
+  .settings(testSuiteSettings)
   .settings(
-    name := "bloopgun-core",
-    fork in run := true,
-    fork in Test := true,
-    parallelExecution in Test := false,
-    buildInfoPackage := "bloopgun.internal.build",
-    buildInfoKeys := List(Keys.version),
-    buildInfoObject := "BloopgunInfo",
-    crossScalaVersions := Seq(Dependencies.Scala212Version, Dependencies.Scala213Version),
-    libraryDependencies ++= List(
-      //Dependencies.configDirectories,
-      Dependencies.snailgun,
-      // Use zt-exec instead of nuprocess because it doesn't require JNA (good for graalvm)
-      Dependencies.ztExec,
-      Dependencies.slf4jNop,
-      Dependencies.coursierInterface,
-      Dependencies.coursierInterfaceSubs,
-      Dependencies.jsoniterCore,
-      Dependencies.jsoniterMacros % Provided
-    ),
-    mainClass in GraalVMNativeImage := Some("bloop.bloopgun.Bloopgun"),
-    graalVMNativeImageCommand := {
-      val oldPath = graalVMNativeImageCommand.value
-      if (!scala.util.Properties.isWin) oldPath
-      else "C:/Users/runneradmin/.jabba/jdk/graalvm-ce-java11@20.1.0/bin/native-image.cmd"
-    },
-    graalVMNativeImageOptions ++= {
-      val reflectionFile = Keys.sourceDirectory.in(Compile).value./("graal")./("reflection.json")
-      val securityOverridesFile =
-        Keys.sourceDirectory.in(Compile).value./("graal")./("java.security.overrides")
-      assert(reflectionFile.exists)
-      assert(securityOverridesFile.exists)
-      List(
-        "--no-server",
-        "--enable-http",
-        "--enable-https",
-        "-H:EnableURLProtocols=http,https",
-        "--enable-all-security-services",
-        "--no-fallback",
-        s"-H:ReflectionConfigurationFiles=$reflectionFile",
-        "--allow-incomplete-classpath",
-        "-H:+ReportExceptionStackTraces",
-        s"-J-Djava.security.properties=$securityOverridesFile",
-        s"-Djava.security.properties=$securityOverridesFile",
-        "--initialize-at-build-time=scala.Symbol",
-        "--initialize-at-build-time=scala.Function1",
-        "--initialize-at-build-time=scala.Function2",
-        "--initialize-at-build-time=scala.runtime.StructuralCallSite",
-        "--initialize-at-build-time=scala.runtime.EmptyMethodCache"
-      )
-    }
+    scalaVersion := Dependencies.Scala213Version,
+    target := (file("bloopgun") / "target" / "bloopgun-2.13").getAbsoluteFile
   )
+  .settings(bloopgunSettings)
 
 def shadeSettingsForModule(moduleId: String, module: Reference) = List(
   packageBin in Compile := {
@@ -407,33 +424,35 @@ def shadeSettingsForModule(moduleId: String, module: Reference) = List(
   )
 )
 
+lazy val bloopgunShadedSettings = Seq(
+  name := "bloopgun",
+  fork in run := true,
+  fork in Test := true,
+  bloopGenerate in Compile := None,
+  bloopGenerate in Test := None,
+  libraryDependencies ++= List(Dependencies.scalaCollectionCompat)
+)
+
 lazy val bloopgunShaded = project
-  .in(file("bloopgun/target/shaded-module"))
+  .in(file("bloopgun/target/shaded-module-2.12"))
   .disablePlugins(ScriptedPlugin)
   .disablePlugins(SbtJdiTools)
   .enablePlugins(BloopShadingPlugin)
   .settings(shadedModuleSettings)
   .settings(shadeSettingsForModule("bloopgun-core", bloopgun))
-  .settings(
-    name := "bloopgun",
-    fork in run := true,
-    fork in Test := true,
-    bloopGenerate in Compile := None,
-    bloopGenerate in Test := None,
-    libraryDependencies ++= List(Dependencies.scalaCollectionCompat)
-  )
+  .settings(bloopgunShadedSettings)
 
-lazy val launcher: Project = project
-  .in(file("launcher-core"))
+lazy val bloopgunShaded213 = project
+  .in(file("bloopgun/target/shaded-module-2.13"))
   .disablePlugins(ScriptedPlugin)
-  .dependsOn(sockets, bloopgun)
-  .settings(testSuiteSettings)
-  .settings(
-    name := "bloop-launcher-core",
-    crossScalaVersions := Seq(Dependencies.Scala212Version, Dependencies.Scala213Version)
-  )
+  .disablePlugins(SbtJdiTools)
+  .enablePlugins(BloopShadingPlugin)
+  .settings(shadedModuleSettings)
+  .settings(shadeSettingsForModule("bloopgun-core", bloopgun213))
+  .settings(bloopgunShadedSettings)
+  .settings(scalaVersion := Dependencies.Scala213Version)
 
-lazy val launcherTest: Project = project
+lazy val launcherTest = project
   .in(file("launcher-test"))
   .disablePlugins(ScriptedPlugin)
   .dependsOn(launcher, frontend % "test->test")
@@ -447,26 +466,58 @@ lazy val launcherTest: Project = project
     )
   )
 
+lazy val launcher = project
+  .in(file("launcher-core"))
+  .disablePlugins(ScriptedPlugin)
+  .dependsOn(sockets, bloopgun)
+  .settings(testSuiteSettings)
+  .settings(
+    name := "bloop-launcher-core",
+    target := (file("launcher-core") / "target" / "launcher-2.12").getAbsoluteFile
+  )
+
+lazy val launcher213 = project
+  .in(file("launcher-core"))
+  .disablePlugins(ScriptedPlugin)
+  .dependsOn(sockets, bloopgun213)
+  .settings(testSuiteSettings)
+  .settings(
+    name := "bloop-launcher-core",
+    scalaVersion := Dependencies.Scala213Version,
+    target := (file("launcher-core") / "target" / "launcher-2.13").getAbsoluteFile
+  )
+
+lazy val launcherShadedSettings = Seq(
+  name := "bloop-launcher",
+  fork in run := true,
+  fork in Test := true,
+  bloopGenerate in Compile := None,
+  bloopGenerate in Test := None,
+  libraryDependencies ++= List(
+    "net.java.dev.jna" % "jna" % "4.5.0",
+    "net.java.dev.jna" % "jna-platform" % "4.5.0",
+    Dependencies.scalaCollectionCompat
+  )
+)
+
 lazy val launcherShaded = project
-  .in(file("launcher-core/target/shaded-module"))
+  .in(file("launcher-core/target/shaded-module-2.12"))
   .disablePlugins(ScriptedPlugin)
   .disablePlugins(SbtJdiTools)
   .enablePlugins(BloopShadingPlugin)
   .settings(shadedModuleSettings)
-  .settings(crossScalaVersions := Seq(Dependencies.Scala212Version, Dependencies.Scala213Version))
   .settings(shadeSettingsForModule("bloop-launcher-core", launcher))
-  .settings(
-    name := "bloop-launcher",
-    fork in run := true,
-    fork in Test := true,
-    bloopGenerate in Compile := None,
-    bloopGenerate in Test := None,
-    libraryDependencies ++= List(
-      "net.java.dev.jna" % "jna" % "4.5.0",
-      "net.java.dev.jna" % "jna-platform" % "4.5.0",
-      Dependencies.scalaCollectionCompat
-    )
-  )
+  .settings(launcherShadedSettings)
+
+lazy val launcherShaded213 = project
+  .in(file("launcher-core/target/shaded-module-2.13"))
+  .disablePlugins(ScriptedPlugin)
+  .disablePlugins(SbtJdiTools)
+  .enablePlugins(BloopShadingPlugin)
+  .settings(shadedModuleSettings)
+  .settings(shadeSettingsForModule("bloop-launcher-core", launcher213))
+  .settings(launcherShadedSettings)
+  .settings(scalaVersion := Dependencies.Scala213Version)
 
 lazy val bloop4j = project
   .disablePlugins(ScriptedPlugin)
@@ -786,8 +837,8 @@ lazy val twitterIntegrationProjects = project
 val allProjects = Seq(
   bloopShared,
   backend,
-  benchmarks,
   frontend,
+  benchmarks,
   jsonConfig210.jvm,
   jsonConfig211.jvm,
   jsonConfig211.js,
@@ -804,9 +855,45 @@ val allProjects = Seq(
   jsBridge06,
   jsBridge1,
   launcher,
+  launcher213,
   launcherTest,
   sockets,
-  bloopgun
+  bloopgun,
+  bloopgun213
+)
+
+val allProjectsToRelease = Seq[ProjectReference](
+  bloopShared,
+  backend,
+  frontend,
+  jsonConfig210.jvm,
+  jsonConfig211.js,
+  jsonConfig211.jvm,
+  jsonConfig212.js,
+  jsonConfig212.jvm,
+  jsonConfig213.js,
+  jsonConfig213.jvm,
+  sbtBloop013,
+  sbtBloop10,
+  sbtBloop013Shaded,
+  sbtBloop10Shaded,
+  mavenBloop,
+  gradleBloop211,
+  gradleBloop212,
+  nativeBridge04,
+  jsBridge06,
+  jsBridge1,
+  sockets,
+  bloopgun,
+  bloopgunShaded,
+  bloopgun213,
+  bloopgunShaded213,
+  launcher,
+  launcherShaded,
+  launcher213,
+  launcherShaded213,
+  buildpressConfig,
+  buildpress
 )
 
 val allProjectReferences = allProjects.map(p => LocalProject(p.id))
@@ -823,72 +910,12 @@ val bloop = project
     twitterDodo := buildIntegrationsBase.value./("build-twitter"),
     publishLocalAllModules := {
       BuildDefaults
-        .publishLocalAllModules(
-          List(
-            bloopShared,
-            backend,
-            frontend,
-            jsonConfig210.jvm,
-            jsonConfig211.js,
-            jsonConfig211.jvm,
-            jsonConfig212.js,
-            jsonConfig212.jvm,
-            jsonConfig213.js,
-            jsonConfig213.jvm,
-            sbtBloop013,
-            sbtBloop10,
-            sbtBloop013Shaded,
-            sbtBloop10Shaded,
-            mavenBloop,
-            gradleBloop211,
-            gradleBloop212,
-            nativeBridge04,
-            jsBridge06,
-            jsBridge1,
-            sockets,
-            bloopgun,
-            launcher,
-            bloopgunShaded,
-            launcherShaded,
-            buildpressConfig,
-            buildpress
-          )
-        )
+        .publishLocalAllModules(allProjectsToRelease)
         .value
     },
     releaseEarlyAllModules := {
       BuildDefaults
-        .releaseEarlyAllModules(
-          List(
-            bloopShared,
-            backend,
-            frontend,
-            jsonConfig210.jvm,
-            jsonConfig211.js,
-            jsonConfig211.jvm,
-            jsonConfig212.js,
-            jsonConfig212.jvm,
-            jsonConfig213.js,
-            jsonConfig213.jvm,
-            sbtBloop013,
-            sbtBloop10,
-            sbtBloop013Shaded,
-            sbtBloop10Shaded,
-            mavenBloop,
-            gradleBloop211,
-            gradleBloop212,
-            nativeBridge04,
-            jsBridge06,
-            jsBridge1,
-            sockets,
-            bloopgun,
-            launcher,
-            bloopgunShaded,
-            launcherShaded,
-            buildpressConfig,
-            buildpress
-          )
-        )
+        .releaseEarlyAllModules(allProjectsToRelease)
         .value
     },
     releaseSonatypeBundle := {
@@ -929,5 +956,5 @@ addCommandAlias(
     .mkString(";", ";", "")
 )
 
-val allReleaseActions = List("releaseEarlyAllModules", "sonatypeBundleRelease")
+val allReleaseActions = List("releaseEarlyAllModules", "releaseLauncher", "sonatypeBundleRelease")
 addCommandAlias("releaseBloop", allReleaseActions.mkString(";", ";", ""))
