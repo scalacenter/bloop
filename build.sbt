@@ -327,7 +327,7 @@ lazy val bloopgunSettings = Seq(
   graalVMNativeImageCommand := {
     val oldPath = graalVMNativeImageCommand.value
     if (!scala.util.Properties.isWin) oldPath
-    else "C:/Users/runneradmin/.jabba/jdk/graalvm-ce-java11@20.1.0/bin/native-image.cmd"
+    else "C:/Users/runneradmin/.jabba/jdk/graalvm-ce-java11@21.1.0/bin/native-image.cmd"
   },
   graalVMNativeImageOptions ++= {
     val reflectionFile = Keys.sourceDirectory.in(Compile).value./("graal")./("reflection.json")
