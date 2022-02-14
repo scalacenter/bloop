@@ -27,6 +27,12 @@ object ScalaTestClasses {
     Nil,
     Map.empty
   )
+
+  def forSuiteSelection(classes: List[ScalaTestSuiteSelection]): ScalaTestClasses = ScalaTestClasses(
+    classes,
+    Nil,
+    Map.empty
+  )
 }
 
 case class ScalaTestSuiteSelection(

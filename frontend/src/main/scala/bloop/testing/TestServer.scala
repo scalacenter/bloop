@@ -89,7 +89,12 @@ final class TestServer(
           taskDef.fingerprint()
         }
 
-        logger.debug(s"Sent task defs to test server: ${taskDefs.map(_.fullyQualifiedName())}")
+        val taskDefsDescription = taskDefs.map { taskDef =>
+          val selectors = taskDef.selectors().toList.map(_.toString()).mkString("(", ",", ")")
+          s"${taskDef.fullyQualifiedName()}$selectors"
+        }
+        logger.debug(s"Sent task defs to test server: $taskDefsDescription")
+
         runners.foreach {
           case (frameworkClass, runner) =>
             logger.debug(s"Sending runner to test server: ${frameworkClass} ${runner.args.toList}")
