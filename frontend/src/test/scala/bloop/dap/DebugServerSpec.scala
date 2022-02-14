@@ -925,7 +925,8 @@ object DebugServerSpec extends DebugBspBaseSuite {
   }
 
   private def waitForServerEnd(server: TestServer): Task[Boolean] = {
-    server.startConnection.failed.map(x => {println(x); x})
+    server.startConnection.failed
+      .map(x => { println(x); x })
       .map {
         case _: SocketTimeoutException => true
         case _: ConnectException => true
