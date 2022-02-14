@@ -15,7 +15,7 @@ val `bloop-build` = project
   .settings(
     exportJars := true,
     addSbtPlugin("org.portable-scala" % "sbt-scalajs-crossproject" % "1.0.0"),
-    addSbtPlugin("org.scala-js" % "sbt-scalajs" % "1.1.0"),
+    addSbtPlugin("org.scala-js" % "sbt-scalajs" % "1.6.0"),
     addSbtPlugin("com.dwijnand" % "sbt-dynver" % "4.0.0"),
     addSbtPlugin("ohnosequences" % "sbt-github-release" % "0.7.0"),
     addSbtPlugin("org.scalameta" % "sbt-scalafmt" % "2.0.4"),
@@ -26,7 +26,7 @@ val `bloop-build` = project
     addSbtPlugin("ch.epfl.scala" % "sbt-release-early" % "2.1.1+4-9d76569a"),
     addSbtPlugin("com.typesafe.sbt" % "sbt-site" % "1.3.1"),
     addSbtPlugin("com.typesafe.sbt" % "sbt-ghpages" % "0.6.2"),
-    addSbtPlugin("org.scalameta" % "sbt-mdoc" % "2.0.2"),
+    addSbtPlugin("org.scalameta" % "sbt-mdoc" % "2.3.0"),
     addSbtPlugin("org.scala-debugger" % "sbt-jdi-tools" % "1.1.1"),
     addSbtPlugin("com.typesafe.sbt" % "sbt-native-packager" % "1.7.2"),
     // We need to add libdeps for the maven integration plugin to work
