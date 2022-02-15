@@ -28,7 +28,7 @@ object Dependencies {
   val sbtTestInterfaceVersion = "1.0"
   val sbtTestAgentVersion = "1.4.4"
   val junitVersion = "0.11"
-  val graphvizVersion = "0.2.2"
+  val graphvizVersion = "0.18.1"
   val directoryWatcherVersion = "0.8.0+6-f651bd93"
   val mavenApiVersion = "3.6.1"
   val mavenAnnotationsVersion = "3.5"

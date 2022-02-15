@@ -136,7 +136,7 @@ class DagSpec {
     val projectsMap = TestProjects.complete.map(p => p.name -> p).toMap
     val dags = fromMap(projectsMap)
     val dotContents = Dag.toDotGraph(dags)
-    Parser.read(dotContents)
+    (new Parser()).read(dotContents)
     ()
   }
 
