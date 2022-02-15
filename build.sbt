@@ -289,7 +289,6 @@ lazy val frontend: Project = project
     javaOptions in run ++= jvmOptions,
     javaOptions in Test ++= jvmOptions,
     javaOptions in IntegrationTest ++= jvmOptions,
-    libraryDependencies += Dependencies.graphviz % Test,
     fork in run := true,
     fork in Test := true,
     fork in run in IntegrationTest := true,
