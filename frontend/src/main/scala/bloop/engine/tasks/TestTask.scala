@@ -94,16 +94,19 @@ object TestTask {
             )
           val discoveredFrameworks = suites.iterator.filterNot(_._2.isEmpty).map(_._1).toList
           val (userJvmOptions, userTestOptions) = rawTestOptions.partition(_.startsWith("-J"))
-          val jvmOptions = userJvmOptions.map(_.stripPrefix("-J"))
+          val jvmOptions = userJvmOptions.map(_.stripPrefix("-J")) ++ testClasses.jvmOptions
+          val envOptions = testClasses.env.map { case (key, value) => s"$key=$value" }.toList
           val frameworkArgs = considerFrameworkArgs(discoveredFrameworks, userTestOptions, logger)
           val args = project.testOptions.arguments ++ frameworkArgs
           logger.debug(s"Running test suites with arguments: $args")
+          logger.debug(s"Running ForkMain with jvm opts: $jvmOptions")
+          logger.debug(s"Running ForkMain with env variables: $envOptions")
 
           found match {
             case DiscoveredTestFrameworks.Jvm(frameworks, forker, loader) =>
               val opts = state.commonOptions
               // FORMAT: OFF
-              TestInternals.execute(cwd, forker, loader, suites, args, jvmOptions, handler, logger, opts)
+              TestInternals.execute(cwd, forker, loader, suites, args, jvmOptions, envOptions, handler, logger, opts)
               // FORMAT: ON
             case DiscoveredTestFrameworks.Js(frameworks, closeResources) =>
               val cancelled: AtomicBoolean = AtomicBoolean(false)
