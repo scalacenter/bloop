@@ -27,6 +27,8 @@ import java.util.concurrent.TimeUnit.{MILLISECONDS, SECONDS}
 import scala.collection.mutable
 import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.concurrent.{Future, Promise, TimeoutException}
+import bloop.bsp.ScalaTestClasses
+import bloop.bsp.ScalaTestSuiteSelection
 
 object DebugServerSpec extends DebugBspBaseSuite {
   private val ServerNotListening = new IllegalStateException("Server is not accepting connections")
@@ -777,6 +779,88 @@ object DebugServerSpec extends DebugBspBaseSuite {
     }
   }
 
+  test("run only single test") {
+    TestUtil.withinWorkspace { workspace =>
+      val source =
+        """/MySuite.scala
+          |class MySuite {
+          |  @org.junit.Test
+          |  def test1(): Unit = {
+          |    println("test1")
+          |  }
+          |  @org.junit.Test
+          |  def test2(): Unit = {
+          |    println("test2")
+          |  }
+          |}
+          |
+          |""".stripMargin
+
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+
+      val scalaVersion = "2.12.15"
+      val compilerJars = ScalaInstance
+        .resolve("org.scala-lang", "scala-compiler", scalaVersion, logger)(
+          ExecutionContext.ioScheduler
+        )
+        .allJars
+        .map(AbsolutePath.apply)
+      val junitJars = BuildTestInfo.junitTestJars.map(AbsolutePath.apply)
+
+      val project = TestProject(
+        workspace,
+        "r",
+        List(source),
+        enableTests = true,
+        jars = compilerJars ++ junitJars,
+        scalaVersion = Some(scalaVersion)
+      )
+
+      loadBspState(workspace, List(project), logger) { state =>
+        val testClasses =
+          ScalaTestClasses(
+            List(
+              ScalaTestSuiteSelection(
+                "MySuite",
+                List("test1")
+              )
+            ),
+            List("-Xmx512M"),
+            Map("ENV_KEY" -> "ENV_VALUE")
+          )
+        val runner = testRunner(project, state, testClasses)
+
+        val buildProject = state.toTestState.getProjectFor(project)
+        def srcFor(srcName: String) =
+          buildProject.sources.map(_.resolve(srcName)).find(_.exists).get
+        val `MySuite.scala` = srcFor("MySuite.scala")
+        val breakpoints = breakpointsArgs(`MySuite.scala`, 5)
+
+        startDebugServer(runner) { server =>
+          val test = for {
+            client <- server.startConnection
+            _ <- client.initialize()
+            _ <- client.launch()
+            _ <- client.initialized
+            _ <- client.configurationDone()
+            _ <- client.exited
+            _ <- client.terminated
+            _ <- Task.fromFuture(client.closedPromise.future)
+          } yield {
+            assert(logger.debugs.contains("Running ForkMain with jvm opts: List(-Xmx512M)"))
+            assert(
+              logger.debugs.contains("Running ForkMain with env variables: List(ENV_KEY=ENV_VALUE)")
+            )
+            assert(logger.debugs.contains("Test MySuite.test1 started"))
+            assert(logger.debugs.contains("Test MySuite.test2 ignored"))
+          }
+
+          TestUtil.await(FiniteDuration(60, SECONDS), ExecutionContext.ioScheduler)(test)
+        }
+      }
+    }
+  }
+
   private def startRemoteProcess(buildProject: Project, testState: TestState): Task[Int] = {
     val attachPort = Promise[Int]()
 
@@ -869,12 +953,13 @@ object DebugServerSpec extends DebugBspBaseSuite {
 
   private def testRunner(
       project: TestProject,
-      state: ManagedBspTestState
+      state: ManagedBspTestState,
+      testClasses: ScalaTestClasses = ScalaTestClasses(List("MySuite"))
   ): DebuggeeRunner = {
     val testState = state.compile(project).toTestState
     BloopDebuggeeRunner.forTestSuite(
       Seq(testState.getProjectFor(project)),
-      List("MySuite"),
+      testClasses,
       testState.state,
       defaultScheduler
     ) match {

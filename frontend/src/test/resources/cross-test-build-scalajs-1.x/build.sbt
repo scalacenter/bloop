@@ -7,7 +7,7 @@ lazy val `test-project` =
     .settings(
       name := "test-project",
       scalaVersion := "2.13.4",
-      libraryDependencies += "com.novocode" % "junit-interface" % "0.11" % Test,
+      libraryDependencies += "com.github.sbt" % "junit-interface" % "0.13.3" % Test,
       libraryDependencies += "com.lihaoyi" %%% "utest" % "0.7.4" % Test,
       testFrameworks += new TestFramework("utest.runner.Framework"),
       testOptions in Test ++= Seq(
