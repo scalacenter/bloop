@@ -660,7 +660,7 @@ object BuildImplementation {
   import sbt.{Compile}
   import scala.sys.process.Process
   import java.nio.file.Files
-  
+
   val buildpressHomePath = System.getProperty("user.home") + "/.buildpress"
   def exportCommunityBuild(
       buildpress: Reference,
