@@ -182,7 +182,7 @@ lazy val jsonConfig213 = crossProject(JSPlatform, JVMPlatform)
     name := "bloop-config",
     unmanagedSourceDirectories in Compile +=
       Keys.baseDirectory.value / ".." / "src" / "main" / "scala-2.11-13",
-    scalaVersion := "2.13.1",
+    scalaVersion := Dependencies.Scala213Version,
     testResourceSettings
   )
   .jvmSettings(
@@ -649,7 +649,7 @@ lazy val mavenBloop = project
   .dependsOn(jsonConfig213.jvm % "compile->compile;test->test")
   .settings(
     name := "maven-bloop",
-    scalaVersion := (jsonConfig213.jvm / scalaVersion).value,
+    scalaVersion := Dependencies.Scala213Version,
     publishM2 := publishM2.dependsOn(jsonConfig213.jvm / publishM2).value,
     BuildDefaults.mavenPluginBuildSettings,
     buildInfoKeys := Seq[BuildInfoKey](version),
