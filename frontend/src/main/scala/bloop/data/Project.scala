@@ -251,8 +251,15 @@ final case class Project(
           getJavaVersionFromJavaHome(f.javaHome)
       )
       .getOrElse(Properties.javaVersion)
-
-    compareVersions(compileVersion, version) >= 0
+      .split("-")
+      .head // needed for versions like 17-ea
+    try {
+      compareVersions(compileVersion, version) >= 0
+    } catch {
+      case NonFatal(_) =>
+        logger.error(s"Invalid Java number $compileVersion")
+        false
+    }
   }
 }
 

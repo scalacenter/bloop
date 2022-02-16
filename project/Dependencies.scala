@@ -2,7 +2,8 @@ package build
 
 object Dependencies {
   val Scala211Version = "2.11.12"
-  val Scala212Version = "2.12.8"
+  val Scala212Version = "2.12.15"
+  val Scala213Version = "2.13.8"
 
   val Sbt1Version = "1.3.3"
 
@@ -24,7 +25,7 @@ object Dependencies {
   val sourcecodeVersion = "0.1.4"
   val sbtTestInterfaceVersion = "1.0"
   val sbtTestAgentVersion = "1.4.4"
-  val junitVersion = "0.11"
+  val junitVersion = "0.13.3"
   val graphvizVersion = "0.2.2"
   val directoryWatcherVersion = "0.8.0+6-f651bd93"
   val mavenApiVersion = "3.6.1"
@@ -52,7 +53,7 @@ object Dependencies {
   val asmVersion = "7.0"
   val snailgunVersion = "0.4.0"
   val ztExecVersion = "1.11"
-  val debugAdapterVersion = "2.0.12"
+  val debugAdapterVersion = "2.0.13"
 
   import sbt.librarymanagement.syntax.stringToOrganization
   val zinc = "ch.epfl.scala" %% "zinc" % zincVersion
@@ -63,11 +64,11 @@ object Dependencies {
 
   val configDirectories = "io.github.soc" % "directories" % configDirsVersion
   val libraryManagement = "org.scala-sbt" %% "librarymanagement-ivy" % lmVersion
+  val log4j = "org.apache.logging.log4j" % "log4j-core" % "2.17.1"
   val scalazCore = "org.scalaz" %% "scalaz-core" % scalazVersion
   val scalazConcurrent = "org.scalaz" %% "scalaz-concurrent" % scalazVersion
-  val coursierInterface = "io.get-coursier" % "interface" % "1.0.4"
-  val coursierInterfaceSubs = "io.get-coursier" % "interface-svm-subs" % "1.0.4"
-  val scalaXml = "org.scala-lang.modules" %% "scala-xml" % scalaXmlVersion
+  val coursierInterface = "io.get-coursier" % "interface" % "1.0.6"
+  val coursierInterfaceSubs = "io.get-coursier" % "interface-svm-subs" % "1.0.6"
   val scalaCollectionCompat = "org.scala-lang.modules" %% "scala-collection-compat" % "2.4.2"
   val shapeless = "com.chuusai" %% "shapeless" % shapelessVersion
   val caseApp = "com.github.alexarchambault" %% "case-app" % caseAppVersion
@@ -78,10 +79,11 @@ object Dependencies {
   val ztExec = "org.zeroturnaround" % "zt-exec" % ztExecVersion
   val slf4jNop = "org.slf4j" % "slf4j-nop" % "1.7.2"
 
-  val utest = "com.lihaoyi" %% "utest" % "0.6.6"
-  val pprint = "com.lihaoyi" %% "pprint" % "0.5.3"
+  val utest = "com.lihaoyi" %% "utest" % "0.6.9"
+  val pprint = "com.lihaoyi" %% "pprint" % "0.5.5"
   val scalacheck = "org.scalacheck" %% "scalacheck" % "1.13.4"
-  val junit = "com.novocode" % "junit-interface" % junitVersion
+  val junit = "com.github.sbt" % "junit-interface" % junitVersion
+
   val graphviz = "guru.nidi" % "graphviz-java" % graphvizVersion
   val directoryWatcher = "ch.epfl.scala" % "directory-watcher" % directoryWatcherVersion
   val difflib = "com.googlecode.java-diff-utils" % "diffutils" % difflibVersion

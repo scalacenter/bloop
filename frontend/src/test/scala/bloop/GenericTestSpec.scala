@@ -86,8 +86,8 @@ class GenericTestSpec {
         """
           |Test p1.H.testH started
           |Test p3.I.testI started
-          |Test run started
-          |Test run started
+          |Test run p1.H started
+          |Test run p3.I started
         """.stripMargin,
         logger.startedTestInfos.sorted.mkString(lineSeparator)
       )

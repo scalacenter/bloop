@@ -17,6 +17,7 @@ import sbt.internal.inc.{Analysis, AnalyzingCompiler, ConcreteAnalysisContents, 
 import sbt.internal.inc.classpath.ClasspathUtilities
 import sbt.testing._
 import xsbti.compile.{ClasspathOptionsUtil, CompileAnalysis, MiniSetup, PreviousResult}
+import bloop.bsp.ScalaTestClasses
 
 object Tasks {
   private[bloop] val TestFailedStatus: Set[Status] =
@@ -64,7 +65,10 @@ object Tasks {
         val javacBin = project.runtimeJdkConfig.flatMap(_.javacBin)
         val loader = ClasspathUtilities.makeLoader(entries, instance)
         val compiler =
-          state.compilerCache.get(instance, javacBin).scalac.asInstanceOf[AnalyzingCompiler]
+          state.compilerCache
+            .get(instance, javacBin, project.javacOptions)
+            .scalac
+            .asInstanceOf[AnalyzingCompiler]
         val opts = ClasspathOptionsUtil.repl
         val options = project.scalacOptions :+ "-Xnojline"
         // We should by all means add better error handling here!
@@ -90,6 +94,7 @@ object Tasks {
       projectsToTest: List[Project],
       userTestOptions: List[String],
       testFilter: String => Boolean,
+      testClasses: ScalaTestClasses,
       testEventHandler: BloopTestSuiteEventHandler,
       runInParallel: Boolean = false,
       mode: RunMode
@@ -120,6 +125,7 @@ object Tasks {
         cwd,
         userTestOptions,
         testFilter,
+        testClasses,
         failureHandler,
         mode
       )

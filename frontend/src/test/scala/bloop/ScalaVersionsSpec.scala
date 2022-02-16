@@ -70,9 +70,11 @@ object ScalaVersionsSpec extends bloop.testing.BaseSuite {
     val `2.13` = compileProjectFor("2.13.2")
     val `2.13.3` = compileProjectFor("2.13.3")
     val `2.13.7` = compileProjectFor("2.13.7")
+    val `2.13.8` = compileProjectFor("2.13.8")
     val LatestDotty = compileProjectFor("3.0.0-M3")
     val all = {
-      if (TestUtil.isJdk8) List(`2.10`, `2.11`, `2.12`, `2.13`, `2.13.3`, `2.13.7`, LatestDotty)
+      if (TestUtil.isJdk8)
+        List(`2.10`, `2.11`, `2.12`, `2.13`, `2.13.3`, `2.13.7`, `2.13.8`, LatestDotty)
       else List(`2.12`, `2.13`, `2.13.3`, `2.13.7`)
     }
 
