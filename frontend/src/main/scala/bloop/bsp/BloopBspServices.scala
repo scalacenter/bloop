@@ -114,7 +114,7 @@ final class BloopBspServices(
     .requestAsync(endpoints.BuildTarget.run)(p => schedule(run(p)))
     .requestAsync(endpoints.BuildTarget.cleanCache)(p => schedule(clean(p)))
     .requestAsync(endpoints.BuildTarget.scalaMainClasses)(p => schedule(scalaMainClasses(p)))
-    .requestAsync(endpoints.BuildTarget.scalaTestClasses)(p => schedule(scalaTestClasses(p)))
+    .requestAsync(ScalaTestClasses.endpoint)(p => schedule(scalaTestClasses(p)))
     .requestAsync(endpoints.BuildTarget.dependencySources)(p => schedule(dependencySources(p)))
     .requestAsync(endpoints.DebugSession.start)(p => schedule(startDebugSession(p)))
     .requestAsync(endpoints.BuildTarget.jvmTestEnvironment)(p => schedule(jvmTestEnvironment(p)))
@@ -546,25 +546,28 @@ final class BloopBspServices(
 
   def scalaTestClasses(
       params: bsp.ScalaTestClassesParams
-  ): BspEndpointResponse[bsp.ScalaTestClassesResult] = {
+  ): BspEndpointResponse[ScalaTestClassesResult] =
     ifInitialized(params.originId) { (state: State, logger: BspServerLogger) =>
       mapToProjects(params.targets, state) match {
         case Left(error) =>
           logger.error(error)
-          Task.now((state, Right(bsp.ScalaTestClassesResult(Nil))))
+          Task.now((state, Right(ScalaTestClassesResult(Nil))))
 
         case Right(projects) =>
-          val subTasks = for {
-            (id, project) <- projects.toList
-            task = TestTask.findFullyQualifiedTestNames(project, state)
-            item = task.map(classes => bsp.ScalaTestClassesItem(id, classes))
-          } yield item
+          val subTasks = projects.toList.map { case (id, project) =>
+            val task = TestTask.findTestNamesWithFramework(project, state)
+            val item = task.map { classes => 
+              classes.groupBy(_.framework).map { case (framework, classes) =>
+                ScalaTestClassesItem(id, Some(framework), classes.flatMap(_.classes))
+              }.toList
+            }
+            item
+          }
 
-          for {
-            items <- Task.sequence(subTasks)
-            result = new bsp.ScalaTestClassesResult(items)
-          } yield (state, Right(result))
-      }
+          Task.sequence(subTasks).map { items =>
+            val result = ScalaTestClassesResult(items.flatten)
+            (state, Right(result))
+          }
     }
   }
 

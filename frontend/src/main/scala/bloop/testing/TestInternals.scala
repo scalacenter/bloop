@@ -32,6 +32,13 @@ import xsbti.compile.CompileAnalysis
 import scala.collection.mutable
 import scala.util.control.NonFatal
 
+final case class FingerprintInfo[+Print <: Fingerprint](
+    name: String,
+    isModule: Boolean,
+    framework: Framework,
+    fingerprint: Print
+)
+
 object TestInternals {
   private final val sbtOrg = "org.scala-sbt"
   private final val testAgentId = "test-agent"
@@ -41,8 +48,6 @@ object TestInternals {
 
   // Cache the resolution of test agent files since it's static (cannot be lazy because depends on logger)
   @volatile private var testAgentFiles: Option[Array[AbsolutePath]] = None
-
-  private type PrintInfo[F <: Fingerprint] = (String, Boolean, Framework, F)
 
   lazy val filteredLoader = {
     val filter = new IncludePackagesFilter(
@@ -247,29 +252,29 @@ object TestInternals {
 
   def getFingerprints(
       frameworks: Seq[Framework]
-  ): (List[PrintInfo[SubclassFingerprint]], List[PrintInfo[AnnotatedFingerprint]]) = {
+  ): (List[FingerprintInfo[SubclassFingerprint]], List[FingerprintInfo[AnnotatedFingerprint]]) = {
     // The tests need to be run with the first matching framework, so we use a LinkedHashSet
     // to keep the ordering of `frameworks`.
-    val subclasses = mutable.LinkedHashSet.empty[PrintInfo[SubclassFingerprint]]
-    val annotated = mutable.LinkedHashSet.empty[PrintInfo[AnnotatedFingerprint]]
+    val subclasses = mutable.LinkedHashSet.empty[FingerprintInfo[SubclassFingerprint]]
+    val annotated = mutable.LinkedHashSet.empty[FingerprintInfo[AnnotatedFingerprint]]
     for {
       framework <- frameworks
       fingerprint <- framework.fingerprints()
     } fingerprint match {
       case sub: SubclassFingerprint =>
-        subclasses += ((sub.superclassName, sub.isModule, framework, sub))
+        subclasses += FingerprintInfo(sub.superclassName, sub.isModule, framework, sub)
       case ann: AnnotatedFingerprint =>
-        annotated += ((ann.annotationName, ann.isModule, framework, ann))
+        annotated += FingerprintInfo(ann.annotationName, ann.isModule, framework, ann)
     }
     (subclasses.toList, annotated.toList)
   }
 
   // Slightly adapted from sbt/sbt
   def matchingFingerprints(
-      subclassPrints: List[PrintInfo[SubclassFingerprint]],
-      annotatedPrints: List[PrintInfo[AnnotatedFingerprint]],
+      subclassPrints: List[FingerprintInfo[SubclassFingerprint]],
+      annotatedPrints: List[FingerprintInfo[AnnotatedFingerprint]],
       d: Discovered
-  ): List[PrintInfo[Fingerprint]] = {
+  ): List[FingerprintInfo[Fingerprint]] = {
     defined(subclassPrints, d.baseClasses, d.isModule) ++
       defined(annotatedPrints, d.annotations, d.isModule)
   }
@@ -315,11 +320,11 @@ object TestInternals {
 
   // Slightly adapted from sbt/sbt
   private def defined[T <: Fingerprint](
-      in: List[PrintInfo[T]],
+      in: List[FingerprintInfo[T]],
       names: Set[String],
       IsModule: Boolean
-  ): List[PrintInfo[T]] = {
-    in collect { case info @ (name, IsModule, _, _) if names(name) => info }
+  ): List[FingerprintInfo[T]] = {
+    in.collect { case info @ FingerprintInfo(name, IsModule, _, _) if names(name) => info }
   }
 
   private def loadFramework(loader: ClassLoader, fqn: String, logger: Logger): Option[Framework] = {

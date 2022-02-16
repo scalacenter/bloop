@@ -19,6 +19,7 @@ import bloop.bsp.BloopBspDefinitions.BloopExtraBuildParams
 import io.circe.Json
 import bloop.testing.DiffAssertions.TestFailedException
 import bloop.data.SourcesGlobs
+import scala.collection.immutable
 
 object TcpBspProtocolSpec extends BspProtocolSpec(BspProtocol.Tcp)
 object LocalBspProtocolSpec extends BspProtocolSpec(BspProtocol.Local)
@@ -288,23 +289,22 @@ class BspProtocolSpec(
       loadBspBuildFromResources("cross-test-build-scalajs-0.6", workspace, logger) { build =>
         val project = build.projectFor("test-project-test")
         val compiledState = build.state.compile(project, timeout = 120)
-        val expectedClasses = Set(
-          "JUnitTest",
-          "ScalaTestTest",
-          "ScalaCheckTest",
-          "WritingTest",
-          "Specs2Test",
-          "EternalUTest",
-          "UTestTest",
-          "ResourcesTest"
-        ).map("hello." + _)
+        val expectedSuites = Set(
+          ("JUnit", List("hello.JUnitTest")),
+          ("ScalaCheck", List("hello.ScalaCheckTest")),
+          ("specs2", List("hello.Specs2Test")),
+          ("utest", List("hello.EternalUTest", "hello.UTestTest")),
+          ("ScalaTest", List("hello.ScalaTestTest", "hello.WritingTest", "hello.ResourcesTest")),
+        ).map { case (framework, classes) =>
+          ScalaTestClassesItem(project.bspId, Some(framework), classes)
+        }
 
-        val testClasses = compiledState.testClasses(project)
-        val items = testClasses.items
-        assert(items.size == 1)
+        val testSuites = compiledState.testClasses(project)
+        val items = testSuites.items
 
-        val classes = items.head.classes.toSet
-        try assertEquals(classes, expectedClasses)
+        assert(items.size == expectedSuites.size)
+
+        try assertEquals(items.toSet, expectedSuites)
         catch { case t: TestFailedException => logger.dump(); throw t }
       }
     }
@@ -539,4 +539,5 @@ class BspProtocolSpec(
       }
     }
   }
+
 }
