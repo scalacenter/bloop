@@ -11,7 +11,6 @@ import monix.execution.CancelableFuture
 
 import scala.util.Try
 import scala.concurrent.Promise
-import xsbti.compile.Signature
 
 sealed trait CompileResult[+R] {
   def result: R
@@ -22,31 +21,6 @@ sealed trait PartialCompileResult extends CompileResult[Task[ResultBundle]] {
 }
 
 object PartialCompileResult {
-  def apply(
-      bundle: SuccessfulCompileBundle,
-      pipelineAttempt: Try[Array[Signature]],
-      futureProducts: Promise[Option[CompileProducts]],
-      hasJavacCompleted: Promise[Unit],
-      shouldCompileJava: Task[JavaSignal],
-      definedMacroSymbols: Array[String],
-      result: Task[ResultBundle]
-  ): PartialCompileResult = {
-    pipelineAttempt match {
-      case scala.util.Success(sigs) =>
-        val pipeline = PipelineResults(
-          sigs,
-          definedMacroSymbols,
-          futureProducts,
-          hasJavacCompleted,
-          shouldCompileJava
-        )
-        PartialSuccess(bundle, Some(pipeline), result)
-      case scala.util.Failure(CompileExceptions.CompletePromise) =>
-        PartialSuccess(bundle, None, result)
-      case scala.util.Failure(t) =>
-        PartialFailure(bundle.project, t, result)
-    }
-  }
 
   def mapEveryResult(
       results: Dag[PartialCompileResult]
@@ -71,7 +45,7 @@ object PartialCompileResult {
         bundle.map(b => FinalNormalCompileResult(project, b) :: Nil)
       case PartialFailures(failures, _) =>
         Task.gatherUnordered(failures.map(toFinalResult(_))).map(_.flatten)
-      case PartialSuccess(bundle, _, result) =>
+      case PartialSuccess(bundle, result) =>
         result.map(res => FinalNormalCompileResult(bundle.project, res) :: Nil)
     }
   }
@@ -97,18 +71,9 @@ case class PartialFailures(
 
 case class PartialSuccess(
     bundle: SuccessfulCompileBundle,
-    pipeliningResults: Option[PipelineResults],
     result: Task[ResultBundle]
 ) extends PartialCompileResult
     with CacheHashCode
-
-case class PipelineResults(
-    signatures: Array[Signature],
-    definedMacros: Array[String],
-    productsWhenCompilationIsFinished: Promise[Option[CompileProducts]],
-    isJavaCompilationFinished: Promise[Unit],
-    shouldAttemptJavaCompilation: Task[JavaSignal]
-)
 
 sealed trait FinalCompileResult extends CompileResult[ResultBundle] {
   def result: ResultBundle

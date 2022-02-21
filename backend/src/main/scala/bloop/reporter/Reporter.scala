@@ -15,6 +15,8 @@ import scala.util.Try
 import bloop.logging.CompilationEvent
 import scala.concurrent.Promise
 import monix.execution.atomic.AtomicInt
+import xsbti.VirtualFile
+import sbt.internal.inc.PlainVirtualFileConverter
 
 /**
  * A flexible reporter whose configuration is provided by a `ReporterConfig`.
@@ -36,6 +38,7 @@ abstract class Reporter(
     override val config: ReporterConfig,
     val _problems: Reporter.Buffer[ProblemPerPhase]
 ) extends ZincReporter {
+  protected val converter = PlainVirtualFileConverter.converter
   private case class PositionId(sourcePath: String, offset: Int)
   private val _severities = TrieMap.empty[PositionId, Severity]
   private val _messages = TrieMap.empty[PositionId, List[String]]
@@ -270,7 +273,7 @@ trait ZincReporter extends xsbti.Reporter with ConfigurableReporter {
    * inputs. This method is not called if the compilation is a no-op (e.g. same
    * analysis as before).
    */
-  def reportStartIncrementalCycle(sources: Seq[File], outputDirs: Seq[File]): Unit
+  def reportStartIncrementalCycle(sources: Seq[VirtualFile], outputDirs: Seq[File]): Unit
 
   /** Report when the compiler enters in a phase. */
   def reportNextPhase(phase: String, sourceFile: File): Unit
