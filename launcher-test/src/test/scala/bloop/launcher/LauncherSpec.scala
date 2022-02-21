@@ -23,7 +23,7 @@ import bloop.bloopgun.util.{Feedback => BloopgunFeedback}
 import bloop.bloopgun.core.AvailableAtPath
 
 object LatestStableLauncherSpec extends LauncherSpec("1.4.11")
-object LatestMasterLauncherSpec extends LauncherSpec(BuildInfo.version)
+object LatestMainLauncherSpec extends LauncherSpec(BuildInfo.version)
 
 class LauncherSpec(bloopVersion: String)
     extends LauncherBaseSuite(bloopVersion, BuildInfo.bspVersion, 9014) {

@@ -11,7 +11,7 @@
 
 set -o pipefail
 
-BLOOP_DEFAULT_REFERENCE="master"
+BLOOP_DEFAULT_REFERENCE="main"
 BLOOP_SMALL_JMH_OPTIONS="-wi 15 -i 10 -f1 -t1"
 BLOOP_MEDIUM_JMH_OPTIONS="-wi 10 -i 10 -f1 -t1"
 BLOOP_LARGE_JMH_OPTIONS="-wi 10 -i 5 -f1 -t1"
@@ -41,7 +41,7 @@ usage() {
     echo "  ./run-benchmarks.sh --ref deadbeef --upload"
     echo "    Build and run the benchmarks on commit \"deadbeef\", uploads the results."
     echo "  ./run-benchmarks.sh --jmh-options-small \"-i 1 -wi 1 -f1 -t1\""
-    echo "    Build and run the benchmarks on \"master\", runs small benchmarks with \"-i 1 -wi1 -f1 -t1\"."
+    echo "    Build and run the benchmarks on \"main\", runs small benchmarks with \"-i 1 -wi1 -f1 -t1\"."
 }
 
 main() {
