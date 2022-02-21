@@ -238,7 +238,7 @@ compilation in your favorite build tool.
 
 Our benchmark suite can send benchmark data points to Grafana. Look at the
 source code of our benchmarks and [our benchmark
-script](https://github.com/scalacenter/bloop/blob/master/bin/run-benchmarks.sh)
+script](https://github.com/scalacenter/bloop/blob/main/bin/run-benchmarks.sh)
 which an `UploadingRunner` to persist data points.
 
 ## Speed up complicated builds
