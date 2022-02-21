@@ -1284,7 +1284,7 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
 
       val compiledUserState = {
         // There are two macro calls in two different sources, cancellation must avoid one
-        try Await.result(backgroundCompiledUserState, Duration(2950, "ms"))
+        try Await.result(backgroundCompiledUserState, Duration(8000, "ms"))
         catch {
           case NonFatal(t) => backgroundCompiledUserState.cancel(); throw t
           case i: InterruptedException => backgroundCompiledUserState.cancel(); compiledMacrosState
