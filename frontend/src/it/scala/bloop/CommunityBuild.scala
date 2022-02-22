@@ -116,9 +116,9 @@ abstract class CommunityBuild(val buildpressHomeDir: AbsolutePath) {
       // After reporting the state of the execution, compile the projects accordingly.
       val logger = BloopLogger.default("community-build-logger")
       val initialState = loadStateForBuild(buildBaseDir.resolve(".bloop"), logger)
-      val blacklistedProjects = readBlacklistFile(buildBaseDir.resolve("blacklist.buildpress"))
+      val disallowedProjects = readDenylistFile(buildBaseDir.resolve("denylist.buildpress"))
       val allProjectsInBuild = initialState.build.loadedProjects
-        .filterNot(lp => blacklistedProjects.contains(lp.project.name))
+        .filterNot(lp => disallowedProjects.contains(lp.project.name))
 
       val rootProjectName = "bloop-test-root"
       val dummyExistingBaseDir = buildBaseDir.resolve("project")
@@ -193,10 +193,10 @@ abstract class CommunityBuild(val buildpressHomeDir: AbsolutePath) {
     }
   }
 
-  private def readBlacklistFile(blacklist: AbsolutePath): List[String] = {
-    if (!blacklist.exists) Nil
+  private def readDenylistFile(denylist: AbsolutePath): List[String] = {
+    if (!denylist.exists) Nil
     else {
-      val bytes = Files.readAllBytes(blacklist.underlying)
+      val bytes = Files.readAllBytes(denylist.underlying)
       val lines = new String(bytes, StandardCharsets.UTF_8).splitLines
       lines.toList.flatMap { line =>
         if (line == "") Nil

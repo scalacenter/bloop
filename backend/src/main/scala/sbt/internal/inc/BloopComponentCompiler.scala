@@ -358,11 +358,11 @@ private[inc] class BloopComponentCompiler(
 
           // Unfortunately we can only use names to filter out, let's hope there's no clashes
           val filterOutConflicts = new sbt.io.NameFilter {
-            val hydraNameBlacklist = hydraSourceContents.map(_.getName)
+            val hydraNameDenylist = hydraSourceContents.map(_.getName)
             def accept(rawPath: String): Boolean = {
               val path = Paths.get(rawPath)
               val fileName = path.getFileName.toString
-              !hydraNameBlacklist.contains(fileName)
+              !hydraNameDenylist.contains(fileName)
             }
           }
 

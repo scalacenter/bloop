@@ -27,7 +27,7 @@ final class BloopClassFileManager(
     inputs: CompileInputs,
     outPaths: CompileOutPaths,
     allGeneratedRelativeClassFilePaths: mutable.HashMap[String, File],
-    readOnlyCopyBlacklist: mutable.HashSet[Path],
+    readOnlyCopyDenylist: mutable.HashSet[Path],
     allInvalidatedClassFilesForProject: mutable.HashSet[File],
     allInvalidatedExtraCompileProducts: mutable.HashSet[File],
     backgroundTasksWhenNewSuccessfulAnalysis: mutable.ListBuffer[CompileBackgroundTasks.Sig],
@@ -217,7 +217,7 @@ final class BloopClassFileManager(
                 enableCancellation = false
               )
               .map { walked =>
-                readOnlyCopyBlacklist.++=(walked.target)
+                readOnlyCopyDenylist.++=(walked.target)
                 ()
               }
           }
