@@ -161,7 +161,7 @@ jobs:
           mkdir bloop-artifacts
           cp bloopgun/target/bloopgun-2.12/graalvm-native-image/bloopgun-core bloop-artifacts/$ARTIFACT_NAME
         shell: bash
-      - uses: actions/upload-artifact@2.3.1
+      - uses: actions/upload-artifact@v2
         with:
           name: bloop-artifacts
           path: bloop-artifacts/${{ matrix.artifact }}
@@ -222,7 +222,7 @@ jobs:
           mkdir bloop-artifacts
           cp bloopgun/target/bloopgun-2.12/graalvm-native-image/bloopgun-core.exe bloop-artifacts/$ARTIFACT_NAME
         shell: bash
-      - uses: actions/upload-artifact@2.3.1
+      - uses: actions/upload-artifact@v2
         with:
           name: bloop-artifacts
           path: bloop-artifacts/${{ matrix.artifact }}
