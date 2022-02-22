@@ -1153,8 +1153,8 @@ abstract class ConfigGenerationSuite extends BaseConfigSuite {
       val buildDirB = testProjectDir.newFolder("b")
       testProjectDir.newFolder("b", "src", "main", "scala")
       testProjectDir.newFolder("b", "src", "test", "scala")
-      val buildDirMaster = testProjectDir.newFolder("master")
-      val buildSettings = new File(buildDirMaster, "settings.gradle")
+      val buildDirMain = testProjectDir.newFolder("main")
+      val buildSettings = new File(buildDirMain, "settings.gradle")
       val buildFileA = new File(buildDirA, "build.gradle")
       val buildFileB = new File(buildDirB, "build.gradle")
 
@@ -1202,7 +1202,7 @@ abstract class ConfigGenerationSuite extends BaseConfigSuite {
       writeBuildScript(
         buildSettings,
         """
-          |rootProject.name = 'master'
+          |rootProject.name = 'main'
           |includeFlat 'a'
           |includeFlat 'b'
       """.stripMargin
@@ -1215,7 +1215,7 @@ abstract class ConfigGenerationSuite extends BaseConfigSuite {
       GradleRunner
         .create()
         .withGradleVersion(gradleVersion)
-        .withProjectDir(buildDirMaster)
+        .withProjectDir(buildDirMain)
         .withPluginClasspath(getClasspath)
         .withArguments("bloopInstall", "-Si")
         .forwardOutput()
@@ -1226,12 +1226,12 @@ abstract class ConfigGenerationSuite extends BaseConfigSuite {
       val bloopNone = new File(bloopDir, s"${projectName}.json")
       val bloopA = new File(bloopDir, "a.json")
       val bloopB = new File(bloopDir, "b.json")
-      val bloopMaster = new File(bloopDir, "master.json")
+      val bloopMain = new File(bloopDir, "main.json")
       val bloopATest = new File(bloopDir, "a-test.json")
       val bloopBTest = new File(bloopDir, "b-test.json")
 
       assert(!bloopNone.exists())
-      assert(!bloopMaster.exists())
+      assert(!bloopMain.exists())
       val configA = readValidBloopConfig(bloopA)
       val configB = readValidBloopConfig(bloopB)
       val configATest = readValidBloopConfig(bloopATest)

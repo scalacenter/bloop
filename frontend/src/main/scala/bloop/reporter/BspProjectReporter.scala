@@ -17,6 +17,7 @@ import scala.util.Try
 import scala.concurrent.Promise
 import bloop.CompileOutPaths
 import monix.execution.atomic.AtomicInt
+import xsbti.VirtualFile
 
 final class BspProjectReporter(
     val project: Project,
@@ -163,7 +164,11 @@ final class BspProjectReporter(
     )
   }
 
-  override def reportStartIncrementalCycle(sources: Seq[File], outputDirs: Seq[File]): Unit = {
+  override def reportStartIncrementalCycle(
+      sources: Seq[VirtualFile],
+      outputDirs: Seq[File]
+  ): Unit = {
+    val plainFiles = sources.map(converter.toPath(_).toFile())
     cycleCount.incrementAndGet()
 
     statusForNextEndCycle match {
@@ -174,11 +179,11 @@ final class BspProjectReporter(
       case None => ()
     }
 
-    val msg = Reporter.compilationMsgFor(project.name, sources)
+    val msg = Reporter.compilationMsgFor(project.name, plainFiles)
     logger.publishCompilationStart(
       CompilationEvent.StartCompilation(project.name, project.bspUri, msg, taskId)
     )
-    compilingFiles ++ sources
+    compilingFiles ++ plainFiles
   }
 
   private def clearProblemsAtPhase(

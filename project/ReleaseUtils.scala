@@ -400,10 +400,10 @@ object ReleaseUtils {
         )
         if (pushTag) {
           GitUtils.tag(gitRepo, tagName, commitMessage)
-          GitUtils.push(gitRepo, "origin", Seq("master", tagName), auth)
+          GitUtils.push(gitRepo, "origin", Seq("main", tagName), auth)
         } else {
           // The AUR hooks block git tags: don't try to use them (set pushTag=false)
-          GitUtils.push(gitRepo, "origin", Seq("master"), auth)
+          GitUtils.push(gitRepo, "origin", Seq("main"), auth)
         }
       }
     }

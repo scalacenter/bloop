@@ -83,7 +83,7 @@ COURSIER_URL = "https://github.com/coursier/coursier/releases/download/v" + args
 
 # If this is not a released version of Bloop, we need to extract the commit SHA
 # to know how to download the completion and startup scripts.
-# If we can't get the SHA, just download from master.
+# If we can't get the SHA, just download from main.
 if CUSTOMIZED_SCRIPT:
     ETC_VERSION = "v" + BLOOP_VERSION
 else:
@@ -92,7 +92,7 @@ else:
     if matches is not None:
         ETC_VERSION = matches.group(1)
     else:
-        ETC_VERSION = "master"
+        ETC_VERSION = "main"
 
 NAILGUN_CLIENT_URL = "https://raw.githubusercontent.com/scalacenter/nailgun/%s/pynailgun/ng.py" % NAILGUN_COMMIT
 ZSH_COMPLETION_URL = "https://raw.githubusercontent.com/scalacenter/bloop/%s/etc/zsh-completions" % ETC_VERSION
