@@ -117,12 +117,6 @@ jobs:
           which gu && gu install native-image
           ./bin/sbt-ci.sh "install" "launcherTest/test"
         shell: bash
-      - name: Benchmark
-        if: matrix.jdk == 'graalvm-ce-java11@21.1.0' && matrix.os != 'windows-latest'
-        run: |
-          ./bin/sbt-ci.sh \
-              "benchmarks/jmh:run .*HotBloopBenchmark.* -wi 0 -i 1 -f1 -t1 -p project=with-tests -p projectName=with-tests"
-        shell: bash
 
   publish-binaries:
     name: Publish binaries for ${{ matrix.os }}
