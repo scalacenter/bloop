@@ -15,7 +15,7 @@ lazy val `bloop-test-plugin` = project
 val silencerVersion = "1.3.1"
 val derivingVersion = "1.0.0"
 // Don't add -Ycache-plugin-class-loader:last-modified, the point is that bloop will do it automatically
-lazy val whitelist = crossProjects(JVMPlatform, JSPlatform)
+lazy val allowlist = crossProjects(JVMPlatform, JSPlatform)
   .settings(
     wartremoverErrors ++= Warts.unsafe,
     addCompilerPlugin(scalafixSemanticdb),
@@ -34,7 +34,7 @@ lazy val whitelist = crossProjects(JVMPlatform, JSPlatform)
     addCompilerPlugin("org.scoverage" %% "scalac-scoverage-plugin" % "1.3.1"),
     libraryDependencies += "org.scoverage" %%% "scalac-scoverage-runtime" % "1.3.1",
     scalacOptions in Compile += {
-      val scapegoatDataDir = (bloopConfigDir in Global).value / "whitelistJS" / "scapegoat"
+      val scapegoatDataDir = (bloopConfigDir in Global).value / "allowlistJS" / "scapegoat"
       java.nio.file.Files.createDirectories(scapegoatDataDir.toPath)
       s"-P:scoverage:dataDir:${scapegoatDataDir}"
     },
@@ -47,7 +47,7 @@ lazy val whitelist = crossProjects(JVMPlatform, JSPlatform)
       "org.scalaz" %% "deriving-macro" % derivingVersion,
       compilerPlugin("org.scalaz" %% "deriving-plugin" % derivingVersion)
     ),
-    // Now let's add our test plugin to the whitelist
+    // Now let's add our test plugin to the allowlist
     scalacOptions in Compile ++= {
       val jar = (Keys.`package` in (`bloop-test-plugin`, Compile)).value
       val addPlugin = "-Xplugin:" + jar.getAbsolutePath
@@ -58,7 +58,7 @@ lazy val whitelist = crossProjects(JVMPlatform, JSPlatform)
 // This is just a project to play with when making changes in this build
 lazy val sandbox = project
   .settings(
-    // Now let's add our test plugin to the whitelist
+    // Now let's add our test plugin to the allowlist
     scalacOptions in Compile ++= {
       val jar = (Keys.`package` in (`bloop-test-plugin`, Compile)).value
       val addPlugin = "-Xplugin:" + jar.getAbsolutePath
