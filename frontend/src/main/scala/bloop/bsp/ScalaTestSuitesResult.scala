@@ -24,10 +24,10 @@ object ScalaTestClassesResult {
 
 final case class ScalaTestClassesItem(
     target: BuildTargetIdentifier,
-    // 
-    framework: Option[String],
     // Fully qualified names of test classes
-    classes: List[String]
+    classes: List[String],
+    // Name of the sbt's test framework
+    framework: Option[String]
 )
 object ScalaTestClassesItem {
   implicit val decoder: Decoder[ScalaTestClassesItem] = deriveDecoder
