@@ -1,32 +1,33 @@
 package bloop
 
-import bloop.io.{Paths => BloopPaths}
 import bloop.io.AbsolutePath
-import bloop.tracing.BraveTracer
 import bloop.io.ParallelOps
 import bloop.io.ParallelOps.CopyMode
+import bloop.io.{Paths => BloopPaths}
+import bloop.reporter.Reporter
+import bloop.tracing.BraveTracer
+import monix.eval.Task
+import xsbti.compile.ClassFileManager
+import xsbti.compile.PreviousResult
 
 import java.io.File
+import java.io.IOException
+import java.nio.file.CopyOption
+import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
-
+import java.nio.file.StandardCopyOption
 import scala.collection.mutable
-
-import xsbti.compile.ClassFileManager
-import monix.eval.Task
-import bloop.reporter.Reporter
-import xsbti.compile.PreviousResult
-import java.nio.file.Files
-import java.io.IOException
-import scala.util.Try
 import scala.util.Failure
 import scala.util.Success
+import scala.util.Try
 
 final class BloopClassFileManager(
+    backupDir0: Path,
     inputs: CompileInputs,
     outPaths: CompileOutPaths,
     allGeneratedRelativeClassFilePaths: mutable.HashMap[String, File],
-    readOnlyCopyBlacklist: mutable.HashSet[Path],
+    readOnlyCopyDenylist: mutable.HashSet[Path],
     allInvalidatedClassFilesForProject: mutable.HashSet[File],
     allInvalidatedExtraCompileProducts: mutable.HashSet[File],
     backgroundTasksWhenNewSuccessfulAnalysis: mutable.ListBuffer[CompileBackgroundTasks.Sig],
@@ -38,9 +39,16 @@ final class BloopClassFileManager(
   private[this] val newClassesDirPath = newClassesDir.toString
   private[this] val dependentClassFilesLinks = new mutable.HashSet[Path]()
   private[this] val weakClassFileInvalidations = new mutable.HashSet[Path]()
+  private[this] val generatedFiles = new mutable.HashSet[File]
 
   // Supported compile products by the class file manager
   private[this] val supportedCompileProducts = List(".sjsir", ".nir", ".tasty")
+  // Files backed up during compilation
+  private[this] val movedFiles = new mutable.HashMap[File, File]
+
+  private val backupDir = backupDir0.normalize
+  backupDir.toFile.delete()
+  Files.createDirectories(backupDir)
 
   /**
    * Returns the set of all invalidated class files.
@@ -114,14 +122,14 @@ final class BloopClassFileManager(
           inputs.dependentResults
         ) match {
           case None => ()
-          case Some(foundClassFile) =>
+          case Some(foundClassFilePath) =>
             weakClassFileInvalidations.+=(classFilePath)
             val newLink = newClassesDir.resolve(relativeFilePath)
-            BloopClassFileManager.link(newLink, foundClassFile.toPath) match {
+            BloopClassFileManager.link(newLink, foundClassFilePath) match {
               case Success(_) => dependentClassFilesLinks.+=(newLink)
               case Failure(exception) =>
                 inputs.logger.error(
-                  s"Failed to create link for invalidated file $foundClassFile: ${exception.getMessage()}"
+                  s"Failed to create link for invalidated file $foundClassFilePath: ${exception.getMessage()}"
                 )
                 inputs.logger.trace(exception)
             }
@@ -129,7 +137,6 @@ final class BloopClassFileManager(
         }
       }
     }
-
     allInvalidatedClassFilesForProject.++=(classes)
 
     val invalidatedExtraCompileProducts = classes.flatMap { classFile =>
@@ -142,12 +149,28 @@ final class BloopClassFileManager(
       }
     }
 
+    // Idea taken from the default TransactionalClassFileManager in zinc
+    // https://github.com/sbt/zinc/blob/c18637c1b30f8ab7d1f702bb98301689ec75854b/internal/zinc-core/src/main/scala/sbt/internal/inc/ClassFileManager.scala#L183
+    val toBeBackedUp = (classes ++ invalidatedExtraCompileProducts).filter(c =>
+      !movedFiles.contains(c) && !generatedFiles(c)
+    )
+    for {
+      c <- toBeBackedUp
+      if c.exists()
+    } movedFiles.put(c, move(c)).foreach(move)
+
+    for {
+      f <- classes
+      if f.exists()
+    } f.delete()
+
     allInvalidatedExtraCompileProducts.++=(invalidatedExtraCompileProducts)
   }
 
   def generated(generatedClassFiles: Array[File]): Unit = {
     memoizedInvalidatedClassFiles = null
     generatedClassFiles.foreach { generatedClassFile =>
+      generatedFiles += generatedClassFile
       val newClassFile = generatedClassFile.getAbsolutePath
       val relativeClassFilePath = newClassFile.replace(newClassesDirPath, "")
       allGeneratedRelativeClassFilePaths.put(relativeClassFilePath, generatedClassFile)
@@ -167,6 +190,7 @@ final class BloopClassFileManager(
           allInvalidatedExtraCompileProducts.-=(productAssociatedToClassFile)
       }
     }
+
   }
 
   def complete(success: Boolean): Unit = {
@@ -193,13 +217,28 @@ final class BloopClassFileManager(
                 enableCancellation = false
               )
               .map { walked =>
-                readOnlyCopyBlacklist.++=(walked.target)
+                readOnlyCopyDenylist.++=(walked.target)
                 ()
               }
           }
         }
       )
     } else {
+      /* Restore all files from backuped last successful compilation to make sure
+       * that they are still available.
+       */
+      for {
+        (orig, tmp) <- movedFiles
+        if tmp.exists
+      } {
+        if (!orig.getParentFile.exists) {
+          Files.createDirectory(orig.getParentFile.toPath())
+        }
+        Files.move(tmp.toPath(), orig.toPath())
+      }
+      backupDir.toFile().delete()
+      ()
+
       // Delete all compilation products generated in the new classes directory
       val deleteNewDir = Task { BloopPaths.delete(AbsolutePath(newClassesDir)); () }.memoize
       backgroundTasksForFailedCompilation.+=(
@@ -244,6 +283,12 @@ final class BloopClassFileManager(
           }
       )
     }
+  }
+
+  private def move(c: File): File = {
+    val target = Files.createTempFile(backupDir, "bloop", ".class").toFile
+    Files.move(c.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING)
+    target
   }
 }
 

@@ -226,6 +226,7 @@ class MavenConfigGenerationSuite extends BaseConfigSuite {
       }
       checking(configFile, projectName, subProjects)
       tempDir.toFile().delete()
+      ()
     } catch {
       case NonFatal(e) =>
         println("Maven output:\n" + result)
@@ -248,7 +249,7 @@ class MavenConfigGenerationSuite extends BaseConfigSuite {
   private def exec(cmd: Seq[String], cwd: File): Try[String] = {
     Try {
       val lastError = new StringBuilder
-      val swallowStderr = ProcessLogger(_ => (), err => lastError.append(err))
+      val swallowStderr = ProcessLogger(_ => (), err => { lastError.append(err); () })
       val processBuilder = new ProcessBuilder()
       val out = new StringBuilder()
       processBuilder.directory(cwd)

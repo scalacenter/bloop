@@ -17,7 +17,7 @@ import scala.concurrent.Promise
 import scala.collection.mutable
 import scala.util.control.NonFatal
 
-object CompilerPluginWhitelist {
+object CompilerPluginAllowlist {
 
   /**
    * A list of compiler plugin names (as specified in their scalac-plugin.xml
@@ -46,7 +46,7 @@ object CompilerPluginWhitelist {
   )
 
   /** A sequence of versions that are known not to support compiler plugin classloading. */
-  val scalaVersionBlacklist =
+  val disallowedScalaVersions =
     List("2.10.", "2.11.", "2.12.1", "2.12.2", "2.12.3", "2.12.4", "0.", "3.")
 
   private implicit val debug = DebugFilter.Compilation
@@ -80,15 +80,15 @@ object CompilerPluginWhitelist {
     case class WorkItem(pluginFlag: String, idx: Int, result: Promise[Boolean])
 
     val actualScalaVersion = scalaVersion.split('-').headOption
-    val blacklistedVersions = scalaVersionBlacklist.find { v =>
+    val disallowedVersions = disallowedScalaVersions.find { v =>
       actualScalaVersion.exists { userVersion =>
         if (v.endsWith(".")) userVersion.startsWith(v) else userVersion == v
       }
     }
 
-    val enableTask = blacklistedVersions match {
-      case Some(blacklistedVersion) =>
-        logger.debug(s"Disabled compiler plugin classloading, unsupported in ${blacklistedVersion}")
+    val enableTask = disallowedVersions match {
+      case Some(disallowedVersion) =>
+        logger.debug(s"Disabled compiler plugin classloading, unsupported in ${disallowedVersion}")
         Task.now(scalacOptions)
       case None =>
         if (scalacOptions.contains("-Ycache-plugin-class-loader:none")) Task.now(scalacOptions)

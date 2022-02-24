@@ -11,7 +11,7 @@
 
 set -o pipefail
 
-BLOOP_DEFAULT_REFERENCE="master"
+BLOOP_DEFAULT_REFERENCE="main"
 BLOOP_SMALL_JMH_OPTIONS="-wi 15 -i 10 -f1 -t1"
 BLOOP_MEDIUM_JMH_OPTIONS="-wi 10 -i 10 -f1 -t1"
 BLOOP_LARGE_JMH_OPTIONS="-wi 10 -i 5 -f1 -t1"
@@ -41,7 +41,7 @@ usage() {
     echo "  ./run-benchmarks.sh --ref deadbeef --upload"
     echo "    Build and run the benchmarks on commit \"deadbeef\", uploads the results."
     echo "  ./run-benchmarks.sh --jmh-options-small \"-i 1 -wi 1 -f1 -t1\""
-    echo "    Build and run the benchmarks on \"master\", runs small benchmarks with \"-i 1 -wi1 -f1 -t1\"."
+    echo "    Build and run the benchmarks on \"main\", runs small benchmarks with \"-i 1 -wi1 -f1 -t1\"."
 }
 
 main() {
@@ -91,23 +91,23 @@ main() {
       #"-wi 4 -i 4 -f1 -t1 -p project=lichess -p projectName=lila-test"
       #"-wi 15 -i 10 -f1 -t1 -p project=sbt -p projectName=sbtRoot"
       #"-wi 8 -i 5 -f1 -t1 -p project=frontend -p projectName=root-test"
-      #"-wi 8 -i 5 -f1 -t1 -p project=finagle -p projectName=finagle-test"
+      "-wi 8 -i 5 -f1 -t1 -p project=finagle -p projectName=finagle-test"
       "-wi 10 -i 10 -f1 -t1 -p project=algebird -p projectName=algebird-test"
-      #"-wi 20 -i 10 -f1 -t1 -p project=scalatra -p projectName=scalatra-project-test"
+      "-wi 20 -i 10 -f1 -t1 -p project=scalatra -p projectName=scalatra-project-test"
       "-wi 15 -i 5 -f1 -t1 -p project=atlas -p projectName=root-test"
       "-wi 20 -i 10 -f1 -t1 -p project=grid -p projectName=grid-test"
-      #"-wi 7 -i 5 -f1 -t1 -p project=akka -p projectName=akka-test"
-      #"-wi 10 -i 5 -f1 -t1 -p project=circe -p projectName=circe-test"
+      "-wi 7 -i 5 -f1 -t1 -p project=akka -p projectName=akka-test"
+      # "-wi 10 -i 5 -f1 -t1 -p project=circe -p projectName=circe-test"
       #"-wi 10 -i 5 -f1 -t1 -p project=linkerd -p projectName=all-test"
-      #"-wi 20 -i 10 -f1 -t1 -p project=summingbird -p projectName=summingbird-test"
+      "-wi 20 -i 10 -f1 -t1 -p project=summingbird -p projectName=summingbird-test"
       "-wi 5 -i 5 -f1 -t1 -p project=http4s -p projectName=root-test"
       #"-wi 15 -i 10 -f1 -t1 -p project=gatling -p projectName=gatling-parent-test"
       #"-wi 5 -i 5 -f1 -t1 -p project=marathon -p projectName=marathon-test"
       #"-wi 15 -i 5 -f1 -t1 -p project=coursier -p projectName=coursier-repo-test"
       #"-wi 10 -i 5 -f1 -t1 -p project=prisma -p projectName=root-test"
-      #"-wi 5 -i 3 -f1 -t1 -p project=cats -p projectName=cats-test" # compiles hot in 3 minutes
+      # "-wi 5 -i 3 -f1 -t1 -p project=cats -p projectName=cats-test" # compiles hot in 3 minutes
       #"-wi 2 -i 3 -f1 -t1 -p project=scalding -p projectName=scalding-test"
-      "-wi 2 -i 3 -f1 -t1 -p project=scio -p projectName=scio+test"
+      #"-wi 2 -i 3 -f1 -t1 -p project=scio -p projectName=scio+test"
     )
 
     JAVA_HOMES=(
@@ -122,7 +122,7 @@ main() {
 
     for java_home in "${JAVA_HOMES[@]}"; do
       for benchmark in "${SBT_BLOOP_BENCHMARKS[@]}"; do
-        SBT_COMMANDS+=("$JMH_CMD .*Hot(Bloop|PipelinedBloop|Sbt)Benchmark.* $benchmark -jvm $java_home")
+        SBT_COMMANDS+=("$JMH_CMD .*Hot(Bloop|Sbt)Benchmark.* $benchmark -jvm $java_home")
       done
     done
 

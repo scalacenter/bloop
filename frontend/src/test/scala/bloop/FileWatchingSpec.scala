@@ -23,7 +23,7 @@ import bloop.data.SourcesGlobs
 
 object FileWatchingSpec extends BaseSuite {
   System.setProperty("file-watcher-batch-window-ms", "100")
-  flakyTest("simulate an incremental compiler session with file watching enabled", 3) {
+  test("simulate an incremental compiler session with file watching enabled") {
     TestUtil.withinWorkspace { workspace =>
       import ExecutionContext.ioScheduler
       object Sources {
@@ -134,7 +134,7 @@ object FileWatchingSpec extends BaseSuite {
         state
       }
 
-      TestUtil.await(FiniteDuration(20, TimeUnit.SECONDS), ExecutionContext.ioScheduler) {
+      TestUtil.await(FiniteDuration(60, TimeUnit.SECONDS), ExecutionContext.ioScheduler) {
         for {
           _ <- waitUntilIteration(1)
           initialWatchedState <- Task(testValidLatestState)
@@ -414,7 +414,7 @@ object FileWatchingSpec extends BaseSuite {
       def waitUntilIteration(totalIterations: Int): Task[Unit] =
         waitUntilWatchIteration(logsObservable, totalIterations, HasIterationStoppedMsg, None)
 
-      TestUtil.await(FiniteDuration(5, TimeUnit.SECONDS)) {
+      TestUtil.await(FiniteDuration(15, TimeUnit.SECONDS)) {
         for {
           _ <- waitUntilIteration(1)
           initialWatchedState <- Task(compiledState.getLatestSavedStateGlobally())

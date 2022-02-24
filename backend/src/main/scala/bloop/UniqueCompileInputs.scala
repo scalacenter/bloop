@@ -3,6 +3,7 @@ package bloop
 import bloop.io.AbsolutePath
 import bloop.util.CacheHashCode
 import xsbti.compile.FileHash
+import xsbti.VirtualFileRef
 
 case class UniqueCompileInputs(
     sources: Vector[UniqueCompileInputs.HashedSource],
@@ -36,7 +37,7 @@ case class UniqueCompileInputs(
 }
 
 object UniqueCompileInputs {
-  case class HashedSource(source: AbsolutePath, hash: Int)
+  case class HashedSource(source: VirtualFileRef, hash: Int)
 
   def emptyFor(originPath: String): UniqueCompileInputs = {
     UniqueCompileInputs(Vector.empty, Vector.empty, Vector.empty, Vector.empty, originPath)

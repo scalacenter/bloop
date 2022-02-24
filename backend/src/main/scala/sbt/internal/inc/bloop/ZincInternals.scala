@@ -11,6 +11,9 @@ import sbt.internal.inc.javac.AnalyzingJavaCompiler
 import sbt.librarymanagement.{Configurations, ModuleID}
 import xsbti.compile.{ClasspathOptions, JavaCompiler}
 import xsbti.{ComponentProvider, Position}
+import xsbti.VirtualFile
+import bloop.util.AnalysisUtils
+import xsbti.VirtualFileRef
 
 object ZincInternals {
   import sbt.internal.inc.JavaInterfaceUtil.EnrichOptional
@@ -42,11 +45,11 @@ object ZincInternals {
 
   def instantiateJavaCompiler(
       javac: xsbti.compile.JavaCompiler,
-      classpath: Seq[File],
+      classpath: Seq[VirtualFile],
       instance: xsbti.compile.ScalaInstance,
       cpOptions: ClasspathOptions,
-      lookup: (String => Option[File]),
-      searchClasspath: Seq[File]
+      lookup: (String => Option[VirtualFile]),
+      searchClasspath: Seq[VirtualFile]
   ): JavaCompiler = {
     new AnalyzingJavaCompiler(javac, classpath, instance, cpOptions, lookup, searchClasspath)
   }
@@ -55,7 +58,7 @@ object ZincInternals {
   import sbt.internal.util.Relation
   def copyRelations(
       relations: Relations,
-      rebase: File => File
+      rebase: VirtualFileRef => VirtualFileRef
   ): Relations = {
     val newSrcProd = Relation.empty ++ {
       relations.srcProd.all.map {

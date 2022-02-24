@@ -217,9 +217,8 @@ object ResultsCache {
               val r = PreviousResult.of(Optional.of(res.getAnalysis), Optional.of(res.getMiniSetup))
               res.getAnalysis.readCompilations.getAllCompilations.lastOption match {
                 case Some(lastCompilation) =>
-                  lastCompilation.getOutput.getSingleOutput.toOption match {
-                    case Some(classesDirFile) =>
-                      val classesDir = classesDirFile.toPath
+                  lastCompilation.getOutput.getSingleOutputAsPath.toOption match {
+                    case Some(classesDir) =>
                       val originPath = p.origin.path.syntax
                       val originHash = p.origin.hash
                       val inputs = UniqueCompileInputs.emptyFor(originPath)
@@ -227,10 +226,8 @@ object ResultsCache {
                       val dummy = ObservedLogger.dummy(logger, ExecutionContext.ioScheduler)
                       val reporter = new LogReporter(p, dummy, cwd, ReporterConfig.defaultFormat)
 
-                      // TODO: Figure out a way to populate macros from previous run after restart
-                      val ms = new Array[String](0)
                       val products =
-                        CompileProducts(classesDir, classesDir, r, r, Set.empty, Map.empty, ms)
+                        CompileProducts(classesDir, classesDir, r, r, Set.empty, Map.empty)
                       val bundle = ResultBundle(
                         Result.Success(inputs, reporter, products, 0L, dummyTasks, false, false),
                         Some(LastSuccessfulResult(inputs, products, Task.now(()))),

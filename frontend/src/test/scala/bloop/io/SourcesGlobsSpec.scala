@@ -12,6 +12,7 @@ import java.util.concurrent.TimeUnit
 import bloop.cli.ExitStatus
 import bloop.config.Config
 import bloop.data.SourcesGlobs
+import sbt.internal.inc.PlainVirtualFileConverter
 
 object SourcesGlobsSpec extends bloop.testing.BaseSuite {
 
@@ -58,13 +59,14 @@ object SourcesGlobsSpec extends bloop.testing.BaseSuite {
         val Right(result) = TestUtil.await(10, TimeUnit.SECONDS)(hashedSources)
         import scala.collection.JavaConverters._
         val obtainedFilenames = result
-          .map(
-            _.source
+          .map { file =>
+            val path = AbsolutePath(PlainVirtualFileConverter.converter.toPath(file.source))
+            path
               .toRelative(globDirectory)
               .toUri(isDirectory = false)
               .toString()
               .stripPrefix("globs/src/")
-          )
+          }
           .sorted
           .mkString("\n")
         assertNoDiff(obtainedFilenames, expectedFilenames)

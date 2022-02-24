@@ -42,12 +42,12 @@ object ParallelOps {
    *
    * @param parallelUnits Threads to use for parallel IO copy.
    * @param replaceExisting Whether the copy should replace existing paths in the target.
-   * @param blacklist A list of both origin and target paths that if matched skip the copy.
+   * @param denylist A list of both origin and target paths that if matched skip the copy.
    */
   case class CopyConfiguration private (
       parallelUnits: Int,
       mode: CopyMode,
-      blacklist: Set[Path]
+      denylist: Set[Path]
   )
 
   case class FileWalk(visited: List[Path], target: List[Path])
@@ -90,10 +90,10 @@ object ParallelOps {
       def visitFile(file: Path, attributes: BasicFileAttributes): FileVisitResult = {
         if (isCancelled.get) FileVisitResult.TERMINATE
         else {
-          if (attributes.isDirectory || configuration.blacklist.contains(file)) ()
+          if (attributes.isDirectory || configuration.denylist.contains(file)) ()
           else {
             val rebasedFile = currentTargetDirectory.resolve(file.getFileName)
-            if (configuration.blacklist.contains(rebasedFile)) ()
+            if (configuration.denylist.contains(rebasedFile)) ()
             else {
               visitedPaths.+=(file)
               targetPaths.+=(rebasedFile)

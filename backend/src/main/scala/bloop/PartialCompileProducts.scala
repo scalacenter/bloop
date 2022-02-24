@@ -8,6 +8,5 @@ import bloop.io.AbsolutePath
  */
 case class PartialCompileProducts(
     readOnlyClassesDir: AbsolutePath,
-    newClassesDir: AbsolutePath,
-    definedMacroSymbols: Array[String]
+    newClassesDir: AbsolutePath
 )

@@ -125,6 +125,7 @@ object TestInternals {
       discovered: Map[Framework, List[TaskDef]],
       args: List[Config.TestArgument],
       jvmOptions: List[String],
+      envVariables: List[String],
       testEventHandler: BloopTestSuiteEventHandler,
       logger: Logger,
       opts: CommonOptions
@@ -150,7 +151,7 @@ object TestInternals {
           forkMain,
           arguments,
           jvmOptions.toArray,
-          Nil,
+          envVariables,
           logger,
           opts,
           testAgentJars

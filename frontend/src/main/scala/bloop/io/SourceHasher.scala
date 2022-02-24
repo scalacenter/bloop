@@ -19,7 +19,6 @@ import scala.collection.mutable
 import scala.concurrent.Promise
 
 import bloop.data.Project
-import bloop.CompilerOracle
 import bloop.engine.ExecutionContext
 import bloop.util.monix.FoldLeftAsyncConsumer
 import bloop.UniqueCompileInputs.HashedSource
@@ -31,6 +30,8 @@ import monix.execution.Scheduler
 import monix.reactive.internal.operators.MapAsyncParallelObservable
 import monix.execution.Cancelable
 import monix.execution.cancelables.CompositeCancelable
+
+import sbt.internal.inc.PlainVirtualFileConverter
 
 object SourceHasher {
   private final val sourceMatcher =
@@ -142,7 +143,7 @@ object SourceHasher {
         val hashSourcesInParallel = observable.mapAsync(parallelUnits) { (source: Path) =>
           Task.eval {
             val hash = ByteHasher.hashFileContents(source.toFile)
-            HashedSource(AbsolutePath(source), hash)
+            HashedSource(PlainVirtualFileConverter.converter.toVirtualFile(source), hash)
           }
         }
 

@@ -8,6 +8,7 @@ import ch.epfl.scala.bsp
 import bloop.logging.{ObservedLogger, Logger}
 import scala.concurrent.Promise
 import bloop.logging.CompilationEvent
+import xsbti.VirtualFile
 
 final class ObservedReporter(
     val observedLogger: ObservedLogger[Logger],
@@ -73,7 +74,10 @@ final class ObservedReporter(
     registerAction(ReporterAction.ProcessEndCompilation(code))
   }
 
-  override def reportStartIncrementalCycle(sources: Seq[File], outputDirs: Seq[File]): Unit = {
+  override def reportStartIncrementalCycle(
+      sources: Seq[VirtualFile],
+      outputDirs: Seq[File]
+  ): Unit = {
     underlying.reportStartIncrementalCycle(sources, outputDirs)
     registerAction(ReporterAction.ReportStartIncrementalCycle(sources, outputDirs))
   }
