@@ -9,6 +9,7 @@ import scala.util.Properties
 import java.nio.file.Paths
 import bloop.io.AbsolutePath
 import bloop.io.Environment.lineSeparator
+import bloop.internal.build.BuildInfo
 
 object ConsoleSpec extends BaseSuite {
   test("default ammonite console works in multi-build project") {
@@ -42,7 +43,7 @@ object ConsoleSpec extends BaseSuite {
       val coursierClasspathArgs =
         classpathB.flatMap(elem => Seq("--extra-jars", elem.syntax))
       val expectedCommand =
-        s"coursier launch com.lihaoyi:ammonite_2.12.15:latest.release --main-class ammonite.Main ${coursierClasspathArgs
+        s"coursier launch com.lihaoyi:ammonite_${BuildInfo.scalaVersion}:latest.release --main-class ammonite.Main ${coursierClasspathArgs
           .mkString(" ")} ${("--" :: ammArgs).mkString(" ")}"
 
       assertNoDiff(

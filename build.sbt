@@ -289,7 +289,7 @@ lazy val launcher = project
 lazy val launcherTest: Project = project
   .in(file("launcher-test"))
   .disablePlugins(ScriptedPlugin)
-  .dependsOn(`bloopgun-core`, frontend % "test->test", launcher)
+  .dependsOn(launcher, frontend % "test->test")
   .settings(testSuiteSettings)
   .settings(
     name := "bloop-launcher-test",

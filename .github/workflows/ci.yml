@@ -96,7 +96,7 @@ jobs:
           ./bin/sbt-ci.sh bloopgun/graalvm-native-image:packageBin
       - name: Run launcher tests
         run: |
-          ./bin/sbt-ci.sh "launcher/test"
+          ./bin/sbt-ci.sh "launcherTest/test"
         shell: bash
 
   publish-binaries:
