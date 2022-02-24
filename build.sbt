@@ -213,80 +213,126 @@ lazy val frontend: Project = project
     )
   )
 
+lazy val bloopgunCoreSettings = Def.settings(
+  sonatypeSetting,
+  name := "bloopgun-core",
+  fork in run := true,
+  fork in Test := true,
+  parallelExecution in Test := false,
+  buildInfoPackage := "bloopgun.internal.build",
+  buildInfoKeys := List(version),
+  buildInfoObject := "BloopgunInfo",
+  libraryDependencies ++= List(
+    Dependencies.snailgun,
+    // Use zt-exec instead of nuprocess because it doesn't require JNA (good for graalvm)
+    Dependencies.ztExec,
+    Dependencies.coursierInterface,
+    Dependencies.coursierInterfaceSubs,
+    Dependencies.jsoniterCore,
+    Dependencies.jsoniterMacros % Provided,
+    Dependencies.libdaemonjvm
+  )
+)
+
+lazy val bloopgunSettings = Def.settings(
+  sonatypeSetting,
+  name := "bloopgun",
+  libraryDependencies ++= List(
+    Dependencies.logback,
+    Dependencies.svmSubs
+  ),
+  mainClass in GraalVMNativeImage := Some("bloop.bloopgun.Bloopgun"),
+  graalVMNativeImageCommand := {
+    val oldPath = graalVMNativeImageCommand.value
+    if (scala.util.Properties.isWin) sys.props("java.home") + "\\bin\\native-image.cmd"
+    else oldPath
+  },
+  graalVMNativeImageOptions ++= {
+    val reflectionFile = sourceDirectory.in(Compile).value./("graal")./("reflection.json")
+    assert(reflectionFile.exists)
+    List(
+      "--no-server",
+      "--enable-http",
+      "--enable-https",
+      "-H:EnableURLProtocols=http,https",
+      "--enable-all-security-services",
+      "--no-fallback",
+      s"-H:ReflectionConfigurationFiles=$reflectionFile",
+      "--allow-incomplete-classpath",
+      "-H:+ReportExceptionStackTraces",
+      "--initialize-at-build-time=scala.Symbol",
+      "--initialize-at-build-time=scala.Function1",
+      "--initialize-at-build-time=scala.Function2",
+      "--initialize-at-build-time=scala.runtime.StructuralCallSite",
+      "--initialize-at-build-time=scala.runtime.EmptyMethodCache",
+      "--initialize-at-build-time=scala.runtime.LambdaDeserialize",
+      "--initialize-at-build-time=scala.collection.immutable.VM"
+    )
+  }
+)
+
 lazy val `bloopgun-core` = project
+  .disablePlugins(ScriptedPlugin)
   .enablePlugins(BuildInfoPlugin)
   .settings(testSuiteSettings)
+  .settings(target := (file("bloopgun-core") / "target" / "bloopgun-2.12").getAbsoluteFile)
+  .settings(bloopgunCoreSettings)
   .settings(
-    sonatypeSetting,
-    name := "bloopgun-core",
-    fork in run := true,
-    fork in Test := true,
-    parallelExecution in Test := false,
-    buildInfoPackage := "bloopgun.internal.build",
-    buildInfoKeys := List(version),
-    buildInfoObject := "BloopgunInfo",
-    crossScalaVersions := Seq(Dependencies.Scala212Version, Dependencies.Scala213Version),
-    libraryDependencies ++= List(
-      Dependencies.snailgun,
-      // Use zt-exec instead of nuprocess because it doesn't require JNA (good for graalvm)
-      Dependencies.ztExec,
-      Dependencies.coursierInterface,
-      Dependencies.coursierInterfaceSubs,
-      Dependencies.jsoniterCore,
-      Dependencies.jsoniterMacros % Provided,
-      Dependencies.libdaemonjvm
-    )
+    scalaVersion := Dependencies.Scala212Version
+  )
+
+lazy val `bloopgun-core-213`: Project = project
+  .in(file("bloopgun-core"))
+  .disablePlugins(ScriptedPlugin)
+  .enablePlugins(BuildInfoPlugin)
+  .settings(testSuiteSettings)
+  .settings(target := (file("bloopgun-core") / "target" / "bloopgun-2.13").getAbsoluteFile)
+  .settings(bloopgunCoreSettings)
+  .settings(
+    scalaVersion := Dependencies.Scala213Version
   )
 
 lazy val bloopgun = project
   .enablePlugins(GraalVMNativeImagePlugin)
   .dependsOn(`bloopgun-core`)
   .settings(
-    sonatypeSetting,
-    name := "bloopgun",
-    libraryDependencies ++= List(
-      Dependencies.logback,
-      Dependencies.svmSubs
-    ),
-    mainClass in GraalVMNativeImage := Some("bloop.bloopgun.Bloopgun"),
-    graalVMNativeImageCommand := {
-      val oldPath = graalVMNativeImageCommand.value
-      if (scala.util.Properties.isWin) sys.props("java.home") + "\\bin\\native-image.cmd"
-      else oldPath
-    },
-    graalVMNativeImageOptions ++= {
-      val reflectionFile = sourceDirectory.in(Compile).value./("graal")./("reflection.json")
-      assert(reflectionFile.exists)
-      List(
-        "--no-server",
-        "--enable-http",
-        "--enable-https",
-        "-H:EnableURLProtocols=http,https",
-        "--enable-all-security-services",
-        "--no-fallback",
-        s"-H:ReflectionConfigurationFiles=$reflectionFile",
-        "--allow-incomplete-classpath",
-        "-H:+ReportExceptionStackTraces",
-        "--initialize-at-build-time=scala.Symbol",
-        "--initialize-at-build-time=scala.Function1",
-        "--initialize-at-build-time=scala.Function2",
-        "--initialize-at-build-time=scala.runtime.StructuralCallSite",
-        "--initialize-at-build-time=scala.runtime.EmptyMethodCache",
-        "--initialize-at-build-time=scala.runtime.LambdaDeserialize",
-        "--initialize-at-build-time=scala.collection.immutable.VM"
-      )
-    }
+    scalaVersion := Dependencies.Scala212Version,
+    target := (file("bloopgun") / "target" / "bloopgun-2.12").getAbsoluteFile
   )
+  .settings(bloopgunSettings)
+
+lazy val bloopgun213 = project
+  .in(file("bloopgun"))
+  .enablePlugins(GraalVMNativeImagePlugin)
+  .dependsOn(`bloopgun-core-213`)
+  .settings(
+    scalaVersion := Dependencies.Scala213Version,
+    target := (file("bloopgun") / "target" / "bloopgun-2.13").getAbsoluteFile
+  )
+  .settings(bloopgunSettings)
 
 lazy val launcher = project
+  .in(file("launcher"))
   .dependsOn(`bloopgun-core`)
+  .settings(testSuiteSettings)
   .settings(
     sonatypeSetting,
     name := "bloop-launcher",
-    crossScalaVersions := Seq(Dependencies.Scala212Version, Dependencies.Scala213Version)
+    target := (file("launcher") / "target" / "launcher-2.12").getAbsoluteFile
   )
 
-lazy val launcherTest: Project = project
+lazy val launcher213 = project
+  .in(file("launcher"))
+  .disablePlugins(ScriptedPlugin)
+  .dependsOn(`bloopgun-core-213`)
+  .settings(testSuiteSettings)
+  .settings(
+    name := "bloop-launcher",
+    scalaVersion := Dependencies.Scala213Version,
+    target := (file("launcher") / "target" / "launcher-2.13").getAbsoluteFile
+  )
+
+lazy val launcherTest = project
   .in(file("launcher-test"))
   .disablePlugins(ScriptedPlugin)
   .dependsOn(launcher, frontend % "test->test")
@@ -363,7 +409,9 @@ lazy val stuff = project
     launcher,
     launcherTest,
     bloopgun,
+    bloopgun213,
     `bloopgun-core`,
+    `bloopgun-core-213`,
     shared,
     config.jvm,
     jsBridge1
