@@ -32,6 +32,7 @@ lazy val shared = project
       Dependencies.bsp4s,
       Dependencies.coursierInterface,
       Dependencies.zinc,
+      Dependencies.log4j,
       Dependencies.xxHashLibrary,
       Dependencies.sbtTestInterface,
       Dependencies.sbtTestAgent
