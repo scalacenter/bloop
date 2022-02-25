@@ -56,12 +56,12 @@ object MavenPluginImplementation {
     MavenPluginKeys.mavenPlugin := false,
     MavenPluginKeys.mavenLogger := MavenPluginDefaults.mavenLogger.value,
     MavenPluginKeys.mavenProject := MavenPluginDefaults.mavenProject.value,
-    Keys.artifact in Keys.packageBin := {
-      val artifact = (Keys.artifact in Keys.packageBin).value
+    (Keys.packageBin / Keys.artifact) := {
+      val artifact = (Keys.packageBin / Keys.artifact).value
       if (!MavenPluginKeys.mavenPlugin.value) artifact
       else artifact.withType("maven-plugin")
     },
-    Keys.resourceGenerators in Compile ++= {
+    (Compile / Keys.resourceGenerators) ++= {
       if (!MavenPluginKeys.mavenPlugin.value) Nil
       else List(MavenPluginDefaults.resourceGenerators.taskValue)
     }
@@ -78,16 +78,16 @@ object MavenPluginImplementation {
       val build = new Build()
       val baseDir = Keys.baseDirectory.value.toPath()
       def shortenAndToString(f: File): String = baseDir.relativize(f.toPath()).toString()
-      build.setSourceDirectory(shortenAndToString(Keys.sourceDirectory.in(Compile).value))
-      build.setTestSourceDirectory(shortenAndToString(Keys.sourceDirectory.in(Test).value))
-      build.setOutputDirectory(shortenAndToString(Keys.classDirectory.in(Compile).value))
-      build.setTestOutputDirectory(shortenAndToString(Keys.classDirectory.in(Test).value))
+      build.setSourceDirectory(shortenAndToString((Compile / Keys.sourceDirectory).value))
+      build.setTestSourceDirectory(shortenAndToString((Test / Keys.sourceDirectory).value))
+      build.setOutputDirectory(shortenAndToString((Compile / Keys.classDirectory).value))
+      build.setTestOutputDirectory(shortenAndToString((Test / Keys.classDirectory).value))
       model.setBuild(build)
 
       new MavenProject(model) {
         def fs(f: File): String = f.getAbsolutePath()
-        this.setCompileSourceRoots(Keys.sourceDirectories.in(Compile).value.map(fs).asJava)
-        this.setTestCompileSourceRoots(Keys.sourceDirectories.in(Test).value.map(fs).asJava)
+        this.setCompileSourceRoots((Compile / Keys.sourceDirectories).value.map(fs).asJava)
+        this.setTestCompileSourceRoots((Test / Keys.sourceDirectories).value.map(fs).asJava)
         override def getBasedir: File = baseDir.toFile()
       }
     }
@@ -118,9 +118,9 @@ object MavenPluginImplementation {
 
           val logger = MavenPluginKeys.mavenLogger.value
           val project = MavenPluginKeys.mavenProject.value
-          val classesDir = Keys.classDirectory.in(Compile).value
+          val classesDir = (Compile / Keys.classDirectory).value
 
-          val resolution = Keys.update.in(Runtime).value
+          val resolution = (Runtime / Keys.update).value
           val artifacts = getArtifacts(resolution)
           descriptor.setDependencies(getDescriptorDependencies(artifacts))
 
@@ -136,12 +136,12 @@ object MavenPluginImplementation {
           aggregateParametersFromDependentPlugins(artifacts, selector, bloopMojoDescriptor)
 
           val generator = new PluginDescriptorGenerator(new SystemStreamLog())
-          val xmlDirectory = Keys.resourceManaged.in(Compile).value./("META-INF/maven")
+          val xmlDirectory = (Compile / Keys.resourceManaged).value /("META-INF/maven")
           val request = new DefaultPluginToolsRequest(project, descriptor)
           generator.execute(xmlDirectory, request)
           Seq(xmlDirectory./("plugin.xml"))
         }
-        task.dependsOn(Keys.compile in Compile)
+        task.dependsOn((Compile / Keys.compile))
       }
     }
 

@@ -80,7 +80,7 @@ object BuildKeys {
   final val BenchmarkBridgeCompilation = ProjectRef(BenchmarkBridgeProject.build, "compilation")
 
   import sbt.{Test, TestFrameworks, Tests}
-  val buildBase = Keys.baseDirectory in ThisBuild
+  val buildBase = (ThisBuild / Keys.baseDirectory)
   val buildIntegrationsBase = Def.settingKey[File]("The base directory for our integration builds.")
   val twitterDodo = Def.settingKey[File]("The location of Twitter's dodo build tool")
   val exportCommunityBuild = Def.taskKey[Unit]("Clone and export the community build.")
@@ -126,7 +126,7 @@ object BuildKeys {
 
   import sbt.Compile
   val buildpressSettings: Seq[Def.Setting[_]] = List(
-    Keys.fork in Keys.run := true
+    (Keys.run / Keys.fork) := true
   )
 
   import ohnosequences.sbt.GithubRelease.{keys => GHReleaseKeys}
@@ -140,7 +140,7 @@ object BuildKeys {
     GHReleaseKeys.ghreleaseRepoOrg := "scalacenter",
     GHReleaseKeys.ghreleaseRepoName := "bloop",
     GHReleaseKeys.ghreleaseAssets ++= {
-      val baseDir = Keys.baseDirectory.in(ThisBuild).value
+      val baseDir = (ThisBuild / Keys.baseDirectory).value
       val releaseTargetDir = Keys.target.value / "ghrelease-assets"
 
       val originBloopWindowsBinary = Keys.target.value / "graalvm-binaries" / "bloop-windows"
@@ -207,9 +207,9 @@ object BuildKeys {
     }
 
     // Add only the artifact name for 0.6 bridge because we replace it
-    val jsBridge06Key = fromIvyModule("jsBridge06", Keys.ivyModule in jsBridge06)
-    val jsBridge10Key = fromIvyModule("jsBridge1", Keys.ivyModule in jsBridge1)
-    val nativeBridge04Key = fromIvyModule("nativeBridge04", Keys.ivyModule in nativeBridge04)
+    val jsBridge06Key = fromIvyModule("jsBridge06", (jsBridge06 / Keys.ivyModule))
+    val jsBridge10Key = fromIvyModule("jsBridge1", (jsBridge1 / Keys.ivyModule))
+    val nativeBridge04Key = fromIvyModule("nativeBridge04", (nativeBridge04 / Keys.ivyModule))
     val bspKey = BuildInfoKey.constant("bspVersion" -> Dependencies.bspVersion)
     val extra = List(
       zincKey,
@@ -243,14 +243,14 @@ object BuildKeys {
 
   import sbtassembly.{AssemblyKeys, MergeStrategy}
   val assemblySettings: Seq[Def.Setting[_]] = List(
-    Keys.mainClass in AssemblyKeys.assembly := Some("bloop.Bloop"),
-    Keys.test in AssemblyKeys.assembly := {},
-    AssemblyKeys.assemblyMergeStrategy in AssemblyKeys.assembly := {
+    (AssemblyKeys.assembly / Keys.mainClass) := Some("bloop.Bloop"),
+    (AssemblyKeys.assembly / Keys.test) := {},
+    (AssemblyKeys.assembly / AssemblyKeys.assemblyMergeStrategy) := {
       case "LICENSE.md" => MergeStrategy.first
       case "NOTICE.md" => MergeStrategy.first
       case PathList("io", "github", "soc", "directories", _ @_*) => MergeStrategy.first
       case x =>
-        val oldStrategy = (AssemblyKeys.assemblyMergeStrategy in AssemblyKeys.assembly).value
+        val oldStrategy = (AssemblyKeys.assembly / AssemblyKeys.assemblyMergeStrategy).value
         oldStrategy(x)
     }
   )
@@ -272,7 +272,7 @@ object BuildKeys {
   )
 
   def benchmarksSettings(dep: Reference): Seq[Def.Setting[_]] = List(
-    Keys.skip in Keys.publish := true,
+    (Keys.publish / Keys.skip) := true,
     BuildInfoKeys.buildInfoKeys := {
       val fullClasspathFiles =
         BuildInfoKey.map(BuildKeys.lazyFullClasspath.in(sbt.Compile).in(dep)) {
@@ -298,8 +298,8 @@ object BuildKeys {
           .split(java.io.File.pathSeparatorChar)
           .find(_.contains("sbt-launch"))
           .getOrElse("")),
-        "-DbloopVersion=" + Keys.version.in(dep).value,
-        "-DbloopRef=" + refOf(Keys.version.in(dep).value),
+        "-DbloopVersion=" + (dep / Keys.version).value,
+        "-DbloopRef=" + refOf((dep / Keys.version).value),
         "-Dgit.localdir=" + buildBase.value.getAbsolutePath
       )
     }
@@ -320,10 +320,10 @@ object BuildImplementation {
   final val globalSettings: Seq[Def.Setting[_]] = Seq(
     Keys.cancelable := true,
     BuildKeys.schemaVersion := "4.2-refresh-3",
-    Keys.testOptions in Test += sbt.Tests.Argument("-oD"),
+    (Test / Keys.testOptions) += sbt.Tests.Argument("-oD"),
     Keys.onLoadMessage := Header.intro,
     Keys.onLoad := BuildDefaults.bloopOnLoad.value,
-    Keys.publishArtifact in Test := false
+    (Test / Keys.publishArtifact) := false
   )
 
   private final val ThisRepo = GitHub("scalacenter", "bloop")
@@ -385,21 +385,21 @@ object BuildImplementation {
       }
     },
     // Legal requirement: license and notice files must be in the published jar
-    Keys.resources in Compile ++= BuildDefaults.getLicense.value,
-    Keys.sources in (Compile, Keys.doc) := Nil,
-    Keys.sources in (Test, Keys.doc) := Nil,
-    Keys.publishArtifact in Test := false,
-    Keys.publishArtifact in (Compile, Keys.packageDoc) := {
+    (Compile / Keys.resources) ++= BuildDefaults.getLicense.value,
+    (Compile / Keys.doc / Keys.sources) := Nil,
+    (Test / Keys.doc / Keys.sources) := Nil,
+    (Test / Keys.publishArtifact) := false,
+    (Compile / Keys.packageDoc / Keys.publishArtifact) := {
       val output = DynVerKeys.dynverGitDescribeOutput.value
       val version = Keys.version.value
       BuildDefaults.publishDocAndSourceArtifact(output, version)
     },
-    Keys.publishArtifact in (Compile, Keys.packageSrc) := {
+    (Compile / Keys.packageSrc / Keys.publishArtifact) := {
       val output = DynVerKeys.dynverGitDescribeOutput.value
       val version = Keys.version.value
       BuildDefaults.publishDocAndSourceArtifact(output, version)
     },
-    Keys.publishLocalConfiguration in Compile :=
+    (Compile / Keys.publishLocalConfiguration) :=
       Keys.publishLocalConfiguration.value.withOverwrite(true)
   ) // ++ metalsSettings
 
@@ -530,7 +530,7 @@ object BuildImplementation {
     import sbtbuildinfo.BuildInfoPlugin.{autoImport => BuildInfoKeys}
     val gradlePluginBuildSettings: Seq[Def.Setting[_]] = {
       sbtbuildinfo.BuildInfoPlugin.buildInfoScopedSettings(Test) ++ List(
-        Keys.fork in Test := true,
+        (Test / Keys.fork) := true,
         Keys.resolvers ++= List(
           MavenRepository("Gradle releases", "https://repo.gradle.org/gradle/libs-releases-local/"),
           MavenRepository("Android plugin", "https://maven.google.com/"),
@@ -543,16 +543,16 @@ object BuildImplementation {
           Dependencies.gradleAndroidPlugin
         ),
         Keys.publishLocal := Keys.publishLocal.dependsOn(Keys.publishM2).value,
-        Keys.unmanagedJars.in(Compile) := unmanagedJarsWithGradleApi.value,
+        (Compile / Keys.unmanagedJars) := unmanagedJarsWithGradleApi.value,
         BuildKeys.fetchGradleApi := {
           val logger = Keys.streams.value.log
-          val targetDir = (Keys.baseDirectory in Compile).value / "lib"
+          val targetDir = (Compile / Keys.baseDirectory).value / "lib"
           GradleIntegration.fetchGradleApi(Dependencies.gradleVersion, targetDir, logger)
         },
         // Only generate for tests (they are not published and can contain user-dependent data)
-        BuildInfoKeys.buildInfo in Compile := Nil,
-        BuildInfoKeys.buildInfoPackage in Test := "bloop.internal.build",
-        BuildInfoKeys.buildInfoObject in Test := "BloopGradleIntegration"
+        (Compile / BuildInfoKeys.buildInfo) := Nil,
+        (Test / BuildInfoKeys.buildInfoPackage) := "bloop.internal.build",
+        (Test / BuildInfoKeys.buildInfoObject) := "BloopGradleIntegration"
       )
     }
 
@@ -560,24 +560,24 @@ object BuildImplementation {
       sbtbuildinfo.BuildInfoPlugin.buildInfoScopedSettings(Test) ++ List(
         BuildKeys.bloopCoursierJson := ReleaseUtils.bloopCoursierJson.value,
         BuildKeys.bloopLocalCoursierJson := ReleaseUtils.bloopLocalCoursierJson.value,
-        BuildInfoKeys.buildInfoKeys in Test := {
+        (Test / BuildInfoKeys.buildInfoKeys) := {
           import sbtbuildinfo.BuildInfoKey
-          val junitTestJars = BuildInfoKey.map(Keys.externalDependencyClasspath in Test) {
+          val junitTestJars = BuildInfoKey.map((Test / Keys.externalDependencyClasspath)) {
             case (_, classpath) =>
               val jars = classpath.map(_.data.getAbsolutePath)
               val junitJars = jars.filter(j => j.contains("junit") || j.contains("hamcrest"))
               "junitTestJars" -> junitJars
           }
 
-          List(junitTestJars, BuildKeys.bloopCoursierJson, Keys.baseDirectory in ThisBuild)
+          List(junitTestJars, BuildKeys.bloopCoursierJson, (ThisBuild / Keys.baseDirectory))
         },
-        BuildInfoKeys.buildInfoPackage in Test := "bloop.internal.build",
-        BuildInfoKeys.buildInfoObject in Test := "BuildTestInfo"
+        (Test / BuildInfoKeys.buildInfoPackage) := "bloop.internal.build",
+        (Test / BuildInfoKeys.buildInfoObject) := "BuildTestInfo"
       )
     }
 
     lazy val unmanagedJarsWithGradleApi: Def.Initialize[Task[Keys.Classpath]] = Def.taskDyn {
-      val unmanagedJarsTask = Keys.unmanagedJars.in(Compile).taskValue
+      val unmanagedJarsTask = (Compile / Keys.unmanagedJars).taskValue
       val _ = BuildKeys.fetchGradleApi.value
       Def.task(unmanagedJarsTask.value)
     }
@@ -623,15 +623,15 @@ object BuildImplementation {
 
     val fixScalaVersionForSbtPlugin: Def.Initialize[String] = Def.setting {
       val orig = Keys.scalaVersion.value
-      val is013 = (Keys.sbtVersion in Keys.pluginCrossBuild).value.startsWith("0.13")
+      val is013 = (Keys.pluginCrossBuild / Keys.sbtVersion).value.startsWith("0.13")
       if (is013) "2.10.7" else orig
     }
 
     // From sbt-sensible https://gitlab.com/fommil/sbt-sensible/issues/5, legal requirement
     val getLicense: Def.Initialize[Task[Seq[File]]] = Def.task {
-      val orig = (Keys.resources in Compile).value
+      val orig = (Compile / Keys.resources).value
       val base = Keys.baseDirectory.value
-      val root = (Keys.baseDirectory in ThisBuild).value
+      val root = (ThisBuild / Keys.baseDirectory).value
 
       def fileWithFallback(name: String): File =
         if ((base / name).exists) base / name
@@ -672,7 +672,7 @@ object BuildImplementation {
       System.getProperty("os.name").toLowerCase(Locale.ENGLISH).contains("windows")
     if (isWindows) Def.task(println("Skipping export community build in Windows."))
     else {
-      val baseDir = Keys.baseDirectory.in(ThisBuild).value
+      val baseDir = (ThisBuild / Keys.baseDirectory).value
       val pluginMainDir = baseDir / "integrations" / "sbt-bloop" / "src" / "main"
 
       // Only sbt sources are added, add new plugin sources when other build tools are supported
@@ -725,10 +725,10 @@ object BuildImplementation {
       cachedGenerate(allPluginSourceFiles)
       Def.task {
         // Publish the projects before we invoke buildpress
-        Keys.publishLocal.in(circeConfig210).value
-        Keys.publishLocal.in(circeConfig212).value
-        Keys.publishLocal.in(sbtBloop013).value
-        Keys.publishLocal.in(sbtBloop10).value
+        (circeConfig210 / Keys.publishLocal).value
+        (circeConfig212 / Keys.publishLocal).value
+        (sbtBloop013 / Keys.publishLocal).value
+        (sbtBloop10 / Keys.publishLocal).value
 
         val file = Keys.resourceDirectory
           .in(Compile)
@@ -806,7 +806,7 @@ object BuildImplementation {
       val productDirs = (new java.util.LinkedHashSet[Task[Seq[File]]]).asScala
       for ((dep, c) <- visited) {
         if ((dep != currentProject) || (conf.name != c && self.name != c)) {
-          val classpathKey = Keys.productDirectories in (dep, sbt.ConfigKey(c))
+          val classpathKey = (dep / sbt.ConfigKey(c) / Keys.productDirectories)
           productDirs += classpathKey.get(data).getOrElse(sbt.std.TaskExtra.constant(Nil))
         }
       }
