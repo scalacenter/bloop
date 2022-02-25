@@ -136,7 +136,7 @@ object MavenPluginImplementation {
           aggregateParametersFromDependentPlugins(artifacts, selector, bloopMojoDescriptor)
 
           val generator = new PluginDescriptorGenerator(new SystemStreamLog())
-          val xmlDirectory = (Compile / Keys.resourceManaged).value /("META-INF/maven")
+          val xmlDirectory = (Compile / Keys.resourceManaged).value / ("META-INF/maven")
           val request = new DefaultPluginToolsRequest(project, descriptor)
           generator.execute(xmlDirectory, request)
           Seq(xmlDirectory./("plugin.xml"))

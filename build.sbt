@@ -567,7 +567,7 @@ def shadeSbtSettingsForModule(
       val eclipseJarsUnsignedDir = (Keys.crossTarget.value / "eclipse-jars-unsigned").toPath
       java.nio.file.Files.createDirectories(eclipseJarsUnsignedDir)
 
-      val dependencyJars = ( module / Runtime / dependencyClasspath).value.map(_.data)
+      val dependencyJars = (module / Runtime / dependencyClasspath).value.map(_.data)
       dependencyJars.flatMap { path =>
         val ppath = path.toString
         val isEclipseJar = ppath.contains("eclipse")
