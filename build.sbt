@@ -381,16 +381,14 @@ lazy val bloopgun213: Project = project
 def shadeSettingsForModule(moduleId: String, module: Reference) = List(
   (Compile / packageBin) := {
     Def.taskDyn {
-      // todo
-      val baseJar = Keys.packageBin.in(module).in(Compile).value
+      val baseJar = (module / Compile / Keys.packageBin).value
       val unshadedJarDependencies =
-        internalDependencyAsJars.in(Compile).in(module).value.map(_.data)
+        (module / Compile / internalDependencyAsJars).value.map(_.data)
       shadingPackageBin(baseJar, unshadedJarDependencies)
     }.value
   },
   toShadeJars := {
-    // todo
-    val dependencyJars = dependencyClasspath.in(Runtime).in(module).value.map(_.data)
+    val dependencyJars = (module / Runtime / dependencyClasspath).value.map(_.data)
     dependencyJars.flatMap { path =>
       val ppath = path.toString
       val shouldShadeJar = !(
@@ -557,9 +555,9 @@ def shadeSbtSettingsForModule(
     (Compile / packageBin) := {
       // todo
       Def.taskDyn {
-        val baseJar = Keys.packageBin.in(module).in(Compile).value
+        val baseJar = (module / Compile / Keys.packageBin).value
         val unshadedJarDependencies =
-          internalDependencyAsJars.in(Compile).in(module).value.map(_.data)
+          (module / Compile / internalDependencyAsJars).value.map(_.data)
         shadingPackageBin(baseJar, unshadedJarDependencies)
       }.value
     },
@@ -569,8 +567,7 @@ def shadeSbtSettingsForModule(
       val eclipseJarsUnsignedDir = (Keys.crossTarget.value / "eclipse-jars-unsigned").toPath
       java.nio.file.Files.createDirectories(eclipseJarsUnsignedDir)
 
-      // todo
-      val dependencyJars = dependencyClasspath.in(Runtime).in(module).value.map(_.data)
+      val dependencyJars = ( module / Runtime / dependencyClasspath).value.map(_.data)
       dependencyJars.flatMap { path =>
         val ppath = path.toString
         val isEclipseJar = ppath.contains("eclipse")
