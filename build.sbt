@@ -730,7 +730,7 @@ lazy val gradleBloop212 = project
   .dependsOn(jsonConfig212.jvm % "compile->compile;test->test", frontend % "test->test")
   .settings(BuildDefaults.gradlePluginBuildSettings, testSettings)
   .settings(BuildInfoPlugin.buildInfoScopedSettings(Test))
-  .settings(scalaVersion := Dependencies.Scala211Version)
+  .settings(scalaVersion := Dependencies.Scala212Version)
   .settings(
     target := (file(
       "integrations"
