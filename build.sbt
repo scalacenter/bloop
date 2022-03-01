@@ -553,7 +553,6 @@ def shadeSbtSettingsForModule(
 ) = {
   List(
     (Compile / packageBin) := {
-      // todo
       Def.taskDyn {
         val baseJar = (module / Compile / Keys.packageBin).value
         val unshadedJarDependencies =
