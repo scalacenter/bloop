@@ -27,7 +27,7 @@ import java.util.concurrent.TimeUnit.{MILLISECONDS, SECONDS}
 import scala.collection.mutable
 import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.concurrent.{Future, Promise, TimeoutException}
-import bloop.bsp.ScalaTestClasses
+import bloop.bsp.ScalaTestSuites
 import bloop.bsp.ScalaTestSuiteSelection
 
 object DebugServerSpec extends DebugBspBaseSuite {
@@ -818,7 +818,7 @@ object DebugServerSpec extends DebugBspBaseSuite {
 
       loadBspState(workspace, List(project), logger) { state =>
         val testClasses =
-          ScalaTestClasses(
+          ScalaTestSuites(
             List(
               ScalaTestSuiteSelection(
                 "MySuite",
@@ -826,7 +826,7 @@ object DebugServerSpec extends DebugBspBaseSuite {
               )
             ),
             List("-Xmx512M"),
-            Map("ENV_KEY" -> "ENV_VALUE")
+            List("ENV_KEY=ENV_VALUE")
           )
         val runner = testRunner(project, state, testClasses)
 
@@ -954,7 +954,7 @@ object DebugServerSpec extends DebugBspBaseSuite {
   private def testRunner(
       project: TestProject,
       state: ManagedBspTestState,
-      testClasses: ScalaTestClasses = ScalaTestClasses(List("MySuite"))
+      testClasses: ScalaTestSuites = ScalaTestSuites(List("MySuite"))
   ): DebuggeeRunner = {
     val testState = state.compile(project).toTestState
     BloopDebuggeeRunner.forTestSuite(

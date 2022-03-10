@@ -17,7 +17,7 @@ import sbt.internal.inc.{Analysis, AnalyzingCompiler, ConcreteAnalysisContents, 
 import sbt.internal.inc.classpath.ClasspathUtilities
 import sbt.testing._
 import xsbti.compile.{ClasspathOptionsUtil, CompileAnalysis, MiniSetup, PreviousResult}
-import bloop.bsp.ScalaTestClasses
+import bloop.bsp.ScalaTestSuites
 import sbt.internal.inc.PlainVirtualFileConverter
 import sbt.internal.inc.classpath.ClasspathUtil
 
@@ -105,7 +105,7 @@ object Tasks {
       projectsToTest: List[Project],
       userTestOptions: List[String],
       testFilter: String => Boolean,
-      testClasses: ScalaTestClasses,
+      testClasses: ScalaTestSuites,
       testEventHandler: BloopTestSuiteEventHandler,
       runInParallel: Boolean = false,
       mode: RunMode
