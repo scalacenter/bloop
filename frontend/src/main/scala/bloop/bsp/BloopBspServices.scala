@@ -593,12 +593,12 @@ final class BloopBspServices(
         case bsp.DebugSessionParamsDataKind.ScalaTestSuites =>
           convert[List[String]](
             classNames => {
-              val testClasses = ScalaTestClasses(classNames)
+              val testClasses = ScalaTestSuites(classNames)
               BloopDebuggeeRunner.forTestSuite(projects, testClasses, state, ioScheduler)
             }
           )
         case "scala-test-selection" =>
-          convert[ScalaTestClasses](
+          convert[ScalaTestSuites](
             testClasses => {
               BloopDebuggeeRunner.forTestSuite(projects, testClasses, state, ioScheduler)
             }
@@ -668,7 +668,7 @@ final class BloopBspServices(
     ): Task[State] = {
       val testFilter = TestInternals.parseFilters(Nil) // Don't support test only for now
       val handler = new BspLoggingEventHandler(id, state.logger, client)
-      Tasks.test(state, List(project), Nil, testFilter, ScalaTestClasses.empty, handler, mode = RunMode.Normal)
+      Tasks.test(state, List(project), Nil, testFilter, ScalaTestSuites.empty, handler, mode = RunMode.Normal)
     }
 
     val originId = params.originId
