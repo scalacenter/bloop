@@ -296,7 +296,7 @@ class BspProtocolSpec(
           ("utest", List("hello.EternalUTest", "hello.UTestTest")),
           ("ScalaTest", List("hello.ScalaTestTest", "hello.WritingTest", "hello.ResourcesTest")),
         ).map { case (framework, classes) =>
-          ScalaTestClassesItem(project.bspId, Some(framework), classes)
+          ScalaTestClassesItem(project.bspId, classes, Some(framework))
         }
 
         val testSuites = compiledState.testClasses(project)
