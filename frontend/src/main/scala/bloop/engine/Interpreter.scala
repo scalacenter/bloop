@@ -25,7 +25,7 @@ import bloop.ScalaInstance
 import scala.collection.immutable.Nil
 import scala.annotation.tailrec
 import java.io.IOException
-import bloop.bsp.ScalaTestClasses
+import bloop.bsp.ScalaTestSuites
 
 object Interpreter {
   // This is stack-safe because of Monix's trampolined execution
@@ -360,7 +360,7 @@ object Interpreter {
               projectsToTest,
               cmd.args,
               testFilter,
-              ScalaTestClasses.empty,
+              ScalaTestSuites.empty,
               handler,
               cmd.parallel,
               RunMode.Normal

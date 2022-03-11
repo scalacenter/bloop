@@ -19,7 +19,7 @@ import xsbti.compile.CompileAnalysis
 
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success}
-import bloop.bsp.ScalaTestClasses
+import bloop.bsp.ScalaTestSuites
 
 final case class TestFrameworkWithClasses(
     framework: String,
@@ -48,7 +48,7 @@ object TestTask {
       cwd: AbsolutePath,
       rawTestOptions: List[String],
       testFilter: String => Boolean,
-      testClasses: ScalaTestClasses,
+      testClasses: ScalaTestSuites,
       handler: LoggingEventHandler,
       mode: RunMode
   ): Task[Int] = {
@@ -100,7 +100,7 @@ object TestTask {
           val discoveredFrameworks = suites.iterator.filterNot(_._2.isEmpty).map(_._1).toList
           val (userJvmOptions, userTestOptions) = rawTestOptions.partition(_.startsWith("-J"))
           val jvmOptions = userJvmOptions.map(_.stripPrefix("-J")) ++ testClasses.jvmOptions
-          val envOptions = testClasses.env.map { case (key, value) => s"$key=$value" }.toList
+          val envOptions = testClasses.environmentVariables
           val frameworkArgs = considerFrameworkArgs(discoveredFrameworks, userTestOptions, logger)
           val args = project.testOptions.arguments ++ frameworkArgs
           logger.debug(s"Running test suites with arguments: $args")
@@ -268,7 +268,7 @@ object TestTask {
       frameworks: List[Framework],
       analysis: CompileAnalysis,
       testFilter: String => Boolean,
-      testClasses: ScalaTestClasses
+      testClasses: ScalaTestSuites
   ): Map[Framework, List[TaskDef]] = {
     import state.logger
     val tests = discoverTests(analysis, frameworks)
@@ -295,7 +295,7 @@ object TestTask {
     // selectors is a possibly empty array of selectors which determines suites and tests to run
     // usually it is a Array(new SuiteSelector). However, if only subset of test are supposed to
     // be run, then it can be altered to Array[TestSelector]
-    val selectedTests = testClasses.classes.map(entry => (entry.className, entry.tests)).toMap
+    val selectedTests = testClasses.suites.map(entry => (entry.className, entry.tests)).toMap
     includedTests.groupBy(_.framework).mapValues { taskDefs =>
       taskDefs.map {
         case TaskDefWithFramework(taskDef, framework) =>

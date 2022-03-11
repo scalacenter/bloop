@@ -50,7 +50,7 @@ val `bloop-build` = project
         .exclude("org.apache.maven", "maven-plugin-api")
         .exclude("org.apache.ant", "ant")
     },
-    unmanagedSourceDirectories in Compile ++= {
+    (Compile / unmanagedSourceDirectories) ++= {
       val baseDir = baseDirectory.value.getParentFile
       List(
         baseDir / "sbt-shading" / "src" / "main" / "scala",

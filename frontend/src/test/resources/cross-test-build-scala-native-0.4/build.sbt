@@ -12,9 +12,9 @@ lazy val `test-project` =
 
 lazy val `test-project-native` = `test-project`.native.settings(
   // Should override default set above. Tested as part of ScalaNativeToolchainSpec.
-  bloopMainClass in (Compile, run) := Some("hello.DefaultApp")
+  (Compile / run / bloopMainClass) := Some("hello.DefaultApp")
 )
 
 lazy val `test-project-jvm` = `test-project`.jvm.settings(
-  bloopMainClass in (Compile, run) := Some("hello.App")
+  (Compile / run / bloopMainClass) := Some("hello.App")
 )
