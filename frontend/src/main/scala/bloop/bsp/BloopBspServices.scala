@@ -553,7 +553,7 @@ final class BloopBspServices(
             val task = TestTask.findTestNamesWithFramework(project, state)
             val item = task.map { classes => 
               classes.groupBy(_.framework).map { case (framework, classes) =>
-                ScalaTestClassesItem(id, Some(framework), classes.flatMap(_.classes))
+                ScalaTestClassesItem(id, classes.flatMap(_.classes), Some(framework))
               }.toList
             }
             item
