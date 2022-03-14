@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2.4.0
-      - uses: coursier/setup-action@v1.2.0-M1
+      - uses: coursier/setup-action@v1.2.0-M3
         with:
           jvm: "graalvm-java17:21.3.0"
       - name: Check formatting
@@ -34,7 +34,7 @@ jobs:
         with:
           submodules: true
           fetch-depth: 0
-      - uses: coursier/setup-action@v1.2.0-M1
+      - uses: coursier/setup-action@v1.2.0-M3
         with:
           jvm: ${{ matrix.jdk }}
       - name: Set up environment
@@ -74,7 +74,7 @@ jobs:
         with:
           submodules: true
           fetch-depth: 0
-      - uses: coursier/setup-action@v1.2.0-M1
+      - uses: coursier/setup-action@v1.2.0-M3
         with:
           jvm: ${{ matrix.jdk }}
       - name: Set up environment
@@ -124,7 +124,7 @@ jobs:
         with:
           submodules: true
           fetch-depth: 0
-      - uses: coursier/setup-action@v1.2.0-M1
+      - uses: coursier/setup-action@v1.2.0-M3
         with:
           jvm: ${{ matrix.jdk }}
       - name: Publish GraalVM Native artifacts
@@ -169,7 +169,7 @@ jobs:
         with:
           submodules: true
           fetch-depth: 0
-      - uses: coursier/setup-action@v1.2.0-M1
+      - uses: coursier/setup-action@v1.2.0-M3
         with:
           jvm: ${{ matrix.jdk }}
       - name: Install GraalVM Native Image
@@ -233,7 +233,7 @@ jobs:
         with:
           submodules: true
           fetch-depth: 0
-      - uses: coursier/setup-action@v1.2.0-M1
+      - uses: coursier/setup-action@v1.2.0-M3
         with:
           jvm: ${{ matrix.jdk }}
       - name: Download built GraalVM binaries
