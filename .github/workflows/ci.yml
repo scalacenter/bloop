@@ -13,7 +13,7 @@ jobs:
     name: Formatting
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2.4.0
+      - uses: actions/checkout@v3
       - uses: coursier/setup-action@v1.2.0-M3
         with:
           jvm: "graalvm-java17:21.3.0"
@@ -30,7 +30,7 @@ jobs:
     env:
       HYDRA_LICENSE: ${{ secrets.HYDRA_LICENSE }}
     steps:
-      - uses: actions/checkout@v2.4.0
+      - uses: actions/checkout@v3
         with:
           submodules: true
           fetch-depth: 0
@@ -70,7 +70,7 @@ jobs:
     env:
       HYDRA_LICENSE: ${{ secrets.HYDRA_LICENSE }}
     steps:
-      - uses: actions/checkout@v2.4.0
+      - uses: actions/checkout@v3
         with:
           submodules: true
           fetch-depth: 0
@@ -120,7 +120,7 @@ jobs:
       BLOOPOID_GITHUB_TOKEN: ${{ secrets.BLOOPOID_GITHUB_TOKEN }}
       ARTIFACT_NAME: ${{ matrix.artifact }}
     steps:
-      - uses: actions/checkout@v2.4.0
+      - uses: actions/checkout@v3
         with:
           submodules: true
           fetch-depth: 0
@@ -165,7 +165,7 @@ jobs:
       - name: Refresh Pagefile
         run: |
               (Get-CimInstance Win32_PageFileUsage).AllocatedBaseSize
-      - uses: actions/checkout@v2.4.0
+      - uses: actions/checkout@v3
         with:
           submodules: true
           fetch-depth: 0
@@ -229,7 +229,7 @@ jobs:
       BLOOPOID_SSH_PUBLIC_KEY: ${{ secrets.BLOOPOID_SSH_PUBLIC_KEY }}
       BLOOPOID_SSH_PRIVATE_KEY: ${{ secrets.BLOOPOID_SSH_PRIVATE_KEY }}
     steps:
-      - uses: actions/checkout@v2.4.0
+      - uses: actions/checkout@v3
         with:
           submodules: true
           fetch-depth: 0
