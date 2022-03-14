@@ -140,6 +140,38 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
     }
   }
 
+  test(s"compile scala 3 build incrementally") {
+    TestUtil.withinWorkspace { workspace =>
+      object Sources {
+        val `A.scala` =
+          """/A.scala
+            |class A { def a = 1 }
+          """.stripMargin
+
+        val `A2.scala` =
+          """/A.scala
+            |class A { def a = 2 }
+          """.stripMargin
+      }
+
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val `A` = TestProject(workspace, "a", List(Sources.`A.scala`), scalaVersion = Some("3.1.1"))
+      val projects = List(`A`)
+      val state = loadState(workspace, projects, logger)
+      val compiledState = state.compile(`A`)
+      assertExitStatus(compiledState, ExitStatus.Ok)
+      assertValidCompilationState(compiledState, projects)
+
+      assertIsFile(writeFile(`A`.srcFor("A.scala"), Sources.`A2.scala`))
+
+      val secondCompiledState = compiledState.compile(`A`)
+      assertExitStatus(secondCompiledState, ExitStatus.Ok)
+      assertSuccessfulCompilation(secondCompiledState, projects, isNoOp = false)
+      assertValidCompilationState(secondCompiledState, projects)
+      assertSameExternalClassesDirs(compiledState, secondCompiledState, projects)
+    }
+  }
+
   test("compile project / clean / compile it again") {
     TestUtil.withinWorkspace { workspace =>
       val sources = List(
