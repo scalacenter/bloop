@@ -180,14 +180,21 @@ final class BloopClassFileManager(
       // invalidations can happen in both paths, no-op if missing
       allInvalidatedClassFilesForProject.-=(generatedClassFile)
       allInvalidatedClassFilesForProject.-=(rebasedClassFile)
-      supportedCompileProducts.foreach { supportedProductSuffix =>
-        val productName = rebasedClassFile
+
+      def productFile(classFile: File, supportedProductSuffix: String) = {
+        val productName = classFile
           .getName()
           .stripSuffix(".class") + supportedProductSuffix
-        val productAssociatedToClassFile =
-          new File(rebasedClassFile.getParentFile, productName)
-        if (productAssociatedToClassFile.exists())
-          allInvalidatedExtraCompileProducts.-=(productAssociatedToClassFile)
+        new File(classFile.getParentFile, productName)
+      }
+      supportedCompileProducts.foreach { supportedProductSuffix =>
+        val generatedProductName = productFile(generatedClassFile, supportedProductSuffix)
+        val rebasedProductName = productFile(rebasedClassFile, supportedProductSuffix)
+
+        if (generatedProductName.exists() || rebasedProductName.exists()) {
+          allInvalidatedExtraCompileProducts.-=(generatedProductName)
+          allInvalidatedExtraCompileProducts.-=(rebasedProductName)
+        }
       }
     }
 

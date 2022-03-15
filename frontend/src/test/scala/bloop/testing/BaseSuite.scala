@@ -425,7 +425,6 @@ abstract class BaseSuite extends TestSuite with BloopHelpers {
         val stamps = analysis.readStamps
         assert(stamps.getAllProductStamps.asScala.nonEmpty)
         assert(stamps.getAllSourceStamps.asScala.nonEmpty)
-        //assert(stamps.getAllBinaryStamps.asScala.nonEmpty)
 
         assert(takeDirectorySnapshot(latestResult.classesDir).nonEmpty)
         val projectClassesDir =
