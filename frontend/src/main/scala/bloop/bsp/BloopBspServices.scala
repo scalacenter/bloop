@@ -600,7 +600,7 @@ final class BloopBspServices(
               BloopDebuggeeRunner.forTestSuite(projects, testClasses, state, ioScheduler)
             }
           )
-        case "scala-test-selection" =>
+        case "scala-test-suites-selection" =>
           convert[ScalaTestSuites](
             testClasses => {
               BloopDebuggeeRunner.forTestSuite(projects, testClasses, state, ioScheduler)
