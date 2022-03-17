@@ -254,7 +254,7 @@ object Compiler {
     logger.debug(s"New rw classes directory ${newClassesDirPath}")
 
     val allGeneratedRelativeClassFilePaths = new mutable.HashMap[String, File]()
-    val readOnlyCopyBlacklist = new mutable.HashSet[Path]()
+    val readOnlyCopyDenylist = new mutable.HashSet[Path]()
     val allInvalidatedClassFilesForProject = new mutable.HashSet[File]()
     val allInvalidatedExtraCompileProducts = new mutable.HashSet[File]()
 
@@ -269,7 +269,7 @@ object Compiler {
         compileInputs,
         compileOut,
         allGeneratedRelativeClassFilePaths,
-        readOnlyCopyBlacklist,
+        readOnlyCopyDenylist,
         allInvalidatedClassFilesForProject,
         allInvalidatedExtraCompileProducts,
         backgroundTasksWhenNewSuccessfulAnalysis,
@@ -433,7 +433,7 @@ object Compiler {
                 val invalidatedExtraProducts =
                   allInvalidatedExtraCompileProducts.iterator.map(_.toPath).toSet
                 val invalidatedInThisProject = invalidatedClassFiles ++ invalidatedExtraProducts
-                val denyList = invalidatedInThisProject ++ readOnlyCopyBlacklist.iterator
+                val denyList = invalidatedInThisProject ++ readOnlyCopyDenylist.iterator
                 val config =
                   ParallelOps.CopyConfiguration(5, CopyMode.ReplaceIfMetadataMismatch, denyList)
                 val lastCopy = ParallelOps.copyDirectories(config)(

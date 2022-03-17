@@ -107,7 +107,7 @@ object CompileTask {
 
           val configuration = configureCompilation(project, graphInputs, compileOut)
           val newScalacOptions = {
-            CompilerPluginWhitelist
+            CompilerPluginAllowlist
               .enableCachingInScalacOptions(
                 instance.version,
                 configuration.scalacOptions,
@@ -335,9 +335,9 @@ object CompileTask {
       logger.warn(s"Running `populateNewReadOnlyClassesDir` on same dir ${products.newClassesDir}")
       Task.unit
     } else {
-      // Blacklist ensure final dir doesn't contain class files that don't map to source files
-      val blacklist = products.invalidatedCompileProducts.iterator.map(_.toPath).toSet
-      val config = ParallelOps.CopyConfiguration(5, CopyMode.NoReplace, blacklist)
+      // Denylist ensure final dir doesn't contain class files that don't map to source files
+      val denylist = products.invalidatedCompileProducts.iterator.map(_.toPath).toSet
+      val config = ParallelOps.CopyConfiguration(5, CopyMode.NoReplace, denylist)
       val task = tracer.traceTaskVerbose("preparing new read-only classes directory") { _ =>
         ParallelOps.copyDirectories(config)(
           products.readOnlyClassesDir,

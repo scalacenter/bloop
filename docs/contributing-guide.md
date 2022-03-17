@@ -33,7 +33,6 @@ bsp/cli connection to it.
 1. `nailgun` is a git submodule of `scalacenter/nailgun`, a fork of `facebook/nailgun`.
 1. `sockets` is a library to use Unix Domain sockets and Named Pipes in Windows.
 1. `website` contains the [Docusaurus](https://docusaurus.io/) code of our website.
-1. `zinc` is a git submodule to the version of Zinc that bloop master is using.
 
 ## Set the repository up
 
@@ -101,7 +100,7 @@ If you want to install a SNAPSHOT bloop version in your machine because, for
 example, you want to use the CLI or integrate it with a local build tool and
 editor, follow these steps:
 
-1. Checkout the commit in master you want to use.
+1. Checkout the commit in main you want to use.
 1. Run `sbt install`. After the command runs, you have:
     * Built all modules in the bloop repository.
     * Generated installation scripts and package manager formulas.
@@ -213,7 +212,7 @@ indices.
   - Merge the PR!
 
 - Release:
-  - Sync changes with the recent master
+  - Sync changes with the recent main
   - Change the tag to point to the most recent commit with the release notes.
   - Make sure that all the jobs are finished! This is important as some jobs are
     delayed and if we push too early not all the neccessary steps will succeed.
