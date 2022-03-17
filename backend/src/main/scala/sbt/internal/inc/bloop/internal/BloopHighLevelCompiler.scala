@@ -7,7 +7,7 @@ import java.util.concurrent.CompletableFuture
 
 import bloop.reporter.ZincReporter
 import bloop.logging.ObservedLogger
-import bloop.{CompileMode, JavaSignal}
+import bloop.JavaSignal
 import bloop.tracing.BraveTracer
 
 import monix.eval.Task
@@ -22,6 +22,11 @@ import scala.util.control.NonFatal
 import sbt.internal.inc.JarUtils
 import scala.concurrent.Promise
 import xsbt.InterfaceCompileCancelled
+import bloop.util.AnalysisUtils
+import sbt.internal.inc.PlainVirtualFileConverter
+import java.nio.file.Path
+import xsbti.VirtualFile
+import java.nio.file.Files
 
 /**
  * Defines a high-level compiler after [[sbt.internal.inc.MixedAnalyzingCompiler]], with the
@@ -44,7 +49,8 @@ final class BloopHighLevelCompiler(
     tracer: BraveTracer
 ) {
   private[this] final val setup = config.currentSetup
-  private[this] final val classpath = config.classpath.map(_.getAbsoluteFile)
+  private[this] final val classpath: Seq[VirtualFile] = config.classpath
+  private[this] final val classpathNio: Seq[Path] = classpath.map(PlainVirtualFileConverter.converter.toPath)
 
   private[this] val JavaCompleted: Promise[Unit] = Promise.successful(())
 
@@ -59,12 +65,12 @@ final class BloopHighLevelCompiler(
    * @return
    */
   def compile(
-      sourcesToCompile: Set[File],
+      sourcesToCompile: Set[VirtualFile],
       changes: DependencyChanges,
       callback: AnalysisCallback,
       classfileManager: ClassFileManager,
-      compileMode: CompileMode,
-      cancelPromise: Promise[Unit]
+      cancelPromise: Promise[Unit],
+      classpathOptions: ClasspathOptions
   ): Task[Unit] = {
     def timed[T](label: String)(t: => T): T = {
       tracer.trace(label) { _ =>
@@ -74,75 +80,75 @@ final class BloopHighLevelCompiler(
 
     val outputDirs = {
       setup.output match {
-        case single: SingleOutput => List(single.getOutputDirectory)
-        case mult: MultipleOutput => mult.getOutputGroups.iterator.map(_.getOutputDirectory).toList
+        case single: SingleOutput => List(single.getOutputDirectoryAsPath())
+        case mult: MultipleOutput => mult.getOutputGroups.iterator.map(_.getOutputDirectoryAsPath()).toList
       }
     }
 
     outputDirs.foreach { d =>
-      if (!d.getPath.endsWith(".jar") && !d.exists())
-        sbt.io.IO.createDirectory(d)
+      if (!d.endsWith(".jar") && !Files.exists(d))
+        sbt.io.IO.createDirectory(d.toFile())
     }
 
     val includedSources = config.sources.filter(sourcesToCompile)
-    val (javaSources, scalaSources) = includedSources.partition(_.getName.endsWith(".java"))
+    val (javaSources, scalaSources) = includedSources.partition(_.name().endsWith(".java"))
     val existsCompilation = javaSources.size + scalaSources.size > 0
     if (existsCompilation) {
-      reporter.reportStartIncrementalCycle(includedSources, outputDirs)
-    }
-
-    // Note `pickleURI` has already been used to create the analysis callback in `BloopZincCompiler`
-    val (pipeline: Boolean, batches: Option[Int], completeJava: Promise[Unit], fireJavaCompilation: Task[JavaSignal], separateJavaAndScala: Boolean) = {
-      compileMode match {
-        case _: CompileMode.Sequential => (false, None, JavaCompleted, Task.now(JavaSignal.ContinueCompilation), false)
-        case CompileMode.Pipelined(completeJava, _, fireJavaCompilation, _, separateJavaAndScala) =>
-          (true, None, completeJava, fireJavaCompilation, separateJavaAndScala)
-      }
+      reporter.reportStartIncrementalCycle(includedSources, outputDirs.map(_.toFile()))
     }
 
     // Complete empty java promise if there are no java sources
-    if (javaSources.isEmpty && !completeJava.isCompleted)
-      completeJava.trySuccess(())
+    if (javaSources.isEmpty && !JavaCompleted.isCompleted)
+      JavaCompleted.trySuccess(())
 
     val compileScala: Task[Unit] = {
       if (scalaSources.isEmpty) Task.now(())
       else {
         val sources = {
-          if (separateJavaAndScala) {
+          if (setup.order == CompileOrder.Mixed) {
             // No matter if it's scala->java or mixed, we populate java symbols from sources
-            val transitiveJavaSources = compileMode.oracle.askForJavaSourcesOfIncompleteCompilations
-            includedSources ++ transitiveJavaSources.filterNot(_.getName == "routes.java")
+            includedSources
           } else {
-            if (setup.order == CompileOrder.Mixed) includedSources
-            else scalaSources
+            scalaSources
           }
         }
 
         def compilerArgs: CompilerArguments = {
           import sbt.internal.inc.CompileFailed
-          if (scalac.scalaInstance.compilerJar() == null) {
+          if (scalac.scalaInstance.compilerJars().isEmpty) {
             throw new CompileFailed(new Array(0), s"Expected Scala compiler jar in Scala instance containing ${scalac.scalaInstance.allJars().mkString(", ")}", new Array(0))
           }
 
-          if (scalac.scalaInstance.libraryJar() == null) {
+          if (scalac.scalaInstance.libraryJars().isEmpty) {
             throw new CompileFailed(new Array(0), s"Expected Scala library jar in Scala instance containing ${scalac.scalaInstance.allJars().mkString(", ")}", new Array(0))
           }
 
-          new CompilerArguments(scalac.scalaInstance, config.classpathOptions)
+          new CompilerArguments(scalac.scalaInstance, classpathOptions)
         }
 
         def compileSources(
-            sources: Seq[File],
+            sources: Seq[VirtualFile],
             scalacOptions: Array[String],
             callback: AnalysisCallback
         ): Unit = {
           try {
-            val args = compilerArgs.apply(Nil, classpath, None, scalacOptions).toArray
-            scalac.compile(sources.toArray, changes, args, setup.output, callback, config.reporter, config.cache, logger, config.progress.toOptional)
+            val args = compilerArgs.makeArguments(Nil, classpathNio, scalacOptions)
+            scalac.compile(
+              sources.toArray,
+              classpath.toArray,
+              PlainVirtualFileConverter.converter,
+              changes,
+              args.toArray,
+              setup.output,
+              callback,
+              config.reporter,
+              config.progress.toOptional,
+              logger
+            )
           } catch {
             case NonFatal(t) =>
               // If scala compilation happens, complete the java promise so that it doesn't block
-              completeJava.tryFailure(t)
+              JavaCompleted.tryFailure(t)
 
               t match {
                 case _: NullPointerException if cancelPromise.isCompleted =>
@@ -154,16 +160,13 @@ final class BloopHighLevelCompiler(
 
         def compileSequentially: Task[Unit] = Task {
           val scalacOptions = setup.options.scalacOptions
-          val args = compilerArgs.apply(Nil, classpath, None, scalacOptions).toArray
+          val args = compilerArgs.makeArguments(Nil, classpathNio, scalacOptions)
           timed("scalac") {
             compileSources(sources, scalacOptions, callback)
           }
         }
 
-        batches match {
-          case Some(batches) => sys.error("Parallel compilation is not yet supported!")
-          case None => compileSequentially
-        }
+        compileSequentially
       }
     }
 
@@ -175,52 +178,25 @@ final class BloopHighLevelCompiler(
         )
         val javaOptions = setup.options.javacOptions.toArray[String]
         try {
-          javac.compile(javaSources, javaOptions, setup.output, callback, incToolOptions, config.reporter, logger, config.progress)
-          completeJava.trySuccess(())
+          javac.compile(javaSources, Nil, PlainVirtualFileConverter.converter, javaOptions, setup.output, None, callback, incToolOptions, config.reporter, logger, config.progress)
+          JavaCompleted.trySuccess(())
           ()
         } catch {
           case f: CompileFailed =>
             // Intercept and report manually because https://github.com/sbt/zinc/issues/520
             config.reporter.printSummary()
-            completeJava.tryFailure(f)
+            JavaCompleted.tryFailure(f)
             throw f
         }
       }
     }
 
-    val combinedTasks = {
-      if (separateJavaAndScala) {
-        val compileJavaSynchronized = {
-          fireJavaCompilation.flatMap {
-            case JavaSignal.ContinueCompilation => compileJava
-            case JavaSignal.FailFastCompilation(failedProjects) =>
-              throw new StopPipelining(failedProjects)
-          }
-        }
-
-        if (javaSources.isEmpty) compileScala
-        else {
-          if (setup.order == CompileOrder.JavaThenScala) {
-            Task.gatherUnordered(List(compileJavaSynchronized, compileScala)).map(_ => ())
-          } else {
-            compileScala.flatMap(_ => compileJavaSynchronized)
-          }
-        }
+    val combinedTasks =
+      if (setup.order == CompileOrder.JavaThenScala) {
+        compileJava.flatMap(_ => compileScala)
       } else {
-        // Note that separate java and scala is not enabled under pipelining
-        fireJavaCompilation.flatMap {
-          case JavaSignal.ContinueCompilation =>
-            if (setup.order == CompileOrder.JavaThenScala) {
-              compileJava.flatMap(_ => compileScala)
-            } else {
-              compileScala.flatMap(_ => compileJava)
-            }
-
-          case JavaSignal.FailFastCompilation(failedProjects) =>
-            throw new StopPipelining(failedProjects)
-        }
+        compileScala.flatMap(_ => compileJava)
       }
-    }
 
     Task(System.nanoTime).flatMap { nanoStart =>
       combinedTasks.materialize.map { r =>
@@ -236,10 +212,10 @@ final class BloopHighLevelCompiler(
 }
 
 object BloopHighLevelCompiler {
-  def apply(config: CompileConfiguration, reporter: ZincReporter, logger: ObservedLogger[_], tracer: BraveTracer): BloopHighLevelCompiler = {
+  def apply(config: CompileConfiguration, reporter: ZincReporter, logger: ObservedLogger[_], tracer: BraveTracer, classpathOptions: ClasspathOptions): BloopHighLevelCompiler = {
     val (searchClasspath, entry) = MixedAnalyzingCompiler.searchClasspathAndLookup(config)
     val scalaCompiler = config.compiler.asInstanceOf[AnalyzingCompiler]
-    val javaCompiler = new AnalyzingJavaCompiler(config.javac, config.classpath, config.compiler.scalaInstance, config.classpathOptions, entry, searchClasspath)
+    val javaCompiler = new AnalyzingJavaCompiler(config.javac, config.classpath, config.compiler.scalaInstance, classpathOptions, entry, searchClasspath)
     new BloopHighLevelCompiler(scalaCompiler, javaCompiler, config, reporter, logger, tracer)
   }
 }

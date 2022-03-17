@@ -1,4 +1,0 @@
-[submodule "zinc"]
-	path = zinc
-	url = https://github.com/scalacenter/zinc.git
-	branch = loop

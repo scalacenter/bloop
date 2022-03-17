@@ -12,9 +12,9 @@ import bloop.io.Environment.lineSeparator
 import bloop.io.ServerHandle
 import bloop.util.JavaRuntime
 import bloop.bsp.BloopBspDefinitions.BloopExtraBuildParams
-import bloop.{CompileMode, Compiler, ScalaInstance}
+import bloop.{Compiler, ScalaInstance}
 import bloop.cli.{Commands, ExitStatus, Validate}
-import bloop.dap.{DebugServerLogger, BloopDebuggeeRunner}
+import bloop.dap.{BloopDebuggeeRunner, DebugServerLogger}
 import bloop.data.{ClientInfo, JdkConfig, Platform, Project, WorkspaceSettings}
 import bloop.engine.{Aggregate, Dag, Interpreter, State}
 import bloop.engine.tasks.{CompileTask, RunMode, Tasks, TestTask}
@@ -27,20 +27,15 @@ import bloop.testing.{BspLoggingEventHandler, TestInternals}
 import ch.epfl.scala.bsp
 import ch.epfl.scala.bsp.ScalaBuildTarget.encodeScalaBuildTarget
 import ch.epfl.scala.bsp.SbtBuildTarget.encodeSbtBuildTarget
-import ch.epfl.scala.bsp.{
-  BuildTargetIdentifier,
-  JvmEnvironmentItem,
-  MessageType,
-  ShowMessageParams,
-  Uri,
-  endpoints
-}
+import ch.epfl.scala.bsp.{BuildTargetIdentifier, JvmEnvironmentItem, MessageType, ShowMessageParams, Uri, endpoints}
+
 import scala.meta.jsonrpc.{JsonRpcClient, Response => JsonRpcResponse, Services => JsonRpcServices}
 import monix.eval.Task
 import monix.reactive.Observer
 import monix.execution.Scheduler
 import monix.execution.atomic.AtomicInt
 import monix.execution.atomic.AtomicBoolean
+
 import scala.collection.concurrent.TrieMap
 import scala.collection.mutable
 import scala.collection.JavaConverters._
@@ -114,7 +109,7 @@ final class BloopBspServices(
     .requestAsync(endpoints.BuildTarget.run)(p => schedule(run(p)))
     .requestAsync(endpoints.BuildTarget.cleanCache)(p => schedule(clean(p)))
     .requestAsync(endpoints.BuildTarget.scalaMainClasses)(p => schedule(scalaMainClasses(p)))
-    .requestAsync(endpoints.BuildTarget.scalaTestClasses)(p => schedule(scalaTestClasses(p)))
+    .requestAsync(ScalaTestClasses.endpoint)(p => schedule(scalaTestClasses(p)))
     .requestAsync(endpoints.BuildTarget.dependencySources)(p => schedule(dependencySources(p)))
     .requestAsync(endpoints.DebugSession.start)(p => schedule(startDebugSession(p)))
     .requestAsync(endpoints.BuildTarget.jvmTestEnvironment)(p => schedule(jvmTestEnvironment(p)))
@@ -546,31 +541,35 @@ final class BloopBspServices(
 
   def scalaTestClasses(
       params: bsp.ScalaTestClassesParams
-  ): BspEndpointResponse[bsp.ScalaTestClassesResult] = {
+  ): BspEndpointResponse[ScalaTestClassesResult] =
     ifInitialized(params.originId) { (state: State, logger: BspServerLogger) =>
       mapToProjects(params.targets, state) match {
         case Left(error) =>
           logger.error(error)
-          Task.now((state, Right(bsp.ScalaTestClassesResult(Nil))))
+          Task.now((state, Right(ScalaTestClassesResult(Nil))))
 
         case Right(projects) =>
-          val subTasks = for {
-            (id, project) <- projects.toList
-            task = TestTask.findFullyQualifiedTestNames(project, state)
-            item = task.map(classes => bsp.ScalaTestClassesItem(id, classes))
-          } yield item
+          val subTasks = projects.toList.map { case (id, project) =>
+            val task = TestTask.findTestNamesWithFramework(project, state)
+            val item = task.map { classes => 
+              classes.groupBy(_.framework).map { case (framework, classes) =>
+                ScalaTestClassesItem(id, classes.flatMap(_.classes), Some(framework))
+              }.toList
+            }
+            item
+          }
 
-          for {
-            items <- Task.sequence(subTasks)
-            result = new bsp.ScalaTestClassesResult(items)
-          } yield (state, Right(result))
-      }
+          Task.sequence(subTasks).map { items =>
+            val result = ScalaTestClassesResult(items.flatten)
+            (state, Right(result))
+          }
     }
   }
 
   def startDebugSession(
       params: bsp.DebugSessionParams
   ): BspEndpointResponse[bsp.DebugSessionAddress] = {
+
     def inferDebuggeeRunner(
         projects: Seq[Project],
         state: State
@@ -596,7 +595,16 @@ final class BloopBspServices(
           )
         case bsp.DebugSessionParamsDataKind.ScalaTestSuites =>
           convert[List[String]](
-            filters => BloopDebuggeeRunner.forTestSuite(projects, filters, state, ioScheduler)
+            classNames => {
+              val testClasses = ScalaTestSuites(classNames)
+              BloopDebuggeeRunner.forTestSuite(projects, testClasses, state, ioScheduler)
+            }
+          )
+        case "scala-test-suites-selection" =>
+          convert[ScalaTestSuites](
+            testClasses => {
+              BloopDebuggeeRunner.forTestSuite(projects, testClasses, state, ioScheduler)
+            }
           )
         case bsp.DebugSessionParamsDataKind.ScalaAttachRemote =>
           Right(BloopDebuggeeRunner.forAttachRemote(state, ioScheduler, projects))
@@ -663,7 +671,7 @@ final class BloopBspServices(
     ): Task[State] = {
       val testFilter = TestInternals.parseFilters(Nil) // Don't support test only for now
       val handler = new BspLoggingEventHandler(id, state.logger, client)
-      Tasks.test(state, List(project), Nil, testFilter, handler, mode = RunMode.Normal)
+      Tasks.test(state, List(project), Nil, testFilter, ScalaTestSuites.empty, handler, mode = RunMode.Normal)
     }
 
     val originId = params.originId

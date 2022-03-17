@@ -1,6 +1,5 @@
 package bloop.engine
 
-import bloop.CompileMode
 import bloop.bsp.BspServer
 import bloop.cli._
 import bloop.cli.completion.{Case, Mode}
@@ -26,6 +25,7 @@ import bloop.ScalaInstance
 import scala.collection.immutable.Nil
 import scala.annotation.tailrec
 import java.io.IOException
+import bloop.bsp.ScalaTestSuites
 
 object Interpreter {
   // This is stack-safe because of Monix's trampolined execution
@@ -360,6 +360,7 @@ object Interpreter {
               projectsToTest,
               cmd.args,
               testFilter,
+              ScalaTestSuites.empty,
               handler,
               cmd.parallel,
               RunMode.Normal
@@ -461,9 +462,10 @@ object Interpreter {
           stateWithNoopLogger = state.copy(logger = NoopLogger)
           project <- Tasks.pickTestProject(projectName, stateWithNoopLogger)
         } yield {
-          TestTask.findFullyQualifiedTestNames(project, stateWithNoopLogger).map { testsFqcn =>
+          TestTask.findTestNamesWithFramework(project, stateWithNoopLogger).map { discovered =>
             for {
-              testFqcn <- testsFqcn
+              classesWithFramework <- discovered
+              testFqcn <- classesWithFramework.classes
               completion <- cmd.format.showTestName(testFqcn)
             } state.logger.info(completion)
             state

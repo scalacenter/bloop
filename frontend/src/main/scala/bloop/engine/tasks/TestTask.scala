@@ -8,17 +8,23 @@ import bloop.engine.tasks.toolchains.ScalaJsToolchain
 import bloop.exec.{Forker, JvmProcessForker}
 import bloop.io.AbsolutePath
 import bloop.logging.{DebugFilter, Logger}
-import bloop.testing.{DiscoveredTestFrameworks, LoggingEventHandler, TestInternals}
+import bloop.testing.{DiscoveredTestFrameworks, LoggingEventHandler, TestInternals, FingerprintInfo}
 import bloop.util.JavaCompat.EnrichOptional
 import monix.eval.Task
 import monix.execution.atomic.AtomicBoolean
 import sbt.internal.inc.Analysis
-import sbt.testing.{Framework, SuiteSelector, TaskDef}
+import sbt.testing.{Framework, SuiteSelector, TaskDef, TestSelector}
 import xsbt.api.Discovery
 import xsbti.compile.CompileAnalysis
 
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success}
+import bloop.bsp.ScalaTestSuites
+
+final case class TestFrameworkWithClasses(
+    framework: String,
+    classes: List[String]
+)
 
 object TestTask {
   implicit private val logContext: DebugFilter = DebugFilter.Test
@@ -42,6 +48,7 @@ object TestTask {
       cwd: AbsolutePath,
       rawTestOptions: List[String],
       testFilter: String => Boolean,
+      testClasses: ScalaTestSuites,
       handler: LoggingEventHandler,
       mode: RunMode
   ): Task[Int] = {
@@ -82,19 +89,29 @@ object TestTask {
           val configuredFrameworks = found.frameworks
           logger.debug(s"Found test frameworks: ${configuredFrameworks.map(_.name).mkString(", ")}")
           val suites =
-            discoverTestSuites(state, project, configuredFrameworks, compileAnalysis, testFilter)
+            discoverTestSuites(
+              state,
+              project,
+              configuredFrameworks,
+              compileAnalysis,
+              testFilter,
+              testClasses
+            )
           val discoveredFrameworks = suites.iterator.filterNot(_._2.isEmpty).map(_._1).toList
           val (userJvmOptions, userTestOptions) = rawTestOptions.partition(_.startsWith("-J"))
-          val jvmOptions = userJvmOptions.map(_.stripPrefix("-J"))
+          val jvmOptions = userJvmOptions.map(_.stripPrefix("-J")) ++ testClasses.jvmOptions
+          val envOptions = testClasses.environmentVariables
           val frameworkArgs = considerFrameworkArgs(discoveredFrameworks, userTestOptions, logger)
           val args = project.testOptions.arguments ++ frameworkArgs
           logger.debug(s"Running test suites with arguments: $args")
+          logger.debug(s"Running ForkMain with jvm opts: $jvmOptions")
+          logger.debug(s"Running ForkMain with env variables: $envOptions")
 
           found match {
             case DiscoveredTestFrameworks.Jvm(frameworks, forker, loader) =>
               val opts = state.commonOptions
               // FORMAT: OFF
-              TestInternals.execute(cwd, forker, loader, suites, args, jvmOptions, handler, logger, opts)
+              TestInternals.execute(cwd, forker, loader, suites, args, jvmOptions, envOptions, handler, logger, opts)
               // FORMAT: ON
             case DiscoveredTestFrameworks.Js(frameworks, closeResources) =>
               val cancelled: AtomicBoolean = AtomicBoolean(false)
@@ -243,33 +260,57 @@ object TestTask {
     }
   }
 
+  case class TaskDefWithFramework(taskDef: TaskDef, framework: Framework)
+
   private[bloop] def discoverTestSuites(
       state: State,
       project: Project,
       frameworks: List[Framework],
       analysis: CompileAnalysis,
-      testFilter: String => Boolean
+      testFilter: String => Boolean,
+      testClasses: ScalaTestSuites
   ): Map[Framework, List[TaskDef]] = {
     import state.logger
     val tests = discoverTests(analysis, frameworks)
     val excluded = project.testOptions.excludes.toSet
     val ungroupedTests = tests.toList.flatMap {
-      case (framework, tasks) => tasks.map(t => (framework, t))
+      case (framework, tasks) => tasks.map(taskDef => TaskDefWithFramework(taskDef, framework))
     }
     val (includedTests, excludedTests) = ungroupedTests.partition {
-      case (_, task) =>
-        val fqn = task.fullyQualifiedName()
+      case TaskDefWithFramework(taskDef, _) =>
+        val fqn = taskDef.fullyQualifiedName()
         !excluded(fqn) && testFilter(fqn)
     }
     if (logger.isVerbose) {
-      val allNames = ungroupedTests.map(_._2.fullyQualifiedName).mkString(", ")
-      val includedNames = includedTests.map(_._2.fullyQualifiedName).mkString(", ")
-      val excludedNames = excludedTests.map(_._2.fullyQualifiedName).mkString(", ")
+      val allNames = ungroupedTests.map(_.taskDef.fullyQualifiedName).mkString(", ")
+      val includedNames = includedTests.map(_.taskDef.fullyQualifiedName).mkString(", ")
+      val excludedNames = excludedTests.map(_.taskDef.fullyQualifiedName).mkString(", ")
       logger.debug(s"Bloop found the following tests for ${project.name}: $allNames")
       logger.debug(s"The following tests were included by the filter: $includedNames")
       logger.debug(s"The following tests were excluded by the filter: $excludedNames")
     }
-    includedTests.groupBy(_._1).mapValues(_.map(_._2))
+
+    // based on proposal from https://github.com/build-server-protocol/build-server-protocol/issues/249#issuecomment-983435766
+    // TaskDef consists of e.g. fullyQualifiedName and selectors
+    // selectors is a possibly empty array of selectors which determines suites and tests to run
+    // usually it is a Array(new SuiteSelector). However, if only subset of test are supposed to
+    // be run, then it can be altered to Array[TestSelector]
+    val selectedTests = testClasses.suites.map(entry => (entry.className, entry.tests)).toMap
+    includedTests.groupBy(_.framework).mapValues { taskDefs =>
+      taskDefs.map {
+        case TaskDefWithFramework(taskDef, framework) =>
+          selectedTests.get(taskDef.fullyQualifiedName()).getOrElse(Nil) match {
+            case Nil => taskDef
+            case selectedTests =>
+              new TaskDef(
+                taskDef.fullyQualifiedName(),
+                taskDef.fingerprint(),
+                false,
+                selectedTests.map(test => new TestSelector(test)).toList.toArray
+              )
+          }
+      }
+    }
   }
 
   private[bloop] def discoverTests(
@@ -280,14 +321,14 @@ object TestTask {
     val (subclassPrints, annotatedPrints) = TestInternals.getFingerprints(frameworks)
     val definitions = TestInternals.potentialTests(analysis)
     val discovered =
-      Discovery(subclassPrints.map(_._1).toSet, annotatedPrints.map(_._1).toSet)(definitions)
+      Discovery(subclassPrints.map(_.name).toSet, annotatedPrints.map(_.name).toSet)(definitions)
     val tasks = mutable.Map.empty[Framework, mutable.Buffer[TaskDef]]
     val seen = mutable.Set.empty[String]
     frameworks.foreach(tasks(_) = mutable.Buffer.empty)
     discovered.foreach {
       case (defn, discovered) =>
         TestInternals.matchingFingerprints(subclassPrints, annotatedPrints, discovered).foreach {
-          case (_, _, framework, fingerprint) =>
+          case FingerprintInfo(_, _, framework, fingerprint) =>
             if (seen.add(defn.name)) {
               tasks(framework) += new TaskDef(
                 defn.name,
@@ -308,28 +349,26 @@ object TestTask {
    * @param project The project for which to find tests.
    * @return An array containing all the testsFQCN that were detected.
    */
-  def findFullyQualifiedTestNames(
+  def findTestNamesWithFramework(
       project: Project,
       state: State
-  ): Task[List[String]] = {
-    import state.logger
+  ): Task[List[TestFrameworkWithClasses]] =
     TestTask.discoverTestFrameworks(project, state).map {
-      case None => List.empty[String]
+      case None => List.empty
       case Some(found) =>
         val frameworks = found.frameworks
         val lastCompileResult = state.results.lastSuccessfulResultOrEmpty(project)
         val analysis = lastCompileResult.previous.analysis().toOption.getOrElse {
-          logger.debug(s"TestsFQCN was triggered, but no compilation detected for ${project.name}")(
-            DebugFilter.All
-          )
+          state.logger
+            .debug(s"TestsFQCN was triggered, but no compilation detected for ${project.name}")(
+              DebugFilter.All
+            )
           Analysis.empty
         }
         val tests = discoverTests(analysis, frameworks)
-        tests.toList
-          .flatMap {
-            case (framework, tasks) => tasks.map(t => (framework, t))
-          }
-          .map(_._2.fullyQualifiedName)
+        tests.map {
+          case (framework, tasks) =>
+            TestFrameworkWithClasses(framework.name, tasks.map(_.fullyQualifiedName))
+        }.toList
     }
-  }
 }

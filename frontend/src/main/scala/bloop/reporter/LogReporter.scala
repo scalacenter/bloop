@@ -14,6 +14,8 @@ import sbt.util.InterfaceUtil
 import scala.collection.mutable
 import scala.collection.concurrent.TrieMap
 import bloop.logging.CompilationEvent
+import xsbti.VirtualFile
+import bloop.util.AnalysisUtils
 
 final class LogReporter(
     val project: Project,
@@ -64,11 +66,15 @@ final class LogReporter(
     ()
   }
 
-  override def reportStartIncrementalCycle(sources: Seq[File], outputDirs: Seq[File]): Unit = {
+  override def reportStartIncrementalCycle(
+      sources: Seq[VirtualFile],
+      outputDirs: Seq[File]
+  ): Unit = {
     // TODO(jvican): Fix https://github.com/scalacenter/bloop/issues/386 here
     require(sources.size > 0) // This is an invariant enforced in the call-site
-    compilingFiles ++ sources
-    logger.info(Reporter.compilationMsgFor(project.name, sources))
+    val plainFiles = sources.map(converter.toPath(_).toFile())
+    compilingFiles ++ plainFiles
+    logger.info(Reporter.compilationMsgFor(project.name, plainFiles))
   }
 
   override def reportEndIncrementalCycle(durationMs: Long, result: scala.util.Try[Unit]): Unit = {

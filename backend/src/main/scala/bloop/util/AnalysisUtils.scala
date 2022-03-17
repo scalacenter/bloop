@@ -1,14 +1,15 @@
 package bloop.util
 
-import java.io.File
-
 import bloop.reporter.ProblemPerPhase
+import xsbti.VirtualFileRef
 import xsbti.compile.CompileAnalysis
 import xsbti.compile.analysis.SourceInfo
 
+import java.io.File
+
 object AnalysisUtils {
   import scala.collection.JavaConverters._
-  def sourceInfosFrom(previousAnalysis: CompileAnalysis): Map[File, SourceInfo] = {
+  def sourceInfosFrom(previousAnalysis: CompileAnalysis): Map[VirtualFileRef, SourceInfo] = {
     previousAnalysis.readSourceInfos().getAllSourceInfos.asScala.toMap
   }
 

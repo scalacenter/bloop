@@ -17,6 +17,9 @@ import sbt.internal.inc.{Analysis, AnalyzingCompiler, ConcreteAnalysisContents, 
 import sbt.internal.inc.classpath.ClasspathUtilities
 import sbt.testing._
 import xsbti.compile.{ClasspathOptionsUtil, CompileAnalysis, MiniSetup, PreviousResult}
+import bloop.bsp.ScalaTestSuites
+import sbt.internal.inc.PlainVirtualFileConverter
+import sbt.internal.inc.classpath.ClasspathUtil
 
 object Tasks {
   private[bloop] val TestFailedStatus: Set[Status] =
@@ -62,7 +65,8 @@ object Tasks {
           DebugFilter.All
         )
         val javacBin = project.runtimeJdkConfig.flatMap(_.javacBin)
-        val loader = ClasspathUtilities.makeLoader(entries, instance)
+        val pathEntries = entries.map(e => e.toPath())
+        val loader = ClasspathUtil.makeLoader(pathEntries, instance)
         val compiler =
           state.compilerCache
             .get(instance, javacBin, project.javacOptions)
@@ -70,8 +74,16 @@ object Tasks {
             .asInstanceOf[AnalyzingCompiler]
         val opts = ClasspathOptionsUtil.repl
         val options = project.scalacOptions :+ "-Xnojline"
+        val converter = PlainVirtualFileConverter.converter
         // We should by all means add better error handling here!
-        compiler.console(entries, options, opts, "", "", state.logger)(Some(loader))
+        compiler.console(
+          pathEntries.map(e => converter.toVirtualFile(e)),
+          converter,
+          options,
+          "",
+          "",
+          state.logger
+        )(Some(loader))
       case None => logger.error(s"Missing Scala configuration on project '${project.name}'")
     }
 
@@ -93,6 +105,7 @@ object Tasks {
       projectsToTest: List[Project],
       userTestOptions: List[String],
       testFilter: String => Boolean,
+      testClasses: ScalaTestSuites,
       testEventHandler: BloopTestSuiteEventHandler,
       runInParallel: Boolean = false,
       mode: RunMode
@@ -123,6 +136,7 @@ object Tasks {
         cwd,
         userTestOptions,
         testFilter,
+        testClasses,
         failureHandler,
         mode
       )

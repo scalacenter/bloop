@@ -144,7 +144,7 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
         )
 
         import java.util.concurrent.TimeoutException
-        val (firstNoopState, secondNoopState) = TestUtil.blockOnTask(noopCompiles, 2)
+        val (firstNoopState, secondNoopState) = TestUtil.blockOnTask(noopCompiles, 5)
 
         assert(firstNoopState.status == ExitStatus.Ok)
         assert(secondNoopState.status == ExitStatus.Ok)
@@ -545,7 +545,7 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
           waitUntilStartAndCompile(compiledState, `B`, startedFirstCompilation, cliLogger2)
 
         val firstCompiledState =
-          Await.result(firstCompilation, FiniteDuration(5, TimeUnit.SECONDS))
+          Await.result(firstCompilation, FiniteDuration(15, TimeUnit.SECONDS))
         val (secondCompiledState, thirdCompiledState) =
           TestUtil.blockOnTask(mapBoth(secondCompilation, thirdCompilation), 3)
 
@@ -754,9 +754,9 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
         val eighthCompilation =
           waitUntilStartAndCompile(newCliCompiledState, `B`, startedThirdCompilation, cliLogger7)
 
-        val thirdBspState = Await.result(seventhCompilation, FiniteDuration(3, TimeUnit.SECONDS))
+        val thirdBspState = Await.result(seventhCompilation, FiniteDuration(10, TimeUnit.SECONDS))
         val seventhCompiledState =
-          Await.result(eighthCompilation, FiniteDuration(1, TimeUnit.SECONDS))
+          Await.result(eighthCompilation, FiniteDuration(5, TimeUnit.SECONDS))
 
         checkDeduplication(bspLogger, isDeduplicated = false)
         checkDeduplication(cliLogger7, isDeduplicated = true)

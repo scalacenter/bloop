@@ -124,7 +124,12 @@ abstract class BaseTestProject {
     val version = scalaVersion.getOrElse(Properties.versionNumberString)
 
     val finalScalaOrg = scalaOrg.getOrElse("org.scala-lang")
-    val finalScalaCompiler = scalaCompiler.getOrElse("scala-compiler")
+    val finalScalaCompiler = scalaCompiler.getOrElse {
+      if (version.startsWith("3."))
+        "scala3-compiler_3"
+      else
+        "scala-compiler"
+    }
     val instance =
       mkScalaInstance(finalScalaOrg, finalScalaCompiler, scalaVersion, jars.toList, NoopLogger)
 

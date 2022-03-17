@@ -30,9 +30,13 @@ import sbt.internal.inc.UsedName
 import sbt.internal.inc.Analysis
 import sbt.internal.inc.Compilation
 import sbt.internal.inc.SourceInfos
-
-import bloop.CompileMode
-import xsbti.compile.Signature
+import xsbti.VirtualFile
+import sbt.internal.inc.UsedNames
+import java.nio.file.Path
+import xsbti.VirtualFileRef
+import xsbti.T2
+import bloop.util.AnalysisUtils
+import sbt.internal.inc.PlainVirtualFileConverter
 
 /**
  * This class provides a thread-safe implementation of `xsbti.AnalysisCallback` which is required to compile with the
@@ -45,16 +49,16 @@ import xsbti.compile.Signature
  * IMPORTANT: All modifications made to BloopAnalysisCallback` must be replicated here.
  */
 final class ConcurrentAnalysisCallback(
-    compileMode: CompileMode,
     internalBinaryToSourceClassName: String => Option[String],
-    internalSourceToClassNamesMap: File => Set[String],
-    externalAPI: (File, String) => Option[AnalyzedClass],
+    internalSourceToClassNamesMap: VirtualFile => Set[String],
+    externalAPI: (Path, String) => Option[AnalyzedClass],
     stampReader: ReadStamps,
     output: Output,
     options: IncOptions,
     manager: ClassFileManager
 ) extends IBloopAnalysisCallback {
-  private[this] val compilation: Compilation = Compilation(output)
+
+  private[this] val compilation: Compilation = Compilation(System.currentTimeMillis(), output)
 
   override def toString =
     (List("Class APIs", "Object APIs", "Binary deps", "Products", "Source deps") zip
@@ -73,46 +77,53 @@ final class ConcurrentAnalysisCallback(
 
   private type ConcurrentSet[A] = ConcurrentHashMap.KeySetView[A, java.lang.Boolean]
 
-  private[this] val srcs = ConcurrentHashMap.newKeySet[File]()
+  private[this] val srcs = ConcurrentHashMap.newKeySet[Path]()
   private[this] val classApis = new TrieMap[String, ApiInfo]
   private[this] val objectApis = new TrieMap[String, ApiInfo]
   private[this] val classPublicNameHashes = new TrieMap[String, Array[NameHash]]
   private[this] val objectPublicNameHashes = new TrieMap[String, Array[NameHash]]
   private[this] val usedNames = new TrieMap[String, ConcurrentSet[UsedName]]
-  private[this] val unreportedProblems = new TrieMap[File, ConcurrentLinkedQueue[Problem]]
-  private[this] val reportedProblems = new TrieMap[File, ConcurrentLinkedQueue[Problem]]
-  private[this] val mainClasses = new TrieMap[File, ConcurrentLinkedQueue[String]]
-  private[this] val binaryDeps = new TrieMap[File, ConcurrentSet[File]]
+  private[this] val unreportedProblems = new TrieMap[Path, ConcurrentLinkedQueue[Problem]]
+  private[this] val reportedProblems = new TrieMap[Path, ConcurrentLinkedQueue[Problem]]
+  private[this] val mainClasses = new TrieMap[Path, ConcurrentLinkedQueue[String]]
+  private[this] val binaryDeps = new TrieMap[Path, ConcurrentSet[Path]]
 
   // source file to set of generated (class file, binary class name); only non local classes are stored here
-  private[this] val nonLocalClasses = new TrieMap[File, ConcurrentSet[(File, String)]]
-  private[this] val localClasses = new TrieMap[File, ConcurrentSet[File]]
+  private[this] val nonLocalClasses = new TrieMap[Path, ConcurrentSet[(Path, String)]]
+  private[this] val localClasses = new TrieMap[Path, ConcurrentSet[Path]]
   // mapping between src class name and binary (flat) class name for classes generated from src file
-  private[this] val classNames = new TrieMap[File, ConcurrentSet[(String, String)]]
+  private[this] val classNames = new TrieMap[Path, ConcurrentSet[(String, String)]]
   // generated class file to its source class name
-  private[this] val classToSource = new TrieMap[File, String]
+  private[this] val classToSource = new TrieMap[Path, String]
   // internal source dependencies
   private[this] val intSrcDeps = new TrieMap[String, ConcurrentSet[InternalDependency]]
   // external source dependencies
   private[this] val extSrcDeps = new TrieMap[String, ConcurrentSet[ExternalDependency]]
-  private[this] val binaryClassName = new TrieMap[File, String]
+  private[this] val binaryClassName = new TrieMap[Path, String]
   // source files containing a macro def.
   private[this] val macroClasses = ConcurrentHashMap.newKeySet[String]()
+
+  private[this] val converter = PlainVirtualFileConverter.converter
 
   private def add[A, B](map: TrieMap[A, ConcurrentSet[B]], a: A, b: B): Unit = {
     map.getOrElseUpdate(a, ConcurrentHashMap.newKeySet[B]()).add(b)
     ()
   }
 
-  def startSource(source: File): Unit = {
+  def startSource(source: VirtualFile): Unit = {
+    val sourcePath = converter.toPath(source)
     if (options.strictMode()) {
       assert(
         !srcs.contains(source),
         s"The startSource can be called only once per source file: $source"
       )
     }
-    srcs.add(source)
+    srcs.add(sourcePath)
     ()
+  }
+
+  def startSource(source: File): Unit = {
+    startSource(converter.toVirtualFile(source.toPath()))
   }
 
   def problem(
@@ -125,7 +136,7 @@ final class ConcurrentAnalysisCallback(
     for (source <- InterfaceUtil.jo2o(pos.sourceFile)) {
       val map = if (reported) reportedProblems else unreportedProblems
       map
-        .getOrElseUpdate(source, new ConcurrentLinkedQueue)
+        .getOrElseUpdate(source.toPath(), new ConcurrentLinkedQueue)
         .add(InterfaceUtil.problem(category, pos, msg, severity, None))
     }
   }
@@ -136,13 +147,13 @@ final class ConcurrentAnalysisCallback(
   }
 
   private[this] def externalBinaryDependency(
-      binary: File,
+      binary: Path,
       className: String,
-      source: File,
+      source: VirtualFileRef,
       context: DependencyContext
   ): Unit = {
     binaryClassName.put(binary, className)
-    add(binaryDeps, source, binary)
+    add(binaryDeps, converter.toPath(source), binary)
   }
 
   private[this] def externalSourceDependency(
@@ -157,10 +168,10 @@ final class ConcurrentAnalysisCallback(
   }
 
   def binaryDependency(
-      classFile: File,
+      classFile: Path,
       onBinaryClassName: String,
       fromClassName: String,
-      fromSourceFile: File,
+      fromSourceFile: VirtualFileRef,
       context: DependencyContext
   ) = {
     internalBinaryToSourceClassName(onBinaryClassName) match {
@@ -179,11 +190,27 @@ final class ConcurrentAnalysisCallback(
     }
   }
 
-  private[this] def externalDependency(
+  def binaryDependency(
       classFile: File,
+      onBinaryClassName: String,
+      fromClassName: String,
+      fromSourceFile: File,
+      context: DependencyContext
+  ) = {
+    binaryDependency(
+      classFile.toPath(),
+      onBinaryClassName,
+      fromClassName,
+      converter.toVirtualFile(fromSourceFile.toPath()),
+      context
+    )
+  }
+
+  private[this] def externalDependency(
+      classFile: Path,
       onBinaryName: String,
       sourceClassName: String,
-      sourceFile: File,
+      sourceFile: VirtualFileRef,
       context: DependencyContext
   ): Unit = {
     externalAPI(classFile, onBinaryName) match {
@@ -198,28 +225,46 @@ final class ConcurrentAnalysisCallback(
   }
 
   def generatedNonLocalClass(
+      source: VirtualFileRef,
+      classFile: Path,
+      binaryClassName: String,
+      srcClassName: String
+  ): Unit = {
+    val sourcePath = converter.toPath(source)
+    //println(s"Generated non local class ${source}, ${classFile}, ${binaryClassName}, ${srcClassName}")
+    add(nonLocalClasses, sourcePath, (classFile, binaryClassName))
+    add(classNames, sourcePath, (srcClassName, binaryClassName))
+    classToSource.put(classFile, srcClassName)
+    ()
+  }
+
+  def generatedNonLocalClass(
       source: File,
       classFile: File,
       binaryClassName: String,
       srcClassName: String
   ): Unit = {
-    //println(s"Generated non local class ${source}, ${classFile}, ${binaryClassName}, ${srcClassName}")
-    add(nonLocalClasses, source, (classFile, binaryClassName))
-    add(classNames, source, (srcClassName, binaryClassName))
-    classToSource.put(classFile, srcClassName)
+    generatedNonLocalClass(
+      converter.toVirtualFile(source.toPath()),
+      classFile.toPath(),
+      binaryClassName,
+      srcClassName
+    )
+  }
+
+  override def generatedLocalClass(source: VirtualFileRef, classFile: Path): Unit = {
+    add(localClasses, converter.toPath(source), classFile)
     ()
   }
 
   def generatedLocalClass(source: File, classFile: File): Unit = {
-    //println(s"Generated local class ${source}, ${classFile}")
-    add(localClasses, source, classFile)
-    ()
+    generatedLocalClass(converter.toVirtualFile(source.toPath()), classFile.toPath())
   }
 
-  def api(sourceFile: File, classApi: ClassLike): Unit = {
+  override def api(sourceFile: VirtualFileRef, classApi: ClassLike): Unit = {
     import xsbt.api.{APIUtil, HashAPI}
     val className = classApi.name
-    if (APIUtil.isScalaSourceName(sourceFile.getName) && APIUtil.hasMacro(classApi))
+    if (APIUtil.isScalaSourceName(sourceFile.name()) && APIUtil.hasMacro(classApi))
       macroClasses.add(className)
     val shouldMinimize = !Incremental.apiDebug(options)
     val savedClassApi = if (shouldMinimize) APIUtil.minimize(classApi) else classApi
@@ -240,9 +285,19 @@ final class ConcurrentAnalysisCallback(
     }
   }
 
-  def mainClass(sourceFile: File, className: String): Unit = {
-    mainClasses.getOrElseUpdate(sourceFile, new ConcurrentLinkedQueue).add(className)
+  override def api(sourceFile: File, classApi: ClassLike): Unit = {
+    api(converter.toVirtualFile(sourceFile.toPath()), classApi)
+  }
+
+  override def mainClass(sourceFile: VirtualFileRef, className: String): Unit = {
+    mainClasses
+      .getOrElseUpdate(converter.toPath(sourceFile), new ConcurrentLinkedQueue)
+      .add(className)
     ()
+  }
+
+  def mainClass(sourceFile: File, className: String): Unit = {
+    mainClass(converter.toVirtualFile(sourceFile.toPath()), className)
   }
 
   def usedName(className: String, name: String, useScopes: ju.EnumSet[UseScope]) =
@@ -254,15 +309,19 @@ final class ConcurrentAnalysisCallback(
     addUsedNames(addCompilation(addProductsAndDeps(Analysis.empty)))
   }
 
+  // According to docs this is used for build tools and it's not unused in Bloop
+  override def isPickleJava(): Boolean = false
+  override def getPickleJarPair(): ju.Optional[T2[Path, Path]] = ju.Optional.empty()
+
   def getOrNil[A, B](m: collection.Map[A, Seq[B]], a: A): Seq[B] = m.get(a).toList.flatten
   def addCompilation(base: Analysis): Analysis =
     base.copy(compilations = base.compilations.add(compilation))
   def addUsedNames(base: Analysis): Analysis = (base /: usedNames) {
     case (a, (className, names)) =>
       import scala.collection.JavaConverters._
-      names.asScala.foldLeft(a) {
-        case (a, name) => a.copy(relations = a.relations.addUsedName(className, name))
-      }
+      a.copy(relations =
+        a.relations.addUsedNames(UsedNames.fromMultiMap(Map(className -> names.asScala)))
+      )
   }
 
   private def companionsWithHash(className: String): (Companions, HashAPI.Hash, HashAPI.Hash) = {
@@ -311,7 +370,8 @@ final class ConcurrentAnalysisCallback(
     import scala.collection.JavaConverters._
     srcs.asScala.foldLeft(base) {
       case (a, src) =>
-        val stamp = stampReader.source(src)
+        val sourceV = converter.toVirtualFile(src)
+        val stamp = stampReader.source(sourceV)
         val classesInSrc =
           classNames
             .getOrElse(src, ConcurrentHashMap.newKeySet[(String, String)]())
@@ -323,13 +383,14 @@ final class ConcurrentAnalysisCallback(
           getOrNil(unreportedProblems.mapValues { _.asScala.toSeq }, src),
           getOrNil(mainClasses.mapValues { _.asScala.toSeq }, src)
         )
-        val binaries = binaryDeps.getOrElse(src, ConcurrentHashMap.newKeySet[File]).asScala
+        val binaries = binaryDeps.getOrElse(src, ConcurrentHashMap.newKeySet[Path]).asScala
         val localProds = localClasses
-          .getOrElse(src, ConcurrentHashMap.newKeySet[File]())
+          .getOrElse(src, ConcurrentHashMap.newKeySet[Path]())
           .asScala
           .map { classFile =>
-            val classFileStamp = stampReader.product(classFile)
-            Analysis.LocalProduct(classFile, classFileStamp)
+            val classFileV = converter.toVirtualFile(classFile)
+            val classFileStamp = stampReader.product(classFileV)
+            Analysis.LocalProduct(classFileV, classFileStamp)
           }
         val binaryToSrcClassName =
           (classNames
@@ -340,13 +401,14 @@ final class ConcurrentAnalysisCallback(
             })
             .toMap
         val nonLocalProds = nonLocalClasses
-          .getOrElse(src, ConcurrentHashMap.newKeySet[(File, String)]())
+          .getOrElse(src, ConcurrentHashMap.newKeySet[(Path, String)]())
           .asScala
           .map {
             case (classFile, binaryClassName) =>
+              val classFileV = converter.toVirtualFile(classFile)
               val srcClassName = binaryToSrcClassName(binaryClassName)
-              val classFileStamp = stampReader.product(classFile)
-              Analysis.NonLocalProduct(srcClassName, binaryClassName, classFile, classFileStamp)
+              val classFileStamp = stampReader.product(classFileV)
+              Analysis.NonLocalProduct(srcClassName, binaryClassName, classFileV, classFileStamp)
           }
 
         val internalDeps = classesInSrc.flatMap(cls =>
@@ -355,10 +417,13 @@ final class ConcurrentAnalysisCallback(
         val externalDeps = classesInSrc.flatMap(cls =>
           extSrcDeps.getOrElse(cls, ConcurrentHashMap.newKeySet[ExternalDependency]()).asScala
         )
-        val binDeps = binaries.map(d => (d, binaryClassName(d), stampReader binary d))
+        val binDeps = binaries.map { d =>
+          val virtual = converter.toVirtualFile(d)
+          (virtual, binaryClassName(d), stampReader.library(virtual))
+        }
 
         a.addSource(
-          src,
+          sourceV,
           analyzedApis,
           stamp,
           info,
@@ -373,27 +438,9 @@ final class ConcurrentAnalysisCallback(
 
   override def apiPhaseCompleted(): Unit = {
     // See [[BloopAnalysisCallback.apiPhaseCompleted]]
-    manager.generated(classToSource.keysIterator.toArray)
+    manager.generated(classToSource.keysIterator.map(converter.toVirtualFile).toArray)
   }
   override def dependencyPhaseCompleted(): Unit = ()
   override def classesInOutputJar(): java.util.Set[String] = ju.Collections.emptySet()
 
-  override def definedMacro(symbolName: String): Unit = {
-    compileMode.oracle.registerDefinedMacro(symbolName)
-  }
-
-  override def invokedMacro(invokedMacroSymbol: String): Unit = {
-    compileMode.oracle.blockUntilMacroClasspathIsReady(invokedMacroSymbol)
-  }
-
-  override def isPipeliningEnabled(): Boolean = compileMode.oracle.isPipeliningEnabled
-  override def downstreamSignatures(): Array[Signature] =
-    compileMode.oracle.collectDownstreamSignatures()
-  override def definedSignatures(signatures: Array[Signature]): Unit = {
-    compileMode.oracle.startDownstreamCompilations(signatures)
-  }
-
-  override def invalidatedClassFiles(): Array[File] = {
-    manager.invalidatedClassFiles()
-  }
 }

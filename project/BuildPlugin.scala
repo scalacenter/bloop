@@ -50,7 +50,7 @@ object BuildKeys {
     Seq(sbt.Compile, sbt.Test).flatMap(sbt.inConfig(_)(ss))
 
   import sbt.{Test, TestFrameworks, Tests}
-  val buildBase = Keys.baseDirectory in ThisBuild
+  val buildBase = (ThisBuild / Keys.baseDirectory)
 
   val bloopName = Def.settingKey[String]("The name to use in build info generated code")
   val nailgunClientLocation = Def.settingKey[sbt.File]("Where to find the python nailgun client")
@@ -102,9 +102,9 @@ object BuildKeys {
     }
 
     // Add only the artifact name for 0.6 bridge because we replace it
-    val jsBridge06Key = fromIvyModule("jsBridge06", Keys.ivyModule in jsBridge06)
-    val jsBridge10Key = fromIvyModule("jsBridge1", Keys.ivyModule in jsBridge1)
-    val nativeBridge04Key = fromIvyModule("nativeBridge04", Keys.ivyModule in nativeBridge04)
+    val jsBridge06Key = fromIvyModule("jsBridge06", (jsBridge06 / Keys.ivyModule))
+    val jsBridge10Key = fromIvyModule("jsBridge1", (jsBridge1 / Keys.ivyModule))
+    val nativeBridge04Key = fromIvyModule("nativeBridge04", (nativeBridge04 / Keys.ivyModule))
     val bspKey = BuildInfoKey.constant("bspVersion" -> Dependencies.bspVersion)
     val extra = List(
       zincKey,
@@ -138,7 +138,11 @@ object BuildImplementation {
     Developer(handle, fullName, email, url(s"https://github.com/$handle"))
 
   final val globalSettings: Seq[Def.Setting[_]] = Seq(
-    BuildKeys.schemaVersion := "4.2-refresh-3"
+    Keys.cancelable := true,
+    BuildKeys.schemaVersion := "4.2-refresh-3",
+    (Test / Keys.testOptions) += sbt.Tests.Argument("-oD"),
+    Keys.onLoadMessage := Header.intro,
+    (Test / Keys.publishArtifact) := false
   )
 
   private final val ThisRepo = GitHub("scalacenter", "bloop")
@@ -172,20 +176,22 @@ object BuildImplementation {
           reasonableCompileOptions
       }
     },
-    Keys.sources in (Compile, Keys.doc) := Nil,
-    Keys.sources in (Test, Keys.doc) := Nil,
-    Keys.publishArtifact in Test := false,
-    Keys.publishArtifact in (Compile, Keys.packageDoc) := {
+    // Legal requirement: license and notice files must be in the published jar
+    (Compile / Keys.resources) ++= BuildDefaults.getLicense.value,
+    (Compile / Keys.doc / Keys.sources) := Nil,
+    (Test / Keys.doc / Keys.sources) := Nil,
+    (Test / Keys.publishArtifact) := false,
+    (Compile / Keys.packageDoc / Keys.publishArtifact) := {
       val output = DynVerKeys.dynverGitDescribeOutput.value
       val version = Keys.version.value
       BuildDefaults.publishDocAndSourceArtifact(output, version)
     },
-    Keys.publishArtifact in (Compile, Keys.packageSrc) := {
+    (Compile / Keys.packageSrc / Keys.publishArtifact) := {
       val output = DynVerKeys.dynverGitDescribeOutput.value
       val version = Keys.version.value
       BuildDefaults.publishDocAndSourceArtifact(output, version)
     },
-    Keys.publishLocalConfiguration in Compile :=
+    (Compile / Keys.publishLocalConfiguration) :=
       Keys.publishLocalConfiguration.value.withOverwrite(true)
   )
 
@@ -204,20 +210,34 @@ object BuildImplementation {
 
     val frontendTestBuildSettings: Seq[Def.Setting[_]] = {
       sbtbuildinfo.BuildInfoPlugin.buildInfoScopedSettings(Test) ++ List(
-        BuildInfoKeys.buildInfoKeys in Test := {
+        (Test / BuildInfoKeys.buildInfoKeys) := {
           import sbtbuildinfo.BuildInfoKey
-          val junitTestJars = BuildInfoKey.map(Keys.externalDependencyClasspath in Test) {
+          val junitTestJars = BuildInfoKey.map((Test / Keys.externalDependencyClasspath)) {
             case (_, classpath) =>
               val jars = classpath.map(_.data.getAbsolutePath)
               val junitJars = jars.filter(j => j.contains("junit") || j.contains("hamcrest"))
               "junitTestJars" -> junitJars
           }
 
-          List(junitTestJars, Keys.baseDirectory in ThisBuild)
+          List(junitTestJars, ThisBuild / Keys.baseDirectory)
         },
-        BuildInfoKeys.buildInfoPackage in Test := "bloop.internal.build",
-        BuildInfoKeys.buildInfoObject in Test := "BuildTestInfo"
+        (Test / BuildInfoKeys.buildInfoPackage) := "bloop.internal.build",
+        (Test / BuildInfoKeys.buildInfoObject) := "BuildTestInfo"
       )
+    }
+
+    // From sbt-sensible https://gitlab.com/fommil/sbt-sensible/issues/5, legal requirement
+    val getLicense: Def.Initialize[Task[Seq[File]]] = Def.task {
+      val orig = (Compile / Keys.resources).value
+      val base = Keys.baseDirectory.value
+      val root = (ThisBuild / Keys.baseDirectory).value
+
+      def fileWithFallback(name: String): File =
+        if ((base / name).exists) base / name
+        else if ((root / name).exists) root / name
+        else throw new IllegalArgumentException(s"legal file $name must exist")
+
+      Seq(fileWithFallback("LICENSE.md"), fileWithFallback("NOTICE.md"))
     }
 
     /**
@@ -233,4 +253,19 @@ object BuildImplementation {
       !isStable.exists(stable => !stable || version.endsWith("-SNAPSHOT"))
     }
   }
+}
+
+object Header {
+  val intro: String =
+    """      _____            __         ______           __
+      |     / ___/_________ _/ /___ _   / ____/__  ____  / /____  _____
+      |     \__ \/ ___/ __ `/ / __ `/  / /   / _ \/ __ \/ __/ _ \/ ___/
+      |    ___/ / /__/ /_/ / / /_/ /  / /___/ /__/ / / / /_/ /__/ /
+      |   /____/\___/\__,_/_/\__,_/   \____/\___/_/ /_/\__/\___/_/
+      |
+      |   ***********************************************************
+      |   ***       Welcome to the build of `loooooooooop`        ***
+      |   ***        An effort funded by the Scala Center         ***
+      |   ***********************************************************
+    """.stripMargin
 }

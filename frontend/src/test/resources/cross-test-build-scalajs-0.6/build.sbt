@@ -16,7 +16,7 @@ lazy val `test-project` =
       libraryDependencies += "org.scalatest" %%% "scalatest" % "3.0.4" % Test,
       libraryDependencies += "org.scalacheck" %%% "scalacheck" % "1.13.4" % Test,
       libraryDependencies += "org.specs2" %%% "specs2-core" % "4.7.0" % Test,
-      libraryDependencies += "com.novocode" % "junit-interface" % "0.11" % Test,
+      libraryDependencies += "com.github.sbt" % "junit-interface" % "0.13.3" % Test,
       libraryDependencies += "org.pegdown" % "pegdown" % "1.6.0" % Test,
       testFrameworks += utestFramework,
       List(Compile, Test).flatMap(inConfig(_) {
@@ -40,10 +40,10 @@ lazy val `test-project` =
 
 lazy val `test-project-js` = `test-project`.js.settings(
   // Should override default set above. Tested as part of ScalaJsToolchainSpec.
-  bloopMainClass in (Compile, run) := Some("hello.DefaultApp")
+  (Compile / run / bloopMainClass) := Some("hello.DefaultApp")
 )
 
 lazy val `test-project-jvm` = `test-project`.jvm.settings(
-  bloopMainClass in (Compile, run) := Some("hello.App"),
+  (Compile / run / bloopMainClass) := Some("hello.App"),
   unmanagedBase := baseDirectory.value / "custom_libraries"
 )

@@ -224,7 +224,7 @@ If you want bloop to export `mainClass` from your build definition, define eithe
 settings in your `build.sbt`:
 
 ```scala
-bloopMainClass in (Compile, run) := Some("foo.App")
+(Compile / run / bloopMainClass) := Some("foo.App")
 ```
 
 The build plugin doesn't intentionally populate the main class directly from sbt's `mainClass`

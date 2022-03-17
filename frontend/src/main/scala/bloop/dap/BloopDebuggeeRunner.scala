@@ -7,7 +7,7 @@ import bloop.engine.caches.ExpressionCompilerCache
 import bloop.engine.tasks.{RunMode, Tasks}
 import bloop.engine.{Dag, State}
 import bloop.logging.Logger
-import bloop.testing.{LoggingEventHandler, DebugLoggingEventHandler, TestInternals}
+import bloop.testing.{DebugLoggingEventHandler, LoggingEventHandler, TestInternals}
 import ch.epfl.scala.bsp.ScalaMainClass
 import ch.epfl.scala.debugadapter._
 import monix.eval.Task
@@ -16,6 +16,7 @@ import monix.execution.Scheduler
 import java.net.URLClassLoader
 import scala.collection.mutable
 import java.nio.file.Path
+import bloop.bsp.ScalaTestSuites
 
 abstract class BloopDebuggeeRunner(initialState: State, ioScheduler: Scheduler)
     extends DebuggeeRunner {
@@ -68,7 +69,7 @@ private final class MainClassDebugAdapter(
 
 private final class TestSuiteDebugAdapter(
     projects: Seq[Project],
-    filters: List[String],
+    testClasses: ScalaTestSuites,
     val classPathEntries: Seq[ClassPathEntry],
     val javaRuntime: Option[JavaRuntime],
     val evaluationClassLoader: Option[ClassLoader],
@@ -78,11 +79,16 @@ private final class TestSuiteDebugAdapter(
 ) extends BloopDebuggeeRunner(initialState, ioScheduler) {
   override def name: String = {
     val projectsStr = projects.map(_.bspUri).mkString("[", ", ", "]")
-    val filtersStr = filters.mkString("[", ", ", "]")
-    s"${getClass.getSimpleName}($projectsStr, $filtersStr)"
+    val selectedTests = testClasses.suites
+      .map { suite =>
+        val tests = suite.tests.mkString("(", ",", ")")
+        s"${suite.className}$tests"
+      }
+      .mkString("[", ", ", "]")
+    s"${getClass.getSimpleName}($projectsStr, $selectedTests)"
   }
   override def start(state: State, listener: DebuggeeListener): Task[ExitStatus] = {
-    val filter = TestInternals.parseFilters(filters)
+    val filter = TestInternals.parseFilters(testClasses.suites.map(_.className))
     val handler = new DebugLoggingEventHandler(state.logger, listener)
 
     val task = Tasks.test(
@@ -90,6 +96,7 @@ private final class TestSuiteDebugAdapter(
       projects.toList,
       Nil,
       filter,
+      testClasses,
       handler,
       mode = RunMode.Debug
     )
@@ -148,12 +155,13 @@ object BloopDebuggeeRunner {
 
   def forTestSuite(
       projects: Seq[Project],
-      filters: List[String],
+      testClasses: ScalaTestSuites,
       state: State,
       ioScheduler: Scheduler
   ): Either[String, DebuggeeRunner] = {
     projects match {
-      case Seq() => Left(s"No projects specified for the test suites: [${filters.sorted}]")
+      case Seq() =>
+        Left(s"No projects specified for the test suites: [${testClasses.classNames.sorted}]")
       case Seq(project) if project.platform.isInstanceOf[Platform.Jvm] =>
         val Platform.Jvm(config, _, _, _, _, _) = project.platform
         val classPathEntries = getClassPathEntries(state, project)
@@ -163,7 +171,7 @@ object BloopDebuggeeRunner {
         Right(
           new TestSuiteDebugAdapter(
             projects,
-            filters,
+            testClasses,
             classPathEntries,
             javaRuntime,
             evaluationClassLoader,
@@ -176,7 +184,7 @@ object BloopDebuggeeRunner {
         Right(
           new TestSuiteDebugAdapter(
             projects,
-            filters,
+            testClasses,
             Seq.empty,
             None,
             None,
