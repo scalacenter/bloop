@@ -305,7 +305,13 @@ class BspMetalsClientSpec(
 
   test("compile with semanticDB") {
     TestUtil.withinWorkspace { workspace =>
-      val `A` = TestProject(workspace, "A", dummyFooScalaAndBarJavaSources)
+
+      object JavacOptions {
+        // This will cause to use the forked javac compiler, since addong any `-J` property causes it
+        val A = List("-J-Xms48m")
+      }
+
+      val `A` = TestProject(workspace, "A", dummyFooScalaAndBarJavaSources, javacOptions = JavacOptions.A)
       val projects = List(`A`)
       val configDir = TestProject.populateWorkspace(workspace, projects)
       val logger = new RecordingLogger(ansiCodesSupported = false)

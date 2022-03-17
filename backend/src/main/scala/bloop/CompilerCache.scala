@@ -212,13 +212,19 @@ final class CompilerCache(
             val newClasspathValue = newInvalidatedEntry.toFile + File.pathSeparator + classpathValue
             options(classpathValueIndex) = newClasspathValue
 
+            output.getSingleOutputAsPath.ifPresent { p =>
+              java.nio.file.Files.createDirectories(p)
+              ()
+            }
+
+            val outputOption = CompilerArguments.outputOption(output)
             try {
               import sbt.internal.inc.javac.BloopForkedJavaUtils
               BloopForkedJavaUtils.launch(
                 javaHome,
                 "javac",
                 sources.map(converter.toPath(_)),
-                options,
+                options ++ outputOption,
                 log,
                 reporter
               )
@@ -292,9 +298,9 @@ final class CompilerCache(
         processJavaDirArgument(cleanedOptions.indexOf("-s"))
         processJavaDirArgument(cleanedOptions.indexOf("-h"))
 
-        output.getSingleOutputAsPath match {
-          case p if p.isPresent => java.nio.file.Files.createDirectories(p.get)
-          case _ =>
+        output.getSingleOutputAsPath.ifPresent { p =>
+          java.nio.file.Files.createDirectories(p)
+          ()
         }
 
         val outputOption = CompilerArguments.outputOption(output)

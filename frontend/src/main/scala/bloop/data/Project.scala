@@ -462,24 +462,25 @@ object Project {
     }
 
     def enableJavaSemanticdbOptions(options: List[String]): List[String] = {
-      val moreOptions =
-        if (hasJavaSemanticDBEnabledInCompilerOptions(options)) options
-        else
+      if (hasJavaSemanticDBEnabledInCompilerOptions(options)) options
+      else {
+        val semanticdbOptions =
           s"-Xplugin:semanticdb -sourceroot:${workspaceDir} -targetroot:javac-classes-directory" :: options
-      if (project.javaVersionAtLeast("17", logger))
-        List(
-          "-J--add-exports",
-          "-Jjdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
-          "-J--add-exports",
-          "-Jjdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
-          "-J--add-exports",
-          "-Jjdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED",
-          "-J--add-exports",
-          "-Jjdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
-          "-J--add-exports",
-          "-Jjdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED"
-        ) ::: moreOptions
-      else moreOptions
+        if (project.javaVersionAtLeast("17", logger))
+          List(
+            "-J--add-exports",
+            "-Jjdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
+            "-J--add-exports",
+            "-Jjdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
+            "-J--add-exports",
+            "-Jjdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED",
+            "-J--add-exports",
+            "-Jjdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
+            "-J--add-exports",
+            "-Jjdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED"
+          ) ::: semanticdbOptions
+        else semanticdbOptions
+      }
     }
 
     def enableJavaSemanticdbClasspath(
