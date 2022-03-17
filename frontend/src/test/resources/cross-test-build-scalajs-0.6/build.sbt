@@ -16,7 +16,7 @@ lazy val `test-project` =
       libraryDependencies += "org.scalatest" %%% "scalatest" % "3.0.4" % Test,
       libraryDependencies += "org.scalacheck" %%% "scalacheck" % "1.13.4" % Test,
       libraryDependencies += "org.specs2" %%% "specs2-core" % "4.7.0" % Test,
-      libraryDependencies += "com.novocode" % "junit-interface" % "0.11" % Test,
+      libraryDependencies += "com.github.sbt" % "junit-interface" % "0.13.3" % Test,
       libraryDependencies += "org.pegdown" % "pegdown" % "1.6.0" % Test,
       testFrameworks += utestFramework,
       List(Compile, Test).flatMap(inConfig(_) {

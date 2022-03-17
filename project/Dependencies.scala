@@ -18,7 +18,7 @@ object Dependencies {
   val sourcecodeVersion = "0.1.4"
   val sbtTestInterfaceVersion = "1.0"
   val sbtTestAgentVersion = "1.4.4"
-  val junitVersion = "0.11"
+  val junitVersion = "0.13.3"
   val graphvizVersion = "0.2.2"
   val directoryWatcherVersion = "0.8.0+6-f651bd93"
   val mavenApiVersion = "3.6.1"
@@ -74,7 +74,8 @@ object Dependencies {
   val utest = "com.lihaoyi" %% "utest" % "0.6.9"
   val pprint = "com.lihaoyi" %% "pprint" % "0.5.5"
   val scalacheck = "org.scalacheck" %% "scalacheck" % "1.13.4"
-  val junit = "com.novocode" % "junit-interface" % junitVersion
+  val junit = "com.github.sbt" % "junit-interface" % junitVersion
+
   val graphviz = "guru.nidi" % "graphviz-java" % graphvizVersion
   val directoryWatcher = "ch.epfl.scala" % "directory-watcher" % directoryWatcherVersion
   val difflib = "com.googlecode.java-diff-utils" % "diffutils" % difflibVersion

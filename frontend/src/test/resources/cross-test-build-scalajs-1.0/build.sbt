@@ -8,7 +8,7 @@ lazy val `test-project` =
       name := "test-project",
       // %%% now include Scala Native. It applies to all selected platforms
       scalaVersion := "2.13.1",
-      libraryDependencies += "com.novocode" % "junit-interface" % "0.11" % Test,
+      libraryDependencies += "com.github.sbt" % "junit-interface" % "0.13.3" % Test,
       libraryDependencies += "com.lihaoyi" %%% "utest" % "0.7.4" % Test,
       testFrameworks += new TestFramework("utest.runner.Framework"),
       testOptions in Test ++= Seq(
