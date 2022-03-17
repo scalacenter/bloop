@@ -5,7 +5,7 @@ object Dependencies {
   val Scala213Version = "2.13.8"
 
   // Keep in sync in BloopComponentCompiler
-  val zincVersion = "1.3.0-M4+47-d881fa2f"
+  val zincVersion = "1.6.0"
 
   val bspVersion = "2.0.0-M13"
   val javaDebugVersion = "0.21.0+1-7f1080f1"
@@ -49,7 +49,7 @@ object Dependencies {
   val coursierInterfaceVersion = "1.0.6"
 
   import sbt.librarymanagement.syntax.stringToOrganization
-  val zinc = "ch.epfl.scala" %% "zinc" % zincVersion
+  val zinc = "org.scala-sbt" %% "zinc" % zincVersion
   val bsp4s = "ch.epfl.scala" %% "bsp4s" % bspVersion
   val bsp4j = "ch.epfl.scala" % "bsp4j" % bspVersion
   val nailgun = "io.github.alexarchambault.bleep" % "nailgun-server" % "1.0.3"

@@ -13,8 +13,6 @@ import bloop.tracing.BraveTracer
 import bloop.logging.{ObservedLogger, Logger}
 import bloop.reporter.{ProblemPerPhase, ZincReporter}
 import bloop.util.{AnalysisUtils, UUIDUtil, CacheHashCode}
-import bloop.CompileMode.Pipelined
-import bloop.CompileMode.Sequential
 
 import xsbti.compile._
 import xsbti.T2
@@ -23,7 +21,6 @@ import sbt.util.InterfaceUtil
 import sbt.internal.inc.Analysis
 import sbt.internal.inc.bloop.BloopZincCompiler
 import sbt.internal.inc.{FreshCompilerCache, InitialChanges, Locate}
-import sbt.internal.inc.bloop.internal.StopPipelining
 import sbt.internal.inc.{ConcreteAnalysisContents, FileAnalysisStore}
 
 import scala.concurrent.Promise
@@ -37,6 +34,9 @@ import sbt.internal.inc.bloop.internal.BloopStamps
 import sbt.internal.inc.bloop.internal.BloopLookup
 import bloop.reporter.Reporter
 import bloop.logging.CompilationEvent
+import xsbti.VirtualFile
+import xsbti.VirtualFileRef
+import sbt.internal.inc.PlainVirtualFileConverter
 
 case class CompileInputs(
     scalaInstance: ScalaInstance,
@@ -55,7 +55,6 @@ case class CompileInputs(
     previousCompilerResult: Compiler.Result,
     reporter: ZincReporter,
     logger: ObservedLogger[Logger],
-    mode: CompileMode,
     dependentResults: Map[File, PreviousResult],
     cancelPromise: Promise[Unit],
     tracer: BraveTracer,
@@ -164,6 +163,7 @@ object CompileOutPaths {
 
 object Compiler {
   private implicit val filter = bloop.logging.DebugFilter.Compilation
+  private val converter = PlainVirtualFileConverter.converter
   private final class BloopProgress(
       reporter: ZincReporter,
       cancelPromise: Promise[Unit]
@@ -172,7 +172,12 @@ object Compiler {
       reporter.reportNextPhase(phase, new java.io.File(unitPath))
     }
 
-    override def advance(current: Int, total: Int): Boolean = {
+    override def advance(
+        current: Int,
+        total: Int,
+        prevPhase: String,
+        nextPhase: String
+    ): Boolean = {
       val isNotCancelled = !cancelPromise.isCompleted
       if (isNotCancelled) {
         reporter.reportCompilationProgress(current.toLong, total.toLong)
@@ -260,6 +265,7 @@ object Compiler {
 
     def newFileManager: ClassFileManager = {
       new BloopClassFileManager(
+        Files.createTempDirectory("bloop"),
         compileInputs,
         compileOut,
         allGeneratedRelativeClassFilePaths,
@@ -279,8 +285,9 @@ object Compiler {
     }
 
     def getCompilationOptions(inputs: CompileInputs): CompileOptions = {
-      val sources = inputs.sources // Sources are all files
-      val classpath = inputs.classpath.map(_.toFile)
+      // Sources are all files
+      val sources = inputs.sources.map(path => converter.toVirtualFile(path.underlying))
+      val classpath = inputs.classpath.map(path => converter.toVirtualFile(path.underlying))
       val optionsWithoutFatalWarnings = inputs.scalacOptions.flatMap { option =>
         if (option != "-Xfatal-warnings") List(option)
         else {
@@ -295,12 +302,11 @@ object Compiler {
 
       CompileOptions
         .create()
-        .withClassesDirectory(newClassesDir.toFile)
-        .withSources(sources.map(_.toFile))
+        .withClassesDirectory(newClassesDir)
+        .withSources(sources)
         .withClasspath(classpath)
         .withScalacOptions(optionsWithoutFatalWarnings)
         .withJavacOptions(inputs.javacOptions)
-        .withClasspathOptions(inputs.classpathOptions)
         .withOrder(inputs.compileOrder)
     }
 
@@ -312,7 +318,11 @@ object Compiler {
         newClassesDir.toFile -> compileInputs.previousResult
       )
 
-      val lookup = new BloopClasspathEntryLookup(results, compileInputs.uniqueInputs.classpath)
+      val lookup = new BloopClasspathEntryLookup(
+        results,
+        compileInputs.uniqueInputs.classpath,
+        converter
+      )
       val reporter = compileInputs.reporter
       val compilerCache = new FreshCompilerCache
       val cacheFile = compileInputs.baseDirectory.resolve("cache").toFile
@@ -348,19 +358,12 @@ object Compiler {
 
     import ch.epfl.scala.bsp
     import scala.util.{Success, Failure}
-    val mode = compileInputs.mode
     val reporter = compileInputs.reporter
 
     def cancel(): Unit = {
       // Complete all pending promises when compilation is cancelled
       logger.debug(s"Cancelling compilation from ${readOnlyClassesDirPath} to ${newClassesDirPath}")
       compileInputs.cancelPromise.trySuccess(())
-      mode match {
-        case _: Sequential => ()
-        case Pipelined(completeJava, finishedCompilation, _, _, _) =>
-          completeJava.trySuccess(())
-          finishedCompilation.tryFailure(CompileExceptions.FailedOrCancelledPromise)
-      }
 
       // Always report the compilation of a project no matter if it's completed
       reporter.reportCancelledCompilation()
@@ -383,7 +386,16 @@ object Compiler {
     val uniqueInputs = compileInputs.uniqueInputs
     reporter.reportStartCompilation(previousProblems)
     BloopZincCompiler
-      .compile(inputs, mode, reporter, logger, uniqueInputs, newFileManager, cancelPromise, tracer)
+      .compile(
+        inputs,
+        reporter,
+        logger,
+        uniqueInputs,
+        newFileManager,
+        cancelPromise,
+        tracer,
+        classpathOptions
+      )
       .materialize
       .doOnCancel(Task(cancel()))
       .map {
@@ -421,9 +433,9 @@ object Compiler {
                 val invalidatedExtraProducts =
                   allInvalidatedExtraCompileProducts.iterator.map(_.toPath).toSet
                 val invalidatedInThisProject = invalidatedClassFiles ++ invalidatedExtraProducts
-                val blacklist = invalidatedInThisProject ++ readOnlyCopyBlacklist.iterator
+                val denyList = invalidatedInThisProject ++ readOnlyCopyBlacklist.iterator
                 val config =
-                  ParallelOps.CopyConfiguration(5, CopyMode.ReplaceIfMetadataMismatch, blacklist)
+                  ParallelOps.CopyConfiguration(5, CopyMode.ReplaceIfMetadataMismatch, denyList)
                 val lastCopy = ParallelOps.copyDirectories(config)(
                   readOnlyClassesDir,
                   clientClassesDir.underlying,
@@ -448,7 +460,6 @@ object Compiler {
           }
 
           val isNoOp = previousAnalysis.contains(analysis)
-          val definedMacroSymbols = mode.oracle.collectDefinedMacroSymbols
           if (isNoOp) {
             // If no-op, return previous result with updated classpath hashes
             val noOpPreviousResult = {
@@ -464,8 +475,7 @@ object Compiler {
               noOpPreviousResult,
               noOpPreviousResult,
               Set(),
-              Map.empty,
-              definedMacroSymbols
+              Map.empty
             )
 
             val backgroundTasks = new CompileBackgroundTasks {
@@ -524,7 +534,7 @@ object Compiler {
 
             val resultForFutureCompilationRuns = {
               resultForDependentCompilationsInSameRun.withAnalysis(
-                Optional.of(analysisForFutureCompilationRuns)
+                Optional.of(analysisForFutureCompilationRuns): Optional[CompileAnalysis]
               )
             }
 
@@ -582,8 +592,7 @@ object Compiler {
               resultForDependentCompilationsInSameRun,
               resultForFutureCompilationRuns,
               allInvalidated.toSet,
-              allGeneratedProducts,
-              definedMacroSymbols
+              allGeneratedProducts
             )
 
             Result.Success(
@@ -603,7 +612,6 @@ object Compiler {
           reporter.reportEndCompilation()
 
           cause match {
-            case f: StopPipelining => Result.Blocked(f.failedProjectNames)
             case f: xsbti.CompileFailed =>
               // We cannot guarantee reporter.problems == f.problems, so we aggregate them together
               val reportedProblems = reporter.allProblemsPerPhase.toList
@@ -728,12 +736,14 @@ object Compiler {
   ): Analysis = {
     // Cast to the only internal analysis that we support
     val analysis = analysis0.asInstanceOf[Analysis]
-    def rebase(file: File): File = {
-      val filePath = file.toPath.toAbsolutePath
+    def rebase(file: VirtualFileRef): VirtualFileRef = {
+
+      val filePath = converter.toPath(file).toAbsolutePath()
       if (!filePath.startsWith(readOnlyClassesDir)) file
       else {
         // Hash for class file is the same because the copy duplicates metadata
-        newClassesDir.resolve(readOnlyClassesDir.relativize(filePath)).toFile
+        val path = newClassesDir.resolve(readOnlyClassesDir.relativize(filePath))
+        converter.toVirtualFile(path)
       }
     }
 
@@ -742,11 +752,12 @@ object Compiler {
       val oldStamps = analysis.stamps
       // Use empty stamps for files that have fatal warnings so that next compile recompiles them
       val rebasedSources = oldStamps.sources.map {
-        case t @ (file, _) =>
+        case t @ (virtualFile, _) =>
+          val file = converter.toPath(virtualFile).toFile()
           // Assumes file in reported diagnostic matches path in here
           val fileHasFatalWarnings = sourceFilesWithFatalWarnings.contains(file)
           if (!fileHasFatalWarnings) t
-          else file -> BloopStamps.emptyStampFor(file)
+          else virtualFile -> BloopStamps.emptyStamps
       }
       val rebasedProducts = oldStamps.products.map {
         case t @ (file, _) =>
@@ -754,7 +765,7 @@ object Compiler {
           if (rebased == file) t else rebased -> t._2
       }
       // Changes the paths associated with the class file paths
-      Stamps(rebasedProducts, rebasedSources, oldStamps.binaries)
+      Stamps(rebasedProducts, rebasedSources, oldStamps.libraries)
     }
 
     val newRelations = {

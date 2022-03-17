@@ -10,14 +10,19 @@ import sbt.internal.inc.Stamps
 import sbt.internal.inc.Stamper
 import sbt.internal.inc.EmptyStamp
 import xsbti.compile.analysis.{ReadStamps, Stamp}
+import xsbti.VirtualFileRef
+import bloop.util.AnalysisUtils
+import java.nio.file.Path
+import sbt.internal.inc.PlainVirtualFileConverter
 
 object BloopStamps {
+  private val converter = PlainVirtualFileConverter.converter
   def initial: ReadStamps = {
     Stamps.initial(
-      Stamper.forLastModified,
+      Stamper.forLastModifiedInRootPaths(converter),
       // The hash is for the sources
       BloopStamps.forHash,
-      Stamper.forLastModified
+      Stamper.forHashInRootPaths(converter)
     )
   }
 
@@ -25,17 +30,17 @@ object BloopStamps {
   private final val directoryHash = scala.util.Random.nextInt()
   final val cancelledHash = scala.util.Random.nextInt()
 
-  def emptyHash(file: File): FileHash = FileHash.of(file, emptyHash)
-  def cancelledHash(file: File): FileHash = FileHash.of(file, cancelledHash)
+  def emptyHash(path: Path): FileHash = FileHash.of(path, emptyHash)
+  def cancelledHash(path: Path): FileHash = FileHash.of(path, cancelledHash)
 
-  def directoryHash(file: File): FileHash = FileHash.of(file, directoryHash)
+  def directoryHash(path: Path): FileHash = FileHash.of(path, directoryHash)
   def isDirectoryHash(fh: FileHash): Boolean = fh.hash == directoryHash
 
-  def forHash(file: File): Hash = {
-    fromBloopHashToZincHash(ByteHasher.hashFileContents(file))
+  def forHash(file: VirtualFileRef): Hash = {
+    fromBloopHashToZincHash(ByteHasher.hashFileContents(converter.toPath(file).toFile()))
   }
 
-  def emptyStampFor(file: File): Stamp = EmptyStamp
+  def emptyStamps: Stamp = EmptyStamp
 
   def fromBloopHashToZincHash(hash: Int): Hash = {
     val hex = hash.toString

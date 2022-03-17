@@ -3,6 +3,7 @@ package bloop.reporter
 import java.io.File
 import scala.util.Try
 import ch.epfl.scala.bsp
+import xsbti.VirtualFile
 
 sealed trait ReporterAction
 object ReporterAction {
@@ -10,7 +11,7 @@ object ReporterAction {
   final case object ReportStartCompilation extends ReporterAction
 
   final case class ReportStartIncrementalCycle(
-      sources: Seq[File],
+      sources: Seq[VirtualFile],
       outputDirs: Seq[File]
   ) extends ReporterAction
 

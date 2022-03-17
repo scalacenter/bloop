@@ -815,10 +815,14 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
               |     cannot find symbol
               |       symbol:   class Bar
               |       location: class Foo
+              |     L3: Bar
+              |                           ^^^
               |[E1] ${targetFoo}:3
               |     cannot find symbol
               |       symbol:   class Bar
               |       location: class Foo
+              |     L3: Bar
+              |             ^^^
               |${targetFoo}: L3 [E1], L3 [E2]
               |""".stripMargin
         } else {
@@ -1065,29 +1069,17 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
         s"""[E1] ${targetB}:1
            |     cannot find symbol
            |       symbol: class A
-           |${targetB}: L1 [E1]""".stripMargin
-      }
-
-      val cannotFindSymbolError2: String = {
-        s"""[E1] ${targetB}:1
-           |      error: cannot find symbol
+           |     L1: A
+           |                                ^
            |${targetB}: L1 [E1]""".stripMargin
       }
 
       assertDiagnosticsResult(compiledState.getLastResultFor(`A`), 1)
       import bloop.testing.DiffAssertions
-      try {
-        assertNoDiff(
-          logger.renderErrors(exceptContaining = "Failed to compile"),
-          cannotFindSymbolError
-        )
-      } catch {
-        case _: DiffAssertions.TestFailedException =>
-          assertNoDiff(
-            logger.renderErrors(exceptContaining = "Failed to compile"),
-            cannotFindSymbolError2
-          )
-      }
+      assertNoDiff(
+        logger.renderErrors(exceptContaining = "Failed to compile"),
+        cannotFindSymbolError
+      )
     }
   }
 

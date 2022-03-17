@@ -5,7 +5,7 @@ import bloop.engine.Feedback
 import bloop.engine.{Dag, ExecutionContext}
 import bloop.io.{AbsolutePath, Paths}
 import bloop.io.ByteHasher
-import bloop.{Compiler, CompilerOracle, ScalaInstance}
+import bloop.{Compiler, ScalaInstance}
 import bloop.logging.{Logger, ObservedLogger, LoggerAction}
 import bloop.reporter.{ObservedReporter, ReporterAction}
 import bloop.tracing.BraveTracer
@@ -25,6 +25,7 @@ import xsbti.compile.PreviousResult
 import scala.concurrent.ExecutionContext
 import bloop.CompileOutPaths
 import bloop.cli.CommonOptions
+import sbt.internal.inc.PlainVirtualFileConverter
 
 sealed trait CompileBundle
 
@@ -62,8 +63,6 @@ case object CancelledCompileBundle extends CompileBundle
  * dependent projects, which is required to create a full classpath.
  * @param javaSources A list of Java sources in the project.
  * @param scalaSources A list of Scala sources in the project.
- * @param oracleInputs The compiler oracle inputs are the main input to the
- * compilation task called by [[CompileGraph]].
  * @param cancelCompilation A promise that can be completed to cancel the compilation.
  * @param reporter A reporter instance that will register every reporter action
  * produced by the compilation started by this compile bundle.
@@ -189,7 +188,7 @@ object CompileBundle {
       val sourceHashesTask = tracer.traceTaskVerbose("discovering and hashing sources") { _ =>
         bloop.io.SourceHasher
           .findAndHashSourcesInProject(project, 20, cancelCompilation, ioScheduler)
-          .map(res => res.map(_.sortBy(_.source.syntax)))
+          .map(res => res.map(_.sortBy(_.source.id())))
           .executeOn(ioScheduler)
       }
 
@@ -205,7 +204,7 @@ object CompileBundle {
             val javaSources = new ListBuffer[AbsolutePath]()
             val scalaSources = new ListBuffer[AbsolutePath]()
             sourceHashes.foreach { hashed =>
-              val source = hashed.source
+              val source = AbsolutePath(PlainVirtualFileConverter.converter.toPath(hashed.source))
               val sourceName = source.underlying.getFileName().toString
               if (sourceName.endsWith(".scala")) {
                 scalaSources += source

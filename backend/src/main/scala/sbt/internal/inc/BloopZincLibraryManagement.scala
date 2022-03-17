@@ -42,6 +42,12 @@ object BloopZincLibraryManagement {
       scheduler
     )
     val loader = Some(new ClassLoaderCache(new URLClassLoader(new Array(0))))
-    new AnalyzingCompiler(scalaInstance, compilerBridgeProvider, _ => (), loader)
+    new AnalyzingCompiler(
+      scalaInstance,
+      compilerBridgeProvider,
+      ClasspathOptionsUtil.boot(),
+      _ => (),
+      loader
+    )
   }
 }
