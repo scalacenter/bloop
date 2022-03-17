@@ -7,14 +7,12 @@ import bloop.engine.Dag.{DagResult, RecursiveTrace}
 import bloop.engine.{Aggregate, Dag, Leaf, Parent}
 import bloop.logging.RecordingLogger
 import bloop.util.TestUtil
-import guru.nidi.graphviz.parse.Parser
 import org.junit.experimental.categories.Category
 import org.junit.{Assert, Test}
 
 @Category(Array(classOf[bloop.FastTests]))
 class DagSpec {
 
-  //sddf
   private val logger = new RecordingLogger
   private val compileOptions = Config.CompileSetup.empty
   private val dummyInstance = TestUtil.scalaInstance
@@ -136,8 +134,24 @@ class DagSpec {
     val projectsMap = TestProjects.complete.map(p => p.name -> p).toMap
     val dags = fromMap(projectsMap)
     val dotContents = Dag.toDotGraph(dags)
-    Parser.read(dotContents)
-    ()
+    val expected =
+      s"""|digraph "project" {
+          | graph [ranksep=0, rankdir=LR];
+          |  "b" [label="b"];
+          |  "d" [label="d"];
+          |  "e" [label="e"];
+          |  "f" [label="f"];
+          |  "c" [label="c"];
+          |  "a" [label="a"];
+          |  
+          |  "f" -> "d";
+          |  "d" -> "c";
+          |  "b" -> "a";
+          |  "c" -> "a";
+          |  "d" -> "a";
+          |}
+          |""".stripMargin
+    TestUtil.assertNoDiff(expected, dotContents)
   }
 
   @Test def EmptyDfs(): Unit = {

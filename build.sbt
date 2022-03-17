@@ -22,7 +22,7 @@ lazy val sonatypeSetting = Def.settings(
   sonatypeProfileName := "io.github.alexarchambault"
 )
 
-dynverSeparator in ThisBuild := "-"
+(ThisBuild / dynverSeparator) := "-"
 
 lazy val shared = project
   .settings(
@@ -100,9 +100,9 @@ lazy val config = crossProject(JSPlatform, JVMPlatform)
   .settings(
     sonatypeSetting,
     name := "bloop-config",
-    unmanagedSourceDirectories in Compile +=
-      baseDirectory.value / ".." / "src" / "main" / "scala-2.11-13",
-    scalaVersion := scalaVersion.in(backend).value,
+    (Compile / unmanagedSourceDirectories) +=
+      Keys.baseDirectory.value / ".." / "src" / "main" / "scala-2.11-13",
+    scalaVersion := (backend / Keys.scalaVersion).value,
     scalacOptions := {
       scalacOptions.value.filterNot(opt => opt == "-deprecation"),
     },
@@ -131,8 +131,8 @@ lazy val jsonConfig213 = crossProject(JSPlatform, JVMPlatform)
   .settings(
     sonatypeSetting,
     name := "bloop-config",
-    unmanagedSourceDirectories in Compile +=
-      baseDirectory.value / ".." / "src" / "main" / "scala-2.11-13",
+    (Compile / unmanagedSourceDirectories) +=
+      Keys.baseDirectory.value / ".." / "src" / "main" / "scala-2.11-13",
     scalaVersion := "2.13.1",
     testResourceSettings
   )
@@ -174,7 +174,7 @@ lazy val frontend: Project = project
     testSuiteSettings,
     Defaults.itSettings,
     BuildDefaults.frontendTestBuildSettings,
-    includeFilter in unmanagedResources in Test := {
+    (Test / unmanagedResources / includeFilter) := {
       new FileFilter {
         def accept(file: File): Boolean = {
           val abs = file.getAbsolutePath
@@ -190,18 +190,17 @@ lazy val frontend: Project = project
   .settings(
     name := "bloop-frontend",
     bloopName := "bloop",
-    mainClass in Compile in run := Some("bloop.Cli"),
+    (Compile / run / mainClass) := Some("bloop.Cli"),
     buildInfoPackage := "bloop.internal.build",
     buildInfoKeys := bloopInfoKeys(nativeBridge04, jsBridge06, jsBridge1),
-    javaOptions in run ++= jvmOptions,
-    javaOptions in Test ++= jvmOptions,
+    (run / javaOptions) ++= jvmOptions,
+    (Test / javaOptions) ++= jvmOptions,
     tmpDirSettings,
-    javaOptions in IntegrationTest ++= jvmOptions,
-    libraryDependencies += Dependencies.graphviz % Test,
-    fork in run := true,
-    fork in Test := true,
-    fork in run in IntegrationTest := true,
-    parallelExecution in test := false,
+    (IntegrationTest / javaOptions) ++= jvmOptions,
+    (run / fork) := true,
+    (Test / fork) := true,
+    (IntegrationTest / run / fork) := true,
+    (test / parallelExecution) := false,
     libraryDependencies ++= List(
       Dependencies.jsoniterMacros % Provided,
       Dependencies.scalazCore,
@@ -216,9 +215,9 @@ lazy val frontend: Project = project
 lazy val bloopgunCoreSettings = Def.settings(
   sonatypeSetting,
   name := "bloopgun-core",
-  fork in run := true,
-  fork in Test := true,
-  parallelExecution in Test := false,
+  (run / fork) := true,
+  (Test / fork) := true,
+  (Test / parallelExecution) := false,
   buildInfoPackage := "bloopgun.internal.build",
   buildInfoKeys := List(version),
   buildInfoObject := "BloopgunInfo",
@@ -241,15 +240,15 @@ lazy val bloopgunSettings = Def.settings(
     Dependencies.logback,
     Dependencies.svmSubs
   ),
-  mainClass in GraalVMNativeImage := Some("bloop.bloopgun.Bloopgun"),
+  (GraalVMNativeImage / mainClass) := Some("bloop.bloopgun.Bloopgun"),
   graalVMNativeImageCommand := {
     val oldPath = graalVMNativeImageCommand.value
     if (scala.util.Properties.isWin) sys.props("java.home") + "\\bin\\native-image.cmd"
     else oldPath
   },
   graalVMNativeImageOptions ++= {
-    val reflectionFile = sourceDirectory.in(Compile).value./("graal")./("reflection.json")
-    assert(reflectionFile.exists)
+    val reflectionFile = (Compile / Keys.sourceDirectory).value./("graal")./("reflection.json")
+    assert(reflectionFile.exists, s"${reflectionFile.getAbsolutePath()} doesn't exist")
     List(
       "--no-server",
       "--enable-http",
@@ -339,8 +338,8 @@ lazy val launcherTest = project
   .settings(testSuiteSettings)
   .settings(
     name := "bloop-launcher-test",
-    fork in Test := true,
-    parallelExecution in Test := false,
+    (Test / fork) := true,
+    (Test / parallelExecution) := false,
     libraryDependencies ++= List(
       Dependencies.coursierInterface
     ),
@@ -352,8 +351,8 @@ lazy val bloop4j = project
   .settings(
     sonatypeSetting,
     name := "bloop4j",
-    fork in run := true,
-    fork in Test := true,
+    (run / fork) := true,
+    (Test / fork) := true,
     libraryDependencies ++= List(
       Dependencies.bsp4j
     )
@@ -398,8 +397,8 @@ lazy val nativeBridge04 = project
     sonatypeSetting,
     name := "bloop-native-bridge-0.4",
     libraryDependencies += Dependencies.scalaNativeTools04,
-    javaOptions in Test ++= jvmOptions,
-    fork in Test := true
+    (Test / javaOptions) ++= jvmOptions,
+    (Test / fork) := true
   )
 
 lazy val stuff = project
@@ -418,8 +417,8 @@ lazy val stuff = project
   )
   .settings(
     sonatypeSetting,
-    skip.in(publish) := true
+    (publish / skip) := true
   )
 
-skip.in(publish) := true
+(publish / skip) := true
 sonatypeSetting
