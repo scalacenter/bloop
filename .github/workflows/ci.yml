@@ -187,7 +187,7 @@ jobs:
         shell: bash
       - name: Publish GraalVM Native artifacts
         run: >-
-          "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvars64.bat" &&
+          "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat" &&
           "%CD%"\bin\sbt-ci-release.bat
         shell: cmd
       - name: Prepare generated Windows GraalVM binary
