@@ -9,29 +9,29 @@ import io.circe.Encoder
 /**
   * Below datatypes are based on https://github.com/build-server-protocol/build-server-protocol/issues/249#issuecomment-983435766
   */
-case class ScalaTestClasses(
-    classes: List[ScalaTestSuiteSelection],
+case class ScalaTestSuites(
+    suites: List[ScalaTestSuiteSelection],
     jvmOptions: List[String],
-    env: Map[String, String],
+    environmentVariables: List[String],
 ) {
-  def classNames: List[String] = classes.map(_.className)
+  def classNames: List[String] = suites.map(_.className)
 }
 
-object ScalaTestClasses {
-  implicit val decoder: Decoder[ScalaTestClasses] = deriveDecoder
-  implicit val encoder: Encoder[ScalaTestClasses] = deriveEncoder
-  val empty: ScalaTestClasses = ScalaTestClasses(Nil, Nil, Map.empty)
+object ScalaTestSuites {
+  implicit val decoder: Decoder[ScalaTestSuites] = deriveDecoder
+  implicit val encoder: Encoder[ScalaTestSuites] = deriveEncoder
+  val empty: ScalaTestSuites = ScalaTestSuites(Nil, Nil, Nil)
 
-  def apply(classes: List[String]): ScalaTestClasses = ScalaTestClasses(
+  def apply(classes: List[String]): ScalaTestSuites = ScalaTestSuites(
     classes.map(className => ScalaTestSuiteSelection(className, Nil)), 
     Nil,
-    Map.empty
+    Nil
   )
 
-  def forSuiteSelection(classes: List[ScalaTestSuiteSelection]): ScalaTestClasses = ScalaTestClasses(
+  def forSuiteSelection(classes: List[ScalaTestSuiteSelection]): ScalaTestSuites = ScalaTestSuites(
     classes,
     Nil,
-    Map.empty
+    Nil
   )
 }
 
