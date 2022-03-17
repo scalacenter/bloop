@@ -38,7 +38,9 @@ object GlobalSettings {
       val bytes = Files.readAllBytes(settingsPath)
       Try(jsoniter.readFromArray(bytes)) match {
         case Success(settings) =>
-          Right(settings)
+          val fallbackToEnvHome =
+            settings.copy(javaHome = settings.javaHome.orElse(javaHomeEnv))
+          Right(fallbackToEnvHome)
         case Failure(e: JsonReaderException) =>
           Left(e.getMessage())
         case Failure(e) =>
@@ -47,5 +49,9 @@ object GlobalSettings {
     }
   }
 
-  def default: GlobalSettings = GlobalSettings()
+  def default: GlobalSettings =
+    GlobalSettings(javaHome = javaHomeEnv)
+
+  private def javaHomeEnv: Option[String] =
+    Option(System.getenv().get("JAVA_HOME"))
 }
