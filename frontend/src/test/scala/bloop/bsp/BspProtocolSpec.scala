@@ -540,4 +540,32 @@ class BspProtocolSpec(
     }
   }
 
+  test("inverse sources request works") {
+    TestUtil.withinWorkspace { workspace =>
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      loadBspBuildFromResources("cross-test-build-scalajs-0.6", workspace, logger) { build =>
+        val mainProject = build.projectFor("test-project")
+        val testProject = build.projectFor("test-project-test")
+        val mainJsProject = build.projectFor("test-projectJS")
+        val testJsProject = build.projectFor("test-projectJS-test")
+        val rootMain = build.projectFor("cross-test-build-scalajs-0-6")
+        val rootTest = build.projectFor("cross-test-build-scalajs-0-6-test")
+
+        def checkInverseSources(project: TestProject): Unit = {
+          project.sources.foreach { source =>
+            val inverseSourcesResult = build.state.requestInverseSources(source)
+            assert(inverseSourcesResult.targets.contains(project.bspId))
+          }
+        }
+
+        checkInverseSources(mainProject)
+        checkInverseSources(testProject)
+        checkInverseSources(mainJsProject)
+        checkInverseSources(testJsProject)
+        checkInverseSources(rootMain)
+        checkInverseSources(rootTest)
+      }
+    }
+  }
+
 }

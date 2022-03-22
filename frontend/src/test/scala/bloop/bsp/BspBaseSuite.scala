@@ -290,6 +290,19 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
       TestUtil.await(FiniteDuration(5, "s"))(dependencySourcesTask)
     }
 
+    def requestInverseSources(document: AbsolutePath): bsp.InverseSourcesResult = {
+      val inverseSourcesTask = {
+        endpoints.BuildTarget.inverseSources
+          .request(bsp.InverseSourcesParams(bsp.TextDocumentIdentifier(bsp.Uri(document.toBspUri))))
+          .map {
+            case Left(error) => fail(s"Received error ${error}")
+            case Right(targets) => targets
+          }
+      }
+
+      TestUtil.await(FiniteDuration(5, "s"))(inverseSourcesTask)
+    }
+
     import bloop.cli.ExitStatus
     def toBspStatus(status: ExitStatus): bsp.StatusCode = {
       status match {

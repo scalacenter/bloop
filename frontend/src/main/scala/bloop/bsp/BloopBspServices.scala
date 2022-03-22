@@ -101,6 +101,7 @@ final class BloopBspServices(
     .notificationAsync(endpoints.Build.exit)(p => exit(p))
     .requestAsync(endpoints.Workspace.buildTargets)(p => schedule(buildTargets(p)))
     .requestAsync(endpoints.BuildTarget.sources)(p => schedule(sources(p)))
+    .requestAsync(endpoints.BuildTarget.inverseSources)(p => schedule(inverseSources(p)))
     .requestAsync(endpoints.BuildTarget.resources)(p => schedule(resources(p)))
     .requestAsync(endpoints.BuildTarget.scalacOptions)(p => schedule(scalacOptions(p)))
     .requestAsync(endpoints.BuildTarget.javacOptions)(p => schedule(javacOptions(p)))
@@ -1067,6 +1068,23 @@ final class BloopBspServices(
           Task.now((state, Right(bsp.SourcesResult(Nil))))
         case Right(mappings) => sources(mappings, state)
       }
+    }
+  }
+
+  def inverseSources(request: bsp.InverseSourcesParams): BspEndpointResponse[bsp.InverseSourcesResult] = {
+    def matchesSources(document: Path, project: Project): Boolean =
+      project.sources.exists(src => document.startsWith(src.underlying))
+    def matchesGlobs(document: Path, project: Project): Boolean =
+      project.sourcesGlobs.exists(glob => glob.matches(document))
+    val document = AbsolutePath(request.textDocument.uri.toPath).underlying
+    ifInitialized(None) { (state: State, logger: BspServerLogger) => 
+      val matchingProjects = state.build.loadedProjects.filter { loadedProject =>
+        val project = loadedProject.project
+        matchesSources(document, project) || matchesGlobs(document, project)
+      }.map { loadedProject =>
+        bsp.BuildTargetIdentifier(loadedProject.project.bspUri)
+      }
+      Task.now((state, Right(bsp.InverseSourcesResult(matchingProjects))))
     }
   }
 
