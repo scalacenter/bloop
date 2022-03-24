@@ -2,35 +2,39 @@ package bloop.testing
 
 import java.util.regex.Pattern
 
+import scala.collection.mutable
+import scala.util.control.NonFatal
+
+import ch.epfl.scala.debugadapter.testing.TestSuiteEvent
+
 import bloop.DependencyResolution
-import bloop.cli.{CommonOptions, ExitStatus}
+import bloop.cli.CommonOptions
+import bloop.cli.ExitStatus
 import bloop.config.Config
 import bloop.config.Config.TestArgument
 import bloop.engine.ExecutionContext
-import bloop.exec.{Forker, JvmProcessForker}
+import bloop.exec.Forker
+import bloop.exec.JvmProcessForker
 import bloop.io.AbsolutePath
-import bloop.logging.{DebugFilter, Logger}
-import ch.epfl.scala.debugadapter.testing.TestSuiteEvent
+import bloop.logging.DebugFilter
+import bloop.logging.Logger
+
 import monix.eval.Task
 import monix.execution.atomic.AtomicBoolean
-import sbt.testing.{
-  AnnotatedFingerprint,
-  Event,
-  Fingerprint,
-  Framework,
-  Runner,
-  SubclassFingerprint,
-  TaskDef
-}
 import org.scalatools.testing.{Framework => OldFramework}
 import sbt.internal.inc.Analysis
-import sbt.internal.inc.classpath.{FilteredLoader, IncludePackagesFilter}
+import sbt.internal.inc.classpath.FilteredLoader
+import sbt.internal.inc.classpath.IncludePackagesFilter
+import sbt.testing.AnnotatedFingerprint
+import sbt.testing.Event
+import sbt.testing.Fingerprint
+import sbt.testing.Framework
+import sbt.testing.Runner
+import sbt.testing.SubclassFingerprint
+import sbt.testing.TaskDef
 import xsbt.api.Discovered
 import xsbti.api.ClassLike
 import xsbti.compile.CompileAnalysis
-
-import scala.collection.mutable
-import scala.util.control.NonFatal
 
 final case class FingerprintInfo[+Print <: Fingerprint](
     name: String,
@@ -49,7 +53,7 @@ object TestInternals {
   // Cache the resolution of test agent files since it's static (cannot be lazy because depends on logger)
   @volatile private var testAgentFiles: Option[Array[AbsolutePath]] = None
 
-  lazy val filteredLoader = {
+  lazy val filteredLoader: FilteredLoader = {
     val filter = new IncludePackagesFilter(
       Set(
         "jdk.",

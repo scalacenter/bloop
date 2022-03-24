@@ -1,42 +1,44 @@
 package bloop
 
-import java.util.Optional
 import java.io.File
-import java.util.concurrent.{Executor, ConcurrentHashMap}
-import java.nio.file.{Files, Path}
+import java.nio.file.Files
+import java.nio.file.Path
+import java.util.Optional
+import java.util.concurrent.Executor
 
-import bloop.io.{Paths => BloopPaths}
+import scala.collection.mutable
+import scala.concurrent.Promise
+
 import bloop.io.AbsolutePath
 import bloop.io.ParallelOps
 import bloop.io.ParallelOps.CopyMode
+import bloop.io.{Paths => BloopPaths}
+import bloop.logging.DebugFilter
+import bloop.logging.Logger
+import bloop.logging.ObservedLogger
+import bloop.reporter.ProblemPerPhase
+import bloop.reporter.Reporter
+import bloop.reporter.ZincReporter
 import bloop.tracing.BraveTracer
-import bloop.logging.{ObservedLogger, Logger}
-import bloop.reporter.{ProblemPerPhase, ZincReporter}
-import bloop.util.{AnalysisUtils, UUIDUtil, CacheHashCode}
-
-import xsbti.compile._
-import xsbti.T2
-
-import sbt.util.InterfaceUtil
-import sbt.internal.inc.Analysis
-import sbt.internal.inc.bloop.BloopZincCompiler
-import sbt.internal.inc.{FreshCompilerCache, InitialChanges, Locate}
-import sbt.internal.inc.{ConcreteAnalysisContents, FileAnalysisStore}
-
-import scala.concurrent.Promise
-import scala.collection.mutable
+import bloop.util.AnalysisUtils
+import bloop.util.CacheHashCode
+import bloop.util.UUIDUtil
 
 import monix.eval.Task
-import monix.execution.Scheduler
 import monix.execution.CancelableFuture
-import monix.execution.ExecutionModel
-import sbt.internal.inc.bloop.internal.BloopStamps
-import sbt.internal.inc.bloop.internal.BloopLookup
-import bloop.reporter.Reporter
-import bloop.logging.CompilationEvent
-import xsbti.VirtualFile
-import xsbti.VirtualFileRef
+import monix.execution.Scheduler
+import sbt.internal.inc.Analysis
+import sbt.internal.inc.ConcreteAnalysisContents
+import sbt.internal.inc.FileAnalysisStore
+import sbt.internal.inc.FreshCompilerCache
 import sbt.internal.inc.PlainVirtualFileConverter
+import sbt.internal.inc.bloop.BloopZincCompiler
+import sbt.internal.inc.bloop.internal.BloopLookup
+import sbt.internal.inc.bloop.internal.BloopStamps
+import sbt.util.InterfaceUtil
+import xsbti.T2
+import xsbti.VirtualFileRef
+import xsbti.compile._
 
 case class CompileInputs(
     scalaInstance: ScalaInstance,
@@ -162,7 +164,7 @@ object CompileOutPaths {
 }
 
 object Compiler {
-  private implicit val filter = bloop.logging.DebugFilter.Compilation
+  private implicit val filter: DebugFilter.Compilation.type = bloop.logging.DebugFilter.Compilation
   private val converter = PlainVirtualFileConverter.converter
   private final class BloopProgress(
       reporter: ZincReporter,

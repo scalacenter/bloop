@@ -1,19 +1,13 @@
 package sbt.internal.inc.bloop
 
-import java.io.File
 import java.{util => ju}
-import java.nio.file.Files
 
-import bloop.ScalaInstance
-import bloop.io.AbsolutePath
-import sbt.internal.inc.BloopComponentCompiler
 import sbt.internal.inc.javac.AnalyzingJavaCompiler
-import sbt.librarymanagement.{Configurations, ModuleID}
-import xsbti.compile.{ClasspathOptions, JavaCompiler}
-import xsbti.{ComponentProvider, Position}
+import xsbti.Position
 import xsbti.VirtualFile
-import bloop.util.AnalysisUtils
 import xsbti.VirtualFileRef
+import xsbti.compile.ClasspathOptions
+import xsbti.compile.JavaCompiler
 
 object ZincInternals {
   import sbt.internal.inc.JavaInterfaceUtil.EnrichOptional

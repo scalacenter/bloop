@@ -10,35 +10,31 @@ package internal
 package inc
 
 import java.io.File
-import java.util.concurrent.Callable
-
-import sbt.internal.inc.classpath.ClasspathUtilities
-import sbt.io.IO
-import sbt.internal.librarymanagement._
-import sbt.internal.util.{BufferedLogger, FullLogger}
-import sbt.librarymanagement._
-import sbt.librarymanagement.syntax._
-import sbt.util.InterfaceUtil.{toSupplier => f0}
-import xsbti.ArtifactInfo._
-import xsbti.{ComponentProvider, GlobalLock, Logger}
-import xsbti.compile.{ClasspathOptionsUtil, CompilerBridgeProvider}
-import _root_.bloop.io.AbsolutePath
-import _root_.bloop.{ScalaInstance => BloopScalaInstance}
 import java.nio.file.Files
+import java.nio.file.Path
 import java.nio.file.Paths
 
+import scala.concurrent.ExecutionContext
+
+import _root_.bloop.io.AbsolutePath
+import _root_.bloop.logging.DebugFilter
 import _root_.bloop.logging.{Logger => BloopLogger}
 import _root_.bloop.{DependencyResolution => BloopDependencyResolution}
-import _root_.bloop.logging.DebugFilter
-import scala.concurrent.ExecutionContext
-import java.nio.file.Path
+import _root_.bloop.{ScalaInstance => BloopScalaInstance}
 import sbt.internal.inc.classpath.ClasspathUtil
+import sbt.io.IO
+import sbt.librarymanagement._
+import xsbti.ArtifactInfo._
+import xsbti.ComponentProvider
+import xsbti.Logger
+import xsbti.compile.ClasspathOptionsUtil
+import xsbti.compile.CompilerBridgeProvider
 
 object BloopComponentCompiler {
   import xsbti.compile.ScalaInstance
 
   final val binSeparator = "-bin_"
-  final val javaClassVersion = System.getProperty("java.class.version")
+  final val javaClassVersion: String = System.getProperty("java.class.version")
 
   final lazy val latestVersion: String = BloopComponentManager.version
 
@@ -232,7 +228,7 @@ private[inc] class BloopComponentCompiler(
     logger: BloopLogger,
     scheduler: ExecutionContext
 ) {
-  implicit val debugFilter = DebugFilter.Compilation
+  implicit val debugFilter: DebugFilter.Compilation.type = DebugFilter.Compilation
   def compiledBridgeJar: File = {
     val jarBinaryName = {
       val instance = compiler.scalaInstance
@@ -312,7 +308,6 @@ private[inc] class BloopComponentCompiler(
     }
   }
 
-  import xsbti.compile.ScalaInstance
   private def mergeBloopAndHydraBridges(
       bloopBridgeSourceJars: Vector[Path],
       hydraBridgeModule: ModuleID
@@ -336,7 +331,7 @@ private[inc] class BloopComponentCompiler(
         Left(new InvalidComponent(msg, t))
     }
 
-    import sbt.io.IO.{zip, unzip, withTemporaryDirectory, listFiles, relativize}
+    import sbt.io.IO.{zip, unzip, withTemporaryDirectory, relativize}
     hydraSourcesJars match {
       case Right(sourceJar +: otherJars) =>
         if (otherJars.nonEmpty) {

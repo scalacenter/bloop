@@ -1,21 +1,27 @@
 package bloop.engine.tasks.compilation
 
 import java.net.URI
-import java.nio.file.{FileSystems, Files, Path, Paths}
-import java.nio.file.attribute.{BasicFileAttributes, FileTime}
+import java.nio.file.FileSystems
+import java.nio.file.Files
+import java.nio.file.Path
+import java.nio.file.Paths
+import java.nio.file.attribute.BasicFileAttributes
+import java.nio.file.attribute.FileTime
 import java.util.concurrent.ConcurrentHashMap
 
-import bloop.tracing.BraveTracer
-import bloop.logging.{DebugFilter, Logger}
+import scala.collection.mutable
+import scala.concurrent.Promise
+import scala.util.control.NonFatal
+import scala.xml.XML
+
 import bloop.engine.ExecutionContext
+import bloop.logging.DebugFilter
+import bloop.logging.Logger
+import bloop.tracing.BraveTracer
 
 import monix.eval.Task
-import monix.reactive.{Observable, Consumer}
-
-import scala.xml.XML
-import scala.concurrent.Promise
-import scala.collection.mutable
-import scala.util.control.NonFatal
+import monix.reactive.Consumer
+import monix.reactive.Observable
 
 object CompilerPluginAllowlist {
 
@@ -46,10 +52,10 @@ object CompilerPluginAllowlist {
   )
 
   /** A sequence of versions that are known not to support compiler plugin classloading. */
-  val disallowedScalaVersions =
+  val disallowedScalaVersions: List[String] =
     List("2.10.", "2.11.", "2.12.1", "2.12.2", "2.12.3", "2.12.4", "0.", "3.")
 
-  private implicit val debug = DebugFilter.Compilation
+  private implicit val debug: DebugFilter.Compilation.type = DebugFilter.Compilation
   private val emptyMap = java.util.Collections.emptyMap[String, String]()
   private[this] val pluginPromises = new ConcurrentHashMap[String, Promise[Boolean]]()
   private[this] val cachePluginJar = new ConcurrentHashMap[Path, (FileTime, Boolean)]()

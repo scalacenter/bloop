@@ -1,11 +1,16 @@
 package bloop.integrations.gradle.tasks
 
-import bloop.integrations.gradle.syntax._
-import org.gradle.api.tasks.{SourceSet, TaskAction}
-import org.gradle.api.{DefaultTask, GradleException, Project, Task}
-
 import scala.collection.JavaConverters._
+
+import bloop.integrations.gradle.syntax._
+
+import org.gradle.api.DefaultTask
+import org.gradle.api.GradleException
+import org.gradle.api.Project
+import org.gradle.api.Task
 import org.gradle.api.artifacts.component.ProjectComponentIdentifier
+import org.gradle.api.tasks.SourceSet
+import org.gradle.api.tasks.TaskAction
 
 /**
  * Task to set the bloopInstall tasks's inputs

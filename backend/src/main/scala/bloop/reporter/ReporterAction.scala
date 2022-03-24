@@ -1,8 +1,11 @@
 package bloop.reporter
 
 import java.io.File
+
 import scala.util.Try
+
 import ch.epfl.scala.bsp
+
 import xsbti.VirtualFile
 
 sealed trait ReporterAction

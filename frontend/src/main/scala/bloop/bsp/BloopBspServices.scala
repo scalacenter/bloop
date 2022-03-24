@@ -1,58 +1,85 @@
 package bloop.bsp
 
-import java.io.InputStream
 import java.net.URI
-import java.nio.file.Paths
+import java.nio.file.FileSystems
+import java.nio.file.Path
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
-import java.nio.file.{FileSystems, Files, Path}
-import java.util.concurrent.ConcurrentHashMap
-import java.util.stream.Collectors
-import bloop.io.Environment.lineSeparator
-import bloop.io.ServerHandle
-import bloop.util.JavaRuntime
-import bloop.bsp.BloopBspDefinitions.BloopExtraBuildParams
-import bloop.{Compiler, ScalaInstance}
-import bloop.cli.{Commands, ExitStatus, Validate}
-import bloop.dap.{BloopDebuggeeRunner, DebugServerLogger}
-import bloop.data.{ClientInfo, JdkConfig, Platform, Project, WorkspaceSettings}
-import bloop.engine.{Aggregate, Dag, Interpreter, State}
-import bloop.engine.tasks.{CompileTask, RunMode, Tasks, TestTask}
-import bloop.engine.tasks.toolchains.{ScalaJsToolchain, ScalaNativeToolchain}
-import bloop.internal.build.BuildInfo
-import bloop.io.{AbsolutePath, RelativePath}
-import bloop.logging.{BspServerLogger, DebugFilter, Logger}
-import bloop.reporter.{BspProjectReporter, ProblemPerPhase, ReporterConfig, ReporterInputs}
-import bloop.testing.{BspLoggingEventHandler, TestInternals}
-import ch.epfl.scala.bsp
-import ch.epfl.scala.bsp.ScalaBuildTarget.encodeScalaBuildTarget
-import ch.epfl.scala.bsp.SbtBuildTarget.encodeSbtBuildTarget
-import ch.epfl.scala.bsp.{BuildTargetIdentifier, JvmEnvironmentItem, MessageType, ShowMessageParams, Uri, endpoints}
-
-import scala.meta.jsonrpc.{JsonRpcClient, Response => JsonRpcResponse, Services => JsonRpcServices}
-import monix.eval.Task
-import monix.reactive.Observer
-import monix.execution.Scheduler
-import monix.execution.atomic.AtomicInt
-import monix.execution.atomic.AtomicBoolean
 
 import scala.collection.concurrent.TrieMap
 import scala.collection.mutable
-import scala.collection.JavaConverters._
 import scala.concurrent.Promise
-import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.duration.Duration
-import scala.util.{Failure, Success, Try}
-import monix.execution.Cancelable
-import io.circe.{Decoder, Json}
-import bloop.engine.Feedback
-import monix.reactive.subjects.BehaviorSubject
-import bloop.engine.tasks.compilation.CompileClientStore
-import bloop.data.ClientInfo.BspClientInfo
-import bloop.exec.Forker
-import bloop.logging.BloopLogger
+import scala.concurrent.duration.FiniteDuration
+import scala.meta.jsonrpc.JsonRpcClient
+import scala.meta.jsonrpc.{Response => JsonRpcResponse}
+import scala.meta.jsonrpc.{Services => JsonRpcServices}
+import scala.util.Failure
+import scala.util.Success
+
+import ch.epfl.scala.bsp
+import ch.epfl.scala.bsp.BuildTargetIdentifier
+import ch.epfl.scala.bsp.MessageType
+import ch.epfl.scala.bsp.SbtBuildTarget.encodeSbtBuildTarget
+import ch.epfl.scala.bsp.ScalaBuildTarget.encodeScalaBuildTarget
+import ch.epfl.scala.bsp.ShowMessageParams
+import ch.epfl.scala.bsp.Uri
+import ch.epfl.scala.bsp.endpoints
+import ch.epfl.scala.debugadapter.DebugServer
+import ch.epfl.scala.debugadapter.DebuggeeRunner
+
+import bloop.Compiler
+import bloop.ScalaInstance
+import bloop.bsp.BloopBspDefinitions.BloopExtraBuildParams
+import bloop.cli.Commands
+import bloop.cli.ExitStatus
+import bloop.cli.Validate
 import bloop.config.Config
-import ch.epfl.scala.debugadapter.{DebugServer, DebuggeeRunner}
+import bloop.dap.BloopDebuggeeRunner
+import bloop.dap.DebugServerLogger
+import bloop.data.ClientInfo
+import bloop.data.ClientInfo.BspClientInfo
+import bloop.data.JdkConfig
+import bloop.data.Platform
+import bloop.data.Project
+import bloop.data.WorkspaceSettings
+import bloop.engine.Aggregate
+import bloop.engine.Dag
+import bloop.engine.Feedback
+import bloop.engine.Interpreter
+import bloop.engine.State
+import bloop.engine.tasks.CompileTask
+import bloop.engine.tasks.RunMode
+import bloop.engine.tasks.Tasks
+import bloop.engine.tasks.TestTask
+import bloop.engine.tasks.compilation.CompileClientStore
+import bloop.engine.tasks.toolchains.ScalaJsToolchain
+import bloop.engine.tasks.toolchains.ScalaNativeToolchain
+import bloop.exec.Forker
+import bloop.internal.build.BuildInfo
+import bloop.io.AbsolutePath
+import bloop.io.Environment.lineSeparator
+import bloop.io.RelativePath
+import bloop.logging.BloopLogger
+import bloop.logging.BspServerLogger
+import bloop.logging.DebugFilter
+import bloop.reporter.BspProjectReporter
+import bloop.reporter.ProblemPerPhase
+import bloop.reporter.ReporterConfig
+import bloop.reporter.ReporterInputs
+import bloop.testing.BspLoggingEventHandler
+import bloop.testing.TestInternals
+import bloop.util.JavaRuntime
+
+import io.circe.Decoder
+import io.circe.Json
+import monix.eval.Task
+import monix.execution.Cancelable
+import monix.execution.Scheduler
+import monix.execution.atomic.AtomicBoolean
+import monix.execution.atomic.AtomicInt
+import monix.reactive.subjects.BehaviorSubject
 
 final class BloopBspServices(
     callSiteState: State,
@@ -93,7 +120,7 @@ final class BloopBspServices(
   private val taskIdCounter: AtomicInt = AtomicInt(0)
   private val baseBspLogger = BspServerLogger(callSiteState, client, taskIdCounter, false)
 
-  final val services = JsonRpcServices
+  final val services: JsonRpcServices = JsonRpcServices
     .empty(baseBspLogger)
     .requestAsync(endpoints.Build.initialize)(p => schedule(initialize(p)))
     .notification(endpoints.Build.initialized)(initialized(_))
@@ -173,8 +200,8 @@ final class BloopBspServices(
   }
 
   // Completed whenever the initialization happens, used in `initialized`
-  val clientInfo = Promise[ClientInfo.BspClientInfo]()
-  val clientInfoTask = Task.fromFuture(clientInfo.future).memoize
+  val clientInfo: Promise[BspClientInfo] = Promise[ClientInfo.BspClientInfo]()
+  val clientInfoTask: Task[BspClientInfo] = Task.fromFuture(clientInfo.future).memoize
 
   /**
    * Unregisters this client if the BSP services registered one.
@@ -314,8 +341,8 @@ final class BloopBspServices(
     }
   }
 
-  val isInitialized = scala.concurrent.Promise[BspResponse[Unit]]()
-  val isInitializedTask = Task.fromFuture(isInitialized.future).memoize
+  val isInitialized: Promise[BspResponse[Unit]] = scala.concurrent.Promise[BspResponse[Unit]]()
+  val isInitializedTask: Task[BspResponse[Unit]] = Task.fromFuture(isInitialized.future).memoize
   def initialized(
       initializedBuildParams: bsp.InitializedBuildParams
   ): Unit = {
@@ -1237,8 +1264,8 @@ final class BloopBspServices(
     }
   }
 
-  val isShutdown = scala.concurrent.Promise[BspResponse[Unit]]()
-  val isShutdownTask = Task.fromFuture(isShutdown.future).memoize
+  val isShutdown: Promise[BspResponse[Unit]] = scala.concurrent.Promise[BspResponse[Unit]]()
+  val isShutdownTask: Task[BspResponse[Unit]] = Task.fromFuture(isShutdown.future).memoize
   def shutdown(shutdown: bsp.Shutdown): Unit = {
     isShutdown.success(Right(()))
     callSiteState.logger.info("shutdown request received: build/shutdown")
@@ -1246,7 +1273,7 @@ final class BloopBspServices(
   }
 
   import monix.execution.atomic.Atomic
-  val exited = Atomic(false)
+  val exited: AtomicBoolean = Atomic(false)
   def exit(shutdown: bsp.Exit): Task[Unit] = {
     def closeServices(): Unit = {
       if (!exited.getAndSet(true)) {

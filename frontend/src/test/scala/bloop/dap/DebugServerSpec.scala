@@ -1,34 +1,50 @@
 package bloop.dap
 
-import bloop.ScalaInstance
-import bloop.cli.ExitStatus
-import bloop.data.{Platform, Project}
-import bloop.engine.{ExecutionContext, State}
-import bloop.engine.tasks.{RunMode, Tasks}
-import bloop.io.AbsolutePath
-import bloop.io.Environment.lineSeparator
-import bloop.logging.LoggerAction.LogInfoMessage
-import bloop.logging.{Logger, LoggerAction, ObservedLogger, RecordingLogger}
-import bloop.reporter.ReporterAction
-import bloop.util.{TestProject, TestUtil}
+import java.net.ConnectException
+import java.net.SocketException
+import java.net.SocketTimeoutException
+import java.util.NoSuchElementException
+import java.util.concurrent.TimeUnit.MILLISECONDS
+import java.util.concurrent.TimeUnit.SECONDS
+
+import scala.collection.mutable
+import scala.concurrent.Future
+import scala.concurrent.Promise
+import scala.concurrent.TimeoutException
+import scala.concurrent.duration.Duration
+import scala.concurrent.duration.FiniteDuration
+
 import ch.epfl.scala.bsp.ScalaMainClass
 import ch.epfl.scala.debugadapter._
+
+import bloop.ScalaInstance
+import bloop.bsp.ScalaTestSuiteSelection
+import bloop.bsp.ScalaTestSuites
+import bloop.cli.ExitStatus
+import bloop.data.Platform
+import bloop.data.Project
+import bloop.engine.ExecutionContext
+import bloop.engine.State
+import bloop.engine.tasks.RunMode
+import bloop.engine.tasks.Tasks
+import bloop.internal.build.BuildTestInfo
+import bloop.io.AbsolutePath
+import bloop.io.Environment.lineSeparator
+import bloop.logging.Logger
+import bloop.logging.LoggerAction
+import bloop.logging.LoggerAction.LogInfoMessage
+import bloop.logging.ObservedLogger
+import bloop.logging.RecordingLogger
+import bloop.reporter.ReporterAction
+import bloop.util.TestProject
+import bloop.util.TestUtil
+
 import com.microsoft.java.debug.core.protocol.Requests.SetBreakpointArguments
 import com.microsoft.java.debug.core.protocol.Types
 import com.microsoft.java.debug.core.protocol.Types.SourceBreakpoint
 import monix.eval.Task
 import monix.execution.Ack
 import monix.reactive.Observer
-import bloop.internal.build.BuildTestInfo
-
-import java.net.{ConnectException, SocketException, SocketTimeoutException}
-import java.util.NoSuchElementException
-import java.util.concurrent.TimeUnit.{MILLISECONDS, SECONDS}
-import scala.collection.mutable
-import scala.concurrent.duration.{Duration, FiniteDuration}
-import scala.concurrent.{Future, Promise, TimeoutException}
-import bloop.bsp.ScalaTestSuites
-import bloop.bsp.ScalaTestSuiteSelection
 
 object DebugServerSpec extends DebugBspBaseSuite {
   private val ServerNotListening = new IllegalStateException("Server is not accepting connections")

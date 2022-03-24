@@ -1,18 +1,21 @@
 package bloop
 
 import java.io.File
-import java.net.URLClassLoader
-import java.nio.file.{Files, Path, Paths, StandardCopyOption}
-import java.nio.file.attribute.{BasicFileAttributes, FileTime}
-import java.util.Properties
 import java.lang.invoke.MethodHandles
 import java.lang.invoke.MethodType
-
-import bloop.internal.build.BloopScalaInfo
-import bloop.logging.{DebugFilter, Logger}
+import java.net.URLClassLoader
+import java.nio.file.Files
+import java.nio.file.Path
+import java.nio.file.Paths
+import java.nio.file.attribute.BasicFileAttributes
+import java.nio.file.attribute.FileTime
+import java.util.Properties
 
 import scala.util.control.NonFatal
-import sbt.internal.inc.BloopComponentCompiler
+
+import bloop.internal.build.BloopScalaInfo
+import bloop.logging.DebugFilter
+import bloop.logging.Logger
 
 final class ScalaInstance private (
     val organization: String,

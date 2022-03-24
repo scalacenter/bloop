@@ -1,36 +1,37 @@
 package bloop
 
-import java.io.{InputStream, PrintStream}
+import java.io.InputStream
+import java.io.PrintStream
 import java.nio.file.Path
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ConcurrentHashMap
 
-import bloop.bsp.BspServer
-import bloop.io.AbsolutePath
-import bloop.util.{CrossPlatform, JavaRuntime}
-import bloop.cli.{CliOptions, CliParsers, Commands, CommonOptions, ExitStatus, Validate}
-import bloop.engine._
-import bloop.engine.tasks.Tasks
-import bloop.logging.{BloopLogger, DebugFilter, Logger}
-import bloop.data.ClientInfo.CliClientInfo
+import scala.util.control.NonFatal
 
+import bloop.cli.CliOptions
+import bloop.cli.Commands
+import bloop.cli.CommonOptions
+import bloop.cli.ExitStatus
+import bloop.cli.Validate
+import bloop.data.ClientInfo.CliClientInfo
+import bloop.engine._
+import bloop.io.AbsolutePath
+import bloop.io.Paths
+import bloop.logging.BloopLogger
+import bloop.logging.DebugFilter
+import bloop.logging.Logger
+import bloop.util.CrossPlatform
+import bloop.util.JavaRuntime
+
+import _root_.monix.eval.Task
 import caseapp.core.help.Help
 import com.martiansoftware.nailgun.NGContext
-import _root_.monix.eval.Task
-
-import scala.concurrent.Promise
-import scala.util.control.NonFatal
-import scala.concurrent.duration.FiniteDuration
-import java.util.concurrent.TimeUnit
 import monix.execution.atomic.AtomicBoolean
-import bloop.io.Paths
-import scala.util.Success
-import scala.util.Failure
 
 class Cli
 object Cli {
 
-  implicit private val filter = DebugFilter.All
+  implicit private val filter: DebugFilter.All.type = DebugFilter.All
   def main(args: Array[String]): Unit = {
     val action = parse(args, CommonOptions.default)
     val exitStatus = run(action, NoPool)

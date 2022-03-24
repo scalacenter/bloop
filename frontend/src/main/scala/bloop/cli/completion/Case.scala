@@ -1,7 +1,7 @@
 package bloop.cli.completion
 
-import caseapp.core.Arg
 import caseapp.Name
+import caseapp.core.Arg
 
 object Case {
   private val Kebab = "-([a-z])".r

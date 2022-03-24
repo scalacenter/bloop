@@ -1,6 +1,7 @@
 package bloop.logging
 
-import org.slf4j.{Marker, Logger => Slf4jLogger}
+import org.slf4j.Marker
+import org.slf4j.{Logger => Slf4jLogger}
 
 /**
  * Defines a slf4j-compliant logger wrapping Bloop logging utils.

@@ -1,9 +1,11 @@
 package bloop.logging
 
-import ch.epfl.scala.bsp
-import bloop.reporter.Problem
 import java.io.File
+
+import ch.epfl.scala.bsp
+
 import bloop.io.AbsolutePath
+import bloop.reporter.Problem
 
 sealed abstract class CompilationEvent
 

@@ -1,28 +1,31 @@
 package bloop.io
 
-import java.nio.file.{Files, Path}
-
-import bloop.bsp.BspServer
-import bloop.engine.{ExecutionContext, State}
-import bloop.logging.{DebugFilter, Logger, Slf4jAdapter}
-import bloop.util.monix.FoldLeftAsyncConsumer
+import java.nio.file.Files
+import java.nio.file.Path
+import java.nio.file.attribute.BasicFileAttributes
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.TimeUnit
 
 import scala.collection.JavaConverters._
 import scala.concurrent.duration.FiniteDuration
 
-import io.methvin.watcher.DirectoryChangeEvent.EventType
-import io.methvin.watcher.{DirectoryChangeEvent, DirectoryChangeListener, DirectoryWatcher}
+import bloop.engine.ExecutionContext
+import bloop.engine.State
+import bloop.logging.DebugFilter
+import bloop.logging.Logger
+import bloop.logging.Slf4jAdapter
+import bloop.util.monix.FoldLeftAsyncConsumer
 
+import io.methvin.watcher.DirectoryChangeEvent
+import io.methvin.watcher.DirectoryChangeEvent.EventType
+import io.methvin.watcher.DirectoryChangeListener
+import io.methvin.watcher.DirectoryWatcher
 import monix.eval.Task
-import monix.reactive.Consumer
 import monix.execution.Cancelable
-import monix.reactive.{MulticastStrategy, Observable}
-import monix.execution.misc.NonFatal
 import monix.execution.atomic.AtomicBoolean
-import monix.reactive.OverflowStrategy
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.TimeUnit
-import java.nio.file.attribute.BasicFileAttributes
+import monix.execution.misc.NonFatal
+import monix.reactive.MulticastStrategy
+import monix.reactive.Observable
 
 final class SourceWatcher private (
     projectNames: List[String],
@@ -159,7 +162,6 @@ final class SourceWatcher private (
       ngout.println(s"$watchLogId has been successfully cancelled")
     }
 
-    import SourceWatcher.EventStream
     val fileEventConsumer = {
       FoldLeftAsyncConsumer.consume[State, Seq[DirectoryChangeEvent]](state0) {
         case (state, events) =>

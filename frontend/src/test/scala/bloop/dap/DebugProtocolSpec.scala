@@ -2,13 +2,13 @@ package bloop.dap
 
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
-import bloop.logging.RecordingLogger
-import bloop.util.{TestProject, TestUtil}
+
 import ch.epfl.scala.bsp
 import ch.epfl.scala.bsp.DebugSessionParamsDataKind._
-import monix.eval.Task
-import scala.concurrent.duration.FiniteDuration
-import java.util.concurrent.TimeUnit
+
+import bloop.logging.RecordingLogger
+import bloop.util.TestProject
+import bloop.util.TestUtil
 
 object DebugProtocolSpec extends DebugBspBaseSuite {
   test("starts a debug session") {

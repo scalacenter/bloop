@@ -1,13 +1,15 @@
 package bloop.reporter
 
-import xsbti.{Position, Severity}
-import scala.Console.RESET
-import scala.compat.Platform.EOL
-
 import java.io.File
 import java.util.Optional
 
+import scala.Console.RESET
+import scala.compat.Platform.EOL
+
 import bloop.io.AbsolutePath
+
+import xsbti.Position
+import xsbti.Severity
 
 /**
  * Describes how messages should be formatted by a `ConfigurableReporter`.

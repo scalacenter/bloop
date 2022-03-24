@@ -1,14 +1,16 @@
 package bloop.dap
 
 import bloop.dap.DebugTestProtocol._
+
+import com.microsoft.java.debug.core.protocol.Events
 import com.microsoft.java.debug.core.protocol.Requests._
-import com.microsoft.java.debug.core.protocol.{Events, Types}
-import com.microsoft.java.debug.core.protocol.Responses.SetBreakpointsResponseBody
 import com.microsoft.java.debug.core.protocol.Responses.ContinueResponseBody
+import com.microsoft.java.debug.core.protocol.Responses.EvaluateResponseBody
 import com.microsoft.java.debug.core.protocol.Responses.ScopesResponseBody
+import com.microsoft.java.debug.core.protocol.Responses.SetBreakpointsResponseBody
 import com.microsoft.java.debug.core.protocol.Responses.StackTraceResponseBody
 import com.microsoft.java.debug.core.protocol.Responses.VariablesResponseBody
-import com.microsoft.java.debug.core.protocol.Responses.EvaluateResponseBody
+import com.microsoft.java.debug.core.protocol.Types
 
 private[dap] object DebugTestEndpoints {
   val Initialize = new Request[InitializeArguments, Types.Capabilities]("initialize")

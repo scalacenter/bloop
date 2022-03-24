@@ -1,20 +1,21 @@
 package bloop.engine
 
-import bloop.data.{Origin, Project}
-import bloop.io.Paths.AttributedPath
-import bloop.io.AbsolutePath
-import bloop.logging.{DebugFilter, Logger}
-import bloop.io.ByteHasher
 import bloop.data.JavaSemanticdbSettings
+import bloop.data.LoadedProject
+import bloop.data.Origin
+import bloop.data.Project
 import bloop.data.ScalaSemanticdbSettings
 import bloop.data.SemanticdbSettings
 import bloop.data.WorkspaceSettings
-import bloop.data.LoadedProject
 import bloop.engine.caches.SemanticDBCache
+import bloop.io.AbsolutePath
+import bloop.io.ByteHasher
+import bloop.io.Paths.AttributedPath
+import bloop.logging.DebugFilter
+import bloop.logging.Logger
 
-import monix.eval.{Task, Coeval}
-import scala.collection.mutable
-import bloop.ScalaInstance
+import monix.eval.Coeval
+import monix.eval.Task
 
 object BuildLoader {
 

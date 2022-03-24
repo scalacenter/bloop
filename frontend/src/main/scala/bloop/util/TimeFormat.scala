@@ -1,7 +1,7 @@
 package bloop.util
 
+import java.util.concurrent.TimeUnit
 import java.{util => ju}
-import ju.concurrent.TimeUnit
 
 object TimeFormat {
   def readableMillis(nanos: Long): String = {

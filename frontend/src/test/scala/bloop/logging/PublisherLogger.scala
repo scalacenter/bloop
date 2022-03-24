@@ -1,7 +1,5 @@
 package bloop.logging
 
-import java.util.concurrent.ConcurrentLinkedQueue
-
 import monix.reactive.Observer
 
 final class PublisherLogger(

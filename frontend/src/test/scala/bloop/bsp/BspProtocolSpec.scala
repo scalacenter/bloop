@@ -1,25 +1,23 @@
 package bloop.bsp
 
-import java.io.File
 import java.net.URI
+import java.nio.file.Files
+import java.nio.file.Path
+import java.nio.file.Paths
 
-import bloop.engine.State
+import ch.epfl.scala.bsp.JvmEnvironmentItem
+import ch.epfl.scala.bsp.ScalacOptionsItem
+import ch.epfl.scala.bsp.Uri
+
+import bloop.bsp.BloopBspDefinitions.BloopExtraBuildParams
+import bloop.cli.BspProtocol
+import bloop.cli.ExitStatus
 import bloop.config.Config
 import bloop.io.AbsolutePath
-import bloop.cli.{BspProtocol, ExitStatus}
-import bloop.util.{TestProject, TestUtil}
 import bloop.logging.RecordingLogger
-import bloop.internal.build.BuildInfo
-import java.nio.file.{Files, Path, Paths}
-import java.util.stream.Collectors
-
-import scala.collection.JavaConverters._
-import ch.epfl.scala.bsp.{JvmEnvironmentItem, ScalacOptionsItem, Uri}
-import bloop.bsp.BloopBspDefinitions.BloopExtraBuildParams
-import io.circe.Json
 import bloop.testing.DiffAssertions.TestFailedException
-import bloop.data.SourcesGlobs
-import scala.collection.immutable
+import bloop.util.TestProject
+import bloop.util.TestUtil
 
 object TcpBspProtocolSpec extends BspProtocolSpec(BspProtocol.Tcp)
 object LocalBspProtocolSpec extends BspProtocolSpec(BspProtocol.Local)

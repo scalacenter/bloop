@@ -1,14 +1,17 @@
 package bloop.bsp
 
-import bloop.util.{TestUtil, TestProject}
-import bloop.cli.BspProtocol
-import bloop.logging.RecordingLogger
-import bloop.cli.ExitStatus
-import monix.eval.Task
-import bloop.engine.ExecutionContext
-import scala.concurrent.duration.FiniteDuration
 import java.util.concurrent.TimeUnit
-import scala.util.Random
+
+import scala.concurrent.duration.FiniteDuration
+
+import bloop.cli.BspProtocol
+import bloop.cli.ExitStatus
+import bloop.engine.ExecutionContext
+import bloop.logging.RecordingLogger
+import bloop.util.TestProject
+import bloop.util.TestUtil
+
+import monix.eval.Task
 
 object TcpBspSbtClientSpec extends BspSbtClientSpec(BspProtocol.Tcp)
 

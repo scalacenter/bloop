@@ -1,15 +1,19 @@
 package bloop.bsp
 
-import bloop.io.Environment.lineSeparator
-import bloop.cli.{ExitStatus, BspProtocol}
-import bloop.util.{TestUtil, TestProject}
-import bloop.logging.{RecordingLogger, BspClientLogger}
+import scala.concurrent.duration.FiniteDuration
+
+import bloop.cli.BspProtocol
+import bloop.cli.ExitStatus
 import bloop.internal.build.BuildInfo
+import bloop.io.Environment.lineSeparator
+import bloop.logging.BspClientLogger
+import bloop.logging.RecordingLogger
+import bloop.util.TestProject
+import bloop.util.TestUtil
 
 import monix.eval.Task
-import monix.execution.{Scheduler, ExecutionModel}
-
-import scala.concurrent.duration.FiniteDuration
+import monix.execution.ExecutionModel
+import monix.execution.Scheduler
 
 object TcpBspConnectionSpec extends BspConnectionSpec(BspProtocol.Tcp)
 object LocalBspConnectionSpec extends BspConnectionSpec(BspProtocol.Local)
@@ -248,7 +252,6 @@ class BspConnectionSpec(
             import ch.epfl.scala.bsp
             import ch.epfl.scala.bsp.endpoints.BuildTarget
 
-            import BuildTarget.compile._
             bspState.client0
               .requestAndForget(
                 BuildTarget.compile.method,
@@ -265,7 +268,6 @@ class BspConnectionSpec(
       // Time out is 5 to check cancellation works and we don't finish until end
       // of compilation, which would take more than 6 seconds as there are 12 sleeps
       val safeDelay = FiniteDuration(5, "s")
-      import java.util.concurrent.TimeoutException
       TestUtil.await(safeDelay, poolFor1Client)(createHangingCompilationViaBsp)
     }
   }

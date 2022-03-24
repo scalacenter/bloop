@@ -1,15 +1,13 @@
 package bloop.engine
 
 import java.lang.Thread.UncaughtExceptionHandler
-import java.util.concurrent.{
-  LinkedBlockingQueue,
-  SynchronousQueue,
-  ThreadFactory,
-  ThreadPoolExecutor,
-  TimeUnit
-}
+import java.util.concurrent.SynchronousQueue
+import java.util.concurrent.ThreadFactory
+import java.util.concurrent.ThreadPoolExecutor
+import java.util.concurrent.TimeUnit
 
-import monix.execution.{ExecutionModel, UncaughtExceptionReporter}
+import monix.execution.ExecutionModel
+import monix.execution.UncaughtExceptionReporter
 import monix.execution.schedulers.ExecutorScheduler
 
 object ExecutionContext {

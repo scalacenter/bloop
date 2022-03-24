@@ -1,25 +1,21 @@
 package bloop.data
 
-import bloop.io.AbsolutePath
-import bloop.io.Filenames
-import bloop.util.UUIDUtil
-
-import java.nio.file.Files
-import java.util.concurrent.ConcurrentHashMap
 import java.io.PrintStream
-import monix.eval.Task
-import scala.collection.mutable
-import java.nio.file.Path
-import bloop.io.Paths
-import java.io.IOException
-import monix.execution.misc.NonFatal
-import bloop.logging.Logger
-import bloop.tracing.BraveTracer
-import bloop.logging.DebugFilter
+import java.nio.file.Files
 import java.nio.file.NoSuchFileException
-import bloop.cli.CommonOptions
 import java.nio.file.attribute.BasicFileAttributes
 import java.time.Instant
+import java.util.concurrent.ConcurrentHashMap
+
+import scala.collection.mutable
+import scala.util.matching.Regex
+
+import bloop.io.AbsolutePath
+import bloop.io.Filenames
+import bloop.io.Paths
+import bloop.util.UUIDUtil
+
+import monix.execution.misc.NonFatal
 
 sealed trait ClientInfo {
 
@@ -211,7 +207,7 @@ object ClientInfo {
       s"bsp client '$name $version' (since ${activeSinceMillis(connectionTimestamp)})"
   }
 
-  val internalClassesNameFormat = "(.*)-[^-]*-[^-]*-[^-]*$".r
+  val internalClassesNameFormat: Regex = "(.*)-[^-]*-[^-]*-[^-]*$".r
 
   /**
    * Returns the path from which we derived an internal compile classes directory.
@@ -240,7 +236,7 @@ object ClientInfo {
     }
   }
 
-  def activeSinceMillis(startMs: Long) = {
+  def activeSinceMillis(startMs: Long): String = {
     import java.time.{Instant, Duration}
     val start = Instant.ofEpochMilli(startMs)
     val now = Instant.ofEpochMilli(System.currentTimeMillis())

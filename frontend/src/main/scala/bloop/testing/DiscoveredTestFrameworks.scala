@@ -1,6 +1,7 @@
 package bloop.testing
 import bloop.engine.tasks.toolchains.ScalaJsToolchain
-import bloop.exec.{JvmProcessForker}
+import bloop.exec.JvmProcessForker
+
 import sbt.testing.Framework
 
 sealed trait DiscoveredTestFrameworks {

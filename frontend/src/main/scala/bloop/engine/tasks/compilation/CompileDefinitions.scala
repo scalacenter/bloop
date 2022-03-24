@@ -1,14 +1,11 @@
 package bloop.engine.tasks.compilation
 
-import monix.eval.Task
-import bloop.engine.Dag
-import bloop.PartialCompileProducts
 import bloop.CompileProducts
+import bloop.PartialCompileProducts
 import bloop.data.Project
-import java.io.File
-import xsbti.compile.PreviousResult
-import scala.concurrent.Promise
-import bloop.JavaSignal
+import bloop.engine.Dag
+
+import monix.eval.Task
 
 object CompileDefinitions {
   type ProjectId = String

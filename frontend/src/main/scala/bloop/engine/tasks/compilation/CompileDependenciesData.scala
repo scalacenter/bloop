@@ -1,15 +1,13 @@
 package bloop.engine.tasks.compilation
 
-import bloop.data.Project
-import bloop.CompileProducts
-import bloop.io.AbsolutePath
+import java.io.File
 
 import scala.collection.mutable
 
-import java.io.File
-
-import xsbti.compile.PreviousResult
+import bloop.CompileProducts
 import bloop.PartialCompileProducts
+import bloop.data.Project
+import bloop.io.AbsolutePath
 
 case class CompileDependenciesData(
     dependencyClasspath: Array[AbsolutePath],

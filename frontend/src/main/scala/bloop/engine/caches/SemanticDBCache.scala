@@ -1,26 +1,20 @@
 package bloop.engine.caches
 
-import bloop.logging.Logger
-import coursierapi.Repository
-import bloop.io.AbsolutePath
-import bloop.io.Paths
-import bloop.DependencyResolution
-import scala.util.Try
-import java.nio.file.Files
-import xsbti.ComponentProvider
-import xsbti.GlobalLock
-import java.io.File
-import java.util.concurrent.Callable
-import sbt.internal.inc.bloop.ZincInternals
-import sbt.internal.inc.BloopComponentManager
-import sbt.internal.inc.IfMissing
+import java.nio.file.Path
+
 import scala.util.Failure
 import scala.util.Success
-import bloop.ComponentLock
+import scala.util.Try
+
+import bloop.DependencyResolution
 import bloop.SemanticDBCacheLock
-import java.nio.file.Path
-import coursierapi.error.CoursierError
+import bloop.io.AbsolutePath
+import bloop.io.Paths
+import bloop.logging.Logger
+
 import sbt.internal.inc.BloopComponentCompiler
+import sbt.internal.inc.BloopComponentManager
+import sbt.internal.inc.IfMissing
 
 object SemanticDBCache {
   private def fetchPlugin(

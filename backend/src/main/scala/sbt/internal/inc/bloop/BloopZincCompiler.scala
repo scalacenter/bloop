@@ -1,30 +1,36 @@
 // scalafmt: { maxColumn = 250 }
 package sbt.internal.inc.bloop
 
-import java.io.File
-import java.util.concurrent.CompletableFuture
-
-import bloop.reporter.ZincReporter
-import bloop.logging.ObservedLogger
-import bloop.tracing.BraveTracer
-import sbt.internal.inc.bloop.internal.{BloopLookup, BloopStamps}
-import monix.eval.Task
-import sbt.internal.inc.{Analysis, CompileConfiguration, CompileOutput, HydraSupport, Incremental, JarUtils, MiniSetupUtil, MixedAnalyzingCompiler}
-import xsbti.{AnalysisCallback, Logger}
-import sbt.internal.inc.JavaInterfaceUtil.{EnrichOptional, EnrichSbtTuple}
-import sbt.internal.inc.bloop.internal.{BloopHighLevelCompiler, BloopIncremental}
-import sbt.util.InterfaceUtil
-import xsbti.compile._
-import bloop.UniqueCompileInputs
-
 import scala.concurrent.Promise
+
+import bloop.UniqueCompileInputs
+import bloop.logging.ObservedLogger
+import bloop.reporter.ZincReporter
+import bloop.tracing.BraveTracer
+
+import monix.eval.Task
+import sbt.internal.inc.Analysis
+import sbt.internal.inc.CompileConfiguration
+import sbt.internal.inc.CompileOutput
+import sbt.internal.inc.HydraSupport
+import sbt.internal.inc.JarUtils
+import sbt.internal.inc.JavaInterfaceUtil.EnrichOptional
+import sbt.internal.inc.JavaInterfaceUtil.EnrichSbtTuple
+import sbt.internal.inc.MiniSetupUtil
+import sbt.internal.inc.MixedAnalyzingCompiler
 import sbt.internal.inc.PlainVirtualFileConverter
-import bloop.util.AnalysisUtils
+import sbt.internal.inc.bloop.internal.BloopHighLevelCompiler
+import sbt.internal.inc.bloop.internal.BloopIncremental
+import sbt.internal.inc.bloop.internal.BloopLookup
+import sbt.internal.inc.bloop.internal.BloopStamps
+import sbt.util.InterfaceUtil
+import xsbti.AnalysisCallback
 import xsbti.VirtualFile
+import xsbti.compile._
 
 object BloopZincCompiler {
   import bloop.logging.DebugFilter
-  private implicit val filter = DebugFilter.Compilation
+  private implicit val filter: DebugFilter.Compilation.type = DebugFilter.Compilation
 
   /**
    * Performs an incremental compilation based on [[xsbti.compile.Inputs]].
@@ -191,7 +197,6 @@ object BloopZincCompiler {
     import MiniSetupUtil._
 
     /* Define first because `Equiv[CompileOrder.value]` dominates `Equiv[MiniSetup]`. */
-    import xsbti.compile.Output
     val equiv: Equiv[MiniSetup] = {
       new Equiv[MiniSetup] {
         def equiv(a: MiniSetup, b: MiniSetup) = {

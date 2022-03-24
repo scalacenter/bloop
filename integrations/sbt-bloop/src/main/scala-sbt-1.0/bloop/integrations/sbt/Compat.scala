@@ -1,9 +1,15 @@
 package bloop.integrations.sbt
 
 import bloop.config.Config
+
+import sbt.Artifact
+import sbt.Def
+import sbt.Exec
+import sbt.Keys
+import sbt.SettingKey
 import sbt.io.syntax.File
-import sbt.{Artifact, Exec, Keys, SettingKey, Def}
 import sbt.librarymanagement.ScalaModuleInfo
+import sbt.util.CacheStore
 
 object Compat {
   type CompileAnalysis = xsbti.compile.CompileAnalysis
@@ -24,7 +30,7 @@ object Compat {
 
   implicit def fileToRichFile(file: File): sbt.RichFile = new sbt.RichFile(file)
 
-  def generateCacheFile(s: Keys.TaskStreams, id: String) =
+  def generateCacheFile(s: Keys.TaskStreams, id: String): CacheStore =
     s.cacheStoreFactory make id
 
   def toBloopArtifact(a: Artifact, f: File): Config.Artifact = {

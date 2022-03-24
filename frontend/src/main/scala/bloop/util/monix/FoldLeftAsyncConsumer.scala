@@ -1,16 +1,21 @@
 package bloop.util.monix
 
-import monix.eval.{Callback, Task}
-import monix.execution.Ack.{Continue, Stop}
-import monix.execution.cancelables.{AssignableCancelable, CompositeCancelable}
-import monix.execution.misc.NonFatal
-import monix.execution.{Ack, Cancelable, Scheduler}
-import monix.reactive.observers.Subscriber
-import monix.reactive.{Consumer, Observable}
-
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.Future
-import monix.execution.CancelableFuture
+
+import monix.eval.Callback
+import monix.eval.Task
+import monix.execution.Ack
+import monix.execution.Ack.Continue
+import monix.execution.Ack.Stop
+import monix.execution.Cancelable
+import monix.execution.Scheduler
+import monix.execution.cancelables.AssignableCancelable
+import monix.execution.cancelables.CompositeCancelable
+import monix.execution.misc.NonFatal
+import monix.reactive.Consumer
+import monix.reactive.Observable
+import monix.reactive.observers.Subscriber
 
 // Fork of `FoldLeftAsyncConsumer` from Monix, not thread-safe
 final class FoldLeftAsyncConsumer[A, R](

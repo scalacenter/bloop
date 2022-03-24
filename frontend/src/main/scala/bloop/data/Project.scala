@@ -1,5 +1,14 @@
 package bloop.data
 
+import java.nio.charset.StandardCharsets
+
+import scala.collection.mutable
+import scala.util.Properties
+import scala.util.Try
+import scala.util.control.NonFatal
+
+import ch.epfl.scala.{bsp => Bsp}
+
 import bloop.ScalaInstance
 import bloop.bsp.ProjectUris
 import bloop.config.Config
@@ -12,7 +21,7 @@ import bloop.io.AbsolutePath
 import bloop.io.ByteHasher
 import bloop.logging.DebugFilter
 import bloop.logging.Logger
-import ch.epfl.scala.{bsp => Bsp}
+
 import com.typesafe.config.ConfigException
 import com.typesafe.config.ConfigFactory
 import com.typesafe.config.ConfigParseOptions
@@ -20,12 +29,6 @@ import com.typesafe.config.ConfigSyntax
 import monix.eval.Task
 import xsbti.compile.ClasspathOptions
 import xsbti.compile.CompileOrder
-
-import java.nio.charset.StandardCharsets
-import scala.collection.mutable
-import scala.util.Properties
-import scala.util.Try
-import scala.util.control.NonFatal
 
 final case class Project(
     name: String,
@@ -93,7 +96,7 @@ final case class Project(
     buf.result()
   }
 
-  val uniqueId = s"${origin.path.syntax}#${name}"
+  val uniqueId: String = s"${origin.path.syntax}#${name}"
   override def toString: String = s"$name"
   override val hashCode: Int =
     ByteHasher.hashBytes(uniqueId.getBytes(StandardCharsets.UTF_8))
@@ -264,7 +267,7 @@ final case class Project(
 }
 
 object Project {
-  private implicit val filter = DebugFilter.All
+  private implicit val filter: DebugFilter.All.type = DebugFilter.All
   final implicit val ps: scalaz.Show[Project] =
     new scalaz.Show[Project] { override def shows(f: Project): String = f.name }
 

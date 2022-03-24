@@ -1,20 +1,21 @@
 package bloop
 
+import java.io.InputStream
+import java.io.PrintStream
 import java.net.InetAddress
+
+import scala.util.Try
 
 import bloop.logging.BloopLogger
 import bloop.logging.Logger
 import bloop.logging.Slf4jAdapter
 import bloop.util.ProxySetup
 
-import java.io.InputStream
-import java.io.PrintStream
-
-import com.martiansoftware.nailgun.NGListeningAddress
+import com.martiansoftware.nailgun.Alias
 import com.martiansoftware.nailgun.NGConstants
-import com.martiansoftware.nailgun.{Alias, NGContext, NGServer}
-
-import scala.util.Try
+import com.martiansoftware.nailgun.NGContext
+import com.martiansoftware.nailgun.NGListeningAddress
+import com.martiansoftware.nailgun.NGServer
 
 class Server
 object Server {

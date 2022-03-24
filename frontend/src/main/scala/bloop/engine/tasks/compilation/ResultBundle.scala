@@ -4,7 +4,6 @@ import bloop.Compiler
 import bloop.engine.caches.LastSuccessfulResult
 
 import monix.execution.CancelableFuture
-import monix.eval.Task
 
 /**
  * Defines a result that aggregates several compilation outputs together.

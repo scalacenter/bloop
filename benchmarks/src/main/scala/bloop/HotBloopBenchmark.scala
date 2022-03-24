@@ -92,7 +92,7 @@ abstract class HotBloopBenchmarkBase {
     awaitPrompt()
   }
 
-  def issue(str: String) = {
+  def issue(str: String): Unit = {
     processInputReader.write(str + "\n")
     processInputReader.flush()
   }

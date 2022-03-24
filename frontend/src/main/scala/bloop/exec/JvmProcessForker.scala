@@ -1,19 +1,27 @@
 package bloop.exec
 
+import java.io.File
+import java.net.URLClassLoader
+import java.nio.file.Files
+import java.util.jar.Attributes
+import java.util.jar.JarOutputStream
+import java.util.jar.Manifest
+
+import scala.util.Failure
+import scala.util.Properties
+import scala.util.Success
+import scala.util.Try
+
 import bloop.cli.CommonOptions
 import bloop.data.JdkConfig
 import bloop.engine.tasks.RunMode
-import bloop.io.{AbsolutePath, Paths}
-import bloop.logging.{DebugFilter, Logger}
+import bloop.io.AbsolutePath
+import bloop.io.Paths
+import bloop.logging.DebugFilter
+import bloop.logging.Logger
 import bloop.util.CrossPlatform
-import java.io.File
-import java.net.URLClassLoader
-import java.net.URLEncoder
-import java.nio.charset.StandardCharsets
-import java.nio.file.Files
-import java.util.jar.{Attributes, JarOutputStream, Manifest}
+
 import monix.eval.Task
-import scala.util.{Failure, Properties, Success, Try}
 
 /**
  * Collects configuration to start a new program in a new process

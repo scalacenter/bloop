@@ -1,6 +1,8 @@
 package bloop.engine
 
-import bloop.cli.{Commands, CommonOptions, ExitStatus}
+import bloop.cli.Commands
+import bloop.cli.CommonOptions
+import bloop.cli.ExitStatus
 
 sealed trait Action
 case class Exit(exitStatus: ExitStatus) extends Action

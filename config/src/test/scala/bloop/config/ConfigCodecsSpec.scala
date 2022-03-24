@@ -1,8 +1,12 @@
 package bloop.config
 
-import bloop.config.Config.File
-import org.junit.{AfterClass, Assert, Test}
 import java.nio.charset.StandardCharsets
+
+import bloop.config.Config.File
+
+import org.junit.AfterClass
+import org.junit.Assert
+import org.junit.Test
 
 object ConfigCodecsSpec {
   val dummyFile = File.dummyForTests
@@ -15,7 +19,6 @@ object ConfigCodecsSpec {
 }
 
 class ConfigCodecsSpec {
-  import bloop.config.ConfigCodecs._
   def parseConfig(contents: String): Config.File = {
     bloop.config.read(contents.getBytes(StandardCharsets.UTF_8)) match {
       case Right(file) => file

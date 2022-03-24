@@ -1,23 +1,25 @@
 package bloop.nailgun
 
-import bloop.io.{AbsolutePath, RelativePath}
-import bloop.io.Environment.lineSeparator
-import bloop.testing.BaseSuite
-import bloop.logging.RecordingLogger
-import bloop.internal.build.BuildInfo
-import bloop.util.TestUtil
-import bloop.util.JavaRuntime
-
-import java.nio.file.{Paths, Files}
-import java.util.concurrent.TimeUnit
 import java.nio.charset.StandardCharsets.UTF_8
+import java.nio.file.Files
+import java.nio.file.Paths
+import java.util.concurrent.TimeUnit
+
+import bloop.internal.build.BuildInfo
+import bloop.io.AbsolutePath
+import bloop.io.Environment.lineSeparator
+import bloop.io.RelativePath
+import bloop.logging.RecordingLogger
+import bloop.testing.BaseSuite
+import bloop.util.JavaRuntime
+import bloop.util.TestUtil
 
 object NailgunSpec extends BaseSuite with NailgunTestUtils {
-  val workspace = AbsolutePath(Files.createTempDirectory("bloop-test-workspace"))
-  val simpleBuild = loadBuildFromResources("simple-build", workspace, new RecordingLogger)
+  val workspace: AbsolutePath = AbsolutePath(Files.createTempDirectory("bloop-test-workspace"))
+  val simpleBuild: TestBuild = loadBuildFromResources("simple-build", workspace, new RecordingLogger)
   val configDir = simpleBuild.state.build.origin.underlying
 
-  val jvmLine =
+  val jvmLine: String =
     s"Running on Java ${JavaRuntime.current} v${JavaRuntime.version} (${JavaRuntime.home})"
 
   def withServerInProject[T](op: (RecordingLogger, Client) => T): T =

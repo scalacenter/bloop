@@ -1,6 +1,7 @@
 package bloop.integration.sbt
 
-import sbt.{ProjectRef, ResolvedProject}
+import sbt.ProjectRef
+import sbt.ResolvedProject
 
 object Feedback {
   def unknownConfigurations(p: ResolvedProject, confs: Seq[String], from: ProjectRef): String = {

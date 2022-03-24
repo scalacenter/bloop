@@ -1,18 +1,28 @@
 package bloop
 
+import scala.annotation.tailrec
+
+import bloop.cli.CliOptions
+import bloop.cli.Commands
+import bloop.cli.ExitStatus
 import bloop.data.ClientInfo
-import bloop.cli.{CliOptions, Commands, ExitStatus}
-import bloop.cli.CliParsers.{inputStreamRead, pathParser, printStreamRead, propertiesParser}
-import bloop.engine.{Action, Build, BuildLoader, Exit, Interpreter, NoPool, Print, Run, State}
-import bloop.engine.tasks.Tasks
+import bloop.data.WorkspaceSettings
+import bloop.engine.Action
+import bloop.engine.Build
+import bloop.engine.BuildLoader
+import bloop.engine.Exit
+import bloop.engine.Interpreter
+import bloop.engine.NoPool
+import bloop.engine.Print
+import bloop.engine.Run
+import bloop.engine.State
 import bloop.io.AbsolutePath
 import bloop.logging.BloopLogger
-import caseapp.{CaseApp, RemainingArgs}
-import jline.console.ConsoleReader
+
 import _root_.monix.eval.Task
-import bloop.data.WorkspaceSettings
-import scala.annotation.tailrec
-import scala.concurrent.Promise
+import caseapp.CaseApp
+import caseapp.RemainingArgs
+import jline.console.ConsoleReader
 
 object Bloop extends CaseApp[CliOptions] {
   private val reader = consoleReader()

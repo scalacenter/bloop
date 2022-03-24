@@ -3,6 +3,8 @@ package bloop.engine.tasks.toolchains
 import java.lang.reflect.InvocationTargetException
 import java.nio.file.Path
 
+import scala.util.Try
+
 import bloop.DependencyResolution
 import bloop.config.Config
 import bloop.config.Config.NativeConfig
@@ -10,9 +12,8 @@ import bloop.data.Project
 import bloop.internal.build.BuildInfo
 import bloop.io.AbsolutePath
 import bloop.logging.Logger
-import monix.eval.Task
 
-import scala.util.Try
+import monix.eval.Task
 
 final class ScalaNativeToolchain private (classLoader: ClassLoader) {
 

@@ -1,13 +1,17 @@
 package bloop.engine
 
 import bloop.CompilerCache
-import bloop.cli.{CommonOptions, ExitStatus}
-import bloop.data.{Project, ClientInfo}
-import bloop.engine.caches.{ResultsCache, StateCache}
-import bloop.io.Paths
-import bloop.logging.{DebugFilter, Logger}
-import monix.eval.Task
+import bloop.cli.CommonOptions
+import bloop.cli.ExitStatus
+import bloop.data.ClientInfo
 import bloop.data.WorkspaceSettings
+import bloop.engine.caches.ResultsCache
+import bloop.engine.caches.StateCache
+import bloop.io.Paths
+import bloop.logging.DebugFilter
+import bloop.logging.Logger
+
+import monix.eval.Task
 import sbt.internal.inc.BloopComponentCompiler
 
 /**

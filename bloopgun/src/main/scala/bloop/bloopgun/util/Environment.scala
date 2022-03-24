@@ -1,13 +1,15 @@
 package bloop.bloopgun.util
 
-import java.{util => ju}
 import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, Path, Paths}
-
-import bloop.bloopgun.core.LocatedServer
-import bloop.bloopgun.core.AvailableAtPath
+import java.nio.file.Files
+import java.nio.file.Path
+import java.nio.file.Paths
+import java.{util => ju}
 
 import scala.util.control.NonFatal
+
+import bloop.bloopgun.core.AvailableAtPath
+import bloop.bloopgun.core.LocatedServer
 
 import snailgun.logging.Logger
 
@@ -86,7 +88,7 @@ object Environment {
   }
 
   // TODO: Add more options to better tweak GC based on benchmarks
-  val PerformanceSensitiveOptsForBloop = List(
+  val PerformanceSensitiveOptsForBloop: List[String] = List(
     "-Xss4m",
     "-XX:MaxInlineLevel=20", // Specific option for faster C2, ignored by GraalVM
     "-XX:+UseParallelGC" // Full parallel GC is the best choice for Scala compilation

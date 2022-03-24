@@ -2,10 +2,12 @@ package bloop.integrations.gradle
 
 import java.io.File
 
-import org.gradle.api.provider.Property
+import bloop.integrations.gradle.syntax._
+
 import org.gradle.api.Project
-import org.gradle.api.tasks.{Input, Optional}
-import syntax._
+import org.gradle.api.provider.Property
+import org.gradle.api.tasks.Input
+import org.gradle.api.tasks.Optional
 
 /**
  * Project extension to configure Bloop.

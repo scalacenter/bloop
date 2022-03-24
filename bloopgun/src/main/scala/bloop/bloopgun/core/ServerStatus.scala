@@ -1,14 +1,8 @@
 package bloop.bloopgun.core
 
 import java.nio.file.Path
-import java.nio.file.Files
 
-import bloop.bloopgun.util.Environment
-import bloop.bloopgun.core.Shell.StatusCommand
 import snailgun.logging.Logger
-import bloop.bloopgun.ServerConfig
-import java.nio.file.Paths
-import bloop.bloopgun.util.Feedback
 
 sealed trait ServerStatus
 sealed trait LocatedServer extends ServerStatus
@@ -18,7 +12,7 @@ case class ResolvedAt(files: Seq[Path]) extends LocatedServer
 case class ListeningAndAvailableAt(binary: List[String]) extends ServerStatus
 
 object ServerStatus {
-  def resolveServer(bloopVersion: String, logger: Logger) = {
+  def resolveServer(bloopVersion: String, logger: Logger): Option[ResolvedAt] = {
     import scala.concurrent.ExecutionContext.Implicits.global
     DependencyResolution.resolveWithErrors(
       "ch.epfl.scala",

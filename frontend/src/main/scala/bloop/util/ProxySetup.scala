@@ -1,13 +1,15 @@
 package bloop.util
 
-import java.net.URI
 import java.net.MalformedURLException
+import java.net.URI
+
+import scala.collection.JavaConverters._
+import scala.util.Try
 
 import bloop.logging.Logger
-import _root_.monix.execution.atomic.{Atomic, AtomicAny}
 
-import scala.util.Try
-import scala.collection.JavaConverters._
+import _root_.monix.execution.atomic.Atomic
+import _root_.monix.execution.atomic.AtomicAny
 
 object ProxySetup {
   private case class ProxySettings(host: String, port: Int, nonProxyHosts: Option[String])
@@ -46,7 +48,7 @@ object ProxySetup {
     final case object HttpProxy extends Proxy {
       val propertyNameHost = "http.proxyHost"
       val propertyNamePort = "http.proxyPort"
-      val propertyNameNoProxyHosts = Some("http.nonProxyHosts")
+      val propertyNameNoProxyHosts: Some[String] = Some("http.nonProxyHosts")
       val defaultPort = 80
       val envVar = "http_proxy"
     }
@@ -54,7 +56,7 @@ object ProxySetup {
     final case object FtpProxy extends Proxy {
       val propertyNameHost = "ftp.proxyHost"
       val propertyNamePort = "ftp.proxyPort"
-      val propertyNameNoProxyHosts = Some("ftp.nonProxyHosts")
+      val propertyNameNoProxyHosts: Some[String] = Some("ftp.nonProxyHosts")
       val defaultPort = 80
       val envVar = "ftp_proxy"
     }

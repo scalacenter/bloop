@@ -1,30 +1,30 @@
 package bloop.integrations.maven
 
 import java.io.File
-import java.nio.file.{Files, Path, Paths}
-import java.{util => ju}
-import bloop.config.{Config, Tag}
-import org.apache.maven.artifact.repository.ArtifactRepository
+import java.nio.file.Files
+import java.nio.file.Path
+import java.nio.file.Paths
+
+import scala.collection.JavaConverters._
+import scala.util.Failure
+import scala.util.Success
+import scala.util.Try
+
+import bloop.config.Config
+import bloop.config.Tag
+
+import org.apache.maven.artifact.Artifact
 import org.apache.maven.execution.MavenSession
 import org.apache.maven.model.Resource
+import org.apache.maven.plugin.MavenPluginManager
+import org.apache.maven.plugin.Mojo
+import org.apache.maven.plugin.MojoExecution
 import org.apache.maven.plugin.logging.Log
-import org.apache.maven.plugin.{MavenPluginManager, Mojo, MojoExecution}
 import org.apache.maven.project.MavenProject
-import org.apache.maven.artifact.Artifact
-import org.apache.maven.shared.invoker.DefaultInvocationRequest
 import org.codehaus.plexus.util.xml.Xpp3Dom
-import org.eclipse.aether.resolution.ArtifactRequest
 import org.eclipse.aether.artifact.DefaultArtifact
-import org.eclipse.aether.repository.RemoteRepository
-import org.eclipse.aether.repository.Authentication
-import org.eclipse.aether.util.repository.AuthenticationBuilder
-import org.eclipse.aether.repository.AuthenticationContext
-import org.eclipse.aether.repository
-
+import org.eclipse.aether.resolution.ArtifactRequest
 import scala_maven.AppLauncher
-import scala.util.{Failure, Success, Try}
-import scala.collection.JavaConverters._
-import scala.collection.mutable.Buffer
 
 object MojoImplementation {
   private val ScalaMavenGroupArtifact = "net.alchim31.maven:scala-maven-plugin"

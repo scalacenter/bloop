@@ -1,27 +1,36 @@
 package bloop.integrations.gradle
 
 import java.io.File
-import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, Path, Paths}
+import java.nio.file.Files
+import java.nio.file.Paths
+
+import scala.util.Properties
+
 import bloop.cli.Commands
-import bloop.config.Config.Platform.Jvm
-import bloop.config.{Config, Tag}
-import bloop.config.Config.{CompileSetup, JavaThenScala, Mixed, Platform, TestFramework}
+import bloop.config.Config
+import bloop.config.Config.CompileSetup
+import bloop.config.Config.JavaThenScala
+import bloop.config.Config.Mixed
+import bloop.config.Config.Platform
+import bloop.config.Config.TestFramework
+import bloop.config.Tag
 import bloop.config.utils.BaseConfigSuite
 import bloop.data.WorkspaceSettings
-import bloop.engine.{Build, Run, State}
+import bloop.engine.Build
+import bloop.engine.BuildLoader
+import bloop.engine.Run
+import bloop.engine.State
 import bloop.io.AbsolutePath
 import bloop.logging.BloopLogger
 import bloop.util.TestUtil
-import org.gradle.testkit.runner.{BuildResult, GradleRunner}
-import org.gradle.testkit.runner.TaskOutcome._
-import org.junit._
-import org.junit.Assert._
-import org.junit.rules.TemporaryFolder
-import bloop.engine.BuildLoader
+
 import io.github.classgraph.ClassGraph
-import scala.collection.JavaConverters._
-import scala.util.Properties
+import org.gradle.testkit.runner.BuildResult
+import org.gradle.testkit.runner.GradleRunner
+import org.gradle.testkit.runner.TaskOutcome._
+import org.junit.Assert._
+import org.junit._
+import org.junit.rules.TemporaryFolder
 
 /*
  * To remote debug the ConfigGenerationSuite...

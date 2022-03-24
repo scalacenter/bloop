@@ -1,11 +1,9 @@
 package bloop
 
-import bloop.cli.Commands
-import bloop.logging.RecordingLogger
 import bloop.testing.TestInternals
-import bloop.util.TestUtil
-import bloop.engine.Run
-import org.junit.Assert.{assertFalse, assertTrue}
+
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class TestFilterSpec {

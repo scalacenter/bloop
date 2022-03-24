@@ -1,12 +1,17 @@
 package bloop.engine.tasks
 
 import bloop.cli.Commands.LinkingCommand
-import bloop.cli.{ExitStatus, OptimizerConfig}
+import bloop.cli.ExitStatus
+import bloop.cli.OptimizerConfig
 import bloop.config.Config
-import bloop.data.{Platform, Project}
-import bloop.engine.tasks.toolchains.{ScalaJsToolchain, ScalaNativeToolchain}
-import bloop.engine.{ExecutionContext, Feedback, State}
+import bloop.data.Platform
+import bloop.data.Project
+import bloop.engine.Feedback
+import bloop.engine.State
+import bloop.engine.tasks.toolchains.ScalaJsToolchain
+import bloop.engine.tasks.toolchains.ScalaNativeToolchain
 import bloop.io.AbsolutePath
+
 import monix.eval.Task
 
 object LinkTask {

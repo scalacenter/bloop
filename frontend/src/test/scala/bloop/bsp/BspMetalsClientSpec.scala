@@ -1,31 +1,27 @@
 package bloop.bsp
 
-import bloop.io.AbsolutePath
-import bloop.io.Environment.{lineSeparator, LineSplitter}
-import bloop.cli.BspProtocol
-import bloop.util.TestUtil
-import bloop.util.TestProject
-import bloop.logging.RecordingLogger
-import bloop.logging.BspClientLogger
-import bloop.cli.ExitStatus
-import bloop.data.WorkspaceSettings
-import bloop.internal.build.BuildInfo
-import bloop.bsp.BloopBspDefinitions.BloopExtraBuildParams
-
-import java.nio.file.{Files, Paths}
-
-import io.circe.JsonObject
-import io.circe.Json
-
-import monix.execution.Scheduler
-import monix.execution.ExecutionModel
-import monix.eval.Task
+import java.nio.file.Paths
 
 import scala.concurrent.duration.FiniteDuration
+import scala.util.Random
 
 import ch.epfl.scala.bsp.endpoints.BuildTarget.scalacOptions
+
+import bloop.bsp.BloopBspDefinitions.BloopExtraBuildParams
+import bloop.cli.BspProtocol
+import bloop.cli.ExitStatus
+import bloop.data.WorkspaceSettings
 import bloop.engine.ExecutionContext
-import scala.util.Random
+import bloop.internal.build.BuildInfo
+import bloop.io.AbsolutePath
+import bloop.io.Environment.LineSplitter
+import bloop.io.Environment.lineSeparator
+import bloop.logging.BspClientLogger
+import bloop.logging.RecordingLogger
+import bloop.util.TestProject
+import bloop.util.TestUtil
+
+import monix.eval.Task
 
 object LocalBspMetalsClientSpec extends BspMetalsClientSpec(BspProtocol.Local)
 object TcpBspMetalsClientSpec extends BspMetalsClientSpec(BspProtocol.Tcp)

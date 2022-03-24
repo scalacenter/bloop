@@ -1,21 +1,23 @@
 package bloop.bsp
 
-import bloop.engine.State
-import bloop.config.Config
-import bloop.cli.{ExitStatus, BspProtocol}
-import bloop.util.{TestUtil, TestProject}
-import bloop.logging.RecordingLogger
-import bloop.internal.build.BuildInfo
+import java.nio.file.Files
 import java.nio.file.attribute.FileTime
+import java.time.Instant
+import java.util.concurrent.TimeUnit
+
+import scala.concurrent.duration.FiniteDuration
+
+import bloop.cli.BspProtocol
+import bloop.cli.ExitStatus
+import bloop.internal.build.BuildInfo
 import bloop.io.AbsolutePath
 import bloop.io.Environment.lineSeparator
 import bloop.io.{Paths => BloopPaths}
-import java.nio.file.Files
+import bloop.logging.RecordingLogger
+import bloop.util.TestProject
+import bloop.util.TestUtil
+
 import monix.eval.Task
-import bloop.engine.ExecutionContext
-import java.util.concurrent.TimeUnit
-import scala.concurrent.duration.FiniteDuration
-import java.time.Instant
 
 object TcpBspCompileSpec extends BspCompileSpec(BspProtocol.Tcp)
 object LocalBspCompileSpec extends BspCompileSpec(BspProtocol.Local)

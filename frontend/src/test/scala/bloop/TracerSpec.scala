@@ -1,8 +1,9 @@
 package bloop
 
-import bloop.tracing.BraveTracer
 import bloop.testing.BaseSuite
+import bloop.tracing.BraveTracer
 import bloop.tracing.TraceProperties
+
 import monix.eval.Task
 
 object TracerSpec extends BaseSuite {

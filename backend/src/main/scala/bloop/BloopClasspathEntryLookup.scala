@@ -1,11 +1,15 @@
 package bloop
 
-import bloop.util.AnalysisUtils
+import java.io.File
+import java.nio.file.Path
+import java.util.concurrent.ConcurrentHashMap
+import java.util.zip.ZipException
+import java.util.zip.ZipFile
+import java.{util => ju}
+
 import sbt.internal.inc.PlainVirtualFileConverter
-import sbt.internal.inc.bloop.internal.BloopNameHashing
 import sbt.internal.inc.bloop.internal.BloopStamps
 import sbt.internal.inc.classpath.ClasspathUtil
-import sbt.internal.inc.classpath.ClasspathUtilities
 import sbt.util.InterfaceUtil
 import xsbti.FileConverter
 import xsbti.VirtualFile
@@ -14,13 +18,6 @@ import xsbti.compile.DefinesClass
 import xsbti.compile.FileHash
 import xsbti.compile.PerClasspathEntryLookup
 import xsbti.compile.PreviousResult
-
-import java.io.File
-import java.nio.file.Path
-import java.util.concurrent.ConcurrentHashMap
-import java.util.zip.ZipException
-import java.util.zip.ZipFile
-import java.{util => ju}
 
 final class BloopClasspathEntryLookup(
     results: Map[File, PreviousResult],

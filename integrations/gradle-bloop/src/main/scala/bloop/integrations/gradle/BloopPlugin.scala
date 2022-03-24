@@ -1,8 +1,11 @@
 package bloop.integrations.gradle
 
-import bloop.integrations.gradle.tasks.{BloopInstallTask, ConfigureBloopInstallTask}
-import org.gradle.api.{Plugin, Project}
-import syntax._
+import bloop.integrations.gradle.syntax._
+import bloop.integrations.gradle.tasks.BloopInstallTask
+import bloop.integrations.gradle.tasks.ConfigureBloopInstallTask
+
+import org.gradle.api.Plugin
+import org.gradle.api.Project
 
 /**
  * Main entry point of the gradle bloop plugin.
