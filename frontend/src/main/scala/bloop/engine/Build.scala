@@ -1,13 +1,18 @@
 package bloop.engine
 
-import bloop.data.{LoadedProject, Origin, Project, WorkspaceSettings}
+import scala.collection.mutable
+
+import bloop.data.LoadedProject
+import bloop.data.Origin
+import bloop.data.Project
+import bloop.data.WorkspaceSettings
 import bloop.engine.Dag.DagResult
-import bloop.io.{AbsolutePath, ByteHasher}
+import bloop.io.AbsolutePath
+import bloop.io.ByteHasher
 import bloop.logging.Logger
 import bloop.util.CacheHashCode
-import monix.eval.Task
 
-import scala.collection.mutable
+import monix.eval.Task
 
 final case class Build private (
     origin: AbsolutePath,
@@ -215,7 +220,7 @@ object Build {
       settingsForReload: Option[WorkspaceSettings],
       writeSettingsToDisk: Boolean
   ) extends ReloadAction {
-    def createdOrModified = created ++ modified
+    def createdOrModified: List[ReadConfiguration] = created ++ modified
   }
 
   sealed trait UpdateSettingsAction

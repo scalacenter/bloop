@@ -1,16 +1,20 @@
 package bloop.dap
 
+import scala.collection.mutable
+import scala.concurrent.Promise
+
+import ch.epfl.scala.bsp
+
 import bloop.TestSchedulers
 import bloop.bsp.BloopBspDefinitions.BloopExtraBuildParams
 import bloop.bsp.BspBaseSuite
-import bloop.cli.{BspProtocol, Commands}
+import bloop.cli.BspProtocol
+import bloop.cli.Commands
 import bloop.engine.State
 import bloop.io.AbsolutePath
 import bloop.logging.BspClientLogger
-import ch.epfl.scala.bsp
+
 import monix.execution.Scheduler
-import scala.collection.mutable
-import scala.concurrent.Promise
 
 abstract class DebugBspBaseSuite extends BspBaseSuite {
   protected val debugDefaultScheduler: Scheduler =

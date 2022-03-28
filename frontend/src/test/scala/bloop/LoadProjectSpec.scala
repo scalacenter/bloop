@@ -1,16 +1,15 @@
 package bloop
 
 import bloop.config.Config
-import bloop.data.Project
 import bloop.data.Platform
-import bloop.data.JdkConfig
-import bloop.io.Paths
+import bloop.data.Project
 import bloop.io.AbsolutePath
 import bloop.logging.RecordingLogger
-import bloop.util.TestUtil
-import org.junit.Test
-import bloop.util.TestProject
 import bloop.testing.BloopHelpers
+import bloop.util.TestProject
+import bloop.util.TestUtil
+
+import org.junit.Test
 
 class LoadProjectSpec extends BloopHelpers {
   @Test def LoadJavaProject(): Unit = {

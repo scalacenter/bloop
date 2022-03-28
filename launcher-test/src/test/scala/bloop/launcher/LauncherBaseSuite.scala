@@ -1,28 +1,26 @@
 package bloop.launcher
 
-import bloop.io.Paths
-import bloop.io.AbsolutePath
-import bloop.io.Environment.LineSplitter
-import bloop.testing.BaseSuite
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
+import java.io.InputStream
+import java.io.OutputStream
+import java.io.PrintStream
+import java.nio.charset.StandardCharsets
+import java.nio.file.Files
+import java.{util => ju}
+
+import scala.collection.JavaConverters._
+import scala.concurrent.Promise
+
+import bloop.bloopgun.BloopgunCli
+import bloop.bloopgun.ServerConfig
 import bloop.bloopgun.core.Shell
 import bloop.bloopgun.util.Environment
 import bloop.internal.build.BuildTestInfo
-
-import java.nio.file.Files
-import java.io.InputStream
-import java.io.OutputStream
-import java.nio.charset.StandardCharsets
-import java.io.ByteArrayOutputStream
-
-import scala.concurrent.Promise
-import scala.collection.JavaConverters._
-
-import java.io.ByteArrayInputStream
-import bloop.bloopgun.BloopgunCli
-import java.io.PrintStream
-import bloop.bloopgun.ServerConfig
-import bloop.bloopgun.core.ServerStatus
-import snailgun.logging.SnailgunLogger
+import bloop.io.AbsolutePath
+import bloop.io.Environment.LineSplitter
+import bloop.io.Paths
+import bloop.testing.BaseSuite
 
 /**
  * Defines a base suite to test the launcher. The test suite hijacks system
@@ -35,16 +33,16 @@ abstract class LauncherBaseSuite(
     val bspVersion: String,
     val bloopServerPort: Int
 ) extends BaseSuite {
-  val defaultConfig = ServerConfig(port = Some(bloopServerPort))
+  val defaultConfig: ServerConfig = ServerConfig(port = Some(bloopServerPort))
 
-  val oldEnv = System.getenv()
-  val oldCwd = AbsolutePath(System.getProperty("user.dir"))
-  val oldHomeDir = AbsolutePath(System.getProperty("user.home"))
-  val oldIvyHome = Option(System.getProperty("ivy.home"))
-  val oldCoursierCacheDir = Option(System.getProperty("coursier.cache"))
-  val ivyHome = oldHomeDir.resolve(".ivy2")
-  val coursierCacheDir = AbsolutePath(coursierapi.Cache.create().getLocation)
-  val bloopBinDirectory = AbsolutePath(Files.createTempDirectory("bsp-bin"))
+  val oldEnv: ju.Map[String, String] = System.getenv()
+  val oldCwd: AbsolutePath = AbsolutePath(System.getProperty("user.dir"))
+  val oldHomeDir: AbsolutePath = AbsolutePath(System.getProperty("user.home"))
+  val oldIvyHome: Option[String] = Option(System.getProperty("ivy.home"))
+  val oldCoursierCacheDir: Option[String] = Option(System.getProperty("coursier.cache"))
+  val ivyHome: AbsolutePath = oldHomeDir.resolve(".ivy2")
+  val coursierCacheDir: AbsolutePath = AbsolutePath(coursierapi.Cache.create().getLocation)
+  val bloopBinDirectory: AbsolutePath = AbsolutePath(Files.createTempDirectory("bsp-bin"))
 
   protected val shellWithPython = new Shell(true, true)
 
@@ -56,8 +54,8 @@ abstract class LauncherBaseSuite(
   System.setProperty("coursier.cache", coursierCacheDir.syntax)
 
   // Hijack so that lookup for bloop in PATH fails even if this machine has bloop installed
-  val hijackedBloop = bloopBinDirectory.resolve("bloop")
-  val hijackedBloopServer = bloopBinDirectory.resolve("blp-server")
+  val hijackedBloop: AbsolutePath = bloopBinDirectory.resolve("bloop")
+  val hijackedBloopServer: AbsolutePath = bloopBinDirectory.resolve("blp-server")
   writeFile(hijackedBloop, "I am not a script and I must fail to be executed")
   // Add empty contents to blp-server so that `ServerStatus.findServerToRun` doesn't find a valid server
   writeFile(hijackedBloopServer, "")

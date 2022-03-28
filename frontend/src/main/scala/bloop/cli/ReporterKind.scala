@@ -1,8 +1,10 @@
 package bloop.cli
 
 import bloop.reporter.ReporterConfig
-import caseapp.core.argparser.{ArgParser, SimpleArgParser}
+
 import caseapp.core.Error
+import caseapp.core.argparser.ArgParser
+import caseapp.core.argparser.SimpleArgParser
 
 /** Represents a reporter kind that users can pick to display compiler messages. */
 sealed abstract class ReporterKind(val name: String)

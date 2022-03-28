@@ -1,21 +1,24 @@
 package bloop
 
-import java.io.{
-  BufferedReader,
-  ByteArrayInputStream,
-  ByteArrayOutputStream,
-  InputStreamReader,
-  PrintStream
-}
+import java.io.BufferedReader
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
+import java.io.InputStreamReader
+import java.io.PrintStream
 
-import bloop.logging.{BloopLogger, DebugFilter}
+import scala.Console.RED
+import scala.Console.RESET
+import scala.collection.mutable
+
+import bloop.logging.BloopLogger
+import bloop.logging.DebugFilter
 import bloop.util.UUIDUtil
-import org.junit.Assert.{assertEquals, assertFalse, assertTrue}
+
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.experimental.categories.Category
-
-import scala.Console.{RED, RESET}
-import scala.collection.mutable
 
 @Category(Array(classOf[bloop.FastTests]))
 class BloopLoggerSpec {

@@ -1,9 +1,15 @@
 package bloop
 
-import bloop.cli.{Commands, CommonOptions, ExitStatus}
+import bloop.cli.Commands
+import bloop.cli.CommonOptions
+import bloop.cli.ExitStatus
+import bloop.engine.Exit
+import bloop.engine.Print
+import bloop.engine.Run
 import bloop.logging.DebugFilter
-import bloop.engine.{Exit, Print, Run}
-import org.junit.{Assert, Test}
+
+import org.junit.Assert
+import org.junit.Test
 
 class DebugFilterSpec {
   @Test

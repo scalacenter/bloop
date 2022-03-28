@@ -1,9 +1,9 @@
 package bloop
 
-import bloop.io.AbsolutePath
 import bloop.util.CacheHashCode
-import xsbti.compile.FileHash
+
 import xsbti.VirtualFileRef
+import xsbti.compile.FileHash
 
 case class UniqueCompileInputs(
     sources: Vector[UniqueCompileInputs.HashedSource],

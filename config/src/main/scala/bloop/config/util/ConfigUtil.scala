@@ -1,6 +1,7 @@
 package bloop.config.util
 
-import java.nio.file.{Path, Files}
+import java.nio.file.Files
+import java.nio.file.Path
 
 object ConfigUtil {
   def pathsOutsideRoots(roots: Seq[Path], paths: Seq[Path]): Seq[Path] = {

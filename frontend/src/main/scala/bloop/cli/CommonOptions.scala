@@ -1,15 +1,15 @@
 package bloop.cli
 
-import java.io.{InputStream, PrintStream}
+import java.io.InputStream
+import java.io.PrintStream
 import java.util.Properties
 
-import bloop.engine.ExecutionContext
+import bloop.cli.CliParsers._
 import bloop.io.AbsolutePath
+
 import caseapp.Hidden
 import caseapp.core.help.Help
 import caseapp.core.parser.Parser
-
-import CliParsers._
 
 /**
  * Describes the common options for any command or CLI operation.
@@ -33,7 +33,7 @@ case class CommonOptions(
 }
 
 object CommonOptions {
-  final val default = CommonOptions()
+  final val default: CommonOptions = CommonOptions()
 
   // Our own version of properties in which we override `toString`
   final class PrettyProperties extends Properties {

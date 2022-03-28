@@ -1,17 +1,15 @@
 package bloop.io
 
+import java.util.concurrent.TimeUnit
+
+import scala.concurrent.Promise
+
+import bloop.data.SourcesGlobs
 import bloop.io.Environment.lineSeparator
 import bloop.logging.RecordingLogger
-import scala.concurrent.Promise
-import bloop.util.TestUtil
-import java.nio.file.Files
-import scala.concurrent.Await
-import scala.concurrent.duration.FiniteDuration
 import bloop.util.TestProject
-import java.util.concurrent.TimeUnit
-import bloop.cli.ExitStatus
-import bloop.config.Config
-import bloop.data.SourcesGlobs
+import bloop.util.TestUtil
+
 import sbt.internal.inc.PlainVirtualFileConverter
 
 object SourcesGlobsSpec extends bloop.testing.BaseSuite {
@@ -57,7 +55,6 @@ object SourcesGlobsSpec extends bloop.testing.BaseSuite {
           ioScheduler
         )
         val Right(result) = TestUtil.await(10, TimeUnit.SECONDS)(hashedSources)
-        import scala.collection.JavaConverters._
         val obtainedFilenames = result
           .map { file =>
             val path = AbsolutePath(PlainVirtualFileConverter.converter.toPath(file.source))

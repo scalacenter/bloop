@@ -1,26 +1,26 @@
 package bloop
 
+import java.io.File
+import java.io.IOException
+import java.nio.file.Files
+import java.nio.file.Path
+import java.nio.file.Paths
+import java.nio.file.StandardCopyOption
+
+import scala.collection.mutable
+import scala.util.Failure
+import scala.util.Success
+import scala.util.Try
+
 import bloop.io.AbsolutePath
 import bloop.io.ParallelOps
 import bloop.io.ParallelOps.CopyMode
 import bloop.io.{Paths => BloopPaths}
 import bloop.reporter.Reporter
 import bloop.tracing.BraveTracer
+
 import monix.eval.Task
 import xsbti.compile.ClassFileManager
-import xsbti.compile.PreviousResult
-
-import java.io.File
-import java.io.IOException
-import java.nio.file.CopyOption
-import java.nio.file.Files
-import java.nio.file.Path
-import java.nio.file.Paths
-import java.nio.file.StandardCopyOption
-import scala.collection.mutable
-import scala.util.Failure
-import scala.util.Success
-import scala.util.Try
 
 final class BloopClassFileManager(
     backupDir0: Path,

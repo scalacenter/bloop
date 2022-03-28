@@ -2,7 +2,6 @@ package bloop.dap
 
 import java.net.URI
 
-import bloop.dap.DebugTestProtocol.Response
 import com.microsoft.java.debug.core.protocol.Events
 import com.microsoft.java.debug.core.protocol.Types.Capabilities
 import monix.eval.Task

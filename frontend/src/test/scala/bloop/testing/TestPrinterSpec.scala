@@ -1,5 +1,4 @@
 package bloop.testing
-import bloop.util.TestUtil
 import ch.epfl.scala.debugadapter.testing.TestUtils
 
 object TestPrinterSpec extends BaseSuite {

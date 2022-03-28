@@ -1,23 +1,22 @@
 package bloop.integrations.gradle
 
 import java.io.File
+import java.nio.file.Path
+
+import scala.collection.JavaConverters._
+import scala.reflect.ClassTag
 
 import com.android.build.gradle.AppExtension
 import com.android.build.gradle.BaseExtension
 import com.android.build.gradle.LibraryExtension
 import com.android.build.gradle.api.BaseVariant
 import com.android.build.gradle.internal.api.TestedVariant
-
+import org.gradle.api.Project
+import org.gradle.api.Task
 import org.gradle.api.artifacts.Configuration
-import org.gradle.api.tasks.SourceSetContainer
 import org.gradle.api.plugins.JavaApplication
 import org.gradle.api.tasks.SourceSet
-import org.gradle.api.{Project, Task, GradleException}
-
-import scala.collection.JavaConverters._
-import scala.reflect.ClassTag
-import scala.util.control.NonFatal
-import java.nio.file.Path
+import org.gradle.api.tasks.SourceSetContainer
 
 object syntax {
 

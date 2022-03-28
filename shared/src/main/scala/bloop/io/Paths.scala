@@ -1,22 +1,23 @@
 package bloop.io
 
 import java.io.IOException
-import java.nio.file.attribute.{BasicFileAttributes, FileTime}
-import java.nio.file.{
-  DirectoryNotEmptyException,
-  FileSystems,
-  FileVisitOption,
-  FileVisitResult,
-  FileVisitor,
-  Files,
-  Path,
-  SimpleFileVisitor,
-  Paths => NioPaths
-}
-import java.util
-import io.github.soc.directories.ProjectDirectories
-import scala.collection.mutable
+import java.nio.file.DirectoryNotEmptyException
+import java.nio.file.FileSystems
+import java.nio.file.FileVisitOption
+import java.nio.file.FileVisitResult
+import java.nio.file.FileVisitor
+import java.nio.file.Files
 import java.nio.file.NoSuchFileException
+import java.nio.file.Path
+import java.nio.file.SimpleFileVisitor
+import java.nio.file.attribute.BasicFileAttributes
+import java.nio.file.attribute.FileTime
+import java.nio.file.{Paths => NioPaths}
+import java.util
+
+import scala.collection.mutable
+
+import io.github.soc.directories.ProjectDirectories
 
 object Paths {
   private val projectDirectories = ProjectDirectories.from("", "", "bloop")

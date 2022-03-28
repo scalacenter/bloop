@@ -1,28 +1,29 @@
 package bloop
 
-import bloop.config.Config
-import bloop.io.RelativePath
-import bloop.io.Environment.{lineSeparator, LineSplitter}
-import bloop.logging.RecordingLogger
-import bloop.cli.{Commands, ExitStatus, BspProtocol}
-import bloop.engine.ExecutionContext
-import bloop.util.{TestProject, TestUtil, BuildUtil, SystemProperties}
-
-import java.nio.file.Files
 import java.util.concurrent.TimeUnit
 
+import scala.collection.mutable
 import scala.concurrent.Await
 import scala.concurrent.Promise
-import scala.collection.mutable
-import scala.concurrent.duration.Duration
 import scala.concurrent.duration.FiniteDuration
 
-import monix.eval.Task
-import monix.execution.CancelableFuture
-
 import ch.epfl.scala.{bsp => scalabsp}
-import bloop.logging.Logger
+
+import bloop.cli.BspProtocol
+import bloop.cli.ExitStatus
+import bloop.config.Config
+import bloop.engine.ExecutionContext
+import bloop.io.Environment.LineSplitter
+import bloop.io.Environment.lineSeparator
+import bloop.io.RelativePath
+import bloop.logging.RecordingLogger
+import bloop.util.BuildUtil
 import bloop.util.CrossPlatform
+import bloop.util.SystemProperties
+import bloop.util.TestProject
+import bloop.util.TestUtil
+
+import monix.eval.Task
 
 object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
   // Use only TCP to run deduplication
@@ -142,7 +143,6 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
           secondCompiledState.compileHandle(build.userProject, delaySecondNoop)
         )
 
-        import java.util.concurrent.TimeoutException
         val (firstNoopState, secondNoopState) = TestUtil.blockOnTask(noopCompiles, 5)
 
         assert(firstNoopState.status == ExitStatus.Ok)

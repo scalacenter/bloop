@@ -2,12 +2,15 @@ package bloop.cli
 
 import java.nio.file.Path
 
+import bloop.cli.CliParsers._
 import bloop.logging.DebugFilter
-import caseapp.{ExtraName, HelpMessage, Recurse, ValueDescription}
-import caseapp.core.parser.Parser
-import caseapp.core.help.Help
 
-import CliParsers._
+import caseapp.ExtraName
+import caseapp.HelpMessage
+import caseapp.Recurse
+import caseapp.ValueDescription
+import caseapp.core.help.Help
+import caseapp.core.parser.Parser
 
 case class CliOptions(
     @ExtraName("c")
@@ -31,7 +34,7 @@ case class CliOptions(
 )
 
 object CliOptions {
-  val default = CliOptions()
+  val default: CliOptions = CliOptions()
 
   implicit lazy val parser: Parser[CliOptions] = Parser.derive
   implicit lazy val help: Help[CliOptions] = Help.derive

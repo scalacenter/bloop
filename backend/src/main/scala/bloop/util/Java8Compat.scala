@@ -1,15 +1,22 @@
 package bloop.util
 
-import java.util.concurrent.{CancellationException, CompletableFuture, CompletionException}
+import java.util.concurrent.CancellationException
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.CompletionException
 import java.util.function.BiFunction
 
+import scala.concurrent.ExecutionContext
+import scala.concurrent.Future
+import scala.concurrent.Promise
+import scala.util.Failure
+import scala.util.Success
+import scala.util.Try
+
+import monix.execution.Cancelable
+import monix.execution.CancelableFuture
 import monix.execution.cancelables.SingleAssignmentCancelable
 import monix.execution.misc.NonFatal
 import monix.execution.schedulers.TrampolinedRunnable
-import monix.execution.{Cancelable, CancelableFuture}
-
-import scala.concurrent.{ExecutionContext, Future, Promise}
-import scala.util.{Failure, Success, Try}
 
 /**
  * Utilities for integration with Java 8 classes

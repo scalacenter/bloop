@@ -1,25 +1,37 @@
 package bloop.engine.tasks
 
+import scala.util.Failure
+import scala.util.Success
+import scala.util.control.NonFatal
+
+import bloop.bsp.ScalaTestSuites
 import bloop.cli.ExitStatus
-import bloop.config.{Config, Tag}
-import bloop.data.{Platform, Project}
-import bloop.engine.{Dag, ExecutionContext, Feedback, State}
+import bloop.config.Config
+import bloop.config.Tag
+import bloop.data.Platform
+import bloop.data.Project
+import bloop.engine.Feedback
+import bloop.engine.State
 import bloop.engine.tasks.toolchains.ScalaJsToolchain
-import bloop.exec.{Forker, JvmProcessForker}
+import bloop.exec.JvmProcessForker
 import bloop.io.AbsolutePath
-import bloop.logging.{DebugFilter, Logger}
-import bloop.testing.{DiscoveredTestFrameworks, LoggingEventHandler, TestInternals, FingerprintInfo}
+import bloop.logging.DebugFilter
+import bloop.logging.Logger
+import bloop.testing.DiscoveredTestFrameworks
+import bloop.testing.FingerprintInfo
+import bloop.testing.LoggingEventHandler
+import bloop.testing.TestInternals
 import bloop.util.JavaCompat.EnrichOptional
+
 import monix.eval.Task
 import monix.execution.atomic.AtomicBoolean
 import sbt.internal.inc.Analysis
-import sbt.testing.{Framework, SuiteSelector, TaskDef, TestSelector}
+import sbt.testing.Framework
+import sbt.testing.SuiteSelector
+import sbt.testing.TaskDef
+import sbt.testing.TestSelector
 import xsbt.api.Discovery
 import xsbti.compile.CompileAnalysis
-
-import scala.util.control.NonFatal
-import scala.util.{Failure, Success}
-import bloop.bsp.ScalaTestSuites
 
 final case class TestFrameworkWithClasses(
     framework: String,

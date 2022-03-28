@@ -1,6 +1,7 @@
 package bloop.io
 
-import bloop.logging.{DebugFilter, Logger}
+import bloop.logging.DebugFilter
+import bloop.logging.Logger
 
 object Timer {
   @inline def timed[T](logger: Logger, prefix: Option[String] = None)(op: => T): T = {

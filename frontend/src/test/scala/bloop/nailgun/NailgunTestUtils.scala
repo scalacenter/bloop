@@ -1,27 +1,29 @@
 package bloop.nailgun
 
 import java.io.PrintStream
-
-import java.nio.file.{Files, Path, Paths}
-import java.util.concurrent.{ExecutionException, TimeUnit}
-
-import bloop.Server
-import bloop.bsp.BspServer
-import bloop.testing.BaseSuite
-import bloop.logging.{DebugFilter, ProcessLogger, RecordingLogger}
-import bloop.util.{TestUtil, CrossPlatform}
-
-import com.martiansoftware.nailgun.{BloopThreadLocalInputStream, NGServer, ThreadLocalPrintStream}
-
-import monix.eval.Task
-import monix.execution.misc.NonFatal
-import monix.execution.Scheduler
-
-import org.apache.commons.io.IOUtils
+import java.nio.charset.StandardCharsets
+import java.nio.file.Files
+import java.nio.file.Path
+import java.nio.file.Paths
+import java.util.concurrent.ExecutionException
+import java.util.concurrent.TimeUnit
 
 import scala.concurrent.Await
 import scala.concurrent.duration.FiniteDuration
-import java.nio.charset.StandardCharsets
+
+import bloop.Server
+import bloop.logging.DebugFilter
+import bloop.logging.ProcessLogger
+import bloop.logging.RecordingLogger
+import bloop.testing.BaseSuite
+import bloop.util.CrossPlatform
+import bloop.util.TestUtil
+
+import com.martiansoftware.nailgun.BloopThreadLocalInputStream
+import com.martiansoftware.nailgun.ThreadLocalPrintStream
+import monix.eval.Task
+import monix.execution.Scheduler
+import org.apache.commons.io.IOUtils
 
 /**
  * Base class for writing test for the nailgun integration.

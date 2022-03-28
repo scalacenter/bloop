@@ -1,7 +1,7 @@
 package bloop.config
 
-import PlatformFiles.Path
-import PlatformFiles.emptyPath
+import bloop.config.PlatformFiles.Path
+import bloop.config.PlatformFiles.emptyPath
 
 object Config {
   case class Java(options: List[String])
@@ -9,28 +9,28 @@ object Config {
   case class TestFramework(names: List[String])
 
   object TestFramework {
-    val utest = Config.TestFramework(
+    val utest: TestFramework = Config.TestFramework(
       List("utest.runner.Framework")
     )
 
-    val munit = Config.TestFramework(
+    val munit: TestFramework = Config.TestFramework(
       List("munit.Framework")
     )
 
-    val ScalaCheck = Config.TestFramework(
+    val ScalaCheck: TestFramework = Config.TestFramework(
       List(
         "org.scalacheck.ScalaCheckFramework"
       )
     )
 
-    val ScalaTest = Config.TestFramework(
+    val ScalaTest: TestFramework = Config.TestFramework(
       List(
         "org.scalatest.tools.Framework",
         "org.scalatest.tools.ScalaTestFramework"
       )
     )
 
-    val Specs2 = Config.TestFramework(
+    val Specs2: TestFramework = Config.TestFramework(
       List(
         "org.specs.runner.SpecsFramework",
         "org.specs2.runner.Specs2Framework",
@@ -38,18 +38,19 @@ object Config {
       )
     )
 
-    val JUnit = Config.TestFramework(
+    val JUnit: TestFramework = Config.TestFramework(
       List(
         "com.novocode.junit.JUnitFramework"
       )
     )
 
-    val DefaultFrameworks = List(JUnit, ScalaTest, ScalaCheck, Specs2, utest, munit)
+    val DefaultFrameworks: List[TestFramework] =
+      List(JUnit, ScalaTest, ScalaCheck, Specs2, utest, munit)
   }
 
   case class TestArgument(args: List[String], framework: Option[TestFramework])
   case class TestOptions(excludes: List[String], arguments: List[TestArgument])
-  object TestOptions { val empty = TestOptions(Nil, Nil) }
+  object TestOptions { val empty: TestOptions = TestOptions(Nil, Nil) }
 
   case class Test(frameworks: List[TestFramework], options: TestOptions)
   object Test {
@@ -133,13 +134,13 @@ object Config {
 
   sealed trait PlatformConfig
   case class JvmConfig(home: Option[Path], options: List[String]) extends PlatformConfig
-  object JvmConfig { val empty = JvmConfig(None, Nil) }
+  object JvmConfig { val empty: JvmConfig = JvmConfig(None, Nil) }
 
   sealed abstract class LinkerMode(val id: String)
   object LinkerMode {
     case object Debug extends LinkerMode("debug")
     case object Release extends LinkerMode("release")
-    val All = List(Debug.id, Release.id)
+    val All: List[String] = List(Debug.id, Release.id)
   }
 
   sealed abstract class ModuleKindJS(val id: String)
@@ -147,7 +148,7 @@ object Config {
     case object NoModule extends ModuleKindJS("none")
     case object CommonJSModule extends ModuleKindJS("commonjs")
     case object ESModule extends ModuleKindJS("esmodule")
-    val All = List(NoModule.id, CommonJSModule.id, ESModule.id)
+    val All: List[String] = List(NoModule.id, CommonJSModule.id, ESModule.id)
   }
 
   case class JsConfig(
@@ -261,7 +262,7 @@ object Config {
     private[bloop] val empty: Project = Project("", emptyPath, None, List(), None, None, List(), List(),  emptyPath, emptyPath, None, None, None, None, None, None, None, None)
     // FORMAT: ON
 
-    def analysisFileName(projectName: String) = s"$projectName-analysis.bin"
+    def analysisFileName(projectName: String): String = s"$projectName-analysis.bin"
   }
 
   case class File(version: String, project: Project)

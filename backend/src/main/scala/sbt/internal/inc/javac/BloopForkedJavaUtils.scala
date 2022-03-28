@@ -1,9 +1,10 @@
 package sbt.internal.inc.javac
 
 import java.io.File
+import java.nio.file.Path
+
 import xsbti.Logger
 import xsbti.Reporter
-import java.nio.file.Path
 
 object BloopForkedJavaUtils {
   def launch(

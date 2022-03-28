@@ -1,8 +1,15 @@
 package bloop.testing
 
-import bloop.logging.{DebugFilter, Logger, RecordingLogger}
 import ch.epfl.scala.debugadapter.testing.TestSuiteEvent
-import sbt.testing.{Event, Fingerprint, OptionalThrowable, Selector, Status, TestSelector}
+
+import bloop.logging.RecordingLogger
+
+import sbt.testing.Event
+import sbt.testing.Fingerprint
+import sbt.testing.OptionalThrowable
+import sbt.testing.Selector
+import sbt.testing.Status
+import sbt.testing.TestSelector
 
 object LoggingEventHandlerSpec extends BaseSuite {
   test("logs and displays short summary of successful run") {
@@ -87,7 +94,7 @@ object LoggingEventHandlerSpec extends BaseSuite {
     override def throwable(): OptionalThrowable = new OptionalThrowable()
   }
 
-  def failedEvent(suite: String, testName: String, failedMessage: String) = new Event {
+  def failedEvent(suite: String, testName: String, failedMessage: String): Event = new Event {
     override def fullyQualifiedName(): String = ""
     override def fingerprint(): Fingerprint = ???
     override def selector(): Selector = new TestSelector(testName)

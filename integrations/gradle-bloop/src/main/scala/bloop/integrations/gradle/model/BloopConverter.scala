@@ -1,61 +1,65 @@
 package bloop.integrations.gradle.model
 
 import java.io.File
+import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
-import java.nio.file.Files
 
-import bloop.config.{Config, Tag}
-import bloop.config.Config.{CompileSetup, JavaThenScala, JvmConfig, Mixed, Platform}
+import scala.annotation.tailrec
+import scala.collection.JavaConverters._
+import scala.util.Failure
+import scala.util.Success
+import scala.util.Try
+
+import bloop.config.Config
+import bloop.config.Config.CompileSetup
+import bloop.config.Config.JavaThenScala
+import bloop.config.Config.JvmConfig
+import bloop.config.Config.Mixed
+import bloop.config.Config.Platform
+import bloop.config.Tag
 import bloop.integrations.gradle.BloopParameters
-import bloop.integrations.gradle.syntax._
 import bloop.integrations.gradle.SemVer
+import bloop.integrations.gradle.syntax._
 import bloop.integrations.gradle.tasks.PluginUtils
-import org.gradle.api.{Action, GradleException, Project}
-import org.gradle.api.artifacts.{Configuration, PublishArtifact}
+
+import com.android.build.gradle.api.BaseVariant
+import com.android.build.gradle.api.TestVariant
+import com.android.build.gradle.internal.tasks.AndroidVariantTask
+import com.android.builder.model.SourceProvider
+import org.gradle.api.Action
+import org.gradle.api.GradleException
+import org.gradle.api.Project
+import org.gradle.api.Task
 import org.gradle.api.artifacts.ArtifactView.ViewConfiguration
-import org.gradle.api.artifacts.dsl.DependencyHandler
-import org.gradle.api.artifacts.result.{ComponentArtifactsResult, ResolvedArtifactResult}
+import org.gradle.api.artifacts.Configuration
+import org.gradle.api.artifacts.result.ComponentArtifactsResult
+import org.gradle.api.artifacts.result.ResolvedArtifactResult
 import org.gradle.api.attributes.Attribute
 import org.gradle.api.attributes.AttributeContainer
 import org.gradle.api.component.Artifact
+import org.gradle.api.file.ConfigurableFileCollection
+import org.gradle.api.file.CopySpec
+import org.gradle.api.file.Directory
+import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.file.FileCollection
 import org.gradle.api.file.RegularFileProperty
-import org.gradle.api.internal.artifacts.dsl.LazyPublishArtifact
-import org.gradle.api.internal.artifacts.publish.{ArchivePublishArtifact, DecoratingPublishArtifact}
 import org.gradle.api.internal.file.copy.DefaultCopySpec
-import org.gradle.api.internal.file.CompositeFileCollection
-import org.gradle.api.internal.tasks.compile.{DefaultJavaCompileSpec, JavaCompilerArgumentsBuilder}
+import org.gradle.api.internal.tasks.compile.DefaultJavaCompileSpec
+import org.gradle.api.internal.tasks.compile.JavaCompilerArgumentsBuilder
+import org.gradle.api.provider.Provider
+import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.bundling.AbstractArchiveTask
-import org.gradle.api.tasks.{AbstractCopyTask, SourceSet}
-import org.gradle.api.tasks.compile.{CompileOptions, JavaCompile}
-import org.gradle.api.tasks.scala.{ScalaCompile, ScalaCompileOptions}
+import org.gradle.api.tasks.compile.CompileOptions
+import org.gradle.api.tasks.compile.JavaCompile
+import org.gradle.api.tasks.scala.ScalaCompile
+import org.gradle.api.tasks.scala.ScalaCompileOptions
 import org.gradle.api.tasks.testing.Test
 import org.gradle.internal.component.external.model.ModuleComponentArtifactIdentifier
 import org.gradle.jvm.JvmLibrary
 import org.gradle.language.base.artifact.SourcesArtifact
 import org.gradle.language.java.artifact.JavadocArtifact
 import org.gradle.plugins.ide.internal.tooling.java.DefaultInstalledJdk
-
-import scala.collection.JavaConverters._
-import scala.util.{Failure, Success, Try}
-import scala.io.Source
-import scala.annotation.tailrec
-
-import com.android.builder.model.SourceProvider
-import com.android.build.gradle.api.BaseVariantOutput
-import com.android.build.gradle.tasks.PackageAndroidArtifact
-import com.android.build.gradle.tasks.PackageApplication
-import com.android.build.gradle.internal.tasks.AndroidVariantTask
-import com.android.build.gradle.api.TestVariant
-import com.android.build.gradle.api.BaseVariant
-import org.gradle.api.file.DirectoryProperty
-import org.gradle.api.Task
-import org.gradle.api.file.ConfigurableFileCollection
-import org.gradle.api.provider.Provider
-import org.gradle.api.file.RegularFile
-import org.gradle.api.file.Directory
-import org.gradle.api.file.CopySpec
 
 /**
  * Define the conversion from Gradle's project model to Bloop's project model.

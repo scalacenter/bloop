@@ -1,32 +1,27 @@
 package bloop.io
 
+import java.io.IOException
+import java.nio.file.FileVisitResult
+import java.nio.file.FileVisitor
+import java.nio.file.Files
+import java.nio.file.Path
+import java.nio.file.StandardCopyOption
+import java.nio.file.attribute.BasicFileAttributes
+import java.util.concurrent.ConcurrentHashMap
+
+import scala.concurrent.Promise
+
 import bloop.logging.Logger
 
-import java.io.{IOException, File}
-import java.util.concurrent.Executor
-import java.util.concurrent.ConcurrentHashMap
-import java.nio.file.attribute.BasicFileAttributes
-import java.nio.file.{
-  FileVisitOption,
-  FileVisitResult,
-  FileVisitor,
-  Files,
-  Path,
-  SimpleFileVisitor,
-  StandardCopyOption
-}
-
-import scala.util.control.NonFatal
-import scala.concurrent.Promise
-import scala.collection.JavaConverters._
-
 import monix.eval.Task
-import monix.execution.{Scheduler, Cancelable}
-import monix.reactive.{Observable, Consumer, Observer}
-import monix.reactive.MulticastStrategy
+import monix.execution.Cancelable
+import monix.execution.Scheduler
 import monix.execution.atomic.AtomicBoolean
-import monix.execution.cancelables.CompositeCancelable
 import monix.execution.cancelables.AssignableCancelable
+import monix.execution.cancelables.CompositeCancelable
+import monix.reactive.Consumer
+import monix.reactive.MulticastStrategy
+import monix.reactive.Observable
 
 object ParallelOps {
 

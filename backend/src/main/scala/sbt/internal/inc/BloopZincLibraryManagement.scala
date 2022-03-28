@@ -10,11 +10,12 @@ package sbt.internal.inc
 import java.io.File
 import java.net.URLClassLoader
 
-import sbt.librarymanagement.{DependencyResolution, ModuleID}
+import scala.concurrent.ExecutionContext
+
 import sbt.internal.inc.classpath.ClassLoaderCache
+import sbt.librarymanagement.ModuleID
 import xsbti._
 import xsbti.compile._
-import scala.concurrent.ExecutionContext
 
 object BloopZincLibraryManagement {
   import xsbti.compile.ScalaInstance

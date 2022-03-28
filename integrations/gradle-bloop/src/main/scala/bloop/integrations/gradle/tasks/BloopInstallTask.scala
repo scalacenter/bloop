@@ -1,20 +1,23 @@
 package bloop.integrations.gradle.tasks
 
 import java.io.File
+import java.nio.file.FileAlreadyExistsException
 import java.nio.file.Files
+
+import scala.collection.JavaConverters._
+import scala.util.Failure
+import scala.util.Success
 
 import bloop.integrations.gradle.BloopParametersExtension
 import bloop.integrations.gradle.model.BloopConverter
-import bloop.integrations.gradle.model.BloopConverter.SourceSetDep
 import bloop.integrations.gradle.syntax._
-import org.gradle.api.tasks.{SourceSet, TaskAction}
-import org.gradle.api.{DefaultTask, Project}
-import com.android.builder.model.SourceProvider
-import com.android.build.gradle.api.BaseVariant
 
-import scala.collection.JavaConverters._
-import scala.util.{Failure, Success}
-import java.nio.file.FileAlreadyExistsException
+import com.android.build.gradle.api.BaseVariant
+import com.android.builder.model.SourceProvider
+import org.gradle.api.DefaultTask
+import org.gradle.api.Project
+import org.gradle.api.tasks.SourceSet
+import org.gradle.api.tasks.TaskAction
 
 /**
  * Define a Gradle task that generates bloop configuration files from a Gradle project.

@@ -1,12 +1,14 @@
 package bloop.launcher
 
 import java.nio.file.Files
+
 import scala.concurrent.Promise
+
 import bloop.bloopgun.util.Environment
 import bloop.internal.build.BuildInfo
 
 object GlobalSettingsSpec extends LauncherBaseSuite(BuildInfo.version, BuildInfo.bspVersion, 9014) {
-  val launcherArguments = Array(bloopVersion, "--skip-bsp-connection")
+  val launcherArguments: Array[String] = Array(bloopVersion, "--skip-bsp-connection")
 
   def writeJsonSettings(json: String): Unit = {
     val settings = Environment.bloopGlobalSettingsPath

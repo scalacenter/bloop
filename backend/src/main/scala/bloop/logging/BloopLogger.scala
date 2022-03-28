@@ -2,9 +2,14 @@ package bloop.logging
 
 import java.io.PrintStream
 
-import scala.Console.{CYAN, GREEN, RED, RESET, YELLOW}
-import scala.util.matching.Regex
-import bloop.io.Environment.{lineSeparator, LineSplitter}
+import scala.Console.CYAN
+import scala.Console.GREEN
+import scala.Console.RED
+import scala.Console.RESET
+import scala.Console.YELLOW
+
+import bloop.io.Environment.LineSplitter
+import bloop.io.Environment.lineSeparator
 
 /**
  * Creates a logger that writes to the given streams.

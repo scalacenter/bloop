@@ -1,36 +1,28 @@
 package bloop.io
 
 import java.io.IOException
-import java.util.concurrent.ConcurrentLinkedDeque
+import java.nio.file.FileSystems
+import java.nio.file.FileVisitOption
+import java.nio.file.FileVisitResult
+import java.nio.file.FileVisitor
+import java.nio.file.Files
+import java.nio.file.Path
 import java.nio.file.attribute.BasicFileAttributes
-import java.nio.file.{
-  FileSystems,
-  StandardCopyOption,
-  FileVisitResult,
-  FileVisitOption,
-  FileVisitor,
-  Files,
-  Path,
-  SimpleFileVisitor,
-  Paths => NioPaths
-}
 
 import scala.collection.mutable
 import scala.concurrent.Promise
 
-import bloop.data.Project
-import bloop.engine.ExecutionContext
-import bloop.util.monix.FoldLeftAsyncConsumer
 import bloop.UniqueCompileInputs.HashedSource
+import bloop.data.Project
+import bloop.util.monix.FoldLeftAsyncConsumer
 
-import monix.reactive.{MulticastStrategy, Consumer, Observable}
 import monix.eval.Task
-import monix.execution.atomic.AtomicBoolean
-import monix.execution.Scheduler
-import monix.reactive.internal.operators.MapAsyncParallelObservable
 import monix.execution.Cancelable
-import monix.execution.cancelables.CompositeCancelable
-
+import monix.execution.Scheduler
+import monix.execution.atomic.AtomicBoolean
+import monix.reactive.Consumer
+import monix.reactive.MulticastStrategy
+import monix.reactive.Observable
 import sbt.internal.inc.PlainVirtualFileConverter
 
 object SourceHasher {

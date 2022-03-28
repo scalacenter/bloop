@@ -1,7 +1,5 @@
 package bloop.bloopgun
 
-import java.nio.file.Paths
-
 object Defaults {
   val Version = "0.9.3"
   val Host = "127.0.0.1"
@@ -13,7 +11,7 @@ object Defaults {
   }
 
   object Time {
-    val DefaultHeartbeatIntervalMillis = 500.toLong
-    val SendThreadWaitTerminationMillis = 5000.toLong
+    val DefaultHeartbeatIntervalMillis: Long = 500.toLong
+    val SendThreadWaitTerminationMillis: Long = 5000.toLong
   }
 }

@@ -1,11 +1,12 @@
 package bloop.config.utils
 
-import bloop.config.Config
-import bloop.config.PlatformFiles.Path
-import bloop.config.PlatformFiles
 import java.io.File
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
+
+import bloop.config.Config
+import bloop.config.PlatformFiles
+import bloop.config.PlatformFiles.Path
 
 trait BaseConfigSuite {
 

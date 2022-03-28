@@ -1,18 +1,18 @@
 package bloop.engine.caches
 
+import scala.util.Failure
+import scala.util.Success
+import scala.util.Try
+
 import bloop.DependencyResolution
 import bloop.ExpressionCompilerCacheLock
 import bloop.io.AbsolutePath
 import bloop.io.Paths
 import bloop.logging.Logger
-import ch.epfl.scala.debugadapter.BuildInfo
+
 import sbt.internal.inc.BloopComponentCompiler
 import sbt.internal.inc.BloopComponentManager
 import sbt.internal.inc.IfMissing
-
-import scala.util.Failure
-import scala.util.Success
-import scala.util.Try
 
 object ExpressionCompilerCache {
   import ch.epfl.scala.debugadapter.BuildInfo._

@@ -1,11 +1,10 @@
 package bloop.util
 
 import bloop.reporter.ProblemPerPhase
+
 import xsbti.VirtualFileRef
 import xsbti.compile.CompileAnalysis
 import xsbti.compile.analysis.SourceInfo
-
-import java.io.File
 
 object AnalysisUtils {
   import scala.collection.JavaConverters._

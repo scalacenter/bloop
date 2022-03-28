@@ -1,28 +1,22 @@
 package bloop
 
-import bloop.config.Config
-import bloop.io.{AbsolutePath, RelativePath, Paths => BloopPaths}
-import bloop.io.Environment.lineSeparator
-import bloop.logging.RecordingLogger
-import bloop.cli.{Commands, ExitStatus}
-import bloop.engine.{Feedback, Run, State, ExecutionContext}
-import bloop.engine.caches.ResultsCache
-import bloop.util.{TestProject, TestUtil, BuildUtil}
-import bloop.testing.ProjectBaseSuite
-
-import java.nio.file.Files
 import java.util.concurrent.TimeUnit
 
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
-import scala.concurrent.duration.FiniteDuration
 
-import monix.eval.Task
-import monix.execution.CancelableFuture
+import bloop.cli.ExitStatus
+import bloop.engine.ExecutionContext
+import bloop.io.AbsolutePath
+import bloop.io.Environment.lineSeparator
+import bloop.logging.RecordingLogger
+import bloop.testing.ProjectBaseSuite
+import bloop.util.TestProject
+import bloop.util.TestUtil
 
 abstract class BaseTestSpec(val projectName: String, buildName: String)
     extends ProjectBaseSuite(buildName) {
-  val testOnlyOnJava8 = buildName == "cross-test-build-scalajs-0.6"
+  val testOnlyOnJava8: Boolean = buildName == "cross-test-build-scalajs-0.6"
   testProject("project compiles", testOnlyOnJava8) { (build, logger) =>
     val project = build.projectFor(projectName)
     val compiledState = build.state.compile(project)

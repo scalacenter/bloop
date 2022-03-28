@@ -1,12 +1,14 @@
 package bloop
 
 import bloop.cli.Commands
+import bloop.engine.Run
 import bloop.io.AbsolutePath
 import bloop.io.Environment.lineSeparator
 import bloop.logging.RecordingLogger
 import bloop.util.TestUtil
-import bloop.engine.Run
-import org.junit.{Assert, Test}
+
+import org.junit.Assert
+import org.junit.Test
 
 class GenericTestSpec {
   @Test

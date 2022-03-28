@@ -1,26 +1,11 @@
 package bloop.launcher
 
-import java.io._
-import java.nio.charset.StandardCharsets
-import java.nio.file.Files
+import scala.concurrent.Promise
 
-import bloop.internal.build.BuildInfo
 import bloop.bloopgun.util.Environment
-import bloop.logging.{BspClientLogger, RecordingLogger}
-import bloop.util.TestUtil
-import monix.eval.Task
-import monix.execution.{ExecutionModel, Scheduler}
-import sbt.internal.util.MessageOnlyException
-
-import scala.concurrent.{Await, Promise}
-import scala.concurrent.duration.FiniteDuration
-import scala.meta.jsonrpc._
-import scala.util.control.NonFatal
-import bloop.bloopgun.ServerConfig
-
-import bloop.launcher.core.{Feedback => LauncherFeedback}
 import bloop.bloopgun.util.{Feedback => BloopgunFeedback}
-import bloop.bloopgun.core.AvailableAtPath
+import bloop.internal.build.BuildInfo
+import bloop.launcher.core.{Feedback => LauncherFeedback}
 
 object LatestStableLauncherSpec extends LauncherSpec("1.4.11")
 object LatestMainLauncherSpec extends LauncherSpec(BuildInfo.version)

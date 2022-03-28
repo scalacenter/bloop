@@ -2,14 +2,27 @@ import _root_.bloop.integrations.sbt.BloopDefaults
 import build.BuildImplementation.BuildDefaults
 import xerial.sbt.Sonatype.SonatypeKeys
 
-(Global / useGpg) := false
+Global / useGpg := false
 
-(ThisBuild / dynverSeparator) := "-"
+ThisBuild / dynverSeparator := "-"
 
 // Tell bloop to aggregate source deps (benchmark) config files in the same bloop config dir
-(Global / bloopAggregateSourceDependencies) := true
+Global / bloopAggregateSourceDependencies := true
 
-(ThisBuild / bloopExportJarClassifiers) := Some(Set("sources"))
+ThisBuild / bloopExportJarClassifiers := Some(Set("sources"))
+
+ThisBuild / scalafixDependencies += "com.github.liancheng" %% "organize-imports" % "0.6.0"
+
+val scalafixSettings: Seq[Setting[_]] = Seq(
+  scalacOptions ++= {
+    if (scalaVersion.value.startsWith("2.11")) Seq("-Ywarn-unused-import")
+    else if (scalaVersion.value.startsWith("2.12")) Seq("-Ywarn-unused", "-Xlint:unused")
+    else if (scalaVersion.value.startsWith("2.13")) Seq("-Wunused")
+    else Seq.empty
+  },
+  semanticdbEnabled := true,
+  semanticdbVersion := scalafixSemanticdb.revision
+)
 
 /**
  * ************************************************************************************************
@@ -22,6 +35,7 @@ val benchmarkBridge = project
   .in(file(".benchmark-bridge-compilation"))
   .aggregate(BenchmarkBridgeCompilation)
   .disablePlugins(ScriptedPlugin)
+  .settings(scalafixSettings)
   .settings(
     releaseEarly := { () },
     (publish / skip) := true,
@@ -30,6 +44,7 @@ val benchmarkBridge = project
   )
 
 lazy val bloopShared = (project in file("shared"))
+  .settings(scalafixSettings)
   .settings(
     name := "bloop-shared",
     libraryDependencies ++= Seq(
@@ -62,6 +77,7 @@ import build.Dependencies.{
 lazy val backend = project
   .enablePlugins(BuildInfoPlugin)
   .disablePlugins(ScriptedPlugin)
+  .settings(scalafixSettings)
   .settings(testSettings ++ testSuiteSettings)
   .dependsOn(bloopShared)
   .settings(
@@ -121,6 +137,7 @@ lazy val jsonConfig210 = crossProject(JVMPlatform)
   .crossType(CrossType.Pure)
   .in(file("config"))
   .disablePlugins(ScriptedPlugin)
+  .disablePlugins(ScalafixPlugin)
   .settings(publishJsonModuleSettings)
   .settings(
     name := "bloop-config",
@@ -143,6 +160,7 @@ lazy val jsonConfig211 = crossProject(JSPlatform, JVMPlatform)
   .crossType(CrossType.Pure)
   .in(file("config"))
   .disablePlugins(ScriptedPlugin)
+  .settings(scalafixSettings)
   .settings(publishJsonModuleSettings)
   .settings(
     name := "bloop-config",
@@ -173,6 +191,7 @@ lazy val jsonConfig212 = crossProject(JSPlatform, JVMPlatform)
   .crossType(CrossType.Pure)
   .in(file("config"))
   .disablePlugins(ScriptedPlugin)
+  .settings(scalafixSettings)
   .settings(publishJsonModuleSettings)
   .settings(
     name := "bloop-config",
@@ -205,12 +224,13 @@ lazy val jsonConfig213 = crossProject(JSPlatform, JVMPlatform)
   .crossType(CrossType.Pure)
   .in(file("config"))
   .disablePlugins(ScriptedPlugin)
+  .settings(scalafixSettings)
   .settings(publishJsonModuleSettings)
   .settings(
     name := "bloop-config",
     (Compile / unmanagedSourceDirectories) +=
       Keys.baseDirectory.value / ".." / "src" / "main" / "scala-2.11-13",
-    scalaVersion := "2.13.1",
+    scalaVersion := Dependencies.Scala213Version,
     testResourceSettings
   )
   .jvmSettings(
@@ -251,6 +271,7 @@ lazy val frontend: Project = project
   .disablePlugins(ScriptedPlugin)
   .enablePlugins(BuildInfoPlugin)
   .configs(IntegrationTest)
+  .settings(scalafixSettings)
   .settings(assemblySettings, releaseSettings)
   .settings(
     testSettings,
@@ -362,6 +383,7 @@ lazy val bloopgun: Project = project
   .disablePlugins(ScriptedPlugin)
   .enablePlugins(BuildInfoPlugin)
   .enablePlugins(GraalVMNativeImagePlugin)
+  .settings(scalafixSettings)
   .settings(testSuiteSettings)
   .settings(bloopgunSettings)
   .settings(target := (file("bloopgun") / "target" / "bloopgun-2.12").getAbsoluteFile)
@@ -371,6 +393,7 @@ lazy val bloopgun213: Project = project
   .disablePlugins(ScriptedPlugin)
   .enablePlugins(BuildInfoPlugin)
   .enablePlugins(GraalVMNativeImagePlugin)
+  .settings(scalafixSettings)
   .settings(testSuiteSettings)
   .settings(
     scalaVersion := Dependencies.Scala213Version,
@@ -455,6 +478,7 @@ lazy val launcherTest = project
   .in(file("launcher-test"))
   .disablePlugins(ScriptedPlugin)
   .dependsOn(launcher, frontend % "test->test")
+  .settings(scalafixSettings)
   .settings(testSuiteSettings)
   .settings(
     name := "bloop-launcher-test",
@@ -469,6 +493,7 @@ lazy val launcher = project
   .in(file("launcher-core"))
   .disablePlugins(ScriptedPlugin)
   .dependsOn(sockets, bloopgun)
+  .settings(scalafixSettings)
   .settings(testSuiteSettings)
   .settings(
     name := "bloop-launcher-core",
@@ -479,6 +504,7 @@ lazy val launcher213 = project
   .in(file("launcher-core"))
   .disablePlugins(ScriptedPlugin)
   .dependsOn(sockets, bloopgun213)
+  .settings(scalafixSettings)
   .settings(testSuiteSettings)
   .settings(
     name := "bloop-launcher-core",
@@ -521,6 +547,7 @@ lazy val launcherShaded213 = project
 lazy val bloop4j = project
   .disablePlugins(ScriptedPlugin)
   .dependsOn(jsonConfig212.jvm)
+  .settings(scalafixSettings)
   .settings(
     name := "bloop4j",
     (run / fork) := true,
@@ -534,6 +561,7 @@ lazy val benchmarks = project
   .dependsOn(frontend % "compile->it", BenchmarkBridgeCompilation % "compile->compile")
   .disablePlugins(ScriptedPlugin)
   .enablePlugins(BuildInfoPlugin, JmhPlugin)
+  .settings(scalafixSettings)
   .settings(benchmarksSettings(frontend))
   .settings(
     (publish / skip) := true
@@ -654,6 +682,7 @@ lazy val sbtBloop10: Project = project
   .dependsOn(jsonConfig212.jvm, launcher, bloop4j)
   .enablePlugins(ScriptedPlugin)
   .in(integrations / "sbt-bloop")
+  .settings(scalafixSettings)
   .settings(BuildDefaults.scriptedSettings)
   .settings(sbtPluginSettings("sbt-bloop-core", Sbt1Version))
 
@@ -686,11 +715,13 @@ lazy val sbtBloop013Shaded =
 lazy val mavenBloop = project
   .in(integrations / "maven-bloop")
   .disablePlugins(ScriptedPlugin)
+  .disablePlugins(ScalafixPlugin)
   .enablePlugins(BuildInfoPlugin)
   .dependsOn(jsonConfig213.jvm % "compile->compile;test->test")
+  .settings(scalafixSettings)
   .settings(
     name := "maven-bloop",
-    scalaVersion := (jsonConfig213.jvm / scalaVersion).value,
+    scalaVersion := Dependencies.Scala213Version,
     publishM2 := publishM2.dependsOn(jsonConfig213.jvm / publishM2).value,
     BuildDefaults.mavenPluginBuildSettings,
     buildInfoKeys := Seq[BuildInfoKey](version),
@@ -704,6 +735,7 @@ lazy val gradleBloop211 = project
   .disablePlugins(ScriptedPlugin)
   .dependsOn(jsonConfig211.jvm % "compile->compile;test->test")
   .settings(name := "gradle-bloop")
+  .settings(scalafixSettings)
   .settings(BuildDefaults.gradlePluginBuildSettings)
   .settings(BuildInfoPlugin.buildInfoScopedSettings(Test))
   .settings(scalaVersion := Dependencies.Scala211Version)
@@ -726,6 +758,7 @@ lazy val gradleBloop212 = project
   .enablePlugins(BuildInfoPlugin)
   .disablePlugins(ScriptedPlugin)
   .settings(name := "gradle-bloop")
+  .settings(scalafixSettings)
   .dependsOn(jsonConfig212.jvm % "compile->compile;test->test", frontend % "test->test")
   .settings(BuildDefaults.gradlePluginBuildSettings, testSettings)
   .settings(BuildInfoPlugin.buildInfoScopedSettings(Test))
@@ -741,6 +774,7 @@ lazy val gradleBloop212 = project
   )
 
 lazy val buildpressConfig = (project in file("buildpress-config"))
+  .settings(scalafixSettings)
   .settings(
     scalaVersion := Scala212Version,
     libraryDependencies ++= List(
@@ -766,6 +800,7 @@ val docs = project
   .in(file("docs-gen"))
   .dependsOn(frontend)
   .enablePlugins(MdocPlugin, DocusaurusPlugin)
+  .settings(scalafixSettings)
   .settings(
     name := "bloop-docs",
     moduleName := "bloop-docs",
@@ -782,6 +817,7 @@ lazy val jsBridge06 = project
   .dependsOn(frontend % Provided, frontend % "test->test")
   .in(file("bridges") / "scalajs-0.6")
   .disablePlugins(ScriptedPlugin)
+  .settings(scalafixSettings)
   .settings(testSettings)
   .settings(
     name := "bloop-js-bridge-0.6",
@@ -796,6 +832,7 @@ lazy val jsBridge1 = project
   .dependsOn(frontend % Provided, frontend % "test->test")
   .in(file("bridges") / "scalajs-1")
   .disablePlugins(ScriptedPlugin)
+  .settings(scalafixSettings)
   .settings(testSettings)
   .settings(
     name := "bloop-js-bridge-1",
@@ -812,6 +849,7 @@ lazy val jsBridge1 = project
 lazy val nativeBridge04 = project
   .dependsOn(frontend % Provided, frontend % "test->test")
   .in(file("bridges") / "scala-native-0.4")
+  .settings(scalafixSettings)
   .disablePlugins(ScriptedPlugin)
   .settings(testSettings)
   .settings(

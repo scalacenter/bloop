@@ -1,7 +1,9 @@
 package bloop.data
 
 import bloop.config.Config
-import bloop.engine.tasks.toolchains.{JvmToolchain, ScalaJsToolchain, ScalaNativeToolchain}
+import bloop.engine.tasks.toolchains.JvmToolchain
+import bloop.engine.tasks.toolchains.ScalaJsToolchain
+import bloop.engine.tasks.toolchains.ScalaNativeToolchain
 import bloop.io.AbsolutePath
 
 sealed trait Platform {

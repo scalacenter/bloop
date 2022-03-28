@@ -2,19 +2,29 @@ package bloop.scalajs
 
 import java.nio.file.Path
 
-import bloop.config.Config.{JsConfig, LinkerMode, ModuleKindJS}
-import bloop.data.Project
-import bloop.logging.{DebugFilter, Logger => BloopLogger}
-import bloop.scalajs.jsenv.{JsDomNodeJsEnv, NodeJSConfig, NodeJSEnv}
-import org.scalajs.logging.{Level, Logger => JsLogger}
-import org.scalajs.linker.{PathIRContainer, PathOutputFile, StandardImpl}
-import org.scalajs.linker.interface.{ModuleKind => ScalaJSModuleKind, _}
-import org.scalajs.jsenv.Input
-import org.scalajs.testing.adapter.{TestAdapter, TestAdapterInitializer}
-
 import scala.concurrent.Await
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.Duration
+
+import bloop.config.Config.JsConfig
+import bloop.config.Config.LinkerMode
+import bloop.config.Config.ModuleKindJS
+import bloop.data.Project
+import bloop.logging.DebugFilter
+import bloop.logging.{Logger => BloopLogger}
+import bloop.scalajs.jsenv.JsDomNodeJsEnv
+import bloop.scalajs.jsenv.NodeJSConfig
+import bloop.scalajs.jsenv.NodeJSEnv
+
+import org.scalajs.jsenv.Input
+import org.scalajs.linker.PathIRContainer
+import org.scalajs.linker.PathOutputFile
+import org.scalajs.linker.StandardImpl
+import org.scalajs.linker.interface.{ModuleKind => ScalaJSModuleKind, _}
+import org.scalajs.logging.Level
+import org.scalajs.logging.{Logger => JsLogger}
+import org.scalajs.testing.adapter.TestAdapter
+import org.scalajs.testing.adapter.TestAdapterInitializer
 
 /**
  * Defines operations provided by the Scala.JS 1.x toolchain.

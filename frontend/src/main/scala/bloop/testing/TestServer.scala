@@ -1,19 +1,26 @@
 package bloop.testing
 
-import java.io.{ObjectInputStream, ObjectOutputStream}
+import java.io.ObjectInputStream
+import java.io.ObjectOutputStream
 import java.net.ServerSocket
-
-import bloop.cli.CommonOptions
-import bloop.config.Config
-import bloop.logging.{DebugFilter, Logger}
-import ch.epfl.scala.debugadapter.testing.TestSuiteEvent
-import monix.eval.Task
-import monix.execution.misc.NonFatal
-import sbt.{ForkConfiguration, ForkTags}
-import sbt.testing.{Event, Framework, TaskDef}
 
 import scala.concurrent.Promise
 import scala.util.Try
+
+import ch.epfl.scala.debugadapter.testing.TestSuiteEvent
+
+import bloop.cli.CommonOptions
+import bloop.config.Config
+import bloop.logging.DebugFilter
+import bloop.logging.Logger
+
+import monix.eval.Task
+import monix.execution.misc.NonFatal
+import sbt.ForkConfiguration
+import sbt.ForkTags
+import sbt.testing.Event
+import sbt.testing.Framework
+import sbt.testing.TaskDef
 
 /**
  * Implements the protocol that the forked remote JVM talks with the host process.

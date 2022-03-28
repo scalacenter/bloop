@@ -3,11 +3,17 @@ package bloop.cli
 import java.net.InetAddress
 import java.nio.file.Path
 
+import bloop.cli.CliParsers._
 import bloop.io.AbsolutePath
-import caseapp.{CommandName, ExtraName, HelpMessage, Recurse}
-import caseapp.{Help => CaseAppHelp, CommandsHelp, CommandParser, Parser, core}
 
-import CliParsers._
+import caseapp.CommandName
+import caseapp.CommandParser
+import caseapp.CommandsHelp
+import caseapp.ExtraName
+import caseapp.HelpMessage
+import caseapp.Parser
+import caseapp.Recurse
+import caseapp.{Help => CaseAppHelp}
 
 object Commands {
 

@@ -1,7 +1,10 @@
 package sbt
 
 import java.io.Serializable
-import sbt.testing.{AnnotatedFingerprint, Fingerprint, SubclassFingerprint}
+
+import sbt.testing.AnnotatedFingerprint
+import sbt.testing.Fingerprint
+import sbt.testing.SubclassFingerprint
 
 /**
  * This object is there only to instantiate the subclasses of Fingerprint that are

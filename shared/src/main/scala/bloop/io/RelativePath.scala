@@ -2,7 +2,8 @@ package bloop.io
 
 import java.io.File
 import java.net.URI
-import java.nio.file.{Path, Paths => NioPaths}
+import java.nio.file.Path
+import java.nio.file.{Paths => NioPaths}
 
 final class RelativePath private (val underlying: Path) extends AnyVal {
   def syntax: String = toString

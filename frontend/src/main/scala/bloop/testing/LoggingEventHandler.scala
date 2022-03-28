@@ -1,26 +1,20 @@
 package bloop.testing
 
-import bloop.logging.DebugFilter
-import bloop.logging.Logger
-import bloop.util.TimeFormat
-import ch.epfl.scala.bsp
+import scala.collection.mutable
+import scala.meta.jsonrpc.JsonRpcClient
+
 import ch.epfl.scala.bsp.BuildTargetIdentifier
-import ch.epfl.scala.bsp.endpoints.Build
-import ch.epfl.scala.bsp.endpoints.BuildTarget
 import ch.epfl.scala.debugadapter.DebuggeeListener
 import ch.epfl.scala.debugadapter.testing.TestSuiteEvent
 import ch.epfl.scala.debugadapter.testing.TestSuiteEventHandler
 import ch.epfl.scala.debugadapter.testing.TestUtils
+
+import bloop.logging.DebugFilter
+import bloop.logging.Logger
+import bloop.util.TimeFormat
+
 import sbt.testing.Event
-import sbt.testing.Selector
 import sbt.testing.Status
-import sbt.testing.TestSelector
-
-import scala.collection.mutable
-import scala.meta.jsonrpc.JsonRpcClient
-import scala.util.Try
-
-import collection.JavaConverters._
 
 trait BloopTestSuiteEventHandler extends TestSuiteEventHandler {
   def report(): Unit
@@ -36,7 +30,7 @@ class LoggingEventHandler(logger: Logger) extends BloopTestSuiteEventHandler {
   protected var suitesDuration = 0L
   protected var suitesPassed = 0
   protected var suitesAborted = 0
-  protected val testsFailedBySuite =
+  protected val testsFailedBySuite: mutable.SortedMap[SuiteName, Map[TestName, FailureMessage]] =
     mutable.SortedMap.empty[SuiteName, Map[TestName, FailureMessage]]
   protected var suitesTotal = 0
 

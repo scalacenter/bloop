@@ -1,6 +1,7 @@
 package bloop.cli
-import caseapp.core.argparser.{ArgParser, SimpleArgParser}
 import caseapp.core.Error
+import caseapp.core.argparser.ArgParser
+import caseapp.core.argparser.SimpleArgParser
 
 sealed abstract class ReplKind(val name: String)
 case object ScalacRepl extends ReplKind("scalac")

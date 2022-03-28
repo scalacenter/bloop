@@ -1,15 +1,13 @@
 package bloop
 
-import bloop.testing.BaseSuite
-import bloop.util.TestUtil
-import bloop.logging.RecordingLogger
-import bloop.util.TestProject
 import bloop.cli.ExitStatus
-import scala.util.Properties
-import java.nio.file.Paths
+import bloop.internal.build.BuildInfo
 import bloop.io.AbsolutePath
 import bloop.io.Environment.lineSeparator
-import bloop.internal.build.BuildInfo
+import bloop.logging.RecordingLogger
+import bloop.testing.BaseSuite
+import bloop.util.TestProject
+import bloop.util.TestUtil
 
 object ConsoleSpec extends BaseSuite {
   test("default ammonite console works in multi-build project") {

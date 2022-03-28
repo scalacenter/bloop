@@ -1,10 +1,9 @@
 package bloop.bsp
 
-import io.circe.derivation.JsonCodec
-import io.circe.derivation.deriveDecoder
-import io.circe.derivation.deriveEncoder
 import io.circe.Decoder
 import io.circe.Encoder
+import io.circe.derivation.deriveDecoder
+import io.circe.derivation.deriveEncoder
 
 /**
   * Below datatypes are based on https://github.com/build-server-protocol/build-server-protocol/issues/249#issuecomment-983435766

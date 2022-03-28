@@ -5,23 +5,32 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.util.concurrent.TimeUnit
 
-import bloop.bsp.BspServer
-import bloop.cli.{Commands, ExitStatus}
-import bloop.config.Config.JvmConfig
-import bloop.data.JdkConfig
-import bloop.logging.RecordingLogger
-import bloop.util.{TestProject, TestUtil}
-import bloop.util.TestUtil.{checkAfterCleanCompilation, getProject, loadTestProject, runAndCheck}
-import bloop.engine.tasks.Tasks
-import bloop.engine.{Dag, ExecutionContext, Run, State}
-import bloop.testing.BloopHelpers
-import org.junit.Assert.{assertEquals, assertTrue}
-import org.junit.experimental.categories.Category
-import org.junit.{Assert, Test}
-
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 import scala.util.control.NonFatal
+
+import bloop.cli.Commands
+import bloop.cli.ExitStatus
+import bloop.data.JdkConfig
+import bloop.engine.Dag
+import bloop.engine.ExecutionContext
+import bloop.engine.Run
+import bloop.engine.State
+import bloop.engine.tasks.Tasks
+import bloop.logging.RecordingLogger
+import bloop.testing.BloopHelpers
+import bloop.util.TestProject
+import bloop.util.TestUtil
+import bloop.util.TestUtil.checkAfterCleanCompilation
+import bloop.util.TestUtil.getProject
+import bloop.util.TestUtil.loadTestProject
+import bloop.util.TestUtil.runAndCheck
+
+import org.junit.Assert
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import org.junit.experimental.categories.Category
 
 @Category(Array(classOf[bloop.FastTests]))
 class RunSpec extends BloopHelpers {
@@ -33,33 +42,33 @@ class RunSpec extends BloopHelpers {
   private val args = List("arg0", "arg1", "multiple words")
 
   private object ArtificialSources {
-    val RunnableClass0 = s"""package $packageName
-                            |object $mainClassName0 {
-                            |  def main(args: Array[String]): Unit = {
-                            |    println(s"$mainClassName0: $${args.mkString(", ")}")
-                            |  }
-                            |}""".stripMargin
-    val RunnableClass1 = s"""package $packageName
-                            |object $mainClassName1 {
-                            |  def main(args: Array[String]): Unit = {
-                            |    println(s"$mainClassName1: $${args.mkString(", ")}")
-                            |  }
-                            |}""".stripMargin
-    val NotRunnable = s"""package $packageName
-                         |object NotRunnable {
-                         |  def foo(): Int = 42
-                         |}""".stripMargin
-    val InheritedRunnable = s"""package $packageName
-                               |class BaseRunnable {
-                               |  def main(args: Array[String]): Unit = {
-                               |    println(s"$mainClassName2: $${args.mkString(", ")}")
-                               |  }
-                               |}
-                               |object $mainClassName2 extends BaseRunnable""".stripMargin
+    val RunnableClass0: String = s"""package $packageName
+                                    |object $mainClassName0 {
+                                    |  def main(args: Array[String]): Unit = {
+                                    |    println(s"$mainClassName0: $${args.mkString(", ")}")
+                                    |  }
+                                    |}""".stripMargin
+    val RunnableClass1: String = s"""package $packageName
+                                    |object $mainClassName1 {
+                                    |  def main(args: Array[String]): Unit = {
+                                    |    println(s"$mainClassName1: $${args.mkString(", ")}")
+                                    |  }
+                                    |}""".stripMargin
+    val NotRunnable: String = s"""package $packageName
+                                 |object NotRunnable {
+                                 |  def foo(): Int = 42
+                                 |}""".stripMargin
+    val InheritedRunnable: String = s"""package $packageName
+                                       |class BaseRunnable {
+                                       |  def main(args: Array[String]): Unit = {
+                                       |    println(s"$mainClassName2: $${args.mkString(", ")}")
+                                       |  }
+                                       |}
+                                       |object $mainClassName2 extends BaseRunnable""".stripMargin
   }
 
   @Test
-  def doesntDetectNonRunnableClasses() = {
+  def doesntDetectNonRunnableClasses(): Unit = {
     val projectName = "test-project"
     val projectsStructure = Map(projectName -> Map("A.scala" -> ArtificialSources.NotRunnable))
     val jdkConfig = JdkConfig.default
@@ -77,7 +86,7 @@ class RunSpec extends BloopHelpers {
   }
 
   @Test
-  def canDetectOneMainClass() = {
+  def canDetectOneMainClass(): Unit = {
     val projectName = "test-project"
     val projectsStructure = Map(projectName -> Map("A.scala" -> ArtificialSources.RunnableClass0))
     val jdkConfig = JdkConfig.default
@@ -96,7 +105,7 @@ class RunSpec extends BloopHelpers {
   }
 
   @Test
-  def canDetectMultipleMainClasses() = {
+  def canDetectMultipleMainClasses(): Unit = {
     val projectName = "test-project"
     val projectsStructure = Map(
       projectName -> Map(
@@ -255,7 +264,7 @@ class RunSpec extends BloopHelpers {
   }
 
   @Test
-  def canRunApplicationThatRequiresInput = {
+  def canRunApplicationThatRequiresInput: Unit = {
     object Sources {
       val `A.scala` =
         """object Foo {
@@ -288,7 +297,7 @@ class RunSpec extends BloopHelpers {
   }
 
   @Test
-  def canCancelNeverEndingApplication = {
+  def canCancelNeverEndingApplication: Unit = {
     object Sources {
       val `A.scala` =
         """object Foo {

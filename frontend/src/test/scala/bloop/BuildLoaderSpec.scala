@@ -2,18 +2,20 @@ package bloop
 
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
-import bloop.engine.{Build, BuildLoader, State}
-import bloop.io.{AbsolutePath, Paths}
-import bloop.logging.{Logger, RecordingLogger}
-import bloop.util.TestUtil
-import bloop.testing.BaseSuite
-import bloop.data.WorkspaceSettings
-import bloop.internal.build.BuildInfo
-import bloop.tracing.TraceProperties
-import monix.eval.Task
-import com.github.plokhotnyuk.jsoniter_scala.core.JsonReaderException
+
 import scala.util.Try
+
 import bloop.data.TraceSettings
+import bloop.data.WorkspaceSettings
+import bloop.engine.Build
+import bloop.internal.build.BuildInfo
+import bloop.io.AbsolutePath
+import bloop.logging.RecordingLogger
+import bloop.testing.BaseSuite
+import bloop.tracing.TraceProperties
+import bloop.util.TestUtil
+
+import monix.eval.Task
 
 object BuildLoaderSpec extends BaseSuite {
   val semanticdbVersion = "4.4.34"
@@ -44,7 +46,7 @@ object BuildLoaderSpec extends BaseSuite {
     }
   }
 
-  val sameSettings =
+  val sameSettings: WorkspaceSettings =
     WorkspaceSettings.fromSemanticdbSettings(
       "0.2.0",
       semanticdbVersion,

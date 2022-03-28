@@ -1,8 +1,11 @@
 package bloop.io
 
-import java.net.{InetAddress, InetSocketAddress, ServerSocket}
+import java.net.InetAddress
+import java.net.InetSocketAddress
+import java.net.ServerSocket
 
-import bloop.sockets.{UnixDomainServerSocket, Win32NamedPipeServerSocket}
+import bloop.sockets.UnixDomainServerSocket
+import bloop.sockets.Win32NamedPipeServerSocket
 
 sealed trait ServerHandle {
   def uri: String

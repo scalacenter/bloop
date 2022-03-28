@@ -1,19 +1,24 @@
 package bloop
 
 import java.nio.charset.Charset
+import java.nio.file.Files
 import java.util.Locale
+import javax.tools.Diagnostic
+import javax.tools.DiagnosticListener
+import javax.tools.JavaFileObject
+import javax.tools.StandardLocation
+
+import scala.concurrent.ExecutionContext
 
 import bloop.io.AbsolutePath
-import javax.tools.{Diagnostic, DiagnosticListener, JavaFileObject, StandardLocation}
+import bloop.io.Paths
+
 import org.junit.Assert._
 import org.junit.Test
 import org.junit.experimental.categories.Category
 import sbt.internal.inc.javac.WriteReportingJavaFileObject
 import sbt.io.syntax.File
 import xsbti.compile.ClassFileManager
-import java.nio.file.Files
-import bloop.io.Paths
-import scala.concurrent.ExecutionContext
 
 @Category(Array(classOf[FastTests]))
 class CompilerCacheSpec {

@@ -1,13 +1,17 @@
 package bloop.cli
 
-import java.io.{InputStream, PrintStream}
-import java.nio.file.{Path, Paths}
-
-import bloop.logging.DebugFilter
-import caseapp.core.argparser.{ArgParser, SimpleArgParser}
-import caseapp.core.Error
+import java.io.InputStream
+import java.io.PrintStream
+import java.nio.file.Path
+import java.nio.file.Paths
 
 import scala.util.Try
+
+import bloop.logging.DebugFilter
+
+import caseapp.core.Error
+import caseapp.core.argparser.ArgParser
+import caseapp.core.argparser.SimpleArgParser
 import caseapp.core.default.Default
 
 object CliParsers {

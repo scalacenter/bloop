@@ -1,41 +1,45 @@
 package bloop.integrations.sbt
 
 import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, Path}
+import java.nio.file.Files
+import java.nio.file.Path
+import java.nio.file.StandardCopyOption
+import java.util.concurrent.ConcurrentHashMap
 
-import bloop.config.{Config, Tag}
+import scala.util.Failure
+import scala.util.Success
+import scala.util.Try
+
+import bloop.config.Config
+import bloop.config.Tag
 import bloop.config.util.ConfigUtil
 import bloop.integration.sbt.Feedback
-import sbt.{
-  AutoPlugin,
-  ClasspathDep,
-  ClasspathDependency,
-  Compile,
-  ConfigKey,
-  Configuration,
-  Def,
-  File,
-  Global,
-  Inc,
-  Keys,
-  LocalRootProject,
-  Logger,
-  ProjectRef,
-  ResolvedProject,
-  Test,
-  IntegrationTest,
-  ThisBuild,
-  ThisProject,
-  KeyRanks,
-  Optional,
-  Provided,
-  Value
-}
-import xsbti.compile.CompileOrder
 
-import scala.util.{Try, Success, Failure}
-import java.util.concurrent.ConcurrentHashMap
-import java.nio.file.StandardCopyOption
+import sbt.AutoPlugin
+import sbt.ClasspathDep
+import sbt.ClasspathDependency
+import sbt.Compile
+import sbt.ConfigKey
+import sbt.Configuration
+import sbt.Def
+import sbt.File
+import sbt.Global
+import sbt.Inc
+import sbt.IntegrationTest
+import sbt.KeyRanks
+import sbt.Keys
+import sbt.LocalRootProject
+import sbt.Logger
+import sbt.Optional
+import sbt.ProjectRef
+import sbt.Provided
+import sbt.ResolvedProject
+import sbt.TaskKey
+import sbt.Test
+import sbt.ThisBuild
+import sbt.ThisProject
+import sbt.Value
+import xsbti.compile.CompileOrder
 
 object BloopPlugin extends AutoPlugin {
   import sbt.plugins.JvmPlugin
@@ -49,7 +53,7 @@ object BloopPlugin extends AutoPlugin {
 }
 
 object BloopKeys {
-  import Compat.{CompileAnalysis, CompileResult}
+  import Compat.CompileResult
   import sbt.{SettingKey, TaskKey, AttributeKey, ScopedKey, settingKey, taskKey}
 
   val bloopTargetName: SettingKey[String] =
@@ -99,25 +103,25 @@ object BloopKeys {
       KeyRanks.Invisible
     )
 
-  val bloopDefinitionKey = AttributeKey[ScopedKey[_]](
+  val bloopDefinitionKey: AttributeKey[ScopedKey[_]] = AttributeKey[ScopedKey[_]](
     "bloop-definition-key",
     "Internal: used to map a task back to its ScopedKey.",
     KeyRanks.Invisible
   )
 
-  val bloopCompileProxy = AttributeKey[sbt.ScopedKey[_]](
+  val bloopCompileProxy: AttributeKey[ScopedKey[_]] = AttributeKey[sbt.ScopedKey[_]](
     "bloopCompileProxy",
     "Internal: used to map a task back to its ScopedKey.",
     KeyRanks.Invisible
   )
 
-  val bloopCompileEntrypoint = AttributeKey[sbt.ScopedKey[_]](
+  val bloopCompileEntrypoint: AttributeKey[ScopedKey[_]] = AttributeKey[sbt.ScopedKey[_]](
     "bloopCompileEntrypoint",
     "Internal: used to map a task back to its ScopedKey.",
     KeyRanks.Invisible
   )
 
-  val bloopWaitForCompile = AttributeKey[sbt.ScopedKey[_]](
+  val bloopWaitForCompile: AttributeKey[ScopedKey[_]] = AttributeKey[sbt.ScopedKey[_]](
     "bloopWaitForCompile",
     "Internal: used to map a task back to its ScopedKey.",
     KeyRanks.Invisible
@@ -128,7 +132,7 @@ object BloopDefaults {
   import Compat._
   import sbt.{Task, Defaults, State}
 
-  val productDirectoriesUndeprecatedKey =
+  val productDirectoriesUndeprecatedKey: TaskKey[Seq[File]] =
     sbt.TaskKey[Seq[File]]("productDirectories", rank = KeyRanks.CTask)
 
   private lazy val cwd: String = System.getProperty("user.dir")
@@ -424,7 +428,6 @@ object BloopDefaults {
         (c: Configuration) => c.name
       ).filterNot(c => c == config || resolvedConfig.exists(_ == c))
 
-      import scala.collection.JavaConverters._
       val data = Keys.settingsData.value
       val thisProjectRef = Keys.thisProjectRef.value
       val eligibleConfigs = activeProjectConfigs.filter { c =>
