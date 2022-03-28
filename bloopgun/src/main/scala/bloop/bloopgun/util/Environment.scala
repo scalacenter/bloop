@@ -53,9 +53,12 @@ object Environment {
   /**
    * Reads all jvm options required to start the Bloop server, in order of priority:
    *
+   * Parses `-J` prefixed jvm options in the arguments passed to the server command.
+   *
+   * Prior to 1.5.0 it used to also:
    * 1. Read `$$HOME/.bloop/.jvmopts` file.
    * 2. Read `.jvmopts` file right next to the location of the bloop server jar.
-   * 3. Parse `-J` prefixed jvm options in the arguments passed to the server command.
+   * Now, it only logs a warning if the file detected.
    *
    * Returns a list of jvm options with no `-J` prefix.
    */
@@ -64,27 +67,19 @@ object Environment {
       serverArgs: List[String],
       logger: Logger
   ): List[String] = {
-    def readJvmOptsFile(jvmOptsFile: Path): List[String] = {
-      if (!Files.isReadable(jvmOptsFile)) {
-        if (Files.exists(jvmOptsFile)) {
-          logger.error(s"Ignored unreadable ${jvmOptsFile.toAbsolutePath()}")
-        }
-
-        Nil
-      } else {
-        val contents = new String(Files.readAllBytes(jvmOptsFile), StandardCharsets.UTF_8)
-        contents.linesIterator.toList
+    def detectJvmOptsFile(jvmOptsFile: Path): Unit = {
+      if (Files.exists(jvmOptsFile)) {
+        logger.warn(s"Since Bloop 1.5.0 ${jvmOptsFile.toAbsolutePath()} is ignored.")
       }
     }
-
     val jvmServerArgs = serverArgs.filter(_.startsWith("-J"))
-    val jvmOptionsFromHome = readJvmOptsFile(Environment.defaultBloopDirectory.resolve(".jvmopts"))
-    val jvmOptionsFromPathNextToBinary = server match {
-      case AvailableAtPath(binary) => readJvmOptsFile(binary.getParent.resolve(".jvmopts"))
+    detectJvmOptsFile(Environment.defaultBloopDirectory.resolve(".jvmopts"))
+    server match {
+      case AvailableAtPath(binary) => detectJvmOptsFile(binary.getParent.resolve(".jvmopts"))
       case _ => Nil
     }
 
-    (jvmOptionsFromHome ++ jvmOptionsFromPathNextToBinary ++ jvmServerArgs).map(_.stripPrefix("-J"))
+    jvmServerArgs.map(_.stripPrefix("-J"))
   }
 
   // TODO: Add more options to better tweak GC based on benchmarks
