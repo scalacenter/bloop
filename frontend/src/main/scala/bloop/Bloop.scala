@@ -32,6 +32,7 @@ import java.io.File
 import org.slf4j
 import java.nio.file.attribute.PosixFilePermissions
 import java.nio.file.Path
+import sun.misc.{Signal, SignalHandler}
 
 sealed abstract class Bloop
 
@@ -67,6 +68,9 @@ object Bloop {
         )
     }
 
+    if (java.lang.Boolean.getBoolean("bloop.ignore-sig-int"))
+      ignoreSigint()
+
     lockFilesOrHostPort match {
       case Left(hostPort) =>
         startServer(Left(hostPort))
@@ -78,6 +82,16 @@ object Bloop {
           case Right(()) =>
         }
     }
+  }
+
+  private def ignoreSigint(): Unit = {
+    Signal.handle(
+      new Signal("INT"),
+      signal => {
+        System.err.println("Ignoring Ctrl+C interruption")
+      }
+    )
+    ()
   }
 
   def startServer(socketPathsOrHostPort: Either[(InetAddress, Int), SocketPaths]): Unit = {
