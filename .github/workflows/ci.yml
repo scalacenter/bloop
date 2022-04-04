@@ -237,7 +237,7 @@ jobs:
         with:
           jvm: ${{ matrix.jdk }}
       - name: Download built GraalVM binaries
-        uses: actions/download-artifact@v2.1.0
+        uses: actions/download-artifact@v3
         with:
           name: bloop-artifacts
           path: bloop-artifacts
