@@ -9,7 +9,7 @@ on:
   pull_request:
 
 jobs:
-  scalafmt: 
+  scalafmt:
     name: Formatting
     runs-on: ubuntu-latest
     steps:
@@ -19,7 +19,7 @@ jobs:
           java-version: graalvm-ce-java11@21.1.0
       - name: Check formatting
         run: ./bin/scalafmt --test
-  integrations: 
+  integrations:
     name: Build integrations tests
     runs-on: ${{ matrix.os }}
     strategy:
@@ -51,6 +51,52 @@ jobs:
               "sbtBloop10Shaded/publishLocal" \
               "sbtBloop10/scripted"
         shell: bash
+  bridges:
+    name: Test platform bridges
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macOS-latest]
+        jdk: [graalvm-ce-java11@21.1.0]
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: true
+      - uses: olafurpg/setup-scala@v13
+        with:
+          java-version: ${{ matrix.jdk }}
+      - name: Tests
+        run: |
+          ./bin/sbt-ci.sh \
+              "jsBridge06/publishLocal" \
+              "jsBridge1/publishLocal" \
+              "jsBridge06/test" \
+              "jsBridge1/test" \
+        shell: bash
+
+  launcher:
+    name: Launcher tests
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macOS-latest]
+        jdk: [graalvm-ce-java11@21.1.0]
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: true
+      - uses: olafurpg/setup-scala@v13
+        with:
+          java-version: ${{ matrix.jdk }}
+      - name: Tests
+        run: |
+          echo $JAVA_HOME
+          which gu && gu install native-image
+          ./bin/sbt-ci.sh "install" "launcherTest/test"
+        shell: bash
+
   test:
     runs-on: ${{ matrix.os }}
     strategy:
@@ -92,30 +138,16 @@ jobs:
         run: |
           ./bin/sbt-ci.sh \
               "frontend/test:compile" \
-              "sbtBloop013/compile" \
-              "sbtBloop10/compile" \
-              "mavenBloop/compile" \
               "backend/test" \
               "docs/compile" \
-              "jsBridge06/publishLocal" \
-              "jsBridge1/publishLocal" \
               "frontend/testOnly bloop.ScalaVersionsSpec" \
               "frontend/testOnly -bloop.ScalaVersionsSpec" \
-              "jsBridge06/test" \
-              "jsBridge1/test" \
               "frontend/runMain bloop.util.CommandsDocGenerator --test" \
               "frontend/runMain bloop.util.CommandsDocGenerator --out ../docs/cli/reference.md"
         shell: bash
       - name: Check docs are up-to-date
         run: |
           ./bin/check-good-practices.sh
-        shell: bash
-      - name: Run launcher tests
-        if: matrix.jdk == 'graalvm-ce-java11@21.1.0'
-        run: |
-          echo $JAVA_HOME
-          which gu && gu install native-image
-          ./bin/sbt-ci.sh "install" "launcherTest/test"
         shell: bash
 
   publish-binaries:
@@ -183,7 +215,7 @@ jobs:
         uses: al-cheb/configure-pagefile-action@v1.2
       - name: Refresh Pagefile
         run: |
-              (Get-CimInstance Win32_PageFileUsage).AllocatedBaseSize
+          (Get-CimInstance Win32_PageFileUsage).AllocatedBaseSize
       - uses: actions/checkout@v3
         with:
           submodules: true
@@ -220,7 +252,6 @@ jobs:
         with:
           name: bloop-artifacts
           path: bloop-artifacts/${{ matrix.artifact }}
-      
 
   release:
     name: Release version on ${{ matrix.os }}
