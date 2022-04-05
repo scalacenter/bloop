@@ -2,36 +2,28 @@ package bloop
 
 import java.net.InetAddress
 
-import bloop.logging.BloopLogger
-import bloop.logging.Logger
+import bloop.logging.{BloopLogger, Logger}
 import bloop.util.ProxySetup
 
-import java.io.InputStream
-import java.io.PrintStream
-import java.nio.channels.ReadableByteChannel
-import java.nio.file.Files
-import java.nio.file.Paths
-import java.util.concurrent.atomic.AtomicBoolean
+import java.io.{File, InputStream, OutputStream, PrintStream}
+import java.net.{ServerSocket, Socket, SocketAddress}
+import java.nio.ByteBuffer
+import java.nio.channels.{Channels, ReadableByteChannel, SeekableByteChannel}
+import java.nio.file.attribute.PosixFilePermissions
+import java.nio.file.{Files, Path, Paths, StandardOpenOption}
+import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger}
+import java.util.concurrent.{Executors, ThreadFactory, TimeUnit}
 
-import com.martiansoftware.nailgun.NGListeningAddress
-import com.martiansoftware.nailgun.NGConstants
+import com.martiansoftware.nailgun.{NGConstants, NGListeningAddress}
 import com.martiansoftware.nailgun.{Alias, NGContext, NGServer}
 import libdaemonjvm._
 import libdaemonjvm.internal.{LockProcess, SocketHandler}
 import libdaemonjvm.server._
 
-import scala.util.Properties
-import scala.util.Try
-import java.net.ServerSocket
-import java.net.Socket
-import java.io.OutputStream
-import java.net.SocketAddress
-import java.nio.channels.Channels
-import java.nio.ByteBuffer
-import java.io.File
+import scala.concurrent.duration.DurationInt
+import scala.util.{Properties, Try}
+
 import org.slf4j
-import java.nio.file.attribute.PosixFilePermissions
-import java.nio.file.Path
 import sun.misc.{Signal, SignalHandler}
 
 sealed abstract class Bloop
@@ -68,8 +60,18 @@ object Bloop {
         )
     }
 
-    if (java.lang.Boolean.getBoolean("bloop.ignore-sig-int"))
+    val pid = ProcessHandle.current().pid()
+    System.err.println(s"Bloop server PID: $pid")
+
+    if (java.lang.Boolean.getBoolean("bloop.ignore-sig-int")) {
+      System.err.println("Ignoring SIGINT")
       ignoreSigint()
+    }
+
+    for (value <- sys.props.get("bloop.truncate-output-file-periodically")) {
+      System.err.println(s"Will truncate output file $value every 5 minutes")
+      truncateFilePeriodically(Paths.get(value))
+    }
 
     lockFilesOrHostPort match {
       case Left(hostPort) =>
@@ -90,6 +92,63 @@ object Bloop {
       signal => {
         System.err.println("Ignoring Ctrl+C interruption")
       }
+    )
+    ()
+  }
+
+  private def truncateFilePeriodically(file: Path): Unit = {
+    val scheduler = Executors.newSingleThreadScheduledExecutor(
+      new ThreadFactory {
+        val count = new AtomicInteger
+        def newThread(r: Runnable): Thread = {
+          val t = new Thread(r, s"truncate-file-${count.incrementAndGet()}")
+          t.setDaemon(true)
+          t
+        }
+      }
+    )
+    val period = 5.minutes
+    val maxSize = 1024 * 1024 // 1 MiB
+    val runnable: Runnable =
+      () =>
+        try {
+          if (Files.exists(file)) {
+            val size = Files.size(file)
+            if (size > maxSize) {
+              var bc: SeekableByteChannel = null
+              try {
+                bc = Files.newByteChannel(file, StandardOpenOption.WRITE)
+                bc.truncate(0L)
+              } finally {
+                if (bc != null)
+                  bc.close()
+              }
+
+              // Seems closing / re-opening the output file is needed for truncation to work
+              val ps = new PrintStream(Files.newOutputStream(file))
+              val formerOut = System.out
+              val formerErr = System.err
+              System.setOut(ps)
+              System.setErr(ps)
+              formerOut.close()
+              formerErr.close()
+
+              System.err.println(s"Truncated $file (former size: $size B)")
+              ()
+            }
+          }
+        } catch {
+          case t: Throwable =>
+            System.err.println(
+              s"Caught $t while checking if $file needs to be truncated, ignoring it"
+            )
+            t.printStackTrace(System.err)
+        }
+    scheduler.scheduleAtFixedRate(
+      runnable,
+      period.length,
+      period.length,
+      period.unit
     )
     ()
   }
