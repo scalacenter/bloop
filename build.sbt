@@ -287,6 +287,13 @@ lazy val frontend: Project = project
         ownProductDirectories ++ dependencyClasspath
       }
     ),
+    Test / resources := {
+      val main = (Test / resources).value
+      val dir = (ThisBuild / baseDirectory).value
+      val log = streams.value
+      BuildDefaults.exportProjectsInTestResources(dir, log.log, enableCache = true)
+      main
+    },
     (Test / unmanagedResources / includeFilter) := {
       new FileFilter {
         def accept(file: File): Boolean = {
@@ -942,7 +949,6 @@ val bloop = project
     releaseEarly := { () },
     (publish / skip) := true,
     crossSbtVersions := Seq(Sbt1Version, Sbt013Version),
-    commands += BuildDefaults.exportProjectsInTestResourcesCmd,
     buildIntegrationsBase := (ThisBuild / Keys.baseDirectory).value / "build-integrations",
     twitterDodo := buildIntegrationsBase.value./("build-twitter"),
     publishLocalAllModules := {
