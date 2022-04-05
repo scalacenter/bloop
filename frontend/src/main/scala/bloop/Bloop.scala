@@ -63,7 +63,8 @@ object Bloop {
     val pid = ProcessHandle.current().pid()
     System.err.println(s"Bloop server PID: $pid")
 
-    if (java.lang.Boolean.getBoolean("bloop.ignore-sig-int"))
+    if (java.lang.Boolean.getBoolean("bloop.ignore-sig-int")) {
+      System.err.println("Ignoring SIGINT")
       ignoreSigint()
     }
 
