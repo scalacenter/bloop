@@ -291,8 +291,9 @@ lazy val frontend: Project = project
       val main = (Test / resources).value
       val dir = (ThisBuild / baseDirectory).value
       val log = streams.value
-      BuildDefaults.exportProjectsInTestResources(dir, log.log, enableCache = true)
-      main
+      val additionalResources =
+        BuildDefaults.exportProjectsInTestResources(dir, log.log, enableCache = true)
+      main ++ additionalResources
     },
     (Test / unmanagedResources / includeFilter) := {
       new FileFilter {
