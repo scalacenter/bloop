@@ -130,6 +130,8 @@ object Bloop {
               val formerErr = System.err
               System.setOut(ps)
               System.setErr(ps)
+              Console.setOut(ps)
+              Console.setErr(ps)
               formerOut.close()
               formerErr.close()
 
