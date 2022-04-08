@@ -1057,8 +1057,8 @@ object BloopDefaults {
           Some(outFile)
         }
     }.result.map {
-      case Inc(_) =>
-        logger.error(s"Couldn't run bloopGenerate for $projectName")
+      case Inc(cause) =>
+        logger.error(s"Couldn't run bloopGenerate for $projectName. Cause:\n$cause")
         None
       case Value(maybeFile) =>
         maybeFile
