@@ -426,7 +426,11 @@ object BuildImplementation {
       }
     }
 
-    def exportProjectsInTestResources(baseDir: File, log: Logger, enableCache: Boolean): Unit = {
+    def exportProjectsInTestResources(
+        baseDir: File,
+        log: Logger,
+        enableCache: Boolean
+    ): Seq[File] = {
       import java.util.Locale
       val isWindows: Boolean =
         System.getProperty("os.name").toLowerCase(Locale.ENGLISH).contains("windows")
@@ -435,57 +439,59 @@ object BuildImplementation {
       val resourcesDir = baseDir / "frontend" / "src" / "test" / "resources"
       val pluginSourceDir = baseDir / "integrations" / "sbt-bloop" / "src" / "main"
       val projectDirs = resourcesDir.listFiles().filter(_.isDirectory)
-      projectDirs
-        .flatMap { projectDir =>
-          val targetDir = projectDir / "target"
-          val cacheDirectory = targetDir / "generation-cache-dir"
-          if (sys.env.isDefinedAt("FORCE_TEST_RESOURCES_GENERATION"))
-            IO.delete(cacheDirectory)
-          java.nio.file.Files.createDirectories(cacheDirectory.toPath)
+      projectDirs.flatMap { projectDir =>
+        val targetDir = projectDir / "target"
+        val cacheDirectory = targetDir / "generation-cache-dir"
+        if (sys.env.isDefinedAt("FORCE_TEST_RESOURCES_GENERATION"))
+          IO.delete(cacheDirectory)
+        java.nio.file.Files.createDirectories(cacheDirectory.toPath)
 
-          val projectsFiles = sbt.io.Path
-            .allSubpaths(projectDir)
-            .map(_._1)
-            .filter { f =>
-              val filename = f.toString
-              filename.endsWith(".sbt") || filename.endsWith(".scala")
-            }
-            .toSet
+        val projectsFiles = sbt.io.Path
+          .allSubpaths(projectDir)
+          .map(_._1)
+          .filter { f =>
+            val filename = f.toString
+            filename.endsWith(".sbt") || filename.endsWith(".scala")
+          }
+          .toSet
 
-          val pluginFiles = sbt.io.Path
-            .allSubpaths(pluginSourceDir)
-            .map(_._1)
-            .filter(f => f.toString.endsWith(".scala"))
-            .toSet
+        val pluginFiles = sbt.io.Path
+          .allSubpaths(pluginSourceDir)
+          .map(_._1)
+          .filter(f => f.toString.endsWith(".scala"))
+          .toSet
 
-          import scala.sys.process.Process
+        import scala.sys.process.Process
 
-          val generate = { (changedFiles: Set[File]) =>
-            log.info(s"Generating bloop configuration files for ${projectDir}")
-            val cmd = {
-              val isGithubAction = sys.env.get("GITHUB_WORKFLOW").nonEmpty
-              if (isWindows && isGithubAction) "sh" :: "-c" :: "sbt bloopInstall" :: Nil
-              else if (isWindows) "cmd.exe" :: "/C" :: "sbt.bat" :: "bloopInstall" :: Nil
-              else "sbt" :: "bloopInstall" :: Nil
-            }
-            val exitGenerate = Process(cmd, projectDir).!
-            if (exitGenerate != 0)
-              throw new sbt.MessageOnlyException(
-                s"Failed to generate bloop config for resource project: ${projectDir}."
-              )
-            log.success(s"Generated bloop configuration files for ${projectDir}")
-            changedFiles
+        val generate = { (changedFiles: Set[File]) =>
+          log.info(s"Generating bloop configuration files for ${projectDir}")
+          val cmd = {
+            val isGithubAction = sys.env.get("GITHUB_WORKFLOW").nonEmpty
+            if (isWindows && isGithubAction) "sh" :: "-c" :: "sbt bloopInstall" :: Nil
+            else if (isWindows) "cmd.exe" :: "/C" :: "sbt.bat" :: "bloopInstall" :: Nil
+            else "sbt" :: "bloopInstall" :: Nil
+          }
+          val exitGenerate = Process(cmd, projectDir).!
+          if (exitGenerate != 0)
+            throw new sbt.MessageOnlyException(
+              s"Failed to generate bloop config for resource project: ${projectDir}."
+            )
+          log.success(s"Generated bloop configuration files for ${projectDir}")
+          changedFiles
+        }
+        val bloopConfigDir = projectDir / "bloop-config"
+        val bloopConfigExists =
+          bloopConfigDir.exists && bloopConfigDir.listFiles().exists(_.name.endsWith(".json"))
+        val onlyOnCacheChange = enableCache && bloopConfigExists
+        if (onlyOnCacheChange) {
+          val cached = FileFunction.cached(cacheDirectory, sbt.util.FileInfo.hash) { changedFiles =>
+            generate(changedFiles)
           }
 
-          if (enableCache) {
-            val cached = FileFunction.cached(cacheDirectory, sbt.util.FileInfo.hash) {
-              changedFiles =>
-                generate(changedFiles)
-            }
-
-            cached(projectsFiles ++ pluginFiles)
-          } else generate(Set.empty)
-        }
+          cached(projectsFiles ++ pluginFiles)
+        } else generate(Set.empty)
+        sbt.io.Path.allSubpaths(projectDir).map(_._1).toList
+      }.distinct
     }
 
     def getStagingDirectory(state: State): File = {
