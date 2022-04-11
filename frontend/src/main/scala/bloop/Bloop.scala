@@ -130,11 +130,24 @@ object Bloop {
               val formerErr = System.err
               System.setOut(ps)
               System.setErr(ps)
+              Console.setOut(ps)
+              Console.setErr(ps)
               formerOut.close()
               formerErr.close()
 
-              System.err.println(s"Truncated $file (former size: $size B)")
-              ()
+              val newSize = Files.size(file)
+              if (newSize < maxSize)
+                System.err.println(s"Truncated $file (former size: $size B)")
+              else {
+                System.err.println(
+                  s"Truncating $file failed (former size: $size B, new size: $newSize B), discarding Bloop server output"
+                )
+                val ps = new PrintStream(OutputStream.nullOutputStream())
+                System.setOut(ps)
+                System.setErr(ps)
+                Console.setOut(ps)
+                Console.setErr(ps)
+              }
             }
           }
         } catch {
