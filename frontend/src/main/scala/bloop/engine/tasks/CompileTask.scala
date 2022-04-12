@@ -44,7 +44,6 @@ object CompileTask {
       dag: Dag[Project],
       createReporter: ReporterInputs[UseSiteLogger] => Reporter,
       pipeline: Boolean,
-      excludeRoot: Boolean,
       cancelCompilation: Promise[Unit],
       store: CompileClientStore,
       rawLogger: UseSiteLogger
@@ -98,7 +97,7 @@ object CompileTask {
         case Left(earlyResultBundle) =>
           compileProjectTracer.terminate()
           Task.now(earlyResultBundle)
-        case Right(CompileSourcesAndInstance(sources, instance, javaOnly)) =>
+        case Right(CompileSourcesAndInstance(sources, instance, _)) =>
           val externalUserClassesDir = bundle.clientClassesDir
           val readOnlyClassesDir = lastSuccessful.classesDir
           val newClassesDir = compileOut.internalNewClassesDir
@@ -115,7 +114,7 @@ object CompileTask {
               .foreach(msg => logger.warn(msg))
           }
 
-          val configuration = configureCompilation(project, graphInputs, compileOut)
+          val configuration = configureCompilation(project)
           val newScalacOptions = {
             CompilerPluginAllowlist
               .enableCachingInScalacOptions(
@@ -328,9 +327,7 @@ object CompileTask {
 
   case class ConfiguredCompilation(scalacOptions: List[String])
   private def configureCompilation(
-      project: Project,
-      graphInputs: CompileGraph.Inputs,
-      out: CompileOutPaths
+      project: Project
   ): ConfiguredCompilation = {
     ConfiguredCompilation(project.scalacOptions)
   }
@@ -358,7 +355,7 @@ object CompileTask {
         )
       }
 
-      task.map(rs => ()).memoize
+      task.map(_ => ()).memoize
     }
   }
 
@@ -376,8 +373,8 @@ object CompileTask {
         case None => populateNewProductsTask
         case Some(previousSuccessful) =>
           for {
-            previousPopulate <- previousSuccessful.populatingProducts
-            populate <- populateNewProductsTask
+            _ <- previousSuccessful.populatingProducts
+            _ <- populateNewProductsTask
             _ <- cleanUpPreviousResult(previousSuccessful, compilerResult, logger)
           } yield ()
       }

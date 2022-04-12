@@ -23,7 +23,6 @@ import io.methvin.watcher.DirectoryWatcher
 import monix.eval.Task
 import monix.execution.Cancelable
 import monix.execution.atomic.AtomicBoolean
-import monix.execution.misc.NonFatal
 import monix.reactive.MulticastStrategy
 import monix.reactive.Observable
 
@@ -131,18 +130,6 @@ final class SourceWatcher private (
 
     // Use Java's completable future because we can stop/complete it from the cancelable
     val watcherHandle = watcher.watchAsync(ExecutionContext.ioExecutor)
-    val watchController = Task {
-      try watcherHandle.get()
-      catch {
-        case NonFatal(t) => ()
-      } finally {
-        if (isClosed.compareAndSet(false, true)) {
-          watcher.close()
-        }
-      }
-      ngout.println(s"$watchLogId has been successfully closed")
-      logger.debug(s"$watchLogId has been successfully closed")
-    }
 
     val watchCancellation = Cancelable { () =>
       observer.onComplete()

@@ -47,7 +47,7 @@ object ExpressionCompilerCache {
 
     Try(manager.file(expressionCompilerId)(IfMissing.Fail)) match {
       case Success(pluginPath) => Right(AbsolutePath(pluginPath))
-      case Failure(exception) =>
+      case Failure(_) =>
         val resolution = attemptResolution()
         resolution.foreach(jar => manager.define(expressionCompilerId, Seq(jar.toFile)))
         resolution

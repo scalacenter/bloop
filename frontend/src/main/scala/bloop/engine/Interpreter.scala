@@ -25,7 +25,6 @@ import bloop.engine.tasks.Tasks
 import bloop.engine.tasks.TestTask
 import bloop.engine.tasks.toolchains.ScalaJsToolchain
 import bloop.engine.tasks.toolchains.ScalaNativeToolchain
-import bloop.io.Environment.lineSeparator
 import bloop.io.RelativePath
 import bloop.io.SourceWatcher
 import bloop.logging.DebugFilter
@@ -58,9 +57,9 @@ object Interpreter {
             execute(printAction, Task.now(state))
           case Run(cmd: Commands.ValidatedBsp, next) =>
             execute(next, runBsp(cmd, state))
-          case Run(cmd: Commands.About, next) =>
+          case Run(cmd: Commands.About, _) =>
             notHandled("about", cmd.cliOptions, state)
-          case Run(cmd: Commands.Help, next) =>
+          case Run(cmd: Commands.Help, _) =>
             notHandled("help", cmd.cliOptions, state)
           case Run(cmd: Commands.Command, next) =>
             // We validate for almost all commands coming from the CLI except for BSP and about,help
@@ -105,7 +104,6 @@ object Interpreter {
   }
 
   private final val t = "    "
-  private final val line = lineSeparator
 
   private def getProjectsDag(projects: List[Project], state: State): Dag[Project] =
     Aggregate(projects.map(p => state.build.getDagFor(p)))
@@ -150,7 +148,6 @@ object Interpreter {
       cmd: CompilingCommand,
       state0: State,
       projects: List[Project],
-      excludeRoot: Boolean = false,
       noColor: Boolean
   ): Task[State] = {
     // Make new state cleaned of all compilation products if compilation is not incremental
@@ -173,7 +170,6 @@ object Interpreter {
         dag,
         createReporter,
         cmd.pipeline,
-        excludeRoot,
         Promise[Unit](),
         CompileClientStore.NoStore,
         state.logger
@@ -184,7 +180,7 @@ object Interpreter {
   }
 
   private def compile(cmd: Commands.Compile, state: State): Task[State] = {
-    val lookup = lookupProjects(cmd.projects, state, state.build.getProjectFor(_))
+    val lookup = lookupProjects(cmd.projects, state.build.getProjectFor(_))
     if (lookup.missing.nonEmpty) Task.now(reportMissing(lookup.missing, state))
     else {
       val projects: List[Project] = {
@@ -192,8 +188,8 @@ object Interpreter {
         else Dag.inverseDependencies(state.build.dags, lookup.found).reduced
       }
 
-      if (!cmd.watch) runCompile(cmd, state, projects, false, cmd.cliOptions.noColor)
-      else watch(projects, state)(runCompile(cmd, _, projects, false, cmd.cliOptions.noColor))
+      if (!cmd.watch) runCompile(cmd, state, projects, cmd.cliOptions.noColor)
+      else watch(projects, state)(runCompile(cmd, _, projects, cmd.cliOptions.noColor))
     }
   }
 
@@ -215,11 +211,10 @@ object Interpreter {
       cmd: C,
       state: State,
       projects: List[Project],
-      excludeRoot: Boolean,
       noColor: Boolean,
       nextAction: String
   )(next: State => Task[State]): Task[State] = {
-    runCompile(cmd, state, projects, excludeRoot, noColor).flatMap { compiled =>
+    runCompile(cmd, state, projects, noColor).flatMap { compiled =>
       if (compiled.status != ExitStatus.CompilationError) next(compiled)
       else {
         val projectsString = projects.mkString(", ")
@@ -247,7 +242,6 @@ object Interpreter {
               cmd,
               state,
               List(project),
-              cmd.excludeRoot,
               cmd.cliOptions.noColor,
               "`console`"
             ) { state =>
@@ -261,7 +255,7 @@ object Interpreter {
                     val errMsg = "Passing arguments to the Scalac console does not work"
                     Task.now(state.withError(errMsg, ExitStatus.InvalidCommandLineOption))
                   } else {
-                    Tasks.console(state, project, cmd.excludeRoot)
+                    Tasks.console(state, project)
                   }
                 case AmmoniteRepl =>
                   // Look for version of scala instance in any of the projects
@@ -333,7 +327,7 @@ object Interpreter {
 
   private def test(cmd: Commands.Test, state: State): Task[State] = {
     import state.logger
-    val lookup = lookupProjects(cmd.projects, state, Tasks.pickTestProject(_, state))
+    val lookup = lookupProjects(cmd.projects, Tasks.pickTestProject(_, state))
     if (lookup.missing.nonEmpty) Task.now(reportMissing(lookup.missing, state))
     else {
       // Projects to test != projects that need compiling
@@ -358,24 +352,23 @@ object Interpreter {
 
       def testAllProjects(state: State): Task[State] = {
         val testFilter = TestInternals.parseFilters(cmd.only)
-        compileAnd(cmd, state, projectsToCompile, false, cmd.cliOptions.noColor, "`test`") {
-          state =>
-            logger.debug(
-              s"Preparing test execution for ${projectsToTest.mkString(", ")}"
-            )(DebugFilter.Test)
+        compileAnd(cmd, state, projectsToCompile, cmd.cliOptions.noColor, "`test`") { state =>
+          logger.debug(
+            s"Preparing test execution for ${projectsToTest.mkString(", ")}"
+          )(DebugFilter.Test)
 
-            val handler = new LoggingEventHandler(state.logger)
+          val handler = new LoggingEventHandler(state.logger)
 
-            Tasks.test(
-              state,
-              projectsToTest,
-              cmd.args,
-              testFilter,
-              ScalaTestSuites.empty,
-              handler,
-              cmd.parallel,
-              RunMode.Normal
-            )
+          Tasks.test(
+            state,
+            projectsToTest,
+            cmd.args,
+            testFilter,
+            ScalaTestSuites.empty,
+            handler,
+            cmd.parallel,
+            RunMode.Normal
+          )
         }
       }
 
@@ -387,10 +380,8 @@ object Interpreter {
   private case class ProjectLookup(found: List[Project], missing: List[String])
   private def lookupProjects(
       names: List[String],
-      state: State,
       lookup: String => Option[Project]
   ): ProjectLookup = {
-    val build = state.build
     val result = List[Project]() -> List[String]()
     val (found, missing) = names.foldLeft(result) {
       case ((projects, missing), name) =>
@@ -500,15 +491,10 @@ object Interpreter {
       val projects = state.build.loadedProjects.map(_.project)
       Tasks.clean(state, projects, cmd.includeDependencies).map(_.mergeStatus(ExitStatus.Ok))
     } else {
-      val lookup = lookupProjects(cmd.projects, state, state.build.getProjectFor(_))
+      val lookup = lookupProjects(cmd.projects, state.build.getProjectFor(_))
       if (!lookup.missing.isEmpty)
         Task.now(reportMissing(lookup.missing, state))
       else {
-        val projects: List[Project] = {
-          if (!cmd.cascade) lookup.found
-          else Dag.inverseDependencies(state.build.dags, lookup.found).reduced
-        }
-
         Tasks
           .clean(state, lookup.found, cmd.includeDependencies)
           .map(_.mergeStatus(ExitStatus.Ok))
@@ -518,7 +504,7 @@ object Interpreter {
 
   private[bloop] def link(cmd: Commands.Link, state: State): Task[State] = {
     def doLink(project: Project)(state: State): Task[State] = {
-      compileAnd(cmd, state, List(project), false, cmd.cliOptions.noColor, "`link`") { state =>
+      compileAnd(cmd, state, List(project), cmd.cliOptions.noColor, "`link`") { state =>
         getMainClass(state, project, cmd.main) match {
           case Left(state) => Task.now(state)
           case Right(mainClass) =>
@@ -539,7 +525,7 @@ object Interpreter {
       }
     }
 
-    val lookup = lookupProjects(cmd.projects, state, state.build.getProjectFor(_))
+    val lookup = lookupProjects(cmd.projects, state.build.getProjectFor(_))
     if (lookup.missing.nonEmpty)
       Task.now(reportMissing(lookup.missing, state))
     else {
@@ -557,7 +543,7 @@ object Interpreter {
   private def run(cmd: Commands.Run, state: State): Task[State] = {
     def doRun(project: Project)(state: State): Task[State] = {
       val cwd = project.workingDirectory
-      compileAnd(cmd, state, List(project), false, cmd.cliOptions.noColor, "`run`") { state =>
+      compileAnd(cmd, state, List(project), cmd.cliOptions.noColor, "`run`") { state =>
         getMainClass(state, project, cmd.main) match {
           case Left(failedState) => Task.now(failedState)
           case Right(mainClass) =>
@@ -569,7 +555,7 @@ object Interpreter {
                   .flatMap { state =>
                     val args = (target.syntax +: cmd.args).toArray
                     if (!state.status.isOk) Task.now(state)
-                    else Tasks.runNativeOrJs(state, project, cwd, mainClass, args)
+                    else Tasks.runNativeOrJs(state, cwd, args)
                   }
               case platform @ Platform.Js(config, _, _) =>
                 val target = ScalaJsToolchain.linkTargetFrom(project, config)
@@ -578,7 +564,7 @@ object Interpreter {
                     // We use node to run the program (is this a special case?)
                     val args = ("node" +: target.syntax +: cmd.args).toArray
                     if (!state.status.isOk) Task.now(state)
-                    else Tasks.runNativeOrJs(state, project, cwd, mainClass, args)
+                    else Tasks.runNativeOrJs(state, cwd, args)
                 }
               case jvm: Platform.Jvm =>
                 val javaEnv = project.runtimeJdkConfig.getOrElse(jvm.config)
@@ -598,7 +584,7 @@ object Interpreter {
       }
     }
 
-    val lookup = lookupProjects(cmd.projects, state, state.build.getProjectFor(_))
+    val lookup = lookupProjects(cmd.projects, state.build.getProjectFor(_))
     if (lookup.missing.nonEmpty) Task.now(reportMissing(lookup.missing, state))
     else {
       val projects = lookup.found

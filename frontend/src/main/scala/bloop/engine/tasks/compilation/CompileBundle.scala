@@ -193,7 +193,6 @@ object CompileBundle {
         case (_, Left(_)) => CancelledCompileBundle
         case (Right(classpathHashes), Right(sourceHashes)) =>
           val originPath = project.origin.path.syntax
-          val originHash = project.origin.hash
           val (javaSources, scalaSources) = {
             import scala.collection.mutable.ListBuffer
             val javaSources = new ListBuffer[AbsolutePath]()

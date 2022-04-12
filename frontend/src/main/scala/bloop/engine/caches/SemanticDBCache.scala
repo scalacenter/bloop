@@ -50,7 +50,7 @@ object SemanticDBCache {
       val semanticDBId = s"${artifact.organization}.${artifact.module}.${artifact.version}"
       Try(manager.file(semanticDBId)(IfMissing.Fail)) match {
         case Success(pluginPath) => Right(AbsolutePath(pluginPath))
-        case Failure(exception) =>
+        case Failure(_) =>
           val resolvedPlugin = attemptResolution
           resolvedPlugin.foreach(plugin => manager.define(semanticDBId, Seq(plugin.toFile)))
           resolvedPlugin

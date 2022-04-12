@@ -92,7 +92,7 @@ object Validate {
         case x :: xs =>
           Task.now {
             xs.foldLeft(report(Feedback.reportRecursiveTrace(x))) {
-              case (state, trace) => report(Feedback.reportRecursiveTrace(trace))
+              case (_, trace) => report(Feedback.reportRecursiveTrace(trace))
             }
 
             state.mergeStatus(ExitStatus.BuildDefinitionError)

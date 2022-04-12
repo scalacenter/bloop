@@ -4,7 +4,6 @@ import caseapp.Name
 import caseapp.core.Arg
 
 object Case {
-  private val Kebab = "-([a-z])".r
   private val Camel = "([A-Z])".r
 
   private def camelToKebab(camel: String): String = {
