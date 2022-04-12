@@ -1,26 +1,23 @@
 package bloop.integrations.maven
 
-import bloop.config.utils.BaseConfigSuite
 import java.io.BufferedReader
+import java.io.File
+import java.io.InputStreamReader
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
 import java.nio.file.StandardCopyOption
-import java.io.InputStreamReader
-import java.io.File
-import org.junit.Assert._
-import org.junit.Test
-import org.apache.maven.shared.invoker.DefaultInvocationRequest
-import org.apache.maven.shared.invoker.DefaultInvoker
-import org.apache.maven.shared.invoker.InvocationResult
-import scala.jdk.CollectionConverters._
-import scala.util.control.NonFatal
-import scala.util.Try
+
 import scala.sys.process.ProcessLogger
+import scala.util.Try
+import scala.util.control.NonFatal
+
 import bloop.config.Config
 import bloop.config.Tag
-import java.util.stream.Collector
-import java.util.stream.Collectors
+import bloop.config.utils.BaseConfigSuite
+
+import org.junit.Assert._
+import org.junit.Test
 
 class MavenConfigGenerationSuite extends BaseConfigSuite {
 

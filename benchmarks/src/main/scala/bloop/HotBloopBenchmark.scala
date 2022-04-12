@@ -99,7 +99,6 @@ abstract class HotBloopBenchmarkBase {
 
   def awaitPrompt(): Unit = {
     output.setLength(0)
-    var line = ""
     val buffer = new Array[Char](128)
     var read: Int = -1
     while (true) {

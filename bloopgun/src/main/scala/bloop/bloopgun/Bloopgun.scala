@@ -66,7 +66,6 @@ class BloopgunCli(
   def run(args: Array[String]): Int = {
     var setServer: Boolean = false
     var setPort: Boolean = false
-    var parsedServerOptionFlag: Option[String] = None
     var additionalCmdArgs: List[String] = Nil
 
     val cliParser = {
@@ -310,7 +309,8 @@ class BloopgunCli(
         logger: SnailgunLogger
     ): Out = {
       val exitPromise = Promise[ExitServerStatus]()
-      val serverThread = shell.startThread("bloop-server-background", true) {
+
+      shell.startThread("bloop-server-background", true) {
         exitPromise.success(startServer(found, config, false, logger))
       }
 

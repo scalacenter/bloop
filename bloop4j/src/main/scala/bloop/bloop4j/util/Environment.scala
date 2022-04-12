@@ -1,8 +1,9 @@
 package bloop.bloop4j.util
 
-import java.nio.file.{Files, Path, Paths}
-
+import java.nio.file.Path
+import java.nio.file.Paths
 import java.{util => ju}
+
 import scala.util.control.NonFatal
 
 object Environment {
@@ -29,7 +30,7 @@ object Environment {
     try {
       Some(Paths.get(getClass().getProtectionDomain().getCodeSource().getLocation().toURI))
     } catch {
-      case NonFatal(t) => None
+      case NonFatal(_) => None
     }
   }
 }

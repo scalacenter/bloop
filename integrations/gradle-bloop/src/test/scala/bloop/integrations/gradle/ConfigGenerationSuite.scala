@@ -1437,11 +1437,11 @@ abstract class ConfigGenerationSuite extends BaseConfigSuite {
       val bloopD = new File(bloopDir, "d-foo.json")
 
       assert(!bloopNone.exists())
-      val configRoot = readValidBloopConfig(bloopRoot)
-      val configA = readValidBloopConfig(bloopA)
-      val configB = readValidBloopConfig(bloopB)
-      val configC = readValidBloopConfig(bloopC)
-      val configD = readValidBloopConfig(bloopD)
+      readValidBloopConfig(bloopRoot)
+      readValidBloopConfig(bloopA)
+      readValidBloopConfig(bloopB)
+      readValidBloopConfig(bloopC)
+      readValidBloopConfig(bloopD)
 
       assert(compileBloopProject("b-foo", bloopDir).status.isOk)
       assert(compileBloopProject("d-foo", bloopDir).status.isOk)
@@ -1524,7 +1524,6 @@ abstract class ConfigGenerationSuite extends BaseConfigSuite {
         .withArguments("bloopInstall", "-Si")
         .build()
 
-      val projectName = testProjectDir.getRoot.getName
       val bloopDir = new File(testProjectDir.getRoot, ".bloop")
 
       val bloopA = new File(bloopDir, "foo.json")
@@ -1638,7 +1637,6 @@ abstract class ConfigGenerationSuite extends BaseConfigSuite {
         .withArguments("bloopInstall", "-Si")
         .build()
 
-      val projectName = testProjectDir.getRoot.getName
       val bloopDir = new File(testProjectDir.getRoot, ".bloop")
 
       val bloopA = new File(bloopDir, "foo.json")
@@ -1651,8 +1649,8 @@ abstract class ConfigGenerationSuite extends BaseConfigSuite {
         assert(!new File(bloopDir, file).exists(), s"$file should not have been created!")
       }
 
-      val configA = readValidBloopConfig(bloopA)
-      val configB = readValidBloopConfig(bloopB)
+      readValidBloopConfig(bloopA)
+      readValidBloopConfig(bloopB)
 
       assert(compileBloopProject("foo", bloopDir).status.isOk)
       assert(compileBloopProject("bar", bloopDir).status.isOk)
@@ -2745,7 +2743,6 @@ abstract class ConfigGenerationSuite extends BaseConfigSuite {
       val projectName = testProjectDir.getRoot.getName
       val bloopDir = new File(testProjectDir.getRoot, ".bloop")
       val projectFile = new File(bloopDir, s"${projectName}.json")
-      val projectTestFile = new File(bloopDir, s"${projectName}-test.json")
       val projectConfig = readValidBloopConfig(projectFile)
       assert(projectConfig.project.`scala`.isEmpty)
       val platform = projectConfig.project.platform

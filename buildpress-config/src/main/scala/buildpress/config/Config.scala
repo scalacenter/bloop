@@ -1,18 +1,18 @@
 package buildpress.config
 
 import java.net.URI
-import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, Path, Paths}
+import java.nio.file.Files
+import java.nio.file.Path
+import java.nio.file.Paths
+
 import scala.util.Try
 
+import com.github.plokhotnyuk.jsoniter_scala.core.JsonReader
+import com.github.plokhotnyuk.jsoniter_scala.core.JsonValueCodec
+import com.github.plokhotnyuk.jsoniter_scala.core.JsonWriter
+import com.github.plokhotnyuk.jsoniter_scala.core.WriterConfig
+import com.github.plokhotnyuk.jsoniter_scala.macros.JsonCodecMaker
 import com.github.plokhotnyuk.jsoniter_scala.{core => jsoniter}
-import com.github.plokhotnyuk.jsoniter_scala.core.{
-  JsonValueCodec,
-  JsonWriter,
-  JsonReader,
-  WriterConfig
-}
-import com.github.plokhotnyuk.jsoniter_scala.macros.{JsonCodecMaker, CodecMakerConfig}
 
 object Config {
   val BuildpressCacheFileName = "repository-cache.json"

@@ -1,6 +1,9 @@
 package bloop.engine.tasks.toolchains
+import scala.annotation.nowarn
+
 import bloop.config.Config
 
+@nowarn("msg=parameter value classLoader in class JvmToolchain is never used")
 // Contains nothing for now
 final class JvmToolchain private (classLoader: ClassLoader)
 

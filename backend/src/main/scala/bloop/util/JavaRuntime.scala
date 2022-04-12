@@ -3,6 +3,7 @@ package bloop.util
 import javax.tools.JavaCompiler
 import javax.tools.ToolProvider
 
+import scala.annotation.nowarn
 import scala.util.Failure
 import scala.util.Try
 
@@ -75,6 +76,7 @@ object JavaRuntime {
       import java.net.URL
       import java.net.URLClassLoader
 
+      @nowarn("msg=method getSystemToolClassLoader in class ToolProvider is deprecated")
       val urls = Option(ToolProvider.getSystemToolClassLoader).collect {
         case classLoader: URLClassLoader => classLoader.getURLs
       }
