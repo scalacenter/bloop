@@ -781,6 +781,32 @@ lazy val gradleBloop212 = project
     publishLocal := publishLocal.dependsOn((jsonConfig212.jvm / publishLocal)).value
   )
 
+lazy val gradleBloop213 = project
+  .in(file("integrations") / "gradle-bloop")
+  .enablePlugins(BuildInfoPlugin)
+  .disablePlugins(ScriptedPlugin)
+  .settings(name := "gradle-bloop")
+  .settings(scalafixSettings)
+  .dependsOn(jsonConfig213.jvm % "compile->compile;test->test")
+  .settings(BuildDefaults.gradlePluginBuildSettings, testSettings)
+  .settings(BuildInfoPlugin.buildInfoScopedSettings(Test))
+  .settings(scalaVersion := Dependencies.Scala213Version)
+  .settings(
+    target := (file(
+      "integrations"
+    ) / "gradle-bloop" / "target" / "gradle-bloop-2.13").getAbsoluteFile
+  )
+  .settings(
+    libraryDependencies += Dependencies.classgraph % Test,
+    publishLocal := publishLocal.dependsOn((jsonConfig213.jvm / publishLocal)).value
+  )
+  .settings(
+    Test / sourceDirectories := Nil,
+    Test / bloopGenerate := None,
+    Test / compile / skip := true,
+    Test / test / skip := true
+  )
+
 lazy val buildpressConfig = (project in file("buildpress-config"))
   .settings(scalafixSettings)
   .settings(
@@ -896,6 +922,7 @@ val allProjects = Seq(
   mavenBloop,
   gradleBloop211,
   gradleBloop212,
+  gradleBloop213,
   nativeBridge04,
   jsBridge06,
   jsBridge1,
@@ -925,6 +952,7 @@ val allProjectsToRelease = Seq[ProjectReference](
   mavenBloop,
   gradleBloop211,
   gradleBloop212,
+  gradleBloop213,
   nativeBridge04,
   jsBridge06,
   jsBridge1,
