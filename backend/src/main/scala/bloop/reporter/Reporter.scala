@@ -306,7 +306,7 @@ object Reporter {
   def groupProblemsByFile(ps: List[ProblemPerPhase]): Map[File, List[ProblemPerPhase]] = {
     val problemsPerFile = mutable.HashMap[File, List[ProblemPerPhase]]()
     ps.foreach {
-      case pp @ ProblemPerPhase(p, phase) =>
+      case pp @ ProblemPerPhase(p, _) =>
         InterfaceUtil.toOption(p.position().sourceFile).foreach { file =>
           val newProblemsPerFile = pp :: problemsPerFile.getOrElse(file, Nil)
           problemsPerFile.+=(file -> newProblemsPerFile)

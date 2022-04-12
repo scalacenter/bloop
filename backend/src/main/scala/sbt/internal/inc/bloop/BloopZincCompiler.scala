@@ -126,7 +126,7 @@ object BloopZincCompiler {
     }
 
     // format: off
-    val configTask = configureAnalyzingCompiler(scalaCompiler, javaCompiler, sources.toSeq, classpath, uniqueInputs.classpath, output, cache, progress, scalaOptions, javaOptions, classpathOptions, prev, previousSetup, perClasspathEntryLookup, reporter, compileOrder, skip, incrementalOptions, extra, tracer)
+    val configTask = configureAnalyzingCompiler(scalaCompiler, javaCompiler, sources.toSeq, classpath, uniqueInputs.classpath, output, cache, progress, scalaOptions, javaOptions, prev, previousSetup, perClasspathEntryLookup, reporter, compileOrder, skip, incrementalOptions, extra)
     // format: on
     configTask.flatMap { config =>
       if (skip) Task.now(CompileResult.of(prev, config.currentSetup, false))
@@ -134,7 +134,7 @@ object BloopZincCompiler {
         val setOfSources = sources.toSet
         val compiler = BloopHighLevelCompiler(config, reporter, logger, tracer, classpathOptions)
         val lookup = new BloopLookup(config, previousSetup, logger)
-        val analysis = invalidateAnalysisFromSetup(config.currentSetup, previousSetup, incrementalOptions.ignoredScalacOptions(), setOfSources, prev, manager, logger)
+        val analysis = invalidateAnalysisFromSetup(config.currentSetup, previousSetup, setOfSources, prev, manager, logger)
 
         // Scala needs the explicit type signature to infer the function type arguments
         val compile: (Set[VirtualFile], DependencyChanges, AnalysisCallback, ClassFileManager) => Task[Unit] = compiler.compile(_, _, _, _, cancelPromise, classpathOptions)
@@ -147,7 +147,6 @@ object BloopZincCompiler {
             analysis,
             output,
             logger,
-            reporter,
             config.incOptions,
             manager,
             tracer,
@@ -177,7 +176,6 @@ object BloopZincCompiler {
   def invalidateAnalysisFromSetup(
       setup: MiniSetup,
       previousSetup: Option[MiniSetup],
-      ignoredScalacOptions: Array[String],
       sources: Set[VirtualFile],
       previousAnalysis: CompileAnalysis,
       manager: ClassFileManager,
@@ -241,7 +239,6 @@ object BloopZincCompiler {
       progress: Option[CompileProgress] = None,
       options: Seq[String] = Nil,
       javacOptions: Seq[String] = Nil,
-      classpathOptions: ClasspathOptions,
       previousAnalysis: CompileAnalysis,
       previousSetup: Option[MiniSetup],
       perClasspathEntryLookup: PerClasspathEntryLookup,
@@ -249,8 +246,7 @@ object BloopZincCompiler {
       compileOrder: CompileOrder = CompileOrder.Mixed,
       skip: Boolean = false,
       incrementalCompilerOptions: IncOptions,
-      extra: List[(String, String)],
-      tracer: BraveTracer
+      extra: List[(String, String)]
   ): Task[CompileConfiguration] = Task.now {
     // Remove directories from classpath hashes, we're only interested in jars
     val jarClasspathHashes = BloopLookup.filterOutDirsFromHashedClasspath(classpathHashes)

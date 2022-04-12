@@ -58,7 +58,6 @@ object ClasspathHasherSpec extends bloop.testing.BaseSuite {
 
   ignore("detect macros in classpath") {
     val logger = new RecordingLogger()
-    import bloop.engine.ExecutionContext.ioScheduler
     val jars = DependencyResolution
       .resolve(
         List(DependencyResolution.Artifact("ch.epfl.scala", "zinc_2.12", "1.2.1+97-636ca091")),

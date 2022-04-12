@@ -271,7 +271,6 @@ object Interpreter {
                     }
                   }
 
-                  import bloop.engine.ExecutionContext.ioScheduler
                   val dag = state.build.getDagFor(project)
                   // If none version is found (e.g. all Java projects), use Bloop's scala version
                   val scalaVersion = findScalaVersion(dag)

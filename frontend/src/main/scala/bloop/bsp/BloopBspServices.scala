@@ -689,7 +689,6 @@ final class BloopBspServices(
 
   def test(params: bsp.TestParams): BspEndpointResponse[bsp.TestResult] = {
     def test(
-        id: BuildTargetIdentifier,
         project: Project,
         state: State
     ): Task[State] = {
@@ -713,7 +712,7 @@ final class BloopBspServices(
               compileResult match {
                 case Right(_) =>
                   val sequentialTestExecution = mappings.foldLeft(Task.now(newState)) {
-                    case (taskState, (tid, p)) => taskState.flatMap(state => test(tid, p, state))
+                    case (taskState, (_, p)) => taskState.flatMap(state => test(p, state))
                   }
 
                   sequentialTestExecution.materialize.map(_.toEither).map {

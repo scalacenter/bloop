@@ -23,11 +23,10 @@ object SemanticDBCache {
   ): Either[String, AbsolutePath] = {
 
     def attemptResolution: Either[String, AbsolutePath] = {
-      import bloop.engine.ExecutionContext.ioScheduler
       DependencyResolution.resolveWithErrors(
         List(artifact),
         logger
-      )(ioScheduler) match {
+      ) match {
         case Left(error) => Left(error.getMessage())
         case Right(paths) =>
           paths.find(_.syntax.contains(artifact.module)) match {

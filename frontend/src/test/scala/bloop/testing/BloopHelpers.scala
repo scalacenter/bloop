@@ -88,7 +88,6 @@ trait BloopHelpers {
       baseDir,
       workspace.underlying,
       ExecutionContext.ioScheduler,
-      logger,
       enableCancellation = false
     )
 
@@ -303,7 +302,6 @@ trait BloopHelpers {
               classesDir,
               newClassesDir,
               ExecutionContext.ioScheduler,
-              logger,
               enableCancellation = false
             )
 

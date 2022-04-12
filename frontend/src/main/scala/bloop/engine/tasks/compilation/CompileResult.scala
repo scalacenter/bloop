@@ -40,7 +40,7 @@ object PartialCompileResult {
   def toFinalResult(result: PartialCompileResult): Task[List[FinalCompileResult]] = {
     result match {
       case PartialEmpty => Task.now(FinalEmptyResult :: Nil)
-      case f @ PartialFailure(project, _, bundle) =>
+      case PartialFailure(project, _, bundle) =>
         bundle.map(b => FinalNormalCompileResult(project, b) :: Nil)
       case PartialFailures(failures, _) =>
         Task.gatherUnordered(failures.map(toFinalResult(_))).map(_.flatten)
@@ -106,7 +106,6 @@ object FinalNormalCompileResult {
 object FinalCompileResult {
   import scalaz.Show
   final implicit val showFinalResult: Show[FinalCompileResult] = new Show[FinalCompileResult] {
-    private def seconds(ms: Double): String = s"${ms}ms"
     override def shows(r: FinalCompileResult): String = {
       r match {
         case FinalEmptyResult => s"<empty> (product of dag aggregation)"

@@ -14,8 +14,6 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
 
-import scala.concurrent.ExecutionContext
-
 import _root_.bloop.io.AbsolutePath
 import _root_.bloop.logging.DebugFilter
 import _root_.bloop.logging.{Logger => BloopLogger}
@@ -94,9 +92,7 @@ object BloopComponentCompiler {
   private class BloopCompilerBridgeProvider(
       userProvidedBridgeSources: Option[ModuleID],
       manager: BloopComponentManager,
-      scalaJarsTarget: File,
-      logger: BloopLogger,
-      scheduler: ExecutionContext
+      logger: BloopLogger
   ) extends CompilerBridgeProvider {
 
     /**
@@ -106,9 +102,8 @@ object BloopComponentCompiler {
      * is a Scala-defined class to which the compiler bridge cannot depend on.
      */
     private def compiledBridge(bridgeSources: ModuleID, scalaInstance: ScalaInstance): File = {
-      val scalaVersion = scalaInstance.version()
       val raw = new RawCompiler(scalaInstance, ClasspathOptionsUtil.auto, logger)
-      val zinc = new BloopComponentCompiler(raw, manager, bridgeSources, logger, scheduler)
+      val zinc = new BloopComponentCompiler(raw, manager, bridgeSources, logger)
       logger.debug(s"Getting $bridgeSources for Scala ${scalaInstance.version}")(
         DebugFilter.Compilation
       )
@@ -132,7 +127,7 @@ object BloopComponentCompiler {
               BloopDependencyResolution.Artifact(ScalaOrganization, ScalaCompilerID, scalaVersion)
             ),
             logger
-          )(scheduler)
+          )
           .map(_.toFile)
           .toVector
       }
@@ -178,17 +173,13 @@ object BloopComponentCompiler {
   def interfaceProvider(
       compilerBridgeSource: ModuleID,
       manager: BloopComponentManager,
-      scalaJarsTarget: File,
-      logger: BloopLogger,
-      scheduler: ExecutionContext
+      logger: BloopLogger
   ): CompilerBridgeProvider = {
     val bridgeSources = Some(compilerBridgeSource)
     new BloopCompilerBridgeProvider(
       bridgeSources,
       manager,
-      scalaJarsTarget,
-      logger,
-      scheduler
+      logger
     )
   }
 
@@ -225,8 +216,7 @@ private[inc] class BloopComponentCompiler(
     compiler: RawCompiler,
     manager: BloopComponentManager,
     bridgeSources: ModuleID,
-    logger: BloopLogger,
-    scheduler: ExecutionContext
+    logger: BloopLogger
 ) {
   implicit val debugFilter: DebugFilter.Compilation.type = DebugFilter.Compilation
   def compiledBridgeJar: File = {
@@ -251,7 +241,7 @@ private[inc] class BloopComponentCompiler(
   private def compileAndInstall(compilerBridgeId: String): Unit = {
     IO.withTemporaryDirectory { binaryDirectory =>
       val target = new File(binaryDirectory, s"$compilerBridgeId.jar")
-      IO.withTemporaryDirectory { retrieveDirectory =>
+      IO.withTemporaryDirectory { _ =>
         val shouldResolveSources =
           bridgeSources.explicitArtifacts.exists(_.`type` == "src")
         val allArtifacts = BloopDependencyResolution.resolveWithErrors(
@@ -261,7 +251,7 @@ private[inc] class BloopComponentCompiler(
           ),
           logger,
           resolveSources = shouldResolveSources
-        )(scheduler) match {
+        ) match {
           case Right(paths) => paths.map(_.underlying).toVector
           case Left(t) =>
             val msg = s"Couldn't retrieve module $bridgeSources"
@@ -275,7 +265,6 @@ private[inc] class BloopComponentCompiler(
           val (sources, xsbtiJars) =
             allArtifacts.partition(_.toFile.getName.endsWith("-sources.jar"))
           val (toCompileID, allSources) = {
-            val instance = compiler.scalaInstance
             if (!HydraSupport.isEnabled(compiler.scalaInstance)) (bridgeSources.name, sources)
             else {
               val hydraBridgeModule = HydraSupport.getModuleForBridgeSources(compiler.scalaInstance)
@@ -324,7 +313,7 @@ private[inc] class BloopComponentCompiler(
       logger,
       resolveSources = true,
       additionalRepositories = List(HydraSupport.resolver)
-    )(scheduler) match {
+    ) match {
       case Right(paths) => Right(paths.map(_.underlying).toVector)
       case Left(t) =>
         val msg = s"Couldn't retrieve module $hydraBridgeModule"

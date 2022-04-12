@@ -158,7 +158,6 @@ final class BloopHighLevelCompiler(
 
         def compileSequentially: Task[Unit] = Task {
           val scalacOptions = setup.options.scalacOptions
-          val args = compilerArgs.makeArguments(Nil, classpathNio, scalacOptions)
           timed("scalac") {
             compileSources(sources, scalacOptions, callback)
           }

@@ -293,7 +293,6 @@ object Project {
   }
 
   def fromConfig(file: Config.File, origin: Origin, logger: Logger): Project = {
-    val ec = bloop.engine.ExecutionContext.ioScheduler
     val project = file.project
     val scala = project.`scala`
 
@@ -304,7 +303,7 @@ object Project {
         else {
           val scalaJars = scala.jars.map(AbsolutePath.apply)
           Some(
-            ScalaInstance(scala.organization, scala.name, scala.version, scalaJars, logger)(ec)
+            ScalaInstance(scala.organization, scala.name, scala.version, scalaJars, logger)
           )
         }
       }

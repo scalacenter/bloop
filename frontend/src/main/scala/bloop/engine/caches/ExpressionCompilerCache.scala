@@ -30,13 +30,12 @@ object ExpressionCompilerCache {
     val expressionCompilerId = s"$expressionCompilerOrganization.$module.$expressionCompilerVersion"
 
     def attemptResolution(): Either[String, AbsolutePath] = {
-      import bloop.engine.ExecutionContext.ioScheduler
       val artifact = DependencyResolution.Artifact(
         expressionCompilerOrganization,
         module,
         expressionCompilerVersion
       )
-      DependencyResolution.resolveWithErrors(List(artifact), logger)(ioScheduler) match {
+      DependencyResolution.resolveWithErrors(List(artifact), logger) match {
         case Left(error) => Left(error.getMessage())
         case Right(paths) =>
           paths

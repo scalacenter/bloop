@@ -42,7 +42,6 @@ trait IBloopAnalysisCallback extends xsbti.AnalysisCallback {
 
 final class BloopAnalysisCallback(
     internalBinaryToSourceClassName: String => Option[String],
-    internalSourceToClassNamesMap: VirtualFile => Set[String],
     externalAPI: (Path, String) => Option[AnalyzedClass],
     stampReader: ReadStamps,
     output: Output,
@@ -143,8 +142,7 @@ final class BloopAnalysisCallback(
   private[this] def externalBinaryDependency(
       binary: Path,
       className: String,
-      source: VirtualFileRef,
-      context: DependencyContext
+      source: VirtualFileRef
   ): Unit = {
     binaryClassName.put(binary, className)
     add(binaryDeps, converter.toPath(source), binary)
@@ -213,7 +211,7 @@ final class BloopAnalysisCallback(
         externalSourceDependency(sourceClassName, targetBinaryClassName, api, context)
       case None =>
         // dependency is some other binary on the classpath
-        externalBinaryDependency(classFile, onBinaryName, sourceFile, context)
+        externalBinaryDependency(classFile, onBinaryName, sourceFile)
     }
   }
 
@@ -307,7 +305,7 @@ final class BloopAnalysisCallback(
   def getOrNil[A, B](m: collection.Map[A, Seq[B]], a: A): Seq[B] = m.get(a).toList.flatten
   def addCompilation(base: Analysis): Analysis =
     base.copy(compilations = base.compilations.add(compilation))
-  def addUsedNames(base: Analysis): Analysis = (base /: usedNames) {
+  def addUsedNames(base: Analysis): Analysis = usedNames.foldLeft(base) {
     case (a, (className, names)) =>
       a.copy(relations = a.relations.addUsedNames(UsedNames.fromMultiMap(Map(className -> names))))
   }
@@ -355,7 +353,7 @@ final class BloopAnalysisCallback(
   }
 
   def addProductsAndDeps(base: Analysis): Analysis = {
-    (base /: srcs) {
+    srcs.foldLeft(base) {
       case (a, src) =>
         val stamp = stampReader.source(converter.toVirtualFile(src))
         val classesInSrc =

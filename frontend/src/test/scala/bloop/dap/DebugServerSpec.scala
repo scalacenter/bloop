@@ -670,9 +670,7 @@ object DebugServerSpec extends DebugBspBaseSuite {
 
       val scalaVersion = "2.12.15"
       val compilerJars = ScalaInstance
-        .resolve("org.scala-lang", "scala-compiler", scalaVersion, logger)(
-          ExecutionContext.ioScheduler
-        )
+        .resolve("org.scala-lang", "scala-compiler", scalaVersion, logger)
         .allJars
         .map(AbsolutePath.apply)
       val junitJars = BuildTestInfo.junitTestJars.map(AbsolutePath.apply)
@@ -816,9 +814,7 @@ object DebugServerSpec extends DebugBspBaseSuite {
 
       val scalaVersion = "2.12.15"
       val compilerJars = ScalaInstance
-        .resolve("org.scala-lang", "scala-compiler", scalaVersion, logger)(
-          ExecutionContext.ioScheduler
-        )
+        .resolve("org.scala-lang", "scala-compiler", scalaVersion, logger)
         .allJars
         .map(AbsolutePath.apply)
       val junitJars = BuildTestInfo.junitTestJars.map(AbsolutePath.apply)
