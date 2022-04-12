@@ -1,5 +1,6 @@
 package bloop.testing
 
+import scala.annotation.nowarn
 import scala.collection.JavaConverters._
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
@@ -30,6 +31,7 @@ import utest.ufansi.Attrs
 import utest.ufansi.Color
 import utest.ufansi.Str
 
+@nowarn("msg=parameter value (filename|line) in method")
 abstract class BaseSuite extends TestSuite with BloopHelpers {
   val pprint = _root_.pprint.PPrinter.BlackWhite
   def isWindows: Boolean = bloop.util.CrossPlatform.isWindows
@@ -171,7 +173,7 @@ abstract class BaseSuite extends TestSuite with BloopHelpers {
       assertSameExternalClassesDirs(s1, s2, project, printDiff = false)
       fail("External classes dirs of ${project.config.name} in both states is the same!")
     } catch {
-      case e: DiffAssertions.TestFailedException => ()
+      case _: DiffAssertions.TestFailedException => ()
     }
   }
 
@@ -524,6 +526,7 @@ abstract class BaseSuite extends TestSuite with BloopHelpers {
   case class FlatTest(name: String, thunk: () => Unit)
   private val myTests = IndexedSeq.newBuilder[FlatTest]
 
+  @nowarn("msg=parameter value fun in method ignore is never used")
   def ignore(name: String, label: String = "IGNORED")(fun: => Any): Unit = {
     myTests += FlatTest(
       utest.ufansi.Color.LightRed(s"$label - $name").toString(),

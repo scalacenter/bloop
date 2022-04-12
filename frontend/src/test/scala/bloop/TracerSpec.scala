@@ -13,12 +13,12 @@ object TracerSpec extends BaseSuite {
       Thread.sleep(700)
       tracer.trace(s"previous child ${id}") { tracer =>
         Thread.sleep(500)
-        tracer.trace(s"inside child ${id}") { tracer =>
+        tracer.trace(s"inside child ${id}") { _ =>
           Thread.sleep(500)
         }
       }
 
-      tracer.trace(s"next children ${id}") { tracer =>
+      tracer.trace(s"next children ${id}") { _ =>
         Thread.sleep(250)
       }
       Thread.sleep(750)

@@ -100,7 +100,7 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
     def findBuildTarget(project: TestProject): bsp.BuildTarget = {
       val workspaceTargetTask = {
         Workspace.buildTargets.request(bsp.WorkspaceBuildTargetsRequest()).map {
-          case Left(e) => fail("The request for build targets in ${state.build.origin} failed!")
+          case Left(_) => fail("The request for build targets in ${state.build.origin} failed!")
           case Right(ts) =>
             ts.targets.map(t => t.id -> t).find(_._1 == project.bspId) match {
               case Some((_, target)) => target
@@ -128,7 +128,7 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
         project: TestProject
     )(f: bsp.BuildTargetIdentifier => Task[T]): Task[T] = {
       Workspace.buildTargets.request(bsp.WorkspaceBuildTargetsRequest()).flatMap {
-        case Left(e) => fail("The request for build targets in ${state.build.origin} failed!")
+        case Left(_) => fail("The request for build targets in ${state.build.origin} failed!")
         case Right(ts) =>
           ts.targets.map(_.id).find(_ == project.bspId) match {
             case Some(target) => f(target)
@@ -605,10 +605,8 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
       cmd: Commands.ValidatedBsp,
       configDirectory: AbsolutePath,
       logger: BspClientLogger[_],
-      allowError: Boolean = false,
       userIOScheduler: Option[Scheduler] = None,
       userComputationScheduler: Option[Scheduler] = None,
-      clientClassesRootDir: Option[AbsolutePath] = None,
       clientName: String = "test-bloop-client",
       bloopExtraParams: BloopExtraBuildParams = BloopExtraBuildParams.empty,
       compileStartPromises: Option[mutable.HashMap[bsp.BuildTargetIdentifier, Promise[Unit]]] = None
@@ -658,7 +656,9 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
 
       val services = addDiagnosticsHandler(TestUtil.createTestServices(false, logger))
       val lsServer = new BloopLanguageServer(messages, lsClient, services, ioScheduler, logger)
-      val runningClientServer = lsServer.processMessagesSequentiallyTask.runAsync(ioScheduler)
+      
+      lsServer.processMessagesSequentiallyTask.runAsync(ioScheduler)
+      
       val cwd = configDirectory.underlying.getParent
       val additionalData = Try(BloopExtraBuildParams.encoder(bloopExtraParams)).toOption
       val initializeServer = endpoints.Build.initialize.request(

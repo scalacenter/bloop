@@ -120,10 +120,9 @@ object FileWatchingSpec extends BaseSuite {
 
       val (logObserver, logsObservable) =
         Observable.multicast[(String, String)](MulticastStrategy.replay)(ioScheduler)
-      val logger = new PublisherLogger(logObserver, debug = true, DebugFilter.All)
+      val logger = new PublisherLogger(logObserver, DebugFilter.All)
 
-      val futureWatchedCompiledState =
-        compiledState.withLogger(logger).compileHandle(`C`, watch = true)
+      compiledState.withLogger(logger).compileHandle(`C`, watch = true)
 
       val HasIterationStoppedMsg = s"Watching ${numberDirsOf(compiledState.getDagFor(`C`))}"
       def waitUntilIteration(totalIterations: Int, duration: Option[Long] = None): Task[Unit] =
@@ -233,10 +232,9 @@ object FileWatchingSpec extends BaseSuite {
 
       val (logObserver, logsObservable) =
         Observable.multicast[(String, String)](MulticastStrategy.replay)(ioScheduler)
-      val logger = new PublisherLogger(logObserver, debug = true, DebugFilter.All)
+      val logger = new PublisherLogger(logObserver, DebugFilter.All)
 
-      val futureWatchedCompiledState =
-        compiledState.withLogger(logger).compileHandle(`A`, watch = true)
+      compiledState.withLogger(logger).compileHandle(`A`, watch = true)
 
       val HasIterationStoppedMsg = s"Watching ${numberDirsOf(compiledState.getDagFor(`A`))}"
       def waitUntilIteration(totalIterations: Int, duration: Option[Long] = None): Task[Unit] =
@@ -303,10 +301,9 @@ object FileWatchingSpec extends BaseSuite {
 
       val (logObserver, logsObservable) =
         Observable.multicast[(String, String)](MulticastStrategy.replay)(ioScheduler)
-      val logger = new PublisherLogger(logObserver, debug = true, DebugFilter.All)
+      val logger = new PublisherLogger(logObserver, DebugFilter.All)
 
-      val futureWatchedCompiledState =
-        compiledState.withLogger(logger).compileHandle(`B`, watch = true)
+      compiledState.withLogger(logger).compileHandle(`B`, watch = true)
 
       val HasIterationStoppedMsg = s"Watching ${numberDirsOf(compiledState.getDagFor(`B`))}"
       def waitUntilIteration(totalIterations: Int): Task[Unit] =
@@ -322,7 +319,7 @@ object FileWatchingSpec extends BaseSuite {
       TestUtil.await(FiniteDuration(20, TimeUnit.SECONDS), ExecutionContext.ioScheduler) {
         for {
           _ <- waitUntilIteration(1)
-          initialWatchedState <- Task(testValidLatestState)
+          _ <- Task(testValidLatestState)
           // Write two events, notifications should be buffered and trigger one compilation
           _ <- Task(writeFile(`A`.srcFor("A.scala"), Sources.`A2.scala`))
           // Write another change with a delay to simulate remote development in VS Code
@@ -380,7 +377,7 @@ object FileWatchingSpec extends BaseSuite {
     waitForIterationFor(FiniteDuration(initialDuration.getOrElse(1500L), "ms"))
       .onErrorFallbackTo(waitForIterationFor(FiniteDuration(5000, "ms")))
       .doOnFinish {
-        case Some(value) => Task.eval(System.err.println(errorMessage))
+        case Some(_) => Task.eval(System.err.println(errorMessage))
         case None => Task.unit
       }
   }
@@ -407,7 +404,7 @@ object FileWatchingSpec extends BaseSuite {
 
       val (logObserver, logsObservable) =
         Observable.multicast[(String, String)](MulticastStrategy.replay)(ioScheduler)
-      val logger = new PublisherLogger(logObserver, debug = true, DebugFilter.All)
+      val logger = new PublisherLogger(logObserver, DebugFilter.All)
 
       val futureWatchedCompiledState =
         compiledState.withLogger(logger).compileHandle(`A`, watch = true)
@@ -463,7 +460,6 @@ object FileWatchingSpec extends BaseSuite {
     }
 
     import bloop.util.monix.BloopBufferTimedObservable
-    val a: Observable[Seq[String]] = new BloopBufferTimedObservable(observable, 40.millis, 0)
 
     val consumingTask =
       new BloopBufferTimedObservable(observable, 40.millis, 0)

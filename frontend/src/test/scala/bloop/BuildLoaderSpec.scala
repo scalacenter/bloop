@@ -56,7 +56,7 @@ object BuildLoaderSpec extends BaseSuite {
   testLoad("do not reload if same settings are added", Some(sameSettings)) { (testBuild, logger) =>
     testBuild.state.build.checkForChange(Some(sameSettings), logger).map {
       case Build.ReturnPreviousState => ()
-      case action: Build.UpdateState =>
+      case _: Build.UpdateState =>
         sys.error(s"Expected return previous state, got updated state")
     }
   }
@@ -162,13 +162,12 @@ object BuildLoaderSpec extends BaseSuite {
   ) { (testBuild, logger) =>
     testBuild.state.build.checkForChange(None, logger).map {
       case Build.ReturnPreviousState => ()
-      case action: Build.UpdateState =>
+      case _: Build.UpdateState =>
         sys.error(s"Expected return previous state, got updated state")
     }
   }
 
   testLoad("do not reload on empty settings") { (testBuild, logger) =>
-    val configDir = testBuild.configFileFor(testBuild.projects.head).getParent
     testBuild.state.build.checkForChange(None, logger).map {
       case Build.ReturnPreviousState => ()
       case action: Build.UpdateState => sys.error(s"Expected return previous state, got $action")
@@ -346,7 +345,6 @@ object BuildLoaderSpec extends BaseSuite {
       val d = TestProject(workspace, "d", Nil)
       val projects = List(a, b, c, d)
       val state = loadState(workspace, projects, logger, settings)
-      val configDir = state.build.origin
       val build = TestBuild(state, projects)
       TestUtil.blockOnTask(f(build, logger), 5)
     }

@@ -259,7 +259,7 @@ class BspConnectionSpec(
               )
               .flatMap { _ =>
                 // Wait until observable is completed, which means server is done
-                bspState.serverStates.foreachL(state => ())
+                bspState.serverStates.foreachL(_ => ())
               }
           }
         }.flatten

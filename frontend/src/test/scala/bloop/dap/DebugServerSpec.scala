@@ -842,12 +842,6 @@ object DebugServerSpec extends DebugBspBaseSuite {
           )
         val runner = testRunner(project, state, testClasses)
 
-        val buildProject = state.toTestState.getProjectFor(project)
-        def srcFor(srcName: String) =
-          buildProject.sources.map(_.resolve(srcName)).find(_.exists).get
-        val `MySuite.scala` = srcFor("MySuite.scala")
-        val breakpoints = breakpointsArgs(`MySuite.scala`, 5)
-
         startDebugServer(runner) { server =>
           val test = for {
             client <- server.startConnection

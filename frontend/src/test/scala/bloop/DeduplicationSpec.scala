@@ -345,7 +345,6 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
     BuildUtil.testSlowBuild(logger) { build =>
       val state = new TestState(build.state)
       val projects = List(build.macroProject, build.userProject)
-      val testBuild = new TestBuild(state, projects)
       val compiledMacrosState = state.compile(build.macroProject)
 
       assert(compiledMacrosState.status == ExitStatus.Ok)
@@ -446,7 +445,6 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
   }
 
   test("three concurrent clients receive error diagnostics appropriately") {
-    val logger = new RecordingLogger(ansiCodesSupported = false)
     TestUtil.withinWorkspace { workspace =>
       object Sources {
         val `A.scala` =
@@ -638,7 +636,7 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
 
         val secondBspState =
           Await.result(fourthCompilation, FiniteDuration(4, TimeUnit.SECONDS))
-        val (fourthCompiledState, fifthCompiledState) =
+        val (_, fifthCompiledState) =
           TestUtil.blockOnTask(mapBoth(fifthCompilation, sixthCompilation), 2)
 
         checkDeduplication(bspLogger, isDeduplicated = false)
@@ -730,8 +728,8 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
           waitUntilStartAndCompile(newCliCompiledState, `B`, startedThirdCompilation, cliLogger7)
 
         val thirdBspState = Await.result(seventhCompilation, FiniteDuration(10, TimeUnit.SECONDS))
-        val seventhCompiledState =
-          Await.result(eighthCompilation, FiniteDuration(5, TimeUnit.SECONDS))
+
+        Await.result(eighthCompilation, FiniteDuration(5, TimeUnit.SECONDS))
 
         checkDeduplication(bspLogger, isDeduplicated = false)
         checkDeduplication(cliLogger7, isDeduplicated = true)
@@ -765,7 +763,6 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
 
   // TODO(jvican): Compile project of cancelled compilation to ensure no deduplication trace is left
   test("cancel deduplicated compilation finishes all clients") {
-    val logger = new RecordingLogger(ansiCodesSupported = false)
     TestUtil.withinWorkspace { workspace =>
       object Sources {
         val `A.scala` =
@@ -926,7 +923,6 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
     )
 
     try {
-      val logger = new RecordingLogger(ansiCodesSupported = false)
       TestUtil.withinWorkspace { workspace =>
         object Sources {
           val `A.scala` =

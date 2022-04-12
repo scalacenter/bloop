@@ -197,7 +197,7 @@ class BloopLoggerSpec {
         implicit val ctx: DebugFilter = DebugFilter.Compilation
         logger.debug(CompilationDebugLog2)
       }
-    } { (stdout, stderr) =>
+    } { (_, stderr) =>
       val successfulDebugs = List(AllDebugLog, CompilationDebugLog, CompilationDebugLog2)
       val prefixedLogs = successfulDebugs.map(msg => s"[D] $msg").sorted
       assertTrue(s"Unexpected ${stderr}", stderr.toList.sorted == prefixedLogs)
@@ -209,12 +209,12 @@ class BloopLoggerSpec {
     val plainMessage = s"this is an info message"
     val plainErrorPrefix = "[E] "
     val coloredMessage = plainMessage.replaceAll("info", s"${RED}info${RESET}")
-    runAndCheck { _.info(coloredMessage) } { (outMsgs, errMsgs) =>
+    runAndCheck { _.info(coloredMessage) } { (outMsgs, _) =>
       assertEquals(1, outMsgs.length.toLong)
       assertEquals(coloredMessage, outMsgs.head)
     }(enableColors = true)
 
-    runAndCheck { _.error(coloredMessage) } { (outMsgs, errMsgs) =>
+    runAndCheck { _.error(coloredMessage) } { (_, errMsgs) =>
       assertEquals(1, errMsgs.length.toLong)
       // Color should have been removed from the message
       assertEquals(plainErrorPrefix + plainMessage, errMsgs.head)

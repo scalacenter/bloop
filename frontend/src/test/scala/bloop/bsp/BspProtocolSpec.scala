@@ -337,7 +337,7 @@ class BspProtocolSpec(
               assert(expectedVersion == scalaTarget.scalaVersion)
               assert(expectedVersion.startsWith(scalaTarget.scalaBinaryVersion))
               assert(scalaTarget.platform == expectedPlatform)
-            case Left(e) => fail(s"Couldn't decode scala build target for ${bspTarget}")
+            case Left(_) => fail(s"Couldn't decode scala build target for ${bspTarget}")
           }
         }
 
@@ -441,7 +441,6 @@ class BspProtocolSpec(
 
       val projects = List(`A`)
       loadBspState(workspace, projects, logger) { state =>
-        val project = state.underlying.build.loadedProjects.head
         def assertSourcesMatches(expected: String): Unit = {
           val obtained = for {
             item <- state.requestSources(`A`).items

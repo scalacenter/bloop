@@ -216,7 +216,7 @@ object CliSpec extends BaseSuite {
   import scala.reflect.ClassTag
   def checkIsCommand[T <: Commands.Command: ClassTag](action: Action): Unit = {
     action match {
-      case Run(obtained: T, Exit(ExitStatus.Ok)) => ()
+      case Run(_: T, Exit(ExitStatus.Ok)) => ()
       case _ => throw new AssertionError(s"Expected command doesn't exist in ${action}.")
     }
   }

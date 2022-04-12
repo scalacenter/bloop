@@ -827,7 +827,6 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
       val projects = List(`A`)
       val state = loadState(workspace, projects, logger)
       val compiledState = state.compile(`A`)
-      val compiledStateBackup = compiledState.backup
       assertExitStatus(compiledState, ExitStatus.Ok)
       assertValidCompilationState(compiledState, projects)
 
@@ -1300,7 +1299,6 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
       assertExitStatus(compiledMacrosState, ExitStatus.Ok)
       assertValidCompilationState(compiledMacrosState, List(build.macroProject))
 
-      val projects = List(build.macroProject, build.userProject)
       val backgroundCompiledUserState =
         compiledMacrosState.compileHandle(build.userProject)
 
@@ -1322,7 +1320,7 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
         try Await.result(backgroundCompiledUserState, Duration(8000, "ms"))
         catch {
           case NonFatal(t) => backgroundCompiledUserState.cancel(); throw t
-          case i: InterruptedException => backgroundCompiledUserState.cancel(); compiledMacrosState
+          case _: InterruptedException => backgroundCompiledUserState.cancel(); compiledMacrosState
         }
       }
 
@@ -1374,7 +1372,8 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
         case Some(found) =>
           val `App.scala` = allowlistProject.srcFor("hello/App.scala")
           assertIsFile(writeFile(`App.scala`, Sources.`App2.scala`))
-          val secondCompiledState = compiledState.compile(allowlistProject)
+
+          compiledState.compile(allowlistProject)
 
           // The recompilation forces the compiler to show the hashcode of plugin classloader
           val foundMessages = logger.infos.count(_ == found)
@@ -1393,7 +1392,7 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
             val newAllowlistProject =
               new util.TestProject(allowlistProject.config.copy(scala = newScala), None)
             val newProjects = newAllowlistProject :: remainingProjects
-            val configDir = populateWorkspace(build, List(newAllowlistProject))
+            populateWorkspace(build, List(newAllowlistProject))
             newAllowlistProject -> loadState(workspace, newProjects, logger)
           }
 

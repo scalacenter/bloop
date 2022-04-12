@@ -99,7 +99,7 @@ trait BloopHelpers {
         Task {
           val configFile = f.path.underlying
           val oldWorkspace = AbsolutePath(baseDir)
-          loadTestProjectFromDisk(configFile, oldWorkspace.syntax, workspace.syntax, logger)
+          loadTestProjectFromDisk(configFile, oldWorkspace.syntax, workspace.syntax)
         }
       }
 
@@ -118,8 +118,7 @@ trait BloopHelpers {
   private def loadTestProjectFromDisk(
       configFile: Path,
       previousBaseDir: String,
-      newBaseDir: String,
-      logger: Logger
+      newBaseDir: String
   ): TestProject = {
     val bytes = Files.readAllBytes(configFile)
     val contents = new String(bytes, StandardCharsets.UTF_8)
@@ -286,7 +285,6 @@ trait BloopHelpers {
 
     def backup: TestState = {
       import java.nio.file.Files
-      val logger = this.state.logger
       val newSuccessfulTasks = state.results.successful.map {
         case (project, result) =>
           result.populatingProducts.flatMap { _ =>

@@ -17,7 +17,7 @@ import bloop.util.TestUtil
 abstract class BaseTestSpec(val projectName: String, buildName: String)
     extends ProjectBaseSuite(buildName) {
   val testOnlyOnJava8: Boolean = buildName == "cross-test-build-scalajs-0.6"
-  testProject("project compiles", testOnlyOnJava8) { (build, logger) =>
+  testProject("project compiles", testOnlyOnJava8) { (build, _) =>
     val project = build.projectFor(projectName)
     val compiledState = build.state.compile(project)
     assert(compiledState.status == ExitStatus.Ok)
@@ -26,7 +26,7 @@ abstract class BaseTestSpec(val projectName: String, buildName: String)
   val expectedFullTestsOutput: String
   testProject("runs all available suites", testOnlyOnJava8) { (build, logger) =>
     val project = build.projectFor(projectName)
-    val testState = build.state.test(project)
+    build.state.test(project)
     try assert(logger.errors.size == 0)
     catch { case _: AssertionError => logger.dump() }
     assertNoDiff(
@@ -160,7 +160,7 @@ object JvmTestSpec extends BaseTestSpec("test-project-test", "cross-test-build-s
   testProject("test options work when one framework is singled out", runOnlyOnJava8 = true) {
     (build, logger) =>
       val project = build.projectFor(projectName)
-      val testState = build.state.test(project, List("hello.JUnitTest"), List("*myTest*"))
+      build.state.test(project, List("hello.JUnitTest"), List("*myTest*"))
       assertNoDiff(
         logger.renderTimeInsensitiveTestInfos,
         """Test run started
@@ -179,7 +179,7 @@ object JvmTestSpec extends BaseTestSpec("test-project-test", "cross-test-build-s
 
   testProject("test exclusions work", runOnlyOnJava8 = true) { (build, logger) =>
     val project = build.projectFor(projectName)
-    val testState = build.state.test(project, List("-hello.JUnitTest"), Nil)
+    build.state.test(project, List("-hello.JUnitTest"), Nil)
     assertNoDiff(
       logger.renderTimeInsensitiveTestInfos,
       """|Execution took ???
@@ -234,7 +234,7 @@ object JvmTestSpec extends BaseTestSpec("test-project-test", "cross-test-build-s
   testProject("specifying -h in Scalatest runner works", runOnlyOnJava8 = true) { (build, logger) =>
     val project = build.projectFor(projectName)
     val scalatestArgs = List("-h", "target/test-reports")
-    val testState = build.state.test(project, List("hello.ScalaTestTest"), scalatestArgs)
+    build.state.test(project, List("hello.ScalaTestTest"), scalatestArgs)
     assertNoDiff(
       logger.renderTimeInsensitiveTestInfos,
       """ScalaTestTest:
@@ -254,7 +254,7 @@ object JvmTestSpec extends BaseTestSpec("test-project-test", "cross-test-build-s
   testProject("test options don't work when no framework is singled out", runOnlyOnJava8 = true) {
     (build, logger) =>
       val project = build.projectFor(projectName)
-      val testState = build.state.test(project, Nil, List("*myTest*"))
+      build.state.test(project, Nil, List("*myTest*"))
 
       assertNoDiff(
         logger.warnings.mkString(lineSeparator),
@@ -319,7 +319,7 @@ object JvmTestSpec extends BaseTestSpec("test-project-test", "cross-test-build-s
       )
   }
 
-  testProject("cancel test execution works", runOnlyOnJava8 = true) { (build, logger) =>
+  testProject("cancel test execution works", runOnlyOnJava8 = true) { (build, _) =>
     object Sources {
       val `JUnitTest.scala` =
         """package hello
@@ -372,7 +372,7 @@ object JvmTestSpec extends BaseTestSpec("test-project-test", "cross-test-build-s
         try Await.result(futureTestState, Duration(7000, "ms"))
         catch {
           case scala.util.control.NonFatal(t) => futureTestState.cancel(); throw t
-          case i: InterruptedException =>
+          case _: InterruptedException =>
             futureTestState.cancel()
             sys.error("Test execution didn't finish!")
         }

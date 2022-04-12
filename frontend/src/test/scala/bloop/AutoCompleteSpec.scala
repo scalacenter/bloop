@@ -170,7 +170,9 @@ class AutoCompleteSpec {
       )
 
       val action = Run(test1, Run(test2, Run(test3, Run(test4, Run(test5)))))
-      val state1 = TestUtil.blockingExecute(action, state0)
+
+      TestUtil.blockingExecute(action, state0)
+
       TestUtil.assertNoDiff(
         expected,
         logger.infos.mkString(lineSeparator)
