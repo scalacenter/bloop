@@ -2,7 +2,6 @@
 package sbt.internal.inc.bloop.internal
 
 import java.nio.file.Files
-import java.nio.file.Path
 import java.util.Optional
 
 import scala.concurrent.Promise
@@ -15,7 +14,6 @@ import bloop.tracing.BraveTracer
 import monix.eval.Task
 import sbt.internal.inc.AnalyzingCompiler
 import sbt.internal.inc.CompileConfiguration
-import sbt.internal.inc.CompilerArguments
 import sbt.internal.inc.JavaInterfaceUtil.EnrichOption
 import sbt.internal.inc.MixedAnalyzingCompiler
 import sbt.internal.inc.PlainVirtualFileConverter
@@ -48,7 +46,6 @@ final class BloopHighLevelCompiler(
 ) {
   private[this] final val setup = config.currentSetup
   private[this] final val classpath: Seq[VirtualFile] = config.classpath
-  private[this] final val classpathNio: Seq[Path] = classpath.map(PlainVirtualFileConverter.converter.toPath)
 
   private[this] val JavaCompleted: Promise[Unit] = Promise.successful(())
 
@@ -67,8 +64,7 @@ final class BloopHighLevelCompiler(
       changes: DependencyChanges,
       callback: AnalysisCallback,
       classfileManager: ClassFileManager,
-      cancelPromise: Promise[Unit],
-      classpathOptions: ClasspathOptions
+      cancelPromise: Promise[Unit]
   ): Task[Unit] = {
     def timed[T](label: String)(t: => T): T = {
       tracer.trace(label) { _ =>
@@ -111,32 +107,25 @@ final class BloopHighLevelCompiler(
           }
         }
 
-        def compilerArgs: CompilerArguments = {
-          import sbt.internal.inc.CompileFailed
-          if (scalac.scalaInstance.compilerJars().isEmpty) {
-            throw new CompileFailed(new Array(0), s"Expected Scala compiler jar in Scala instance containing ${scalac.scalaInstance.allJars().mkString(", ")}", new Array(0))
-          }
-
-          if (scalac.scalaInstance.libraryJars().isEmpty) {
-            throw new CompileFailed(new Array(0), s"Expected Scala library jar in Scala instance containing ${scalac.scalaInstance.allJars().mkString(", ")}", new Array(0))
-          }
-
-          new CompilerArguments(scalac.scalaInstance, classpathOptions)
-        }
-
         def compileSources(
             sources: Seq[VirtualFile],
             scalacOptions: Array[String],
             callback: AnalysisCallback
         ): Unit = {
+          import sbt.internal.inc.CompileFailed
+          if (scalac.scalaInstance.compilerJars().isEmpty) {
+            throw new CompileFailed(new Array(0), s"Expected Scala compiler jar in Scala instance containing ${scalac.scalaInstance.allJars().mkString(", ")}", new Array(0))
+          }
+          if (scalac.scalaInstance.libraryJars().isEmpty) {
+            throw new CompileFailed(new Array(0), s"Expected Scala library jar in Scala instance containing ${scalac.scalaInstance.allJars().mkString(", ")}", new Array(0))
+          }
           try {
-            val args = compilerArgs.makeArguments(Nil, classpathNio, scalacOptions)
             scalac.compile(
               sources.toArray,
               classpath.toArray,
               PlainVirtualFileConverter.converter,
               changes,
-              args.toArray,
+              scalacOptions,
               setup.output,
               callback,
               config.reporter,
@@ -158,7 +147,6 @@ final class BloopHighLevelCompiler(
 
         def compileSequentially: Task[Unit] = Task {
           val scalacOptions = setup.options.scalacOptions
-          val args = compilerArgs.makeArguments(Nil, classpathNio, scalacOptions)
           timed("scalac") {
             compileSources(sources, scalacOptions, callback)
           }
