@@ -17,7 +17,7 @@ import java.util
 
 import scala.collection.mutable
 
-import io.github.soc.directories.ProjectDirectories
+import dev.dirs.ProjectDirectories
 
 object Paths {
   private val projectDirectories = ProjectDirectories.from("", "", "bloop")

@@ -22,7 +22,7 @@ object Dependencies {
   val scalazVersion = "7.2.20"
   val scalaXmlVersion = "1.2.0"
   val lmVersion = "1.0.0"
-  val configDirsVersion = "12"
+  val configDirsVersion = "26"
   val caseAppVersion = "2.0.6"
   val sourcecodeVersion = "0.1.4"
   val sbtTestInterfaceVersion = "1.0"
@@ -64,7 +64,7 @@ object Dependencies {
   val nailgun = "ch.epfl.scala" % "nailgun-server" % nailgunVersion
   val javaDebug = "ch.epfl.scala" % "com-microsoft-java-debug-core" % javaDebugVersion
 
-  val configDirectories = "io.github.soc" % "directories" % configDirsVersion
+  val configDirectories = "dev.dirs" % "directories" % configDirsVersion
   val libraryManagement = "org.scala-sbt" %% "librarymanagement-ivy" % lmVersion
   val log4j = "org.apache.logging.log4j" % "log4j-core" % "2.17.1"
   val scalazCore = "org.scalaz" %% "scalaz-core" % scalazVersion
