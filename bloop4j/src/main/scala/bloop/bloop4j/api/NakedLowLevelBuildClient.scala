@@ -8,7 +8,6 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ExecutorService
-import java.util.concurrent.Future
 import java.{util => ju}
 
 import ch.epfl.scala.bsp4j.BuildClient
@@ -27,7 +26,6 @@ import bloop.bloop4j.util.Environment
 
 import org.eclipse.lsp4j.jsonrpc.Launcher
 import org.eclipse.lsp4j.jsonrpc.services.JsonNotification
-import scala.annotation.nowarn
 
 class NakedLowLevelBuildClient[ClientHandlers <: BuildClientHandlers](
     clientBaseDir: Path,
@@ -36,8 +34,6 @@ class NakedLowLevelBuildClient[ClientHandlers <: BuildClientHandlers](
     handlers: ClientHandlers,
     executor: Option[ExecutorService]
 ) extends LowLevelBuildClientApi[CompletableFuture] {
-  @nowarn("msg=private var launchedServer in class NakedLowLevelBuildClient is never used")
-  private var launchedServer: Future[Void] = null
   private var server: BloopBuildServer = null
 
   def initialize(params: InitializeBuildParams): CompletableFuture[InitializeBuildResult] = {
@@ -91,7 +87,7 @@ class NakedLowLevelBuildClient[ClientHandlers <: BuildClientHandlers](
     executor.foreach(executor => builder.setExecutorService(executor))
     val launcher = builder.create()
 
-    launchedServer = launcher.startListening()
+    launcher.startListening()
     val serverBridge = launcher.getRemoteProxy
     localClient.onConnectWithServer(serverBridge)
     serverBridge
