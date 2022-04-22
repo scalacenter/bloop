@@ -2,7 +2,6 @@ package bloop
 
 import bloop.cli.ExitStatus
 import bloop.internal.build.BuildInfo
-import bloop.io.AbsolutePath
 import bloop.io.Environment.lineSeparator
 import bloop.logging.RecordingLogger
 import bloop.testing.BaseSuite
@@ -32,8 +31,6 @@ object ConsoleSpec extends BaseSuite {
       val compiledState = state.console(`B`, ammArgs)
       assert(compiledState.status == ExitStatus.Ok)
       assertValidCompilationState(compiledState, projects)
-
-      val workspacePath = AbsolutePath(workspace.underlying.toRealPath())
 
       val projectB = state.getProjectFor(`B`)
       val dagB = state.getDagFor(`B`)

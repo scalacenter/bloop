@@ -3,7 +3,6 @@ package bloop.testing
 import scala.collection.mutable
 import scala.meta.jsonrpc.JsonRpcClient
 
-import ch.epfl.scala.bsp.BuildTargetIdentifier
 import ch.epfl.scala.debugadapter.DebuggeeListener
 import ch.epfl.scala.debugadapter.testing.TestSuiteEvent
 import ch.epfl.scala.debugadapter.testing.TestSuiteEventHandler
@@ -156,7 +155,7 @@ final class DebugLoggingEventHandler(logger: Logger, listener: DebuggeeListener)
     }
 }
 
-final class BspLoggingEventHandler(id: BuildTargetIdentifier, logger: Logger, client: JsonRpcClient)
+final class BspLoggingEventHandler(logger: Logger, client: JsonRpcClient)
     extends LoggingEventHandler(logger) {
   implicit val client0: JsonRpcClient = client
   override def report(): Unit = {

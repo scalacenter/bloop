@@ -111,8 +111,8 @@ object Dag {
           }
           dag match {
             case Leaf(value) if targets.contains(value) => aggregate(dag)
-            case Leaf(value) => None
-            case Parent(value, children) if targets.contains(value) => aggregate(dag)
+            case Leaf(_) => None
+            case Parent(value, _) if targets.contains(value) => aggregate(dag)
             case Parent(value, children) => cache.getOrElseUpdate(value, loop(children, targets))
             case Aggregate(dags) => loop(dags, targets)
           }
@@ -124,7 +124,7 @@ object Dag {
   def transitive[T](dag: Dag[T]): List[Dag[T]] = {
     dag match {
       case leaf: Leaf[T] => List(leaf)
-      case p @ Parent(value, children) => p :: children.flatMap(transitive)
+      case p @ Parent(_, children) => p :: children.flatMap(transitive)
       case Aggregate(dags) => dags.flatMap(transitive)
     }
   }
@@ -268,7 +268,7 @@ object Dag {
             }
 
           // Stop when we find a cascaded node but process all nodes we came from
-          case Parent(target, children) if cascaded.contains(target) =>
+          case Parent(target, _) if cascaded.contains(target) =>
             val newTrace = trace.addToTrace(target)
             processTrace(newTrace)
 
@@ -331,7 +331,7 @@ object Dag {
               val prettyPrintedDeps = dependencies.flatMap {
                 case Leaf(value) => List(Show.shows(value))
                 case Parent(value, _) => List(Show.shows(value))
-                case Aggregate(dags) => Nil
+                case Aggregate(_) => Nil
               }
               val target = Show.shows(value)
               prettyPrintedDeps.map(dep => s""""$dep" -> "$target";""") ++ downstream

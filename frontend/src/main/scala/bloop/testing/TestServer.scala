@@ -134,7 +134,7 @@ final class TestServer(
       val config = new ForkConfiguration(logger.ansiCodesSupported, /* parallel = */ false)
 
       @volatile var alreadyClosed: Boolean = false
-      def cleanSocketResources(t: Option[Throwable]) = Task {
+      def cleanSocketResources() = Task {
         if (!alreadyClosed) {
           for {
             _ <- Try(is.close())
@@ -148,8 +148,8 @@ final class TestServer(
       }
 
       Task(talk(is, os, config))
-        .doOnFinish(cleanSocketResources(_))
-        .doOnCancel(cleanSocketResources(None))
+        .doOnFinish(_ => cleanSocketResources())
+        .doOnCancel(cleanSocketResources())
     }
 
     def closeServer(t: Option[Throwable], fromCancel: Boolean) = Task {

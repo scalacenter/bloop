@@ -27,10 +27,8 @@ abstract class DebugBspBaseSuite extends BspBaseSuite {
       cmd: Commands.ValidatedBsp,
       configDirectory: AbsolutePath,
       logger: BspClientLogger[_],
-      allowError: Boolean = false,
       userIOScheduler: Option[Scheduler] = None,
       userComputationScheduler: Option[Scheduler] = None,
-      clientClassesRootDir: Option[AbsolutePath] = None,
       clientName: String = "test-bloop-client",
       bloopExtraParams: BloopExtraBuildParams = BloopExtraBuildParams.empty,
       compileStartPromises: Option[mutable.HashMap[bsp.BuildTargetIdentifier, Promise[Unit]]] = None
@@ -41,10 +39,8 @@ abstract class DebugBspBaseSuite extends BspBaseSuite {
       cmd,
       configDirectory,
       logger,
-      allowError,
       ioScheduler,
       userComputationScheduler,
-      clientClassesRootDir,
       clientName,
       bloopExtraParams,
       compileStartPromises

@@ -7,13 +7,11 @@ import bloop.cli.Commands
 import bloop.cli.ExitStatus
 import bloop.data.ClientInfo
 import bloop.data.WorkspaceSettings
-import bloop.engine.Action
 import bloop.engine.Build
 import bloop.engine.BuildLoader
 import bloop.engine.Exit
 import bloop.engine.Interpreter
 import bloop.engine.NoPool
-import bloop.engine.Print
 import bloop.engine.Run
 import bloop.engine.State
 import bloop.io.AbsolutePath
@@ -48,9 +46,9 @@ object Bloop extends CaseApp[CliOptions] {
   def run(state: State, options: CliOptions): Unit = {
     val origin = state.build.origin
     val config = origin.underlying
-    def waitForState(a: Action, t: Task[State]): State = {
+    def waitForState(t: Task[State]): State = {
       // Ignore the exit status here, all we want is the task to finish execution or fail.
-      Cli.waitUntilEndOfWorld(a, options, state.pool, config, state.logger) {
+      Cli.waitUntilEndOfWorld(options, state.pool, config, state.logger) {
         t.map(s => { State.stateCache.updateBuild(s.copy(status = ExitStatus.Ok)); s.status })
       }
 
@@ -64,55 +62,52 @@ object Bloop extends CaseApp[CliOptions] {
     val input = reader.readLine()
     input.split(" ") match {
       case Array("exit") =>
-        val persistOut = (msg: String) => state.commonOptions.ngout.println(msg)
-        waitForState(Exit(ExitStatus.Ok), Task.now(state))
+        waitForState(Task.now(state))
         ()
 
       case Array("projects") =>
         val action = Run(Commands.Projects(), Exit(ExitStatus.Ok))
-        run(waitForState(action, Interpreter.execute(action, Task.now(state))), options)
+        run(waitForState(Interpreter.execute(action, Task.now(state))), options)
 
       case Array("clean") =>
         val allProjects = state.build.loadedProjects.map(_.project.name)
         val action = Run(Commands.Clean(allProjects), Exit(ExitStatus.Ok))
-        run(waitForState(action, Interpreter.execute(action, Task.now(state))), options)
+        run(waitForState(Interpreter.execute(action, Task.now(state))), options)
 
       case Array("compile", projectName) =>
         val action = Run(Commands.Compile(List(projectName)), Exit(ExitStatus.Ok))
-        run(waitForState(action, Interpreter.execute(action, Task.now(state))), options)
+        run(waitForState(Interpreter.execute(action, Task.now(state))), options)
 
       case Array("compile", "--pipeline", projectName1) =>
         val action = Run(Commands.Compile(List(projectName1), pipeline = true))
-        run(waitForState(action, Interpreter.execute(action, Task.now(state))), options)
+        run(waitForState(Interpreter.execute(action, Task.now(state))), options)
 
       case Array("compile", projectName1, projectName2) =>
         val action =
           Run(Commands.Compile(List(projectName1)), Run(Commands.Compile(List(projectName2))))
-        run(waitForState(action, Interpreter.execute(action, Task.now(state))), options)
+        run(waitForState(Interpreter.execute(action, Task.now(state))), options)
 
       case Array("console", projectName) =>
         val action = Run(Commands.Console(List(projectName)), Exit(ExitStatus.Ok))
-        run(waitForState(action, Interpreter.execute(action, Task.now(state))), options)
+        run(waitForState(Interpreter.execute(action, Task.now(state))), options)
 
       case Array("test", projectName) =>
         val command = Commands.Test(List(projectName))
         val action = Run(command, Exit(ExitStatus.Ok))
-        run(waitForState(action, Interpreter.execute(action, Task.now(state))), options)
+        run(waitForState(Interpreter.execute(action, Task.now(state))), options)
 
       case Array("runMain", projectName, mainClass, args @ _*) =>
         val command = Commands.Run(List(projectName), Some(mainClass), args = args.toList)
         val action = Run(command, Exit(ExitStatus.Ok))
-        run(waitForState(action, Interpreter.execute(action, Task.now(state))), options)
+        run(waitForState(Interpreter.execute(action, Task.now(state))), options)
 
       case Array("run", projectName, args @ _*) =>
         val command = Commands.Run(List(projectName), None, args = args.toList)
         val action = Run(command, Exit(ExitStatus.Ok))
-        run(waitForState(action, Interpreter.execute(action, Task.now(state))), options)
+        run(waitForState(Interpreter.execute(action, Task.now(state))), options)
 
       case _ =>
-        val dummyAction =
-          Print(s"Not understood: '$input'", state.commonOptions, Exit(ExitStatus.Ok))
-        run(waitForState(dummyAction, Task.now(state)), options)
+        run(waitForState(Task.now(state)), options)
     }
   }
 

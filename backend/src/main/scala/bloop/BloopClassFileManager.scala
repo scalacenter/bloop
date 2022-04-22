@@ -16,7 +16,6 @@ import bloop.io.AbsolutePath
 import bloop.io.ParallelOps
 import bloop.io.ParallelOps.CopyMode
 import bloop.io.{Paths => BloopPaths}
-import bloop.reporter.Reporter
 import bloop.tracing.BraveTracer
 
 import monix.eval.Task
@@ -210,7 +209,7 @@ final class BloopClassFileManager(
       backgroundTasksWhenNewSuccessfulAnalysis.+=(
         (
             clientExternalClassesDir: AbsolutePath,
-            clientReporter: Reporter,
+            _,
             clientTracer: BraveTracer
         ) => {
           clientTracer.traceTaskVerbose("copy new products to external classes dir") { _ =>
@@ -220,7 +219,6 @@ final class BloopClassFileManager(
                 newClassesDir,
                 clientExternalClassesDir.underlying,
                 inputs.ioScheduler,
-                inputs.logger,
                 enableCancellation = false
               )
               .map { walked =>
@@ -248,20 +246,14 @@ final class BloopClassFileManager(
 
       // Delete all compilation products generated in the new classes directory
       val deleteNewDir = Task { BloopPaths.delete(AbsolutePath(newClassesDir)); () }.memoize
-      backgroundTasksForFailedCompilation.+=(
-        (
-            clientExternalClassesDir: AbsolutePath,
-            clientReporter: Reporter,
-            clientTracer: BraveTracer
-        ) => {
-          clientTracer.traceTask("delete class files after")(_ => deleteNewDir)
-        }
-      )
+      backgroundTasksForFailedCompilation.+=((_, _, clientTracer: BraveTracer) => {
+        clientTracer.traceTask("delete class files after")(_ => deleteNewDir)
+      })
 
       backgroundTasksForFailedCompilation.+=(
         (
             clientExternalClassesDir: AbsolutePath,
-            clientReporter: Reporter,
+            _,
             clientTracer: BraveTracer
         ) =>
           Task.defer {
@@ -282,7 +274,6 @@ final class BloopClassFileManager(
                     Paths.get(readOnlyClassesDirPath),
                     clientExternalClassesDir.underlying,
                     inputs.ioScheduler,
-                    inputs.logger,
                     enableCancellation = false
                   )
                   .map(_ => ())

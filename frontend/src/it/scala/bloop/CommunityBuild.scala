@@ -26,7 +26,6 @@ import bloop.io.AbsolutePath
 import bloop.logging.{BloopLogger, Logger, NoopLogger}
 import monix.eval.Task
 import monix.execution.misc.NonFatal
-import sbt.internal.inc.bloop.ZincInternals
 import bloop.engine.tasks.compilation.CompileGatekeeper
 import sbt.internal.inc.BloopComponentCompiler
 
@@ -211,7 +210,7 @@ abstract class CommunityBuild(val buildpressHomeDir: AbsolutePath) {
     try Await.result(handle, duration)
     catch {
       case NonFatal(t) => handle.cancel(); throw t
-      case i: InterruptedException => handle.cancel(); state
+      case _: InterruptedException => handle.cancel(); state
     }
   }
 
@@ -237,7 +236,7 @@ abstract class CommunityBuild(val buildpressHomeDir: AbsolutePath) {
     def bool(v: String): Boolean = {
       Try(java.lang.Boolean.parseBoolean(v)) match {
         case scala.util.Success(isEnabled) => isEnabled
-        case scala.util.Failure(f) =>
+        case scala.util.Failure(_) =>
           System.err.println(s"Error happened when converting '$v' to boolean.")
           false
       }

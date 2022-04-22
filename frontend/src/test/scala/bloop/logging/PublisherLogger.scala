@@ -4,7 +4,6 @@ import monix.reactive.Observer
 
 final class PublisherLogger(
     observer: Observer.Sync[(String, String)],
-    debug: Boolean = false,
     override val debugFilter: DebugFilter
 ) extends RecordingLogger {
   override val ansiCodesSupported: Boolean = false

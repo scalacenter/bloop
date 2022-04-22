@@ -18,7 +18,7 @@ object DebugFilter {
   def toUniqueFilter(filters: List[DebugFilter]): DebugFilter = {
     filters match {
       case Nil => DebugFilter.All
-      case x :: Nil => DebugFilter.All
+      case _ :: Nil => DebugFilter.All
       case xs =>
         if (xs.contains(DebugFilter.All)) DebugFilter.All
         else DebugFilter.Aggregate(xs)

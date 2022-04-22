@@ -69,7 +69,7 @@ object Forker {
       logger: Logger,
       opts: CommonOptions
   ): Task[Int] = {
-    var consumeInput: Cancelable = null
+    val consumeInput: Option[Cancelable] = None
     @volatile var shutdownInput: Boolean = false
 
     /* We need to gobble the input manually with a fixed delay because otherwise
@@ -82,7 +82,7 @@ object Forker {
       ExecutionContext.ioScheduler.scheduleWithFixedDelay(duration, duration) {
         val buffer = new Array[Byte](4096)
         if (shutdownInput) {
-          if (consumeInput != null) consumeInput.cancel()
+          consumeInput.foreach(_.cancel())
         } else {
           try {
             if (opts.in.available() > 0) {
@@ -119,8 +119,7 @@ object Forker {
       debugLog = msg => {
         opts.ngout.println(msg)
         logger.debug(msg)
-      },
-      freshEnv = false
+      }
     )
 
     Task {
@@ -136,8 +135,7 @@ object Forker {
       logger: Logger,
       env: Map[String, String],
       writeToStdIn: OutputStream => Cancelable,
-      debugLog: String => Unit,
-      freshEnv: Boolean
+      debugLog: String => Unit
   ): Task[Int] = {
 
     def cancelTask(
@@ -188,7 +186,7 @@ object Forker {
           // use scala.sys.process implementation
           try {
             BasicIO.processFully(f)(stream)
-          } catch { case NonFatal(e) => }
+          } catch { case NonFatal(_) => }
         }
       }
       thread.setDaemon(true)

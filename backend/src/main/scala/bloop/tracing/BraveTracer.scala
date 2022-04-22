@@ -70,7 +70,7 @@ final class BraveTracer private (
       } finally {
         try newTracer.terminate()
         catch {
-          case NonFatal(t) => ()
+          case NonFatal(_) => ()
         }
       }
     } else {
@@ -101,7 +101,7 @@ final class BraveTracer private (
   def terminate(): Unit = this.synchronized {
     // Guarantee we never throw, even though brave APIs should already
     try closeCurrentSpan()
-    catch { case t: Throwable => () }
+    catch { case _: Throwable => () }
   }
 
   /**

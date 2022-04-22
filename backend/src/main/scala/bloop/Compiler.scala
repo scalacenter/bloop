@@ -25,7 +25,6 @@ import bloop.util.CacheHashCode
 import bloop.util.UUIDUtil
 
 import monix.eval.Task
-import monix.execution.CancelableFuture
 import monix.execution.Scheduler
 import sbt.internal.inc.Analysis
 import sbt.internal.inc.ConcreteAnalysisContents
@@ -338,13 +337,6 @@ object Compiler {
       Setup.create(lookup, skip, cacheFile, compilerCache, incOptions, reporter, progress, empty)
     }
 
-    def runAggregateTasks(tasks: List[Task[Unit]]): CancelableFuture[Unit] = {
-      Task
-        .gatherUnordered(tasks)
-        .map(_ => ())
-        .runAsync(compileInputs.ioScheduler)
-    }
-
     val start = System.nanoTime()
     val scalaInstance = compileInputs.scalaInstance
     val classpathOptions = compileInputs.classpathOptions
@@ -442,11 +434,10 @@ object Compiler {
                   readOnlyClassesDir,
                   clientClassesDir.underlying,
                   compileInputs.ioScheduler,
-                  compileInputs.logger,
                   enableCancellation = false
                 )
 
-                lastCopy.map { fs =>
+                lastCopy.map { _ =>
                   clientLogger.debug(
                     s"Finished copying classes from $readOnlyClassesDir to $clientClassesDir"
                   )

@@ -86,7 +86,7 @@ object LoggingEventHandlerSpec extends BaseSuite {
     )
   }
   private def successfulEvent(suite: String, testName: String): Event = new Event {
-    override def fullyQualifiedName(): String = ""
+    override def fullyQualifiedName(): String = suite
     override def fingerprint(): Fingerprint = ???
     override def selector(): Selector = new TestSelector(testName)
     override def status(): Status = Status.Success
@@ -95,7 +95,7 @@ object LoggingEventHandlerSpec extends BaseSuite {
   }
 
   def failedEvent(suite: String, testName: String, failedMessage: String): Event = new Event {
-    override def fullyQualifiedName(): String = ""
+    override def fullyQualifiedName(): String = suite
     override def fingerprint(): Fingerprint = ???
     override def selector(): Selector = new TestSelector(testName)
     override def status(): Status = Status.Failure

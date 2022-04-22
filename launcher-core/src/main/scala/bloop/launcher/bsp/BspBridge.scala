@@ -35,7 +35,6 @@ final class BspBridge(
     shell: Shell,
     launcherTmpDir: Path
 ) {
-  private val alreadyInUseMsg = "Address already in use"
   private var bspServerStatus: Option[(String, StatusCommand)] = None
 
   def resetServerStatus(): Unit = {
@@ -68,7 +67,6 @@ final class BspBridge(
       createCli: PrintStream => BloopgunCli,
       bloopAdditionalArgs: List[String],
       useTcp: Boolean,
-      attempts: Int = 1
   ): RunningBspConnection = {
     // Reset the status as it can be called several times
     resetServerStatus()
@@ -190,7 +188,7 @@ final class BspBridge(
 
     def closeUnconditionally(c: Closeable): Unit = {
       try c.close()
-      catch { case t: Throwable => () }
+      catch { case _: Throwable => () }
     }
 
     println("Starting thread that pumps stdin and redirects it to the bsp server...", out)
@@ -265,7 +263,7 @@ final class BspBridge(
         // Join this thread for 500ms before interrupting it
         pumpSocketStdinToStdout.join(500)
       } catch {
-        case t: InterruptedException => ()
+        case _: InterruptedException => ()
       }
     }
   }

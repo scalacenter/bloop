@@ -1,7 +1,6 @@
 package sbt.internal.inc.bloop.internal
 
 import _root_.bloop.UniqueCompileInputs
-import _root_.bloop.reporter.ZincReporter
 import _root_.bloop.tracing.BraveTracer
 import monix.eval.Task
 import sbt.internal.inc._
@@ -31,7 +30,6 @@ import xsbti.compile.Output
  */
 private final class BloopNameHashing(
     log: Logger,
-    reporter: ZincReporter,
     uniqueInputs: UniqueCompileInputs,
     options: IncOptions,
     profiler: RunProfiler,

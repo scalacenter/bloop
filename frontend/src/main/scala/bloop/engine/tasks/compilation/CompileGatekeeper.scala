@@ -173,9 +173,7 @@ object CompileGatekeeper {
             result,
             project,
             bundle.uniqueInputs,
-            mostRecentSuccessful,
             isUnsubscribed,
-            client,
             logger
           )
         }
@@ -195,9 +193,7 @@ object CompileGatekeeper {
       resultDag: Dag[PartialCompileResult],
       project: Project,
       oinputs: UniqueCompileInputs,
-      previous: LastSuccessfulResult,
       isAlreadyUnsubscribed: AtomicBoolean,
-      client: ClientInfo,
       logger: Logger
   ): Dag[PartialCompileResult] = {
 

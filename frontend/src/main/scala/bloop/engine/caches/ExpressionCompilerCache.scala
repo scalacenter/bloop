@@ -30,13 +30,12 @@ object ExpressionCompilerCache {
     val expressionCompilerId = s"$expressionCompilerOrganization.$module.$expressionCompilerVersion"
 
     def attemptResolution(): Either[String, AbsolutePath] = {
-      import bloop.engine.ExecutionContext.ioScheduler
       val artifact = DependencyResolution.Artifact(
         expressionCompilerOrganization,
         module,
         expressionCompilerVersion
       )
-      DependencyResolution.resolveWithErrors(List(artifact), logger)(ioScheduler) match {
+      DependencyResolution.resolveWithErrors(List(artifact), logger) match {
         case Left(error) => Left(error.getMessage())
         case Right(paths) =>
           paths
@@ -47,7 +46,7 @@ object ExpressionCompilerCache {
 
     Try(manager.file(expressionCompilerId)(IfMissing.Fail)) match {
       case Success(pluginPath) => Right(AbsolutePath(pluginPath))
-      case Failure(exception) =>
+      case Failure(_) =>
         val resolution = attemptResolution()
         resolution.foreach(jar => manager.define(expressionCompilerId, Seq(jar.toFile)))
         resolution

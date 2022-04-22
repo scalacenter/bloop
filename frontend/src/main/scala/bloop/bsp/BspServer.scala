@@ -152,7 +152,7 @@ object BspServer {
             )
 
             // The code above should not throw, but move this code to a finalizer to be 100% sure
-            closeCommunication(externalObserver, latestState, socket, serverSocket)
+            closeCommunication(latestState, socket, serverSocket)
             ()
           }
         }
@@ -263,7 +263,6 @@ object BspServer {
   }
 
   def closeCommunication(
-      externalObserver: Option[BehaviorSubject[State]],
       latestState: State,
       socket: Socket,
       serverSocket: ServerSocket
@@ -271,9 +270,9 @@ object BspServer {
     // Close any socket communication asap and swallow exceptions
     try {
       try socket.close()
-      catch { case NonFatal(t) => () } finally {
+      catch { case NonFatal(_) => () } finally {
         try serverSocket.close()
-        catch { case NonFatal(t) => () }
+        catch { case NonFatal(_) => () }
       }
     } finally {
       // Guarantee that we always schedule the external classes directories deletion

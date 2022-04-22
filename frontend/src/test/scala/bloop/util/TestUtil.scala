@@ -90,7 +90,7 @@ object TestUtil {
       "scala-compiler",
       Properties.versionNumberString,
       bloop.logging.NoopLogger
-    )(bloop.engine.ExecutionContext.ioScheduler)
+    )
   }
 
   final val RootProject = "target-project"
@@ -180,7 +180,7 @@ object TestUtil {
     try Await.result(handle, duration)
     catch {
       case NonFatal(t) => handle.cancel(); throw t
-      case i: InterruptedException => handle.cancel(); state
+      case _: InterruptedException => handle.cancel(); state
     }
   }
 
@@ -558,7 +558,7 @@ object TestUtil {
     if (!addDiagnosticsHandler) rawServices
     else {
       rawServices.notification(endpoints.Build.publishDiagnostics) {
-        case bsp.PublishDiagnosticsParams(uri, _, originId, diagnostics, _) =>
+        case bsp.PublishDiagnosticsParams(_, _, originId, diagnostics, _) =>
           // We prepend diagnostics so that tests can check they came from this notification
           def printDiagnostic(d: bsp.Diagnostic): String =
             fmt(s"[diagnostic] ${d.message} ${d.range}", originId)

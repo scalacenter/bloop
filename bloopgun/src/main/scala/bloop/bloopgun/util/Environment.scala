@@ -1,6 +1,5 @@
 package bloop.bloopgun.util
 
-import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
@@ -46,7 +45,7 @@ object Environment {
     try {
       Some(Paths.get(getClass().getProtectionDomain().getCodeSource().getLocation().toURI))
     } catch {
-      case NonFatal(t) => None
+      case NonFatal(_) => None
     }
   }
 

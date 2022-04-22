@@ -62,7 +62,7 @@ class LauncherMain(
   private final val SkipBspConnection = "--skip-bsp-connection"
   def cli(args0: Array[String]): LauncherStatus = {
     // A poor man's implementation of a CLI
-    val (args, extraArgs) = {
+    val (args, _) = {
       val index = args0.indexOf("--")
       if (index == -1) (args0, Array.empty[String])
       else args0.splitAt(index)
@@ -129,7 +129,7 @@ class LauncherMain(
       bridge: BspBridge,
       serverJvmOptions: List[String]
   ): Either[LauncherStatus, ConnectionResult] = {
-    def openBspSocket(forceTcp: Boolean = false)(
+    def openBspSocket(forceTcp: Boolean)(
         connect: Boolean => bridge.RunningBspConnection
     ): Either[LauncherStatus, Either[Unit, Option[Socket]]] = {
       val connection = connect(forceTcp)
@@ -143,7 +143,7 @@ class LauncherMain(
                 FailedToOpenBspConnection
               }
 
-            case bridge.RunningBspConnection(connection, logs) =>
+            case bridge.RunningBspConnection(_, _) =>
               printError("Trying a tcp-based connection to the server instead...", out)
               openBspSocket(forceTcp = true)(connect)
           }

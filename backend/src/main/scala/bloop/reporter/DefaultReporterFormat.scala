@@ -1,5 +1,7 @@
 package bloop.reporter
 
+import scala.annotation.nowarn
+
 import bloop.io.Environment.lineSeparator
 
 /**
@@ -24,6 +26,7 @@ class DefaultReporterFormat(reporter: Reporter) extends ReporterFormat(reporter)
       colored(reporter.config.sourcePathColor, filePath) + s"$line$column"
     }
 
+  @nowarn("msg=parameter value endColumn in anonymous function is never used")
   protected def formatSource(problem: Problem): Option[String] = {
     val richFormatSource = {
       for {
