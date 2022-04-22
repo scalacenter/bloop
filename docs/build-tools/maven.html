@@ -70,14 +70,14 @@ tickets</a>.</p>
 <p>The Bloop plugin for Maven doesn't need to be installed, you can run
 <code>bloopInstall</code>, the task to export your Maven builds to bloop, with the
 following command.</p>
-<pre><code class="hljs css language-bash">$ mvn ch.epfl.scala:maven-bloop_2.13:1.4.13:bloopInstall
+<pre><code class="hljs css language-bash">$ mvn ch.epfl.scala:maven-bloop_2.13:1.5.0:bloopInstall
 </code></pre>
 <p>In some cases, when you are using generated sources in you project
 you might need to run:</p>
-<pre><code class="hljs css language-bash">$ mvn generate-sources ch.epfl.scala:maven-bloop_2.13:1.4.13:bloopInstall
+<pre><code class="hljs css language-bash">$ mvn generate-sources ch.epfl.scala:maven-bloop_2.13:1.5.0:bloopInstall
 </code></pre>
 <p>Note that the following command uses the latest Bloop stable version
-1.4.13.</p>
+1.5.0.</p>
 <p>Here is the list of the latest Bloop stable and development versions. If you
 want to be on the very latest at the cost of misbehaviors, replace the above
 question with the development version.</p>
@@ -89,19 +89,19 @@ question with the development version.</p>
       </thead>
       <tbody>
         <tr>
-          <td>1.4.13</td>
-          <td>22 Feb 2022 09:48</td>
+          <td>1.5.0</td>
+          <td>01 Jan 2018 21:41</td>
           <td><code>-r sonatype:releases</code></td>
         </tr>
         <tr>
-          <td>1.5.0</td>
-          <td>22 Apr 2022 08:09</td>
+          <td>1.5.0-4-324c6c4c</td>
+          <td>22 Apr 2022 09:16</td>
           <td><code>-r sonatype:releases</code></td>
         </tr>
       </tbody>
     </table>
 <p>To build with a single Scala project <code>foo</code> generates two configuration files:</p>
-<pre><code class="hljs css language-bash">$ mvn ch.epfl.scala:maven-bloop_2.10:1.4.13:bloopInstall
+<pre><code class="hljs css language-bash">$ mvn ch.epfl.scala:maven-bloop_2.10:1.5.0:bloopInstall
 (...)
 Generated <span class="hljs-string">'/disk/foo/.bloop/foo.json'</span>.
 Generated <span class="hljs-string">'/disk/foo/.bloop/foo-test.json'</span>.
