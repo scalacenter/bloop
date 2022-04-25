@@ -4,16 +4,14 @@ import java.io.File
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
-
 import scala.collection.JavaConverters._
 import scala.util.Failure
 import scala.util.Success
 import scala.util.Try
-
 import bloop.config.Config
 import bloop.config.Tag
-
 import org.apache.maven.artifact.Artifact
+import org.apache.maven.artifact.ArtifactUtils
 import org.apache.maven.execution.MavenSession
 import org.apache.maven.model.Resource
 import org.apache.maven.plugin.MavenPluginManager
@@ -122,7 +120,14 @@ object MojoImplementation {
     val project = mojo.getProject()
     val dependencies =
       session.getProjectDependencyGraph.getUpstreamProjects(project, true).asScala.toList
-    val dependencyNames = dependencies.map(_.getArtifactId()).toList
+    val dependencyNames = dependencies.flatMap(dep => {
+      val matchingArtifacts = project.getArtifacts.asScala.filter(a =>
+        ArtifactUtils.versionlessKey(dep.getArtifact) == ArtifactUtils.versionlessKey(a)
+      )
+      matchingArtifacts.collect {
+        case artifact if artifact.getType == "test-jar" => dep.getArtifactId + "-test"
+      }.toList :+ dep.getArtifactId
+    })
 
     val configDir = mojo.getBloopConfigDir.toPath()
     if (!Files.exists(configDir)) Files.createDirectory(configDir)
