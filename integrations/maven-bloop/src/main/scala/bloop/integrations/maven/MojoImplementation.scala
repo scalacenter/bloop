@@ -124,9 +124,12 @@ object MojoImplementation {
       val matchingArtifacts = project.getArtifacts.asScala.filter(a =>
         ArtifactUtils.versionlessKey(dep.getArtifact) == ArtifactUtils.versionlessKey(a)
       )
-      matchingArtifacts.collect {
-        case artifact if artifact.getType == "test-jar" => dep.getArtifactId + "-test"
-      }.toList :+ dep.getArtifactId
+      matchingArtifacts
+        .collect {
+          case artifact if artifact.getType == "test-jar" => dep.getArtifactId + "-test"
+        }
+        .toList
+        .appended(dep.getArtifactId)
     })
 
     val configDir = mojo.getBloopConfigDir.toPath()
