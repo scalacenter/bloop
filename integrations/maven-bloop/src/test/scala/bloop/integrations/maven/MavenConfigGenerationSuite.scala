@@ -180,7 +180,6 @@ class MavenConfigGenerationSuite extends BaseConfigSuite {
       submodules = List("multi_module_test_jar/foo/pom.xml", "multi_module_test_jar/bar/pom.xml")
     ) {
       case (configFile, _, List(module1, module2)) =>
-
         List(configFile, module1, module2).foreach { module =>
           assert(module.project.`scala`.isDefined)
           assertEquals("2.13.8", module.project.`scala`.get.version)
