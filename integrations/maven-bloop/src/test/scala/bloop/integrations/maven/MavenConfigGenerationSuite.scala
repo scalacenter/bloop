@@ -173,6 +173,29 @@ class MavenConfigGenerationSuite extends BaseConfigSuite {
     }
   }
 
+  @Test
+  def multiModuleTestJar() = {
+    check(
+      "multi_module_test_jar/pom.xml",
+      submodules = List("multi_module_test_jar/foo/pom.xml", "multi_module_test_jar/bar/pom.xml")
+    ) {
+      case (configFile, _, List(module1, module2)) =>
+        List(configFile, module1, module2).foreach { module =>
+          assert(module.project.`scala`.isDefined)
+          assertEquals("2.13.8", module.project.`scala`.get.version)
+          assertEquals("org.scala-lang", module.project.`scala`.get.organization)
+          assert(hasCompileClasspathEntryName(module, "scala-library"))
+        }
+        assertAllConfigsMatchJarNames(List(configFile, module1, module2), List("scala-library"))
+
+        assertEquals(List("multi_module_test_jar"), module1.project.dependencies)
+        assertEquals(List("multi_module_test_jar", "foo-test", "foo"), module2.project.dependencies)
+
+      case _ =>
+        assert(false, "Multi module test jar should have two submodules")
+    }
+  }
+
   private def check(testProject: String, submodules: List[String] = Nil)(
       checking: (Config.File, String, List[Config.File]) => Unit
   ): Unit = {
