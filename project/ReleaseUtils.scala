@@ -204,14 +204,14 @@ object ReleaseUtils {
        |  "url": "${artifacts.bloopCoursier.url}",
        |  "hash": "sha256:${artifacts.bloopCoursier.sha}",
        |  "depends": "coursier",
-       |  "bin": "bloop",
+       |  "bin": "bloop.bat",
        |  "env_add_path": "$$dir",
        |  "env_set": {
        |    "BLOOP_HOME": "$$dir",
        |    "BLOOP_IN_SCOOP": "true"
        |  },
        |  "installer": {
-       |    "script": "coursier install --install-dir $$dir --default-channels=false --channel $$dir bloop"
+       |    "script": "coursier install --install-dir $$dir bloop:$version"
        |  }
        |}
         """.stripMargin
