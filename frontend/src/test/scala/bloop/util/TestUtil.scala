@@ -1,68 +1,79 @@
 package bloop.util
 
 import java.io.File
-import java.nio.charset.Charset
+import java.nio.file.Files
+import java.nio.file.{Path, Paths}
 import java.nio.file.attribute.FileTime
-import java.nio.file.{Files, Path, Paths}
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
 
-import bloop.io.Environment.{lineSeparator, LineSplitter}
-import bloop.{CompilerCache, ScalaInstance}
-import bloop.cli.Commands
-import bloop.config.Config
-import bloop.config.Config.CompileOrder
-import bloop.data.{ClientInfo, Origin, Project, JdkConfig}
-import bloop.engine.{Action, Build, BuildLoader, ExecutionContext, Interpreter, Run, State}
-import bloop.engine.caches.ResultsCache
-import bloop.internal.build.BuildInfo
-import bloop.io.Paths.delete
-import bloop.io.{AbsolutePath, RelativePath}
-import bloop.logging.{
-  BloopLogger,
-  BspClientLogger,
-  BufferedLogger,
-  DebugFilter,
-  Logger,
-  RecordingLogger
-}
-
-import _root_.monix.eval.Task
-import _root_.monix.execution.Scheduler
-
-import org.junit.Assert
-import sbt.internal.inc.bloop.ZincInternals
-
-import scala.concurrent.duration.{Duration, FiniteDuration, TimeUnit}
-import scala.concurrent.{Await, ExecutionException}
+import scala.concurrent.Await
+import scala.concurrent.ExecutionException
+import scala.concurrent.duration.Duration
+import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration.TimeUnit
 import scala.meta.jsonrpc.Services
 import scala.tools.nsc.Properties
 import scala.util.control.NonFatal
-import bloop.data.WorkspaceSettings
+
+import bloop.CompilerCache
+import bloop.ScalaInstance
+import bloop.cli.Commands
+import bloop.config.Config
+import bloop.config.Config.CompileOrder
+import bloop.data.JdkConfig
 import bloop.data.LoadedProject
+import bloop.data.Origin
+import bloop.data.Project
+import bloop.data.WorkspaceSettings
+import bloop.engine.Action
+import bloop.engine.Build
+import bloop.engine.BuildLoader
+import bloop.engine.ExecutionContext
+import bloop.engine.Interpreter
+import bloop.engine.Run
+import bloop.engine.State
+import bloop.engine.caches.ResultsCache
+import bloop.io.AbsolutePath
+import bloop.io.Environment.LineSplitter
+import bloop.io.Environment.lineSeparator
+import bloop.io.Paths.delete
+import bloop.io.RelativePath
+import bloop.logging.BloopLogger
+import bloop.logging.BspClientLogger
+import bloop.logging.BufferedLogger
+import bloop.logging.DebugFilter
+import bloop.logging.Logger
+import bloop.logging.RecordingLogger
+
+import _root_.monix.eval.Task
+import _root_.monix.execution.Scheduler
+import org.junit.Assert
 import sbt.internal.inc.BloopComponentCompiler
 import java.util.concurrent.TimeoutException
 import java.security.SecureRandom
 import java.util.concurrent.atomic.AtomicInteger
 import java.nio.file.attribute.PosixFilePermissions
+import xsbti.ComponentProvider
 
 object TestUtil {
-  def projectDir(base: Path, name: String) = base.resolve(name)
-  def sourcesDir(base: Path, name: String) = projectDir(base, name).resolve("src")
-  def targetDir(base: Path, name: String) = projectDir(base.resolve("target"), name)
-  def classesDir(base: Path, name: String) = targetDir(base, name).resolve("classes")
+  def projectDir(base: Path, name: String): Path = base.resolve(name)
+  def sourcesDir(base: Path, name: String): Path = projectDir(base, name).resolve("src")
+  def targetDir(base: Path, name: String): Path = projectDir(base.resolve("target"), name)
+  def classesDir(base: Path, name: String): Path = targetDir(base, name).resolve("classes")
   def getBaseFromConfigDir(configDir: Path): Path = configDir.getParent.getParent
   def getProject(name: String, state: State): Project =
     state.build.getProjectFor(name).getOrElse(sys.error(s"Project '$name' does not exist!"))
 
-  val jdkVersion = sys.props("java.version")
-  def isJdk8 = jdkVersion.startsWith("8") || jdkVersion.startsWith("1.8")
+  val jdkVersion: String = sys.props("java.version")
+  def isJdk8: Boolean = jdkVersion.startsWith("8") || jdkVersion.startsWith("1.8")
 
   def runOnlyOnJava8(thunk: => Unit): Unit = {
     if (isJdk8) thunk
     else ()
   }
 
-  final val componentProvider =
+  final val componentProvider: ComponentProvider =
     BloopComponentCompiler.getComponentProvider(bloop.io.Paths.getCacheDirectory("components"))
 
   private var singleCompilerCache: CompilerCache = null
@@ -97,7 +108,7 @@ object TestUtil {
       failure: Boolean = false,
       useSiteLogger: Option[Logger] = None,
       order: CompileOrder = Config.Mixed
-  )(afterCompile: State => Unit = (_ => ())) = {
+  )(afterCompile: State => Unit = (_ => ())): Unit = {
     testState(structures, dependencies, scalaInstance, jdkConfig, order) { (state: State) =>
       def action(state0: State): Unit = {
         val state = useSiteLogger.map(logger => state0.copy(logger = logger)).getOrElse(state0)

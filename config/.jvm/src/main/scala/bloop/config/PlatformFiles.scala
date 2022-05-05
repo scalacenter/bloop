@@ -1,6 +1,7 @@
 package bloop.config
 
-import java.nio.file.{Files, Paths}
+import java.nio.file.Files
+import java.nio.file.Paths
 
 object PlatformFiles {
   type Path = java.nio.file.Path

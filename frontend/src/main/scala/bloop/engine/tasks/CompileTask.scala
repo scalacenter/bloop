@@ -1,31 +1,41 @@
 package bloop.engine.tasks
 
+import scala.collection.mutable
+import scala.concurrent.Promise
+
+import bloop.CompileBackgroundTasks
+import bloop.CompileInputs
+import bloop.CompileOutPaths
+import bloop.CompileProducts
+import bloop.Compiler
 import bloop.Compiler.Result.Success
 import bloop.cli.ExitStatus
 import bloop.data.Project
+import bloop.data.WorkspaceSettings
+import bloop.engine.Dag
+import bloop.engine.ExecutionContext
+import bloop.engine.Feedback
+import bloop.engine.State
 import bloop.engine.caches.LastSuccessfulResult
-import bloop.engine.tasks.compilation.{FinalCompileResult, _}
-import bloop.engine.{Dag, ExecutionContext, Feedback, State}
+import bloop.engine.tasks.compilation.FinalCompileResult
+import bloop.engine.tasks.compilation._
+import bloop.io.ParallelOps
 import bloop.io.ParallelOps.CopyMode
-import bloop.io.{ParallelOps, Paths => BloopPaths}
-import bloop.logging.{DebugFilter, Logger, LoggerAction, ObservedLogger}
-import bloop.reporter.{ObservedReporter, Reporter, ReporterAction, ReporterInputs}
+import bloop.io.{Paths => BloopPaths}
+import bloop.logging.DebugFilter
+import bloop.logging.Logger
+import bloop.logging.LoggerAction
+import bloop.logging.ObservedLogger
+import bloop.reporter.ObservedReporter
+import bloop.reporter.Reporter
+import bloop.reporter.ReporterAction
+import bloop.reporter.ReporterInputs
 import bloop.tracing.BraveTracer
-import bloop.tracing.TraceProperties
-import bloop.{
-  CompileBackgroundTasks,
-  CompileExceptions,
-  CompileInputs,
-  CompileOutPaths,
-  CompileProducts,
-  Compiler
-}
+
 import monix.eval.Task
 import monix.execution.CancelableFuture
-import monix.reactive.{MulticastStrategy, Observable}
-import scala.collection.mutable
-import scala.concurrent.Promise
-import bloop.data.WorkspaceSettings
+import monix.reactive.MulticastStrategy
+import monix.reactive.Observable
 
 object CompileTask {
   private implicit val logContext: DebugFilter = DebugFilter.Compilation

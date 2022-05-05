@@ -1,44 +1,40 @@
 package sbt.internal.inc.bloop.internal
 
 import java.io.File
+import java.nio.file.Path
 import java.{util => ju}
 
-import xsbti.api.AnalyzedClass
-import xsbti.compile.analysis.ReadStamps
-import xsbti.compile.Output
-import xsbti.compile.IncOptions
-import xsbti.api.SafeLazyProxy
-import xsbt.api.HashAPI
-import xsbti.api.ClassLike
-import xsbti.api.NameHash
-import xsbti.Problem
-import xsbti.api.InternalDependency
-import xsbti.api.ExternalDependency
-import xsbti.api.DependencyContext
-import xsbti.Position
-import xsbti.Severity
-import xsbti.api.DefinitionType
-import xsbti.UseScope
-import xsbti.api.Companions
-import xsbt.api.APIUtil
-import xsbt.api.NameHashing
-import xsbti.compile.ClassFileManager
-
-import sbt.internal.inc.Incremental
-import sbt.util.InterfaceUtil
-import sbt.internal.inc.UsedName
 import sbt.internal.inc.Analysis
 import sbt.internal.inc.Compilation
-import sbt.internal.inc.SourceInfos
-import sbt.internal.inc.UsedNames
-import xsbti.VirtualFile
-import bloop.util.AnalysisUtils
-import java.nio.file.Path
-import xsbti.VirtualFileRef
-import xsbti.VirtualFileRef
-import java.nio.file.Path
-import xsbti.T2
+import sbt.internal.inc.Incremental
 import sbt.internal.inc.PlainVirtualFileConverter
+import sbt.internal.inc.SourceInfos
+import sbt.internal.inc.UsedName
+import sbt.internal.inc.UsedNames
+import sbt.util.InterfaceUtil
+import xsbt.api.APIUtil
+import xsbt.api.HashAPI
+import xsbt.api.NameHashing
+import xsbti.Position
+import xsbti.Problem
+import xsbti.Severity
+import xsbti.T2
+import xsbti.UseScope
+import xsbti.VirtualFile
+import xsbti.VirtualFileRef
+import xsbti.api.AnalyzedClass
+import xsbti.api.ClassLike
+import xsbti.api.Companions
+import xsbti.api.DefinitionType
+import xsbti.api.DependencyContext
+import xsbti.api.ExternalDependency
+import xsbti.api.InternalDependency
+import xsbti.api.NameHash
+import xsbti.api.SafeLazyProxy
+import xsbti.compile.ClassFileManager
+import xsbti.compile.IncOptions
+import xsbti.compile.Output
+import xsbti.compile.analysis.ReadStamps
 
 trait IBloopAnalysisCallback extends xsbti.AnalysisCallback {
   def get: Analysis
@@ -56,7 +52,7 @@ final class BloopAnalysisCallback(
 
   private[this] val compilation: Compilation = Compilation(System.currentTimeMillis(), output)
 
-  override def toString =
+  override def toString: String =
     (List("Class APIs", "Object APIs", "Binary deps", "Products", "Source deps") zip
       List(classApis, objectApis, binaryDeps, nonLocalClasses, intSrcDeps))
       .map { case (label, map) => label + "\n\t" + map.mkString("\n\t") }
@@ -135,7 +131,11 @@ final class BloopAnalysisCallback(
     }
   }
 
-  def classDependency(onClassName: String, sourceClassName: String, context: DependencyContext) = {
+  def classDependency(
+      onClassName: String,
+      sourceClassName: String,
+      context: DependencyContext
+  ): Unit = {
     if (onClassName != sourceClassName)
       add(intSrcDeps, sourceClassName, InternalDependency.of(sourceClassName, onClassName, context))
   }
@@ -189,7 +189,7 @@ final class BloopAnalysisCallback(
       fromClassName: String,
       fromSourceFile: File,
       context: DependencyContext
-  ) = {
+  ): Unit = {
     binaryDependency(
       classFile.toPath(),
       onBinaryClassName,
@@ -291,7 +291,7 @@ final class BloopAnalysisCallback(
     mainClass(converter.toVirtualFile(sourceFile.toPath()), className)
   }
 
-  def usedName(className: String, name: String, useScopes: ju.EnumSet[UseScope]) =
+  def usedName(className: String, name: String, useScopes: ju.EnumSet[UseScope]): Unit =
     add(usedNames, className, UsedName(name, useScopes))
 
   override def enabled(): Boolean = options.enabled

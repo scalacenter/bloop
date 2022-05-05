@@ -1,28 +1,35 @@
 package bloop.launcher.bsp
 
-import java.io.{Closeable, IOException, InputStream, OutputStream, PrintStream}
-import java.net.Socket
-import java.nio.charset.StandardCharsets
-import java.nio.file.Path
-
-import bloop.launcher.core.Feedback
-import bloop.bloopgun.core.Shell
-import bloop.bloopgun.util.Environment
-import bloop.launcher.{printError, printQuoted, println}
-import bloop.bloopgun.core.Shell.StatusCommand
-
-import scala.collection.mutable.ListBuffer
-import scala.concurrent.Promise
-import bloop.bloopgun.BloopgunCli
 import java.io.ByteArrayOutputStream
+import java.io.Closeable
+import java.io.IOException
+import java.io.InputStream
+import java.io.OutputStream
+import java.io.PrintStream
+import java.net.Socket
+import java.net.StandardProtocolFamily
+import java.net.UnixDomainSocketAddress
+import java.nio.ByteBuffer
 import java.nio.channels.Channels
 import java.nio.channels.ReadableByteChannel
-import java.nio.channels.WritableByteChannel
-import java.nio.ByteBuffer
-import java.nio.file.Files
-import org.slf4j.LoggerFactory
-import java.net.{StandardProtocolFamily, UnixDomainSocketAddress}
 import java.nio.channels.SocketChannel
+import java.nio.channels.WritableByteChannel
+import java.nio.charset.StandardCharsets
+import java.nio.file.Files
+import java.nio.file.Path
+
+import scala.concurrent.Promise
+
+import bloop.bloopgun.BloopgunCli
+import bloop.bloopgun.core.Shell
+import bloop.bloopgun.core.Shell.StatusCommand
+import bloop.bloopgun.util.Environment
+import bloop.launcher.core.Feedback
+import bloop.launcher.printError
+import bloop.launcher.printQuoted
+import bloop.launcher.println
+
+import org.slf4j.LoggerFactory
 
 object BspBridge {
   def printEx(t: Throwable): Unit =

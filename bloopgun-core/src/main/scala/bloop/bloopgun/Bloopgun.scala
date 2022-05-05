@@ -1,54 +1,37 @@
 package bloop.bloopgun
 
+import java.io.IOException
+import java.io.InputStream
+import java.io.PrintStream
+import java.net.ConnectException
+import java.nio.charset.StandardCharsets
+import java.nio.file.Files
+import java.nio.file.Path
+import java.nio.file.Paths
+import java.util.concurrent.atomic.AtomicBoolean
+
+import scala.concurrent.Promise
+
+import bloop.bloopgun.core.AvailableAtPath
+import bloop.bloopgun.core.AvailableWithCommand
+import bloop.bloopgun.core.LocatedServer
+import bloop.bloopgun.core.ResolvedAt
+import bloop.bloopgun.core.ServerStatus
 import bloop.bloopgun.core.Shell
-import bloop.bloopgun.core.DependencyResolution
+import bloop.bloopgun.core.Shell.StatusCommand
 import bloop.bloopgun.util.DomainSocketClient
 import bloop.bloopgun.util.Environment
 import bloop.bloopgun.util.Feedback
 import bloop.bloopgun.util.GlobalSettings
-import bloop.bloopgun.core.AvailableAtPath
-import bloop.bloopgun.core.AvailableWithCommand
-import bloop.bloopgun.core.ListeningAndAvailableAt
-import bloop.bloopgun.core.ServerStatus
-import bloop.bloopgun.core.ResolvedAt
 import bloop.bloopgun.util.Helper.seqIntOrdering
 import bloopgun.internal.build.BloopgunInfo
 
-import java.io.PrintStream
-import java.io.InputStream
-import java.util.concurrent.atomic.AtomicBoolean
-import java.net.ConnectException
-import java.nio.file.Files
-import java.nio.file.Paths
-import java.nio.file.Path
-import java.nio.charset.StandardCharsets
-
-import snailgun.TcpClient
-import snailgun.protocol.Streams
-import snailgun.logging.SnailgunLogger
-
-import scala.collection.mutable
-
 import scopt.OParser
-
-import scala.sys.process.ProcessIO
-import java.lang.ProcessBuilder.Redirect
-import scala.util.Try
-import java.net.URLDecoder
-import java.net.URLClassLoader
-import bloop.bloopgun.core.Shell.StatusCommand
-import java.util.concurrent.atomic.AtomicReference
-import scala.concurrent.Promise
-import snailgun.logging.Logger
-import bloop.bloopgun.core.LocatedServer
-import java.io.InputStreamReader
-import java.io.BufferedReader
-import java.io.IOException
 import snailgun.Client
-import libdaemonjvm.LockFiles
-import scala.util.Properties
-import libdaemonjvm.internal.SocketHandler
-import java.io.File
+import snailgun.TcpClient
+import snailgun.logging.Logger
+import snailgun.logging.SnailgunLogger
+import snailgun.protocol.Streams
 
 /**
  * The main library entrypoint for bloopgun, the Bloop binary CLI.

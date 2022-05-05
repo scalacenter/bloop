@@ -4,8 +4,8 @@ import java.nio.file.Path
 import bloop.data.Project
 import bloop.engine.Dag.RecursiveTrace
 import bloop.io.AbsolutePath
-import bloop.util.JavaRuntime
 import bloop.io.Environment.lineSeparator
+import bloop.util.JavaRuntime
 
 object Feedback {
   private final val eol = lineSeparator

@@ -2,20 +2,16 @@ package bloop.reporter
 
 import java.io.File
 
+import scala.collection.concurrent.TrieMap
+import scala.util.Try
+
+import ch.epfl.scala.bsp
+
 import bloop.data.Project
 import bloop.io.AbsolutePath
-import bloop.logging.{BspServerLogger, CompilationEvent, ObservedLogger}
-import bloop.util.AnalysisUtils
-import xsbti.Position
-import ch.epfl.scala.bsp
-import sbt.util.InterfaceUtil
-import xsbti.compile.CompileAnalysis
+import bloop.logging.BspServerLogger
+import bloop.logging.CompilationEvent
 
-import scala.collection.concurrent.TrieMap
-import scala.collection.mutable
-import scala.util.Try
-import scala.concurrent.Promise
-import bloop.CompileOutPaths
 import monix.execution.atomic.AtomicInt
 import xsbti.VirtualFile
 

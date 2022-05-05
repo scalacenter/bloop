@@ -1,11 +1,13 @@
 package bloop.engine
 import java.{util => ju}
+
+import scala.collection.mutable
+import scala.collection.mutable.ListBuffer
+
 import bloop.data.Project
 import bloop.util.CacheHashCode
-import scalaz.Show
 
-import scala.collection.mutable.ListBuffer
-import scala.collection.mutable
+import scalaz.Show
 
 /**
  * A [[Dag]] is a Directed Acyclic Graph where each node contains a value of T

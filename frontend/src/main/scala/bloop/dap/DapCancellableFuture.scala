@@ -1,10 +1,12 @@
 package bloop.dap
 
-import monix.eval.Task
-import monix.execution.{Cancelable, Scheduler}
-
-import scala.concurrent.{Future, Promise}
+import scala.concurrent.Future
+import scala.concurrent.Promise
 import scala.util.Success
+
+import monix.eval.Task
+import monix.execution.Cancelable
+import monix.execution.Scheduler
 
 private class DapCancellableFuture(future: Future[Unit], cancelable: Cancelable)
     extends ch.epfl.scala.debugadapter.CancelableFuture[Unit] {

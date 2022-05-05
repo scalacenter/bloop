@@ -1,29 +1,5 @@
 package bloop
 
-import bloop.io.AbsolutePath
-import bloop.io.Paths
-import bloop.logging.Logger
-import bloop.util.JavaRuntime
-import sbt.internal.inc.AnalyzingCompiler
-import sbt.internal.inc.BloopComponentCompiler
-import sbt.internal.inc.BloopZincLibraryManagement
-import sbt.internal.inc.ZincUtil
-import sbt.internal.inc.bloop.ZincInternals
-import sbt.internal.inc.javac.DiagnosticsReporter
-import sbt.internal.inc.javac.JavaTools
-import sbt.internal.inc.javac.Javadoc
-import sbt.internal.inc.javac.WriteReportingJavaFileObject
-import sbt.internal.util.LoggerWriter
-import sbt.librarymanagement.Resolver
-import xsbti.ComponentProvider
-import xsbti.compile.ClassFileManager
-import xsbti.compile.Compilers
-import xsbti.compile.JavaCompiler
-import xsbti.compile.ScalaCompiler
-import xsbti.compile.{JavaTool => XJavaTool}
-import xsbti.{Logger => XLogger}
-import xsbti.{Reporter => XReporter}
-
 import java.io.File
 import java.io.IOException
 import java.io.PrintWriter
@@ -36,13 +12,36 @@ import javax.tools.JavaFileManager.Location
 import javax.tools.JavaFileObject
 import javax.tools.JavaFileObject.Kind
 import javax.tools.{JavaCompiler => JavaxCompiler}
+
 import scala.collection.mutable.HashSet
 import scala.concurrent.ExecutionContext
-import xsbti.VirtualFile
-import bloop.util.AnalysisUtils
-import xsbti.compile.{IncToolOptions, Output}
+
+import bloop.io.AbsolutePath
+import bloop.io.Paths
+import bloop.logging.Logger
+import bloop.util.JavaRuntime
+
+import sbt.internal.inc.AnalyzingCompiler
+import sbt.internal.inc.BloopComponentCompiler
+import sbt.internal.inc.BloopZincLibraryManagement
 import sbt.internal.inc.CompilerArguments
 import sbt.internal.inc.PlainVirtualFileConverter
+import sbt.internal.inc.ZincUtil
+import sbt.internal.inc.javac.DiagnosticsReporter
+import sbt.internal.inc.javac.JavaTools
+import sbt.internal.inc.javac.Javadoc
+import sbt.internal.inc.javac.WriteReportingJavaFileObject
+import sbt.internal.util.LoggerWriter
+import sbt.librarymanagement.Resolver
+import xsbti.ComponentProvider
+import xsbti.VirtualFile
+import xsbti.compile.ClassFileManager
+import xsbti.compile.Compilers
+import xsbti.compile.JavaCompiler
+import xsbti.compile.Output
+import xsbti.compile.ScalaCompiler
+import xsbti.{Logger => XLogger}
+import xsbti.{Reporter => XReporter}
 
 final class CompilerCache(
     componentProvider: ComponentProvider,
@@ -272,7 +271,6 @@ final class CompilerCache(
       }
 
       var compileSuccess = false
-      import sbt.internal.inc.javac.WriteReportingFileManager
       val zincFileManager = incToolOptions.classFileManager().get()
       val fileManager = new BloopInvalidatingFileManager(fileManager0, zincFileManager)
       val sourceFiles: Array[File] = sources.map(converter.toPath(_).toFile())

@@ -1,33 +1,31 @@
 package bloop.io
 
-import bloop.logging.Logger
-import bloop.logging.DebugFilter
-import bloop.tracing.BraveTracer
+import java.io.File
+import java.io.InputStream
+import java.io.PrintStream
+import java.nio.file.Files
+import java.nio.file.Path
+import java.nio.file.attribute.BasicFileAttributes
+import java.nio.file.attribute.FileTime
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.TimeUnit
+import java.util.zip.ZipEntry
 
 import scala.collection.mutable
 import scala.concurrent.Promise
 
-import java.io.{File, InputStream}
-import java.nio.file.{Files, NoSuchFileException, Path}
-import java.util.concurrent.ConcurrentHashMap
-import java.nio.file.attribute.{BasicFileAttributes, FileTime}
-import java.util.zip.ZipEntry
+import bloop.logging.Logger
+import bloop.tracing.BraveTracer
 
 import monix.eval.Task
-import monix.eval.Callback
-import monix.execution.Scheduler
 import monix.execution.Cancelable
+import monix.execution.Scheduler
 import monix.execution.atomic.AtomicBoolean
-import monix.execution.cancelables.CompositeCancelable
-import monix.reactive.{Observable, MulticastStrategy, Consumer}
-
-import xsbti.compile.FileHash
-import sbt.internal.inc.{EmptyStamp, Stamper}
+import monix.reactive.Consumer
+import monix.reactive.Observable
 import sbt.internal.inc.bloop.internal.BloopStamps
 import sbt.io.IO
-import java.util.concurrent.TimeUnit
-import java.io.PrintStream
-import xsbti.VirtualFile
+import xsbti.compile.FileHash
 
 object ClasspathHasher {
 

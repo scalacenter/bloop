@@ -2,7 +2,9 @@ package bloop.bloopgun
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.attribute.PosixFilePermissions
+
 import scala.util.Properties
+
 import libdaemonjvm.LockFiles
 
 final case class ServerConfig(

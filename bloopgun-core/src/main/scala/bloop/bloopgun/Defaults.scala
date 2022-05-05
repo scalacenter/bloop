@@ -1,7 +1,10 @@
 package bloop.bloopgun
 
+import java.nio.file.Files
+import java.nio.file.Path
+import java.nio.file.Paths
 import java.nio.file.attribute.PosixFilePermissions
-import java.nio.file.{Files, Path, Paths}
+
 import scala.util.Properties
 
 object Defaults {

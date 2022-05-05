@@ -1,31 +1,35 @@
 package bloop
 
-import bloop.config.Config
-import bloop.io.{AbsolutePath, RelativePath, Paths => BloopPaths}
-import bloop.io.Environment.{lineSeparator, LineSplitter}
-import bloop.logging.RecordingLogger
-import bloop.cli.{Commands, ExitStatus}
-import bloop.engine.{Feedback, Run, State, ExecutionContext}
-import bloop.engine.caches.ResultsCache
-import bloop.util.{TestUtil, BuildUtil}
-
-import java.nio.file.{Files, Paths}
+import java.io.ByteArrayOutputStream
+import java.io.PrintStream
+import java.nio.charset.StandardCharsets
+import java.nio.file.Files
+import java.nio.file.Paths
 import java.util.concurrent.TimeUnit
 
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 import scala.concurrent.duration.FiniteDuration
 
-import monix.eval.Task
-import monix.execution.misc.NonFatal
-import monix.execution.CancelableFuture
 import bloop.cli.CommonOptions
+import bloop.cli.ExitStatus
+import bloop.config.Config
+import bloop.engine.ExecutionContext
+import bloop.engine.Feedback
 import bloop.engine.NoPool
-import java.io.ByteArrayOutputStream
-import java.io.PrintStream
-import java.nio.charset.StandardCharsets
+import bloop.io.AbsolutePath
+import bloop.io.Environment.LineSplitter
+import bloop.io.Environment.lineSeparator
+import bloop.io.RelativePath
+import bloop.io.{Paths => BloopPaths}
+import bloop.logging.RecordingLogger
 import bloop.testing.DiffAssertions
 import bloop.util.BaseTestProject
+import bloop.util.BuildUtil
+import bloop.util.TestUtil
+
+import monix.eval.Task
+import monix.execution.misc.NonFatal
 
 abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
   protected def TestProject: BaseTestProject
@@ -1107,7 +1111,6 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
       }
 
       assertDiagnosticsResult(compiledState.getLastResultFor(`A`), 1)
-      import bloop.testing.DiffAssertions
       assertNoDiff(
         logger.renderErrors(exceptContaining = "Failed to compile"),
         cannotFindSymbolError

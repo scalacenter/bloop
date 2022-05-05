@@ -2,23 +2,45 @@ package bloop.bsp
 
 import java.io.File
 import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, Path}
-import java.util.concurrent.{ConcurrentHashMap, ExecutionException}
+import java.nio.file.Files
+import java.nio.file.Path
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ExecutionException
 
-import bloop.engine.{State, Run}
-import bloop.cli.{Commands, Validate, CliOptions, BspProtocol}
-import bloop.engine.ExecutionContext
-import bloop.engine.caches.ResultsCache
-import bloop.internal.build.BuildInfo
-import bloop.io.{AbsolutePath, RelativePath}
-import bloop.io.Environment.END_OF_LINE_MATCHER
-import bloop.logging.{BspClientLogger, DebugFilter, RecordingLogger, Slf4jAdapter}
-import bloop.util.{UUIDUtil, TestUtil}
+import scala.collection.mutable
+import scala.concurrent.Promise
+import scala.concurrent.duration.FiniteDuration
+import scala.meta.jsonrpc.BaseProtocolMessage
+import scala.meta.jsonrpc.LanguageClient
+import scala.meta.jsonrpc.LanguageServer
+import scala.meta.jsonrpc.Response
+import scala.meta.jsonrpc.Services
 
 import ch.epfl.scala.bsp
 import ch.epfl.scala.bsp.endpoints
+
+import bloop.cli.BspProtocol
+import bloop.cli.CliOptions
+import bloop.cli.Commands
+import bloop.cli.Validate
+import bloop.engine.ExecutionContext
+import bloop.engine.Run
+import bloop.engine.State
+import bloop.engine.caches.ResultsCache
+import bloop.internal.build.BuildInfo
+import bloop.io.AbsolutePath
+import bloop.io.Environment.END_OF_LINE_MATCHER
+import bloop.io.RelativePath
+import bloop.logging.BspClientLogger
+import bloop.logging.DebugFilter
+import bloop.logging.RecordingLogger
+import bloop.logging.Slf4jAdapter
+import bloop.util.TestUtil
+import bloop.util.UUIDUtil
+
 import monix.eval.Task
-import monix.execution.{ExecutionModel, Scheduler}
+import monix.execution.ExecutionModel
+import monix.execution.Scheduler
 import monix.{eval => me}
 import sbt.internal.util.MessageOnlyException
 

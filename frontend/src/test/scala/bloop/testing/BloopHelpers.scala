@@ -1,27 +1,34 @@
 package bloop.testing
 
-import bloop.Compiler
-import bloop.data.Project
-import bloop.io.{AbsolutePath, RelativePath, ParallelOps}
-import bloop.io.ParallelOps.CopyMode
-import bloop.cli.Commands
-import bloop.logging.{RecordingLogger, Logger}
-import bloop.util.{TestProject, TestUtil}
-import bloop.engine.caches.LastSuccessfulResult
-import bloop.engine.{State, Run, ExecutionContext, BuildLoader, Dag}
-import bloop.config.Config
+import java.nio.charset.StandardCharsets
+import java.nio.file.Files
+import java.nio.file.Path
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.duration.FiniteDuration
 
+import bloop.Compiler
+import bloop.cli.Commands
+import bloop.data.Project
+import bloop.data.WorkspaceSettings
+import bloop.engine.BuildLoader
+import bloop.engine.Dag
+import bloop.engine.ExecutionContext
+import bloop.engine.Run
+import bloop.engine.State
+import bloop.engine.caches.LastSuccessfulResult
+import bloop.io.AbsolutePath
+import bloop.io.ParallelOps
+import bloop.io.ParallelOps.CopyMode
+import bloop.io.RelativePath
+import bloop.logging.Logger
+import bloop.logging.RecordingLogger
+import bloop.util.TestProject
+import bloop.util.TestUtil
+
 import monix.eval.Task
 import monix.execution.CancelableFuture
-
-import java.nio.file.{Files, Path}
-import java.nio.charset.StandardCharsets
-import bloop.data.WorkspaceSettings
 import monix.execution.Scheduler
-import bloop.config.ConfigCodecs
 
 trait BloopHelpers {
   def loadState(
@@ -115,7 +122,6 @@ trait BloopHelpers {
       newBaseDir: String,
       logger: Logger
   ): TestProject = {
-    import _root_.io.circe.parser
     val bytes = Files.readAllBytes(configFile)
     val contents = new String(bytes, StandardCharsets.UTF_8)
     val newContents = contents.replace(previousBaseDir, newBaseDir)

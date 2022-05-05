@@ -1,29 +1,22 @@
 package bloop.bloopgun.core
 
 import java.io.PrintStream
-import java.nio.ByteBuffer
-import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, Path}
+import java.nio.channels.SocketChannel
+import java.nio.file.Path
 import java.util.concurrent.TimeUnit
-
-import bloop.bloopgun.util.Environment
-import bloop.bloopgun.core.Shell.StatusCommand
 
 import scala.collection.mutable.ListBuffer
 import scala.util.Try
 
-import org.zeroturnaround.exec.ProcessExecutor
-import org.zeroturnaround.exec.listener.ProcessListener
-import org.zeroturnaround.exec.stream.ExecuteStreamHandler
-import org.zeroturnaround.exec.stream.LogOutputStream
-import snailgun.logging.Logger
 import bloop.bloopgun.ServerConfig
+import bloop.bloopgun.core.Shell.StatusCommand
+import bloop.bloopgun.util.Environment
+
 import libdaemonjvm.client.Connect
 import libdaemonjvm.client.ConnectError
-import java.net.Socket
-import java.nio.channels.SocketChannel
-import java.io.InputStream
-import java.io.ByteArrayOutputStream
+import org.zeroturnaround.exec.ProcessExecutor
+import org.zeroturnaround.exec.stream.LogOutputStream
+import snailgun.logging.Logger
 
 /**
  * Defines shell utilities to run programs via system process.
@@ -170,7 +163,6 @@ final class Shell(runWithInterpreter: Boolean, detectPython: Boolean) {
           socket = new Socket()
           socket.setReuseAddress(true)
           socket.setTcpNoDelay(true)
-          import java.net.InetAddress
           import java.net.InetSocketAddress
           logger.info("Attempting a connection to the server...")
           socket.connect(new InetSocketAddress(host, port))

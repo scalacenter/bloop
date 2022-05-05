@@ -2,21 +2,21 @@ package bloop.reporter
 
 import java.io.File
 
-import bloop.io.AbsolutePath
-import bloop.logging.{Logger, ObservedLogger}
-import xsbti.{Position, Severity}
-import ch.epfl.scala.bsp
-import sbt.util.InterfaceUtil
-import xsbti.compile.CompileAnalysis
-
 import scala.collection.concurrent.TrieMap
 import scala.collection.mutable
 import scala.util.Try
-import bloop.logging.CompilationEvent
-import scala.concurrent.Promise
+
+import ch.epfl.scala.bsp
+
+import bloop.io.AbsolutePath
+import bloop.logging.Logger
+
 import monix.execution.atomic.AtomicInt
-import xsbti.VirtualFile
 import sbt.internal.inc.PlainVirtualFileConverter
+import sbt.util.InterfaceUtil
+import xsbti.Position
+import xsbti.Severity
+import xsbti.VirtualFile
 
 /**
  * A flexible reporter whose configuration is provided by a `ReporterConfig`.
@@ -98,8 +98,8 @@ abstract class Reporter(
     }
   }
 
-  protected val phasesAtFile = TrieMap.empty[File, String]
-  protected val filesToPhaseStack = TrieMap.empty[File, List[String]]
+  protected val phasesAtFile: TrieMap[File, String] = TrieMap.empty[File, String]
+  protected val filesToPhaseStack: TrieMap[File, List[String]] = TrieMap.empty[File, List[String]]
 
   // Adapted from https://github.com/scala/scala/blob/2.12.x/src/compiler/scala/tools/nsc/reporters/AbstractReporter.scala#L68-L88
   private def deduplicate(problem: xsbti.Problem): Boolean = {

@@ -3,11 +3,15 @@ package bloop.cli
 import java.nio.charset.Charset
 import java.nio.file.Files
 
-import bloop.bsp.BspServer
+import bloop.engine.Action
+import bloop.engine.Exit
+import bloop.engine.Feedback
+import bloop.engine.Print
+import bloop.engine.Run
+import bloop.engine.State
 import bloop.io.AbsolutePath
 import bloop.util.CrossPlatform
 import bloop.util.Environment
-import bloop.engine.{Action, Exit, Feedback, Print, Run, State}
 
 import monix.eval.Task
 

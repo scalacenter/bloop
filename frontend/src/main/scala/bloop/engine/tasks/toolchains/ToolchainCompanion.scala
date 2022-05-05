@@ -6,8 +6,8 @@ import java.util.concurrent.ConcurrentHashMap
 
 import bloop.DependencyResolution
 import bloop.config.Config
-import bloop.internal.build.BuildInfo
-import bloop.logging.{DebugFilter, Logger}
+import bloop.logging.DebugFilter
+import bloop.logging.Logger
 
 /**
  * Base class for companion objects of toolchains.

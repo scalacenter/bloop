@@ -11,17 +11,17 @@ package org.scalajs.jsenv.nodejs
 import java.io._
 import java.net._
 import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, Path}
+import java.nio.file.Files
+import java.nio.file.Path
+
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent._
+import scala.util.Failure
+import scala.util.Success
+import scala.util.control.NonFatal
 
 import com.google.common.jimfs.Jimfs
 import org.scalajs.jsenv._
-
-import scala.concurrent._
-import scala.util.{Failure, Success}
-import scala.util.control.NonFatal
-
-// TODO Replace this by a better execution context on the RunConfig.
-import scala.concurrent.ExecutionContext.Implicits.global
 
 /**
  * A copy of the `ComRun` in the scala-js codebase to handles

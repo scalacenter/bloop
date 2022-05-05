@@ -1,16 +1,11 @@
 package bloop
 
-import bloop.logging.RecordingLogger
-import scala.concurrent.Promise
-import bloop.util.TestUtil
 import java.nio.file.Files
-import scala.concurrent.Await
-import scala.concurrent.duration.FiniteDuration
-import bloop.util.TestProject
-import java.util.concurrent.TimeUnit
-import bloop.cli.ExitStatus
+
 import bloop.config.Config
-import bloop.data.SourcesGlobs
+import bloop.logging.RecordingLogger
+import bloop.util.TestProject
+import bloop.util.TestUtil
 
 object SourcesGlobsCompileSpec extends bloop.testing.BaseSuite {
 

@@ -1,16 +1,15 @@
 package bloop
-import monix.eval.Task
-import bloop.util.TestUtil
-import bloop.logging.RecordingLogger
+import scala.concurrent.duration.FiniteDuration
+
+import bloop.cli.ExitStatus
 import bloop.engine.ExecutionContext
 import bloop.io.AbsolutePath
+import bloop.logging.RecordingLogger
 import bloop.util.TestProject
-import bloop.cli.ExitStatus
-import scala.concurrent.duration.FiniteDuration
-import bloop.engine.State
-import java.util.concurrent.TimeoutException
+import bloop.util.TestUtil
+
+import monix.eval.Task
 import monix.execution.misc.NonFatal
-import java.lang.management.ManagementFactory
 
 object ScalaVersionsSpec extends bloop.testing.BaseSuite {
   test("cross-compile build to latest Scala versions") {

@@ -2,13 +2,16 @@ package bloop.engine.caches
 
 import java.util.concurrent.ConcurrentHashMap
 
+import bloop.cli.CommonOptions
+import bloop.cli.ExitStatus
 import bloop.data.ClientInfo
 import bloop.data.WorkspaceSettings
-import bloop.logging.Logger
-import bloop.cli.CommonOptions
-import bloop.engine.{Build, BuildLoader, State, ClientPool}
+import bloop.engine.Build
+import bloop.engine.BuildLoader
+import bloop.engine.ClientPool
+import bloop.engine.State
 import bloop.io.AbsolutePath
-import bloop.cli.ExitStatus
+import bloop.logging.Logger
 import bloop.util.Environment
 
 import monix.eval.Task

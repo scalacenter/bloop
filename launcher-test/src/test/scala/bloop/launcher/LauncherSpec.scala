@@ -6,26 +6,17 @@ import java.nio.file.Files
 import java.nio.file.Path
 
 import bloop.internal.build.BuildInfo
-import bloop.bloopgun.util.Environment
-import bloop.logging.{BspClientLogger, RecordingLogger}
 import bloop.util.TestUtil
-import monix.eval.Task
-import monix.execution.{ExecutionModel, Scheduler}
-import sbt.internal.util.MessageOnlyException
-
-import scala.concurrent.{Await, Promise}
-import scala.concurrent.duration.FiniteDuration
-import scala.meta.jsonrpc._
-import scala.util.control.NonFatal
 import bloop.bloopgun.ServerConfig
-
 import bloop.launcher.core.{Feedback => LauncherFeedback}
+import bloop.bloopgun.util.Environment
 import bloop.bloopgun.util.{Feedback => BloopgunFeedback}
 import bloop.bloopgun.core.AvailableAtPath
 import java.util.concurrent.atomic.AtomicInteger
 import java.security.SecureRandom
 import java.nio.file.attribute.PosixFilePermissions
 import java.net.ServerSocket
+import scala.concurrent.Promise
 
 object LatestMasterLauncherSpec
     extends LauncherSpec(BuildInfo.version, () => Left(LauncherSpecHelper.openPort()))

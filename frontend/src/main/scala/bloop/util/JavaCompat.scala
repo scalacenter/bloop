@@ -3,8 +3,8 @@ package bloop.util
 import java.util.Optional
 import java.util.function.Supplier
 
-import xsbti.T2
 import sbt.util.InterfaceUtil
+import xsbti.T2
 
 object JavaCompat {
   implicit def toSupplier[T](thunk: => T): Supplier[T] = thunk

@@ -1,12 +1,13 @@
 package bloop.data
 
+import java.nio.file._
+import java.nio.file.attribute.BasicFileAttributes
+
+import scala.util.control.NonFatal
+
 import bloop.config.Config
 import bloop.io.AbsolutePath
 import bloop.logging.Logger
-
-import java.nio.file._
-import java.nio.file.attribute.BasicFileAttributes
-import scala.util.control.NonFatal
 
 case class SourcesGlobs(
     directory: AbsolutePath,

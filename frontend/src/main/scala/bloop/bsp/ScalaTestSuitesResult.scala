@@ -1,13 +1,14 @@
 package bloop.bsp
 
-import io.circe.derivation.JsonCodec
+import scala.meta.jsonrpc.Endpoint
+
 import ch.epfl.scala.bsp.BuildTargetIdentifier
-import io.circe.derivation.deriveDecoder
-import io.circe.derivation.deriveEncoder
+import ch.epfl.scala.bsp.ScalaTestClassesParams
+
 import io.circe.Decoder
 import io.circe.Encoder
-import scala.meta.jsonrpc.Endpoint
-import ch.epfl.scala.bsp.ScalaTestClassesParams
+import io.circe.derivation.deriveDecoder
+import io.circe.derivation.deriveEncoder
 
 object ScalaTestClasses {
   val endpoint = new Endpoint[ScalaTestClassesParams, ScalaTestClassesResult]("buildTarget/scalaTestClasses")

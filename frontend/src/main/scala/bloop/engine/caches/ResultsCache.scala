@@ -1,40 +1,40 @@
 package bloop.engine.caches
 
+import java.nio.file.NoSuchFileException
+import java.nio.file.Path
 import java.util.Optional
-import java.nio.file.Files
+import java.util.concurrent.ConcurrentHashMap
 
-import bloop.{Compiler, CompileProducts}
-import bloop.data.{Project, ClientInfo}
-import bloop.Compiler.Result
-import bloop.engine.tasks.compilation.{
-  FinalCompileResult,
-  FinalEmptyResult,
-  FinalNormalCompileResult,
-  ResultBundle
-}
-import bloop.engine.{Build, ExecutionContext}
-import bloop.io.AbsolutePath
-import bloop.logging.{DebugFilter, Logger, ObservedLogger}
-import bloop.reporter.{LogReporter, ReporterConfig}
-
-import monix.eval.Task
-import monix.execution.CancelableFuture
-
-import sbt.internal.inc.FileAnalysisStore
-import xsbti.compile.{CompileAnalysis, MiniSetup, PreviousResult}
-
+import scala.collection.mutable
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
-import bloop.UniqueCompileInputs
+
 import bloop.CompileOutPaths
-import scala.collection.mutable
-import java.nio.file.Path
+import bloop.CompileProducts
+import bloop.Compiler
+import bloop.Compiler.Result
+import bloop.UniqueCompileInputs
+import bloop.data.ClientInfo
+import bloop.data.Project
+import bloop.engine.Build
+import bloop.engine.ExecutionContext
+import bloop.engine.tasks.compilation.FinalCompileResult
+import bloop.engine.tasks.compilation.FinalEmptyResult
+import bloop.engine.tasks.compilation.FinalNormalCompileResult
+import bloop.engine.tasks.compilation.ResultBundle
+import bloop.io.AbsolutePath
 import bloop.io.Paths
-import java.nio.file.NoSuchFileException
+import bloop.logging.DebugFilter
+import bloop.logging.Logger
+import bloop.logging.ObservedLogger
+import bloop.reporter.LogReporter
+import bloop.reporter.ReporterConfig
+
+import monix.eval.Task
 import monix.execution.misc.NonFatal
-import java.util.concurrent.TimeUnit
-import java.util.concurrent.ConcurrentHashMap
 import sbt.internal.inc.Analysis
+import sbt.internal.inc.FileAnalysisStore
+import xsbti.compile.PreviousResult
 
 /**
  * Maps projects to compilation results, populated by `Tasks.compile`.
@@ -167,7 +167,6 @@ object ResultsCache {
           ClientInfo.toGenericClassesDir(analysisClassesDir) match {
             case Some(genericClassesName) =>
               val deleteOrphans = Task {
-                import scala.collection.JavaConverters._
                 val orphanInternalDirs = new mutable.ListBuffer[Path]()
                 Paths.list(internalClassesDir).foreach { absPath =>
                   val path = absPath.underlying
@@ -212,7 +211,6 @@ object ResultsCache {
           val contents = FileAnalysisStore.binary(analysisFile.toFile).get().toOption
           contents match {
             case Some(res) =>
-              import monix.execution.CancelableFuture
               logger.debug(s"Loading previous analysis for '${p.name}' from '$analysisFile'.")
               val r = PreviousResult.of(Optional.of(res.getAnalysis), Optional.of(res.getMiniSetup))
               res.getAnalysis.readCompilations.getAllCompilations.lastOption match {

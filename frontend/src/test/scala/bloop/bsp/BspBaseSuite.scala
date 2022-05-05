@@ -2,34 +2,44 @@ package bloop.bsp
 
 import java.net.URI
 import java.nio.file.Files
-import java.util.concurrent.{ConcurrentHashMap, ExecutionException, TimeUnit}
-import bloop.TestSchedulers
-import bloop.bsp.BloopBspDefinitions.BloopExtraBuildParams
-import bloop.cli.{BspProtocol, Commands}
-import bloop.dap.DebugTestClient
-import bloop.engine.{ExecutionContext, State}
-import bloop.internal.build.BuildInfo
-import bloop.io.{AbsolutePath, RelativePath}
-import bloop.logging.{BspClientLogger, RecordingLogger}
-import bloop.testing.BaseSuite
-import bloop.util.{TestProject, TestUtil}
-import ch.epfl.scala.bsp
-import ch.epfl.scala.bsp.{JvmTestEnvironmentResult, ScalacOptionsResult, Uri, endpoints}
-import io.circe.Json
-import monix.eval.Task
-import monix.execution.atomic.AtomicInt
-import monix.execution.{CancelableFuture, Scheduler}
-import monix.reactive.Observable
-import monix.execution.Scheduler
-import monix.reactive.subjects.ConcurrentSubject
-import scala.util.Try
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ExecutionException
+import java.util.concurrent.TimeUnit
+
+import scala.collection.mutable
 import scala.concurrent.Promise
 import scala.concurrent.duration.FiniteDuration
-import scala.meta.jsonrpc.{BaseProtocolMessage, LanguageClient, LanguageServer, Response, Services}
-import scala.collection.mutable
-import bloop.logging.Logger
+import scala.meta.jsonrpc.BaseProtocolMessage
+import scala.util.Try
+
+import ch.epfl.scala.bsp
+import ch.epfl.scala.bsp.ScalacOptionsResult
+import ch.epfl.scala.bsp.endpoints
+
+import bloop.TestSchedulers
+import bloop.bsp.BloopBspDefinitions.BloopExtraBuildParams
+import bloop.cli.BspProtocol
+import bloop.cli.Commands
 import bloop.cli.ExitStatus
+import bloop.dap.DebugTestClient
+import bloop.engine.ExecutionContext
+import bloop.engine.State
+import bloop.internal.build.BuildInfo
+import bloop.io.AbsolutePath
+import bloop.io.RelativePath
+import bloop.logging.BspClientLogger
+import bloop.logging.Logger
+import bloop.logging.RecordingLogger
+import bloop.testing.BaseSuite
 import bloop.util.CrossPlatform
+import bloop.util.TestProject
+import bloop.util.TestUtil
+
+import monix.eval.Task
+import monix.execution.CancelableFuture
+import monix.execution.Scheduler
+import monix.execution.atomic.AtomicInt
+import monix.reactive.Observable
 import monix.reactive.subjects.BehaviorSubject
 
 abstract class BspBaseSuite extends BaseSuite with BspClientTest {
@@ -364,7 +374,7 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
       TestUtil.await(timeout)(session)
     }
 
-    def await[A](task: Task[A]) = {
+    def await[A](task: Task[A]): (ManagedBspTestState, A) = {
       TestUtil.await(FiniteDuration(5, "s")) {
         task.flatMap { result =>
           serverStates.headL.map { state =>
@@ -490,7 +500,7 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
       project: TestProject,
       compileStart: Promise[Unit],
       logger: Logger
-  ) = {
+  ): CancelableFuture[TestState] = {
     Task
       .fromFuture(compileStart.future)
       .flatMap(_ => state.withLogger(logger).compileTask(project))

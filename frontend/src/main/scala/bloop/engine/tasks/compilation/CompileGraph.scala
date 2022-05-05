@@ -2,42 +2,36 @@
 package bloop.engine.tasks.compilation
 
 import java.io.File
-import java.nio.file.Path
-import java.util.concurrent.ConcurrentHashMap
+import java.io.PrintWriter
+import java.io.StringWriter
+
+import scala.util.Failure
+import scala.util.Success
 
 import ch.epfl.scala.bsp.StatusCode
-import bloop.io.{ParallelOps, AbsolutePath, Paths => BloopPaths}
-import bloop.io.ParallelOps.CopyMode
-import bloop.data.{Project, ClientInfo}
-import bloop.CompileExceptions.{BlockURI, FailedOrCancelledPromise}
+import ch.epfl.scala.bsp.{StatusCode => BspStatusCode}
+
+import bloop.CompileBackgroundTasks
+import bloop.CompileExceptions.BlockURI
+import bloop.CompileExceptions.FailedOrCancelledPromise
+import bloop.Compiler
+import bloop.JavaSignal
+import bloop.data.ClientInfo
+import bloop.data.Project
+import bloop.engine.Aggregate
+import bloop.engine.Dag
+import bloop.engine.ExecutionContext
+import bloop.engine.Leaf
+import bloop.engine.Parent
+import bloop.engine.tasks.compilation.CompileDefinitions.CompileTraversal
+import bloop.logging.DebugFilter
+import bloop.logging.LoggerAction
+import bloop.reporter.ReporterAction
 import bloop.util.JavaCompat.EnrichOptional
 import bloop.util.SystemProperties
-import bloop.engine.{Dag, Leaf, Parent, Aggregate, ExecutionContext}
-import bloop.reporter.ReporterAction
-import bloop.logging.{Logger, ObservedLogger, LoggerAction, DebugFilter}
-import bloop.{Compiler, JavaSignal, CompileProducts}
-import bloop.engine.caches.LastSuccessfulResult
-import bloop.PartialCompileProducts
-import bloop.engine.tasks.compilation.CompileDefinitions.CompileTraversal
 
 import monix.eval.Task
-import monix.execution.atomic.AtomicInt
-import monix.execution.CancelableFuture
-import monix.execution.atomic.AtomicBoolean
-import monix.reactive.{Observable, MulticastStrategy}
 import xsbti.compile.PreviousResult
-
-import scala.concurrent.Promise
-import scala.util.{Failure, Success}
-import scala.collection.mutable
-import java.{util => ju}
-import bloop.CompileOutPaths
-import bloop.CompileBackgroundTasks
-import ch.epfl.scala.bsp.{StatusCode => BspStatusCode}
-import bloop.logging.CompilationEvent
-import bloop.reporter.Reporter
-import java.io.StringWriter
-import java.io.PrintWriter
 
 object CompileGraph {
   private implicit val filter: DebugFilter = DebugFilter.Compilation
@@ -180,7 +174,6 @@ object CompileGraph {
 
         // Replay events asynchronously to waiting for the compilation result
         import scala.concurrent.duration.FiniteDuration
-        import java.util.concurrent.TimeUnit
         import monix.execution.exceptions.UpstreamTimeoutException
         val disconnectionTime = SystemProperties.getCompileDisconnectionTime(rawLogger)
         val replayEventsTask = runningCompilation.mirror

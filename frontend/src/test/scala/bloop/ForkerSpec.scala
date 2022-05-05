@@ -1,21 +1,23 @@
 package bloop
 
+import java.nio.file.Files
+import java.nio.file.Paths
+import java.util.concurrent.TimeUnit
+
+import scala.concurrent.duration.Duration
+
 import bloop.cli.ExitStatus
-import bloop.dap.DebuggeeLogger
 import bloop.data.JdkConfig
-import bloop.exec.{Forker, JvmProcessForker}
+import bloop.exec.Forker
+import bloop.exec.JvmProcessForker
 import bloop.io.AbsolutePath
 import bloop.logging.RecordingLogger
 import bloop.util.TestUtil
-import java.nio.ByteBuffer
-import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, Paths}
-import java.util.concurrent.TimeUnit
-import org.junit.Assert.{assertEquals, assertNotEquals}
+
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Test
 import org.junit.experimental.categories.Category
-import scala.collection.mutable
-import scala.concurrent.duration.Duration
 
 @Category(Array(classOf[bloop.FastTests]))
 class ForkerSpec {
@@ -45,8 +47,10 @@ class ForkerSpec {
          |}""".stripMargin
   }
 
-  val dependencies = Map.empty[String, Set[String]]
-  val runnableProject = Map(TestUtil.RootProject -> Map("A.scala" -> ArtificialSources.`A.scala`))
+  val dependencies: Map[String, Set[String]] = Map.empty[String, Set[String]]
+  val runnableProject: Map[String, Map[String, String]] = Map(
+    TestUtil.RootProject -> Map("A.scala" -> ArtificialSources.`A.scala`)
+  )
 
   private def run(
       cwd: AbsolutePath,

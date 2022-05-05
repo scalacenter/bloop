@@ -1,10 +1,8 @@
 package bloop.data
 
 import bloop.config.Config
-import bloop.util.JavaRuntime
 import bloop.io.AbsolutePath
-
-import scala.util.{Failure, Try}
+import bloop.util.JavaRuntime
 
 /**
  * The configuration of a JDK for a concrete project. It can be used for either

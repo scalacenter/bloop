@@ -1,22 +1,31 @@
 package bloop.dap
 
-import bloop.ScalaInstance
-import bloop.cli.ExitStatus
-import bloop.data.{ClientInfo, JdkConfig, Platform, Project}
-import bloop.engine.caches.ExpressionCompilerCache
-import bloop.engine.tasks.{RunMode, Tasks}
-import bloop.engine.{Dag, State}
-import bloop.logging.Logger
-import bloop.testing.{DebugLoggingEventHandler, LoggingEventHandler, TestInternals}
+import java.net.URLClassLoader
+import java.nio.file.Path
+
+import scala.collection.mutable
+
 import ch.epfl.scala.bsp.ScalaMainClass
 import ch.epfl.scala.debugadapter._
+
+import bloop.ScalaInstance
+import bloop.bsp.ScalaTestSuites
+import bloop.cli.ExitStatus
+import bloop.data.ClientInfo
+import bloop.data.JdkConfig
+import bloop.data.Platform
+import bloop.data.Project
+import bloop.engine.Dag
+import bloop.engine.State
+import bloop.engine.caches.ExpressionCompilerCache
+import bloop.engine.tasks.RunMode
+import bloop.engine.tasks.Tasks
+import bloop.logging.Logger
+import bloop.testing.DebugLoggingEventHandler
+import bloop.testing.TestInternals
+
 import monix.eval.Task
 import monix.execution.Scheduler
-
-import java.net.URLClassLoader
-import scala.collection.mutable
-import java.nio.file.Path
-import bloop.bsp.ScalaTestSuites
 
 abstract class BloopDebuggeeRunner(initialState: State, ioScheduler: Scheduler)
     extends DebuggeeRunner {

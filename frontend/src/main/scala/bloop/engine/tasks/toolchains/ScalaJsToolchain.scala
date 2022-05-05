@@ -3,6 +3,9 @@ package bloop.engine.tasks.toolchains
 import java.lang.reflect.InvocationTargetException
 import java.nio.file.Path
 
+import scala.concurrent.ExecutionContext
+import scala.util.Try
+
 import bloop.DependencyResolution
 import bloop.config.Config
 import bloop.config.Config.JsConfig
@@ -11,10 +14,8 @@ import bloop.internal.build.BuildInfo
 import bloop.io.AbsolutePath
 import bloop.logging.Logger
 import bloop.testing.DiscoveredTestFrameworks
-import monix.eval.Task
 
-import scala.concurrent.ExecutionContext
-import scala.util.Try
+import monix.eval.Task
 import monix.execution.Scheduler
 
 /**

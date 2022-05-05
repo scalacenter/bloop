@@ -21,7 +21,7 @@ package object launcher {
    * SHELL path implies preference for '\n' instead of Windows default.
    * @return '\n' if SHELL path recognized, system line.separator otherwise.
    */
-  lazy val lineSeparator = Option(System.getenv("SHELL")) match {
+  lazy val lineSeparator: String = Option(System.getenv("SHELL")) match {
     case Some(sh) if sh.toLowerCase.matches("/.*/bin/[a-z]*sh(.exe)") => "\n"
     case _ => System.getProperty("line.separator", "\n")
   }

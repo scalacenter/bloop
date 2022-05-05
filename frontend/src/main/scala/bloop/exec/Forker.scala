@@ -1,25 +1,24 @@
 package bloop.exec
 
-import java.io.{FileNotFoundException, IOException}
-import java.nio.ByteBuffer
-import java.nio.charset.StandardCharsets
-import java.util.concurrent.TimeUnit
-
-import bloop.cli.{CommonOptions, ExitStatus}
-import bloop.dap.DebuggeeLogger
-import bloop.engine.ExecutionContext
-import bloop.io.AbsolutePath
-import bloop.logging.{DebugFilter, Logger}
-import bloop.util.CrossPlatform
-import monix.eval.Task
-import monix.execution.Cancelable
-import scala.collection.JavaConverters._
-import scala.annotation.tailrec
-import scala.concurrent.duration.FiniteDuration
+import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
+import java.util.concurrent.TimeUnit
+
+import scala.collection.JavaConverters._
+import scala.concurrent.duration.FiniteDuration
 import scala.sys.process.BasicIO
 import scala.util.control.NonFatal
+
+import bloop.cli.CommonOptions
+import bloop.cli.ExitStatus
+import bloop.engine.ExecutionContext
+import bloop.io.AbsolutePath
+import bloop.logging.DebugFilter
+import bloop.logging.Logger
+
+import monix.eval.Task
+import monix.execution.Cancelable
 
 object Forker {
   private implicit val logContext: DebugFilter = DebugFilter.All

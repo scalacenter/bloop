@@ -1,32 +1,30 @@
 // scalafmt: { maxColumn = 250 }
 package sbt.internal.inc.bloop.internal
 
-import java.io.File
+import java.nio.file.Files
+import java.nio.file.Path
 import java.util.Optional
-import java.util.concurrent.CompletableFuture
 
-import bloop.reporter.ZincReporter
+import scala.concurrent.Promise
+import scala.util.control.NonFatal
+
 import bloop.logging.ObservedLogger
-import bloop.JavaSignal
+import bloop.reporter.ZincReporter
 import bloop.tracing.BraveTracer
 
 import monix.eval.Task
+import sbt.internal.inc.AnalyzingCompiler
+import sbt.internal.inc.CompileConfiguration
+import sbt.internal.inc.CompilerArguments
 import sbt.internal.inc.JavaInterfaceUtil.EnrichOption
-import sbt.internal.inc.javac.AnalyzingJavaCompiler
-import sbt.internal.inc.{AnalyzingCompiler, CompileConfiguration, CompilerArguments, MixedAnalyzingCompiler, ScalaInstance, Stamper, Stamps}
-import sbt.util.Logger
-import xsbti.{AnalysisCallback, CompileFailed}
-import xsbti.compile._
-
-import scala.util.control.NonFatal
-import sbt.internal.inc.JarUtils
-import scala.concurrent.Promise
-import xsbt.InterfaceCompileCancelled
-import bloop.util.AnalysisUtils
+import sbt.internal.inc.MixedAnalyzingCompiler
 import sbt.internal.inc.PlainVirtualFileConverter
-import java.nio.file.Path
+import sbt.internal.inc.javac.AnalyzingJavaCompiler
+import xsbt.InterfaceCompileCancelled
+import xsbti.AnalysisCallback
+import xsbti.CompileFailed
 import xsbti.VirtualFile
-import java.nio.file.Files
+import xsbti.compile._
 
 /**
  * Defines a high-level compiler after [[sbt.internal.inc.MixedAnalyzingCompiler]], with the

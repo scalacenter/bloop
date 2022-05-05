@@ -1,13 +1,15 @@
 package bloop.reporter
 
 import java.io.File
+
 import scala.util.Try
-import scala.collection.mutable
-import bloop.io.AbsolutePath
+
 import ch.epfl.scala.bsp
-import bloop.logging.{ObservedLogger, Logger}
-import scala.concurrent.Promise
-import bloop.logging.CompilationEvent
+
+import bloop.io.AbsolutePath
+import bloop.logging.Logger
+import bloop.logging.ObservedLogger
+
 import xsbti.VirtualFile
 
 final class ObservedReporter(

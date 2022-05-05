@@ -1,20 +1,18 @@
 package sbt.internal.inc.bloop.internal
 
-import java.io.File
-
 import _root_.bloop.UniqueCompileInputs
 import _root_.bloop.reporter.ZincReporter
 import _root_.bloop.tracing.BraveTracer
-
 import monix.eval.Task
-import sbt.util.Logger
 import sbt.internal.inc._
-import xsbti.compile.{ClassFileManager, DependencyChanges, IncOptions}
-import xsbti.compile.Output
-import xsbti.VirtualFile
+import sbt.util.Logger
+import xsbti.FileConverter
 import xsbti.VirtualFile
 import xsbti.VirtualFileRef
-import xsbti.FileConverter
+import xsbti.compile.ClassFileManager
+import xsbti.compile.DependencyChanges
+import xsbti.compile.IncOptions
+import xsbti.compile.Output
 
 /**
  * Defines Bloop's version of `IncrementalNameHashing` that extends Zinc's original
@@ -169,7 +167,6 @@ private final class BloopNameHashing(
             val removed = previousSources -- inBoth
             val added = sourceRefs -- inBoth
             val (changed, unmodified) = inBoth.partition { f =>
-              import sbt.internal.inc.Hash
               // We compute hashes via xxHash in Bloop, so we adapt them to the zinc hex format
               val newStamp = hashesMap
                 .get(f)

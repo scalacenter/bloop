@@ -1,14 +1,13 @@
 package bloop
 
-import bloop.logging.{DebugFilter, Logger}
-import bloop.io.AbsolutePath
+import scala.collection.JavaConverters._
 
-import sbt.librarymanagement._
-import sbt.librarymanagement.ivy._
+import bloop.io.AbsolutePath
+import bloop.logging.DebugFilter
+import bloop.logging.Logger
+
 import coursierapi.Repository
 import coursierapi.error.CoursierError
-
-import scala.collection.JavaConverters._
 
 object DependencyResolution {
 

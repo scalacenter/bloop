@@ -1,11 +1,13 @@
 package bloop.testing
 
 import java.nio.file.Files
-import bloop.io.{AbsolutePath, Paths}
+
+import bloop.io.AbsolutePath
+import bloop.io.Paths
 import bloop.logging.RecordingLogger
 
 class ProjectBaseSuite(buildName: String) extends BaseSuite {
-  val workspace = AbsolutePath(Files.createTempDirectory(s"workspace-${buildName}"))
+  val workspace: AbsolutePath = AbsolutePath(Files.createTempDirectory(s"workspace-${buildName}"))
   val build: TestBuild = {
     val logger = new RecordingLogger(ansiCodesSupported = false)
     loadBuildFromResources(buildName, workspace, logger)

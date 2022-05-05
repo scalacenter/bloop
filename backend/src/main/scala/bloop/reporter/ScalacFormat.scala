@@ -1,9 +1,11 @@
 package bloop.reporter
 
-import xsbti.{Position, Severity}
+import java.util.Optional
+
 import scala.compat.Platform.EOL
 
-import java.util.Optional
+import xsbti.Position
+import xsbti.Severity
 
 object ScalacFormat extends (Reporter => ReporterFormat) {
   override def apply(reporter: Reporter): ReporterFormat =

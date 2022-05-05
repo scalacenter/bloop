@@ -1,33 +1,36 @@
 package bloop.bsp
 
-import java.net.Socket
 import java.net.ServerSocket
-import java.util.Locale
-
-import bloop.cli.Commands
-import bloop.data.ClientInfo
-import bloop.engine.{ExecutionContext, State}
-import bloop.io.{AbsolutePath, RelativePath, ServerHandle}
-import bloop.logging.{BspClientLogger, DebugFilter}
-import monix.eval.Task
-import monix.execution.Ack
-import monix.execution.Scheduler
-import monix.execution.Cancelable
-import monix.execution.atomic.Atomic
-import monix.execution.misc.NonFatal
-import monix.reactive.OverflowStrategy
-import monix.reactive.observers.Subscriber
-import monix.reactive.{Observable, Observer}
-import monix.reactive.observables.ObservableLike
-import monix.execution.cancelables.CompositeCancelable
+import java.net.Socket
+import java.nio.file.NoSuchFileException
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.TimeUnit
 
 import scala.concurrent.Future
 import scala.concurrent.Promise
-import scala.meta.jsonrpc.{BaseProtocolMessage, LanguageClient, LanguageServer}
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.TimeUnit
+import scala.meta.jsonrpc.BaseProtocolMessage
+
+import bloop.cli.Commands
+import bloop.data.ClientInfo
+import bloop.engine.ExecutionContext
+import bloop.engine.State
+import bloop.io.AbsolutePath
+import bloop.io.RelativePath
+import bloop.io.ServerHandle
+import bloop.logging.BspClientLogger
+import bloop.logging.DebugFilter
+
+import monix.eval.Task
+import monix.execution.Ack
+import monix.execution.Cancelable
+import monix.execution.Scheduler
+import monix.execution.atomic.Atomic
 import monix.execution.cancelables.AssignableCancelable
-import java.nio.file.NoSuchFileException
+import monix.execution.cancelables.CompositeCancelable
+import monix.execution.misc.NonFatal
+import monix.reactive.Observer
+import monix.reactive.observables.ObservableLike
+import monix.reactive.observers.Subscriber
 import monix.reactive.subjects.BehaviorSubject
 
 object BspServer {
@@ -158,8 +161,6 @@ object BspServer {
 
       import monix.reactive.Consumer
       val singleMessageConsumer = Consumer.foreachAsync[BaseProtocolMessage] { msg =>
-        import scala.meta.jsonrpc.Response.Empty
-        import scala.meta.jsonrpc.Response.Success
         val taskToRun = {
           server
             .handleMessage(msg)

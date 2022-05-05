@@ -1,7 +1,6 @@
 package bloop.reporter
 
 import bloop.io.AbsolutePath
-import bloop.logging.{ObservedLogger, Logger}
 
 /**
  * Interface for a reporter that has a configuration.

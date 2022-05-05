@@ -1,14 +1,20 @@
 package bloop.util.monix
 
 import java.util.concurrent.TimeUnit
-import monix.execution.Ack.{Continue, Stop}
-import monix.execution.cancelables.{CompositeCancelable, MultiAssignmentCancelable}
-import monix.execution.{Ack, Cancelable}
-import monix.reactive.Observable
-import monix.reactive.observers.Subscriber
+
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.Future
-import scala.concurrent.duration.{Duration, FiniteDuration}
+import scala.concurrent.duration.Duration
+import scala.concurrent.duration.FiniteDuration
+
+import monix.execution.Ack
+import monix.execution.Ack.Continue
+import monix.execution.Ack.Stop
+import monix.execution.Cancelable
+import monix.execution.cancelables.CompositeCancelable
+import monix.execution.cancelables.MultiAssignmentCancelable
+import monix.reactive.Observable
+import monix.reactive.observers.Subscriber
 
 final class BloopBufferTimedObservable[+A](
     source: Observable[A],

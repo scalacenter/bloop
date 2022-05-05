@@ -1,19 +1,21 @@
 package bloop.util
 
 import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, Paths}
-
-import bloop.Cli
-import bloop.cli.{CliParsers, Commands, CommonOptions}
-import bloop.engine.Run
-import caseapp.{Name, ValueDescription}
-import caseapp.core.Arg
-import caseapp.core.help.Help
-import caseapp.core.util.NameOps._
+import java.nio.file.Files
+import java.nio.file.Paths
 
 import scala.util.control.NonFatal
+
+import bloop.Cli
+import bloop.cli.Commands
+import bloop.cli.CommonOptions
+import bloop.engine.Run
 import bloop.io.Environment.lineSeparator
+
+import caseapp.ValueDescription
+import caseapp.core.Arg
 import caseapp.core.util.Formatter
+import caseapp.core.util.NameOps._
 
 object CommandsDocGenerator {
   private final val docsContentDelimiter =

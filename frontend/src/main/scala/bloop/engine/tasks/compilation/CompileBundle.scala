@@ -1,30 +1,26 @@
 package bloop.engine.tasks.compilation
 
+import scala.concurrent.Promise
+
+import bloop.CompileOutPaths
+import bloop.Compiler
+import bloop.ScalaInstance
+import bloop.UniqueCompileInputs
+import bloop.cli.CommonOptions
 import bloop.data.Project
 import bloop.engine.Feedback
-import bloop.engine.{Dag, ExecutionContext}
-import bloop.io.{AbsolutePath, Paths}
-import bloop.io.ByteHasher
-import bloop.{Compiler, ScalaInstance}
-import bloop.logging.{Logger, ObservedLogger, LoggerAction}
-import bloop.reporter.{ObservedReporter, ReporterAction}
-import bloop.tracing.BraveTracer
-import bloop.UniqueCompileInputs
 import bloop.engine.caches.LastSuccessfulResult
-
-import java.io.File
-import java.nio.file.Path
-
-import scala.collection.mutable
-import scala.concurrent.Promise
+import bloop.io.AbsolutePath
+import bloop.logging.DebugFilter
+import bloop.logging.Logger
+import bloop.logging.LoggerAction
+import bloop.logging.ObservedLogger
+import bloop.reporter.ObservedReporter
+import bloop.reporter.ReporterAction
+import bloop.tracing.BraveTracer
 
 import monix.eval.Task
 import monix.reactive.Observable
-
-import xsbti.compile.PreviousResult
-import scala.concurrent.ExecutionContext
-import bloop.CompileOutPaths
-import bloop.cli.CommonOptions
 import sbt.internal.inc.PlainVirtualFileConverter
 
 sealed trait CompileBundle
@@ -104,7 +100,6 @@ final case class SuccessfulCompileBundle(
   }
 
   def prepareSourcesAndInstance: Either[ResultBundle, CompileSourcesAndInstance] = {
-    import monix.execution.CancelableFuture
     def earlyError(msg: String): ResultBundle =
       ResultBundle(Compiler.Result.GlobalError(msg, None), None, None)
     def empty: ResultBundle = {
@@ -153,7 +148,7 @@ case class CompileSourcesAndInstance(
 )
 
 object CompileBundle {
-  implicit val filter = bloop.logging.DebugFilter.Compilation
+  implicit val filter: DebugFilter.Compilation.type = bloop.logging.DebugFilter.Compilation
   def computeFrom(
       inputs: CompileDefinitions.BundleInputs,
       clientExternalClassesDir: AbsolutePath,
@@ -166,7 +161,7 @@ object CompileBundle {
       tracer: BraveTracer,
       options: CommonOptions
   ): Task[CompileBundle] = {
-    import inputs.{project, dag, dependentProducts}
+    import inputs.{project, dependentProducts}
     tracer.traceTaskVerbose(s"computing bundle ${project.name}") { tracer =>
       val compileDependenciesData = {
         tracer.traceVerbose("dependency classpath") { _ =>

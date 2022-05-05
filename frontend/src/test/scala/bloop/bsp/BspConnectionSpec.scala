@@ -1,10 +1,15 @@
 package bloop.bsp
 
-import bloop.io.Environment.lineSeparator
-import bloop.cli.{ExitStatus, BspProtocol}
-import bloop.util.{TestUtil, TestProject}
-import bloop.logging.{RecordingLogger, BspClientLogger}
+import scala.concurrent.duration.FiniteDuration
+
+import bloop.cli.BspProtocol
+import bloop.cli.ExitStatus
 import bloop.internal.build.BuildInfo
+import bloop.io.Environment.lineSeparator
+import bloop.logging.BspClientLogger
+import bloop.logging.RecordingLogger
+import bloop.util.TestProject
+import bloop.util.TestUtil
 
 import monix.eval.Task
 import monix.execution.{Scheduler, ExecutionModel}
@@ -254,7 +259,6 @@ class BspConnectionSpec(
             import ch.epfl.scala.bsp
             import ch.epfl.scala.bsp.endpoints.BuildTarget
 
-            import BuildTarget.compile._
             bspState.client0
               .requestAndForget(
                 BuildTarget.compile.method,

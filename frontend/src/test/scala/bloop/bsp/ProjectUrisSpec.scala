@@ -1,9 +1,8 @@
 package bloop.bsp
 
-import java.nio.file.Paths
-
 import bloop.io.AbsolutePath
-import org.junit.{Assert, Test}
+
+import org.junit.Test
 
 class ProjectUrisSpec {
   @Test def ParseUriWindows(): Unit = {

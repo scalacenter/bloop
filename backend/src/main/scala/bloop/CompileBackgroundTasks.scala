@@ -1,11 +1,11 @@
 package bloop
 
-import monix.eval.Task
-
 import bloop.io.AbsolutePath
-import bloop.tracing.BraveTracer
-import bloop.reporter.Reporter
 import bloop.logging.Logger
+import bloop.reporter.Reporter
+import bloop.tracing.BraveTracer
+
+import monix.eval.Task
 
 abstract class CompileBackgroundTasks {
   def trigger(

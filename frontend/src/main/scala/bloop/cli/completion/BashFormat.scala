@@ -1,8 +1,10 @@
 package bloop.cli.completion
 
-import caseapp.core.Arg
-import bloop.cli.{BspProtocol, ReporterKind}
+import bloop.cli.BspProtocol
+import bloop.cli.ReporterKind
 import bloop.data.Project
+
+import caseapp.core.Arg
 import caseapp.core.help.CommandHelp
 
 object BashFormat extends Format {

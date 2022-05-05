@@ -1,30 +1,36 @@
 package bloop.scalajs
 
-import scala.collection.JavaConverters._
-import java.nio.file.{Files, Path}
+import java.nio.file.Files
+import java.nio.file.Path
 
-import org.scalajs.core.tools.io.IRFileCache.IRContainer
-import org.scalajs.core.tools.io.{
-  AtomicWritableFileVirtualJSFile,
-  FileVirtualBinaryFile,
-  FileVirtualJSFile,
-  FileVirtualScalaJSIRFile,
-  MemVirtualJSFile,
-  VirtualJSFile,
-  VirtualJarFile
-}
-import org.scalajs.core.tools.linker.{ModuleInitializer, StandardLinker}
-import org.scalajs.core.tools.logging.{Level, Logger => JsLogger}
-import bloop.config.Config.{JsConfig, LinkerMode, ModuleKindJS}
+import scala.collection.JavaConverters._
+import scala.concurrent.ExecutionContext
+
+import bloop.config.Config.JsConfig
+import bloop.config.Config.LinkerMode
+import bloop.config.Config.ModuleKindJS
 import bloop.data.Project
-import bloop.logging.{DebugFilter, Logger => BloopLogger}
+import bloop.logging.DebugFilter
+import bloop.logging.{Logger => BloopLogger}
+
+import org.scalajs.core.tools.io.AtomicWritableFileVirtualJSFile
+import org.scalajs.core.tools.io.FileVirtualBinaryFile
+import org.scalajs.core.tools.io.FileVirtualJSFile
+import org.scalajs.core.tools.io.FileVirtualScalaJSIRFile
+import org.scalajs.core.tools.io.IRFileCache.IRContainer
+import org.scalajs.core.tools.io.MemVirtualJSFile
+import org.scalajs.core.tools.io.VirtualJSFile
+import org.scalajs.core.tools.io.VirtualJarFile
 import org.scalajs.core.tools.jsdep.ResolvedJSDependency
+import org.scalajs.core.tools.linker.ModuleInitializer
+import org.scalajs.core.tools.linker.StandardLinker
 import org.scalajs.core.tools.linker.backend.ModuleKind
+import org.scalajs.core.tools.logging.Level
+import org.scalajs.core.tools.logging.{Logger => JsLogger}
 import org.scalajs.core.tools.sem.Semantics
 import org.scalajs.jsenv.jsdomnodejs.JSDOMNodeJSEnv
 import org.scalajs.jsenv.nodejs.NodeJSEnv
 import org.scalajs.testadapter.TestAdapter
-import scala.concurrent.ExecutionContext
 
 object JsBridge {
   private class Logger(logger: BloopLogger) extends JsLogger {

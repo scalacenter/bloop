@@ -1,21 +1,14 @@
 package bloop.reporter
 import java.io.File
 
-import bloop.data.Project
-import bloop.io.AbsolutePath
-import bloop.logging.{Logger, ObservedLogger}
-
 import ch.epfl.scala.bsp
 
-import xsbti.compile.CompileAnalysis
-import xsbti.{Position, Severity}
-import sbt.util.InterfaceUtil
+import bloop.data.Project
+import bloop.io.AbsolutePath
+import bloop.logging.Logger
 
-import scala.collection.mutable
-import scala.collection.concurrent.TrieMap
-import bloop.logging.CompilationEvent
+import xsbti.Severity
 import xsbti.VirtualFile
-import bloop.util.AnalysisUtils
 
 final class LogReporter(
     val project: Project,

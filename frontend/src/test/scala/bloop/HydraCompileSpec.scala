@@ -1,15 +1,15 @@
 package bloop
 
-import java.net.URI
 import java.nio.file.Paths
-
-import bloop.{DependencyResolution => BloopDependencyResolution}
-import bloop.io.AbsolutePath
-import bloop.logging.Logger
-import coursierapi.MavenRepository
 
 import scala.concurrent.ExecutionContext
 import scala.tools.nsc.Properties
+
+import bloop.io.AbsolutePath
+import bloop.logging.Logger
+import bloop.{DependencyResolution => BloopDependencyResolution}
+
+import coursierapi.MavenRepository
 
 object HydraCompileSpec extends BaseCompileSpec {
   override protected val TestProject = HydraTestProject
@@ -17,7 +17,7 @@ object HydraCompileSpec extends BaseCompileSpec {
   override protected def extraCompilationMessageOutput: String =
     " [E-1] Using 1 Hydra worker to compile Scala sources."
 
-  override protected def processOutput(message: String) = {
+  override protected def processOutput(message: String): String = {
     val regex = raw" \[E-1\] License will expire in \d+ days.\n"
     message.replaceAll(regex, "")
   }

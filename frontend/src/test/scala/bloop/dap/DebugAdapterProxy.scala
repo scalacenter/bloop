@@ -1,24 +1,31 @@
 package bloop.dap
 
-import java.net.{Socket, SocketException}
+import java.net.Socket
+import java.net.SocketException
 import java.nio.ByteBuffer
 
+import scala.collection.mutable
+import scala.concurrent.Future
+import scala.concurrent.Promise
+import scala.meta.jsonrpc.BaseProtocolMessage
+import scala.meta.jsonrpc.MessageWriter
+
 import bloop.bsp.BloopLanguageClient
+import bloop.engine.ExecutionContext
+
+import com.microsoft.java.debug.core.protocol.Events
+import com.microsoft.java.debug.core.protocol.Events.DebugEvent
+import com.microsoft.java.debug.core.protocol.JsonUtils
+import com.microsoft.java.debug.core.protocol.Messages
 import com.microsoft.java.debug.core.protocol.Messages.ProtocolMessage
-import com.microsoft.java.debug.core.protocol.{JsonUtils, Messages}
 import monix.eval.Task
-import monix.execution.{Ack, Scheduler}
+import monix.execution.Ack
+import monix.execution.Scheduler
+import monix.reactive.MulticastStrategy
+import monix.reactive.Observable
+import monix.reactive.Observer
 import monix.reactive.observables.ObservableLike.Operator
 import monix.reactive.observers.Subscriber
-import monix.reactive.{Observable, Observer}
-
-import scala.collection.mutable
-import scala.concurrent.{Future, Promise}
-import scala.meta.jsonrpc.{BaseProtocolMessage, MessageWriter}
-import monix.reactive.MulticastStrategy
-import bloop.engine.ExecutionContext
-import com.microsoft.java.debug.core.protocol.Events.DebugEvent
-import com.microsoft.java.debug.core.protocol.Events
 
 /**
  * Handles communication with the debug adapter.

@@ -1,9 +1,9 @@
 package bloop.io
 
-import java.io.{File, RandomAccessFile}
-import java.io.BufferedInputStream
+import java.io.File
+import java.io.RandomAccessFile
 import java.nio.ByteBuffer
-import java.nio.file.{Path, Files}
+
 import net.jpountz.xxhash.XXHashFactory
 
 object ByteHasher {
