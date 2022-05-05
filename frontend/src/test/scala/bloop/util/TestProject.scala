@@ -24,8 +24,8 @@ final case class TestProject(
     deps: Option[List[TestProject]]
 ) {
   def baseDir: AbsolutePath = AbsolutePath(config.directory)
+  def sources: List[AbsolutePath] = config.sources.map(AbsolutePath(_))
   def srcFor(relPath: String, exists: Boolean = true): AbsolutePath = {
-    val sources = config.sources.map(AbsolutePath(_))
     if (exists) TestProject.srcFor(sources, relPath)
     else {
       val targetPath = RelativePath(relPath.stripPrefix(java.io.File.separator))
