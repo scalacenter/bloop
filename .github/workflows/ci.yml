@@ -136,7 +136,7 @@ jobs:
           mkdir bloop-artifacts
           cp bloopgun/target/bloopgun-2.12/graalvm-native-image/bloopgun bloop-artifacts/$ARTIFACT_NAME
         shell: bash
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v3
         with:
           name: bloop-artifacts
           path: bloop-artifacts/${{ matrix.artifact }}
@@ -197,7 +197,7 @@ jobs:
           mkdir bloop-artifacts
           cp bloopgun/target/bloopgun-2.12/graalvm-native-image/bloopgun.exe bloop-artifacts/$ARTIFACT_NAME
         shell: bash
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v3
         with:
           name: bloop-artifacts
           path: bloop-artifacts/${{ matrix.artifact }}
