@@ -35,7 +35,7 @@ jobs:
         with:
           java-version: ${{ matrix.jdk }}
       - name: Cache Gradle API
-        uses: actions/cache@v3.0.1
+        uses: actions/cache@v3.0.2
         with:
           path: |
             integrations/gradle-bloop/lib
@@ -119,7 +119,7 @@ jobs:
         # only launcher tests cause gradle API to be downloaded
         # and they are only run on grallvm
         if: matrix.jdk == 'graalvm-ce-java11@21.1.0'
-        uses: actions/cache@v3.0.1
+        uses: actions/cache@v3.0.2
         with:
           path: |
             integrations/gradle-bloop/lib
