@@ -180,7 +180,7 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
   }
 
   test("deduplication removes invalidated class files from all external classes dirs") {
-    val attempts = if (System.getenv("CI") != null && Properties.isWin) 3 else 1
+    val attempts = if (System.getenv("CI") != null) 3 else 1
     TestUtil.retry(attempts) {
       deduplicationInvalidatedClassFilesRemovalTest()
     }
