@@ -137,7 +137,7 @@ object BloopZincCompiler {
         val analysis = invalidateAnalysisFromSetup(config.currentSetup, previousSetup, incrementalOptions.ignoredScalacOptions(), setOfSources, prev, manager, logger)
 
         // Scala needs the explicit type signature to infer the function type arguments
-        val compile: (Set[VirtualFile], DependencyChanges, AnalysisCallback, ClassFileManager) => Task[Unit] = compiler.compile(_, _, _, _, cancelPromise, classpathOptions)
+        val compile: (Set[VirtualFile], DependencyChanges, AnalysisCallback, ClassFileManager) => Task[Unit] = compiler.compile(_, _, _, _, cancelPromise)
         BloopIncremental
           .compile(
             setOfSources,

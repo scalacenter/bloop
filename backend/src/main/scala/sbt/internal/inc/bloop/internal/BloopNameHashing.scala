@@ -84,7 +84,10 @@ private final class BloopNameHashing(
           initialChangedSources,
           allSources.map(v => v: VirtualFileRef),
           previous
-        ).collect { case f: VirtualFile => f }
+        ).map {
+          case f: VirtualFile => f
+          case ref: VirtualFileRef => PlainVirtualFileConverter.converter.toVirtualFile(ref)
+        }
 
       recompileClasses(invalidatedSources, binaryChanges, previous, compileTask, manager).flatMap {
         current =>
