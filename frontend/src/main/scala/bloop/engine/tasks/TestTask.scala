@@ -120,12 +120,12 @@ object TestTask {
           logger.debug(s"Running ForkMain with env variables: $envOptions")
 
           found match {
-            case DiscoveredTestFrameworks.Jvm(frameworks, forker, loader) =>
+            case DiscoveredTestFrameworks.Jvm(_, forker, loader) =>
               val opts = state.commonOptions
               // FORMAT: OFF
               TestInternals.execute(cwd, forker, loader, suites, args, jvmOptions, envOptions, handler, logger, opts)
               // FORMAT: ON
-            case DiscoveredTestFrameworks.Js(frameworks, closeResources) =>
+            case DiscoveredTestFrameworks.Js(_, closeResources) =>
               val cancelled: AtomicBoolean = AtomicBoolean(false)
               def cancel(): Unit = {
                 if (!cancelled.getAndSet(true)) {
@@ -145,8 +145,8 @@ object TestTask {
                 .materialize
                 .doOnCancel(Task(cancel()))
                 .map {
-                  case s @ scala.util.Success(exitCode) => closeResources(); s
-                  case f @ scala.util.Failure(e) =>
+                  case s @ scala.util.Success(_) => closeResources(); s
+                  case scala.util.Failure(e) =>
                     e match {
                       case NonFatal(t) =>
                         if (!checkCancelled()) {
@@ -215,7 +215,6 @@ object TestTask {
                     logger.info(s"Generated JavaScript file '${target.syntax}'")
                     val fnames = project.testFrameworks.map(_.names)
                     logger.debug(s"Resolving test frameworks: $fnames")
-                    val baseDir = project.baseDirectory
                     val env = state.commonOptions.env.toMap
                     Some(
                       toolchain.discoverTestFrameworks(project, fnames, target, logger, config, env)
@@ -310,7 +309,7 @@ object TestTask {
     val selectedTests = testClasses.suites.map(entry => (entry.className, entry.tests)).toMap
     includedTests.groupBy(_.framework).mapValues { taskDefs =>
       taskDefs.map {
-        case TaskDefWithFramework(taskDef, framework) =>
+        case TaskDefWithFramework(taskDef, _) =>
           selectedTests.get(taskDef.fullyQualifiedName()).getOrElse(Nil) match {
             case Nil => taskDef
             case selectedTests =>

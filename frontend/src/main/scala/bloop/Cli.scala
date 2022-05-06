@@ -127,7 +127,6 @@ object Cli {
     val bloopVersion = bloop.internal.build.BuildInfo.version
     val scalaVersion = bloop.internal.build.BuildInfo.scalaVersion
     val zincVersion = bloop.internal.build.BuildInfo.zincVersion
-    val developers = bloop.internal.build.BuildInfo.developers.mkString(", ")
     val javaVersion = JavaRuntime.version
     val javaHome = JavaRuntime.home
     val jdiStatus = {
@@ -191,7 +190,7 @@ object Cli {
 
             command match {
               case Left(err) => printErrorAndExit(err.message, commonOptions)
-              case Right(v: Commands.Help) =>
+              case Right(_: Commands.Help) =>
                 Print(helpAsked, commonOptions, Exit(ExitStatus.Ok))
               case Right(_: Commands.About) =>
                 Print(aboutAsked, commonOptions, Exit(ExitStatus.Ok))
@@ -313,7 +312,7 @@ object Cli {
 
     val cliOptions = action match {
       case r: Run => r.command.cliOptions
-      case e: Exit => CliOptions.default
+      case _: Exit => CliOptions.default
       case p: Print => CliOptions.default.copy(common = p.commonOptions)
     }
 
@@ -334,7 +333,7 @@ object Cli {
     )
 
     action match {
-      case Print(msg, commonOptions, Exit(exitStatus)) =>
+      case Print(msg, _, Exit(exitStatus)) =>
         logger.info(msg)
         exitStatus
       case _ =>
@@ -356,7 +355,7 @@ object Cli {
     bloop.util.ProxySetup.updateProxySettings(commonOpts.env.toMap, logger)
 
     val configDir = configDirectory.underlying
-    waitUntilEndOfWorld(action, cliOptions, pool, configDir, logger, cancel) {
+    waitUntilEndOfWorld(cliOptions, pool, configDir, logger, cancel) {
       val taskToInterpret = { (cli: CliClientInfo) =>
         val state = State.loadActiveStateFor(configDirectory, cli, pool, cliOptions.common, logger)
         Interpreter.execute(action, state).map { newState =>
@@ -372,8 +371,7 @@ object Cli {
 
       val session = runTaskWithCliClient(configDirectory, action, taskToInterpret, pool, logger)
       val exitSession = Task.defer {
-        handleCliClientExit(configDir, session, logger)
-        cleanUpNonStableCliDirectories(configDir, session.client, cliOptions.common.ngout)
+        cleanUpNonStableCliDirectories(session.client, cliOptions.common.ngout)
       }
 
       session.task
@@ -408,11 +406,11 @@ object Cli {
     action match {
       case Exit(_) => defaultClientSession
       // Don't synchronize on commands that don't use compilation products and can run concurrently
-      case Run(_: Commands.About, next) => defaultClientSession
-      case Run(_: Commands.Projects, next) => defaultClientSession
-      case Run(_: Commands.Autocomplete, next) => defaultClientSession
-      case Run(_: Commands.Bsp, next) => defaultClientSession
-      case Run(_: Commands.ValidatedBsp, next) => defaultClientSession
+      case Run(_: Commands.About, _) => defaultClientSession
+      case Run(_: Commands.Projects, _) => defaultClientSession
+      case Run(_: Commands.Autocomplete, _) => defaultClientSession
+      case Run(_: Commands.Bsp, _) => defaultClientSession
+      case Run(_: Commands.ValidatedBsp, _) => defaultClientSession
       case _ =>
         val activeSessions = activeCliSessions.compute(
           configDir.underlying,
@@ -431,29 +429,7 @@ object Cli {
     }
   }
 
-  def handleCliClientExit(configDir: Path, session: CliSession, logger: Logger): Unit = {
-    var sessionsIsNull = false
-    val result = activeCliSessions.compute(
-      configDir,
-      (_: Path, sessions: List[CliSession]) => {
-        if (sessions != null) {
-          sessions.filterNot(_ == session)
-        } else {
-          sessionsIsNull = false
-          Nil
-        }
-      }
-    )
-
-    if (sessionsIsNull) {
-      logger.debug(s"Unexpected counter for $configDir is null, report upstream!")
-    }
-
-    ()
-  }
-
   def cleanUpNonStableCliDirectories(
-      configDir: Path,
       client: CliClientInfo,
       out: PrintStream
   ): Task[Unit] = {
@@ -481,7 +457,6 @@ object Cli {
   import scala.concurrent.Await
   import scala.concurrent.duration.Duration
   private[bloop] def waitUntilEndOfWorld(
-      action: Action,
       cliOptions: CliOptions,
       pool: ClientPool,
       configDirectory: Path,
@@ -506,7 +481,7 @@ object Cli {
     if (!cancel.isDone) {
       // Add support for a client to cancel bloop via Java's completable future
       import bloop.util.Java8Compat.JavaCompletableFutureUtils
-      val cancelCliClient = Task
+      Task
         .deferFutureAction(cancel.asScala(_))
         .map { cancel =>
           if (cancel) {

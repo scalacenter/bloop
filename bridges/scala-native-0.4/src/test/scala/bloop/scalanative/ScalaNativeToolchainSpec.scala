@@ -37,7 +37,6 @@ class ScalaNativeToolchainSpec {
   }
   @Test def canLinkScalaNativeProject(): Unit = {
     val logger = new RecordingLogger
-    val mode = OptimizerConfig.Debug
     val state = state0.copy(logger = logger)
     val action = Run(Commands.Link(List("test-projectNative")))
     val resultingState = TestUtil.blockingExecute(action, state, maxDuration)
@@ -59,7 +58,6 @@ class ScalaNativeToolchainSpec {
 
   @Test def canRunScalaNativeProjectDefaultMainClass(): Unit = {
     val logger = new RecordingLogger
-    val mode = OptimizerConfig.Debug
     val state = state0.copy(logger = logger)
     val action = Run(Commands.Run(List("test-projectNative")))
     val resultingState = TestUtil.blockingExecute(action, state, maxDuration)
@@ -70,7 +68,6 @@ class ScalaNativeToolchainSpec {
 
   @Test def canRunScalaJvmProjectDefaultMainClass(): Unit = {
     val logger = new RecordingLogger
-    val mode = OptimizerConfig.Release
     val state = state0.copy(logger = logger)
     val action = Run(Commands.Run(List("test-project"), main = None))
     val resultingState = TestUtil.blockingExecute(action, state, maxDuration)

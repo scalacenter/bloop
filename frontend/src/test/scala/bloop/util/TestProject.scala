@@ -4,7 +4,6 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.Path
 
-import scala.concurrent.ExecutionContext
 import scala.tools.nsc.Properties
 
 import ch.epfl.scala.bsp
@@ -114,7 +113,6 @@ abstract class BaseTestProject {
       sourcesGlobs: List[Config.SourcesGlobs] = Nil
   ): TestProject = {
     val projectBaseDir = Files.createDirectories(baseDir.underlying.resolve(name))
-    val origin = TestUtil.syntheticOriginFor(baseDir)
     val ProjectArchetype(sourceDir, outDir, resourceDir, classes, runtimeResourceDir) =
       TestUtil.createProjectArchetype(baseDir.underlying, name)
 
@@ -123,7 +121,6 @@ abstract class BaseTestProject {
       (dir :: p.deps.toList.flatten.flatMap(classpathDeps(_))).distinct
     }
 
-    import bloop.engine.ExecutionContext.ioScheduler
     val version = scalaVersion.getOrElse(Properties.versionNumberString)
 
     val finalScalaOrg = scalaOrg.getOrElse("org.scala-lang")
@@ -213,7 +210,7 @@ abstract class BaseTestProject {
       scalaVersion: Option[String],
       allJars: Seq[AbsolutePath],
       logger: Logger
-  )(implicit ec: ExecutionContext): ScalaInstance =
+  ): ScalaInstance =
     scalaVersion
       .map(v => ScalaInstance.apply(scalaOrg, scalaName, v, allJars, logger))
       .getOrElse(TestUtil.scalaInstance)

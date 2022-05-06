@@ -11,8 +11,6 @@ import java.util.concurrent.ConcurrentHashMap
 
 import scala.concurrent.Promise
 
-import bloop.logging.Logger
-
 import monix.eval.Task
 import monix.execution.Cancelable
 import monix.execution.Scheduler
@@ -67,7 +65,6 @@ object ParallelOps {
       origin: Path,
       target: Path,
       scheduler: Scheduler,
-      logger: Logger,
       enableCancellation: Boolean
   ): Task[FileWalk] = Task.defer {
     val isCancelled = AtomicBoolean(false)
@@ -192,7 +189,7 @@ object ParallelOps {
                       if (!changedMetadata) ()
                       else copy(replaceExisting = true)
                     // Can happen when the file does not exist, replace in that case
-                    case Failure(t: IOException) => copy(replaceExisting = true)
+                    case Failure(_: IOException) => copy(replaceExisting = true)
                     case Failure(t) => throw t
                   }
                 case CopyMode.NoReplace =>

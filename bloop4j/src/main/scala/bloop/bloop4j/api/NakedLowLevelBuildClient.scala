@@ -8,7 +8,6 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ExecutorService
-import java.util.concurrent.Future
 import java.{util => ju}
 
 import ch.epfl.scala.bsp4j.BuildClient
@@ -33,14 +32,12 @@ class NakedLowLevelBuildClient[ClientHandlers <: BuildClientHandlers](
     clientIn: InputStream,
     clientOut: OutputStream,
     handlers: ClientHandlers,
-    underlyingProcess: Option[Process],
     executor: Option[ExecutorService]
 ) extends LowLevelBuildClientApi[CompletableFuture] {
-  private var launchedServer: Future[Void] = null
   private var server: BloopBuildServer = null
 
   def initialize(params: InitializeBuildParams): CompletableFuture[InitializeBuildResult] = {
-    server = unsafeConnectToBuildServer(handlers, clientBaseDir)
+    server = unsafeConnectToBuildServer(handlers)
     server.buildInitialize(params).thenApply { result =>
       server.onBuildInitialized()
       result
@@ -75,8 +72,7 @@ class NakedLowLevelBuildClient[ClientHandlers <: BuildClientHandlers](
 
   val cwd = sys.props("user.dir")
   private def unsafeConnectToBuildServer(
-      localClient: BuildClient,
-      baseDir: Path
+      localClient: BuildClient
   ): BloopBuildServer = {
     val bloopClientDir = Files.createDirectories(clientBaseDir.resolve(".bloop"))
     val offloadingFile = bloopClientDir.resolve("sbt-bsp.log")
@@ -91,7 +87,7 @@ class NakedLowLevelBuildClient[ClientHandlers <: BuildClientHandlers](
     executor.foreach(executor => builder.setExecutorService(executor))
     val launcher = builder.create()
 
-    launchedServer = launcher.startListening()
+    launcher.startListening()
     val serverBridge = launcher.getRemoteProxy
     localClient.onConnectWithServer(serverBridge)
     serverBridge
@@ -123,7 +119,6 @@ object NakedLowLevelBuildClient {
       process.getInputStream(),
       process.getOutputStream(),
       handlers,
-      Some(process),
       executor
     )
   }

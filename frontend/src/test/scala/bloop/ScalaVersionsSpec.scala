@@ -28,7 +28,7 @@ object ScalaVersionsSpec extends bloop.testing.BaseSuite {
 
         def jarsForScalaVersion(version: String, logger: RecordingLogger) = {
           ScalaInstance
-            .resolve(compilerOrg, compilerArtifact, version, logger)(ExecutionContext.ioScheduler)
+            .resolve(compilerOrg, compilerArtifact, version, logger)
             .allJars
             .map(AbsolutePath(_))
         }

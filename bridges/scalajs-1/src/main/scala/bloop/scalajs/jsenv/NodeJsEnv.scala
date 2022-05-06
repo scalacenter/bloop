@@ -282,8 +282,7 @@ object NodeJSEnv {
             write(outputStream)
             Cancelable.empty
           },
-          debugLog = msg => logger.debug(msg),
-          freshEnv = true
+          debugLog = msg => logger.debug(msg)
         )
         .runAsync(ExecutionContext.ioScheduler)
 

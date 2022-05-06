@@ -28,8 +28,7 @@ object ServerStatus {
       case _ => "ch.epfl.scala"
     }
 
-  def resolveServer(bloopVersion: String, logger: Logger) = {
-    import scala.concurrent.ExecutionContext.Implicits.global
+  def resolveServer(bloopVersion: String, logger: Logger): Option[ResolvedAt] = {
     DependencyResolution.resolveWithErrors(
       bloopOrg(bloopVersion),
       "bloop-frontend_2.12",

@@ -32,7 +32,6 @@ import bloop.io.AbsolutePath
 import bloop.io.Environment.END_OF_LINE_MATCHER
 import bloop.io.RelativePath
 import bloop.logging.BspClientLogger
-import bloop.logging.DebugFilter
 import bloop.logging.RecordingLogger
 import bloop.logging.Slf4jAdapter
 import bloop.util.TestUtil
@@ -54,14 +53,13 @@ import java.nio.channels.SocketChannel
 
 object BspClientTest extends BspClientTest
 trait BspClientTest {
-  private implicit val ctx: DebugFilter = DebugFilter.Bsp
   def cleanUpLastResources(cmd: Commands.ValidatedBsp): Unit = {
     cmd match {
       case cmd: Commands.UnixLocalBsp =>
         // We delete the socket file created by the BSP communication
         if (!Files.exists(cmd.socket.underlying)) ()
         else Files.delete(cmd.socket.underlying)
-      case cmd: Commands.TcpBsp => ()
+      case _: Commands.TcpBsp => ()
     }
   }
 
@@ -158,7 +156,8 @@ trait BspClientTest {
       val services =
         customServices(TestUtil.createTestServices(addDiagnosticsHandler, logger))
       val lsServer = new LanguageServer(messages, lsClient, services, ioScheduler, logger)
-      val runningClientServer = lsServer.startTask.runAsync(ioScheduler)
+      
+      lsServer.startTask.runAsync(ioScheduler)
 
       val cwd = configDirectory.underlying.getParent
       val initializeServer = endpoints.Build.initialize.request(
@@ -183,7 +182,7 @@ trait BspClientTest {
         socket.close()
         otherCalls match {
           case Right(res) => Some(res)
-          case Left(error) if allowError => None
+          case Left(_) if allowError => None
           case Left(error) => throw new MessageOnlyException(s"Received error ${error}!")
         }
       }
@@ -268,7 +267,7 @@ trait BspClientTest {
           case Some(bsp.TaskDataKind.CompileTask) =>
             val json = taskStart.data.get
             bsp.CompileTask.decodeCompileTask(json.hcursor) match {
-              case Left(failure) => ()
+              case Left(_) => ()
               case Right(compileTask) =>
                 compileStartPromises.foreach(
                   promises => promises.get(compileTask.target).map(_.trySuccess(()))
@@ -294,7 +293,7 @@ trait BspClientTest {
           case Some(bsp.TaskDataKind.CompileReport) =>
             val json = taskFinish.data.get
             bsp.CompileReport.decodeCompileReport(json.hcursor) match {
-              case Left(failure) => ()
+              case Left(_) => ()
               case Right(report) =>
                 record(
                   report.target,
@@ -315,9 +314,9 @@ trait BspClientTest {
 
         ()
       }
-      .notification(endpoints.Build.taskProgress) { case p => () }
+      .notification(endpoints.Build.taskProgress) { case _ => () }
       .notification(endpoints.Build.publishDiagnostics) {
-        case p @ bsp.PublishDiagnosticsParams(tid, btid, originId, diagnostics, reset) =>
+        case bsp.PublishDiagnosticsParams(tid, btid, originId, diagnostics, reset) =>
           record(
             btid,
             (builder: StringBuilder) => {
@@ -369,7 +368,6 @@ trait BspClientTest {
     case class OverwriteFile(path: AbsolutePath, contents: String) extends BspClientAction
   }
 
-  private type Result = Either[Response.Error, bsp.CompileResult]
   def runCompileTest(
       bspCmd: Commands.ValidatedBsp,
       testActions: List[BspClientAction],

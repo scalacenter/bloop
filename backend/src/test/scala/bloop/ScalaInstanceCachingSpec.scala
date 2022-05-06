@@ -3,8 +3,6 @@ package bloop
 import java.util.Arrays
 import java.util.Collection
 
-import scala.concurrent.ExecutionContext.Implicits.global
-
 import bloop.logging.BloopLogger
 
 import org.junit.Assert.assertSame

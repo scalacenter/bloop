@@ -30,7 +30,7 @@ object Environment {
     try {
       Some(Paths.get(getClass().getProtectionDomain().getCodeSource().getLocation().toURI))
     } catch {
-      case NonFatal(t) => None
+      case NonFatal(_) => None
     }
   }
 }

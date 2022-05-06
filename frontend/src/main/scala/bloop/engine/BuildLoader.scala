@@ -118,7 +118,6 @@ object BuildLoader {
       case (scalaVersionOpt, projects) =>
         tryEnablingSemanticDB(
           projects,
-          configDir,
           javaSemanticSettings,
           scalaVersionOpt.flatMap(scalaVersion =>
             scalaSemanticdbSettings.map(f => (scalaVersion, f))
@@ -171,7 +170,6 @@ object BuildLoader {
           } yield (version, settings)
           val coeval = tryEnablingSemanticDB(
             List(project),
-            configDir,
             semanticdb.javaSemanticdbSettings,
             scalaSemanticdbVersionAndSettings,
             logger
@@ -237,7 +235,6 @@ object BuildLoader {
 
   private def tryEnablingSemanticDB[T](
       projects: List[Project],
-      configDir: AbsolutePath,
       javaSemanticSettings: Option[JavaSemanticdbSettings],
       scalaSemanticdbVersionAndSettings: Option[(String, ScalaSemanticdbSettings)],
       logger: Logger

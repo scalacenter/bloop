@@ -202,7 +202,7 @@ object NailgunSpec extends BaseSuite with NailgunTestUtils {
     }
 
     val newLogger = new RecordingLogger(ansiCodesSupported = false)
-    withServer(configDir, false, newLogger) { (logger, client) =>
+    withServer(configDir, false, newLogger) { (_, client) =>
       // Add change to configuration file of project
       val configFile = configDir.resolve("b.json")
       val jsonContents = new String(Files.readAllBytes(configFile), UTF_8)

@@ -1,5 +1,6 @@
 package bloop.testing
 
+import scala.annotation.nowarn
 import scala.collection.JavaConverters._
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
@@ -122,7 +123,7 @@ abstract class BaseSuite extends TestSuite with BloopHelpers {
   def assertSameResult(
       a: LastSuccessfulResult,
       b: LastSuccessfulResult
-  )(implicit filename: sourcecode.File, line: sourcecode.Line): Unit = {
+  ): Unit = {
     assert(a.previous == b.previous)
     assert(a.classesDir == b.classesDir)
   }
@@ -130,7 +131,7 @@ abstract class BaseSuite extends TestSuite with BloopHelpers {
   import bloop.logging.NoopLogger
   def takeDirectorySnapshot(
       dir: AbsolutePath
-  )(implicit filename: sourcecode.File, line: sourcecode.Line): List[AttributedPath] = {
+  ): List[AttributedPath] = {
     import java.io.File
     val files = bloop.io.Paths
       .attributedPathFilesUnder(dir, "glob:**.*", NoopLogger)
@@ -169,7 +170,7 @@ abstract class BaseSuite extends TestSuite with BloopHelpers {
       assertSameExternalClassesDirs(s1, s2, project, printDiff = false)
       fail("External classes dirs of ${project.config.name} in both states is the same!")
     } catch {
-      case e: DiffAssertions.TestFailedException => ()
+      case _: DiffAssertions.TestFailedException => ()
     }
   }
 
@@ -244,7 +245,7 @@ abstract class BaseSuite extends TestSuite with BloopHelpers {
       errors: Int,
       warnings: Int = 0,
       expectFatalWarnings: Boolean = false
-  )(implicit filename: sourcecode.File, line: sourcecode.Line): Unit = {
+  ): Unit = {
     if (errors > 0) {
       result match {
         case Compiler.Result.Failed(problems, t, _, _) =>
@@ -347,14 +348,14 @@ abstract class BaseSuite extends TestSuite with BloopHelpers {
   def assertExistingInternalClassesDir(lastState: TestState)(
       stateToCheck: TestState,
       projects: List[TestProject]
-  )(implicit filename: sourcecode.File, line: sourcecode.Line): Unit = {
+  ): Unit = {
     assertExistenceOfInternalClassesDir(lastState, stateToCheck, projects, checkExists = true)
   }
 
   def assertNonExistingInternalClassesDir(lastState: TestState)(
       stateToCheck: TestState,
       projects: List[TestProject]
-  )(implicit filename: sourcecode.File, line: sourcecode.Line): Unit = {
+  ): Unit = {
     assertExistenceOfInternalClassesDir(lastState, stateToCheck, projects, checkExists = false)
   }
 
@@ -363,7 +364,7 @@ abstract class BaseSuite extends TestSuite with BloopHelpers {
       stateToCheck: TestState,
       projects: List[TestProject],
       checkExists: Boolean
-  )(implicit filename: sourcecode.File, line: sourcecode.Line): Unit = {
+  ): Unit = {
     val buildProjects =
       projects.flatMap(p => stateToCheck.build.getProjectFor(p.config.name).toList)
     assert(projects.size == buildProjects.size)
@@ -387,7 +388,7 @@ abstract class BaseSuite extends TestSuite with BloopHelpers {
   def assertEmptyCompilationState(
       state: TestState,
       projects: List[TestProject]
-  )(implicit filename: sourcecode.File, line: sourcecode.Line): Unit = {
+  ): Unit = {
     val buildProjects = projects.flatMap(p => state.build.getProjectFor(p.config.name).toList)
     assert(projects.size == buildProjects.size)
     projects.zip(buildProjects).foreach {
@@ -521,6 +522,7 @@ abstract class BaseSuite extends TestSuite with BloopHelpers {
   case class FlatTest(name: String, thunk: () => Unit)
   private val myTests = IndexedSeq.newBuilder[FlatTest]
 
+  @nowarn("msg=parameter value fun in method ignore is never used")
   def ignore(name: String, label: String = "IGNORED")(fun: => Any): Unit = {
     myTests += FlatTest(
       utest.ufansi.Color.LightRed(s"$label - $name").toString(),

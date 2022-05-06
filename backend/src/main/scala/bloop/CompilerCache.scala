@@ -127,9 +127,7 @@ final class CompilerCache(
           componentProvider,
           Some(Paths.getCacheDirectory("bridge-cache").toFile),
           bridgeSources,
-          retrieveDir.toFile,
-          logger,
-          scheduler
+          logger
         )
     }
   }

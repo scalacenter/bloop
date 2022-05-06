@@ -284,8 +284,6 @@ class RunSpec extends BloopHelpers {
       val ourInputStream = new ByteArrayInputStream("Hello!\n".getBytes(StandardCharsets.UTF_8))
       val hijackedCommonOptions = state0.commonOptions.copy(in = ourInputStream)
       val state = state0.copy(logger = logger).copy(commonOptions = hijackedCommonOptions)
-      val projects = state.build.loadedProjects.map(_.project)
-      val projectA = getProject("A", state)
       val action = Run(Commands.Run(List("A")))
       val duration = Duration.apply(15, TimeUnit.SECONDS)
       def msgs = logger.getMessages
@@ -316,8 +314,6 @@ class RunSpec extends BloopHelpers {
       val ourInputStream = new ByteArrayInputStream("Hello!\n".getBytes(StandardCharsets.UTF_8))
       val hijackedCommonOptions = state0.commonOptions.copy(in = ourInputStream)
       val state = state0.copy(logger = logger).copy(commonOptions = hijackedCommonOptions)
-      val projects = state.build.loadedProjects.map(_.project)
-      val projectA = getProject("A", state)
       val action = Run(Commands.Run(List("A")))
       val duration = Duration.apply(13, TimeUnit.SECONDS)
       val cancelTime = Duration.apply(7, TimeUnit.SECONDS)
@@ -369,7 +365,7 @@ class RunSpec extends BloopHelpers {
       Files.write(sourceA.underlying, Sources.`A2.scala`.getBytes(StandardCharsets.UTF_8))
 
       val action = Run(Commands.Run(List(RootProject), incremental = true))
-      val state2 = TestUtil.blockingExecute(action, state)
+      TestUtil.blockingExecute(action, state)
 
       assertEquals(4.toLong, logger.compilingInfos.size.toLong)
       val errors = logger.getMessages.filter(_._1 == "error")

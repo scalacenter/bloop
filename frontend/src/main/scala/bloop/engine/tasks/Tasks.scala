@@ -25,7 +25,6 @@ import sbt.internal.inc.AnalyzingCompiler
 import sbt.internal.inc.PlainVirtualFileConverter
 import sbt.internal.inc.classpath.ClasspathUtil
 import sbt.testing._
-import xsbti.compile.ClasspathOptionsUtil
 
 object Tasks {
   private[bloop] val TestFailedStatus: Set[Status] =
@@ -48,18 +47,15 @@ object Tasks {
   }
 
   /**
-   * Starts a Scala REPL with the dependencies of `project` on the classpath, including `project`
-   * if `noRoot` is false, excluding it otherwise.
+   * Starts a Scala REPL with the dependencies of `project` on the classpath, including `project`.
    *
    * @param state   The current state of Bloop.
    * @param project The project for which to start the REPL.
-   * @param noRoot  If false, include `project` on the classpath. Do not include it otherwise.
    * @return The new state of Bloop.
    */
   def console(
       state: State,
-      project: Project,
-      noRoot: Boolean
+      project: Project
   ): Task[State] = Task {
     import state.logger
     project.scalaInstance match {
@@ -78,7 +74,6 @@ object Tasks {
             .get(instance, javacBin, project.javacOptions)
             .scalac
             .asInstanceOf[AnalyzingCompiler]
-        val opts = ClasspathOptionsUtil.repl
         val options = project.scalacOptions :+ "-Xnojline"
         val converter = PlainVirtualFileConverter.converter
         // We should by all means add better error handling here!
@@ -239,9 +234,7 @@ object Tasks {
    */
   def runNativeOrJs(
       state: State,
-      project: Project,
       cwd: AbsolutePath,
-      fqn: String,
       args: Array[String]
   ): Task[State] = {
     Forker.run(cwd, args, state.logger, state.commonOptions).map { exitCode =>

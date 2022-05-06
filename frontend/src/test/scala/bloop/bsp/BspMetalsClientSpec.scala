@@ -385,7 +385,7 @@ class BspMetalsClientSpec(
         scalaCompiler = Some("scala3-compiler_3.0.0-M3")
       )
       val projects = List(`A`)
-      val configDir = TestProject.populateWorkspace(workspace, projects)
+      TestProject.populateWorkspace(workspace, projects)
       val logger = new RecordingLogger(ansiCodesSupported = false)
       loadBspState(workspace, projects, logger) { state =>
         val compiledState = state.compile(`A`).toTestState
@@ -434,7 +434,7 @@ class BspMetalsClientSpec(
     TestUtil.withinWorkspace { workspace =>
       val `A` = TestProject(workspace, "A", dummyFooScalaAndBarJavaSources)
       val projects = List(`A`)
-      val configDir = TestProject.populateWorkspace(workspace, projects)
+      TestProject.populateWorkspace(workspace, projects)
       val logger = new RecordingLogger(ansiCodesSupported = false)
       val extraParams = BloopExtraBuildParams(
         ownsBuildFiles = None,
