@@ -1,8 +1,10 @@
 package bloop.bloop4j.core
-import ch.epfl.scala.bsp4j.BuildTargetIdentifier
-import bloop.config.Config
-import java.nio.file.Path
 import java.net.URI
+import java.nio.file.Path
+
+import ch.epfl.scala.bsp4j.BuildTargetIdentifier
+
+import bloop.config.Config
 
 case class BloopBuildTarget(id: BuildTargetIdentifier, configPath: Path, config: Config.File)
 

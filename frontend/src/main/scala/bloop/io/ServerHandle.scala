@@ -1,7 +1,10 @@
 package bloop.io
 
-import java.net.{InetAddress, InetSocketAddress, ServerSocket}
-import java.net.{StandardProtocolFamily, UnixDomainSocketAddress}
+import java.net.InetAddress
+import java.net.InetSocketAddress
+import java.net.ServerSocket
+import java.net.StandardProtocolFamily
+import java.net.UnixDomainSocketAddress
 import java.nio.channels.ServerSocketChannel
 
 sealed trait ServerHandle {

@@ -1,15 +1,18 @@
 package bloop.scalanative
 
-import bloop.cli.{Commands, OptimizerConfig}
-import bloop.engine.Run
-import bloop.logging.RecordingLogger
-
-import scala.concurrent.duration.Duration
 import java.util.concurrent.TimeUnit
 
-import bloop.data.{Platform, Project}
-import bloop.engine.tasks.toolchains.{ScalaJsToolchain, ScalaNativeToolchain}
+import scala.concurrent.duration.Duration
+
+import bloop.cli.Commands
+import bloop.cli.OptimizerConfig
+import bloop.data.Platform
+import bloop.data.Project
+import bloop.engine.Run
+import bloop.engine.tasks.toolchains.ScalaNativeToolchain
+import bloop.logging.RecordingLogger
 import bloop.util.TestUtil
+
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.experimental.categories.Category

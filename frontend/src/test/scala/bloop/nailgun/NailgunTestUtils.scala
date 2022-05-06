@@ -1,9 +1,15 @@
 package bloop.nailgun
 
 import java.io.PrintStream
+import java.nio.charset.StandardCharsets
+import java.nio.file.Files
+import java.nio.file.Path
+import java.nio.file.Paths
+import java.util.concurrent.ExecutionException
+import java.util.concurrent.TimeUnit
 
-import java.nio.file.{Files, Path, Paths}
-import java.util.concurrent.{ExecutionException, TimeUnit}
+import scala.concurrent.Await
+import scala.concurrent.duration.FiniteDuration
 
 import bloop.Bloop
 import bloop.bsp.BspServer
@@ -18,15 +24,11 @@ import com.martiansoftware.nailgun.{
   ThreadLocalPrintStream
 }
 
+import com.martiansoftware.nailgun.BloopThreadLocalInputStream
+import com.martiansoftware.nailgun.ThreadLocalPrintStream
 import monix.eval.Task
-import monix.execution.misc.NonFatal
 import monix.execution.Scheduler
-
 import org.apache.commons.io.IOUtils
-
-import scala.concurrent.Await
-import scala.concurrent.duration.FiniteDuration
-import java.nio.charset.StandardCharsets
 
 /**
  * Base class for writing test for the nailgun integration.

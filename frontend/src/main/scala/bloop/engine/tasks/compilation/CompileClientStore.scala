@@ -1,8 +1,9 @@
 package bloop.engine.tasks.compilation
 
-import bloop.engine.Dag
-import bloop.data.{Project}
 import java.util.concurrent.ConcurrentHashMap
+
+import bloop.data.Project
+import bloop.engine.Dag
 import bloop.engine.tasks.compilation.CompileDefinitions.CompileTraversal
 
 sealed trait CompileClientStore {

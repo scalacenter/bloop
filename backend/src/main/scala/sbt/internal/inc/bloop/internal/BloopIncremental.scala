@@ -2,27 +2,24 @@
 package sbt.internal.inc.bloop.internal
 
 import java.io.File
-import java.util.concurrent.CompletableFuture
+import java.nio.file.Path
 
 import bloop.UniqueCompileInputs
 import bloop.reporter.ZincReporter
 import bloop.tracing.BraveTracer
 
 import monix.eval.Task
-import sbt.internal.inc.{Analysis, InvalidationProfiler, Lookup, Stamper, Stamps}
+import sbt.internal.inc.Analysis
+import sbt.internal.inc.InvalidationProfiler
+import sbt.internal.inc.Lookup
+import sbt.internal.inc.PlainVirtualFileConverter
 import sbt.util.Logger
 import xsbti.AnalysisCallback
-import xsbti.api.AnalyzedClass
-import xsbti.compile.analysis.{ReadStamps, Stamp}
-import xsbti.compile._
 import xsbti.VirtualFile
-import xsbti.VirtualFileRef
-import bloop.util.AnalysisUtils
-import sbt.internal.inc.PlainVirtualFileConverter
-import java.nio.file.Path
-import xsbti.PathBasedFile
-import sbt.internal.inc.MappedFileConverter
-import scala.tools.nsc.Properties
+import xsbti.api.AnalyzedClass
+import xsbti.compile._
+import xsbti.compile.analysis.ReadStamps
+import xsbti.compile.analysis.Stamp
 
 object BloopIncremental {
   type CompileFunction =
@@ -118,7 +115,6 @@ object BloopIncremental {
       }
     }
 
-    import sbt.internal.inc.{ClassFileManager => ClassFileManagerImpl}
     val analysisTask = {
       val doCompile = (srcs: Set[VirtualFile], changes: DependencyChanges) => {
         for {

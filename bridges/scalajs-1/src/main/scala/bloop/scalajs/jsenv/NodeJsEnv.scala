@@ -1,33 +1,32 @@
 package bloop.scalajs.jsenv
 
 import java.io.File
-import java.nio.ByteBuffer
-import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, Path, StandardCopyOption}
-
-import bloop.logging.{DebugFilter, Logger}
-import bloop.scalajs.jsenv
-import com.google.common.jimfs.Jimfs
-import monix.execution.atomic.AtomicBoolean
-import org.scalajs.jsenv.nodejs.NodeJSEnv.SourceMap
-import org.scalajs.jsenv.nodejs.BloopComRun
-import org.scalajs.jsenv.{
-  ExternalJSRun,
-  Input,
-  JSComRun,
-  JSEnv,
-  JSRun,
-  RunConfig,
-  UnsupportedInputException
-}
-import org.scalajs.jsenv.JSUtils.escapeJS
-
-import scala.collection.JavaConverters._
-import scala.concurrent.{Future, Promise}
 import java.io.OutputStream
-import bloop.exec.Forker
-import monix.execution.Cancelable
+import java.nio.charset.StandardCharsets
+import java.nio.file.Files
+import java.nio.file.Path
+import java.nio.file.StandardCopyOption
+
+import scala.concurrent.Future
+
 import bloop.engine.ExecutionContext
+import bloop.exec.Forker
+import bloop.logging.DebugFilter
+import bloop.logging.Logger
+
+import com.google.common.jimfs.Jimfs
+import monix.execution.Cancelable
+import monix.execution.atomic.AtomicBoolean
+import org.scalajs.jsenv.ExternalJSRun
+import org.scalajs.jsenv.Input
+import org.scalajs.jsenv.JSComRun
+import org.scalajs.jsenv.JSEnv
+import org.scalajs.jsenv.JSRun
+import org.scalajs.jsenv.JSUtils.escapeJS
+import org.scalajs.jsenv.RunConfig
+import org.scalajs.jsenv.UnsupportedInputException
+import org.scalajs.jsenv.nodejs.BloopComRun
+import org.scalajs.jsenv.nodejs.NodeJSEnv.SourceMap
 
 // Copy pasted verbatim from Scala.js source code, added withCwd()
 // Original file: scala-js/nodejs-env/src/main/scala/org/scalajs/jsenv/nodejs/NodeJSEnv.scala

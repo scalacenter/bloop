@@ -1,9 +1,8 @@
 package bloop.testing
 
-import bloop.util.Diff
-
-import scala.collection.JavaConverters._
 import scala.util.control.NonFatal
+
+import bloop.util.Diff
 
 import utest.ufansi.Color
 

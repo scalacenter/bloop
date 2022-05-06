@@ -1,16 +1,19 @@
 package bloop
 
-import bloop.cli.{CliOptions, Commands, completion}
+import bloop.cli.CliOptions
+import bloop.cli.Commands
+import bloop.cli.completion
 import bloop.engine.Run
 import bloop.io.Environment.lineSeparator
 import bloop.logging.RecordingLogger
 import bloop.util.TestUtil
+
 import org.junit.Test
 
 class AutoCompleteSpec {
 
   @Test
-  def zshCompletions =
+  def zshCompletions: Unit =
     check(
       completion.ZshFormat,
       """
@@ -46,7 +49,7 @@ class AutoCompleteSpec {
     )
 
   @Test
-  def fishCompletions =
+  def fishCompletions: Unit =
     check(
       completion.FishFormat,
       """
@@ -82,7 +85,7 @@ class AutoCompleteSpec {
     )
 
   @Test
-  def bashCompletions =
+  def bashCompletions: Unit =
     check(
       completion.BashFormat,
       """

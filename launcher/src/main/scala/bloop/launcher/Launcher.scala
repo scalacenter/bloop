@@ -2,27 +2,24 @@ package bloop.launcher
 
 import java.io._
 import java.net.Socket
-import java.net.URL
-import java.nio.charset.{Charset, StandardCharsets}
+import java.nio.charset.Charset
+import java.nio.charset.StandardCharsets
 import java.nio.file._
 
-import scala.util.Try
 import scala.concurrent.Promise
+import scala.util.Try
 
-import bloop.launcher.LauncherStatus.{
-  FailedLauncherStatus,
-  FailedToConnectToServer,
-  FailedToInstallBloop,
-  FailedToOpenBspConnection,
-  FailedToParseArguments,
-  SuccessfulRun
-}
-import bloop.launcher.bsp.{BspBridge, BspConnection}
-import bloop.launcher.core.Feedback
-import bloop.bloopgun.util.Environment
-import bloop.bloopgun.core.{Shell, ServerStatus}
 import bloop.bloopgun.BloopgunCli
 import bloop.bloopgun.Defaults
+import bloop.bloopgun.core.Shell
+import bloop.launcher.LauncherStatus.FailedLauncherStatus
+import bloop.launcher.LauncherStatus.FailedToConnectToServer
+import bloop.launcher.LauncherStatus.FailedToOpenBspConnection
+import bloop.launcher.LauncherStatus.FailedToParseArguments
+import bloop.launcher.LauncherStatus.SuccessfulRun
+import bloop.launcher.bsp.BspBridge
+import bloop.launcher.bsp.BspConnection
+import bloop.launcher.core.Feedback
 
 object Launcher
     extends LauncherMain(

@@ -1,18 +1,19 @@
 package bloop.config
 
-import PlatformFiles.Path
-
-import scala.util.Try
 import java.nio.charset.StandardCharsets
+
 import scala.util.Failure
 import scala.util.Success
+import scala.util.Try
 
-import com.github.plokhotnyuk.jsoniter_scala.{core => jsoniter}
+import bloop.config.PlatformFiles.Path
+
+import com.github.plokhotnyuk.jsoniter_scala.core.JsonReader
 import com.github.plokhotnyuk.jsoniter_scala.core.JsonValueCodec
 import com.github.plokhotnyuk.jsoniter_scala.core.JsonWriter
-import com.github.plokhotnyuk.jsoniter_scala.core.JsonReader
 import com.github.plokhotnyuk.jsoniter_scala.core.WriterConfig
 import com.github.plokhotnyuk.jsoniter_scala.macros._
+import com.github.plokhotnyuk.jsoniter_scala.{core => jsoniter}
 
 object ConfigCodecs {
 

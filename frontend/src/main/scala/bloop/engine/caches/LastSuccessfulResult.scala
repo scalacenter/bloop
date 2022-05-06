@@ -1,19 +1,19 @@
 package bloop.engine.caches
 
-import bloop.Compiler
+import java.util.Optional
+
+import bloop.CompileOutPaths
 import bloop.CompileProducts
+import bloop.UniqueCompileInputs
 import bloop.data.Project
 import bloop.io.AbsolutePath
 
-import java.nio.file.Files
-import java.util.Optional
-
-import xsbti.compile.{PreviousResult, CompileAnalysis, MiniSetup, FileHash}
-
 import monix.eval.Task
-import bloop.UniqueCompileInputs
-import bloop.CompileOutPaths
 import monix.execution.atomic.AtomicInt
+import xsbti.compile.CompileAnalysis
+import xsbti.compile.FileHash
+import xsbti.compile.MiniSetup
+import xsbti.compile.PreviousResult
 
 case class LastSuccessfulResult(
     sources: Vector[UniqueCompileInputs.HashedSource],

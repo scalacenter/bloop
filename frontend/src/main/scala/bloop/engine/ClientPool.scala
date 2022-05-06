@@ -1,6 +1,8 @@
 package bloop.engine
 
-import com.martiansoftware.nailgun.{NGClientDisconnectReason, NGClientListener, NGContext}
+import com.martiansoftware.nailgun.NGClientDisconnectReason
+import com.martiansoftware.nailgun.NGClientListener
+import com.martiansoftware.nailgun.NGContext
 
 sealed trait CloseEvent
 case object Heartbeat extends CloseEvent

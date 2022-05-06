@@ -3,12 +3,13 @@ package bloop.bsp
 import java.net.URI
 import java.nio.file.Path
 
+import scala.util.Try
+
+import ch.epfl.scala.bsp.Uri
+
 import bloop.data.Project
 import bloop.engine.State
 import bloop.io.AbsolutePath
-import ch.epfl.scala.bsp.Uri
-
-import scala.util.Try
 
 object ProjectUris {
   def getProjectDagFromUri(projectUri: String, state: State): Either[String, Option[Project]] = {

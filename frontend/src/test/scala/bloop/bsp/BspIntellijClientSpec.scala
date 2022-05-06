@@ -1,12 +1,15 @@
 package bloop.bsp
 
+import ch.epfl.scala.bsp.WorkspaceBuildTargetsResult
+
 import bloop.cli.BspProtocol
+import bloop.data.TraceSettings
 import bloop.data.WorkspaceSettings
 import bloop.logging.RecordingLogger
 import bloop.tracing.TraceProperties
-import bloop.util.{CrossPlatform, TestProject, TestUtil}
-import ch.epfl.scala.bsp.WorkspaceBuildTargetsResult
-import bloop.data.TraceSettings
+import bloop.util.CrossPlatform
+import bloop.util.TestProject
+import bloop.util.TestUtil
 
 object LocalBspIntellijClientSpec extends BspIntellijClientSpec(BspProtocol.Local)
 object TcpBspIntellijClientSpec extends BspIntellijClientSpec(BspProtocol.Tcp)

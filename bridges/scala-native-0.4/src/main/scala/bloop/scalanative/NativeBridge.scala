@@ -1,13 +1,16 @@
 package bloop.scalanative
-import bloop.config.Config.{LinkerMode, NativeConfig}
-import bloop.io.Paths
-import bloop.logging.{DebugFilter, Logger}
-import java.nio.file.{Files, Path}
-
-import bloop.data.Project
+import java.nio.file.Files
+import java.nio.file.Path
 
 import scala.scalanative.build
 import scala.scalanative.util.Scope
+
+import bloop.config.Config.LinkerMode
+import bloop.config.Config.NativeConfig
+import bloop.data.Project
+import bloop.io.Paths
+import bloop.logging.DebugFilter
+import bloop.logging.Logger
 
 object NativeBridge {
   private implicit val ctx: DebugFilter = DebugFilter.Link

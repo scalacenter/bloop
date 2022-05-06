@@ -1,31 +1,42 @@
 package bloop.engine
 
+import java.io.IOException
+import java.nio.charset.StandardCharsets
+import java.nio.file.Files
+
+import scala.collection.immutable.Nil
+import scala.concurrent.Promise
+
+import bloop.ScalaInstance
 import bloop.bsp.BspServer
-import bloop.cli._
-import bloop.cli.completion.{Case, Mode}
-import bloop.io.{AbsolutePath, RelativePath, SourceWatcher}
-import bloop.logging.{DebugFilter, Logger, NoopLogger}
-import bloop.testing.{LoggingEventHandler, TestInternals}
-import bloop.engine.tasks.{CompileTask, LinkTask, Tasks, TestTask, RunMode}
+import bloop.bsp.ScalaTestSuites
 import bloop.cli.Commands.CompilingCommand
 import bloop.cli.Validate
-import bloop.util.JavaRuntime
-import bloop.data.{ClientInfo, Platform, Project, JdkConfig}
+import bloop.cli._
+import bloop.cli.completion.Case
+import bloop.cli.completion.Mode
+import bloop.data.Platform
+import bloop.data.Project
 import bloop.engine.Feedback.XMessageString
-import bloop.engine.tasks.toolchains.{ScalaJsToolchain, ScalaNativeToolchain}
-import bloop.reporter.{LogReporter, ReporterInputs}
+import bloop.engine.tasks.CompileTask
+import bloop.engine.tasks.LinkTask
+import bloop.engine.tasks.RunMode
+import bloop.engine.tasks.Tasks
+import bloop.engine.tasks.TestTask
+import bloop.engine.tasks.toolchains.ScalaJsToolchain
+import bloop.engine.tasks.toolchains.ScalaNativeToolchain
 import bloop.io.Environment.lineSeparator
-import caseapp.core.help.CommandHelp
-import monix.eval.Task
+import bloop.io.RelativePath
+import bloop.io.SourceWatcher
+import bloop.logging.DebugFilter
+import bloop.logging.Logger
+import bloop.logging.NoopLogger
+import bloop.reporter.LogReporter
+import bloop.reporter.ReporterInputs
+import bloop.testing.LoggingEventHandler
+import bloop.testing.TestInternals
 
-import scala.concurrent.Promise
-import java.nio.file.Files
-import java.nio.charset.StandardCharsets
-import bloop.ScalaInstance
-import scala.collection.immutable.Nil
-import scala.annotation.tailrec
-import java.io.IOException
-import bloop.bsp.ScalaTestSuites
+import monix.eval.Task
 
 object Interpreter {
   // This is stack-safe because of Monix's trampolined execution

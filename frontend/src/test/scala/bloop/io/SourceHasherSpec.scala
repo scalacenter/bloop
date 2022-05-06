@@ -1,13 +1,13 @@
 package bloop.io
 
+import scala.concurrent.Await
+import scala.concurrent.Promise
+import scala.concurrent.duration.FiniteDuration
+
 import bloop.io.Environment.lineSeparator
 import bloop.logging.RecordingLogger
-import scala.concurrent.Promise
-import bloop.util.TestUtil
-import java.nio.file.Files
-import scala.concurrent.Await
-import scala.concurrent.duration.FiniteDuration
 import bloop.util.TestProject
+import bloop.util.TestUtil
 
 object SourceHasherSpec extends bloop.testing.BaseSuite {
   flakyTest("cancellation works", 3) {

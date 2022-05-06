@@ -1,25 +1,31 @@
 package bloop.engine.tasks
 
-import java.nio.file.{Files, Path}
+import java.nio.file.Files
+import java.nio.file.Path
 
-import bloop.cli.ExitStatus
-import bloop.engine.caches.ResultsCache
-import bloop.logging.DebugFilter
-import bloop.data.{Project, JdkConfig}
-import bloop.engine.{Dag, State}
-import bloop.exec.{Forker, JvmProcessForker}
-import bloop.io.AbsolutePath
-import bloop.util.JavaCompat.EnrichOptional
-import bloop.testing.{LoggingEventHandler, BloopTestSuiteEventHandler}
 import ch.epfl.scala.debugadapter.testing.TestSuiteEvent
-import monix.eval.Task
-import sbt.internal.inc.{Analysis, AnalyzingCompiler, ConcreteAnalysisContents, FileAnalysisStore}
-import sbt.internal.inc.classpath.ClasspathUtilities
-import sbt.testing._
-import xsbti.compile.{ClasspathOptionsUtil, CompileAnalysis, MiniSetup, PreviousResult}
+
 import bloop.bsp.ScalaTestSuites
+import bloop.cli.ExitStatus
+import bloop.data.JdkConfig
+import bloop.data.Project
+import bloop.engine.Dag
+import bloop.engine.State
+import bloop.exec.Forker
+import bloop.exec.JvmProcessForker
+import bloop.io.AbsolutePath
+import bloop.logging.DebugFilter
+import bloop.testing.BloopTestSuiteEventHandler
+import bloop.testing.LoggingEventHandler
+import bloop.util.JavaCompat.EnrichOptional
+
+import monix.eval.Task
+import sbt.internal.inc.Analysis
+import sbt.internal.inc.AnalyzingCompiler
 import sbt.internal.inc.PlainVirtualFileConverter
 import sbt.internal.inc.classpath.ClasspathUtil
+import sbt.testing._
+import xsbti.compile.ClasspathOptionsUtil
 
 object Tasks {
   private[bloop] val TestFailedStatus: Set[Status] =

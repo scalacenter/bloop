@@ -2,19 +2,18 @@ package bloop.io
 
 import java.util.concurrent.TimeUnit
 
-import bloop.logging.RecordingLogger
-import bloop.util.TestUtil
-import bloop.tracing.BraveTracer
-import bloop.DependencyResolution
-
-import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.Await
 import scala.concurrent.Promise
+import scala.concurrent.duration.FiniteDuration
+
+import bloop.DependencyResolution
+import bloop.logging.RecordingLogger
+import bloop.tracing.BraveTracer
+import bloop.tracing.TraceProperties
+import bloop.util.TestUtil
 
 import monix.eval.Task
-
 import sbt.internal.inc.bloop.internal.BloopStamps
-import bloop.tracing.TraceProperties
 
 object ClasspathHasherSpec extends bloop.testing.BaseSuite {
   ignore("cancellation works OK") {

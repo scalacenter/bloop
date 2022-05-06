@@ -1,14 +1,14 @@
 package bloop.bloopgun.core
 
+import java.nio.file.Path
+
+import scala.collection.JavaConverters._
+
 import bloop.bloopgun.util.Feedback
 
 import coursierapi.Repository
 import coursierapi.error.CoursierError
-
-import java.nio.file.Path
 import snailgun.logging.Logger
-
-import scala.collection.JavaConverters._
 
 object DependencyResolution {
 

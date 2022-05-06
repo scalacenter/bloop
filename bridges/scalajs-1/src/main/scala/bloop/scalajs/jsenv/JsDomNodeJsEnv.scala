@@ -1,25 +1,27 @@
 package bloop.scalajs.jsenv
 
-import java.io.{File, InputStream}
+import java.io.File
+import java.io.InputStream
 import java.net.URI
 import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, Path, StandardCopyOption}
-
-import bloop.logging.Logger
-import com.google.common.jimfs.Jimfs
-import org.scalajs.jsenv.nodejs.BloopComRun
-import org.scalajs.jsenv.{
-  ExternalJSRun,
-  Input,
-  JSComRun,
-  JSEnv,
-  JSRun,
-  RunConfig,
-  UnsupportedInputException
-}
-import org.scalajs.jsenv.JSUtils.escapeJS
+import java.nio.file.Files
+import java.nio.file.Path
+import java.nio.file.StandardCopyOption
 
 import scala.util.control.NonFatal
+
+import bloop.logging.Logger
+
+import com.google.common.jimfs.Jimfs
+import org.scalajs.jsenv.ExternalJSRun
+import org.scalajs.jsenv.Input
+import org.scalajs.jsenv.JSComRun
+import org.scalajs.jsenv.JSEnv
+import org.scalajs.jsenv.JSRun
+import org.scalajs.jsenv.JSUtils.escapeJS
+import org.scalajs.jsenv.RunConfig
+import org.scalajs.jsenv.UnsupportedInputException
+import org.scalajs.jsenv.nodejs.BloopComRun
 
 /**
  * See comments in [[bloop.scalajs.JsBridge]].

@@ -10,17 +10,19 @@ import bloop.internal.build.BuildTestInfo
 
 import java.nio.file.Files
 import java.nio.file.Path
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import java.io.OutputStream
-import java.nio.charset.StandardCharsets
-import java.io.ByteArrayOutputStream
-
-import scala.concurrent.Promise
-import scala.collection.JavaConverters._
-
-import java.io.ByteArrayInputStream
-import bloop.bloopgun.BloopgunCli
 import java.io.PrintStream
+import java.nio.charset.StandardCharsets
+import java.nio.file.Files
+import java.{util => ju}
+
+import scala.collection.JavaConverters._
+import scala.concurrent.Promise
+
+import bloop.bloopgun.BloopgunCli
 import bloop.bloopgun.ServerConfig
 import bloop.bloopgun.core.ServerStatus
 import snailgun.logging.SnailgunLogger

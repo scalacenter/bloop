@@ -1,18 +1,18 @@
 package bloop.bloopgun.util
 
-import com.github.plokhotnyuk.jsoniter_scala.{core => jsoniter}
-import com.github.plokhotnyuk.jsoniter_scala.core.JsonReaderException
-import com.github.plokhotnyuk.jsoniter_scala.core.JsonValueCodec
-import com.github.plokhotnyuk.jsoniter_scala.core.WriterConfig
-import com.github.plokhotnyuk.jsoniter_scala.macros.JsonCodecMaker
-import com.github.plokhotnyuk.jsoniter_scala.macros.CodecMakerConfig
+import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
-import snailgun.logging.Logger
+
 import scala.util.Failure
 import scala.util.Success
-import java.nio.file.Files
 import scala.util.Try
+
+import com.github.plokhotnyuk.jsoniter_scala.core.JsonReaderException
+import com.github.plokhotnyuk.jsoniter_scala.core.JsonValueCodec
+import com.github.plokhotnyuk.jsoniter_scala.macros.JsonCodecMaker
+import com.github.plokhotnyuk.jsoniter_scala.{core => jsoniter}
+import snailgun.logging.Logger
 
 case class GlobalSettings(
     javaHome: Option[String] = None,

@@ -1,16 +1,15 @@
 package bloop.engine.tasks.compilation
 
-import bloop.{Compiler, JavaSignal, CompileProducts, CompileExceptions}
+import bloop.Compiler
 import bloop.data.Project
-import bloop.engine.{Dag, Leaf, Parent, Aggregate}
+import bloop.engine.Aggregate
+import bloop.engine.Dag
+import bloop.engine.Leaf
+import bloop.engine.Parent
 import bloop.reporter.Problem
 import bloop.util.CacheHashCode
 
 import monix.eval.Task
-import monix.execution.CancelableFuture
-
-import scala.util.Try
-import scala.concurrent.Promise
 
 sealed trait CompileResult[+R] {
   def result: R

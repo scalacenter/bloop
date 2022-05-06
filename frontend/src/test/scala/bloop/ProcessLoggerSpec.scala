@@ -1,6 +1,8 @@
 package bloop
 
-import bloop.logging.{ProcessLogger, RecordingLogger}
+import bloop.logging.ProcessLogger
+import bloop.logging.RecordingLogger
+
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.junit.experimental.categories.Category
@@ -9,7 +11,7 @@ import org.junit.experimental.categories.Category
 class ProcessLoggerSpec {
 
   @Test
-  def loggerToOutputStream = {
+  def loggerToOutputStream: Unit = {
     val logger = new RecordingLogger
     val stream = ProcessLogger.toOutputStream(logger.info)
     stream.write("hello".getBytes("UTF-8"))
@@ -23,7 +25,7 @@ class ProcessLoggerSpec {
   }
 
   @Test
-  def loggerToPrintStream = {
+  def loggerToPrintStream: Unit = {
     val logger = new RecordingLogger
     val stream = ProcessLogger.toPrintStream(logger.info)
     stream.println("hello")

@@ -1,10 +1,10 @@
 package bloop
 
-import bloop.data.Project
-import bloop.reporter.Reporter
-
 import java.util.concurrent.ConcurrentHashMap
+
 import scala.collection.JavaConverters._
+
+import bloop.data.Project
 
 package object reporter {
   type ConcurrentSet[A] = ConcurrentHashMap.KeySetView[A, java.lang.Boolean]

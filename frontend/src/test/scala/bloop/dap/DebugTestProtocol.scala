@@ -1,13 +1,16 @@
 package bloop.dap
 
+import scala.reflect.ClassTag
+import scala.reflect.classTag
+import scala.util.Try
+
 import com.microsoft.java.debug.core.protocol.Events.DebugEvent
-import com.microsoft.java.debug.core.protocol.JsonUtils.{fromJson, toJson, toJsonTree}
+import com.microsoft.java.debug.core.protocol.JsonUtils.fromJson
+import com.microsoft.java.debug.core.protocol.JsonUtils.toJson
+import com.microsoft.java.debug.core.protocol.JsonUtils.toJsonTree
 import com.microsoft.java.debug.core.protocol.Messages
 import monix.eval.Task
 import monix.execution.atomic.Atomic
-
-import scala.reflect.{ClassTag, classTag}
-import scala.util.Try
 
 private[dap] object DebugTestProtocol {
   sealed trait Response[+A]

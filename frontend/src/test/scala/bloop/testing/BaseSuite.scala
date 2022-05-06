@@ -1,23 +1,25 @@
 package bloop.testing
 
-import bloop.Compiler
-import bloop.cli.ExitStatus
-import bloop.io.AbsolutePath
-import bloop.io.ParallelOps
-import bloop.io.Paths.AttributedPath
-import bloop.util.JavaCompat._
-import bloop.util.{TestProject, TestUtil}
-import bloop.reporter.Problem
-import bloop.engine.ExecutionContext
-import bloop.engine.caches.LastSuccessfulResult
-
+import scala.collection.JavaConverters._
 import scala.concurrent.Await
-import scala.concurrent.Future
 import scala.concurrent.duration.Duration
 import scala.language.experimental.macros
-import scala.collection.JavaConverters._
 import scala.reflect.ClassTag
 
+import bloop.Compiler
+import bloop.cli.ExitStatus
+import bloop.engine.ExecutionContext
+import bloop.engine.caches.LastSuccessfulResult
+import bloop.io.AbsolutePath
+import bloop.io.Paths.AttributedPath
+import bloop.logging.BspServerLogger
+import bloop.logging.RecordingLogger
+import bloop.reporter.Problem
+import bloop.util.TestProject
+import bloop.util.TestUtil
+
+import monix.eval.Task
+import monix.execution.misc.NonFatal
 import utest.TestSuite
 import utest.Tests
 import utest.asserts.Asserts
@@ -25,14 +27,8 @@ import utest.framework.Formatter
 import utest.framework.TestCallTree
 import utest.framework.Tree
 import utest.ufansi.Attrs
-import utest.ufansi.Str
 import utest.ufansi.Color
-
-import monix.eval.Task
-import bloop.io.Paths
-import monix.execution.misc.NonFatal
-import bloop.logging.RecordingLogger
-import bloop.logging.BspServerLogger
+import utest.ufansi.Str
 
 abstract class BaseSuite extends TestSuite with BloopHelpers {
   val pprint = _root_.pprint.PPrinter.BlackWhite

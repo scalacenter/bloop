@@ -1,12 +1,15 @@
 package sbt.internal.inc.bloop.internal
 
-import bloop.util.Diff
 import bloop.CompileOutPaths
 import bloop.io.AbsolutePath
-import bloop.logging.{DebugFilter, Logger}
+import bloop.logging.DebugFilter
+import bloop.logging.Logger
+import bloop.util.Diff
 
-import xsbti.compile.{Changes, CompileAnalysis, FileHash, MiniSetup}
-import sbt.internal.inc.{CompileConfiguration, LookupImpl}
+import sbt.internal.inc.CompileConfiguration
+import sbt.internal.inc.LookupImpl
+import xsbti.compile.FileHash
+import xsbti.compile.MiniSetup
 
 final class BloopLookup(
     compileConfiguration: CompileConfiguration,

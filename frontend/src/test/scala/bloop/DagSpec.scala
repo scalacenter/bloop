@@ -1,14 +1,20 @@
 package bloop
 
 import bloop.config.Config
+import bloop.data.Origin
 import bloop.data.Project
-import bloop.data.SourcesGlobs
-import bloop.engine.Dag.{DagResult, RecursiveTrace}
-import bloop.engine.{Aggregate, Dag, Leaf, Parent}
+import bloop.engine.Aggregate
+import bloop.engine.Dag
+import bloop.engine.Dag.DagResult
+import bloop.engine.Dag.RecursiveTrace
+import bloop.engine.Leaf
+import bloop.engine.Parent
 import bloop.logging.RecordingLogger
 import bloop.util.TestUtil
+
+import org.junit.Assert
+import org.junit.Test
 import org.junit.experimental.categories.Category
-import org.junit.{Assert, Test}
 
 @Category(Array(classOf[bloop.FastTests]))
 class DagSpec {
@@ -19,7 +25,7 @@ class DagSpec {
   private val dummyPath = bloop.io.AbsolutePath.completelyUnsafe("")
 
   // format: OFF
-  def dummyOrigin = TestUtil.syntheticOriginFor(dummyPath)
+  def dummyOrigin: Origin = TestUtil.syntheticOriginFor(dummyPath)
   def dummyProject(name: String, dependencies: List[String]): Project =
     Project(name, dummyPath, None, dependencies, Some(dummyInstance), Nil, Nil, compileOptions,
       dummyPath, Nil, Nil, Nil, Nil, None, Nil, Config.TestOptions.empty, dummyPath, dummyPath,
@@ -27,19 +33,19 @@ class DagSpec {
   // format: ON
 
   private object TestProjects {
-    val a = dummyProject("a", List())
-    val b = dummyProject("b", List("a"))
-    val c = dummyProject("c", List("a"))
-    val d = dummyProject("d", List("c", "a"))
-    val e = dummyProject("e", List())
-    val f = dummyProject("f", List("d"))
-    val fWithError = dummyProject("f", List("z"))
-    val complete = List(a, b, c, d, e, f)
-    val completeWithFailedDependency = List(a, b, c, d, e, fWithError)
-    val g = dummyProject("g", List("g"))
-    val recursive = List(a, b, c, d, e, f)
-    val h = dummyProject("h", List("i"))
-    val i = dummyProject("i", List("h"))
+    val a: Project = dummyProject("a", List())
+    val b: Project = dummyProject("b", List("a"))
+    val c: Project = dummyProject("c", List("a"))
+    val d: Project = dummyProject("d", List("c", "a"))
+    val e: Project = dummyProject("e", List())
+    val f: Project = dummyProject("f", List("d"))
+    val fWithError: Project = dummyProject("f", List("z"))
+    val complete: List[Project] = List(a, b, c, d, e, f)
+    val completeWithFailedDependency: List[Project] = List(a, b, c, d, e, fWithError)
+    val g: Project = dummyProject("g", List("g"))
+    val recursive: List[Project] = List(a, b, c, d, e, f)
+    val h: Project = dummyProject("h", List("i"))
+    val i: Project = dummyProject("i", List("h"))
   }
 
   def fromMap(projectsMap: Map[String, Project]): List[Dag[Project]] = Dag.fromMap(projectsMap).dags
@@ -202,15 +208,15 @@ class DagSpec {
      *
      * Note that dependencies flow from top to bottom.
      */
-    val a = dummyProject("a", List())
-    val b = dummyProject("b", List("a"))
-    val c = dummyProject("c", List("a"))
-    val d = dummyProject("d", List("c", "a"))
-    val e = dummyProject("e", List("d"))
-    val f = dummyProject("f", List())
-    val g = dummyProject("g", List("f"))
-    val h = dummyProject("h", List("f"))
-    val i = dummyProject("i", List("h"))
+    val a: Project = dummyProject("a", List())
+    val b: Project = dummyProject("b", List("a"))
+    val c: Project = dummyProject("c", List("a"))
+    val d: Project = dummyProject("d", List("c", "a"))
+    val e: Project = dummyProject("e", List("d"))
+    val f: Project = dummyProject("f", List())
+    val g: Project = dummyProject("g", List("f"))
+    val h: Project = dummyProject("h", List("f"))
+    val i: Project = dummyProject("i", List("h"))
   }
 
   @Test def TestDagReduction(): Unit = {

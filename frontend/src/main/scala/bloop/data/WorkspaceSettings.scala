@@ -1,15 +1,19 @@
 package bloop.data
 
-import bloop.logging.Logger
-import bloop.logging.DebugFilter
-import bloop.io.AbsolutePath
-import bloop.io.RelativePath
-import scala.util.Try
+import java.nio.file.Files
+
 import scala.util.Failure
 import scala.util.Success
-import java.nio.file.Files
+import scala.util.Try
+
+import bloop.io.AbsolutePath
+import bloop.io.RelativePath
+import bloop.logging.DebugFilter
+import bloop.logging.Logger
 import bloop.tracing.TraceProperties
-import com.github.plokhotnyuk.jsoniter_scala.core.{JsonValueCodec, WriterConfig}
+
+import com.github.plokhotnyuk.jsoniter_scala.core.JsonValueCodec
+import com.github.plokhotnyuk.jsoniter_scala.core.WriterConfig
 import com.github.plokhotnyuk.jsoniter_scala.macros.JsonCodecMaker
 
 /**

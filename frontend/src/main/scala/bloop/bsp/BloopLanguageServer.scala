@@ -1,33 +1,29 @@
 package bloop.bsp
 
-import io.circe.Json
-import io.circe.jawn.parseByteBuffer
-import io.circe.syntax._
-
 import java.nio.ByteBuffer
 
-import monix.eval.Task
-import monix.execution.Cancelable
-import monix.execution.Scheduler
-import monix.reactive.Observable
-import monix.execution.CancelableFuture
-
 import scala.collection.concurrent.TrieMap
-import scala.concurrent.Await
-import scala.concurrent.duration.Duration
-import scala.util.control.NonFatal
-import scribe.LoggerSupport
-
+import scala.meta.jsonrpc.BaseProtocolMessage
+import scala.meta.jsonrpc.CancelParams
 import scala.meta.jsonrpc.Message
+import scala.meta.jsonrpc.NamedJsonRpcService
+import scala.meta.jsonrpc.Notification
 import scala.meta.jsonrpc.Request
 import scala.meta.jsonrpc.Response
 import scala.meta.jsonrpc.Service
 import scala.meta.jsonrpc.Services
-import scala.meta.jsonrpc.CancelParams
-import scala.meta.jsonrpc.Notification
-import scala.meta.jsonrpc.NamedJsonRpcService
-import scala.meta.jsonrpc.BaseProtocolMessage
+import scala.util.control.NonFatal
+
 import bloop.util.monix.FoldLeftAsyncConsumer
+
+import io.circe.Json
+import io.circe.jawn.parseByteBuffer
+import io.circe.syntax._
+import monix.eval.Task
+import monix.execution.CancelableFuture
+import monix.execution.Scheduler
+import monix.reactive.Observable
+import scribe.LoggerSupport
 
 final class BloopLanguageServer(
     in: Observable[BaseProtocolMessage],

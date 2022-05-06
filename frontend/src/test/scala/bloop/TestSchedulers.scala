@@ -1,7 +1,9 @@
 package bloop
-import java.util.concurrent.{Executors, ThreadFactory}
+import java.util.concurrent.Executors
+import java.util.concurrent.ThreadFactory
 
-import monix.execution.{ExecutionModel, Scheduler}
+import monix.execution.ExecutionModel
+import monix.execution.Scheduler
 import monix.execution.atomic.Atomic
 import java.util.concurrent.atomic.AtomicInteger
 

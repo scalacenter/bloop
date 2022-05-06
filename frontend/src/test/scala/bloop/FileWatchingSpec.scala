@@ -1,25 +1,27 @@
 package bloop
 
-import bloop.testing.BaseSuite
-import bloop.config.Config
-import bloop.data.Project
-import bloop.io.{AbsolutePath, Paths => BloopPaths}
-import bloop.io.Environment.lineSeparator
-import bloop.logging.{RecordingLogger, PublisherLogger, DebugFilter}
-import bloop.cli.{Commands, ExitStatus}
-import bloop.engine.{Feedback, Run, State, ExecutionContext, Dag, Build}
-import bloop.engine.caches.ResultsCache
-import bloop.util.{TestProject, TestUtil, BuildUtil}
-
-import monix.eval.Task
-import monix.reactive.{Observable, MulticastStrategy}
-
-import java.nio.file.Files
 import java.util.concurrent.TimeUnit
 
 import scala.concurrent.duration.FiniteDuration
+
+import bloop.cli.ExitStatus
+import bloop.config.Config
+import bloop.data.Project
+import bloop.engine.Dag
+import bloop.engine.ExecutionContext
+import bloop.io.AbsolutePath
+import bloop.io.Environment.lineSeparator
+import bloop.logging.DebugFilter
+import bloop.logging.PublisherLogger
+import bloop.logging.RecordingLogger
+import bloop.testing.BaseSuite
+import bloop.util.TestProject
+import bloop.util.TestUtil
+
+import monix.eval.Task
 import monix.execution.misc.NonFatal
-import bloop.data.SourcesGlobs
+import monix.reactive.MulticastStrategy
+import monix.reactive.Observable
 
 object FileWatchingSpec extends BaseSuite {
   System.setProperty("file-watcher-batch-window-ms", "100")
@@ -446,7 +448,6 @@ object FileWatchingSpec extends BaseSuite {
       Observable.multicast[String](MulticastStrategy.publish)
 
     val received = new StringBuilder()
-    import monix.reactive.Consumer
 
     import bloop.util.monix.FoldLeftAsyncConsumer
     val slowConsumer = FoldLeftAsyncConsumer.consume[Unit, Seq[String]](()) {
@@ -463,7 +464,6 @@ object FileWatchingSpec extends BaseSuite {
 
     import bloop.util.monix.BloopBufferTimedObservable
     val a: Observable[Seq[String]] = new BloopBufferTimedObservable(observable, 40.millis, 0)
-    import monix.reactive.OverflowStrategy
 
     val consumingTask =
       new BloopBufferTimedObservable(observable, 40.millis, 0)

@@ -1,8 +1,8 @@
 package bloop.util
 
-import bloop.logging.Logger
-
 import scala.concurrent.duration.FiniteDuration
+
+import bloop.logging.Logger
 
 object SystemProperties {
   private def parseLong(repr: String): Option[Long] = {

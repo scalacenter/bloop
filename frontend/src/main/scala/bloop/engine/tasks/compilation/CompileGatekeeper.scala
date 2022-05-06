@@ -1,25 +1,23 @@
 package bloop.engine.tasks.compilation
 
-import bloop.Compiler
-import bloop.engine.{Dag, Leaf, Parent, Aggregate}
-import bloop.data.Project
-import bloop.UniqueCompileInputs
-import bloop.engine.caches.LastSuccessfulResult
-import bloop.data.ClientInfo
-import bloop.logging.Logger
-import bloop.CompileOutPaths
-import bloop.logging.DebugFilter
-import bloop.engine.ExecutionContext
-import bloop.reporter.ReporterAction
-import bloop.logging.LoggerAction
-import bloop.io.AbsolutePath
-
-import monix.execution.atomic.AtomicBoolean
-import monix.eval.Task
-import monix.reactive.Observable
-import monix.execution.atomic.AtomicInt
-
 import java.util.concurrent.ConcurrentHashMap
+
+import bloop.Compiler
+import bloop.UniqueCompileInputs
+import bloop.data.ClientInfo
+import bloop.data.Project
+import bloop.engine.Dag
+import bloop.engine.caches.LastSuccessfulResult
+import bloop.io.AbsolutePath
+import bloop.logging.DebugFilter
+import bloop.logging.Logger
+import bloop.logging.LoggerAction
+import bloop.reporter.ReporterAction
+
+import monix.eval.Task
+import monix.execution.atomic.AtomicBoolean
+import monix.execution.atomic.AtomicInt
+import monix.reactive.Observable
 
 object CompileGatekeeper {
   private implicit val filter: DebugFilter = DebugFilter.Compilation
@@ -106,7 +104,6 @@ object CompileGatekeeper {
     import inputs.project
     import bundle.logger
     import logger.debug
-    import bundle.cancelCompilation
 
     var counterForUsedClassesDir: AtomicInt = null
 

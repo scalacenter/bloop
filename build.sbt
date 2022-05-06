@@ -24,7 +24,21 @@ lazy val sonatypeSetting = Def.settings(
 
 (ThisBuild / dynverSeparator) := "-"
 
+ThisBuild / scalafixDependencies += "com.github.liancheng" %% "organize-imports" % "0.6.0"
+
+val scalafixSettings: Seq[Setting[_]] = Seq(
+  scalacOptions ++= {
+    if (scalaVersion.value.startsWith("2.11")) Seq("-Ywarn-unused-import")
+    else if (scalaVersion.value.startsWith("2.12")) Seq("-Ywarn-unused", "-Xlint:unused")
+    else if (scalaVersion.value.startsWith("2.13")) Seq("-Wunused")
+    else Seq.empty
+  },
+  semanticdbEnabled := true,
+  semanticdbVersion := scalafixSemanticdb.revision
+)
+
 lazy val shared = project
+  .settings(scalafixSettings)
   .settings(
     sonatypeSetting,
     name := "bloop-shared",
@@ -44,6 +58,7 @@ import build.Dependencies.Scala212Version
 
 lazy val backend = project
   .enablePlugins(BuildInfoPlugin)
+  .settings(scalafixSettings)
   .settings(testSettings ++ testSuiteSettings)
   .dependsOn(shared)
   .settings(
@@ -97,6 +112,7 @@ val testResourceSettings = {
 lazy val config = crossProject(JSPlatform, JVMPlatform)
   .crossType(CrossType.Pure)
   .in(file("config"))
+  .settings(scalafixSettings)
   .settings(
     sonatypeSetting,
     name := "bloop-config",
@@ -128,12 +144,13 @@ lazy val config = crossProject(JSPlatform, JVMPlatform)
 lazy val jsonConfig213 = crossProject(JSPlatform, JVMPlatform)
   .crossType(CrossType.Pure)
   .in(file("config"))
+  .settings(scalafixSettings)
   .settings(
     sonatypeSetting,
     name := "bloop-config",
     (Compile / unmanagedSourceDirectories) +=
       Keys.baseDirectory.value / ".." / "src" / "main" / "scala-2.11-13",
-    scalaVersion := "2.13.1",
+    scalaVersion := Dependencies.Scala213Version,
     testResourceSettings
   )
   .jvmSettings(
@@ -168,6 +185,7 @@ lazy val frontend: Project = project
   )
   .enablePlugins(BuildInfoPlugin)
   .configs(IntegrationTest)
+  .settings(scalafixSettings)
   .settings(
     sonatypeSetting,
     testSettings,
@@ -273,6 +291,7 @@ lazy val bloopgunSettings = Def.settings(
 lazy val `bloopgun-core` = project
   .disablePlugins(ScriptedPlugin)
   .enablePlugins(BuildInfoPlugin)
+  .settings(scalafixSettings)
   .settings(testSuiteSettings)
   .settings(target := (file("bloopgun-core") / "target" / "bloopgun-2.12").getAbsoluteFile)
   .settings(bloopgunCoreSettings)
@@ -284,6 +303,7 @@ lazy val `bloopgun-core-213`: Project = project
   .in(file("bloopgun-core"))
   .disablePlugins(ScriptedPlugin)
   .enablePlugins(BuildInfoPlugin)
+  .settings(scalafixSettings)
   .settings(testSuiteSettings)
   .settings(target := (file("bloopgun-core") / "target" / "bloopgun-2.13").getAbsoluteFile)
   .settings(bloopgunCoreSettings)
@@ -313,6 +333,7 @@ lazy val bloopgun213 = project
 lazy val launcher = project
   .in(file("launcher"))
   .dependsOn(`bloopgun-core`)
+  .settings(scalafixSettings)
   .settings(testSuiteSettings)
   .settings(
     sonatypeSetting,
@@ -324,6 +345,7 @@ lazy val launcher213 = project
   .in(file("launcher"))
   .disablePlugins(ScriptedPlugin)
   .dependsOn(`bloopgun-core-213`)
+  .settings(scalafixSettings)
   .settings(testSuiteSettings)
   .settings(
     name := "bloop-launcher",
@@ -335,6 +357,7 @@ lazy val launcherTest = project
   .in(file("launcher-test"))
   .disablePlugins(ScriptedPlugin)
   .dependsOn(launcher, frontend % "test->test")
+  .settings(scalafixSettings)
   .settings(testSuiteSettings)
   .settings(
     name := "bloop-launcher-test",
@@ -348,6 +371,7 @@ lazy val launcherTest = project
 
 lazy val bloop4j = project
   .dependsOn(config.jvm)
+  .settings(scalafixSettings)
   .settings(
     sonatypeSetting,
     name := "bloop4j",
@@ -361,6 +385,7 @@ lazy val bloop4j = project
 lazy val jsBridge06 = project
   .dependsOn(frontend % Provided, frontend % "test->test")
   .in(file("bridges") / "scalajs-0.6")
+  .settings(scalafixSettings)
   .settings(testSettings)
   .settings(
     sonatypeSetting,
@@ -375,6 +400,7 @@ lazy val jsBridge06 = project
 lazy val jsBridge1 = project
   .dependsOn(frontend % Provided, frontend % "test->test")
   .in(file("bridges") / "scalajs-1")
+  .settings(scalafixSettings)
   .settings(testSettings)
   .settings(
     sonatypeSetting,
@@ -392,6 +418,7 @@ lazy val jsBridge1 = project
 lazy val nativeBridge04 = project
   .dependsOn(frontend % Provided, frontend % "test->test")
   .in(file("bridges") / "scala-native-0.4")
+  .settings(scalafixSettings)
   .settings(testSettings)
   .settings(
     sonatypeSetting,

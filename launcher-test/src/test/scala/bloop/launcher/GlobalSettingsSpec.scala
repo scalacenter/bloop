@@ -1,7 +1,9 @@
 package bloop.launcher
 
 import java.nio.file.Files
+
 import scala.concurrent.Promise
+
 import bloop.bloopgun.util.Environment
 import bloop.internal.build.BuildInfo
 

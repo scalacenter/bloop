@@ -2,9 +2,10 @@ package bloop.logging
 
 import java.io.PrintStream
 import java.util.concurrent.ConcurrentLinkedQueue
-import bloop.io.Environment.lineSeparator
 
 import scala.collection.JavaConverters.asScalaIteratorConverter
+
+import bloop.io.Environment.lineSeparator
 
 class RecordingLogger(
     debug: Boolean = false,
@@ -125,7 +126,6 @@ class RecordingLogger(
       .mkString(lineSeparator)
   }
 
-  import java.nio.file.Path
   import java.nio.file.Files
   import java.nio.charset.StandardCharsets
   def writeToFile(id: String): Unit = {

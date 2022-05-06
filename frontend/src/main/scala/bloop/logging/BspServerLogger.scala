@@ -1,23 +1,20 @@
 package bloop.logging
 
-import java.io.File
 import java.util.concurrent.atomic.AtomicInteger
 
-import bloop.data.Project
-import bloop.engine.State
-import bloop.reporter.Problem
-import sbt.internal.inc.bloop.ZincInternals
-import xsbti.Severity
-
 import scala.meta.jsonrpc.JsonRpcClient
+
 import ch.epfl.scala.bsp
+import ch.epfl.scala.bsp.BuildTargetIdentifier
+import ch.epfl.scala.bsp.DiagnosticSeverity
 import ch.epfl.scala.bsp.Uri
-import ch.epfl.scala.bsp.{BuildTargetIdentifier, DiagnosticSeverity}
 import ch.epfl.scala.bsp.endpoints.Build
 
+import bloop.engine.State
+
 import monix.execution.atomic.AtomicInt
-import io.circe.derivation.JsonCodec
-import java.nio.file.Path
+import sbt.internal.inc.bloop.ZincInternals
+import xsbti.Severity
 
 /**
  * Creates a logger that will forward all the messages to the underlying bsp client.

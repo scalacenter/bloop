@@ -1,29 +1,29 @@
 package bloop.bsp
 
-import scala.meta.jsonrpc.Response
-import scala.meta.jsonrpc.RequestId
-import scala.meta.jsonrpc.CancelParams
-import scala.meta.jsonrpc.Notification
-import scala.meta.jsonrpc.JsonRpcClient
-import scala.meta.jsonrpc.MessageWriter
-import io.circe.Decoder
-import io.circe.Encoder
-import io.circe.syntax._
 import java.io.OutputStream
 import java.nio.ByteBuffer
 import java.nio.channels.Channels
 
-import monix.eval.Task
+import scala.collection.concurrent.TrieMap
+import scala.concurrent.Future
+import scala.concurrent.duration.FiniteDuration
+import scala.meta.jsonrpc.CancelParams
+import scala.meta.jsonrpc.JsonRpcClient
+import scala.meta.jsonrpc.MessageWriter
+import scala.meta.jsonrpc.Notification
+import scala.meta.jsonrpc.RequestId
+import scala.meta.jsonrpc.Response
+
+import io.circe.Decoder
+import io.circe.Encoder
+import io.circe.syntax._
 import monix.eval.Callback
+import monix.eval.Task
 import monix.execution.Ack
-import monix.reactive.Observer
 import monix.execution.Cancelable
 import monix.execution.atomic.Atomic
 import monix.execution.atomic.AtomicInt
-
-import scala.concurrent.Future
-import scala.collection.concurrent.TrieMap
-import scala.concurrent.duration.FiniteDuration
+import monix.reactive.Observer
 import scribe.LoggerSupport
 
 /**

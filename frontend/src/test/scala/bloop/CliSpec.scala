@@ -1,16 +1,22 @@
 package bloop
 
 import java.nio.file.Files
+import java.nio.file.Path
 
-import bloop.cli.{BspProtocol, Commands, ExitStatus, Validate}
-import bloop.engine.{Action, Exit, Feedback, Print, Run}
-import bloop.util.UUIDUtil
-import org.junit.Test
-import bloop.util.TestUtil
+import bloop.cli.BspProtocol
+import bloop.cli.Commands
+import bloop.cli.ExitStatus
+import bloop.cli.Validate
+import bloop.engine.Action
+import bloop.engine.Exit
+import bloop.engine.Feedback
+import bloop.engine.Print
+import bloop.engine.Run
 import bloop.testing.BaseSuite
+import bloop.util.UUIDUtil
 
 object CliSpec extends BaseSuite {
-  val tempDir = Files.createTempDirectory("validate")
+  val tempDir: Path = Files.createTempDirectory("validate")
   tempDir.toFile.deleteOnExit()
 
   test("fail at existing socket") {
@@ -148,7 +154,7 @@ object CliSpec extends BaseSuite {
     checkReservedPort(23)
   }
 
-  def uniqueId = UUIDUtil.randomUUID.take(8)
+  def uniqueId: String = UUIDUtil.randomUUID.take(8)
   def checkIsCliError(action: Action, expected: String): Unit = {
     action match {
       case Print(obtained, _, Exit(code))

@@ -1,10 +1,12 @@
 package bloop.bsp
 
-import ch.epfl.scala.bsp.Uri
-import io.circe.derivation._
-import io.circe.{Decoder, RootEncoder}
-
 import scala.meta.jsonrpc.Endpoint
+
+import ch.epfl.scala.bsp.Uri
+
+import io.circe.Decoder
+import io.circe.RootEncoder
+import io.circe.derivation._
 
 object BloopBspDefinitions {
   final case class BloopExtraBuildParams(
@@ -16,7 +18,7 @@ object BloopBspDefinitions {
   )
 
   object BloopExtraBuildParams {
-    val empty = BloopExtraBuildParams(
+    val empty: BloopExtraBuildParams = BloopExtraBuildParams(
       ownsBuildFiles = None,
       clientClassesRootDir = None,
       semanticdbVersion = None,

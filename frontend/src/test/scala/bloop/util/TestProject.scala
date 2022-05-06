@@ -1,31 +1,34 @@
 package bloop.util
 
 import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, Path}
+import java.nio.file.Files
+import java.nio.file.Path
+
+import scala.concurrent.ExecutionContext
+import scala.tools.nsc.Properties
+
+import ch.epfl.scala.bsp
 
 import bloop.ScalaInstance
 import bloop.bsp.ProjectUris
 import bloop.config.Config
 import bloop.config.Config.Platform
-import bloop.data.JdkConfig
-import bloop.io.{AbsolutePath, Paths, RelativePath}
-import bloop.logging.{Logger, NoopLogger}
-import bloop.util.TestUtil.ProjectArchetype
 import bloop.config.ConfigCodecs
-
-import ch.epfl.scala.bsp
-
-import scala.tools.nsc.Properties
-import scala.concurrent.ExecutionContext
 import bloop.data.ClientInfo.CliClientInfo
+import bloop.data.JdkConfig
+import bloop.io.AbsolutePath
+import bloop.io.RelativePath
+import bloop.logging.Logger
+import bloop.logging.NoopLogger
+import bloop.util.TestUtil.ProjectArchetype
 
 final case class TestProject(
     config: Config.Project,
     deps: Option[List[TestProject]]
 ) {
   def baseDir: AbsolutePath = AbsolutePath(config.directory)
+  def sources: List[AbsolutePath] = config.sources.map(AbsolutePath(_))
   def srcFor(relPath: String, exists: Boolean = true): AbsolutePath = {
-    val sources = config.sources.map(AbsolutePath(_))
     if (exists) TestProject.srcFor(sources, relPath)
     else {
       val targetPath = RelativePath(relPath.stripPrefix(java.io.File.separator))

@@ -1,6 +1,7 @@
 package bloop.logging
 
 import bloop.reporter.ReporterAction
+
 import monix.reactive.Observer
 
 /**

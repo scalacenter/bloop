@@ -1,10 +1,12 @@
 package bloop.util
 
-import javax.tools.ToolProvider
-import scala.util.Try
-import scala.util.Failure
-import bloop.io.AbsolutePath
 import javax.tools.JavaCompiler
+import javax.tools.ToolProvider
+
+import scala.util.Failure
+import scala.util.Try
+
+import bloop.io.AbsolutePath
 
 sealed trait JavaRuntime
 object JavaRuntime {

@@ -1,24 +1,28 @@
 package bloop.dap
 
-import java.net.{InetSocketAddress, Socket, URI}
+import java.io.Closeable
+import java.net.InetSocketAddress
+import java.net.Socket
+import java.net.URI
+import java.util.concurrent.TimeUnit
+
+import scala.concurrent.Promise
 
 import bloop.dap.DebugTestEndpoints._
+import bloop.engine.ExecutionContext
+
 import com.microsoft.java.debug.core.protocol.Events
 import com.microsoft.java.debug.core.protocol.Requests._
-import com.microsoft.java.debug.core.protocol.Types.Capabilities
-import monix.eval.Task
-import monix.execution.Scheduler
-import scala.concurrent.Promise
-import java.io.Closeable
-import bloop.engine.ExecutionContext
-import java.util.concurrent.TimeUnit
-import monix.execution.Cancelable
-import com.microsoft.java.debug.core.protocol.Responses.SetBreakpointsResponseBody
 import com.microsoft.java.debug.core.protocol.Responses.ContinueResponseBody
+import com.microsoft.java.debug.core.protocol.Responses.EvaluateResponseBody
 import com.microsoft.java.debug.core.protocol.Responses.ScopesResponseBody
+import com.microsoft.java.debug.core.protocol.Responses.SetBreakpointsResponseBody
 import com.microsoft.java.debug.core.protocol.Responses.StackTraceResponseBody
 import com.microsoft.java.debug.core.protocol.Responses.VariablesResponseBody
-import com.microsoft.java.debug.core.protocol.Responses.EvaluateResponseBody
+import com.microsoft.java.debug.core.protocol.Types.Capabilities
+import monix.eval.Task
+import monix.execution.Cancelable
+import monix.execution.Scheduler
 
 /**
  * Manages a connection with a debug adapter.
@@ -29,7 +33,7 @@ private[dap] final class DebugAdapterConnection(
     adapter: DebugAdapterProxy
 ) extends Closeable {
   // Complete the promise in the background whenever the socket is closed
-  val closedPromise = Promise[Unit]()
+  val closedPromise: Promise[Unit] = Promise[Unit]()
   var cancelCompleter: Cancelable = Cancelable.empty
   cancelCompleter = ExecutionContext.ioScheduler.scheduleAtFixedRate(
     100,

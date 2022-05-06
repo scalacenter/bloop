@@ -1,11 +1,14 @@
 package bloop.dap
 
 import java.net.InetSocketAddress
+
 import ch.epfl.scala.debugadapter.DebuggeeListener
-import bloop.logging.Logger
+
+import bloop.dap.DebuggeeLogger.JDINotificationPrefix
 import bloop.logging.DebugFilter
+import bloop.logging.Logger
+
 import monix.execution.atomic.Atomic
-import DebuggeeLogger.JDINotificationPrefix
 
 object DebuggeeLogger {
   final val JDINotificationPrefix = "Listening for transport dt_socket at address: "
