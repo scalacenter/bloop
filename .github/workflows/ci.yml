@@ -14,11 +14,63 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+        with:
+          submodules: true
+          fetch-depth: 0
       - uses: coursier/setup-action@v1.2.0-M3
         with:
           jvm: "graalvm-java17:21.3.0"
       - name: Check formatting
         run: ./bin/scalafmt --test
+  bridges:
+    name: Test platform bridges
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macOS-latest]
+        jdk: ["graalvm-java17:21.3.0"]
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: true
+          fetch-depth: 0
+      - uses: coursier/setup-action@v1.2.0-M3
+        with:
+          jvm: ${{ matrix.jdk }}
+      - name: Tests
+        run: |
+          .github/setup-test-projects.sh &&\
+          ./bin/sbt-ci.sh \
+              "jsBridge06/publishLocal" \
+              "jsBridge1/publishLocal" \
+              "jsBridge06/test" \
+              "jsBridge1/test"
+        shell: bash
+
+  launcher:
+    name: Launcher tests
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macOS-latest]
+        jdk: ["graalvm-java17:21.3.0"]
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: true
+          fetch-depth: 0
+      - uses: coursier/setup-action@v1.2.0-M3
+        with:
+          jvm: ${{ matrix.jdk }}
+      - name: Tests
+        run: |
+          echo $JAVA_HOME
+          which gu && gu install native-image
+          ./bin/sbt-ci.sh publishLocal "launcherTest/test"
+        shell: bash
+
   test:
     runs-on: ${{ matrix.os }}
     strategy:
@@ -50,53 +102,10 @@ jobs:
           ./bin/sbt-ci.sh \
               "frontend/test:compile" \
               "backend/test" \
-              "jsBridge06/publishLocal" \
-              "jsBridge1/publishLocal" \
               "frontend/testOnly bloop.ScalaVersionsSpec" \
-              "frontend/testOnly -bloop.ScalaVersionsSpec" \
-              "jsBridge06/test" \
-              "jsBridge1/test" &&\
+              "frontend/testOnly -bloop.ScalaVersionsSpec" &&\
           ./bin/sbt-ci.sh \
             "+test:compile"
-        shell: bash
-  launcher-test:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest, macOS-latest]
-        jdk: ["graalvm-java17:21.3.0"]
-    name: Launcher tests ${{ matrix.os }} -- ${{ matrix.jdk }}
-    env:
-      HYDRA_LICENSE: ${{ secrets.HYDRA_LICENSE }}
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          submodules: true
-          fetch-depth: 0
-      - uses: coursier/setup-action@v1.2.0-M3
-        with:
-          jvm: ${{ matrix.jdk }}
-      - name: Set up environment
-        run: |
-          curl -Lo coursier https://git.io/coursier-cli && chmod +x coursier && ./coursier --help
-          yarn --help
-          java -version
-          [[ $HYDRA_LICENSE == floating-key=* ]] && mkdir -p $HOME/.triplequote && echo "$HYDRA_LICENSE" > "$HOME/.triplequote/hydra.license" || echo "Hydra license file was not created"
-        shell: bash
-      - name: Prepare launcher tests
-        run: |
-          echo $JAVA_HOME
-          which gu && gu install native-image
-          ./bin/sbt-ci.sh publishLocal
-        shell: bash
-      - name: Prepare launcher tests
-        if: matrix.os != 'windows-latest'
-        run: |
-          ./bin/sbt-ci.sh bloopgun/graalvm-native-image:packageBin
-      - name: Run launcher tests
-        run: |
-          ./bin/sbt-ci.sh "launcherTest/test"
         shell: bash
 
   publish-binaries:
@@ -164,7 +173,7 @@ jobs:
         uses: al-cheb/configure-pagefile-action@v1.2
       - name: Refresh Pagefile
         run: |
-              (Get-CimInstance Win32_PageFileUsage).AllocatedBaseSize
+          (Get-CimInstance Win32_PageFileUsage).AllocatedBaseSize
       - uses: actions/checkout@v3
         with:
           submodules: true
@@ -201,7 +210,6 @@ jobs:
         with:
           name: bloop-artifacts
           path: bloop-artifacts/${{ matrix.artifact }}
-
 
   release:
     name: Release version on ${{ matrix.os }}
