@@ -11,26 +11,15 @@ object Dependencies {
   val javaDebugVersion = "0.21.0+1-7f1080f1"
 
   val scalazVersion = "7.2.20"
-  val scalaXmlVersion = "1.2.0"
   val lmVersion = "1.0.0"
-  val configDirsVersion = "10"
   val caseAppVersion = "2.0.6"
   val sourcecodeVersion = "0.1.4"
   val sbtTestInterfaceVersion = "1.0"
   val sbtTestAgentVersion = "1.4.4"
   val junitVersion = "0.13.3"
-  val graphvizVersion = "0.2.2"
   val directoryWatcherVersion = "0.8.0+6-f651bd93"
-  val mavenApiVersion = "3.6.1"
-  val mavenAnnotationsVersion = "3.5"
-  val mavenScalaPluginVersion = "4.5.3"
-  val groovyVersion = "2.5.4"
-  val gradleAndroidPluginVersion = "4.2.0"
-  val ipcsocketVersion = "1.0.1"
   val monixVersion = "2.3.3"
-  val circeVersion = "0.9.3"
   val jsoniterVersion = "2.4.0"
-  val circeVersion213 = "0.12.2"
   val shapelessVersion = "2.3.4"
   val scalaNative04Version = "0.4.0"
   val scalaJs06Version = "0.6.32"
@@ -41,7 +30,6 @@ object Dependencies {
   val difflibVersion = "1.3.0"
   val braveVersion = "5.6.1"
   val zipkinSenderVersion = "2.7.15"
-  val jnaVersion = "5.8.0"
   val asmVersion = "7.0"
   val snailgunVersion = "0.4.0"
   val ztExecVersion = "1.11"
@@ -85,9 +73,6 @@ object Dependencies {
     "com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-core" % jsoniterVersion
   val jsoniterMacros =
     "com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-macros" % jsoniterVersion
-  val circeParser = "io.circe" %% "circe-parser" % circeVersion
-  val circeCore = "io.circe" %% "circe-core" % circeVersion
-  val circeGeneric = "io.circe" %% "circe-generic" % circeVersion
   val scalaDebugAdapter = "ch.epfl.scala" %% "scala-debug-adapter" % debugAdapterVersion
 
   val scalaNativeTools04 = "org.scala-native" %% "tools" % scalaNative04Version % Provided
@@ -104,17 +89,12 @@ object Dependencies {
     "org.scala-js" %% "scalajs-sbt-test-adapter" % scalaJs1Version % Provided
   val scalaJsLogging1 = "org.scala-js" %% "scalajs-logging" % "1.1.1" % Provided
 
-  val classgraph = "io.github.classgraph" % "classgraph" % "4.8.78"
-
   val xxHashLibrary = "net.jpountz.lz4" % "lz4" % xxHashVersion
   val zt = "org.zeroturnaround" % "zt-zip" % ztVersion
 
   val brave = "io.zipkin.brave" % "brave" % braveVersion
   val zipkinSender = "io.zipkin.reporter2" % "zipkin-sender-urlconnection" % zipkinSenderVersion
-  val zipkinOkHttp = "io.zipkin.reporter2" % "zipkin-sender-okhttp3" % zipkinSenderVersion
 
-  val jna = "net.java.dev.jna" % "jna" % jnaVersion
-  val jnaPlatform = "net.java.dev.jna" % "jna-platform" % jnaVersion
   val asm = "org.ow2.asm" % "asm" % asmVersion
   val asmUtil = "org.ow2.asm" % "asm-util" % asmVersion
 
