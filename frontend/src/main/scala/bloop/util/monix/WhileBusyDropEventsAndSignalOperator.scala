@@ -44,7 +44,7 @@ final class BloopWhileBusyDropEventsAndSignalOperator[A](onOverflow: Seq[A] => A
               }
 
             case Stop => Stop
-            case async =>
+            case _ =>
               val eventsSize = bufferedEvents.synchronized {
                 bufferedEvents += elem
                 bufferedEvents.size
@@ -53,7 +53,7 @@ final class BloopWhileBusyDropEventsAndSignalOperator[A](onOverflow: Seq[A] => A
               if (eventsSize == 1) {
                 var streamError = true
                 ack.syncOnComplete {
-                  case Failure(e) => ()
+                  case Failure(_) => ()
                   case Success(Stop) => ()
                   case Success(Continue) =>
                     try {

@@ -270,7 +270,7 @@ object ClientInfo {
         client.parentForClientClassesDirectories(project) match {
           case None =>
             () // If owns build files, original generic classes dirs are used
-          case Some(Left(unmanagedDir)) =>
+          case Some(Left(_)) =>
             () // If unmanaged, it's managed by BSP client, do nothing
 
           case Some(Right(bspClientClassesDir)) =>

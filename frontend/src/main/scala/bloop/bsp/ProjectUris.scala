@@ -17,7 +17,7 @@ object ProjectUris {
     else {
       val query = Try(new URI(projectUri).getRawQuery().split("&").map(_.split("="))).toEither
       query match {
-        case Left(t) =>
+        case Left(_) =>
           Left(s"URI '${projectUri}' has invalid format. Example: ${ProjectUris.Example}")
         case Right(parsed) =>
           parsed.headOption match {

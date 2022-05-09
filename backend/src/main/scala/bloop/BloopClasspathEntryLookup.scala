@@ -51,7 +51,7 @@ final class BloopClasspathEntryLookup(
                   case null =>
                     if (entry.isDirectory()) entryHash -> new DirectoryDefinesClass(entry)
                     else entryHash -> computeDefinesClassForJar
-                  case current @ (cachedHash, cachedDefinesClass) =>
+                  case current @ (cachedHash, _) =>
                     if (entryHash.hash() == cachedHash.hash()) current
                     else entryHash -> computeDefinesClassForJar
                 }
@@ -106,7 +106,7 @@ final class BloopClasspathEntryLookup(
     }
 
     private def subDirectory(base: File, parts: Seq[String]): File =
-      (base /: parts)((b, p) => new File(b, p))
+      parts.foldLeft(base) { (b, p) => new File(b, p) }
 
     private def components(className: String): (Seq[String], String) = {
       assume(!className.isEmpty)

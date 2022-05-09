@@ -13,9 +13,9 @@ object SourceHasherSpec extends bloop.testing.BaseSuite {
   flakyTest("cancellation works", 3) {
     val largeFileContents = {
       val sb = new StringBuilder()
-      var base = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-      for (i <- 0 to 4000) {
-        sb.++=(base)
+      val base = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      for (_ <- 0 to 4000) {
+        sb.append(base)
       }
       sb.result()
     }

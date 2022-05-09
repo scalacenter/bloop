@@ -23,11 +23,10 @@ object SemanticDBCache {
   ): Either[String, AbsolutePath] = {
 
     def attemptResolution: Either[String, AbsolutePath] = {
-      import bloop.engine.ExecutionContext.ioScheduler
       DependencyResolution.resolveWithErrors(
         List(artifact),
         logger
-      )(ioScheduler) match {
+      ) match {
         case Left(error) => Left(error.getMessage())
         case Right(paths) =>
           paths.find(_.syntax.contains(artifact.module)) match {
@@ -50,7 +49,7 @@ object SemanticDBCache {
       val semanticDBId = s"${artifact.organization}.${artifact.module}.${artifact.version}"
       Try(manager.file(semanticDBId)(IfMissing.Fail)) match {
         case Success(pluginPath) => Right(AbsolutePath(pluginPath))
-        case Failure(exception) =>
+        case Failure(_) =>
           val resolvedPlugin = attemptResolution
           resolvedPlugin.foreach(plugin => manager.define(semanticDBId, Seq(plugin.toFile)))
           resolvedPlugin

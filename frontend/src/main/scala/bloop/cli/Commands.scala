@@ -139,7 +139,6 @@ object Commands {
     implicit lazy val help: CaseAppHelp[Bsp] = CaseAppHelp.derive
   }
 
-  private lazy val DefaultBatches: ParallelBatches = ParallelBatches.Default
   case class Compile(
       @ExtraName("p")
       @ExtraName("project")

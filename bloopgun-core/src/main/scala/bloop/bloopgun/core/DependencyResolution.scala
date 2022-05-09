@@ -30,7 +30,7 @@ object DependencyResolution {
       version: String,
       logger: Logger,
       additionalRepos: Seq[Repository] = Nil
-  )(implicit ec: scala.concurrent.ExecutionContext): Array[Path] = {
+  ): Array[Path] = {
     resolveWithErrors(organization, module, version, logger, additionalRepos) match {
       case Right(paths) => paths
       case Left(error) => throw error
@@ -55,7 +55,7 @@ object DependencyResolution {
       version: String,
       logger: Logger,
       additionalRepositories: Seq[Repository] = Nil
-  )(implicit ec: scala.concurrent.ExecutionContext): Either[CoursierError, Array[Path]] = {
+  ): Either[CoursierError, Array[Path]] = {
     logger.info(Feedback.resolvingDependency(s"$organization:$module:$version"))
     val dependency = coursierapi.Dependency.of(organization, module, version)
     val fetch = coursierapi.Fetch

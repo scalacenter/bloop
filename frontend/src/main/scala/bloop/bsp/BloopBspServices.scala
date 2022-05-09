@@ -123,10 +123,10 @@ final class BloopBspServices(
   final val services: JsonRpcServices = JsonRpcServices
     .empty(baseBspLogger)
     .requestAsync(endpoints.Build.initialize)(p => schedule(initialize(p)))
-    .notification(endpoints.Build.initialized)(initialized(_))
-    .request(endpoints.Build.shutdown)(p => shutdown(p))
-    .notificationAsync(endpoints.Build.exit)(p => exit(p))
-    .requestAsync(endpoints.Workspace.buildTargets)(p => schedule(buildTargets(p)))
+    .notification(endpoints.Build.initialized)(_ => initialized())
+    .request(endpoints.Build.shutdown)(_ => shutdown())
+    .notificationAsync(endpoints.Build.exit)(_ => exit())
+    .requestAsync(endpoints.Workspace.buildTargets)(_ => schedule(buildTargets()))
     .requestAsync(endpoints.BuildTarget.sources)(p => schedule(sources(p)))
     .requestAsync(endpoints.BuildTarget.inverseSources)(p => schedule(inverseSources(p)))
     .requestAsync(endpoints.BuildTarget.resources)(p => schedule(resources(p)))
@@ -343,9 +343,8 @@ final class BloopBspServices(
 
   val isInitialized: Promise[BspResponse[Unit]] = scala.concurrent.Promise[BspResponse[Unit]]()
   val isInitializedTask: Task[BspResponse[Unit]] = Task.fromFuture(isInitialized.future).memoize
-  def initialized(
-      initializedBuildParams: bsp.InitializedBuildParams
-  ): Unit = {
+
+  def initialized(): Unit = {
     isInitialized.success(Right(()))
     callSiteState.logger.info("BSP initialization handshake complete.")
   }
@@ -420,7 +419,6 @@ final class BloopBspServices(
       originId: Option[String],
       logger: BspServerLogger
   ): BspResult[bsp.CompileResult] = {
-    val workspaceSettings = WorkspaceSettings.readFromFile(state.build.origin, logger)
     val cancelCompilation = Promise[Unit]()
     def reportError(p: Project, problems: List[ProblemPerPhase], elapsedMs: Long): String = {
       // Don't show warnings in this "final report", we're handling them in the reporter
@@ -430,7 +428,6 @@ final class BloopBspServices(
 
     val isPipeline = compileArgs.exists(_ == "--pipeline")
     def compile(projects: List[Project]): Task[State] = {
-      val cwd = state.build.origin.getParent
       val config = ReporterConfig.defaultFormat.copy(reverseOrder = false)
 
       val isSbtClient = state.client match {
@@ -479,7 +476,6 @@ final class BloopBspServices(
         dag,
         createReporter,
         isPipeline,
-        false,
         cancelCompilation,
         store,
         logger
@@ -521,7 +517,7 @@ final class BloopBspServices(
         else {
           errorMsgs match {
             case Nil => Right(bsp.CompileResult(originId, bsp.StatusCode.Ok, None, None))
-            case xs => Right(bsp.CompileResult(originId, bsp.StatusCode.Error, None, None))
+            case _ => Right(bsp.CompileResult(originId, bsp.StatusCode.Error, None, None))
           }
         }
       }
@@ -693,12 +689,11 @@ final class BloopBspServices(
 
   def test(params: bsp.TestParams): BspEndpointResponse[bsp.TestResult] = {
     def test(
-        id: BuildTargetIdentifier,
         project: Project,
         state: State
     ): Task[State] = {
       val testFilter = TestInternals.parseFilters(Nil) // Don't support test only for now
-      val handler = new BspLoggingEventHandler(id, state.logger, client)
+      val handler = new BspLoggingEventHandler(state.logger, client)
       Tasks.test(state, List(project), Nil, testFilter, ScalaTestSuites.empty, handler, mode = RunMode.Normal)
     }
 
@@ -711,14 +706,13 @@ final class BloopBspServices(
           Task.now((state, Right(bsp.TestResult(originId, bsp.StatusCode.Error, None, None))))
         case Right(mappings) =>
           val args = params.arguments.getOrElse(Nil)
-          val isVerbose = args.exists(_ == "--verbose")
           val logger = logger0.asBspServerVerbose
           compileProjects(mappings, state, args, originId, logger).flatMap {
             case (newState, compileResult) =>
               compileResult match {
-                case Right(result) =>
+                case Right(_) =>
                   val sequentialTestExecution = mappings.foldLeft(Task.now(newState)) {
-                    case (taskState, (tid, p)) => taskState.flatMap(state => test(tid, p, state))
+                    case (taskState, (_, p)) => taskState.flatMap(state => test(p, state))
                   }
 
                   sequentialTestExecution.materialize.map(_.toEither).map {
@@ -829,7 +823,6 @@ final class BloopBspServices(
     }
 
     def run(
-        id: BuildTargetIdentifier,
         project: Project,
         state: State
     ): Task[State] = {
@@ -863,7 +856,7 @@ final class BloopBspServices(
                 .flatMap { state =>
                   val args = (target.syntax +: cmd.args).toArray
                   if (!state.status.isOk) Task.now(state)
-                  else Tasks.runNativeOrJs(state, project, cwd, mainClass.`class`, args)
+                  else Tasks.runNativeOrJs(state, cwd, args)
                 }
             case platform @ Platform.Js(config, _, _) =>
               val cmd = Commands.Run(List(project.name))
@@ -873,7 +866,7 @@ final class BloopBspServices(
                   // We use node to run the program (is this a special case?)
                   val args = ("node" +: target.syntax +: cmd.args).toArray
                   if (!state.status.isOk) Task.now(state)
-                  else Tasks.runNativeOrJs(state, project, cwd, mainClass.`class`, args)
+                  else Tasks.runNativeOrJs(state, cwd, args)
                 }
           }
       }
@@ -888,14 +881,13 @@ final class BloopBspServices(
           Task.now((state, Right(bsp.RunResult(originId, bsp.StatusCode.Error))))
         case Right((tid, project)) =>
           val args = params.arguments.getOrElse(Nil)
-          val isVerbose = args.exists(_ == "--verbose")
           val logger = logger0.asBspServerVerbose
           compileProjects(List((tid, project)), state, args, originId, logger).flatMap {
             case (newState, compileResult) =>
               compileResult match {
-                case Right(result) =>
+                case Right(_) =>
                   var isCancelled: Boolean = false
-                  run(tid, project, newState)
+                  run(project, newState)
                     .doOnCancel(Task { isCancelled = true; () })
                     .materialize
                     .map(_.toEither)
@@ -964,9 +956,7 @@ final class BloopBspServices(
     )
   }
 
-  def buildTargets(
-      request: bsp.WorkspaceBuildTargetsRequest
-  ): BspEndpointResponse[bsp.WorkspaceBuildTargetsResult] = {
+  def buildTargets(): BspEndpointResponse[bsp.WorkspaceBuildTargetsResult] = {
     // need a separate block so so that state is refreshed after regenerating project data
     val refreshTask = ifInitialized(None) { (state: State, logger: BspServerLogger) =>
       state.client.refreshProjectsCommand
@@ -1104,7 +1094,7 @@ final class BloopBspServices(
     def matchesGlobs(document: Path, project: Project): Boolean =
       project.sourcesGlobs.exists(glob => glob.matches(document))
     val document = AbsolutePath(request.textDocument.uri.toPath).underlying
-    ifInitialized(None) { (state: State, logger: BspServerLogger) => 
+    ifInitialized(None) { (state: State, _: BspServerLogger) => 
       val matchingProjects = state.build.loadedProjects.filter { loadedProject =>
         val project = loadedProject.project
         matchesSources(document, project) || matchesGlobs(document, project)
@@ -1266,7 +1256,8 @@ final class BloopBspServices(
 
   val isShutdown: Promise[BspResponse[Unit]] = scala.concurrent.Promise[BspResponse[Unit]]()
   val isShutdownTask: Task[BspResponse[Unit]] = Task.fromFuture(isShutdown.future).memoize
-  def shutdown(shutdown: bsp.Shutdown): Unit = {
+
+  def shutdown(): Unit = {
     isShutdown.success(Right(()))
     callSiteState.logger.info("shutdown request received: build/shutdown")
     ()
@@ -1274,7 +1265,7 @@ final class BloopBspServices(
 
   import monix.execution.atomic.Atomic
   val exited: AtomicBoolean = Atomic(false)
-  def exit(shutdown: bsp.Exit): Task[Unit] = {
+  def exit(): Task[Unit] = {
     def closeServices(): Unit = {
       if (!exited.getAndSet(true)) {
         stopBspServer.cancel()

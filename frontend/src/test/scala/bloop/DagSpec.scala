@@ -52,19 +52,13 @@ class DagSpec {
 
   private def checkParent(d: Dag[Project], p: Project) = d match {
     case Parent(p2, _) => assert(p2 == p, s"$p2 is not $p")
-    case Leaf(f) => sys.error(s"$p is a leaf!")
+    case Leaf(_) => sys.error(s"$p is a leaf!")
     case Aggregate(_) => sys.error(s"$p is an aggregate")
-  }
-
-  private def checkDependencies(d: Dag[Project], ps: Seq[Project]) = d match {
-    case Parent(_, deps) => assert(deps == ps, s"$deps != $ps")
-    case Leaf(f) => sys.error(s"$d is a leaf!")
-    case Aggregate(_) => sys.error(s"$d is an aggregate")
   }
 
   private def checkLeaf(d: Dag[Project], p: Project) = d match {
     case Parent(p, _) => sys.error(s"$p is a parent!")
-    case Aggregate(dags) => sys.error(s"$p is an aggregate")
+    case Aggregate(_) => sys.error(s"$p is an aggregate")
     case Leaf(f) => assert(f == p, s"$f is not $p")
   }
 
@@ -93,7 +87,7 @@ class DagSpec {
 
   @Test def CompleteDAGWithMissingDependencies(): Unit = {
     val projectsMap = TestProjects.completeWithFailedDependency.map(p => p.name -> p).toMap
-    val DagResult(dags, missingDeps, traces) = Dag.fromMap(projectsMap)
+    val DagResult(dags, _, _) = Dag.fromMap(projectsMap)
 
     checkLeaf(dags.head, TestProjects.e)
     // Check that f has no registered dependency

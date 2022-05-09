@@ -63,7 +63,7 @@ final case class Build private (
     val newToAttributed = newFiles.iterator.map(ap => ap.path -> ap).toMap
 
     val currentSettings = WorkspaceSettings.readFromFile(origin, logger)
-    val settingsForReload = pickSettingsForReload(currentSettings, newSettings, logger)
+    val settingsForReload = pickSettingsForReload(currentSettings, newSettings)
     val changedSettings = currentSettings != settingsForReload
     val filesToProjects = loadedProjects.iterator.map(lp => lp.project.origin.path -> lp).toMap
 
@@ -174,8 +174,7 @@ final case class Build private (
 
   def pickSettingsForReload(
       currentSettings: Option[WorkspaceSettings],
-      newSettings: Option[WorkspaceSettings],
-      logger: Logger
+      newSettings: Option[WorkspaceSettings]
   ): Option[WorkspaceSettings] = {
     findUpdateSettingsAction(currentSettings, newSettings) match {
       case Build.AvoidReload(settings) => settings

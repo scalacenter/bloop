@@ -15,7 +15,6 @@ import bloop.CompileBackgroundTasks
 import bloop.CompileExceptions.BlockURI
 import bloop.CompileExceptions.FailedOrCancelledPromise
 import bloop.Compiler
-import bloop.JavaSignal
 import bloop.data.ClientInfo
 import bloop.data.Project
 import bloop.engine.Aggregate
@@ -34,7 +33,6 @@ import monix.eval.Task
 import xsbti.compile.PreviousResult
 
 object CompileGraph {
-  private implicit val filter: DebugFilter = DebugFilter.Compilation
   import bloop.engine.tasks.compilation.CompileDefinitions._
 
   case class Inputs(
@@ -42,7 +40,6 @@ object CompileGraph {
       dependentResults: Map[File, PreviousResult]
   )
 
-  private final val JavaContinue = Task.now(JavaSignal.ContinueCompilation)
   private def partialSuccess(
       bundle: SuccessfulCompileBundle,
       result: ResultBundle
@@ -52,12 +49,12 @@ object CompileGraph {
     def blockedFromResults(results: List[PartialCompileResult]): Option[Project] = {
       results match {
         case Nil => None
-        case result :: rest =>
+        case result :: _ =>
           result match {
             case PartialEmpty => None
             case _: PartialSuccess => None
             case f: PartialFailure => Some(f.project)
-            case fs: PartialFailures => blockedFromResults(results)
+            case _: PartialFailures => blockedFromResults(results)
           }
       }
     }
@@ -121,7 +118,7 @@ object CompileGraph {
     ): Task[Dag[PartialCompileResult]] = {
       val errInfo = err.map(e => s": ${errorToString(e)}").getOrElse("")
       val finalErrorMsg = s"$errorMsg$errInfo"
-      val failedResult = Compiler.Result.GlobalError(errorMsg, err)
+      val failedResult = Compiler.Result.GlobalError(finalErrorMsg, err)
       val failed = Task.now(ResultBundle(failedResult, None, None))
       Task.now(Leaf(PartialFailure(inputs.project, FailedOrCancelledPromise, failed)))
     }
@@ -231,8 +228,8 @@ object CompileGraph {
           }
           .materialize
           .map {
-            case Success(value) => DeduplicationResult.Ok
-            case Failure(t: UpstreamTimeoutException) =>
+            case Success(_) => DeduplicationResult.Ok
+            case Failure(_: UpstreamTimeoutException) =>
               DeduplicationResult.DisconnectFromDeduplication
             case Failure(t) => DeduplicationResult.DeduplicationError(t)
           }
@@ -442,8 +439,8 @@ object CompileGraph {
                   val projectResults =
                     results.map(ps => ps.result.map(r => ps.bundle.project -> r))
                   Task.gatherUnordered(projectResults).flatMap { results =>
-                    var dependentProducts = new mutable.ListBuffer[(Project, BundleProducts)]()
-                    var dependentResults = new mutable.ListBuffer[(File, PreviousResult)]()
+                    val dependentProducts = new mutable.ListBuffer[(Project, BundleProducts)]()
+                    val dependentResults = new mutable.ListBuffer[(File, PreviousResult)]()
                     results.foreach {
                       case (p, ResultBundle(s: Compiler.Result.Success, _, _, _)) =>
                         val newProducts = s.products
@@ -463,7 +460,7 @@ object CompileGraph {
                         results.fromCompiler match {
                           case Compiler.Result.Ok(_) =>
                             Parent(partialSuccess(bundle, results), dagResults)
-                          case res => Parent(toPartialFailure(bundle, results), dagResults)
+                          case _ => Parent(toPartialFailure(bundle, results), dagResults)
                         }
                       }
                     }
@@ -476,21 +473,6 @@ object CompileGraph {
     }
 
     loop(dag)
-  }
-
-  private def aggregateJavaSignals(xs: List[Task[JavaSignal]]): Task[JavaSignal] = {
-    Task
-      .gatherUnordered(xs)
-      .map { ys =>
-        ys.foldLeft(JavaSignal.ContinueCompilation: JavaSignal) {
-          case (JavaSignal.ContinueCompilation, JavaSignal.ContinueCompilation) =>
-            JavaSignal.ContinueCompilation
-          case (f: JavaSignal.FailFastCompilation, JavaSignal.ContinueCompilation) => f
-          case (JavaSignal.ContinueCompilation, f: JavaSignal.FailFastCompilation) => f
-          case (JavaSignal.FailFastCompilation(ps), JavaSignal.FailFastCompilation(ps2)) =>
-            JavaSignal.FailFastCompilation(ps ::: ps2)
-        }
-      }
   }
 
   private def errorToString(err: Throwable): String = {

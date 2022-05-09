@@ -34,7 +34,7 @@ object DependencyResolution {
       logger: Logger,
       resolveSources: Boolean = false,
       additionalRepos: Seq[Repository] = Nil
-  )(implicit ec: scala.concurrent.ExecutionContext): Array[AbsolutePath] = {
+  ): Array[AbsolutePath] = {
     resolveWithErrors(artifacts, logger, resolveSources, additionalRepos) match {
       case Right(paths) => paths
       case Left(error) => throw error
@@ -54,7 +54,7 @@ object DependencyResolution {
       logger: Logger,
       resolveSources: Boolean = false,
       additionalRepositories: Seq[Repository] = Nil
-  )(implicit ec: scala.concurrent.ExecutionContext): Either[CoursierError, Array[AbsolutePath]] = {
+  ): Either[CoursierError, Array[AbsolutePath]] = {
     val dependencies = artifacts.map { artifact =>
       import artifact._
       logger.debug(s"Resolving $organization:$module:$version")(DebugFilter.All)
@@ -62,7 +62,7 @@ object DependencyResolution {
       if (resolveSources) baseDep.withClassifier("sources")
       else baseDep
     }
-    resolveDependenciesWithErrors(dependencies, logger, resolveSources, additionalRepositories)
+    resolveDependenciesWithErrors(dependencies, resolveSources, additionalRepositories)
   }
 
   /**
@@ -77,11 +77,10 @@ object DependencyResolution {
    */
   def resolveDependenciesWithErrors(
       dependencies: Seq[coursierapi.Dependency],
-      logger: Logger,
       resolveSources: Boolean = false,
       additionalRepositories: Seq[Repository] = Nil
-  )(implicit ec: scala.concurrent.ExecutionContext): Either[CoursierError, Array[AbsolutePath]] = {
-    var fetch = coursierapi.Fetch
+  ): Either[CoursierError, Array[AbsolutePath]] = {
+    val fetch = coursierapi.Fetch
       .create()
       .withDependencies(dependencies: _*)
     if (resolveSources)

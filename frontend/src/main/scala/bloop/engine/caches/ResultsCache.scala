@@ -218,7 +218,6 @@ object ResultsCache {
                   lastCompilation.getOutput.getSingleOutputAsPath.toOption match {
                     case Some(classesDir) =>
                       val originPath = p.origin.path.syntax
-                      val originHash = p.origin.hash
                       val inputs = UniqueCompileInputs.emptyFor(originPath)
                       val dummyTasks = bloop.CompileBackgroundTasks.empty
                       val dummy = ObservedLogger.dummy(logger, ExecutionContext.ioScheduler)

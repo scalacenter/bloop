@@ -51,9 +51,6 @@ final class BspProjectReporter(
   /** A thread-safe map with all the files that have been cleared. */
   private val clearedFilesForClient = TrieMap.empty[File, Boolean]
 
-  /** A thread-safe map with all the files that have been cleared. */
-  private val startedPhaseInFile = TrieMap.empty[String, Boolean]
-
   /** Log a problem in a thread-safe manner. */
   override private[reporter] def logFull(problem0: Problem): Unit = {
     val problem = super.liftFatalWarning(problem0)
@@ -100,8 +97,8 @@ final class BspProjectReporter(
     super.reportNextPhase(phase, sourceFile)
     filesToPhaseStack.getOrElse(sourceFile, Nil) match {
       case Nil => ()
-      case x :: Nil => ()
-      case x :: finishedPhase :: xs =>
+      case _ :: Nil => ()
+      case _ :: finishedPhase :: _ =>
         // Report recent problems for this source file once a phase has finished
         recentlyReportProblemsPerFile.get(sourceFile).foreach { problems =>
           val unreported = clearProblemsAtPhase(sourceFile, finishedPhase, problems)
@@ -188,7 +185,7 @@ final class BspProjectReporter(
       problems: List[ProblemPerPhase]
   ): List[ProblemPerPhase] = {
     problems.filterNot {
-      case pp @ ProblemPerPhase(problem, phaseOfProblem) =>
+      case ProblemPerPhase(_, phaseOfProblem) =>
         phaseOfProblem match {
           case Some(phase) =>
             if (finishedPhase != phase) false

@@ -86,7 +86,6 @@ abstract class ToolchainCompanion[Toolchain] {
       artifacts: List[DependencyResolution.Artifact],
       logger: Logger
   ): List[Path] = {
-    import bloop.engine.ExecutionContext.ioScheduler
     logger.debug(s"Resolving platform artifacts: $artifacts")(DebugFilter.Compilation)
     val files =
       try DependencyResolution.resolve(artifacts, logger)

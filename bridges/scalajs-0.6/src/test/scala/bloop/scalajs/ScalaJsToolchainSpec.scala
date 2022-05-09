@@ -63,7 +63,6 @@ class ScalaJsToolchainSpec {
 
   @Test def canRunScalaJsProject(): Unit = {
     val logger = new RecordingLogger
-    val mode = OptimizerConfig.Release
     val state = state0.copy(logger = logger)
     val action = Run(Commands.Run(List(MainProject), main = Some("hello.App")))
     val resultingState = TestUtil.blockingExecute(action, state, maxDuration)
@@ -74,7 +73,6 @@ class ScalaJsToolchainSpec {
 
   @Test def canRunScalaJsProjectDefaultMainClass(): Unit = {
     val logger = new RecordingLogger
-    val mode = OptimizerConfig.Release
     val state = state0.copy(logger = logger)
     val action = Run(Commands.Run(List(MainProject), main = None))
     val resultingState = TestUtil.blockingExecute(action, state, maxDuration)

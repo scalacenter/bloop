@@ -1,5 +1,7 @@
 package bloop.logging
 
+import scala.annotation.nowarn
+
 import org.slf4j.Marker
 import org.slf4j.{Logger => Slf4jLogger}
 
@@ -26,8 +28,11 @@ final class Slf4jAdapter[L <: Logger](logger: L) extends Slf4jLogger {
   override def debug(marker: Marker, format: String, arg: scala.Any): Unit =
     logger.debug(arg.toString)
 
+  @nowarn("msg=parameter value format in method debug is never used")
   override def debug(format: String, arguments: AnyRef*): Unit =
     arguments.foreach(a => logger.debug(a.toString))
+
+  @nowarn("msg=parameter value (marker|format) in method debug is never used")
   override def debug(marker: Marker, format: String, arguments: AnyRef*): Unit =
     arguments.foreach(a => logger.debug(a.toString))
 
@@ -55,8 +60,11 @@ final class Slf4jAdapter[L <: Logger](logger: L) extends Slf4jLogger {
     logger.error(arg1.toString); logger.error(arg2.toString)
   }
 
+  @nowarn("msg=parameter value format in method error is never used")
   override def error(format: String, arguments: AnyRef*): Unit =
     arguments.foreach(a => logger.error(a.toString))
+
+  @nowarn("msg=parameter value (marker|format) in method error is never used")
   override def error(marker: Marker, format: String, arguments: AnyRef*): Unit =
     arguments.foreach(a => logger.error(a.toString))
 
@@ -69,8 +77,11 @@ final class Slf4jAdapter[L <: Logger](logger: L) extends Slf4jLogger {
   override def warn(marker: Marker, format: String, arg: scala.Any): Unit =
     logger.warn(arg.toString)
 
+  @nowarn("msg=parameter value format in method warn is never used")
   override def warn(format: String, arguments: AnyRef*): Unit =
     arguments.foreach(a => logger.warn(a.toString))
+
+  @nowarn("msg=parameter value (marker|format) in method warn is never used")
   override def warn(marker: Marker, format: String, arguments: AnyRef*): Unit =
     arguments.foreach(a => logger.warn(a.toString))
 
@@ -87,8 +98,12 @@ final class Slf4jAdapter[L <: Logger](logger: L) extends Slf4jLogger {
   override def trace(marker: Marker, msg: String): Unit = logger.debug(msg)
   override def trace(marker: Marker, format: String, arg: scala.Any): Unit =
     logger.debug(arg.toString)
+
+  @nowarn("msg=parameter value format in method trace is never used")
   override def trace(format: String, arguments: AnyRef*): Unit =
     arguments.foreach(a => logger.debug(a.toString))
+
+  @nowarn("msg=parameter value (marker|format) in method trace is never used")
   override def trace(marker: Marker, format: String, argArray: AnyRef*): Unit =
     argArray.foreach(a => logger.debug(a.toString))
 
@@ -126,8 +141,11 @@ final class Slf4jAdapter[L <: Logger](logger: L) extends Slf4jLogger {
   override def info(msg: String): Unit = logger.info(msg)
   override def info(format: String, arg: scala.Any): Unit = logger.info(arg.toString)
 
+  @nowarn("msg=parameter value format in method info is never used")
   override def info(format: String, arguments: AnyRef*): Unit =
     arguments.foreach(a => logger.info(a.toString))
+
+  @nowarn("msg=parameter value (marker|format) in method info is never used")
   override def info(marker: Marker, format: String, arguments: AnyRef*): Unit =
     arguments.foreach(a => logger.info(a.toString))
 

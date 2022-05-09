@@ -58,7 +58,7 @@ object CliParsers {
 
   implicit lazy val propertiesParser: ArgParser[CommonOptions.PrettyProperties] = {
     SimpleArgParser.from("A properties parser") {
-      case whatever => Left(Error.Other("You cannot pass in properties through the command line."))
+      case _ => Left(Error.Other("You cannot pass in properties through the command line."))
     }
   }
 

@@ -108,7 +108,7 @@ object ClasspathHasher {
                 }
               } catch {
                 // Can happen when a file doesn't exist, for example
-                case monix.execution.misc.NonFatal(t) => BloopStamps.emptyHash(path)
+                case monix.execution.misc.NonFatal(_) => BloopStamps.emptyHash(path)
               }
             classpathHashes(idx) = hash
             hashingPromises.remove(path, p)
@@ -152,7 +152,7 @@ object ClasspathHasher {
       }
     }
 
-    tracer.traceTaskVerbose("computing hashes") { tracer =>
+    tracer.traceTaskVerbose("computing hashes") { _ =>
       val acquiredByOtherTasks = new mutable.ListBuffer[Task[Unit]]()
       val acquiredByThisHashingProcess = new mutable.ListBuffer[AcquiredTask]()
 
@@ -189,7 +189,7 @@ object ClasspathHasher {
 
       val initEntries = Task {
         classpath.zipWithIndex.foreach {
-          case t @ (absoluteEntry, idx) =>
+          case (absoluteEntry, idx) =>
             acquireHashingEntry(absoluteEntry.underlying, idx)
         }
       }.doOnCancel(Task { isCancelled.compareAndSet(false, true); () })
@@ -198,7 +198,7 @@ object ClasspathHasher {
       val acquiredTask = Observable.fromIterable(acquiredByThisHashingProcess)
 
       val cancelableAcquiredTask = Task.create[Unit] { (scheduler, cb) =>
-        val (out, consumerSubscription) = parallelConsumer.createSubscriber(cb, scheduler)
+        val (out, _) = parallelConsumer.createSubscriber(cb, scheduler)
         val _ = acquiredTask.subscribe(out)
         Cancelable { () =>
           isCancelled.compareAndSet(false, true); ()

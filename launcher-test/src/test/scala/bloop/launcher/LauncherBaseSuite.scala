@@ -164,7 +164,8 @@ abstract class LauncherBaseSuite(
     val messages = BaseProtocolMessage.fromInputStream(in, logger)
     val services = TestUtil.createTestServices(false, logger)
     val lsServer = new BloopLanguageServer(messages, lsClient, services, bspScheduler, logger)
-    val runningClientServer = lsServer.startTask.runAsync(bspScheduler)
+
+    lsServer.startTask.runAsync(bspScheduler)
 
     val initializeServer = endpoints.Build.initialize.request(
       bsp.InitializeBuildParams(
@@ -246,7 +247,7 @@ abstract class LauncherBaseSuite(
       val logger = new RecordingLogger()
       val connectToServer = Task.fromFuture(startedServer.future).flatMap { _ =>
         val bspLogger = new BspClientLogger(logger)
-        startBspInitializeHandshake(clientIn, clientOut, bspLogger) { c =>
+        startBspInitializeHandshake(clientIn, clientOut, bspLogger) { _ =>
           // Just return, we're only interested in the init handhake + exit
           monix.eval.Task.eval(Right(()))
         }

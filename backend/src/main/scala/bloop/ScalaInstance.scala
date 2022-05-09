@@ -124,7 +124,6 @@ final class ScalaInstance private (
 
 object ScalaInstance {
   import bloop.io.AbsolutePath
-  import scala.concurrent.ExecutionContext
 
   private[ScalaInstance] val bootClassLoader: ClassLoader = {
     if (!scala.util.Properties.isJavaAtLeast("9")) null
@@ -170,7 +169,7 @@ object ScalaInstance {
       scalaVersion: String,
       allJars: Seq[AbsolutePath],
       logger: Logger
-  )(implicit ec: ExecutionContext): ScalaInstance = {
+  ): ScalaInstance = {
     val jarsKey = allJars.map(_.underlying).sortBy(_.toString).toList
     if (allJars.nonEmpty) {
       def newInstance = {
@@ -197,7 +196,7 @@ object ScalaInstance {
       scalaName: String,
       scalaVersion: String,
       logger: Logger
-  )(implicit ec: ExecutionContext): ScalaInstance = {
+  ): ScalaInstance = {
     def resolveInstance: ScalaInstance = {
       val allPaths = DependencyResolution.resolve(
         List(DependencyResolution.Artifact(scalaOrg, scalaName, scalaVersion)),
@@ -237,9 +236,7 @@ object ScalaInstance {
    * happen to be so strict as to prevent getting the location from the protected
    * domain.
    */
-  def scalaInstanceForJavaProjects(
-      logger: Logger
-  )(implicit ec: ExecutionContext): Option[ScalaInstance] = {
+  def scalaInstanceForJavaProjects(logger: Logger): Option[ScalaInstance] = {
     lazy val tempDirectory = Files.createTempDirectory("bloop-scala-instance")
     implicit val filter = DebugFilter.Compilation
     def findLocationForClazz(clazz: Class[_], jarName: String): Option[Path] = {
@@ -249,7 +246,7 @@ object ScalaInstance {
 
         try Some(Paths.get(expectedPath))
         catch {
-          case t: java.nio.file.FileSystemNotFoundException =>
+          case _: java.nio.file.FileSystemNotFoundException =>
             // When bloop is bootstrapped by coursier, jars are available from resources instead
             logger.debug(
               s"Load jar from resource because scheme '${expectedPath.getScheme}' has no file system provider"

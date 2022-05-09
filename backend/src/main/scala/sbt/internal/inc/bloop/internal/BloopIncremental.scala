@@ -5,7 +5,6 @@ import java.io.File
 import java.nio.file.Path
 
 import bloop.UniqueCompileInputs
-import bloop.reporter.ZincReporter
 import bloop.tracing.BraveTracer
 
 import monix.eval.Task
@@ -35,7 +34,6 @@ object BloopIncremental {
       previous0: CompileAnalysis,
       output: Output,
       log: Logger,
-      reporter: ZincReporter,
       options: IncOptions,
       manager: ClassFileManager,
       tracer: BraveTracer,
@@ -55,15 +53,14 @@ object BloopIncremental {
     val previous = previous0 match { case a: Analysis => a }
     val previousRelations = previous.relations
     val internalBinaryToSourceClassName = (binaryClassName: String) => previousRelations.productClassName.reverse(binaryClassName).headOption
-    val internalSourceToClassNamesMap: VirtualFile => Set[String] = (f: VirtualFile) => previousRelations.classNames(f)
 
     val builder: () => IBloopAnalysisCallback = {
-      if (!isHydraEnabled) () => new BloopAnalysisCallback(internalBinaryToSourceClassName, internalSourceToClassNamesMap, externalAPI, current, output, options, manager)
+      if (!isHydraEnabled) () => new BloopAnalysisCallback(internalBinaryToSourceClassName, externalAPI, current, output, options, manager)
       else
-        () => new ConcurrentAnalysisCallback(internalBinaryToSourceClassName, internalSourceToClassNamesMap, externalAPI, current, output, options, manager)
+        () => new ConcurrentAnalysisCallback(internalBinaryToSourceClassName, externalAPI, current, output, options, manager)
     }
     // We used to catch for `CompileCancelled`, but we prefer to propagate it so that Bloop catches it
-    compileIncremental(sources, uniqueInputs, lookup, previous, current, compile, builder, reporter, log, output, options, manager, tracer)
+    compileIncremental(sources, uniqueInputs, lookup, previous, current, compile, builder, log, output, options, manager, tracer)
   }
 
   def compileIncremental(
@@ -74,7 +71,6 @@ object BloopIncremental {
       current: ReadStamps,
       compile: CompileFunction,
       callbackBuilder: () => IBloopAnalysisCallback,
-      reporter: ZincReporter,
       log: sbt.util.Logger,
       output: Output,
       options: IncOptions,
@@ -84,7 +80,7 @@ object BloopIncremental {
       profiler: InvalidationProfiler = InvalidationProfiler.empty
   )(implicit equivS: Equiv[Stamp]): Task[(Boolean, Analysis)] = {
     val setOfSources = sources.toSet
-    val incremental = new BloopNameHashing(log, reporter, uniqueInputs, options, profiler.profileRun, tracer)
+    val incremental = new BloopNameHashing(log, uniqueInputs, options, profiler.profileRun, tracer)
     val initialChanges = incremental.detectInitialChanges(setOfSources, previous, current, lookup, converter, output)
     def isJrt(path: Path) = path.getFileSystem.provider().getScheme == "jrt"
     val binaryChanges = new DependencyChanges {
