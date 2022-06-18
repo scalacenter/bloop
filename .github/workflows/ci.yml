@@ -34,12 +34,6 @@ jobs:
       - uses: olafurpg/setup-scala@v13
         with:
           java-version: ${{ matrix.jdk }}
-      - name: Cache Gradle API
-        uses: actions/cache@v3.0.3
-        with:
-          path: |
-            integrations/gradle-bloop/lib
-          key: ${{ hashFiles('project/GradleIntegration.scala') }}
       - name: Tests
         run: |
           ./bin/sbt-ci.sh \
@@ -115,15 +109,6 @@ jobs:
       - uses: olafurpg/setup-scala@v13
         with:
           java-version: ${{ matrix.jdk }}
-      - name: Cache Gradle API
-        # only launcher tests cause gradle API to be downloaded
-        # and they are only run on grallvm
-        if: matrix.jdk == 'graalvm-ce-java11@21.1.0'
-        uses: actions/cache@v3.0.3
-        with:
-          path: |
-            integrations/gradle-bloop/lib
-          key: ${{ hashFiles('project/GradleIntegration.scala') }}
       - uses: actions/setup-node@v3
         with:
           node-version: "10.x"

@@ -103,7 +103,6 @@ object BuildKeys {
   val publishLocalAllModules = Def.taskKey[Unit]("Publish all modules locally")
 
   val gradleIntegrationDirs = sbt.AttributeKey[List[File]]("gradleIntegrationDirs")
-  val fetchGradleApi = Def.taskKey[Unit]("Fetch Gradle API artifact")
 
   // This has to be change every time the bloop config files format changes.
   val schemaVersion = Def.settingKey[String]("The schema version for our bloop build.")
@@ -529,18 +528,14 @@ object BuildImplementation {
           MavenRepository("Android dependencies", "https://repo.spring.io/plugins-release/")
         ),
         Keys.libraryDependencies ++= List(
+          Dependencies.gradleAPI,
+          Dependencies.gradleTestKit,
           Dependencies.gradleCore,
           Dependencies.gradleToolingApi,
           Dependencies.groovy,
           Dependencies.gradleAndroidPlugin
         ),
         Keys.publishLocal := Keys.publishLocal.dependsOn(Keys.publishM2).value,
-        (Compile / Keys.unmanagedJars) := unmanagedJarsWithGradleApi.value,
-        BuildKeys.fetchGradleApi := {
-          val logger = Keys.streams.value.log
-          val targetDir = (Compile / Keys.baseDirectory).value / "lib"
-          GradleIntegration.fetchGradleApi(Dependencies.gradleVersion, targetDir, logger)
-        },
         // Only generate for tests (they are not published and can contain user-dependent data)
         (Compile / BuildInfoKeys.buildInfo) := Nil,
         (Test / BuildInfoKeys.buildInfoPackage) := "bloop.internal.build",
@@ -566,12 +561,6 @@ object BuildImplementation {
         (Test / BuildInfoKeys.buildInfoPackage) := "bloop.internal.build",
         (Test / BuildInfoKeys.buildInfoObject) := "BuildTestInfo"
       )
-    }
-
-    lazy val unmanagedJarsWithGradleApi: Def.Initialize[Task[Keys.Classpath]] = Def.taskDyn {
-      val unmanagedJarsTask = (Compile / Keys.unmanagedJars).taskValue
-      val _ = BuildKeys.fetchGradleApi.value
-      Def.task(unmanagedJarsTask.value)
     }
 
     import sbt.ScriptedPlugin.{autoImport => ScriptedKeys}
