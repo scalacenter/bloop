@@ -33,7 +33,7 @@ object Dependencies {
   val mavenApiVersion = "3.6.1"
   val mavenAnnotationsVersion = "3.5"
   val mavenScalaPluginVersion = "4.5.3"
-  val gradleVersion = GradleIntegration.version
+  val gradleVersion = "5.0"
   val groovyVersion = "2.5.4"
   val gradleAndroidPluginVersion = "4.2.0"
   val ipcsocketVersion = "1.0.1"
@@ -95,6 +95,8 @@ object Dependencies {
     "org.apache.maven.plugin-tools" % "maven-plugin-annotations" % mavenAnnotationsVersion % Provided
   val mavenScalaPlugin = "net.alchim31.maven" % "scala-maven-plugin" % mavenScalaPluginVersion
 
+  val gradleAPI = "dev.gradleplugins" % "gradle-api" % gradleVersion % Provided
+  val gradleTestKit = "dev.gradleplugins" % "gradle-test-kit" % gradleVersion % Provided
   val gradleCore = "org.gradle" % "gradle-core" % gradleVersion % Provided
   val gradleWorkers = "org.gradle" % "gradle-workers" % gradleVersion % Provided
   val gradleDependencyManagement =
