@@ -73,11 +73,29 @@ final case class ResultsCache private (
 
   def allResults: Iterator[(Project, Compiler.Result)] = all.iterator
   def allSuccessful: Iterator[(Project, LastSuccessfulResult)] = successful.iterator
-  def cleanSuccessful(projects: List[Project]): ResultsCache = {
+  def cleanSuccessful(
+      projects: Set[Project],
+      client: ClientInfo,
+      logger: Logger
+  ): Task[ResultsCache] = {
+    def delete(path: AbsolutePath): Task[Unit] = Task {
+      logger.debug(s"Deleting classes directory: $path")(DebugFilter.All)
+      Paths.delete(path)
+    }
     // Remove all the successful results from the cache.
     val newSuccessful = successful.filterKeys(p => !projects.contains(p))
     val newAll = all.filterKeys(p => !projects.contains(p))
-    new ResultsCache(newAll, newSuccessful)
+    val deleteClassesDirs = successful.filterKeys(projects.contains).flatMap {
+      case (project, result) =>
+        List(
+          delete(result.classesDir),
+          delete(client.getUniqueClassesDirFor(project, forceGeneration = false))
+        )
+    }
+
+    Task.gatherUnordered(deleteClassesDirs).map { _ =>
+      new ResultsCache(newAll, newSuccessful)
+    }
   }
 
   def allAnalysis: Seq[Analysis] = {
