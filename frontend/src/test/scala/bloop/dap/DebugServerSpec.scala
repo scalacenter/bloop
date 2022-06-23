@@ -547,7 +547,7 @@ object DebugServerSpec extends DebugBspBaseSuite {
         val `Main.scala` = srcFor("Main.scala")
         val breakpoints = breakpointsArgs(`Main.scala`, 3)
 
-        val attachRemoteProcessRunner =
+        val Right(attachRemoteProcessRunner) =
           BloopDebuggeeRunner.forAttachRemote(
             state.compile(project).toTestState.state,
             defaultScheduler,
@@ -755,7 +755,7 @@ object DebugServerSpec extends DebugBspBaseSuite {
         val `Main.scala` = srcFor("Main.scala")
         val breakpoints = breakpointsArgs(`Main.scala`, 4)
 
-        val attachRemoteProcessRunner =
+        val Right(attachRemoteProcessRunner) =
           BloopDebuggeeRunner.forAttachRemote(
             testState.state,
             defaultScheduler,
@@ -1002,6 +1002,8 @@ object DebugServerSpec extends DebugBspBaseSuite {
       def run(listener: DebuggeeListener): CancelableFuture[Unit] = {
         DapCancellableFuture.runAsync(task.map(_ => ()), defaultScheduler)
       }
+
+      def scalaVersion: String = "2.12.15"
     }
 
     startDebugServer(
