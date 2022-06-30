@@ -185,9 +185,10 @@ object MojoImplementation {
         case a: Artifact => a.getArtifactId() == "scala-library"
       }
       val allArtifacts = if (hasScalaLibrary) artifacts else artifacts ++ libraryAndDependencies
+      val isJar = Set("jar", "test-jar")
       val modules =
         allArtifacts.collect {
-          case art: Artifact if art.getType() == "jar" && isNotReactorProjectArtifact(art) =>
+          case art: Artifact if isJar(art.getType()) && isNotReactorProjectArtifact(art) =>
             if (art.getArtifactId() == "scala-library")
               scalaContext match {
                 case Some(context) =>
