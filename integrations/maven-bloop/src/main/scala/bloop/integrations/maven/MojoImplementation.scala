@@ -10,6 +10,7 @@ import scala.util.Success
 import scala.util.Try
 import bloop.config.Config
 import bloop.config.Tag
+import org.apache.maven.RepositoryUtils
 import org.apache.maven.artifact.Artifact
 import org.apache.maven.artifact.ArtifactUtils
 import org.apache.maven.execution.MavenSession
@@ -84,15 +85,7 @@ object MojoImplementation {
         val suffix = if (classifier.nonEmpty) s":$classifier" else ""
         log.info("Resolving artifact: " + artifact + suffix)
         val request = new ArtifactRequest()
-        request.setArtifact(
-          new DefaultArtifact(
-            artifact.getGroupId(),
-            artifact.getArtifactId(),
-            classifier,
-            artifact.getType(),
-            artifact.getVersion()
-          )
-        )
+        request.setArtifact(RepositoryUtils.toArtifact(artifact))
         request.setRepositories(mojo.getRemoteRepositories())
         val result = mojo.getRepoSystem().resolveArtifact(session.getRepositorySession(), request)
         log.info("SUCCESS " + artifact)
