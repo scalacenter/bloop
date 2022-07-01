@@ -55,7 +55,8 @@ class ConfigGenerationSuite_7_3 extends ConfigGenerationSuite {
 abstract class ConfigGenerationSuite extends BaseConfigSuite {
   protected val gradleVersion: String
   protected val supportsCurrentJavaVersion: Boolean
-  private def supportsAndroid: Boolean = gradleVersion >= "6.1.1"
+  private def supportsAndroid: Boolean =
+    gradleVersion >= "6.1.1" && (!Properties.isJavaAtLeast("11"))
   private def supportsScala3: Boolean = gradleVersion >= "7.3"
   private def canConsumeTestRuntime: Boolean = gradleVersion < "7.0"
   private def supportsLazyArchives: Boolean = gradleVersion >= "4.9"
