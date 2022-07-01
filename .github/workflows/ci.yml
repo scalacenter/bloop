@@ -100,10 +100,12 @@ jobs:
         with:
           submodules: true
 
-      - uses: actions/setup-java@v3
+      - uses: graalvm/setup-graalvm@v1
         with:
-          distribution: 'temurin' 
+          version: '21.1.0'
           java-version: ${{ matrix.jdk }}
+          components: 'native-image'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Tests
         run: |
