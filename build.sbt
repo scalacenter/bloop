@@ -87,15 +87,6 @@ lazy val backend = project
     )
   )
 
-val testJSSettings = List(
-  testOptions += Tests.Argument(TestFrameworks.JUnit, "-v", "-a"),
-  scalaJSLinkerConfig ~= (_.withModuleKind(ModuleKind.CommonJSModule)),
-  libraryDependencies ++= List(
-    "com.github.plokhotnyuk.jsoniter-scala" %%% "jsoniter-scala-core" % Dependencies.jsoniterVersion,
-    "com.github.plokhotnyuk.jsoniter-scala" %%% "jsoniter-scala-macros" % Dependencies.jsoniterVersion % Provided
-  )
-)
-
 val testResourceSettings = {
   // FIXME: Shared resource directory is ignored, see https://github.com/portable-scala/sbt-crossproject/issues/74
   Seq(Test).flatMap(inConfig(_) {
@@ -109,24 +100,17 @@ val testResourceSettings = {
 }
 
 // Needs to be called `jsonConfig` because of naming conflict with sbt universe...
-lazy val config = crossProject(JSPlatform, JVMPlatform)
-  .crossType(CrossType.Pure)
-  .in(file("config"))
+lazy val config = project
   .disablePlugins(ScalafixPlugin)
   .settings(
     sonatypeSetting,
     name := "bloop-config",
-    (Compile / unmanagedSourceDirectories) +=
-      Keys.baseDirectory.value / ".." / "src" / "main" / "scala-2.11-13",
     scalaVersion := (backend / Keys.scalaVersion).value,
     scalacOptions := {
       scalacOptions.value.filterNot(opt => opt == "-deprecation"),
     },
-    testResourceSettings
-  )
-  .jvmSettings(
+    testResourceSettings,
     testSettings,
-    target := (file("config") / "target" / "json-config-2.12" / "jvm").getAbsoluteFile,
     libraryDependencies ++= {
       List(
         Dependencies.jsoniterCore,
@@ -134,37 +118,6 @@ lazy val config = crossProject(JSPlatform, JVMPlatform)
         Dependencies.scalacheck % Test
       )
     }
-  )
-  .jsConfigure(_.enablePlugins(ScalaJSJUnitPlugin))
-  .jsSettings(
-    testJSSettings,
-    target := (file("config") / "target" / "json-config-2.12" / "js").getAbsoluteFile
-  )
-
-lazy val jsonConfig213 = crossProject(JSPlatform, JVMPlatform)
-  .crossType(CrossType.Pure)
-  .in(file("config"))
-  .disablePlugins(ScalafixPlugin)
-  .settings(
-    sonatypeSetting,
-    name := "bloop-config",
-    (Compile / unmanagedSourceDirectories) +=
-      Keys.baseDirectory.value / ".." / "src" / "main" / "scala-2.11-13",
-    scalaVersion := Dependencies.Scala213Version,
-    testResourceSettings
-  )
-  .jvmSettings(
-    testSettings,
-    target := (file("config") / "target" / "json-config-2.13" / "jvm").getAbsoluteFile,
-    libraryDependencies ++= List(
-      Dependencies.jsoniterCore,
-      Dependencies.jsoniterMacros % Provided
-    )
-  )
-  .jsConfigure(_.enablePlugins(ScalaJSJUnitPlugin))
-  .jsSettings(
-    testJSSettings,
-    target := (file("config") / "target" / "json-config-2.13" / "js").getAbsoluteFile
   )
 
 lazy val tmpDirSettings = Def.settings(
@@ -181,7 +134,7 @@ lazy val frontend: Project = project
     shared,
     backend,
     backend % "test->test",
-    config.jvm
+    config
   )
   .enablePlugins(BuildInfoPlugin)
   .configs(IntegrationTest)
@@ -306,7 +259,7 @@ lazy val bloopgun = project
   .settings(bloopgunSettings)
 
 lazy val bloop4j = project
-  .dependsOn(config.jvm)
+  .dependsOn(config)
   .settings(scalafixSettings)
   .settings(
     sonatypeSetting,
@@ -371,7 +324,7 @@ lazy val stuff = project
     bloopgun,
     `bloopgun-core`,
     shared,
-    config.jvm,
+    config,
     jsBridge1
   )
   .settings(
