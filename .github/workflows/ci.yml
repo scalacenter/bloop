@@ -14,11 +14,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: olafurpg/setup-scala@v13
+
+      - uses: actions/setup-java@v3
         with:
-          java-version: graalvm-ce-java11@21.1.0
+          distribution: 'temurin' 
+          java-version: '11'
+
       - name: Check formatting
         run: ./bin/scalafmt --test
+
   integrations:
     name: Build integrations tests
     runs-on: ${{ matrix.os }}
@@ -26,17 +30,20 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macOS-latest]
-        jdk: [graalvm-ce-java11@21.1.0]
+        jdk: [11, 17]
     steps:
       - uses: actions/checkout@v3
         with:
           submodules: true
-      - uses: olafurpg/setup-scala@v13
+
+      - uses: actions/setup-java@v3
         with:
-          java-version: ${{ matrix.jdk }}
+          distribution: 'temurin' 
+          java-version: '{{ matrix.jdk }}'
+
       - name: Tests
         run: |
-          ./bin/sbt-ci.sh \
+          sbt \
               "mavenBloop/publishM2" \
               "mavenBloop/test" \
               "gradleBloop211/compile" \
@@ -44,7 +51,7 @@ jobs:
               "gradleBloop212/test" \
               "sbtBloop10Shaded/publishLocal" \
               "sbtBloop10/scripted"
-        shell: bash
+
   bridges:
     name: Test platform bridges
     runs-on: ${{ matrix.os }}
@@ -52,21 +59,32 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macOS-latest]
-        jdk: [graalvm-ce-java11@21.1.0]
+        jdk: [11, 17]
     steps:
       - uses: actions/checkout@v2
         with:
           submodules: true
-      - uses: olafurpg/setup-scala@v13
+
+      - name: Cache SBT
+        uses: actions/cache@v3
         with:
-          java-version: ${{ matrix.jdk }}
+          path: |
+            ~/.ivy2/cache
+            ~/.sbt
+          key: ${{ runner.os }}-sbt-${{ hashFiles('**/*.sbt') }}
+
+      - uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin' 
+          java-version: '{{ matrix.jdk }}'
+
       - name: Tests
         run: |
-          ./bin/sbt-ci.sh \
+          sbt \
               "jsBridge06/publishLocal" \
               "jsBridge1/publishLocal" \
               "jsBridge06/test" \
-              "jsBridge1/test" \
+              "jsBridge1/test"
         shell: bash
 
   launcher:
@@ -76,19 +94,22 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macOS-latest]
-        jdk: [graalvm-ce-java11@21.1.0]
+        jdk: [11]
     steps:
       - uses: actions/checkout@v2
         with:
           submodules: true
-      - uses: olafurpg/setup-scala@v13
+
+      - uses: actions/setup-java@v3
         with:
-          java-version: ${{ matrix.jdk }}
+          distribution: 'temurin' 
+          java-version: '{{ matrix.jdk }}'
+
       - name: Tests
         run: |
           echo $JAVA_HOME
           which gu && gu install native-image
-          ./bin/sbt-ci.sh "install" "launcherTest/test"
+          sbt "install" "launcherTest/test"
         shell: bash
 
   test:
@@ -97,7 +118,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macOS-latest]
-        jdk: [graalvm-ce-java11@21.1.0, adopt@1.11]
+        jdk: [11, 17]
     name: Test ${{ matrix.os }} -- ${{ matrix.jdk }}
     env:
       HYDRA_LICENSE: ${{ secrets.HYDRA_LICENSE }}
@@ -106,12 +127,16 @@ jobs:
         with:
           submodules: true
           fetch-depth: 0
-      - uses: olafurpg/setup-scala@v13
+
+      - uses: actions/setup-java@v3
         with:
-          java-version: ${{ matrix.jdk }}
+          distribution: 'temurin' 
+          java-version: '{{ matrix.jdk }}'
+
       - uses: actions/setup-node@v3
         with:
           node-version: "10.x"
+
       - name: Set up environment
         run: |
           curl -Lo coursier https://git.io/coursier-cli && chmod +x coursier && ./coursier --help
@@ -119,10 +144,11 @@ jobs:
           java -version
           [[ $HYDRA_LICENSE == floating-key=* ]] && mkdir -p $HOME/.triplequote && echo "$HYDRA_LICENSE" > "$HOME/.triplequote/hydra.license" || echo "Hydra license file was not created"
         shell: bash
+
       - name: Compile and test main projects
         run: |
-          ./bin/sbt-ci.sh \
-              "frontend/test:compile" \
+          sbt \
+              "frontend/Test/compile" \
               "backend/test" \
               "docs/compile" \
               "frontend/testOnly bloop.ScalaVersionsSpec" \
