@@ -619,5 +619,5 @@ object TestUtil {
     stacktraces.foreach(threadInfo => sb.append(threadInfo.toString()).append("\n"))
 
     sb.result()
- }
+  }
 }

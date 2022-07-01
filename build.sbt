@@ -1,3 +1,4 @@
+import scala.compat.Platform
 import _root_.bloop.integrations.sbt.BloopDefaults
 import build.BuildImplementation.BuildDefaults
 import xerial.sbt.Sonatype.SonatypeKeys
@@ -490,6 +491,16 @@ lazy val launcherTest = project
   .settings(testSuiteSettings)
   .settings(
     name := "bloop-launcher-test",
+    Test / javaOptions ++= {
+
+      Seq(
+        "--illegal-access=deny",
+        "--add-opens",
+        "java.base/java.util=ALL-UNNAMED",
+        "--add-opens",
+        "java.base/java.lang=ALL-UNNAMED"
+      )
+    },
     (Test / fork) := true,
     (Test / parallelExecution) := false,
     libraryDependencies ++= List(
