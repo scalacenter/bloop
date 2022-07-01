@@ -102,7 +102,7 @@ jobs:
 
       - uses: graalvm/setup-graalvm@v1
         with:
-          version: '21.1.0'
+          version: '22.1.0'
           java-version: ${{ matrix.jdk }}
           components: 'native-image'
           github-token: ${{ secrets.GITHUB_TOKEN }}
