@@ -51,6 +51,7 @@ import _root_.monix.execution.Scheduler
 import org.junit.Assert
 import sbt.internal.inc.BloopComponentCompiler
 import xsbti.ComponentProvider
+import java.lang.management.ManagementFactory
 
 object TestUtil {
   def projectDir(base: Path, name: String): Path = base.resolve(name)
@@ -611,19 +612,12 @@ object TestUtil {
   }
 
   def threadDump: String = {
-    // Get the PID of the current JVM process
-    val selfName = java.lang.management.ManagementFactory.getRuntimeMXBean().getName()
-    val selfPid = selfName.substring(0, selfName.indexOf('@'))
+    val sb = new StringBuilder
 
-    // Attach to the VM
-    import com.sun.tools.attach.VirtualMachine
-    import sun.tools.attach.HotSpotVirtualMachine;
-    val vm = VirtualMachine.attach(selfPid);
-    val hotSpotVm = vm.asInstanceOf[HotSpotVirtualMachine];
+    val mxBean = ManagementFactory.getThreadMXBean()
+    val stacktraces = mxBean.dumpAllThreads(true, true)
+    stacktraces.foreach(threadInfo => sb.append(threadInfo.toString()).append("\n"))
 
-    // Request a thread dump
-    val inputStream = hotSpotVm.remoteDataDump()
-    try new String(Stream.continually(inputStream.read).takeWhile(_ != -1).map(_.toByte).toArray)
-    finally inputStream.close()
-  }
+    sb.result()
+ }
 }
