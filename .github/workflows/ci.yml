@@ -39,7 +39,7 @@ jobs:
       - uses: actions/setup-java@v3
         with:
           distribution: 'temurin' 
-          java-version: '{{ matrix.jdk }}'
+          java-version: ${{ matrix.jdk }}
 
       - name: Tests
         run: |
@@ -76,7 +76,7 @@ jobs:
       - uses: actions/setup-java@v3
         with:
           distribution: 'temurin' 
-          java-version: '{{ matrix.jdk }}'
+          java-version: ${{ matrix.jdk }}
 
       - name: Tests
         run: |
@@ -103,7 +103,7 @@ jobs:
       - uses: actions/setup-java@v3
         with:
           distribution: 'temurin' 
-          java-version: '{{ matrix.jdk }}'
+          java-version: ${{ matrix.jdk }}
 
       - name: Tests
         run: |
@@ -131,7 +131,7 @@ jobs:
       - uses: actions/setup-java@v3
         with:
           distribution: 'temurin' 
-          java-version: '{{ matrix.jdk }}'
+          java-version: ${{ matrix.jdk }}
 
       - uses: actions/setup-node@v3
         with:
