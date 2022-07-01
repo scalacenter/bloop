@@ -47,8 +47,6 @@ object Dependencies {
   val scalazConcurrent = "org.scalaz" %% "scalaz-concurrent" % scalazVersion
   val coursierInterface = "io.get-coursier" % "interface" % coursierInterfaceVersion
   val coursierInterfaceSubs = "io.get-coursier" % "interface-svm-subs" % coursierInterfaceVersion
-  val scalaCollectionCompat = "org.scala-lang.modules" %% "scala-collection-compat" % "2.4.2"
-  val shapeless = "com.chuusai" %% "shapeless" % shapelessVersion
   val caseApp = "com.github.alexarchambault" %% "case-app" % caseAppVersion
   val sourcecode = "com.lihaoyi" %% "sourcecode" % sourcecodeVersion
   val sbtTestInterface = "org.scala-sbt" % "test-interface" % sbtTestInterfaceVersion
