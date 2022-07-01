@@ -57,6 +57,11 @@ object NailgunSpec extends BaseSuite with NailgunTestUtils {
   }
 
   test("nailgun fails if command doesn't exist") {
+    TestUtil.retry() {
+      nailgunFailsIfCommandDoesntExist()
+    }
+  }
+  def nailgunFailsIfCommandDoesntExist(): Unit = {
     withServerInProject { (logger, client) =>
       client.expectFailure("foobar")
       logger.dump()
@@ -97,6 +102,11 @@ object NailgunSpec extends BaseSuite with NailgunTestUtils {
   }
 
   test("nailgun about works in simple build") {
+    TestUtil.retry() {
+      nailgunAboutWorksInSimpleBuild()
+    }
+  }
+  def nailgunAboutWorksInSimpleBuild(): Unit = {
     withServerInProject { (logger, client) =>
       client.expectSuccess("about")
       assertNoErrors(logger)
@@ -113,6 +123,11 @@ object NailgunSpec extends BaseSuite with NailgunTestUtils {
   }
 
   test("nailgun projects works in simple build") {
+    TestUtil.retry() {
+      nailgunProjectsWorksInSimpleBuild()
+    }
+  }
+  def nailgunProjectsWorksInSimpleBuild(): Unit = {
     withServerInProject { (logger, client) =>
       client.expectSuccess("projects")
       assertNoErrors(logger)
@@ -130,6 +145,11 @@ object NailgunSpec extends BaseSuite with NailgunTestUtils {
   }
 
   test("nailgun projects works in simple build referenced from other cwd") {
+    TestUtil.retry() {
+      nailgunProjectsWorksInSimpleBuildReferencedFromOtherCwd()
+    }
+  }
+  def nailgunProjectsWorksInSimpleBuildReferencedFromOtherCwd(): Unit = {
     withServerInProject { (logger, client) =>
       TestUtil.withinWorkspace { workspace =>
         val externalClient = Client(super.TEST_PORT, logger, workspace.underlying)
@@ -153,6 +173,11 @@ object NailgunSpec extends BaseSuite with NailgunTestUtils {
   }
 
   test("nailgun about works in build that doesn't load, but listing projects fails") {
+    TestUtil.retry() {
+      nailgunAboutWorksInBuildThatDoesntLoadListingProjectsFails()
+    }
+  }
+  def nailgunAboutWorksInBuildThatDoesntLoadListingProjectsFails(): Unit = {
     val configDir = TestUtil.createSimpleRecursiveBuild(RelativePath(".bloop")).underlying
     val logger = new RecordingLogger(ansiCodesSupported = false)
     withServer(configDir, false, logger) { (logger, client) =>
@@ -176,6 +201,11 @@ object NailgunSpec extends BaseSuite with NailgunTestUtils {
   }
 
   test("nailgun compile works in simple build") {
+    TestUtil.retry() {
+      nailgunCompileWorksInSimpleBuild()
+    }
+  }
+  def nailgunCompileWorksInSimpleBuild(): Unit = {
     withServerInProject { (logger, client) =>
       client.expectSuccess("clean", "b", "--propagate")
       client.expectSuccess("compile", "b")
