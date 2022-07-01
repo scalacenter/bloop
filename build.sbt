@@ -328,43 +328,6 @@ lazy val bloopgun213 = project
   )
   .settings(bloopgunSettings)
 
-lazy val launcher = project
-  .in(file("launcher"))
-  .dependsOn(`bloopgun-core`)
-  .disablePlugins(ScalafixPlugin)
-  .settings(testSuiteSettings)
-  .settings(
-    sonatypeSetting,
-    name := "bloop-launcher",
-    target := (file("launcher") / "target" / "launcher-2.12").getAbsoluteFile
-  )
-
-lazy val launcher213 = project
-  .in(file("launcher"))
-  .disablePlugins(ScalafixPlugin)
-  .dependsOn(`bloopgun-core-213`)
-  .settings(testSuiteSettings)
-  .settings(
-    name := "bloop-launcher",
-    scalaVersion := Dependencies.Scala213Version,
-    target := (file("launcher") / "target" / "launcher-2.13").getAbsoluteFile
-  )
-
-lazy val launcherTest = project
-  .in(file("launcher-test"))
-  .dependsOn(launcher, frontend % "test->test")
-  .settings(scalafixSettings)
-  .settings(testSuiteSettings)
-  .settings(
-    name := "bloop-launcher-test",
-    (Test / fork) := true,
-    (Test / parallelExecution) := false,
-    libraryDependencies ++= List(
-      Dependencies.coursierInterface
-    ),
-    tmpDirSettings
-  )
-
 lazy val bloop4j = project
   .dependsOn(config.jvm)
   .settings(scalafixSettings)
@@ -428,8 +391,6 @@ lazy val stuff = project
   .aggregate(
     frontend,
     backend,
-    launcher,
-    launcherTest,
     bloopgun,
     bloopgun213,
     `bloopgun-core`,
