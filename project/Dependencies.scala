@@ -39,7 +39,6 @@ object Dependencies {
   import sbt.librarymanagement.syntax.stringToOrganization
   val zinc = "org.scala-sbt" %% "zinc" % zincVersion
   val bsp4s = "ch.epfl.scala" %% "bsp4s" % bspVersion
-  val bsp4j = "ch.epfl.scala" % "bsp4j" % bspVersion
   val nailgun = "io.github.alexarchambault.bleep" % "nailgun-server" % "1.0.3"
   val javaDebug = "ch.epfl.scala" % "com-microsoft-java-debug-core" % javaDebugVersion
 

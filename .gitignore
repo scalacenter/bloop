@@ -1,6 +1,4 @@
 .idea/
-bin/.coursier
-bin/.scalafmt*
 .vscode/
 
 # Required because these are the proxies for the sourcedeps
@@ -22,17 +20,9 @@ target/
 .ensime
 .ensime_cache/
 
-# The index where we store project mappings for local benchmarks
-.local-benchmarks
-
 bloop-config/
 out/
 .DS_Store
-website/build/
-website/build/bloop-gh-pages/
-node_modules/
-package-lock.json
 .metals/
 **/metals.sbt
 *.lock
-benchmark-bridge/corpus/

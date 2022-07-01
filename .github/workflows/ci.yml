@@ -19,9 +19,10 @@ jobs:
           fetch-depth: 0
       - uses: coursier/setup-action@v1.2.0-M3
         with:
+          apps: scalafmt
           jvm: "graalvm-java17:21.3.0"
       - name: Check formatting
-        run: ./bin/scalafmt --test
+        run: scalafmt --test
   bridges:
     name: Test platform bridges
     runs-on: ${{ matrix.os }}
@@ -41,7 +42,7 @@ jobs:
       - name: Tests
         run: |
           .github/setup-test-projects.sh &&\
-          ./bin/sbt-ci.sh \
+          sbt \
               "jsBridge1/publishLocal" \
               "jsBridge1/test"
         shell: bash
@@ -74,12 +75,12 @@ jobs:
       - name: Compile and test main projects
         run: |
           .github/setup-test-projects.sh &&\
-          ./bin/sbt-ci.sh \
+          sbt \
               "frontend/test:compile" \
               "backend/test" \
               "frontend/testOnly bloop.ScalaVersionsSpec" \
               "frontend/testOnly -bloop.ScalaVersionsSpec" &&\
-          ./bin/sbt-ci.sh \
+          sbt \
             "+test:compile"
         shell: bash
 
@@ -116,7 +117,7 @@ jobs:
           echo $JAVA_HOME
           which gu
           gu install native-image
-          ./bin/sbt-ci.sh "bloopgun/graalvm-native-image:packageBin"
+          sbt "bloopgun/graalvm-native-image:packageBin"
           mkdir bloop-artifacts
           cp bloopgun/target/bloopgun-2.12/graalvm-native-image/bloopgun bloop-artifacts/$ARTIFACT_NAME
         shell: bash
@@ -226,7 +227,7 @@ jobs:
           path: bloop-artifacts
       # - name: Publish docs and binaries to Maven Central
       - name: Cut GitHub release # and update installers on ${{ matrix.os }}
-        run: ./bin/sbt-ci.sh ci-release
+        run: sbt ci-release
         env:
           PGP_PASSPHRASE: ${{ secrets.PGP_PASSPHRASE }}
           PGP_SECRET: ${{ secrets.PGP_SECRET }}

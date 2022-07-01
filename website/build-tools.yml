@@ -1,6 +1,0 @@
-- name: Build tools
-  items:
-    sbt: Sbt
-    maven: Maven
-    mill: Mill
-    gradle: Gradle
