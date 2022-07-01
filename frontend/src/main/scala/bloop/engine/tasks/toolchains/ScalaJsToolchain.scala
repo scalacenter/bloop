@@ -126,9 +126,8 @@ object ScalaJsToolchain extends ToolchainCompanion[ScalaJsToolchain] {
 
   override def artifactNameFrom(version: String): String = {
     if (version.length == 3) sys.error("The full Scala.js version must be provided")
-    else if (version.startsWith("0.6.")) BuildInfo.jsBridge06
     else if (version.startsWith("1.")) BuildInfo.jsBridge1
-    else sys.error(s"Expected compatible Scala.js version [0.6, 1], $version given")
+    else sys.error(s"Expected compatible Scala.js version [1], $version given")
   }
 
   /** Determine additional version-specific artefacts */

@@ -161,7 +161,7 @@ lazy val frontend: Project = project
     bloopName := "bloop",
     (Compile / run / mainClass) := Some("bloop.Cli"),
     buildInfoPackage := "bloop.internal.build",
-    buildInfoKeys := bloopInfoKeys(nativeBridge04, jsBridge06, jsBridge1),
+    buildInfoKeys := bloopInfoKeys(nativeBridge04, jsBridge1),
     (run / javaOptions) ++= jvmOptions,
     (Test / javaOptions) ++= jvmOptions,
     tmpDirSettings,
@@ -253,21 +253,6 @@ lazy val bloopgun = project
     scalaVersion := Dependencies.Scala213Version
   )
   .settings(bloopgunSettings)
-
-lazy val jsBridge06 = project
-  .dependsOn(frontend % Provided, frontend % "test->test")
-  .in(file("bridges") / "scalajs-0.6")
-  .disablePlugins(ScalafixPlugin)
-  .settings(testSettings)
-  .settings(
-    sonatypeSetting,
-    name := "bloop-js-bridge-0.6",
-    libraryDependencies ++= List(
-      Dependencies.scalaJsTools06,
-      Dependencies.scalaJsSbtTestAdapter06,
-      Dependencies.scalaJsEnvs06
-    )
-  )
 
 lazy val jsBridge1 = project
   .dependsOn(frontend % Provided, frontend % "test->test")

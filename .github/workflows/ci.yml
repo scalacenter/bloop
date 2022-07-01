@@ -42,9 +42,7 @@ jobs:
         run: |
           .github/setup-test-projects.sh &&\
           ./bin/sbt-ci.sh \
-              "jsBridge06/publishLocal" \
               "jsBridge1/publishLocal" \
-              "jsBridge06/test" \
               "jsBridge1/test"
         shell: bash
 
