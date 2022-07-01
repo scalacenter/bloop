@@ -20,7 +20,6 @@ import bloop.io.RelativePath
 import bloop.logging.RecordingLogger
 import bloop.util.BuildUtil
 import bloop.util.CrossPlatform
-import scala.util.Properties
 
 import monix.eval.Task
 

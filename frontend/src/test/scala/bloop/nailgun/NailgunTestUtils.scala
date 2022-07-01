@@ -12,7 +12,6 @@ import scala.concurrent.Await
 import scala.concurrent.duration.FiniteDuration
 
 import bloop.Bloop
-import bloop.bsp.BspServer
 import bloop.testing.BaseSuite
 import bloop.logging.{DebugFilter, ProcessLogger, RecordingLogger}
 import bloop.util.{TestUtil, CrossPlatform}
@@ -20,7 +19,6 @@ import bloop.util.{TestUtil, CrossPlatform}
 import com.martiansoftware.nailgun.{
   BloopThreadLocalInputStream,
   NGListeningAddress,
-  NGServer,
   ThreadLocalPrintStream
 }
 
@@ -86,7 +84,6 @@ trait NailgunTestUtils {
           localOut,
           localErr,
           new NGListeningAddress(addr, TEST_PORT),
-          log,
           None
         )
         serverIsStarted.success(())

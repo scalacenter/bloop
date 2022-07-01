@@ -750,7 +750,7 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
   def assertEmptyCompilationState(
       state: ManagedBspTestState,
       projects: List[TestProject]
-  )(implicit filename: sourcecode.File, line: sourcecode.Line): Unit = {
+  ): Unit = {
     assertEmptyCompilationState(state.toTestState, projects)
   }
 

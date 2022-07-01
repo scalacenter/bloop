@@ -20,7 +20,6 @@ import bloop.io.Paths
 import bloop.logging.BloopLogger
 import bloop.logging.DebugFilter
 import bloop.logging.Logger
-import bloop.util.CrossPlatform
 import bloop.util.JavaRuntime
 
 import _root_.monix.eval.Task
@@ -196,7 +195,7 @@ object Cli {
                 Print(aboutAsked, commonOptions, Exit(ExitStatus.Ok))
               case Right(c: Commands.Bsp) =>
                 val newCommand = c.copy(cliOptions = c.cliOptions.copy(common = commonOptions))
-                Validate.bsp(newCommand, CrossPlatform.isWindows)
+                Validate.bsp(newCommand)
               case Right(c: Commands.Compile) =>
                 val newCommand = c.copy(cliOptions = c.cliOptions.copy(common = commonOptions))
                 withNonEmptyProjects(

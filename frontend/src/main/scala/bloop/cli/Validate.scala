@@ -22,7 +22,7 @@ object Validate {
   // https://github.com/scalacenter/bloop/issues/196
   private final val DefaultCharset = Charset.defaultCharset()
   private[bloop] def bytesOf(s: String): Int = s.getBytes(DefaultCharset).length
-  def bsp(cmd: Commands.Bsp, isWindows: Boolean): Action = {
+  def bsp(cmd: Commands.Bsp): Action = {
     val cliOptions = cmd.cliOptions
     val commonOptions = cliOptions.common
 
