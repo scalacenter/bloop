@@ -254,19 +254,6 @@ lazy val bloopgun = project
   )
   .settings(bloopgunSettings)
 
-lazy val bloop4j = project
-  .dependsOn(config)
-  .settings(scalafixSettings)
-  .settings(
-    sonatypeSetting,
-    name := "bloop4j",
-    (run / fork) := true,
-    (Test / fork) := true,
-    libraryDependencies ++= List(
-      Dependencies.bsp4j
-    )
-  )
-
 lazy val jsBridge06 = project
   .dependsOn(frontend % Provided, frontend % "test->test")
   .in(file("bridges") / "scalajs-0.6")
