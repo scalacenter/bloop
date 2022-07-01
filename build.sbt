@@ -72,7 +72,6 @@ lazy val backend = project
       Dependencies.nailgun,
       Dependencies.scalazCore,
       Dependencies.scalazConcurrent,
-      Dependencies.coursierInterface,
       Dependencies.libraryManagement,
       Dependencies.sourcecode,
       Dependencies.monix,
@@ -131,7 +130,6 @@ import build.BuildImplementation.jvmOptions
 // For the moment, the dependency is fixed
 lazy val frontend: Project = project
   .dependsOn(
-    shared,
     backend,
     backend % "test->test",
     config
@@ -174,8 +172,6 @@ lazy val frontend: Project = project
     (test / parallelExecution) := false,
     libraryDependencies ++= List(
       Dependencies.jsoniterMacros % Provided,
-      Dependencies.scalazCore,
-      Dependencies.monix,
       Dependencies.caseApp,
       Dependencies.scalaDebugAdapter,
       Dependencies.libdaemonjvm,
