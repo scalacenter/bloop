@@ -14,4 +14,6 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v3
+        with:
+          submodules: true
       - uses: scalacenter/sbt-dependency-graph-action@v1
