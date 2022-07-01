@@ -552,7 +552,7 @@ object DebugServerSpec extends DebugBspBaseSuite {
         val `Main.scala` = srcFor("Main.scala")
         val breakpoints = breakpointsArgs(`Main.scala`, 3)
 
-        val Right(attachRemoteProcessRunner) =
+        val attachRemoteProcessRunner =
           BloopDebuggeeRunner.forAttachRemote(
             state.compile(project).toTestState.state,
             defaultScheduler,
@@ -760,7 +760,7 @@ object DebugServerSpec extends DebugBspBaseSuite {
         val `Main.scala` = srcFor("Main.scala")
         val breakpoints = breakpointsArgs(`Main.scala`, 4)
 
-        val Right(attachRemoteProcessRunner) =
+        val attachRemoteProcessRunner =
           BloopDebuggeeRunner.forAttachRemote(
             testState.state,
             defaultScheduler,

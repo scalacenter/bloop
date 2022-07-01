@@ -27,8 +27,14 @@ import bloop.testing.TestInternals
 import monix.eval.Task
 import monix.execution.Scheduler
 
-abstract class BloopDebuggeeRunner(initialState: State, ioScheduler: Scheduler)
-    extends DebuggeeRunner {
+abstract class BloopDebuggeeRunner(
+    initialState: State,
+    ioScheduler: Scheduler,
+    debugeeScalaVersion: Option[String]
+) extends DebuggeeRunner {
+
+  // The version doesn't matter for project without Scala version (Java only)
+  val scalaVersion = debugeeScalaVersion.getOrElse("2.13.8")
 
   override def run(listener: DebuggeeListener): CancelableFuture[Unit] = {
     val debugSessionLogger = new DebuggeeLogger(listener, initialState.logger)
@@ -52,8 +58,8 @@ private final class MainClassDebugAdapter(
     initialState: State,
     ioScheduler: Scheduler,
     override val classPath: Seq[Path],
-    val scalaVersion: String
-) extends BloopDebuggeeRunner(initialState, ioScheduler) {
+    val debugeeScalaVersion: Option[String]
+) extends BloopDebuggeeRunner(initialState, ioScheduler, debugeeScalaVersion) {
   val javaRuntime: Option[JavaRuntime] = JavaRuntime(env.javaHome.underlying)
   def name: String = s"${getClass.getSimpleName}(${project.name}, ${mainClass.`class`})"
   def start(state: State, listener: DebuggeeListener): Task[ExitStatus] = {
@@ -86,8 +92,8 @@ private final class TestSuiteDebugAdapter(
     initialState: State,
     ioScheduler: Scheduler,
     override val classPath: Seq[Path],
-    val scalaVersion: String
-) extends BloopDebuggeeRunner(initialState, ioScheduler) {
+    val debugeeScalaVersion: Option[String]
+) extends BloopDebuggeeRunner(initialState, ioScheduler, debugeeScalaVersion) {
   override def name: String = {
     val projectsStr = projects.map(_.bspUri).mkString("[", ", ", "]")
     val selectedTests = testClasses.suites
@@ -123,8 +129,8 @@ private final class AttachRemoteDebugAdapter(
     initialState: State,
     ioScheduler: Scheduler,
     override val classPath: Seq[Path],
-    val scalaVersion: String
-) extends BloopDebuggeeRunner(initialState, ioScheduler) {
+    val debugeeScalaVersion: Option[String]
+) extends BloopDebuggeeRunner(initialState, ioScheduler, debugeeScalaVersion) {
   override def name: String = s"${getClass.getSimpleName}(${initialState.build.origin})"
   override def start(state: State, listener: DebuggeeListener): Task[ExitStatus] = Task(
     ExitStatus.Ok
@@ -132,10 +138,6 @@ private final class AttachRemoteDebugAdapter(
 }
 
 object BloopDebuggeeRunner {
-
-  private def noScalaVersion: Left[String, DebuggeeRunner] = Left(
-    "No scala version specified for the project"
-  )
 
   def forMainClass(
       projects: Seq[Project],
@@ -146,8 +148,8 @@ object BloopDebuggeeRunner {
     projects match {
       case Seq() => Left(s"No projects specified for main class: [$mainClass]")
       case Seq(project) =>
-        (project.platform, project.scalaInstance) match {
-          case (jvm: Platform.Jvm, Some(scalaInstance)) =>
+        project.platform match {
+          case jvm: Platform.Jvm =>
             val classPathEntries = getClassPathEntries(state, project)
             val evaluationClassLoader = getEvaluationClassLoader(project, state)
             val classpath = getClasspath(state, project)
@@ -161,12 +163,10 @@ object BloopDebuggeeRunner {
                 state,
                 ioScheduler,
                 classpath,
-                scalaInstance.version
+                project.scalaInstance.map(_.version)
               )
             )
-          case (_, None) =>
-            noScalaVersion
-          case (platform, _) =>
+          case platform =>
             Left(s"Unsupported platform: ${platform.getClass.getSimpleName}")
         }
       case projects => Left(s"Multiple projects specified for main class [$mainClass]: $projects")
@@ -188,41 +188,35 @@ object BloopDebuggeeRunner {
         val javaRuntime = JavaRuntime(config.javaHome.underlying)
         val evaluationClassLoader = getEvaluationClassLoader(project, state)
         val classpath = getClasspath(state, project)
-        project.scalaInstance.fold[Either[String, DebuggeeRunner]](
-          noScalaVersion
-        ) { scalaInstance =>
-          Right(
-            new TestSuiteDebugAdapter(
-              projects,
-              testClasses,
-              classPathEntries,
-              javaRuntime,
-              evaluationClassLoader,
-              state,
-              ioScheduler,
-              classpath,
-              scalaInstance.version
-            )
+        Right(
+          new TestSuiteDebugAdapter(
+            projects,
+            testClasses,
+            classPathEntries,
+            javaRuntime,
+            evaluationClassLoader,
+            state,
+            ioScheduler,
+            classpath,
+            project.scalaInstance.map(_.version)
           )
-        }
+        )
+
       case project :: _ =>
-        project.scalaInstance.fold[Either[String, DebuggeeRunner]](
-          noScalaVersion
-        ) { scalaInstance =>
-          Right(
-            new TestSuiteDebugAdapter(
-              projects,
-              testClasses,
-              Seq.empty,
-              None,
-              None,
-              state,
-              ioScheduler,
-              Seq.empty,
-              scalaInstance.version
-            )
+        Right(
+          new TestSuiteDebugAdapter(
+            projects,
+            testClasses,
+            Seq.empty,
+            None,
+            None,
+            state,
+            ioScheduler,
+            Seq.empty,
+            project.scalaInstance.map(_.version)
           )
-        }
+        )
+
     }
   }
 
@@ -230,7 +224,7 @@ object BloopDebuggeeRunner {
       state: State,
       ioScheduler: Scheduler,
       projects: Seq[Project]
-  ): Either[String, DebuggeeRunner] = {
+  ): DebuggeeRunner = {
     projects match {
       case Seq(project) if project.platform.isInstanceOf[Platform.Jvm] =>
         val Platform.Jvm(config, _, _, _, _, _) = project.platform
@@ -238,36 +232,25 @@ object BloopDebuggeeRunner {
         val javaRuntime = JavaRuntime(config.javaHome.underlying)
         val evaluationClassLoader = getEvaluationClassLoader(project, state)
         val classpath = getClasspath(state, project)
-        project.scalaInstance.fold[Either[String, DebuggeeRunner]](noScalaVersion) {
-          scalaInstance =>
-            Right(
-              new AttachRemoteDebugAdapter(
-                classPathEntries,
-                javaRuntime,
-                evaluationClassLoader,
-                state,
-                ioScheduler,
-                classpath,
-                scalaInstance.version
-              )
-            )
-        }
+        new AttachRemoteDebugAdapter(
+          classPathEntries,
+          javaRuntime,
+          evaluationClassLoader,
+          state,
+          ioScheduler,
+          classpath,
+          project.scalaInstance.map(_.version)
+        )
       case projects =>
-        projects.headOption
-          .flatMap(_.scalaInstance)
-          .fold[Either[String, DebuggeeRunner]](noScalaVersion) { scalaInstance =>
-            Right(
-              new AttachRemoteDebugAdapter(
-                Seq.empty,
-                None,
-                None,
-                state,
-                ioScheduler,
-                Seq.empty,
-                scalaInstance.version
-              )
-            )
-          }
+        new AttachRemoteDebugAdapter(
+          Seq.empty,
+          None,
+          None,
+          state,
+          ioScheduler,
+          Seq.empty,
+          projects.headOption.flatMap(_.scalaInstance).map(_.version)
+        )
     }
   }
 
