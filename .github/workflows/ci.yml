@@ -42,33 +42,8 @@ jobs:
         run: |
           .github/setup-test-projects.sh &&\
           ./bin/sbt-ci.sh \
-              "jsBridge06/publishLocal" \
               "jsBridge1/publishLocal" \
-              "jsBridge06/test" \
               "jsBridge1/test"
-        shell: bash
-
-  launcher:
-    name: Launcher tests
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest, macOS-latest]
-        jdk: ["graalvm-java17:21.3.0"]
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          submodules: true
-          fetch-depth: 0
-      - uses: coursier/setup-action@v1.2.0-M3
-        with:
-          jvm: ${{ matrix.jdk }}
-      - name: Tests
-        run: |
-          echo $JAVA_HOME
-          which gu && gu install native-image
-          ./bin/sbt-ci.sh publishLocal "launcherTest/test"
         shell: bash
 
   test:

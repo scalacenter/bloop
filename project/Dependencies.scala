@@ -33,7 +33,7 @@ object Dependencies {
   val asmVersion = "7.0"
   val snailgunVersion = "0.4.0"
   val ztExecVersion = "1.11"
-  val debugAdapterVersion = "2.2.0-M1"
+  val debugAdapterVersion = "2.2.0-M2"
   val coursierInterfaceVersion = "1.0.6"
 
   import sbt.librarymanagement.syntax.stringToOrganization
@@ -76,10 +76,6 @@ object Dependencies {
   val scalaDebugAdapter = "ch.epfl.scala" %% "scala-debug-adapter" % debugAdapterVersion
 
   val scalaNativeTools04 = "org.scala-native" %% "tools" % scalaNative04Version % Provided
-  val scalaJsTools06 = "org.scala-js" %% "scalajs-tools" % scalaJs06Version % Provided
-  val scalaJsSbtTestAdapter06 =
-    "org.scala-js" %% "scalajs-sbt-test-adapter" % scalaJs06Version % Provided
-  val scalaJsEnvs06 = "org.scala-js" %% "scalajs-js-envs" % scalaJs06Version % Provided
 
   val scalaJsLinker1 = "org.scala-js" %% "scalajs-linker" % scalaJs1Version % Provided
   val scalaJsEnvs1 = "org.scala-js" %% "scalajs-js-envs" % scalaJsEnvsVersion % Provided

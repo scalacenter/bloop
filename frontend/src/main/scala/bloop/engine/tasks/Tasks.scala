@@ -38,12 +38,14 @@ object Tasks {
    * @param includeDeps Do not run clean for dependencies.
    * @return The new state of Bloop after cleaning.
    */
-  def clean(state: State, targets: List[Project], includeDeps: Boolean): Task[State] = Task {
+  def clean(state: State, targets: List[Project], includeDeps: Boolean): Task[State] = {
     val allTargetsToClean =
       if (!includeDeps) targets
       else targets.flatMap(t => Dag.dfs(state.build.getDagFor(t))).distinct
-    val newResults = state.results.cleanSuccessful(allTargetsToClean)
-    state.copy(results = newResults)
+    state.results.cleanSuccessful(allTargetsToClean.toSet, state.client, state.logger).map {
+      newResults =>
+        state.copy(results = newResults)
+    }
   }
 
   /**

@@ -72,7 +72,6 @@ lazy val backend = project
       Dependencies.nailgun,
       Dependencies.scalazCore,
       Dependencies.scalazConcurrent,
-      Dependencies.coursierInterface,
       Dependencies.libraryManagement,
       Dependencies.sourcecode,
       Dependencies.monix,
@@ -87,15 +86,6 @@ lazy val backend = project
     )
   )
 
-val testJSSettings = List(
-  testOptions += Tests.Argument(TestFrameworks.JUnit, "-v", "-a"),
-  scalaJSLinkerConfig ~= (_.withModuleKind(ModuleKind.CommonJSModule)),
-  libraryDependencies ++= List(
-    "com.github.plokhotnyuk.jsoniter-scala" %%% "jsoniter-scala-core" % Dependencies.jsoniterVersion,
-    "com.github.plokhotnyuk.jsoniter-scala" %%% "jsoniter-scala-macros" % Dependencies.jsoniterVersion % Provided
-  )
-)
-
 val testResourceSettings = {
   // FIXME: Shared resource directory is ignored, see https://github.com/portable-scala/sbt-crossproject/issues/74
   Seq(Test).flatMap(inConfig(_) {
@@ -109,24 +99,17 @@ val testResourceSettings = {
 }
 
 // Needs to be called `jsonConfig` because of naming conflict with sbt universe...
-lazy val config = crossProject(JSPlatform, JVMPlatform)
-  .crossType(CrossType.Pure)
-  .in(file("config"))
+lazy val config = project
   .disablePlugins(ScalafixPlugin)
   .settings(
     sonatypeSetting,
     name := "bloop-config",
-    (Compile / unmanagedSourceDirectories) +=
-      Keys.baseDirectory.value / ".." / "src" / "main" / "scala-2.11-13",
     scalaVersion := (backend / Keys.scalaVersion).value,
     scalacOptions := {
       scalacOptions.value.filterNot(opt => opt == "-deprecation"),
     },
-    testResourceSettings
-  )
-  .jvmSettings(
+    testResourceSettings,
     testSettings,
-    target := (file("config") / "target" / "json-config-2.12" / "jvm").getAbsoluteFile,
     libraryDependencies ++= {
       List(
         Dependencies.jsoniterCore,
@@ -134,37 +117,6 @@ lazy val config = crossProject(JSPlatform, JVMPlatform)
         Dependencies.scalacheck % Test
       )
     }
-  )
-  .jsConfigure(_.enablePlugins(ScalaJSJUnitPlugin))
-  .jsSettings(
-    testJSSettings,
-    target := (file("config") / "target" / "json-config-2.12" / "js").getAbsoluteFile
-  )
-
-lazy val jsonConfig213 = crossProject(JSPlatform, JVMPlatform)
-  .crossType(CrossType.Pure)
-  .in(file("config"))
-  .disablePlugins(ScalafixPlugin)
-  .settings(
-    sonatypeSetting,
-    name := "bloop-config",
-    (Compile / unmanagedSourceDirectories) +=
-      Keys.baseDirectory.value / ".." / "src" / "main" / "scala-2.11-13",
-    scalaVersion := Dependencies.Scala213Version,
-    testResourceSettings
-  )
-  .jvmSettings(
-    testSettings,
-    target := (file("config") / "target" / "json-config-2.13" / "jvm").getAbsoluteFile,
-    libraryDependencies ++= List(
-      Dependencies.jsoniterCore,
-      Dependencies.jsoniterMacros % Provided
-    )
-  )
-  .jsConfigure(_.enablePlugins(ScalaJSJUnitPlugin))
-  .jsSettings(
-    testJSSettings,
-    target := (file("config") / "target" / "json-config-2.13" / "js").getAbsoluteFile
   )
 
 lazy val tmpDirSettings = Def.settings(
@@ -178,10 +130,9 @@ import build.BuildImplementation.jvmOptions
 // For the moment, the dependency is fixed
 lazy val frontend: Project = project
   .dependsOn(
-    shared,
     backend,
     backend % "test->test",
-    config.jvm
+    config
   )
   .enablePlugins(BuildInfoPlugin)
   .configs(IntegrationTest)
@@ -210,7 +161,7 @@ lazy val frontend: Project = project
     bloopName := "bloop",
     (Compile / run / mainClass) := Some("bloop.Cli"),
     buildInfoPackage := "bloop.internal.build",
-    buildInfoKeys := bloopInfoKeys(nativeBridge04, jsBridge06, jsBridge1),
+    buildInfoKeys := bloopInfoKeys(nativeBridge04, jsBridge1),
     (run / javaOptions) ++= jvmOptions,
     (Test / javaOptions) ++= jvmOptions,
     tmpDirSettings,
@@ -221,8 +172,6 @@ lazy val frontend: Project = project
     (test / parallelExecution) := false,
     libraryDependencies ++= List(
       Dependencies.jsoniterMacros % Provided,
-      Dependencies.scalazCore,
-      Dependencies.monix,
       Dependencies.caseApp,
       Dependencies.scalaDebugAdapter,
       Dependencies.libdaemonjvm,
@@ -288,22 +237,10 @@ lazy val bloopgunSettings = Def.settings(
   }
 )
 
-lazy val `bloopgun-core` = project
+lazy val `bloopgun-core`: Project = project
   .disablePlugins(ScalafixPlugin)
   .enablePlugins(BuildInfoPlugin)
   .settings(testSuiteSettings)
-  .settings(target := (file("bloopgun-core") / "target" / "bloopgun-2.12").getAbsoluteFile)
-  .settings(bloopgunCoreSettings)
-  .settings(
-    scalaVersion := Dependencies.Scala212Version
-  )
-
-lazy val `bloopgun-core-213`: Project = project
-  .in(file("bloopgun-core"))
-  .disablePlugins(ScalafixPlugin)
-  .enablePlugins(BuildInfoPlugin)
-  .settings(testSuiteSettings)
-  .settings(target := (file("bloopgun-core") / "target" / "bloopgun-2.13").getAbsoluteFile)
   .settings(bloopgunCoreSettings)
   .settings(
     scalaVersion := Dependencies.Scala213Version
@@ -313,85 +250,9 @@ lazy val bloopgun = project
   .enablePlugins(GraalVMNativeImagePlugin)
   .dependsOn(`bloopgun-core`)
   .settings(
-    scalaVersion := Dependencies.Scala212Version,
-    target := (file("bloopgun") / "target" / "bloopgun-2.12").getAbsoluteFile
+    scalaVersion := Dependencies.Scala213Version
   )
   .settings(bloopgunSettings)
-
-lazy val bloopgun213 = project
-  .in(file("bloopgun"))
-  .enablePlugins(GraalVMNativeImagePlugin)
-  .dependsOn(`bloopgun-core-213`)
-  .settings(
-    scalaVersion := Dependencies.Scala213Version,
-    target := (file("bloopgun") / "target" / "bloopgun-2.13").getAbsoluteFile
-  )
-  .settings(bloopgunSettings)
-
-lazy val launcher = project
-  .in(file("launcher"))
-  .dependsOn(`bloopgun-core`)
-  .disablePlugins(ScalafixPlugin)
-  .settings(testSuiteSettings)
-  .settings(
-    sonatypeSetting,
-    name := "bloop-launcher",
-    target := (file("launcher") / "target" / "launcher-2.12").getAbsoluteFile
-  )
-
-lazy val launcher213 = project
-  .in(file("launcher"))
-  .disablePlugins(ScalafixPlugin)
-  .dependsOn(`bloopgun-core-213`)
-  .settings(testSuiteSettings)
-  .settings(
-    name := "bloop-launcher",
-    scalaVersion := Dependencies.Scala213Version,
-    target := (file("launcher") / "target" / "launcher-2.13").getAbsoluteFile
-  )
-
-lazy val launcherTest = project
-  .in(file("launcher-test"))
-  .dependsOn(launcher, frontend % "test->test")
-  .settings(scalafixSettings)
-  .settings(testSuiteSettings)
-  .settings(
-    name := "bloop-launcher-test",
-    (Test / fork) := true,
-    (Test / parallelExecution) := false,
-    libraryDependencies ++= List(
-      Dependencies.coursierInterface
-    ),
-    tmpDirSettings
-  )
-
-lazy val bloop4j = project
-  .dependsOn(config.jvm)
-  .settings(scalafixSettings)
-  .settings(
-    sonatypeSetting,
-    name := "bloop4j",
-    (run / fork) := true,
-    (Test / fork) := true,
-    libraryDependencies ++= List(
-      Dependencies.bsp4j
-    )
-  )
-
-lazy val jsBridge06 = project
-  .dependsOn(frontend % Provided, frontend % "test->test")
-  .in(file("bridges") / "scalajs-0.6")
-  .disablePlugins(ScalafixPlugin)
-  .settings(testSettings)
-  .settings(
-    sonatypeSetting,
-    name := "bloop-js-bridge-0.6",
-    libraryDependencies ++= List(
-      Dependencies.scalaJsTools06,
-      Dependencies.scalaJsSbtTestAdapter06,
-      Dependencies.scalaJsEnvs06
-    )
-  )
 
 lazy val jsBridge1 = project
   .dependsOn(frontend % Provided, frontend % "test->test")
@@ -428,14 +289,10 @@ lazy val stuff = project
   .aggregate(
     frontend,
     backend,
-    launcher,
-    launcherTest,
     bloopgun,
-    bloopgun213,
     `bloopgun-core`,
-    `bloopgun-core-213`,
     shared,
-    config.jvm,
+    config,
     jsBridge1
   )
   .settings(
