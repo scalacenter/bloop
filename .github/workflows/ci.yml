@@ -30,7 +30,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macOS-latest]
-        jdk: [11, 17]
+        jdk: [17]
     steps:
       - uses: actions/checkout@v3
         with:
@@ -59,7 +59,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macOS-latest]
-        jdk: [11, 17]
+        jdk: [17]
     steps:
       - uses: actions/checkout@v2
         with:
@@ -94,7 +94,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macOS-latest]
-        jdk: [11]
+        jdk: [17]
     steps:
       - uses: actions/checkout@v2
         with:
@@ -120,7 +120,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macOS-latest]
-        jdk: [11, 17]
+        jdk: [17]
     name: Test ${{ matrix.os }} -- ${{ matrix.jdk }}
     env:
       HYDRA_LICENSE: ${{ secrets.HYDRA_LICENSE }}
