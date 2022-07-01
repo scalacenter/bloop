@@ -179,81 +179,6 @@ lazy val frontend: Project = project
     )
   )
 
-lazy val bloopgunCoreSettings = Def.settings(
-  sonatypeSetting,
-  name := "bloopgun-core",
-  (run / fork) := true,
-  (Test / fork) := true,
-  (Test / parallelExecution) := false,
-  buildInfoPackage := "bloopgun.internal.build",
-  buildInfoKeys := List(version),
-  buildInfoObject := "BloopgunInfo",
-  libraryDependencies ++= List(
-    Dependencies.snailgun,
-    // Use zt-exec instead of nuprocess because it doesn't require JNA (good for graalvm)
-    Dependencies.ztExec,
-    Dependencies.coursierInterface,
-    Dependencies.coursierInterfaceSubs,
-    Dependencies.jsoniterCore,
-    Dependencies.jsoniterMacros % Provided,
-    Dependencies.libdaemonjvm
-  )
-)
-
-lazy val bloopgunSettings = Def.settings(
-  sonatypeSetting,
-  name := "bloopgun",
-  libraryDependencies ++= List(
-    Dependencies.logback,
-    Dependencies.svmSubs
-  ),
-  (GraalVMNativeImage / mainClass) := Some("bloop.bloopgun.Bloopgun"),
-  graalVMNativeImageCommand := {
-    val oldPath = graalVMNativeImageCommand.value
-    if (scala.util.Properties.isWin) sys.props("java.home") + "\\bin\\native-image.cmd"
-    else oldPath
-  },
-  graalVMNativeImageOptions ++= {
-    val reflectionFile = (Compile / Keys.sourceDirectory).value./("graal")./("reflection.json")
-    assert(reflectionFile.exists, s"${reflectionFile.getAbsolutePath()} doesn't exist")
-    List(
-      "--no-server",
-      "--enable-http",
-      "--enable-https",
-      "-H:EnableURLProtocols=http,https",
-      "--enable-all-security-services",
-      "--no-fallback",
-      s"-H:ReflectionConfigurationFiles=$reflectionFile",
-      "--allow-incomplete-classpath",
-      "-H:+ReportExceptionStackTraces",
-      "--initialize-at-build-time=scala.Symbol",
-      "--initialize-at-build-time=scala.Function1",
-      "--initialize-at-build-time=scala.Function2",
-      "--initialize-at-build-time=scala.runtime.StructuralCallSite",
-      "--initialize-at-build-time=scala.runtime.EmptyMethodCache",
-      "--initialize-at-build-time=scala.runtime.LambdaDeserialize",
-      "--initialize-at-build-time=scala.collection.immutable.VM"
-    )
-  }
-)
-
-lazy val `bloopgun-core`: Project = project
-  .disablePlugins(ScalafixPlugin)
-  .enablePlugins(BuildInfoPlugin)
-  .settings(testSuiteSettings)
-  .settings(bloopgunCoreSettings)
-  .settings(
-    scalaVersion := Dependencies.Scala213Version
-  )
-
-lazy val bloopgun = project
-  .enablePlugins(GraalVMNativeImagePlugin)
-  .dependsOn(`bloopgun-core`)
-  .settings(
-    scalaVersion := Dependencies.Scala213Version
-  )
-  .settings(bloopgunSettings)
-
 lazy val jsBridge1 = project
   .dependsOn(frontend % Provided, frontend % "test->test")
   .in(file("bridges") / "scalajs-1")
@@ -289,8 +214,6 @@ lazy val stuff = project
   .aggregate(
     frontend,
     backend,
-    bloopgun,
-    `bloopgun-core`,
     shared,
     config,
     jsBridge1

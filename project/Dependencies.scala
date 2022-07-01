@@ -46,13 +46,10 @@ object Dependencies {
   val scalazCore = "org.scalaz" %% "scalaz-core" % scalazVersion
   val scalazConcurrent = "org.scalaz" %% "scalaz-concurrent" % scalazVersion
   val coursierInterface = "io.get-coursier" % "interface" % coursierInterfaceVersion
-  val coursierInterfaceSubs = "io.get-coursier" % "interface-svm-subs" % coursierInterfaceVersion
   val caseApp = "com.github.alexarchambault" %% "case-app" % caseAppVersion
   val sourcecode = "com.lihaoyi" %% "sourcecode" % sourcecodeVersion
   val sbtTestInterface = "org.scala-sbt" % "test-interface" % sbtTestInterfaceVersion
   val sbtTestAgent = "org.scala-sbt" % "test-agent" % sbtTestAgentVersion
-  val snailgun = ("me.vican.jorge" %% "snailgun-cli" % snailgunVersion)
-  val ztExec = "org.zeroturnaround" % "zt-exec" % ztExecVersion
   val logback = "ch.qos.logback" % "logback-classic" % "1.2.3"
 
   val utest = "com.lihaoyi" %% "utest" % "0.6.9"
@@ -91,6 +88,4 @@ object Dependencies {
   val asmUtil = "org.ow2.asm" % "asm-util" % asmVersion
 
   val libdaemonjvm = "io.github.alexarchambault.libdaemon" %% "libdaemon" % "0.0.10"
-
-  val svmSubs = "org.scalameta" %% "svm-subs" % "20.1.0"
 }
