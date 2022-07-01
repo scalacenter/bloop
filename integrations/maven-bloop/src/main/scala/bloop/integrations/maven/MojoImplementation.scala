@@ -21,6 +21,7 @@ import org.apache.maven.plugin.logging.Log
 import org.apache.maven.project.MavenProject
 import org.codehaus.plexus.util.xml.Xpp3Dom
 import org.eclipse.aether.artifact.DefaultArtifact
+import org.eclipse.aether.artifact.DefaultArtifactType
 import org.eclipse.aether.resolution.ArtifactRequest
 import scala_maven.AppLauncher
 
@@ -84,13 +85,24 @@ object MojoImplementation {
         val suffix = if (classifier.nonEmpty) s":$classifier" else ""
         log.info("Resolving artifact: " + artifact + suffix)
         val request = new ArtifactRequest()
+        val handler = artifact.getArtifactHandler()
+        val artifactType = new DefaultArtifactType(
+          artifact.getType(),
+          handler.getExtension(),
+          handler.getClassifier(),
+          handler.getLanguage(),
+          handler.isAddedToClasspath(),
+          handler.isIncludesDependencies()
+        )
         request.setArtifact(
           new DefaultArtifact(
             artifact.getGroupId(),
             artifact.getArtifactId(),
             classifier,
-            artifact.getType(),
-            artifact.getVersion()
+            handler.getExtension(),
+            artifact.getVersion(),
+            null,
+            artifactType
           )
         )
         request.setRepositories(mojo.getRemoteRepositories())
@@ -192,9 +204,10 @@ object MojoImplementation {
         case a: Artifact => a.getArtifactId() == "scala-library"
       }
       val allArtifacts = if (hasScalaLibrary) artifacts else artifacts ++ libraryAndDependencies
+      val isJar = Set("jar", "test-jar")
       val modules =
         allArtifacts.collect {
-          case art: Artifact if art.getType() == "jar" && isNotReactorProjectArtifact(art) =>
+          case art: Artifact if isJar(art.getType()) && isNotReactorProjectArtifact(art) =>
             if (art.getArtifactId() == "scala-library")
               scalaContext match {
                 case Some(context) =>

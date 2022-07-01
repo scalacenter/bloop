@@ -174,6 +174,31 @@ class MavenConfigGenerationSuite extends BaseConfigSuite {
   }
 
   @Test
+  def dependencyTestJars() = {
+    check("test_jars/pom.xml") { (configFile, projectName, subprojects) =>
+      assert(subprojects.isEmpty)
+      assert(configFile.project.`scala`.isDefined)
+      assertEquals("2.13.6", configFile.project.`scala`.get.version)
+      assertEquals("org.scala-lang", configFile.project.`scala`.get.organization)
+      assert(
+        !configFile.project.`scala`.get.jars.exists(_.toString.contains("scala3-compiler_3")),
+        "No Scala 3 jar should be present."
+      )
+      assert(!hasCompileClasspathEntryName(configFile, "scala3-library_3"))
+      assert(hasCompileClasspathEntryName(configFile, "scala-library"))
+
+      assert(hasTag(configFile, Tag.Library))
+      val testJar = configFile.project.resolution.get.modules.find(_.name == "spark-tags_2.13")
+      assert(testJar.exists { m =>
+        m.artifacts.exists(_.path.toString().endsWith("spark-tags_2.13-3.3.0-tests.jar"))
+      })
+
+      assertNoConfigsHaveAnyJars(List(configFile), List(s"$projectName", s"$projectName-test"))
+      assertAllConfigsMatchJarNames(List(configFile), List("scala-library", "spark-tags"))
+    }
+  }
+
+  @Test
   def multiModuleTestJar() = {
     check(
       "multi_module_test_jar/pom.xml",
