@@ -210,18 +210,5 @@ lazy val nativeBridge04 = project
     (Test / fork) := true
   )
 
-lazy val stuff = project
-  .aggregate(
-    frontend,
-    backend,
-    shared,
-    config,
-    jsBridge1
-  )
-  .settings(
-    sonatypeSetting,
-    (publish / skip) := true
-  )
-
 (publish / skip) := true
 sonatypeSetting

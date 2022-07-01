@@ -12,7 +12,7 @@ The main changes to these modules from Bloop mainline are mainly:
 
 bloop-core is built with sbt, just like Bloop mainline.
 
-Compile its main modules with
+Compile everything with
 ```text
-$ sbt stuff/compile
+$ sbt test:compile
 ```
