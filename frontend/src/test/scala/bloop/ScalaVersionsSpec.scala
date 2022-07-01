@@ -9,12 +9,10 @@ import bloop.util.TestProject
 import bloop.util.TestUtil
 
 import monix.eval.Task
-import monix.execution.misc.NonFatal
 
 object ScalaVersionsSpec extends bloop.testing.BaseSuite {
-  var loggers: List[RecordingLogger] = Nil
 
-  def compileProjectFor(scalaVersion: String): Task[Unit] = Task {
+  def compileProjectFor(scalaVersion: String, logger: RecordingLogger): Task[Unit] = Task {
     TestUtil.withinWorkspace { workspace =>
       val (compilerOrg, compilerArtifact) = {
         if (scalaVersion.startsWith("3."))
@@ -41,8 +39,6 @@ object ScalaVersionsSpec extends bloop.testing.BaseSuite {
         }
       }
 
-      val logger = new RecordingLogger(ansiCodesSupported = false)
-      loggers.synchronized { loggers = logger :: loggers }
       val jars = jarsForScalaVersion(scalaVersion, logger)
       val `A` = TestProject(
         workspace,
@@ -57,10 +53,8 @@ object ScalaVersionsSpec extends bloop.testing.BaseSuite {
       val projects = List(`A`)
       val state = loadState(workspace, projects, logger)
       val compiledState = state.compile(`A`)
-      try {
-        Predef.assert(compiledState.status == ExitStatus.Ok)
-        assertValidCompilationState(compiledState, projects)
-      } finally loggers.synchronized { loggers = loggers.filterNot(_ == logger) }
+      Predef.assert(compiledState.status == ExitStatus.Ok)
+      assertValidCompilationState(compiledState, projects)
     }
   }
 
@@ -79,22 +73,21 @@ object ScalaVersionsSpec extends bloop.testing.BaseSuite {
 
   val allVersions = if (TestUtil.isJdk8) jdk8OnlyVersions ++ scalaVersions else scalaVersions
 
-  test("cross-compile build to latest Scala versions") {
-    val all = allVersions.map(compileProjectFor)
+  allVersions.foreach { scalaV =>
+    test(s"cross compile build to Scala version $scalaV") {
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val compiled = compileProjectFor(scalaV, logger)
 
-    try {
-      TestUtil.await(FiniteDuration(120, "s"), ExecutionContext.ioScheduler) {
-        Task
-          .sequence(all.grouped(2).map(group => Task.gatherUnordered(group)))
-          .map(_ => ())
-      }
-    } catch {
-      case NonFatal(t) =>
-        loggers.foreach(logger => logger.dump())
-        Thread.sleep(100)
-        System.err.println(TestUtil.threadDump)
-        Thread.sleep(100)
-        throw t
-    } finally {}
+      TestUtil.await(FiniteDuration(120, "s"), ExecutionContext.ioScheduler)(
+        compiled.map(_ => ()).onErrorHandleWith { err =>
+          Task
+            .eval(logger.dump())
+            .flatMap(_ => Task(TestUtil.threadDump))
+            .flatMap(_ => Task.raiseError(err))
+
+        }
+      )
+    }
   }
+
 }
