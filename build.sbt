@@ -288,22 +288,10 @@ lazy val bloopgunSettings = Def.settings(
   }
 )
 
-lazy val `bloopgun-core` = project
+lazy val `bloopgun-core`: Project = project
   .disablePlugins(ScalafixPlugin)
   .enablePlugins(BuildInfoPlugin)
   .settings(testSuiteSettings)
-  .settings(target := (file("bloopgun-core") / "target" / "bloopgun-2.12").getAbsoluteFile)
-  .settings(bloopgunCoreSettings)
-  .settings(
-    scalaVersion := Dependencies.Scala212Version
-  )
-
-lazy val `bloopgun-core-213`: Project = project
-  .in(file("bloopgun-core"))
-  .disablePlugins(ScalafixPlugin)
-  .enablePlugins(BuildInfoPlugin)
-  .settings(testSuiteSettings)
-  .settings(target := (file("bloopgun-core") / "target" / "bloopgun-2.13").getAbsoluteFile)
   .settings(bloopgunCoreSettings)
   .settings(
     scalaVersion := Dependencies.Scala213Version
@@ -313,18 +301,7 @@ lazy val bloopgun = project
   .enablePlugins(GraalVMNativeImagePlugin)
   .dependsOn(`bloopgun-core`)
   .settings(
-    scalaVersion := Dependencies.Scala212Version,
-    target := (file("bloopgun") / "target" / "bloopgun-2.12").getAbsoluteFile
-  )
-  .settings(bloopgunSettings)
-
-lazy val bloopgun213 = project
-  .in(file("bloopgun"))
-  .enablePlugins(GraalVMNativeImagePlugin)
-  .dependsOn(`bloopgun-core-213`)
-  .settings(
-    scalaVersion := Dependencies.Scala213Version,
-    target := (file("bloopgun") / "target" / "bloopgun-2.13").getAbsoluteFile
+    scalaVersion := Dependencies.Scala213Version
   )
   .settings(bloopgunSettings)
 
@@ -392,9 +369,7 @@ lazy val stuff = project
     frontend,
     backend,
     bloopgun,
-    bloopgun213,
     `bloopgun-core`,
-    `bloopgun-core-213`,
     shared,
     config.jvm,
     jsBridge1
