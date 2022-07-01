@@ -30,6 +30,7 @@ import utest.framework.Tree
 import utest.ufansi.Attrs
 import utest.ufansi.Color
 import utest.ufansi.Str
+import java.nio.file.attribute.FileTime
 
 abstract class BaseSuite extends TestSuite with BloopHelpers {
   val pprint = _root_.pprint.PPrinter.BlackWhite
@@ -210,8 +211,14 @@ abstract class BaseSuite extends TestSuite with BloopHelpers {
       a: AbsolutePath,
       b: AbsolutePath
   )(implicit filename: sourcecode.File, line: sourcecode.Line): Unit = {
-    val filesA = takeDirectorySnapshot(a)
-    val filesB = takeDirectorySnapshot(b)
+    def roundUpTime(s: Seq[AttributedPath]) =
+      s.map { path =>
+        val time = path.lastModifiedTime.toMillis()
+        path.copy(lastModifiedTime = FileTime.fromMillis(time))
+      }
+
+    val filesA = roundUpTime(takeDirectorySnapshot(a))
+    val filesB = roundUpTime(takeDirectorySnapshot(b))
     assertNoDiff(
       pprint.apply(filesA, height = Int.MaxValue).render,
       pprint.apply(filesB, height = Int.MaxValue).render,
