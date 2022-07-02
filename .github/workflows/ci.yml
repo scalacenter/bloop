@@ -23,66 +23,6 @@ jobs:
       - name: Check formatting
         run: ./bin/scalafmt --test
 
-  integrations:
-    name: Build integrations tests
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macOS-latest]
-        jdk: [11, 17]
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          submodules: true
-
-      - uses: actions/setup-java@v3
-        with:
-          distribution: 'temurin' 
-          java-version: ${{ matrix.jdk }}
-      
-      - uses: coursier/cache-action@v6
-
-      - name: Tests
-        run: |
-          sbt \
-              "mavenBloop/publishM2" \
-              "mavenBloop/test" \
-              "gradleBloop211/compile" \
-              "gradleBloop212/compile" \
-              "gradleBloop212/test" \
-              "sbtBloop10Shaded/publishLocal" \
-              "sbtBloop10/scripted"
-
-  bridges:
-    name: Test platform bridges
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest, macOS-latest]
-        jdk: [11, 17]
-    steps:
-      - uses: actions/checkout@v2
-        with:
-          submodules: true
-
-      - uses: coursier/cache-action@v6
-
-      - uses: actions/setup-java@v3
-        with:
-          distribution: 'temurin' 
-          java-version: ${{ matrix.jdk }}
-
-      - name: Tests
-        run: |
-          sbt \
-              "jsBridge06/publishLocal" \
-              "jsBridge1/publishLocal" \
-              "jsBridge06/test" \
-              "jsBridge1/test"
-        shell: bash
-
   launcher:
     name: Launcher tests
     runs-on: ${{ matrix.os }}
@@ -126,7 +66,6 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: true
-          fetch-depth: 0
 
       - uses: actions/setup-java@v3
         with:
@@ -142,14 +81,15 @@ jobs:
       - name: Set up environment
         run: |
           curl -Lo coursier https://git.io/coursier-cli && chmod +x coursier && ./coursier --help
+          curl -Lo sbt https://raw.githubusercontent.com/sbt/sbt/1.7.x/sbt && chmod sbt
           yarn --help
           java -version
           [[ $HYDRA_LICENSE == floating-key=* ]] && mkdir -p $HOME/.triplequote && echo "$HYDRA_LICENSE" > "$HOME/.triplequote/hydra.license" || echo "Hydra license file was not created"
         shell: bash
 
-      - name: Compile and test main projects
+      - name: Frontend and backend tests
         run: |
-          sbt \
+          ./sbt --client \
               "frontend/Test/compile" \
               "backend/test" \
               "docs/compile" \
@@ -158,6 +98,27 @@ jobs:
               "frontend/runMain bloop.util.CommandsDocGenerator --test" \
               "frontend/runMain bloop.util.CommandsDocGenerator --out ../docs/cli/reference.md"
         shell: bash
+
+      - name: Platform bridge tests
+        run: |
+          ./sbt --client \
+              "jsBridge06/publishLocal" \
+              "jsBridge1/publishLocal" \
+              "jsBridge06/test" \
+              "jsBridge1/test"
+        shell: bash
+
+      - name: Build tool integration tests
+        run: |
+          ./sbt --client \
+              "mavenBloop/publishM2" \
+              "mavenBloop/test" \
+              "gradleBloop211/compile" \
+              "gradleBloop212/compile" \
+              "gradleBloop212/test" \
+              "sbtBloop10Shaded/publishLocal" \
+              "sbtBloop10/scripted"
+
       - name: Check docs are up-to-date
         run: |
           ./bin/check-good-practices.sh
