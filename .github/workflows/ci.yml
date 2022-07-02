@@ -61,34 +61,34 @@ jobs:
       - name: Frontend and backend tests
         run: |
           ./sbt --client \
-              "frontend/Test/compile" \
-              "backend/test" \
-              "docs/compile" \
-              "frontend/testOnly bloop.ScalaVersionsSpec" \
-              "frontend/testOnly -bloop.ScalaVersionsSpec" \
-              "frontend/runMain bloop.util.CommandsDocGenerator --test" \
-              "frontend/runMain bloop.util.CommandsDocGenerator --out ../docs/cli/reference.md"
+              "frontend/Test/compile;\
+              backend/test;\
+              docs/compile;\
+              frontend/testOnly bloop.ScalaVersionsSpec;\
+              frontend/testOnly -bloop.ScalaVersionsSpec;\
+              frontend/runMain bloop.util.CommandsDocGenerator --test;\
+              frontend/runMain bloop.util.CommandsDocGenerator --out ../docs/cli/reference.md"
         shell: bash
 
       - name: Platform bridge tests
         run: |
           ./sbt --client \
-              "jsBridge06/publishLocal" \
-              "jsBridge1/publishLocal" \
-              "jsBridge06/test" \
-              "jsBridge1/test"
+              "jsBridge06/publishLocal;\
+              jsBridge1/publishLocal;\
+              jsBridge06/test;\
+              jsBridge1/test"
         shell: bash
 
       - name: Build tool integration tests
         run: |
           ./sbt --client \
-              "mavenBloop/publishM2" \
-              "mavenBloop/test" \
-              "gradleBloop211/compile" \
-              "gradleBloop212/compile" \
-              "gradleBloop212/test" \
-              "sbtBloop10Shaded/publishLocal" \
-              "sbtBloop10/scripted"
+              "mavenBloop/publishM2;\
+              mavenBloop/test;\
+              gradleBloop211/compile;\
+              gradleBloop212/compile;\
+              gradleBloop212/test;\
+              sbtBloop10Shaded/publishLocal;\
+              sbtBloop10/scripted"
 
       - name: Setup GraalVM
         uses: graalvm/setup-graalvm@v1
@@ -104,7 +104,7 @@ jobs:
         run: |
           echo $JAVA_HOME
           which gu && gu install native-image
-          ./sbt --client "install" "launcherTest/test"
+          ./sbt --client "install; launcherTest/test"
         shell: bash
 
       - name: Check docs are up-to-date
