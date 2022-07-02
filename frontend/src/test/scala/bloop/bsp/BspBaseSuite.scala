@@ -533,19 +533,10 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
   private final lazy val tempDir = Files.createTempDirectory("temp-sockets")
   tempDir.toFile.deleteOnExit()
 
-  // def createBspCommand(configDir: AbsolutePath): Commands.ValidatedBsp = {
-  //   protocol match {
-  //     case BspProtocol.Tcp =>
-  //       val portNumber = 7001 + scala.util.Random.nextInt(40000)
-  //       createTcpBspCommand(configDir, portNumber)
-  //     case BspProtocol.Local => createLocalBspCommand(configDir, tempDir)
-  //   }
-  // }
-
-  def createBspCommand(configDir: AbsolutePath, portSelector: Option[AtomicInteger] = None): Commands.ValidatedBsp = {
+  def createBspCommand(configDir: AbsolutePath): Commands.ValidatedBsp = {
     protocol match {
       case BspProtocol.Tcp =>
-        val portNumber = portSelector.map(_.incrementAndGet()).getOrElse( 7000 + scala.util.Random.nextInt(1000))
+        val portNumber = BspBaseSuite.portSelector.incrementAndGet()
         println(s"Client with config $configDir is connecting at port $portNumber")
         createTcpBspCommand(configDir, portNumber)
       case BspProtocol.Local => createLocalBspCommand(configDir, tempDir)
@@ -808,4 +799,8 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
   def mapBoth[A1, A2](f1: CancelableFuture[A1], f2: CancelableFuture[A2]): Task[(A1, A2)] = {
     Task.mapBoth(Task.fromFuture(f1), Task.fromFuture(f2))((a1, a2) => a1 -> a2)
   }
+}
+
+object BspBaseSuite {
+  val portSelector = new AtomicInteger(7000)
 }

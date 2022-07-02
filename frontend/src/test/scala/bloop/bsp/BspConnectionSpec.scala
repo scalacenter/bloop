@@ -33,13 +33,12 @@ class BspConnectionSpec(
       val `A` = TestProject(workspace, "a", Nil)
       val projects = List(`A`)
       val configDir = TestProject.populateWorkspace(workspace, projects)
-      val portSelector = new AtomicInteger(9000)
 
       def createClient: Task[Unit] = {
         Task {
           val logger = new RecordingLogger(ansiCodesSupported = false)
           val bspLogger = new BspClientLogger(logger)
-          val bspCommand = createBspCommand(configDir, Some(portSelector))
+          val bspCommand = createBspCommand(configDir)
           val state = TestUtil.loadTestProject(configDir.underlying, logger)
 
           // Run the clients on our own unbounded IO scheduler to allow client concurrency
