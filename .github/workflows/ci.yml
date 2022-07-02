@@ -23,35 +23,6 @@ jobs:
       - name: Check formatting
         run: ./bin/scalafmt --test
 
-  launcher:
-    name: Launcher tests
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest, macOS-latest]
-        jdk: [17]
-    steps:
-      - uses: actions/checkout@v2
-        with:
-          submodules: true
-
-      - uses: graalvm/setup-graalvm@v1
-        with:
-          version: '22.1.0'
-          java-version: ${{ matrix.jdk }}
-          components: 'native-image'
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-      
-      - uses: coursier/cache-action@v6
-
-      - name: Tests
-        run: |
-          echo $JAVA_HOME
-          which gu && gu install native-image
-          sbt "install" "launcherTest/test"
-        shell: bash
-
   test:
     runs-on: ${{ matrix.os }}
     strategy:
@@ -81,7 +52,7 @@ jobs:
       - name: Set up environment
         run: |
           curl -Lo coursier https://git.io/coursier-cli && chmod +x coursier && ./coursier --help
-          curl -Lo sbt https://raw.githubusercontent.com/sbt/sbt/1.7.x/sbt && chmod sbt
+          curl -Lo sbt https://raw.githubusercontent.com/sbt/sbt/1.7.x/sbt && chmod +x sbt
           yarn --help
           java -version
           [[ $HYDRA_LICENSE == floating-key=* ]] && mkdir -p $HOME/.triplequote && echo "$HYDRA_LICENSE" > "$HOME/.triplequote/hydra.license" || echo "Hydra license file was not created"
@@ -118,6 +89,23 @@ jobs:
               "gradleBloop212/test" \
               "sbtBloop10Shaded/publishLocal" \
               "sbtBloop10/scripted"
+
+      - name: Setup GraalVM
+        uses: graalvm/setup-graalvm@v1
+        with:
+          version: '22.1.0'
+          java-version: ${{ matrix.jdk }}
+          components: 'native-image'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - uses: coursier/cache-action@v6
+
+      - name: Launcher tests
+        run: |
+          echo $JAVA_HOME
+          which gu && gu install native-image
+          ./sbt --client "install" "launcherTest/test"
+        shell: bash
 
       - name: Check docs are up-to-date
         run: |
