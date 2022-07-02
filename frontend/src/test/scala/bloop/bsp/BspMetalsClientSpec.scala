@@ -23,6 +23,7 @@ import bloop.util.TestUtil
 
 import monix.eval.Task
 import scala.util.Properties
+import java.util.concurrent.atomic.AtomicInteger
 
 object LocalBspMetalsClientSpec extends BspMetalsClientSpec(BspProtocol.Local)
 object TcpBspMetalsClientSpec extends BspMetalsClientSpec(BspProtocol.Tcp)
@@ -240,6 +241,7 @@ class BspMetalsClientSpec(
       val projects = List(`A`)
       val configDir = TestProject.populateWorkspace(workspace, projects)
       val logger = new RecordingLogger(ansiCodesSupported = false)
+      val portSelector = new AtomicInteger(7000)
 
       def createClient(
           javaSemanticdbVersion: String,
@@ -255,7 +257,7 @@ class BspMetalsClientSpec(
             javaSemanticdbVersion = Some(javaSemanticdbVersion)
           )
           val bspLogger = new BspClientLogger(logger)
-          val bspCommand = createBspCommand(configDir)
+          val bspCommand = createBspCommand(configDir, Some(portSelector))
           val state = TestUtil.loadTestProject(configDir.underlying, logger)
           val scheduler = Some(ExecutionContext.ioScheduler)
           val bspState = openBspConnection(

@@ -41,6 +41,7 @@ import monix.execution.Scheduler
 import monix.execution.atomic.AtomicInt
 import monix.reactive.Observable
 import monix.reactive.subjects.BehaviorSubject
+import java.util.concurrent.atomic.AtomicInteger
 
 abstract class BspBaseSuite extends BaseSuite with BspClientTest {
   final class UnmanagedBspTestState(
@@ -532,14 +533,25 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
   private final lazy val tempDir = Files.createTempDirectory("temp-sockets")
   tempDir.toFile.deleteOnExit()
 
-  def createBspCommand(configDir: AbsolutePath): Commands.ValidatedBsp = {
+  // def createBspCommand(configDir: AbsolutePath): Commands.ValidatedBsp = {
+  //   protocol match {
+  //     case BspProtocol.Tcp =>
+  //       val portNumber = 7001 + scala.util.Random.nextInt(40000)
+  //       createTcpBspCommand(configDir, portNumber)
+  //     case BspProtocol.Local => createLocalBspCommand(configDir, tempDir)
+  //   }
+  // }
+
+  def createBspCommand(configDir: AbsolutePath, portSelector: Option[AtomicInteger] = None): Commands.ValidatedBsp = {
     protocol match {
       case BspProtocol.Tcp =>
-        val portNumber = 7001 + scala.util.Random.nextInt(40000)
+        val portNumber = portSelector.map(_.incrementAndGet()).getOrElse( 7000 + scala.util.Random.nextInt(1000))
+        println(s"Client with config $configDir is connecting at port $portNumber")
         createTcpBspCommand(configDir, portNumber)
       case BspProtocol.Local => createLocalBspCommand(configDir, tempDir)
     }
   }
+
 
   case class ManagedBspTestBuild(state: ManagedBspTestState, projects: List[TestProject]) {
     val rawState = state.underlying
