@@ -468,6 +468,7 @@ object Project {
       else {
         val semanticdbOptions =
           s"-Xplugin:semanticdb -sourceroot:${workspaceDir} -targetroot:javac-classes-directory" :: options
+
         if (project.javaVersionAtLeast("17", logger))
           List(
             "-J--add-exports",

@@ -22,6 +22,7 @@ import bloop.util.TestProject
 import bloop.util.TestUtil
 
 import monix.eval.Task
+import scala.util.Properties
 
 object LocalBspMetalsClientSpec extends BspMetalsClientSpec(BspProtocol.Local)
 object TcpBspMetalsClientSpec extends BspMetalsClientSpec(BspProtocol.Tcp)
@@ -503,8 +504,19 @@ class BspMetalsClientSpec(
       .map(AbsolutePath(_))
       .getOrElse(state.underlying.build.origin.getParent)
       .syntax
+
+    val isJava17Property = {(opt: String) => 
+      if(Properties.isJavaAtLeast("17")) {
+        opt.startsWith("-J--add-exports") || opt.startsWith("-Jjdk.compiler/")
+      } else false
+    }
+
     // plugin is on classpath so no need for full path to jar like scala plugin
-    val javacOptions = state.javacOptions(project)._2.items.flatMap(_.options)
+    val javacOptions = state
+      .javacOptions(project)
+      ._2.items
+      .flatMap(_.options)
+      .filterNot(isJava17Property)
 
     val expectedOptions = unorderedExpectedOptions
       .replace("$workspace", workspaceDir)
@@ -512,8 +524,9 @@ class BspMetalsClientSpec(
       .filterNot(_.isEmpty)
       .sorted
       .mkString(lineSeparator)
+
     assertNoDiff(
-      javacOptions.sorted.mkString(lineSeparator),
+      javacOptions.sorted.mkString(lineSeparator), 
       expectedOptions
     )
   }
