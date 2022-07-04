@@ -463,10 +463,10 @@ object FileWatchingSpec extends BaseSuite {
 
     val consumingTask =
       new BloopBufferTimedObservable(observable, 40.millis, 0)
-        //observable
+        // observable
         //  .debounce(40.millis)
         .collect { case s if !s.isEmpty => s }
-        //.whileBusyBuffer(OverflowStrategy.Unbounded)
+        // .whileBusyBuffer(OverflowStrategy.Unbounded)
         .whileBusyDropEventsAndSignal(_ => List("boo"))
         .consumeWith(slowConsumer)
     val createEvents = Task {

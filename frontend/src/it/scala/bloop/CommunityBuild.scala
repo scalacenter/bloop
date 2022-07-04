@@ -38,7 +38,7 @@ object CommunityBuild
     if (builds.isEmpty) {
       System.err.println(s"❌  No builds were found in buildpress home $buildpressHomeDir")
     } else {
-      val buildsToCompile = builds //.filter(_._1 == "prisma")
+      val buildsToCompile = builds // .filter(_._1 == "prisma")
       buildsToCompile.foreach {
         case (buildName, buildBaseDir) =>
           compileProject(buildBaseDir)
@@ -170,12 +170,12 @@ abstract class CommunityBuild(val buildpressHomeDir: AbsolutePath) {
           List(rootProjectName),
           incremental = true,
           pipeline = isPipeliningEnabled
-          //cliOptions = CliOptions.default.copy(verbose = true)
+          // cliOptions = CliOptions.default.copy(verbose = true)
         ),
         Exit(ExitStatus.Ok)
       )
 
-      val verboseState = cleanedState //.copy(logger = state.logger.asVerbose)
+      val verboseState = cleanedState // .copy(logger = state.logger.asVerbose)
       val compiledState = execute(action, verboseState)
       assert(compiledState.status.isOk)
       reachable.foreach { project =>

@@ -190,7 +190,7 @@ object CompileTask {
                     .fromFuture(runningTasks)
                     .executeOn(ExecutionContext.ioScheduler)
                   val populatingTask = {
-                    if (s.isNoOp) blockingOnRunningTasks //Task.unit
+                    if (s.isNoOp) blockingOnRunningTasks // Task.unit
                     else {
                       for {
                         _ <- blockingOnRunningTasks
