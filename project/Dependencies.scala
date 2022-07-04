@@ -20,7 +20,6 @@ object Dependencies {
   val directoryWatcherVersion = "0.8.0+6-f651bd93"
   val monixVersion = "2.3.3"
   val jsoniterVersion = "2.4.0"
-  val shapelessVersion = "2.3.4"
   val scalaNative04Version = "0.4.0"
   val scalaJs1Version = "1.3.1"
   val scalaJsEnvsVersion = "1.1.1"
@@ -31,7 +30,6 @@ object Dependencies {
   val zipkinSenderVersion = "2.7.15"
   val asmVersion = "7.0"
   val snailgunVersion = "0.4.0"
-  val ztExecVersion = "1.11"
   val debugAdapterVersion = "2.2.0-M3"
   val coursierInterfaceVersion = "1.0.6"
 
