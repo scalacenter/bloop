@@ -60,7 +60,7 @@ final class SourceWatcher private (
       override def onException(e: Exception): Unit = {
         slf4jLogger.debug(s"File watching threw an exception: ${e.getMessage}")
         // Enable tracing when https://github.com/scalacenter/bloop/issues/433 is done
-        //logger.trace(e)
+        // logger.trace(e)
       }
 
       private[this] val scheduledResubmissions = new ConcurrentHashMap[Path, Cancelable]()
