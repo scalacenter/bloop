@@ -2,8 +2,7 @@ name: CI
 on:
   push:
     tags:
-      - v1.*
-      - v2.*
+      - v*
     branches:
       - master
   pull_request:
@@ -20,9 +19,10 @@ jobs:
       - uses: coursier/setup-action@v1.2.0-M3
         with:
           apps: scalafmt
-          jvm: "graalvm-java17:21.3.0"
+          jvm: "temurin:17"
       - name: Check formatting
         run: scalafmt --test
+
   bridges:
     name: Test platform bridges
     runs-on: ${{ matrix.os }}
@@ -30,7 +30,6 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macOS-latest]
-        jdk: ["graalvm-java17:21.3.0"]
     steps:
       - uses: actions/checkout@v3
         with:
@@ -38,13 +37,11 @@ jobs:
           fetch-depth: 0
       - uses: coursier/setup-action@v1.2.0-M3
         with:
-          jvm: ${{ matrix.jdk }}
+          jvm: "temurin:17"
       - name: Tests
         run: |
           .github/setup-test-projects.sh &&\
-          sbt \
-              "jsBridge1/publishLocal" \
-              "jsBridge1/test"
+          sbt "+jsBridge1/publishLocal" "+jsBridge1/test"
         shell: bash
 
   test:
@@ -53,10 +50,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macOS-latest]
-        jdk: ["graalvm-java17:21.3.0", "temurin:17"]
-    name: Test ${{ matrix.os }} -- ${{ matrix.jdk }}
-    env:
-      HYDRA_LICENSE: ${{ secrets.HYDRA_LICENSE }}
+    name: Test
     steps:
       - uses: actions/checkout@v3
         with:
@@ -64,48 +58,22 @@ jobs:
           fetch-depth: 0
       - uses: coursier/setup-action@v1.2.0-M3
         with:
-          jvm: ${{ matrix.jdk }}
-      - name: Set up environment
-        run: |
-          curl -Lo coursier https://git.io/coursier-cli && chmod +x coursier && ./coursier --help
-          yarn --help
-          java -version
-          [[ $HYDRA_LICENSE == floating-key=* ]] && mkdir -p $HOME/.triplequote && echo "$HYDRA_LICENSE" > "$HOME/.triplequote/hydra.license" || echo "Hydra license file was not created"
-        shell: bash
+          jvm: "temurin:17"
       - name: Compile and test main projects
         run: |
           .github/setup-test-projects.sh &&\
-          sbt \
-              "frontend/test:compile" \
-              "backend/test" \
-              "frontend/testOnly bloop.ScalaVersionsSpec" \
-              "frontend/testOnly -bloop.ScalaVersionsSpec" &&\
-          sbt \
-            "+test:compile"
+          sbt "+backend/test" "+frontend/test"
         shell: bash
 
   release:
-    name: Release version on ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
+    name: Release
+    runs-on: ubuntu-latest
     if: github.event_name == 'push'
-    strategy:
-      fail-fast: true
-      matrix:
-        os: [ubuntu-latest]
-        jdk: ["temurin:17"]
     env:
-      CI: true
-      SKIP_TEST_RESOURCES_GENERATION: true
       SONATYPE_USER: ${{ secrets.SONATYPE_USER }}
       SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
       PGP_PASSWORD: ${{ secrets.PGP_PASSWORD }}
       PGP_PASSPHRASE: ${{ secrets.PGP_PASSWORD }}
-      PGP_PUBLIC_KEY: ${{ secrets.PGP_PUBLIC_KEY }}
-      PGP_PRIVATE_KEY: ${{ secrets.PGP_PRIVATE_KEY }}
-      GITHUB_DEPLOY_KEY: ${{ secrets.GITHUB_DEPLOY_KEY }}
-      BLOOPOID_GITHUB_TOKEN: ${{ secrets.BLOOPOID_GITHUB_TOKEN }}
-      BLOOPOID_SSH_PUBLIC_KEY: ${{ secrets.BLOOPOID_SSH_PUBLIC_KEY }}
-      BLOOPOID_SSH_PRIVATE_KEY: ${{ secrets.BLOOPOID_SSH_PRIVATE_KEY }}
     steps:
       - uses: actions/checkout@v3
         with:
@@ -113,14 +81,8 @@ jobs:
           fetch-depth: 0
       - uses: coursier/setup-action@v1.2.0-M3
         with:
-          jvm: ${{ matrix.jdk }}
-      - name: Download built GraalVM binaries
-        uses: actions/download-artifact@v3
-        with:
-          name: bloop-artifacts
-          path: bloop-artifacts
-      # - name: Publish docs and binaries to Maven Central
-      - name: Cut GitHub release # and update installers on ${{ matrix.os }}
+          jvm: "temurin:17"
+      - name: Release
         run: sbt ci-release
         env:
           PGP_PASSPHRASE: ${{ secrets.PGP_PASSPHRASE }}
