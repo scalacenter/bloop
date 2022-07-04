@@ -55,8 +55,7 @@ object NailgunSpec extends BaseSuite with NailgunTestUtils {
         s"""|bloop ${BuildInfo.version}
             |Usage: bloop [options] [command] [command-options]
             |Available commands: about, autocomplete, bsp, clean, compile, configure, console, help, link, projects, run, test
-            |Type `bloop 'command' --help` for help on an individual command
-            |Type `--nailgun-help` for help on the Nailgun CLI tool.""".stripMargin
+            |Type `bloop 'command' --help` for help on an individual command""".stripMargin
       )
     }
   }
@@ -96,8 +95,7 @@ object NailgunSpec extends BaseSuite with NailgunTestUtils {
           s"""|bloop ${BuildInfo.version}
               |Usage: bloop [options] [command] [command-options]
               |Available commands: about, autocomplete, bsp, clean, compile, configure, console, help, link, projects, run, test
-              |Type `bloop 'command' --help` for help on an individual command
-              |Type `--nailgun-help` for help on the Nailgun CLI tool.""".stripMargin
+              |Type `bloop 'command' --help` for help on an individual command""".stripMargin
         )
       }
     }

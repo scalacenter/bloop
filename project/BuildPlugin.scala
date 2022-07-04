@@ -104,12 +104,14 @@ object BuildKeys {
     val jsBridge10Key = fromIvyModule("jsBridge1", (jsBridge1 / Keys.ivyModule))
     val nativeBridge04Key = fromIvyModule("nativeBridge04", (nativeBridge04 / Keys.ivyModule))
     val bspKey = BuildInfoKey.constant("bspVersion" -> Dependencies.bspVersion)
+    val snailgunKey = BuildInfoKey.constant("snailgunVersion" -> Dependencies.snailgunVersion)
     val extra = List(
       zincKey,
       developersKey,
       nativeBridge04Key,
       jsBridge10Key,
-      bspKey
+      bspKey,
+      snailgunKey
     )
     val commonKeys = List[BuildInfoKey](
       Keys.organization,

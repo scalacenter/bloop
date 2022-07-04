@@ -12,6 +12,7 @@ import scala.concurrent.Await
 import scala.concurrent.duration.FiniteDuration
 
 import bloop.Bloop
+import bloop.internal.build.BuildInfo
 import bloop.testing.BaseSuite
 import bloop.logging.{DebugFilter, ProcessLogger, RecordingLogger}
 import bloop.util.{TestUtil, CrossPlatform}
@@ -27,6 +28,10 @@ import com.martiansoftware.nailgun.ThreadLocalPrintStream
 import monix.eval.Task
 import monix.execution.Scheduler
 import org.apache.commons.io.IOUtils
+import java.io.File
+import java.util.Locale
+import scala.collection.JavaConverters._
+import scala.util.Properties
 
 /**
  * Base class for writing test for the nailgun integration.
@@ -175,20 +180,58 @@ trait NailgunTestUtils {
   protected case class Client(port: Int, log: RecordingLogger, config: Path) {
     private val base = TestUtil.getBaseFromConfigDir(config)
     private val configPath = config.toAbsolutePath.toString
-    private val clientPath = bloop.internal.build.BuildInfo.nailgunClientLocation.getAbsolutePath
 
     if (!Files.exists(base)) {
       fail(s"Base directory doesn't exist: '$base'.")
     }
-    if (!Files.exists(Paths.get(clientPath))) {
-      fail(s"Couldn't find Nailgun client at '$clientPath'.")
+
+    private lazy val snailgunCommand: Seq[String] = {
+      val arch = sys.props("os.arch").toLowerCase(Locale.ROOT) match {
+        case "amd64" => "x86_64"
+        case other => other
+      }
+      val osOpt =
+        if (Properties.isWin) Some("pc-win32")
+        else if (Properties.isLinux) Some("pc-linux")
+        else if (Properties.isMac) Some("apple-darwin")
+        else None
+      val ver = BuildInfo.snailgunVersion
+      val binaryUrlOpt = osOpt.map(os =>
+        s"https://github.com/scala-cli/snailgun/releases/download/v$ver/snailgun-$arch-$os.gz"
+      )
+      val binaryOpt = binaryUrlOpt.flatMap { binaryUrl =>
+        val arcCache = coursierapi.ArchiveCache.create()
+        val art = coursierapi.Artifact.of(binaryUrl, ver.endsWith("SNAPSHOT"), false)
+        try Some(arcCache.get(art))
+        catch {
+          case e: Exception if e.getMessage.startsWith("not found:") =>
+            None
+        }
+      }
+      binaryOpt match {
+        case Some(f) =>
+          if (!Properties.isWin && !f.canExecute())
+            f.setExecutable(true)
+          Seq(f.toString)
+        case None =>
+          val cp = coursierapi.Fetch
+            .create()
+            .addDependencies(
+              coursierapi.Dependency.of(
+                "io.github.alexarchambault.scala-cli.snailgun",
+                "snailgun-cli_2.13",
+                ver
+              )
+            )
+            .fetch()
+            .asScala
+          Seq("java", "-cp", cp.mkString(File.pathSeparator), "snailgun.Snailgun")
+      }
     }
 
     private def processBuilder(cmd: Seq[String]): ProcessBuilder = {
-      val cmdBase =
-        if (CrossPlatform.isWindows) "python" :: clientPath.toString :: Nil
-        else clientPath.toString :: Nil
-      val builder = new ProcessBuilder((cmdBase ++ (s"--nailgun-port=$port" +: cmd)): _*)
+      val cmd0 = snailgunCommand ++ Seq(s"--nailgun-port=$port") ++ cmd
+      val builder = new ProcessBuilder(cmd0: _*)
       builder.redirectInput(ProcessBuilder.Redirect.INHERIT)
       val env = builder.environment()
       env.put("BLOOP_OWNER", "owner")

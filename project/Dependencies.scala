@@ -29,9 +29,9 @@ object Dependencies {
   val braveVersion = "5.6.1"
   val zipkinSenderVersion = "2.7.15"
   val asmVersion = "7.0"
-  val snailgunVersion = "0.4.0"
+  val snailgunVersion = "0.4.1-sc2"
   val debugAdapterVersion = "2.2.0-M3"
-  val coursierInterfaceVersion = "1.0.6"
+  val coursierInterfaceVersion = "1.0.7"
 
   import sbt.librarymanagement.syntax.stringToOrganization
   val zinc = "org.scala-sbt" %% "zinc" % zincVersion
