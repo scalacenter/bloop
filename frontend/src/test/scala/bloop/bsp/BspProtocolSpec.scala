@@ -25,6 +25,10 @@ object LocalBspProtocolSpec extends BspProtocolSpec(BspProtocol.Local)
 class BspProtocolSpec(
     override val protocol: BspProtocol
 ) extends BspBaseSuite {
+  override def test(name: String)(fun: => Any): Unit =
+    TestUtil.retry() {
+      super.test(name)(fun)
+    }
   import ch.epfl.scala.bsp
   test("check the correct contents of scalac/javac options") {
     TestUtil.withinWorkspace { workspace =>
