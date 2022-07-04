@@ -65,7 +65,7 @@ trait BspClientTest {
 
   def validateBsp(bspCommand: Commands.Bsp, configDir: AbsolutePath): Commands.ValidatedBsp = {
     val baseDir = AbsolutePath(configDir.underlying.getParent)
-    Validate.bsp(bspCommand, bloop.util.CrossPlatform.isWindows) match {
+    Validate.bsp(bspCommand) match {
       case Run(bsp: Commands.ValidatedBsp, _) =>
         BspClientTest.setupBspCommand(bsp, baseDir, configDir)
       case failed => sys.error(s"Command validation failed: ${failed}")

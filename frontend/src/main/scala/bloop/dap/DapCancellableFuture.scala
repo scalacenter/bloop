@@ -25,7 +25,12 @@ object DapCancellableFuture {
         case None => Task(promise.success(()))
         case Some(t) => Task(promise.failure(t))
       }
-      .doOnCancel(Task(promise.tryComplete(Success(()))))
+      .doOnCancel(
+        Task {
+          promise.tryComplete(Success(()))
+          ()
+        }
+      )
       .runAsync(ioScheduler)
     new DapCancellableFuture(promise.future, cancelable)
   }

@@ -631,10 +631,7 @@ final class BloopBspServices(
             }
           )
         case bsp.DebugSessionParamsDataKind.ScalaAttachRemote =>
-          BloopDebuggeeRunner.forAttachRemote(state, ioScheduler, projects) match {
-            case Right(adapter) => Right(adapter)
-            case Left(error) => Left(JsonRpcResponse.invalidRequest(error))
-          }
+          Right(BloopDebuggeeRunner.forAttachRemote(state, ioScheduler, projects))
         case dataKind => Left(JsonRpcResponse.invalidRequest(s"Unsupported data kind: $dataKind"))
       }
     }

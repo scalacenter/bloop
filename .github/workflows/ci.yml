@@ -19,9 +19,10 @@ jobs:
           fetch-depth: 0
       - uses: coursier/setup-action@v1.2.0-M3
         with:
+          apps: scalafmt
           jvm: "graalvm-java17:21.3.0"
       - name: Check formatting
-        run: ./bin/scalafmt --test
+        run: scalafmt --test
   bridges:
     name: Test platform bridges
     runs-on: ${{ matrix.os }}
@@ -41,7 +42,7 @@ jobs:
       - name: Tests
         run: |
           .github/setup-test-projects.sh &&\
-          ./bin/sbt-ci.sh \
+          sbt \
               "jsBridge1/publishLocal" \
               "jsBridge1/test"
         shell: bash
@@ -74,123 +75,17 @@ jobs:
       - name: Compile and test main projects
         run: |
           .github/setup-test-projects.sh &&\
-          ./bin/sbt-ci.sh \
+          sbt \
               "frontend/test:compile" \
               "backend/test" \
               "frontend/testOnly bloop.ScalaVersionsSpec" \
               "frontend/testOnly -bloop.ScalaVersionsSpec" &&\
-          ./bin/sbt-ci.sh \
+          sbt \
             "+test:compile"
         shell: bash
 
-  publish-binaries:
-    name: Publish binaries for ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
-    if: github.event_name == 'push'
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macOS-latest]
-        jdk: ["graalvm-java17:21.3.0"]
-        include:
-          - os: ubuntu-latest
-            artifact: bloop-linux
-          - os: macos-latest
-            artifact: bloop-macos
-    env:
-      CI: true
-      SKIP_TEST_RESOURCES_GENERATION: true
-      GITHUB_DEPLOY_KEY: ${{ secrets.GITHUB_DEPLOY_KEY }}
-      BLOOPOID_GITHUB_TOKEN: ${{ secrets.BLOOPOID_GITHUB_TOKEN }}
-      ARTIFACT_NAME: ${{ matrix.artifact }}
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          submodules: true
-          fetch-depth: 0
-      - uses: coursier/setup-action@v1.2.0-M3
-        with:
-          jvm: ${{ matrix.jdk }}
-      - name: Publish GraalVM Native artifacts
-        run: |
-          echo $JAVA_HOME
-          which gu
-          gu install native-image
-          ./bin/sbt-ci.sh "bloopgun/graalvm-native-image:packageBin"
-          mkdir bloop-artifacts
-          cp bloopgun/target/bloopgun-2.12/graalvm-native-image/bloopgun bloop-artifacts/$ARTIFACT_NAME
-        shell: bash
-      - uses: actions/upload-artifact@v3
-        with:
-          name: bloop-artifacts
-          path: bloop-artifacts/${{ matrix.artifact }}
-
-  publish-binaries-windows:
-    name: Publish binaries for ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
-    if: github.event_name == 'push'
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [windows-latest]
-        jdk: ["graalvm-java17:21.3.0"]
-        include:
-          - os: windows-latest
-            artifact: bloop-windows
-    env:
-      CI: true
-      SKIP_TEST_RESOURCES_GENERATION: true
-      GITHUB_DEPLOY_KEY: ${{ secrets.GITHUB_DEPLOY_KEY }}
-      BLOOPOID_GITHUB_TOKEN: ${{ secrets.BLOOPOID_GITHUB_TOKEN }}
-      ARTIFACT_NAME: ${{ matrix.artifact }}
-    steps:
-      - name: Configure Pagefile
-        uses: al-cheb/configure-pagefile-action@v1.2
-      - name: Refresh Pagefile
-        run: |
-          (Get-CimInstance Win32_PageFileUsage).AllocatedBaseSize
-      - uses: actions/checkout@v3
-        with:
-          submodules: true
-          fetch-depth: 0
-      - uses: coursier/setup-action@v1.2.0-M3
-        with:
-          jvm: ${{ matrix.jdk }}
-      - name: Install GraalVM Native Image
-        run: |
-          echo $JAVA_HOME
-          "$JAVA_HOME\bin\gu.cmd" install native-image
-        shell: bash
-      - name: Pre-load sbt with bash
-        # FIXME: This step shouldn't be necessary, but sbt fails to find
-        # org.scala-lang.modules#scala-xml_2.12;1.2.0!scala-xml_2.12.jar when launched with
-        # cmd.
-        # Keep the sbt version in sync with `sbt-ci-release.bat`.
-        run: |
-          sbt -sbt-version 1.6.2 version
-        shell: bash
-      - name: Publish GraalVM Native artifacts
-        run: >-
-          "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat" &&
-          "%CD%"\bin\sbt-ci-release.bat
-        shell: cmd
-      - name: Prepare generated Windows GraalVM binary
-        run: |
-          echo $ARTIFACT_NAME
-          ls bloopgun/target/bloopgun-2.12/graalvm-native-image/bloopgun.exe
-          mkdir bloop-artifacts
-          cp bloopgun/target/bloopgun-2.12/graalvm-native-image/bloopgun.exe bloop-artifacts/$ARTIFACT_NAME
-        shell: bash
-      - uses: actions/upload-artifact@v3
-        with:
-          name: bloop-artifacts
-          path: bloop-artifacts/${{ matrix.artifact }}
-
   release:
     name: Release version on ${{ matrix.os }}
-    needs:
-      - publish-binaries
-      - publish-binaries-windows
     runs-on: ${{ matrix.os }}
     if: github.event_name == 'push'
     strategy:
@@ -226,7 +121,7 @@ jobs:
           path: bloop-artifacts
       # - name: Publish docs and binaries to Maven Central
       - name: Cut GitHub release # and update installers on ${{ matrix.os }}
-        run: ./bin/sbt-ci.sh ci-release
+        run: sbt ci-release
         env:
           PGP_PASSPHRASE: ${{ secrets.PGP_PASSPHRASE }}
           PGP_SECRET: ${{ secrets.PGP_SECRET }}

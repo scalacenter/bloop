@@ -18,8 +18,6 @@ import scala.concurrent.duration.DurationInt
 import scala.util.Properties
 import scala.util.Try
 
-import bloop.logging.BloopLogger
-import bloop.logging.Logger
 import bloop.util.ProxySetup
 
 import com.martiansoftware.nailgun.Alias
@@ -40,8 +38,10 @@ object Bloop {
   private def ensureSafeDirectoryExists(dir: Path): Unit =
     if (!Files.exists(dir)) {
       Files.createDirectories(dir)
-      if (!Properties.isWin)
+      if (!Properties.isWin) {
         Files.setPosixFilePermissions(dir, PosixFilePermissions.fromString("rwx------"))
+        ()
+      }
     }
   private val defaultPort: Int = 8212 // 8100 + 'p'
   def main(args: Array[String]): Unit = {
@@ -58,7 +58,7 @@ object Bloop {
         val lockFiles = LockFiles.under(dir)
         Right(lockFiles)
       case Array(arg) =>
-        Left((InetAddress.getLoopbackAddress(), toPortNumber(args(0))))
+        Left((InetAddress.getLoopbackAddress(), toPortNumber(arg)))
       case Array(host, portStr) =>
         val addr = InetAddress.getByName(host)
         Left((addr, toPortNumber(portStr)))
@@ -97,7 +97,7 @@ object Bloop {
   private def ignoreSigint(): Unit = {
     Signal.handle(
       new Signal("INT"),
-      signal => {
+      _ => {
         System.err.println("Ignoring Ctrl+C interruption")
       }
     )
@@ -185,24 +185,21 @@ object Bloop {
 
   private[bloop] def instantiateServer(
       socketAndPathOrHostPort: Either[(InetAddress, Int), (ServerSocket, String)]
-  ): NGServer = {
-    val logger = BloopLogger.default("bloop-nailgun-main")
+  ): NGServer =
     socketAndPathOrHostPort match {
       case Left((addr, port)) =>
         val tcpAddress = new NGListeningAddress(addr, port)
-        launchServer(System.in, System.out, System.err, tcpAddress, logger, None)
+        launchServer(System.in, System.out, System.err, tcpAddress, None)
       case Right((socket, socketPath)) =>
         val socketAddress = new NGListeningAddress(socketPath)
-        launchServer(System.in, System.out, System.err, socketAddress, logger, Some(socket))
+        launchServer(System.in, System.out, System.err, socketAddress, Some(socket))
     }
-  }
 
   private[bloop] def launchServer(
       in: InputStream,
       out: PrintStream,
       err: PrintStream,
       address: NGListeningAddress,
-      logger: Logger,
       serverSocketOpt: Option[ServerSocket]
   ): NGServer = {
     val javaLogger = slf4j.LoggerFactory.getLogger(classOf[NGServer])

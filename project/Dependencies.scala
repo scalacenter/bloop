@@ -22,7 +22,6 @@ object Dependencies {
   val jsoniterVersion = "2.4.0"
   val shapelessVersion = "2.3.4"
   val scalaNative04Version = "0.4.0"
-  val scalaJs06Version = "0.6.32"
   val scalaJs1Version = "1.3.1"
   val scalaJsEnvsVersion = "1.1.1"
   val xxHashVersion = "1.3.0"
@@ -33,13 +32,12 @@ object Dependencies {
   val asmVersion = "7.0"
   val snailgunVersion = "0.4.0"
   val ztExecVersion = "1.11"
-  val debugAdapterVersion = "2.2.0-M2"
+  val debugAdapterVersion = "2.2.0-M3"
   val coursierInterfaceVersion = "1.0.6"
 
   import sbt.librarymanagement.syntax.stringToOrganization
   val zinc = "org.scala-sbt" %% "zinc" % zincVersion
   val bsp4s = "ch.epfl.scala" %% "bsp4s" % bspVersion
-  val bsp4j = "ch.epfl.scala" % "bsp4j" % bspVersion
   val nailgun = "io.github.alexarchambault.bleep" % "nailgun-server" % "1.0.3"
   val javaDebug = "ch.epfl.scala" % "com-microsoft-java-debug-core" % javaDebugVersion
 
@@ -48,15 +46,10 @@ object Dependencies {
   val scalazCore = "org.scalaz" %% "scalaz-core" % scalazVersion
   val scalazConcurrent = "org.scalaz" %% "scalaz-concurrent" % scalazVersion
   val coursierInterface = "io.get-coursier" % "interface" % coursierInterfaceVersion
-  val coursierInterfaceSubs = "io.get-coursier" % "interface-svm-subs" % coursierInterfaceVersion
-  val scalaCollectionCompat = "org.scala-lang.modules" %% "scala-collection-compat" % "2.4.2"
-  val shapeless = "com.chuusai" %% "shapeless" % shapelessVersion
   val caseApp = "com.github.alexarchambault" %% "case-app" % caseAppVersion
   val sourcecode = "com.lihaoyi" %% "sourcecode" % sourcecodeVersion
   val sbtTestInterface = "org.scala-sbt" % "test-interface" % sbtTestInterfaceVersion
   val sbtTestAgent = "org.scala-sbt" % "test-agent" % sbtTestAgentVersion
-  val snailgun = ("me.vican.jorge" %% "snailgun-cli" % snailgunVersion)
-  val ztExec = "org.zeroturnaround" % "zt-exec" % ztExecVersion
   val logback = "ch.qos.logback" % "logback-classic" % "1.2.3"
 
   val utest = "com.lihaoyi" %% "utest" % "0.6.9"
@@ -95,6 +88,4 @@ object Dependencies {
   val asmUtil = "org.ow2.asm" % "asm-util" % asmVersion
 
   val libdaemonjvm = "io.github.alexarchambault.libdaemon" %% "libdaemon" % "0.0.10"
-
-  val svmSubs = "org.scalameta" %% "svm-subs" % "20.1.0"
 }

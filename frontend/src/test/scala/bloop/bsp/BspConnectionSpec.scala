@@ -275,7 +275,6 @@ class BspConnectionSpec(
       // Time out is 5 to check cancellation works and we don't finish until end
       // of compilation, which would take more than 6 seconds as there are 12 sleeps
       val safeDelay = FiniteDuration(10, "s")
-      import java.util.concurrent.TimeoutException
       TestUtil.await(safeDelay, poolFor1Client)(createHangingCompilationViaBsp)
     }
   }

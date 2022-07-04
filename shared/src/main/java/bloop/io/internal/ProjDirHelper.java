@@ -1,7 +1,5 @@
 package bloop.io.internal;
 
-// FIXME Also in bloopgun-core/src/main/java/bloop/bloopgun/internal/ProjDirHelper.java
-
 import coursierapi.shaded.coursier.cache.shaded.dirs.GetWinDirs;
 import coursierapi.shaded.coursier.cache.shaded.dirs.ProjectDirectories;
 import coursierapi.shaded.coursier.jniutils.WindowsKnownFolders;

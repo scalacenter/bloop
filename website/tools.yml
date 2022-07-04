@@ -1,8 +1,0 @@
-- name: Universal Installation
-  items:
-    universal: coursier (Default)
-- name: Package Managers
-  items:
-    homebrew: Homebrew (macOS)
-    scoop: Scoop (Windows)
-    aur: AUR (Arch Linux)

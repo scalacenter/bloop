@@ -28,7 +28,7 @@ object CliSpec extends BaseSuite {
     )
 
     checkIsCliError(
-      Validate.bsp(bspCommand, isWindows = false),
+      Validate.bsp(bspCommand),
       Feedback.existingSocketFile(socketPath)
     )
   }
@@ -41,7 +41,7 @@ object CliSpec extends BaseSuite {
       socket = Some(socketPath)
     )
 
-    checkIsCommand[Commands.UnixLocalBsp](Validate.bsp(bspCommand, isWindows = false))
+    checkIsCommand[Commands.UnixLocalBsp](Validate.bsp(bspCommand))
   }
 
   test("fail at non-existing socket folder") {
@@ -52,7 +52,7 @@ object CliSpec extends BaseSuite {
     )
 
     checkIsCliError(
-      Validate.bsp(bspCommand, isWindows = false),
+      Validate.bsp(bspCommand),
       Feedback.missingParentOfSocket(socketPath)
     )
   }
@@ -73,7 +73,7 @@ object CliSpec extends BaseSuite {
     val msg =
       if (bloop.util.CrossPlatform.isMac) Feedback.excessiveSocketLengthInMac(socketPath)
       else Feedback.excessiveSocketLength(socketPath)
-    checkIsCliError(Validate.bsp(bspCommand, isWindows = false), msg)
+    checkIsCliError(Validate.bsp(bspCommand), msg)
   }
 
   test("fail at missing socket") {
@@ -83,7 +83,7 @@ object CliSpec extends BaseSuite {
     )
 
     checkIsCliError(
-      Validate.bsp(bspCommand, isWindows = false),
+      Validate.bsp(bspCommand),
       Feedback.MissingSocket
     )
   }
@@ -95,12 +95,12 @@ object CliSpec extends BaseSuite {
       socket = Some(socketPath)
     )
 
-    checkIsCommand[Commands.UnixLocalBsp](Validate.bsp(bspCommand, isWindows = false))
+    checkIsCommand[Commands.UnixLocalBsp](Validate.bsp(bspCommand))
   }
 
   test("succeed at default tcp options") {
     val bspCommand = Commands.Bsp(protocol = BspProtocol.Tcp)
-    checkIsCommand[Commands.TcpBsp](Validate.bsp(bspCommand, isWindows = false))
+    checkIsCommand[Commands.TcpBsp](Validate.bsp(bspCommand))
   }
 
   test("succeed at custom tcp options") {
@@ -110,7 +110,7 @@ object CliSpec extends BaseSuite {
       port = 5001
     )
 
-    checkIsCommand[Commands.TcpBsp](Validate.bsp(bspCommand, isWindows = false))
+    checkIsCommand[Commands.TcpBsp](Validate.bsp(bspCommand))
   }
 
   test("fail at non-sensical host address") {
@@ -182,7 +182,7 @@ object CliSpec extends BaseSuite {
     )
 
     checkIsCliError(
-      Validate.bsp(bspCommand, isWindows = false),
+      Validate.bsp(bspCommand),
       expected = Feedback.unknownHostName(hostName)
     )
   }
@@ -193,7 +193,7 @@ object CliSpec extends BaseSuite {
       host = hostName
     )
 
-    checkIsCommand[Commands.TcpBsp](Validate.bsp(bspCommand, isWindows = false))
+    checkIsCommand[Commands.TcpBsp](Validate.bsp(bspCommand))
   }
 
   def checkValidPort(portNumber: Int): Unit = {
@@ -202,7 +202,7 @@ object CliSpec extends BaseSuite {
       port = portNumber
     )
 
-    checkIsCommand[Commands.TcpBsp](Validate.bsp(bspCommand, isWindows = false))
+    checkIsCommand[Commands.TcpBsp](Validate.bsp(bspCommand))
   }
 
   def checkOutOfRangePort(portNumber: Int): Unit = {
@@ -212,7 +212,7 @@ object CliSpec extends BaseSuite {
     )
 
     checkIsCliError(
-      Validate.bsp(bspCommand, isWindows = false),
+      Validate.bsp(bspCommand),
       expected = Feedback.outOfRangePort(portNumber)
     )
   }
@@ -224,7 +224,7 @@ object CliSpec extends BaseSuite {
     )
 
     checkIsCliError(
-      Validate.bsp(bspCommand, isWindows = false),
+      Validate.bsp(bspCommand),
       expected = Feedback.reservedPortNumber(portNumber)
     )
   }
