@@ -11,13 +11,6 @@ val emptySbtPlugin = project
   .settings(sharedSettings)
   .settings(sbtPlugin := true)
 
-val directDependencies = List(
-  "net.java.dev.jna" % "jna" % "4.5.0",
-  "net.java.dev.jna" % "jna-platform" % "4.5.0",
-  "com.google.code.gson" % "gson" % "2.7",
-  "com.google.code.findbugs" % "jsr305" % "3.0.2"
-)
-
 val sbtBloopBuildShadedJar = project
   .in(file("target")./("sbt-bloop-build-shaded"))
   .enablePlugins(BloopShadingPlugin)
@@ -28,14 +21,9 @@ val sbtBloopBuildShadedJar = project
     name := "sbt-bloop-build-shaded",
     scalacOptions in Compile :=
       (scalacOptions in Compile).value.filterNot(_ == "-deprecation"),
-    libraryDependencies ++= directDependencies,
     libraryDependencies ++= List(
       "com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-core" % "2.4.0",
-      "com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-macros" % "2.4.0",
-      "org.zeroturnaround" % "zt-exec" % "1.11",
-      "me.vican.jorge" %% "snailgun-cli" % "0.3.1",
-      "io.get-coursier" % "interface" % "1.0.4",
-      "ch.epfl.scala" % "bsp4j" % "2.0.0-M4+10-61e61e87"
+      "com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-macros" % "2.4.0"
     ),
     toShadeClasses := {
       build.Shading.toShadeClasses(
@@ -73,30 +61,9 @@ val sbtBloopBuildShadedJar = project
 
     },
     shadingNamespace := "shaded.build",
-    shadeIgnoredNamespaces := Set("com.google.gson", "org.slf4j", "scala"),
+    shadeIgnoredNamespaces := Set("scala"),
     shadeNamespaces := Set(
-      "com.github.plokhotnyuk.jsoniter_scala",
-      "machinist",
-      "snailgun",
-      "org.zeroturnaround",
-      "io.github.soc",
-      "scopt",
-      "macrocompat",
-      "coursierapi",
-      "io.github.alexarchambault",
-      "org.fusesource",
-      "concurrentrefhashmap",
-      "shapeless",
-      "argonaut",
-      "org.checkerframework",
-      "com.google.guava",
-      "com.google.common",
-      "com.google.j2objc",
-      "com.google.thirdparty",
-      "com.google.errorprone",
-      "org.codehaus",
-      "ch.epfl.scala.bsp4j",
-      "org.eclipse"
+      "com.github.plokhotnyuk.jsoniter_scala"
     ),
     // Let's add our sbt plugin sources to the module
     unmanagedSourceDirectories in Compile ++= {
@@ -107,11 +74,6 @@ val sbtBloopBuildShadedJar = project
         baseDir / "config" / ".jvm" / "src" / "main" / "scala",
         baseDir / "config" / "src" / "main" / "scala",
         baseDir / "config" / "src" / "main" / "scala-2.11-13",
-        baseDir / "sockets" / "src" / "main" / "java",
-        baseDir / "bloop4j" / "src" / "main" / "java",
-        baseDir / "bloop4j" / "src" / "main" / "scala",
-        baseDir / "bloopgun" / "src" / "main" / "scala",
-        baseDir / "launcher" / "src" / "main" / "scala",
         pluginMainDir / "scala",
         pluginMainDir / s"scala-sbt-${Keys.sbtBinaryVersion.value}"
       )
@@ -148,7 +110,6 @@ val sbtBloopBuildShadedNakedJar = project
   .settings(sharedSettings)
   .settings(
     name := "sbt-bloop-build-shaded-naked",
-    libraryDependencies ++= directDependencies,
     products in Compile := {
       val packagedPluginJar = (packageBin in Compile in sbtBloopBuildShadedJar).value.toPath
 

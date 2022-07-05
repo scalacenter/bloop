@@ -687,7 +687,7 @@ def defineShadedSbtPlugin(
 }
 
 lazy val sbtBloop10: Project = project
-  .dependsOn(jsonConfig212.jvm, launcher, bloop4j)
+  .dependsOn(jsonConfig212.jvm)
   .enablePlugins(ScriptedPlugin)
   .disablePlugins(ScalafixPlugin)
   .in(integrations / "sbt-bloop")
@@ -696,14 +696,7 @@ lazy val sbtBloop10: Project = project
 
 lazy val sbtBloop10Shaded: Project =
   defineShadedSbtPlugin("sbtBloop10Shaded", Sbt1Version, sbtBloop10).settings(
-    scalaVersion := (sbtBloop10 / scalaVersion).value,
-    // Add dependencies that are not shaded and are required to be unchanged to work at runtime
-    libraryDependencies ++= List(
-      "net.java.dev.jna" % "jna" % "4.5.0",
-      "net.java.dev.jna" % "jna-platform" % "4.5.0",
-      "com.google.code.gson" % "gson" % "2.7",
-      "com.google.code.findbugs" % "jsr305" % "3.0.2"
-    )
+    scalaVersion := (sbtBloop10 / scalaVersion).value
   )
 
 lazy val sbtBloop013 = project
@@ -821,7 +814,7 @@ lazy val buildpressConfig = (project in file("buildpress-config"))
   )
 
 lazy val buildpress = project
-  .dependsOn(launcher, bloopShared, buildpressConfig)
+  .dependsOn(bloopgun, bloopShared, buildpressConfig)
   .settings(buildpressSettings)
   .settings(
     scalaVersion := Scala212Version,
