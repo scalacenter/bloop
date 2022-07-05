@@ -583,121 +583,13 @@ def isJdiJar(file: File): Boolean = {
   else file.getAbsolutePath.contains(SbtJdiTools.JavaTools.getAbsolutePath.toString)
 }
 
-def shadeSbtSettingsForModule(
-    moduleId: String,
-    module: Reference
-) = {
-  List(
-    (Compile / packageBin) := {
-      Def.taskDyn {
-        val baseJar = (module / Compile / Keys.packageBin).value
-        val unshadedJarDependencies =
-          (module / Compile / internalDependencyAsJars).value.map(_.data)
-        shadingPackageBin(baseJar, unshadedJarDependencies)
-      }.value
-    },
-    shadeOwnNamespaces := Set("bloop"),
-    shadeIgnoredNamespaces := Set("com.google.gson", "scala"),
-    toShadeJars := {
-      val eclipseJarsUnsignedDir = (Keys.crossTarget.value / "eclipse-jars-unsigned").toPath
-      java.nio.file.Files.createDirectories(eclipseJarsUnsignedDir)
-
-      val dependencyJars = (module / Runtime / dependencyClasspath).value.map(_.data)
-      dependencyJars.flatMap { path =>
-        val ppath = path.toString
-        val isEclipseJar = ppath.contains("eclipse")
-        val shouldShadeJar = !(
-          ppath.contains("scala-compiler") ||
-            ppath.contains("scala-library") ||
-            ppath.contains("scala-reflect") ||
-            ppath.contains("scala-xml") ||
-            ppath.contains("macro-compat") ||
-            ppath.contains("scalamacros") ||
-            ppath.contains("jsr") ||
-            ppath.contains("bcprov-jdk15on") ||
-            ppath.contains("bcpkix-jdk15on") ||
-            ppath.contains("jna") ||
-            ppath.contains("jna-platform") ||
-            isJdiJar(path)
-        ) && path.exists && !path.isDirectory
-
-        if (!shouldShadeJar) Nil
-        else if (!isEclipseJar) List(path)
-        else {
-          val targetJar = eclipseJarsUnsignedDir.resolve(path.getName)
-          build.Shading.deleteSignedJarMetadata(path.toPath, targetJar)
-          List(targetJar.toFile)
-        }
-      }
-    },
-    shadeNamespaces := Set(
-      "machinist",
-      "shapeless",
-      "cats",
-      "jawn",
-      "org.typelevel.jawn",
-      "io.circe",
-      "com.github.plokhotnyuk.jsoniter_scala",
-      "snailgun",
-      "org.zeroturnaround",
-      "io.github.soc",
-      "org.slf4j",
-      "scopt",
-      "macrocompat",
-      "coursierapi",
-      "shapeless",
-      "argonaut",
-      "org.checkerframework",
-      "com.google.guava",
-      "com.google.common",
-      "com.google.j2objc",
-      "com.google.thirdparty",
-      "com.google.errorprone",
-      "org.codehaus",
-      "ch.epfl.scala.bsp4j",
-      "org.eclipse",
-      "io.github.alexarchambault.windowsansi",
-      "org.fusesource.hawtjni",
-      "org.fusesource.jansi",
-      "concurrentrefhashmap"
-    )
-  )
-}
-
-def defineShadedSbtPlugin(
-    projectName: String,
-    sbtVersion: String,
-    sbtBloop: Reference
-) = {
-  sbt
-    .Project(projectName, integrations / "sbt-bloop" / "target" / s"sbt-bloop-shaded-$sbtVersion")
-    .enablePlugins(BloopShadingPlugin)
-    .disablePlugins(ScriptedPlugin)
-    .disablePlugins(SbtJdiTools)
-    .settings(sbtPluginSettings("sbt-bloop", sbtVersion))
-    .settings(shadedModuleSettings)
-    .settings(shadeSbtSettingsForModule("sbt-bloop-core", sbtBloop))
-    .settings(
-      (run / fork) := true,
-      (Test / fork) := true,
-      (Compile / bloopGenerate) := None,
-      (Test / bloopGenerate) := None,
-      target := (file("integrations") / "sbt-bloop-shaded" / "target" / sbtVersion).getAbsoluteFile
-    )
-}
-
 lazy val sbtBloop10: Project = project
   .dependsOn(jsonConfig212.jvm)
   .enablePlugins(ScriptedPlugin)
   .disablePlugins(ScalafixPlugin)
   .in(integrations / "sbt-bloop")
   .settings(BuildDefaults.scriptedSettings)
-  .settings(sbtPluginSettings("sbt-bloop-core", Sbt1Version))
-
-lazy val sbtBloop10Shaded: Project =
-  defineShadedSbtPlugin("sbtBloop10Shaded", Sbt1Version, sbtBloop10).settings(
-    scalaVersion := (sbtBloop10 / scalaVersion).value
-  )
+  .settings(sbtPluginSettings("sbt-bloop", Sbt1Version))
 
 lazy val sbtBloop013 = project
   .dependsOn(jsonConfig210.jvm)
@@ -706,13 +598,8 @@ lazy val sbtBloop013 = project
   .disablePlugins(ScalafixPlugin)
   .in(integrations / "sbt-bloop")
   .settings(scalaVersion := Scala210Version)
-  .settings(sbtPluginSettings("sbt-bloop-core", Sbt013Version))
+  .settings(sbtPluginSettings("sbt-bloop", Sbt013Version))
   .settings(resolvers += Resolver.typesafeIvyRepo("releases"))
-
-lazy val sbtBloop013Shaded =
-  defineShadedSbtPlugin("sbtBloop013Shaded", Sbt013Version, sbtBloop013).settings(
-    scalaVersion := (sbtBloop013 / scalaVersion).value
-  )
 
 lazy val mavenBloop = project
   .in(integrations / "maven-bloop")
@@ -940,8 +827,6 @@ val allProjectsToRelease = Seq[ProjectReference](
   jsonConfig213.jvm,
   sbtBloop013,
   sbtBloop10,
-  sbtBloop013Shaded,
-  sbtBloop10Shaded,
   mavenBloop,
   gradleBloop211,
   gradleBloop212,

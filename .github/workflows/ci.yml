@@ -42,7 +42,7 @@ jobs:
               "gradleBloop211/compile" \
               "gradleBloop212/compile" \
               "gradleBloop212/test" \
-              "sbtBloop10Shaded/publishLocal" \
+              "sbtBloop10/publishLocal" \
               "sbtBloop10/scripted"
         shell: bash
   bridges:
