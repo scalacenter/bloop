@@ -189,6 +189,16 @@ class MavenConfigGenerationSuite extends BaseConfigSuite {
 
       assert(hasTag(configFile, Tag.Library))
       val testJar = configFile.project.resolution.get.modules.find(_.name == "spark-tags_2.13")
+      assert(
+        testJar.forall(
+          _.artifacts.exists(e =>
+            e.classifier == Some("sources") && e.path
+              .getFileName()
+              .toString()
+              .endsWith("-test-sources.jar")
+          )
+        )
+      )
       assert(testJar.exists { m =>
         m.artifacts.exists(_.path.toString().endsWith("spark-tags_2.13-3.3.0-tests.jar"))
       })
