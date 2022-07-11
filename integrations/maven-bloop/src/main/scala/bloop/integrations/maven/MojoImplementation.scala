@@ -79,11 +79,19 @@ object MojoImplementation {
       file.toPath().toRealPath().toAbsolutePath()
     }
 
-    def resolveArtifact(artifact: Artifact, classifierOpt: Option[String] = None): Option[File] =
+    def resolveArtifact(artifact: Artifact, sources: Boolean = false): Option[File] = {
+      val classifierOpt = if (sources) {
+        artifact.getType() match {
+          case "jar" => Some("sources")
+          case "test-jar" => Some("test-sources")
+        }
+      } else None
+      val classifier = classifierOpt.orElse(Option(artifact.getClassifier())).getOrElse("")
+      val suffix = if (classifier.nonEmpty) s":$classifier" else ""
+      val artifactLog = s"$artifact (sources = $sources)"
+
       try {
-        val classifier = classifierOpt.orElse(Option(artifact.getClassifier())).getOrElse("")
-        val suffix = if (classifier.nonEmpty) s":$classifier" else ""
-        log.info("Resolving artifact: " + artifact + suffix)
+        log.info(s"Resolving artifact: $artifactLog")
         val request = new ArtifactRequest()
         val handler = artifact.getArtifactHandler()
         val artifactType = new DefaultArtifactType(
@@ -107,14 +115,20 @@ object MojoImplementation {
         )
         request.setRepositories(mojo.getRemoteRepositories())
         val result = mojo.getRepoSystem().resolveArtifact(session.getRepositorySession(), request)
-        log.info("SUCCESS " + artifact)
-        Some(result.getArtifact().getFile())
 
+        val artifactResult = Option(result.getArtifact().getFile())
+
+        artifactResult match {
+          case None => log.warn(s"Resolving $artifactLog returned no files")
+          case Some(value) => log.info(s"SUCCESS: $artifactLog")
+        }
+        artifactResult
       } catch {
         case t: Throwable =>
-          log.error("FAILURE " + artifact, t)
+          log.error(s"FAILURE $artifactLog", t)
           None
       }
+    }
 
     val reactorProjectsSet = mojo
       .getReactorProjects()
@@ -136,6 +150,8 @@ object MojoImplementation {
       val matchingArtifacts = project.getArtifacts.asScala.filter(a =>
         ArtifactUtils.versionlessKey(dep.getArtifact) == ArtifactUtils.versionlessKey(a)
       )
+
+      log.info(s"Dependency $dep, $matchingArtifacts")
       matchingArtifacts
         .collect {
           case artifact if artifact.getType == "test-jar" => dep.getArtifactId + "-test"
@@ -224,7 +240,7 @@ object MojoImplementation {
               art.setFile(resolvedFile)
             }
             if (mojo.shouldDownloadSources()) {
-              resolveArtifact(art, Some("sources"))
+              resolveArtifact(art, sources = true)
             }
             artifactToConfigModule(art, project, session)
         }
@@ -318,7 +334,11 @@ object MojoImplementation {
   ): Config.Module = {
     val base = session.getLocalRepository().getBasedir()
     val artifactRelativePath = session.getLocalRepository().pathOf(artifact)
-    val sources = artifactRelativePath.replace(".jar", "-sources.jar")
+    val sources =
+      artifact.getType() match {
+        case "test-jar" => artifactRelativePath.replace("-tests.jar", "-test-sources.jar")
+        case _ => artifactRelativePath.replace(".jar", "-sources.jar")
+      }
     val sourcesJarPath = Paths.get(base).resolve(sources)
     val sourcesList = if (sourcesJarPath.toFile().exists()) {
       List(
