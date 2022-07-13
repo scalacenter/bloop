@@ -23,7 +23,8 @@ object Environment {
 
   def cwd: Path = Paths.get(System.getProperty("user.dir"))
   def homeDirectory: Path = Paths.get(System.getProperty("user.home"))
-  def defaultBloopDirectory: Path = homeDirectory.resolve(".bloop")
+  def defaultBloopDirectory: Path =
+    sys.env.get("BLOOP_CONFIG").map(Paths.get).getOrElse(homeDirectory.resolve(".bloop"))
   def bloopGlobalSettingsPath: Path = defaultBloopDirectory.resolve("bloop.json")
 
   def bloopGlobalSettings(logger: Logger): Either[String, GlobalSettings] = {

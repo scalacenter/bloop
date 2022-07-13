@@ -22,7 +22,7 @@ For example, `bloop server`:
 
 1. Finds the location of a bootstrapped jar automatically in the bloop installation
    directory
-1. Runs the server with the JVM options configured in `$HOME/.bloop/bloop.json`, see
+1. Runs the server with the JVM options configured in `$HOME/.bloop/bloop.json` or `$BLOOP_CONFIG/bloop.json` if `$BLOOP_CONFIG` is set, see
    [custom Java options](#custom-java-options).
 1. Provides a way to evolve the way the server is run and managed in the future, which
    makes it especially compatibility-friendly.
