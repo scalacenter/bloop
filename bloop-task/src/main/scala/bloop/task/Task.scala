@@ -17,6 +17,25 @@ import monix.execution.CancelableFuture
 import monix.execution.Scheduler
 import monix.execution.Callback
 
+/**
+ * This task was introduced as a compatibilty layer to ublock bloop migration from monix2.
+ *  there is an important difference between monix2 and monix3  in cancellation mechanic:
+ *  - monix2 - cancel is a signal that triggers `doOnCancel` callbacks and the whole task anyway completes.
+ *  - monix3 - cancel actually cancel the runLoop of task and turns `CancellableFuture` into icomletable one.
+ *
+ * Bloop is hugely relies on `doOnCancel` usage and old cancellation mechanic.
+ * Actually, most of bsp-methods are kind of function `(Input, State) => State`.
+ * runLoop cancellation doesn't fit for bloop at all.
+ * So the idea is: perform cancels as in monix2, do an actual execution on monix3.
+ * This approach allows to unblock bsp4s/monix/scala upgrades (monix2 isn't supported and isn't published for scala 2.13).
+ * In theory we can switch it on some other effect-library and preserve the codebase without significant rewrites.
+ *
+ * @dos65 notes:
+ *   There is an `disableRunLoopCancellation` option in monix3 but even with using there were some other differences in cancellation.
+ *   At least, the issue was that after enabling this option it was impossible to cancel compileTask.
+ *   Unfortunately, I couldn't find why and where it happens and if it might be fixed in monix3.
+ *   Also, at that moment, the ongoing work on monix4 started, so I decided to no go this way.
+ */
 sealed trait Task[+A] { self =>
 
   final def map[B](f: A => B): Task[B] = Task.Map(f, self, List.empty)
@@ -273,10 +292,7 @@ sealed trait Task[+A] { self =>
       main,
       Cancelable { () =>
         val tasks = callbacks.takeAllAndCancelNext
-        val _ = tasks.flatten.foreach(f =>
-          try { f() }
-          catch { case e: Exception => println(e) }
-        )
+        val _ = tasks.flatten.foreach(f => f())
       }
     )
   }
@@ -296,11 +312,7 @@ object Task {
     def push(tasks: List[() => Unit]): Unit = {
       ref.get() match {
         case null =>
-          // val _ = tasks.foreach(f => f())
-          val _ = tasks.foreach(f =>
-            try { f() }
-            catch { case e: Exception => println(e) }
-          )
+          val _ = tasks.foreach(f => f())
         case prev =>
           val next = tasks :: prev
           if (!ref.compareAndSet(prev, next))
@@ -466,12 +478,11 @@ object Task {
         }
       }
     }
-    // sequence(in).map(_.toList)
   }
 
-  // TODO
   def parSequenceN[A](n: Int)(in: Iterable[Task[A]]): Task[List[A]] = {
-    sequence(in).map(_.toList)
+    val chunks = in.grouped(n).toList.map(group => Task.parSequence(group))
+    Task.sequence(chunks).map(_.flatten)
   }
 
   def fromFuture[A](f: Future[A]): Task[A] =

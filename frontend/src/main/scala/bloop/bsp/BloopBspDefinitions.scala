@@ -24,16 +24,18 @@ object BloopBspDefinitions {
       javaSemanticdbVersion = None
     )
 
-    implicit val codec: JsonValueCodec[BloopExtraBuildParams] = JsonCodecMaker.makeWithRequiredCollectionFields
+    implicit val codec: JsonValueCodec[BloopExtraBuildParams] =
+      JsonCodecMaker.makeWithRequiredCollectionFields
   }
 
   final case class StopClientCachingParams(originId: String)
   object StopClientCachingParams {
-    implicit val codec: JsonValueCodec[StopClientCachingParams] = JsonCodecMaker.makeWithRequiredCollectionFields
+    implicit val codec: JsonValueCodec[StopClientCachingParams] =
+      JsonCodecMaker.makeWithRequiredCollectionFields
   }
 
   object stopClientCaching
-      extends Endpoint[StopClientCachingParams, Unit]("bloop/stopClientCaching") (
+      extends Endpoint[StopClientCachingParams, Unit]("bloop/stopClientCaching")(
         StopClientCachingParams.codec,
         Endpoint.unitCodec
       )

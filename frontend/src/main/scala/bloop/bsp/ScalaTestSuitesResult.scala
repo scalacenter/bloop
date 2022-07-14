@@ -8,7 +8,8 @@ import com.github.plokhotnyuk.jsoniter_scala.macros.JsonCodecMaker
 import jsonrpc4s.Endpoint
 
 object ScalaTestClasses {
-  val endpoint = new Endpoint[ScalaTestClassesParams, ScalaTestClassesResult]("buildTarget/scalaTestClasses")
+  val endpoint =
+    new Endpoint[ScalaTestClassesParams, ScalaTestClassesResult]("buildTarget/scalaTestClasses")
 }
 
 final case class ScalaTestClassesResult(

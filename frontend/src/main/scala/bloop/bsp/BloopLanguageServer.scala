@@ -21,8 +21,8 @@ final class BloopLanguageServer(
 ) {
   private val activeClientRequests: TrieMap[RequestId, CancelableFuture[Response]] = TrieMap.empty
 
-  private def withCancel(svcs: BloopRpcServices): BloopRpcServices = 
-    svcs.notificationAsync(RpcActions.cancelRequest){ params => 
+  private def withCancel(svcs: BloopRpcServices): BloopRpcServices =
+    svcs.notificationAsync(RpcActions.cancelRequest) { params =>
       val id = params.id
       activeClientRequests.get(id) match {
         case None =>
@@ -37,7 +37,7 @@ final class BloopLanguageServer(
             () // Response.cancelled(id)
           }
       }
-    } 
+    }
 
   private val handlersByMethodName: Map[String, Message => Task[Response]] =
     withCancel(services).endpoints.map(ep => ep.name -> ((m: Message) => ep.handle(m))).toMap
@@ -75,14 +75,13 @@ final class BloopLanguageServer(
               Response.None
           }
           .map {
-          case Response.None => Response.None
-          case nonEmpty =>
-            logger.error(s"Obtained non-empty response $nonEmpty for notification $notification!")
-            Response.None
-        }
+            case Response.None => Response.None
+            case nonEmpty =>
+              logger.error(s"Obtained non-empty response $nonEmpty for notification $notification!")
+              Response.None
+          }
     }
   }
-
 
   def handleRequest(request: Request): Task[Response] = {
     import request.{method, id}

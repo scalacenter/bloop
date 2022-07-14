@@ -21,6 +21,11 @@ import monix.execution.atomic.AtomicInt
 import monix.reactive.Observer
 import scribe.LoggerSupport
 
+/**
+ * A copy of `jsonrpc4s.RpcClient` that is uses `bloop.task.Task`
+ * and has a difference in cancelRequest handling.
+ * `jsonrpc4s` fails the ongoing request if it was cancelled which is not how it worked previously.
+ */
 class BloopLanguageClient(
     out: Observer[Message],
     logger: LoggerSupport
@@ -96,7 +101,7 @@ class BloopLanguageClient(
       callback.onSuccess(response)
     }
   }
-  
+
   def serverRespond(response: Response): Future[Ack] = {
     response match {
       case Response.None => Ack.Continue

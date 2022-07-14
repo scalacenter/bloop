@@ -215,8 +215,8 @@ class BspConnectionSpec(
             import ch.epfl.scala.bsp.endpoints.BuildTarget
 
             val req = bspState.client0.request(
-                BuildTarget.compile,
-                bsp.CompileParams(List(target), None, None)
+              BuildTarget.compile,
+              bsp.CompileParams(List(target), None, None)
             )
             req.runAsync(ExecutionContext.ioScheduler)
             // Wait until observable is completed, which means server is done

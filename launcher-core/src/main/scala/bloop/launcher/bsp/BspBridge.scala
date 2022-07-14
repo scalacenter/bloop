@@ -63,7 +63,7 @@ final class BspBridge(
   def establishBspConnectionViaBinary(
       createCli: PrintStream => BloopgunCli,
       bloopAdditionalArgs: List[String],
-      useTcp: Boolean,
+      useTcp: Boolean
   ): RunningBspConnection = {
     // Reset the status as it can be called several times
     resetServerStatus()

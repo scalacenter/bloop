@@ -149,22 +149,22 @@ trait BspClientTest {
       val services =
         customServices(TestUtil.createTestServices(addDiagnosticsHandler, logger))
       val lsServer = new BloopLanguageServer(messages, lsClient, services, ioScheduler, logger)
-      
+
       lsServer.startTask.runAsync(ioScheduler)
 
       val cwd = configDirectory.underlying.getParent
       val initializeServer =
         lsClient.request(
-        endpoints.Build.initialize,
-        bsp.InitializeBuildParams(
-          "test-bloop-client",
-          "1.0.0",
-          BuildInfo.bspVersion,
-          rootUri = bsp.Uri(cwd.toAbsolutePath.toUri),
-          capabilities = bsp.BuildClientCapabilities(List("scala")),
-          None
+          endpoints.Build.initialize,
+          bsp.InitializeBuildParams(
+            "test-bloop-client",
+            "1.0.0",
+            BuildInfo.bspVersion,
+            rootUri = bsp.Uri(cwd.toAbsolutePath.toUri),
+            capabilities = bsp.BuildClientCapabilities(List("scala")),
+            None
+          )
         )
-      )
 
       for {
         // Delay the task to let the bloop server go live
@@ -257,58 +257,56 @@ trait BspClientTest {
       compileStartPromises: Option[mutable.HashMap[bsp.BuildTargetIdentifier, Promise[Unit]]]
   ): BloopRpcServices => BloopRpcServices = { (s: BloopRpcServices) =>
     s.notification(endpoints.Build.taskStart) { taskStart =>
-        taskStart.dataKind match {
-          case Some(bsp.TaskDataKind.CompileTask) =>
-            val json = taskStart.data.get
-            Try(readFromArray[bsp.CompileTask](json.value)) match {
-              case Failure(_) => ()
-              case Success(compileTask) =>
-                compileStartPromises.foreach(
-                  promises => promises.get(compileTask.target).map(_.trySuccess(()))
-                )
-                record(
-                  compileTask.target,
-                  (builder: StringBuilder) => {
-                    builder.synchronized {
-                      builder.++=(s"#${compileIteration()}: task start ${taskStart.taskId.id}\n")
-                      taskStart.message.foreach(msg => builder.++=(s"  -> Msg: ${msg}\n"))
-                      taskStart.dataKind.foreach(msg => builder.++=(s"  -> Data kind: ${msg}\n"))
-                      builder
-                    }
+      taskStart.dataKind match {
+        case Some(bsp.TaskDataKind.CompileTask) =>
+          val json = taskStart.data.get
+          Try(readFromArray[bsp.CompileTask](json.value)) match {
+            case Failure(_) => ()
+            case Success(compileTask) =>
+              compileStartPromises.foreach(promises =>
+                promises.get(compileTask.target).map(_.trySuccess(()))
+              )
+              record(
+                compileTask.target,
+                (builder: StringBuilder) => {
+                  builder.synchronized {
+                    builder.++=(s"#${compileIteration()}: task start ${taskStart.taskId.id}\n")
+                    taskStart.message.foreach(msg => builder.++=(s"  -> Msg: ${msg}\n"))
+                    taskStart.dataKind.foreach(msg => builder.++=(s"  -> Data kind: ${msg}\n"))
+                    builder
                   }
-                )
-            }
-          case _ => ()
-        }
-        ()
+                }
+              )
+          }
+        case _ => ()
       }
-      .notification(endpoints.Build.taskFinish) { taskFinish =>
-        taskFinish.dataKind match {
-          case Some(bsp.TaskDataKind.CompileReport) =>
-            val json = taskFinish.data.get
-            Try(readFromArray[bsp.CompileReport](json.value)) match {
-              case Failure(_) => ()
-              case Success(report) =>
-                record(
-                  report.target,
-                  (builder: StringBuilder) => {
-                    builder.synchronized {
-                      builder.++=(s"#${compileIteration()}: task finish ${taskFinish.taskId.id}\n")
-                      builder.++=(s"  -> errors ${report.errors}, warnings ${report.warnings}\n")
-                      report.originId.foreach(originId => builder.++=(s"  -> origin = $originId\n"))
-                      taskFinish.message.foreach(msg => builder.++=(s"  -> Msg: ${msg}\n"))
-                      taskFinish.dataKind.foreach(msg => builder.++=(s"  -> Data kind: ${msg}\n"))
-                      builder
-                    }
+      ()
+    }.notification(endpoints.Build.taskFinish) { taskFinish =>
+      taskFinish.dataKind match {
+        case Some(bsp.TaskDataKind.CompileReport) =>
+          val json = taskFinish.data.get
+          Try(readFromArray[bsp.CompileReport](json.value)) match {
+            case Failure(_) => ()
+            case Success(report) =>
+              record(
+                report.target,
+                (builder: StringBuilder) => {
+                  builder.synchronized {
+                    builder.++=(s"#${compileIteration()}: task finish ${taskFinish.taskId.id}\n")
+                    builder.++=(s"  -> errors ${report.errors}, warnings ${report.warnings}\n")
+                    report.originId.foreach(originId => builder.++=(s"  -> origin = $originId\n"))
+                    taskFinish.message.foreach(msg => builder.++=(s"  -> Msg: ${msg}\n"))
+                    taskFinish.dataKind.foreach(msg => builder.++=(s"  -> Data kind: ${msg}\n"))
+                    builder
                   }
-                )
-            }
-          case _ => ()
-        }
+                }
+              )
+          }
+        case _ => ()
+      }
 
-        ()
-      }
-      .notification(endpoints.Build.taskProgress) { case _ => () }
+      ()
+    }.notification(endpoints.Build.taskProgress) { case _ => () }
       .notification(endpoints.Build.publishDiagnostics) {
         case bsp.PublishDiagnosticsParams(tid, btid, originId, diagnostics, reset) =>
           record(

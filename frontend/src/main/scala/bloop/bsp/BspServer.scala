@@ -57,20 +57,19 @@ object BspServer {
   ): Task[State] = {
     import state.logger
 
+    def listenToConnection(handle: ServerHandle, serverSocket: ServerSocket): Task[State] = {
+      val isCommunicationActive = Atomic(true)
+      val connectionURI = handle.uri
 
-  def listenToConnection(handle: ServerHandle, serverSocket: ServerSocket): Task[State] = {
-    val isCommunicationActive = Atomic(true)
-    val connectionURI = handle.uri
+      // Do NOT change this log, it's used by clients to know when to start a connection
+      logger.info(s"The server is listening for incoming connections at $connectionURI...")
+      promiseWhenStarted.foreach(_.success(()))
 
-    // Do NOT change this log, it's used by clients to know when to start a connection
-    logger.info(s"The server is listening for incoming connections at $connectionURI...")
-    promiseWhenStarted.foreach(_.success(()))
+      val socket = serverSocket.accept()
+      logger.info(s"Accepted incoming BSP client connection at $connectionURI")
 
-    val socket = serverSocket.accept()
-    logger.info(s"Accepted incoming BSP client connection at $connectionURI")
-
-    val in = socket.getInputStream
-    val out = socket.getOutputStream
+      val in = socket.getInputStream
+      val out = socket.getOutputStream
 
     // FORMAT: OFF
     val bspLogger = new BspClientLogger(logger)
@@ -81,84 +80,87 @@ object BspServer {
     // In this case BloopLanguageServer doesn't use input observable
     val server = new BloopLanguageServer(Observable.never, client, provider.services, ioScheduler, bspLogger)
     // FORMAT: ON
-    def error(msg: String): Unit = provider.stateAfterExecution.logger.error(msg)
+      def error(msg: String): Unit = provider.stateAfterExecution.logger.error(msg)
 
-    val inputExit = CancelablePromise[Unit]()
-    val mesages = 
-      LowLevelMessage.fromInputStream(in, bspLogger)
-        .guaranteeCase(_ => monix.eval.Task(inputExit.success(())))
-      .asyncBoundary(OverflowStrategy.Unbounded) // allows to catch input stream close earlier
-      .mapParallelOrdered(4){ bytes => 
-        val msg = LowLevelMessage.toMsg(bytes)
-        server
-          .handleValidMessage(msg)
-          .flatMap(msg => Task.fromFuture(client.serverRespond(msg)).map(_ => ()))
-          .onErrorRecover { case NonFatal(e) => bspLogger.error("Unhandled error", e); () }
-          .toMonixTask(ioScheduler)
-      }.executeOn(ioScheduler, true)
-
-    val process = Task.raceMany(
-      Task.liftMonixTaskUncancellable(mesages.completedL),
-      Task.fromFuture(inputExit.future),
-      Task.fromFuture(stopBspConnection.future)
-    )
-
-    def stopListeting(): Unit = {
-      if (isCommunicationActive.getAndSet(false)) {
-        val latestState = provider.stateAfterExecution
-        val initializedClientInfo = provider.unregisterClient
-
-        def askCurrentBspClients: Set[ClientInfo.BspClientInfo] = {
-          import scala.collection.JavaConverters._
-          val clients0 = connectedBspClients.keySet().asScala.toSet
-          // Add client that will be removed from map always so that its
-          // project directories are visited and orphan dirs pruned
-          initializedClientInfo match {
-            case Some(bspInfo) => clients0.+(bspInfo)
-            case None => clients0
+      val inputExit = CancelablePromise[Unit]()
+      val mesages =
+        LowLevelMessage
+          .fromInputStream(in, bspLogger)
+          .guaranteeCase(_ => monix.eval.Task(inputExit.success(())))
+          .asyncBoundary(OverflowStrategy.Unbounded) // allows to catch input stream close earlier
+          .mapParallelOrdered(4) { bytes =>
+            val msg = LowLevelMessage.toMsg(bytes)
+            server
+              .handleValidMessage(msg)
+              .flatMap(msg => Task.fromFuture(client.serverRespond(msg)).map(_ => ()))
+              .onErrorRecover { case NonFatal(e) => bspLogger.error("Unhandled error", e); () }
+              .toMonixTask(ioScheduler)
           }
-        }
-        server.cancelAllRequests()
-        ioScheduler.scheduleOnce(
-          100,
-          TimeUnit.MILLISECONDS,
-          new Runnable {
-            override def run(): Unit = {
-              val ngout = state.commonOptions.ngout
-              val ngerr = state.commonOptions.ngerr
-              ClientInfo.deleteOrphanClientBspDirectories(askCurrentBspClients, ngout, ngerr)
+          .executeOn(ioScheduler, true)
+
+      val process = Task.raceMany(
+        Task.liftMonixTaskUncancellable(mesages.completedL),
+        Task.fromFuture(inputExit.future),
+        Task.fromFuture(stopBspConnection.future)
+      )
+
+      def stopListeting(): Unit = {
+        if (isCommunicationActive.getAndSet(false)) {
+          val latestState = provider.stateAfterExecution
+          val initializedClientInfo = provider.unregisterClient
+
+          def askCurrentBspClients: Set[ClientInfo.BspClientInfo] = {
+            import scala.collection.JavaConverters._
+            val clients0 = connectedBspClients.keySet().asScala.toSet
+            // Add client that will be removed from map always so that its
+            // project directories are visited and orphan dirs pruned
+            initializedClientInfo match {
+              case Some(bspInfo) => clients0.+(bspInfo)
+              case None => clients0
             }
           }
-        )
-        closeCommunication(latestState, socket, serverSocket)
+          server.cancelAllRequests()
+          ioScheduler.scheduleOnce(
+            100,
+            TimeUnit.MILLISECONDS,
+            new Runnable {
+              override def run(): Unit = {
+                val ngout = state.commonOptions.ngout
+                val ngerr = state.commonOptions.ngerr
+                ClientInfo.deleteOrphanClientBspDirectories(askCurrentBspClients, ngout, ngerr)
+              }
+            }
+          )
+          closeCommunication(latestState, socket, serverSocket)
+        }
       }
+
+      process
+        .doOnCancel(Task(stopListeting()))
+        .doOnFinish(_ => Task(stopListeting()))
+        .map(_ => provider.stateAfterExecution)
     }
 
-    process.doOnCancel(Task(stopListeting()))
-      .doOnFinish(_ => Task(stopListeting()))
-      .map(_ => provider.stateAfterExecution)
-  }
+    val handle = cmd match {
+      case Commands.WindowsLocalBsp(pipeName, _) =>
+        ServerHandle.WindowsLocal(pipeName)
+      case Commands.UnixLocalBsp(socketFile, _) =>
+        ServerHandle.UnixLocal(socketFile)
+      case Commands.TcpBsp(address, portNumber, _) =>
+        ServerHandle.Tcp(address, portNumber, backlog = 10)
+    }
 
-  val handle = cmd match {
-    case Commands.WindowsLocalBsp(pipeName, _) =>
-      ServerHandle.WindowsLocal(pipeName)
-    case Commands.UnixLocalBsp(socketFile, _) =>
-      ServerHandle.UnixLocal(socketFile)
-    case Commands.TcpBsp(address, portNumber, _) =>
-      ServerHandle.Tcp(address, portNumber, backlog = 10)
+    initServer(handle, state).materialize.flatMap {
+      case scala.util.Success(socket: ServerSocket) =>
+        listenToConnection(handle, socket).onErrorRecover {
+          case t =>
+            state.withError(s"Exiting BSP server with ${t.getMessage}", t)
+        }
+      case scala.util.Failure(t: Throwable) =>
+        promiseWhenStarted.foreach(p => if (!p.isCompleted) p.failure(t))
+        Task.now(state.withError(s"BSP server failed to open a socket: '${t.getMessage}'", t))
+    }
   }
-
-  initServer(handle, state).materialize.flatMap {
-    case scala.util.Success(socket: ServerSocket) =>
-      listenToConnection(handle, socket).onErrorRecover {
-        case t => 
-         state.withError(s"Exiting BSP server with ${t.getMessage}", t)
-      }
-    case scala.util.Failure(t: Throwable) =>
-      promiseWhenStarted.foreach(p => if (!p.isCompleted) p.failure(t))
-      Task.now(state.withError(s"BSP server failed to open a socket: '${t.getMessage}'", t))
-  }
-}
 
   def closeCommunication(
       latestState: State,
@@ -168,7 +170,8 @@ object BspServer {
     // Close any socket communication asap and swallow exceptions
     try {
       try socket.close()
-      catch { case NonFatal(_) => () } finally {
+      catch { case NonFatal(_) => () }
+      finally {
         try serverSocket.close()
         catch { case NonFatal(_) => () }
       }
