@@ -18,10 +18,9 @@ import bloop.io.Environment.LineSplitter
 import bloop.io.Environment.lineSeparator
 import bloop.logging.BspClientLogger
 import bloop.logging.RecordingLogger
+import bloop.task.Task
 import bloop.util.TestProject
 import bloop.util.TestUtil
-
-import monix.eval.Task
 
 object LocalBspMetalsClientSpec extends BspMetalsClientSpec(BspProtocol.Local)
 object TcpBspMetalsClientSpec extends BspMetalsClientSpec(BspProtocol.Tcp)

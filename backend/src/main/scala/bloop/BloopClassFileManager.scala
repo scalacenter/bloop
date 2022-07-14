@@ -16,9 +16,9 @@ import bloop.io.AbsolutePath
 import bloop.io.ParallelOps
 import bloop.io.ParallelOps.CopyMode
 import bloop.io.{Paths => BloopPaths}
+import bloop.task.Task
 import bloop.tracing.BraveTracer
 
-import monix.eval.Task
 import xsbti.compile.ClassFileManager
 
 final class BloopClassFileManager(

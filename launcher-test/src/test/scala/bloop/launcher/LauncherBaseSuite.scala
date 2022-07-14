@@ -197,7 +197,7 @@ abstract class LauncherBaseSuite(
     )
     val run = new LauncherRun(launcher, baos)
 
-    import monix.execution.misc.NonFatal
+    import scala.util.control.NonFatal
     try launcherLogic(run)
     catch {
       case NonFatal(t) =>
@@ -218,10 +218,9 @@ abstract class LauncherBaseSuite(
   )
 
   import bloop.logging.BspClientLogger
-  import monix.eval.Task
-  import scala.meta.jsonrpc.BaseProtocolMessage
+  import bloop.task.Task
   import bloop.util.TestUtil
-  import scala.meta.jsonrpc.Response
+  import jsonrpc4s._
   import bloop.bsp.BloopLanguageClient
   def startBspInitializeHandshake[T](
       in: InputStream,
@@ -232,31 +231,35 @@ abstract class LauncherBaseSuite(
     import ch.epfl.scala.bsp.endpoints
     import bloop.bsp.BloopLanguageClient
     import bloop.bsp.BloopLanguageServer
-    implicit val lsClient = new BloopLanguageClient(out, logger)
-    val messages = BaseProtocolMessage.fromInputStream(in, logger)
+    val lsClient = BloopLanguageClient.fromOutputStream(out, logger)
+    val messages = LowLevelMessage
+      .fromInputStream(in, logger)
+      .map(msg => LowLevelMessage.toMsg(msg))
     val services = TestUtil.createTestServices(false, logger)
     val lsServer = new BloopLanguageServer(messages, lsClient, services, bspScheduler, logger)
 
     lsServer.startTask.runAsync(bspScheduler)
 
-    val initializeServer = endpoints.Build.initialize.request(
-      bsp.InitializeBuildParams(
-        "test-bloop-client",
-        bloopVersion,
-        bspVersion,
-        rootUri = bsp.Uri(Environment.cwd.toUri),
-        capabilities = bsp.BuildClientCapabilities(List("scala")),
-        None
+    val initializeServer =
+      lsClient.request(
+        endpoints.Build.initialize,
+        bsp.InitializeBuildParams(
+          "test-bloop-client",
+          bloopVersion,
+          bspVersion,
+          rootUri = bsp.Uri(Environment.cwd.toUri),
+          capabilities = bsp.BuildClientCapabilities(List("scala")),
+          None
+        )
       )
-    )
 
     for {
       // Delay the task to let the bloop server go live
       initializeResult <- initializeServer
-      _ = endpoints.Build.initialized.notify(bsp.InitializedBuildParams())
+      _ = lsClient.notify(endpoints.Build.initialized, bsp.InitializedBuildParams())
       otherCalls <- runEndpoints(lsClient)
-      _ <- endpoints.Build.shutdown.request(bsp.Shutdown())
-      _ = endpoints.Build.exit.notify(bsp.Exit())
+      _ <- lsClient.request(endpoints.Build.shutdown, bsp.Shutdown())
+      _ = lsClient.notify(endpoints.Build.exit, bsp.Exit())
     } yield {
       closeForcibly(in)
       closeForcibly(out)
@@ -316,7 +319,7 @@ abstract class LauncherBaseSuite(
       val bspLogger = new BspClientLogger(logger)
       startBspInitializeHandshake(clientIn, clientOut, bspLogger) { _ =>
         // Just return, we're only interested in the init handhake + exit
-        monix.eval.Task.eval(Right(()))
+        bloop.task.Task.eval(Right(()))
       }
     }
 

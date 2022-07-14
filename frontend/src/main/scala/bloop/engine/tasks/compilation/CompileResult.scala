@@ -7,9 +7,8 @@ import bloop.engine.Dag
 import bloop.engine.Leaf
 import bloop.engine.Parent
 import bloop.reporter.Problem
+import bloop.task.Task
 import bloop.util.CacheHashCode
-
-import monix.eval.Task
 
 sealed trait CompileResult[+R] {
   def result: R

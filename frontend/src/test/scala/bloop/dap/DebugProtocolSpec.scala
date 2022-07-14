@@ -10,6 +10,9 @@ import bloop.logging.RecordingLogger
 import bloop.util.TestProject
 import bloop.util.TestUtil
 
+import com.github.plokhotnyuk.jsoniter_scala.core._
+import jsonrpc4s.RawJson
+
 object DebugProtocolSpec extends DebugBspBaseSuite {
   test("starts a debug session") {
     TestUtil.withinWorkspace { workspace =>
@@ -173,16 +176,16 @@ object DebugProtocolSpec extends DebugBspBaseSuite {
     target =>
       val targets = List(target)
       val data = bsp.ScalaMainClass(mainClass, Nil, Nil, Nil)
-      val json = bsp.ScalaMainClass.encodeScalaMainClass(data)
-      bsp.DebugSessionParams(targets, ScalaMainClass, json)
+      val json = writeToArray[bsp.ScalaMainClass](data)
+      bsp.DebugSessionParams(targets, ScalaMainClass, RawJson(json))
   }
 
   def testSuiteParams(
       filters: List[String]
   ): bsp.BuildTargetIdentifier => bsp.DebugSessionParams = { target =>
-    import io.circe.syntax._
+    import bloop.util.jsoniter.JsoniterCodecs._
     val targets = List(target)
-    val json = filters.asJson
-    bsp.DebugSessionParams(targets, ScalaTestSuites, json)
+    val json = writeToArray[List[String]](filters)
+    bsp.DebugSessionParams(targets, ScalaTestSuites, RawJson(json))
   }
 }

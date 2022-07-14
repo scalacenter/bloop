@@ -1,14 +1,11 @@
 package bloop.bsp
 
-import scala.meta.jsonrpc.Endpoint
-
 import ch.epfl.scala.bsp.BuildTargetIdentifier
 import ch.epfl.scala.bsp.ScalaTestClassesParams
 
-import io.circe.Decoder
-import io.circe.Encoder
-import io.circe.derivation.deriveDecoder
-import io.circe.derivation.deriveEncoder
+import com.github.plokhotnyuk.jsoniter_scala.core.JsonValueCodec
+import com.github.plokhotnyuk.jsoniter_scala.macros.JsonCodecMaker
+import jsonrpc4s.Endpoint
 
 object ScalaTestClasses {
   val endpoint = new Endpoint[ScalaTestClassesParams, ScalaTestClassesResult]("buildTarget/scalaTestClasses")
@@ -19,8 +16,8 @@ final case class ScalaTestClassesResult(
 )
 
 object ScalaTestClassesResult {
-  implicit val decoder: Decoder[ScalaTestClassesResult] = deriveDecoder
-  implicit val encoder: Encoder[ScalaTestClassesResult] = deriveEncoder
+  implicit val jsonCodec: JsonValueCodec[ScalaTestClassesResult] =
+    JsonCodecMaker.makeWithRequiredCollectionFields
 }
 
 final case class ScalaTestClassesItem(
@@ -31,6 +28,6 @@ final case class ScalaTestClassesItem(
     framework: Option[String]
 )
 object ScalaTestClassesItem {
-  implicit val decoder: Decoder[ScalaTestClassesItem] = deriveDecoder
-  implicit val encoder: Encoder[ScalaTestClassesItem] = deriveEncoder
+  implicit val jsonCodec: JsonValueCodec[ScalaTestClassesItem] =
+    JsonCodecMaker.makeWithRequiredCollectionFields
 }

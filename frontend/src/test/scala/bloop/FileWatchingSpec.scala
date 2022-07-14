@@ -3,6 +3,7 @@ package bloop
 import java.util.concurrent.TimeUnit
 
 import scala.concurrent.duration.FiniteDuration
+import scala.util.control.NonFatal
 
 import bloop.cli.ExitStatus
 import bloop.config.Config
@@ -14,12 +15,11 @@ import bloop.io.Environment.lineSeparator
 import bloop.logging.DebugFilter
 import bloop.logging.PublisherLogger
 import bloop.logging.RecordingLogger
+import bloop.task.Task
 import bloop.testing.BaseSuite
 import bloop.util.TestProject
 import bloop.util.TestUtil
 
-import monix.eval.Task
-import monix.execution.misc.NonFatal
 import monix.reactive.MulticastStrategy
 import monix.reactive.Observable
 
@@ -359,19 +359,21 @@ object FileWatchingSpec extends BaseSuite {
 
     var errorMessage: String = ""
     def waitForIterationFor(duration: FiniteDuration): Task[Unit] = {
-      logsObservable
-        .takeByTimespan(duration)
-        .toListL
-        .map { logs =>
-          val obtainedIterations = count(logs)
-          try assert(totalIterations == obtainedIterations)
-          catch {
-            case NonFatal(t) =>
-              errorMessage =
-                logs.map { case (level, log) => s"[$level] $log" }.mkString(lineSeparator)
-              throw t
+      Task.liftMonixTaskUncancellable(
+        logsObservable
+          .takeByTimespan(duration)
+          .toListL
+          .map { logs =>
+            val obtainedIterations = count(logs)
+            try assert(totalIterations == obtainedIterations)
+            catch {
+              case NonFatal(t) =>
+                errorMessage =
+                  logs.map { case (level, log) => s"[$level] $log" }.mkString(lineSeparator)
+                throw t
+            }
           }
-        }
+      )
     }
 
     waitForIterationFor(FiniteDuration(initialDuration.getOrElse(1500L), "ms"))
@@ -462,13 +464,15 @@ object FileWatchingSpec extends BaseSuite {
     import bloop.util.monix.BloopBufferTimedObservable
 
     val consumingTask =
-      new BloopBufferTimedObservable(observable, 40.millis, 0)
-        //observable
-        //  .debounce(40.millis)
-        .collect { case s if !s.isEmpty => s }
-        //.whileBusyBuffer(OverflowStrategy.Unbounded)
-        .whileBusyDropEventsAndSignal(_ => List("boo"))
-        .consumeWith(slowConsumer)
+      Task.liftMonixTaskUncancellable(
+        new BloopBufferTimedObservable(observable, 40.millis, 0)
+          //observable
+          //  .debounce(40.millis)
+          .collect { case s if !s.isEmpty => s }
+          //.whileBusyBuffer(OverflowStrategy.Unbounded)
+          .whileBusyDropEventsAndSignal(_ => List("boo"))
+          .consumeWith(slowConsumer)
+      )
     val createEvents = Task {
       Thread.sleep(60)
       observer.onNext("a")

@@ -7,8 +7,8 @@ import bloop.CompileProducts
 import bloop.UniqueCompileInputs
 import bloop.data.Project
 import bloop.io.AbsolutePath
+import bloop.task.Task
 
-import monix.eval.Task
 import monix.execution.atomic.AtomicInt
 import xsbti.compile.CompileAnalysis
 import xsbti.compile.FileHash

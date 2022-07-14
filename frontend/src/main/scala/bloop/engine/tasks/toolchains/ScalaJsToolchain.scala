@@ -13,9 +13,9 @@ import bloop.data.Project
 import bloop.internal.build.BuildInfo
 import bloop.io.AbsolutePath
 import bloop.logging.Logger
+import bloop.task.Task
 import bloop.testing.DiscoveredTestFrameworks
 
-import monix.eval.Task
 import monix.execution.Scheduler
 
 /**

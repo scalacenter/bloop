@@ -14,10 +14,9 @@ import bloop.io.AbsolutePath
 import bloop.io.Environment.lineSeparator
 import bloop.io.{Paths => BloopPaths}
 import bloop.logging.RecordingLogger
+import bloop.task.Task
 import bloop.util.TestProject
 import bloop.util.TestUtil
-
-import monix.eval.Task
 
 object TcpBspCompileSpec extends BspCompileSpec(BspProtocol.Tcp)
 object LocalBspCompileSpec extends BspCompileSpec(BspProtocol.Local)

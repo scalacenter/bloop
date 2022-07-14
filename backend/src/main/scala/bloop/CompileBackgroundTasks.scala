@@ -3,9 +3,8 @@ package bloop
 import bloop.io.AbsolutePath
 import bloop.logging.Logger
 import bloop.reporter.Reporter
+import bloop.task.Task
 import bloop.tracing.BraveTracer
-
-import monix.eval.Task
 
 abstract class CompileBackgroundTasks {
   def trigger(

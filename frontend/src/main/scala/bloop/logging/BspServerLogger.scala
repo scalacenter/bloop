@@ -2,16 +2,18 @@ package bloop.logging
 
 import java.util.concurrent.atomic.AtomicInteger
 
-import scala.meta.jsonrpc.JsonRpcClient
-
 import ch.epfl.scala.bsp
 import ch.epfl.scala.bsp.BuildTargetIdentifier
 import ch.epfl.scala.bsp.DiagnosticSeverity
 import ch.epfl.scala.bsp.Uri
 import ch.epfl.scala.bsp.endpoints.Build
 
+import bloop.bsp.BloopLanguageClient
 import bloop.engine.State
 
+import com.github.plokhotnyuk.jsoniter_scala.core._
+import com.github.plokhotnyuk.jsoniter_scala.macros.JsonCodecMaker
+import jsonrpc4s.RawJson
 import monix.execution.atomic.AtomicInt
 import sbt.internal.inc.bloop.ZincInternals
 import xsbti.Severity
@@ -26,7 +28,7 @@ import xsbti.Severity
 final class BspServerLogger private (
     override val name: String,
     private[bloop] val underlying: Logger,
-    implicit val client: JsonRpcClient,
+    val client: BloopLanguageClient,
     taskIdCounter: AtomicInt,
     ansiSupported: Boolean,
     val originId: Option[String]
@@ -52,7 +54,10 @@ final class BspServerLogger private (
   override def trace(t: Throwable): Unit = underlying.trace(t)
 
   override def error(msg: String): Unit = {
-    Build.logMessage.notify(bsp.LogMessageParams(bsp.MessageType.Error, None, originId, msg))
+    client.notify(
+      Build.logMessage,
+      bsp.LogMessageParams(bsp.MessageType.Error, None, originId, msg)
+    )
     ()
   }
 
@@ -63,17 +68,23 @@ final class BspServerLogger private (
     import ch.epfl.scala.bsp.MessageType
     import ch.epfl.scala.bsp.ShowMessageParams
     val showParams = ShowMessageParams(MessageType.Warning, None, originId, msg)
-    bsp.endpoints.Build.showMessage.notify(showParams)
+    client.notify(
+      bsp.endpoints.Build.showMessage,
+      showParams
+    )
     ()
   }
 
   override def warn(msg: String): Unit = {
-    Build.logMessage.notify(bsp.LogMessageParams(bsp.MessageType.Warning, None, originId, msg))
+    client.notify(
+      Build.logMessage,
+      bsp.LogMessageParams(bsp.MessageType.Warning, None, originId, msg)
+    )
     ()
   }
 
   override def info(msg: String): Unit = {
-    Build.logMessage.notify(bsp.LogMessageParams(bsp.MessageType.Info, None, originId, msg))
+    client.notify(Build.logMessage, bsp.LogMessageParams(bsp.MessageType.Info, None, originId, msg))
     ()
   }
 
@@ -112,7 +123,8 @@ final class BspServerLogger private (
         val diagnostic = bsp.Diagnostic(pos, Some(severity), None, source, message, None)
         val textDocument = bsp.TextDocumentIdentifier(uri)
         val buildTargetId = bsp.BuildTargetIdentifier(event.projectUri)
-        Build.publishDiagnostics.notify(
+        client.notify(
+          Build.publishDiagnostics,
           bsp.PublishDiagnosticsParams(
             textDocument,
             buildTargetId,
@@ -129,7 +141,8 @@ final class BspServerLogger private (
         val diagnostic = bsp.Diagnostic(range, Some(severity), None, None, message, None)
         val textDocument = bsp.TextDocumentIdentifier(uri)
         val buildTargetId = bsp.BuildTargetIdentifier(event.projectUri)
-        Build.publishDiagnostics.notify(
+        client.notify(
+          Build.publishDiagnostics,
           bsp.PublishDiagnosticsParams(
             textDocument,
             buildTargetId,
@@ -154,7 +167,10 @@ final class BspServerLogger private (
     val buildTargetId = bsp.BuildTargetIdentifier(event.projectUri)
     val diagnostics =
       bsp.PublishDiagnosticsParams(textDocument, buildTargetId, None, Nil, true)
-    Build.publishDiagnostics.notify(diagnostics)
+    client.notify(
+      Build.publishDiagnostics,
+      diagnostics
+    )
     ()
   }
 
@@ -167,35 +183,36 @@ final class BspServerLogger private (
   private def now: Long = System.currentTimeMillis()
 
   def publishCompilationStart(event: CompilationEvent.StartCompilation): Unit = {
-    val json = bsp.CompileTask.encodeCompileTask(
+    val encoded = writeToArray(
       bsp.CompileTask(bsp.BuildTargetIdentifier(event.projectUri))
     )
 
-    Build.taskStart.notify(
+    client.notify(
+      Build.taskStart,
       bsp.TaskStartParams(
         event.taskId,
         Some(now),
         Some(event.msg),
         Some(bsp.TaskDataKind.CompileTask),
-        Some(json)
+        Some(RawJson(encoded))
       )
     )
     ()
   }
 
-  import io.circe.ObjectEncoder
   private case class BloopProgress(
       target: BuildTargetIdentifier
   )
 
-  private implicit val bloopProgressEncoder: ObjectEncoder[BloopProgress] =
-    io.circe.derivation.deriveEncoder
+  private implicit val codec: JsonValueCodec[BloopProgress] =
+    JsonCodecMaker.makeWithRequiredCollectionFields
 
   /** Publish a compile progress notification to the client via BSP every 5% progress increments. */
   def publishCompilationProgress(event: CompilationEvent.ProgressCompilation): Unit = {
     val msg = s"Compiling ${event.projectName} (${event.percentage}%)"
-    val json = bloopProgressEncoder(BloopProgress(bsp.BuildTargetIdentifier(event.projectUri)))
-    Build.taskProgress.notify(
+    val encoded = writeToArray(BloopProgress(bsp.BuildTargetIdentifier(event.projectUri)))
+    client.notify(
+      Build.taskProgress,
       bsp.TaskProgressParams(
         event.taskId,
         Some(now),
@@ -204,7 +221,7 @@ final class BspServerLogger private (
         Some(event.progress),
         None,
         Some("bloop-progress"),
-        Some(json)
+        Some(RawJson(encoded))
       )
     )
     ()
@@ -213,7 +230,7 @@ final class BspServerLogger private (
   def publishCompilationEnd(event: CompilationEvent.EndCompilation): Unit = {
     val errors = event.problems.count(_.severity == Severity.Error)
     val warnings = event.problems.count(_.severity == Severity.Warn)
-    val json = BspServerLogger.BloopCompileReport.encoder(
+    val encoded = writeToArray(
       BspServerLogger.BloopCompileReport(
         bsp.BuildTargetIdentifier(event.projectUri),
         originId,
@@ -227,14 +244,15 @@ final class BspServerLogger private (
       )
     )
 
-    Build.taskFinish.notify(
+    client.notify(
+      Build.taskFinish,
       bsp.TaskFinishParams(
         event.taskId,
         Some(now),
         Some(s"Compiled '${event.projectName}'"),
         event.code,
         Some(bsp.TaskDataKind.CompileReport),
-        Some(json)
+        Some(RawJson(encoded))
       )
     )
     ()
@@ -246,7 +264,7 @@ object BspServerLogger {
 
   def apply(
       state: State,
-      client: JsonRpcClient,
+      client: BloopLanguageClient,
       taskIdCounter: AtomicInt,
       ansiCodesSupported: Boolean
   ): BspServerLogger = {
@@ -274,9 +292,7 @@ object BspServerLogger {
   )
 
   object BloopCompileReport {
-    import io.circe.{RootEncoder, Decoder}
-    import io.circe.derivation._
-    val encoder: RootEncoder[BloopCompileReport] = deriveEncoder
-    val decoder: Decoder[BloopCompileReport] = deriveDecoder
+    implicit val codec: JsonValueCodec[BloopCompileReport] =
+      JsonCodecMaker.makeWithRequiredCollectionFields
   }
 }

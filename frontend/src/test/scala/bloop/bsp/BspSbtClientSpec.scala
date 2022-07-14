@@ -8,10 +8,9 @@ import bloop.cli.BspProtocol
 import bloop.cli.ExitStatus
 import bloop.engine.ExecutionContext
 import bloop.logging.RecordingLogger
+import bloop.task.Task
 import bloop.util.TestProject
 import bloop.util.TestUtil
-
-import monix.eval.Task
 
 object TcpBspSbtClientSpec extends BspSbtClientSpec(BspProtocol.Tcp)
 

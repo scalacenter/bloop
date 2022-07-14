@@ -11,11 +11,11 @@ import scala.util.Failure
 import scala.util.Success
 import scala.util.Try
 
-import monix.eval.Callback
 import monix.eval.{Task => MonixTask}
 import monix.execution.Cancelable
 import monix.execution.CancelableFuture
 import monix.execution.Scheduler
+import monix.execution.Callback
 
 sealed trait Task[+A] { self =>
 
@@ -185,18 +185,18 @@ sealed trait Task[+A] { self =>
       case Success(v) => Task.now(v)
     }
 
-  // def executeAsync: Task[A] =
-  //   Task.Transform(
-  //     (t: MonixTask[A]) => t.executeAsync,
-  //     self,
-  //     List.empty
-  //   )
+  def executeAsync: Task[A] =
+    Task.Transform(
+      (t: MonixTask[A]) => t.executeAsync,
+      self,
+      List.empty
+    )
 
   def delayExecution(timespan: FiniteDuration): Task[A] =
     Task.sleep(timespan).flatMap(_ => self)
 
-  def toMonixTask(implicit sh: Scheduler): Task[A] = {
-    Task.fromFuture(self.runAsync)
+  def toMonixTask(implicit sh: Scheduler): MonixTask[A] = {
+    MonixTask.fromFuture(self.runAsync)
   }
 
   def *>[B](f: => Task[B]): Task[B] =
@@ -258,14 +258,12 @@ sealed trait Task[+A] { self =>
             case n: Task.Create[_] =>
               val t = exec.flatMap { _ =>
                 val register =
-                  (sh: Scheduler, cb: Callback[Any]) => {
-                    val cancel = n.register(sh, cb.asInstanceOf[Callback[Any]])
+                  (sh: Scheduler, cb: Callback[Throwable, Any]) => {
+                    val cancel = n.register(sh, cb.asInstanceOf[Callback[Throwable, Any]])
                     callbacks.push(List(() => cancel.cancel()))
-                    cancel
-                    //()
+                    ()
                   }
-                //Task.async0[Any](register).map(v => { callbacks.pop; v })
-                MonixTask.async[Any](register).map(v => { callbacks.pop; v })
+                MonixTask.async0[Any](register).map(v => { callbacks.pop; v })
               }
               (t, n.cancels)
           }
@@ -275,8 +273,7 @@ sealed trait Task[+A] { self =>
 
     val callbacks = Task.Callbacks()
     val exec = fold(self, callbacks)
-    //val main = (MonixTask.shift *> exec).runToFuture.asInstanceOf[CancelableFuture[A]]
-    val main = (MonixTask.fork(exec)).runAsync.asInstanceOf[CancelableFuture[A]]
+    val main = (MonixTask.shift *> exec).runToFuture.asInstanceOf[CancelableFuture[A]]
 
     CancelableFuture(
       main,
@@ -351,7 +348,7 @@ object Task {
   ) extends Task[B]
 
   final case class Create[A](
-      register: (Scheduler, Callback[A]) => Cancelable,
+      register: (Scheduler, Callback[Throwable, A]) => Cancelable,
       cancels: List[() => Unit]
   ) extends Task[A]
 
@@ -360,13 +357,18 @@ object Task {
   def apply[A](f: => A): Task[A] =
     Wrap(MonixTask.eval(f), List.empty)
 
+  def eval[A](f: => A): Task[A] = Task(f)
+
   val unit: Task[Unit] = Wrap(MonixTask.unit, List.empty)
 
-  def create[A](register: (Scheduler, Callback[A]) => Cancelable): Task[A] = {
+  def create[A](register: (Scheduler, Callback[Throwable, A]) => Cancelable): Task[A] = {
     Create(register, List.empty)
   }
 
   def defer[A](fa: => Task[A]): Task[A] = Suspend(() => fa, List.empty)
+
+  def gather[A](in: Iterable[Task[A]]): Task[List[A]] =
+    parSequence(in)
 
   def parSequence[A](in: Iterable[Task[A]]): Task[List[A]] = {
     val size = in.size
@@ -415,6 +417,9 @@ object Task {
       }
     }
   }
+
+  def gatherUnordered[A](in: Iterable[Task[A]]): Task[List[A]] =
+    parSequenceUnordered(in)
 
   def parSequenceUnordered[A](in: Iterable[Task[A]]): Task[List[A]] = {
     val size = in.size
@@ -470,6 +475,9 @@ object Task {
 
   def fromFuture[A](f: Future[A]): Task[A] =
     Wrap(MonixTask.fromFuture(f), List.empty)
+
+  def zip2[A, B](a: Task[A], b: Task[B]): Task[(A, B)] =
+    mapBoth(a, b) { case (a, b) => (a, b) }
 
   def mapBoth[A, B, R](a: Task[A], b: Task[B])(f: (A, B) => R): Task[R] = {
     Task
@@ -556,7 +564,7 @@ object Task {
     create {
       (
           sh: Scheduler,
-          cb: Callback[Either[(A, CancelableFuture[B]), (CancelableFuture[A], B)]]
+          cb: Callback[Throwable, Either[(A, CancelableFuture[B]), (CancelableFuture[A], B)]]
       ) =>
         val latch = new AtomicBoolean(false)
         val fa = a.runAsync(sh)

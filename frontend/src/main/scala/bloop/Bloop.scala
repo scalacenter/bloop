@@ -17,7 +17,7 @@ import bloop.engine.State
 import bloop.io.AbsolutePath
 import bloop.logging.BloopLogger
 
-import _root_.monix.eval.Task
+import _root_.bloop.task.Task
 import caseapp.CaseApp
 import caseapp.RemainingArgs
 import jline.console.ConsoleReader

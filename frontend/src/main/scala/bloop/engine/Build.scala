@@ -10,9 +10,8 @@ import bloop.engine.Dag.DagResult
 import bloop.io.AbsolutePath
 import bloop.io.ByteHasher
 import bloop.logging.Logger
+import bloop.task.Task
 import bloop.util.CacheHashCode
-
-import monix.eval.Task
 
 final case class Build private (
     origin: AbsolutePath,

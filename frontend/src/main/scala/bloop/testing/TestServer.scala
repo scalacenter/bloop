@@ -6,6 +6,7 @@ import java.net.ServerSocket
 
 import scala.concurrent.Promise
 import scala.util.Try
+import scala.util.control.NonFatal
 
 import ch.epfl.scala.debugadapter.testing.TestSuiteEvent
 
@@ -13,9 +14,8 @@ import bloop.cli.CommonOptions
 import bloop.config.Config
 import bloop.logging.DebugFilter
 import bloop.logging.Logger
+import bloop.task.Task
 
-import monix.eval.Task
-import monix.execution.misc.NonFatal
 import sbt.ForkConfiguration
 import sbt.ForkTags
 import sbt.testing.Event

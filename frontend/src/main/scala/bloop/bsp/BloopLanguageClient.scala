@@ -1,166 +1,116 @@
 package bloop.bsp
 
 import java.io.OutputStream
-import java.nio.ByteBuffer
-import java.nio.channels.Channels
 
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.Future
-import scala.concurrent.duration.FiniteDuration
-import scala.meta.jsonrpc.CancelParams
-import scala.meta.jsonrpc.JsonRpcClient
-import scala.meta.jsonrpc.MessageWriter
-import scala.meta.jsonrpc.Notification
-import scala.meta.jsonrpc.RequestId
-import scala.meta.jsonrpc.Response
+import scala.concurrent.duration.Duration
+import scala.util.Try
 
-import io.circe.Decoder
-import io.circe.Encoder
-import io.circe.syntax._
-import monix.eval.Callback
-import monix.eval.Task
+import bloop.task.Task
+
+import com.github.plokhotnyuk.jsoniter_scala.core.JsonValueCodec
+import com.github.plokhotnyuk.jsoniter_scala.core.readFromArray
+import com.github.plokhotnyuk.jsoniter_scala.core.writeToArray
+import jsonrpc4s._
 import monix.execution.Ack
+import monix.execution.Callback
 import monix.execution.Cancelable
 import monix.execution.atomic.Atomic
 import monix.execution.atomic.AtomicInt
 import monix.reactive.Observer
 import scribe.LoggerSupport
 
-/**
- * A copy of `LanguageClient` defined in `lsp4s` with a few critical fixes.
- */
-final class BloopLanguageClient(out: Observer[ByteBuffer], logger: LoggerSupport)
-    extends JsonRpcClient {
+class BloopLanguageClient(
+    out: Observer[Message],
+    logger: LoggerSupport
+) {
 
-  // ++ bloop
-  def this(out: OutputStream, logger: LoggerSupport) =
-    this(BloopLanguageClient.fromOutputStream(out, logger), logger)
-  // -- bloop
+  protected val counter: AtomicInt = Atomic(1)
+  protected val activeServerRequests = TrieMap.empty[RequestId, Callback[Throwable, Response]]
 
-  private val writer = new MessageWriter(out, logger)
-  private val counter: AtomicInt = Atomic(1)
-  private val activeServerRequests =
-    TrieMap.empty[RequestId, Callback[Response]]
+  protected val notificationsLock = new Object()
+  protected def toJson[R: JsonValueCodec](r: R): RawJson = RawJson(writeToArray(r))
 
-  def notify[A: Encoder](method: String, notification: A): Future[Ack] =
-    writer.write(Notification(method, Some(notification.asJson)))
+  def notify[A](
+      endpoint: Endpoint[A, Unit],
+      params: A,
+      headers: Map[String, String] = Map.empty
+  ): Future[Ack] = {
+    import endpoint.codecA
+    val msg = Notification(endpoint.method, Some(toJson(params)), headers)
 
-  def serverRespond(response: Response): Future[Ack] = response match {
-    case Response.Empty => Ack.Continue
-    case x: Response.Success => writer.write(x)
-    case x: Response.Error =>
-      logger.error(s"Response error: $x")
-      writer.write(x)
+    // Send notifications in the order they are sent by the caller
+    notificationsLock.synchronized {
+      out.onNext(msg)
+    }
+  }
+
+  def request[A, B](
+      endpoint: Endpoint[A, B],
+      params: A,
+      headers: Map[String, String] = Map.empty
+  ): Task[RpcResponse[B]] = {
+    import endpoint.{codecA, codecB}
+    val reqId = RequestId(counter.incrementAndGet())
+    val response = Task.create[Response] { (s, cb) =>
+      val scheduled = s.scheduleOnce(Duration(0, "s")) {
+        val json = Request(endpoint.method, Some(toJson(params)), reqId, headers)
+        activeServerRequests.put(reqId, cb)
+        out.onNext(json)
+      }
+
+      Cancelable { () =>
+        scheduled.cancel()
+        val cancellation = Response.cancelled(reqId)
+        val cancelledErr = RpcFailure(endpoint.method, cancellation)
+        activeServerRequests.remove(reqId).foreach(_.onError(cancelledErr))
+        this.notify(RpcActions.cancelRequest, CancelParams(reqId))
+      }
+    }
+
+    response.map {
+      // This case can never happen given that no response isn't a valid JSON-RPC message
+      case Response.None => sys.error("Fatal error: obtained `Response.None`!")
+      case err: Response.Error => RpcFailure(endpoint.method, err)
+      case suc: Response.Success =>
+        Try(readFromArray[B](suc.result.value)).toEither match {
+          case Right(value) => RpcSuccess(value, suc)
+          case Left(err) =>
+            RpcFailure(endpoint.method, Response.invalidParams(err.toString, reqId))
+        }
+    }
   }
 
   def clientRespond(response: Response): Unit = {
     for {
       id <- response match {
-        case Response.Empty => None
-        case Response.Success(_, requestId) => Some(requestId)
-        case Response.Error(_, requestId) => Some(requestId)
+        case Response.None => Some(RequestId.Null)
+        case Response.Success(_, requestId, jsonrpc, _) => Some(requestId)
+        case Response.Error(_, requestId, jsonrpc, _) => Some(requestId)
       }
-      callback <- activeServerRequests.get(id).orElse {
+      callback <- activeServerRequests.remove(id).orElse {
         logger.error(s"Response to unknown request: $response")
         None
       }
     } {
-      activeServerRequests.remove(id)
       callback.onSuccess(response)
     }
   }
-
-  def request[A: Encoder, B: Decoder](
-      method: String,
-      request: A
-  ): Task[Either[Response.Error, B]] = {
-    val nextId = RequestId(counter.incrementAndGet())
-    val response = Task.create[Response] { (out, cb) =>
-      import java.util.concurrent.TimeUnit
-      val scheduled = out.scheduleOnce(FiniteDuration(0, TimeUnit.MILLISECONDS)) {
-        import scala.meta.jsonrpc.Request
-        val json = Request(method, Some(request.asJson), nextId)
-        activeServerRequests.put(nextId, cb)
-        writer.write(json)
-        ()
-      }
-      Cancelable { () =>
-        scheduled.cancel()
-        this.notify("$/cancelRequest", CancelParams(nextId.value))
-        ()
-      }
-    }
-
-    response.map {
-      case Response.Empty =>
-        Left(Response.invalidParams(s"Got empty response for request $request", nextId))
-      case err: Response.Error => Left(err)
-      case Response.Success(result, _) =>
-        import cats.syntax.either._
-        result.as[B].leftMap { err =>
-          Response.invalidParams(err.toString, nextId)
-        }
-    }
-  }
-
-  // Addition compared to lsp4s so that our tests can request something but forget about its result
-  def requestAndForget[A: Encoder](
-      method: String,
-      request: A
-  ): Task[Unit] = {
-    Task {
-      val nextId = RequestId(counter.incrementAndGet())
-      import scala.meta.jsonrpc.Request
-      val json = Request(method, Some(request.asJson), nextId)
-      writer.write(json)
-      ()
+  
+  def serverRespond(response: Response): Future[Ack] = {
+    response match {
+      case Response.None => Ack.Continue
+      case x: Response.Success => out.onNext(x)
+      case x: Response.Error => out.onNext(x)
     }
   }
 }
 
 object BloopLanguageClient {
 
-  /**
-   * An observer implementation that writes messages to the underlying output
-   * stream. This class is copied over from lsp4s but has been modified to
-   * synchronize writing on the output stream. Synchronizing makes sure BSP
-   * clients see server responses in the order they were sent.
-   *
-   * If this is a bottleneck in the future, we can consider removing the
-   * synchronized blocks here and in the body of `BloopLanguageClient` and
-   * replace them with a ring buffer and an id generator to make sure all
-   * server interactions are sent out in order. As it's not a performance
-   * blocker for now, we opt for the synchronized approach.
-   */
-  def fromOutputStream(
-      out: OutputStream,
-      logger: LoggerSupport
-  ): Observer.Sync[ByteBuffer] = {
-    new Observer.Sync[ByteBuffer] {
-      private[this] var isClosed: Boolean = false
-      private[this] val channel = Channels.newChannel(out)
-      override def onNext(elem: ByteBuffer): Ack = out.synchronized {
-        if (isClosed) Ack.Stop
-        else {
-          try {
-            channel.write(elem)
-            out.flush()
-            Ack.Continue
-          } catch {
-            case t: java.io.IOException =>
-              logger.trace("OutputStream closed!", t)
-              isClosed = true
-              Ack.Stop
-          }
-        }
-      }
-      override def onError(ex: Throwable): Unit = ()
-      override def onComplete(): Unit = {
-        out.synchronized {
-          channel.close()
-          out.close()
-        }
-      }
-    }
+  def fromOutputStream(out: OutputStream, logger: LoggerSupport): BloopLanguageClient = {
+    val msgOut = Message.messagesToOutput(Left(out), logger)
+    new BloopLanguageClient(msgOut, logger)
   }
 }

@@ -21,10 +21,10 @@ import bloop.engine.caches.ExpressionCompilerCache
 import bloop.engine.tasks.RunMode
 import bloop.engine.tasks.Tasks
 import bloop.logging.Logger
+import bloop.task.Task
 import bloop.testing.DebugLoggingEventHandler
 import bloop.testing.TestInternals
 
-import monix.eval.Task
 import monix.execution.Scheduler
 
 abstract class BloopDebuggeeRunner(

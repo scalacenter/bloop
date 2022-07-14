@@ -15,11 +15,11 @@ import bloop.exec.Forker
 import bloop.exec.JvmProcessForker
 import bloop.io.AbsolutePath
 import bloop.logging.DebugFilter
+import bloop.task.Task
 import bloop.testing.BloopTestSuiteEventHandler
 import bloop.testing.LoggingEventHandler
 import bloop.util.JavaCompat.EnrichOptional
 
-import monix.eval.Task
 import sbt.internal.inc.Analysis
 import sbt.internal.inc.AnalyzingCompiler
 import sbt.internal.inc.PlainVirtualFileConverter

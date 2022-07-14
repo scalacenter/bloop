@@ -8,10 +8,10 @@ import bloop.internal.build.BuildInfo
 import bloop.io.Environment.lineSeparator
 import bloop.logging.BspClientLogger
 import bloop.logging.RecordingLogger
+import bloop.task.Task
 import bloop.util.TestProject
 import bloop.util.TestUtil
 
-import monix.eval.Task
 import monix.execution.ExecutionModel
 import monix.execution.Scheduler
 
@@ -252,15 +252,15 @@ class BspConnectionSpec(
             import ch.epfl.scala.bsp
             import ch.epfl.scala.bsp.endpoints.BuildTarget
 
-            bspState.client0
-              .requestAndForget(
-                BuildTarget.compile.method,
+            val req = bspState.client0.request(
+                BuildTarget.compile,
                 bsp.CompileParams(List(target), None, None)
-              )
-              .flatMap { _ =>
-                // Wait until observable is completed, which means server is done
-                bspState.serverStates.foreachL(_ => ())
-              }
+            )
+            req.runAsync(ExecutionContext.ioScheduler)
+            // Wait until observable is completed, which means server is done
+            Task.liftMonixTaskUncancellable(
+              bspState.serverStates.foreachL(_ => ())
+            )
           }
         }.flatten
       }

@@ -5,9 +5,9 @@ import java.io.File
 import java.nio.file.Path
 
 import bloop.UniqueCompileInputs
+import bloop.task.Task
 import bloop.tracing.BraveTracer
 
-import monix.eval.Task
 import sbt.internal.inc.Analysis
 import sbt.internal.inc.InvalidationProfiler
 import sbt.internal.inc.Lookup

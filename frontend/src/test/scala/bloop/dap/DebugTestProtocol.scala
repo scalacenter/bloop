@@ -4,12 +4,13 @@ import scala.reflect.ClassTag
 import scala.reflect.classTag
 import scala.util.Try
 
+import bloop.task.Task
+
 import com.microsoft.java.debug.core.protocol.Events.DebugEvent
 import com.microsoft.java.debug.core.protocol.JsonUtils.fromJson
 import com.microsoft.java.debug.core.protocol.JsonUtils.toJson
 import com.microsoft.java.debug.core.protocol.JsonUtils.toJsonTree
 import com.microsoft.java.debug.core.protocol.Messages
-import monix.eval.Task
 import monix.execution.atomic.Atomic
 
 private[dap] object DebugTestProtocol {
