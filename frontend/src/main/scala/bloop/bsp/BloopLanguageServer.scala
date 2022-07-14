@@ -55,9 +55,9 @@ final class BloopLanguageServer(
   }
 
   def handleResponse(response: Response): Task[Response] = Task {
-        client.clientRespond(response)
-        Response.None
-    }
+    client.clientRespond(response)
+    Response.None
+  }
 
   def handleNotification(notification: Notification): Task[Response] = {
     handlersByMethodName.get(notification.method) match {

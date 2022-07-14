@@ -881,7 +881,7 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
             """
               |request received: build/initialize
               |BSP initialization handshake complete.
-              |Cancelling request "5"
+              |Cancelling request Number(5.0)
           """.stripMargin
           )
 

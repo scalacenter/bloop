@@ -92,16 +92,10 @@ sealed trait Task[+A] { self =>
 
   final def executeOn(s: Scheduler, forceAsync: Boolean = true): Task[A] =
     Task.Transform(
-      (t: MonixTask[A]) => t.executeOn(s),
+      (t: MonixTask[A]) => t.executeOn(s, forceAsync),
       self,
       List.empty
     )
-  // final def executeOn(s: Scheduler, forceAsync: Boolean = true): Task[A] =
-  //   Task.Transform(
-  //     (t: MonixTask[A]) => t.executeOn(s, forceAsync),
-  //     self,
-  //     List.empty
-  //   )
 
   final def asyncBoundary: Task[A] =
     Task.Transform(
@@ -279,7 +273,10 @@ sealed trait Task[+A] { self =>
       main,
       Cancelable { () =>
         val tasks = callbacks.takeAllAndCancelNext
-        val _ = tasks.flatten.foreach(f => f())
+        val _ = tasks.flatten.foreach(f =>
+          try { f() }
+          catch { case e: Exception => println(e) }
+        )
       }
     )
   }
@@ -299,7 +296,11 @@ object Task {
     def push(tasks: List[() => Unit]): Unit = {
       ref.get() match {
         case null =>
-          val _ = tasks.foreach(f => f())
+          // val _ = tasks.foreach(f => f())
+          val _ = tasks.foreach(f =>
+            try { f() }
+            catch { case e: Exception => println(e) }
+          )
         case prev =>
           val next = tasks :: prev
           if (!ref.compareAndSet(prev, next))

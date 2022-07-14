@@ -58,14 +58,13 @@ class BloopLanguageClient(
         val json = Request(endpoint.method, Some(toJson(params)), reqId, headers)
         activeServerRequests.put(reqId, cb)
         out.onNext(json)
+        ()
       }
 
       Cancelable { () =>
         scheduled.cancel()
-        val cancellation = Response.cancelled(reqId)
-        val cancelledErr = RpcFailure(endpoint.method, cancellation)
-        activeServerRequests.remove(reqId).foreach(_.onError(cancelledErr))
         this.notify(RpcActions.cancelRequest, CancelParams(reqId))
+        ()
       }
     }
 

@@ -89,55 +89,17 @@ class BspConnectionSpec(
   }
 
   def checkConnectionIsInitialized(logger: RecordingLogger): Unit = {
-    val jsonrpc = logger.debugs.filter(_.startsWith(" -->"))
+    val contentLogs = logger.debugs.flatMap(_.split("\n")).filter(_.startsWith("  --> content:"))
     // Filter out the initialize request that contains platform-specific details
-    val allButInitializeRequest = jsonrpc.filterNot(_.contains("""build/initialize""""))
+    val allButInitializeRequest = contentLogs.filterNot(_.contains("""build/initialize""""))
+    // some IDEs might trim spaces in multiline string
+    val spaces = "       "
     assertNoDiff(
       allButInitializeRequest.mkString(lineSeparator),
-      s"""| --> {
-          |  "result" : {
-          |    "displayName" : "${BuildInfo.bloopName}",
-          |    "version" : "${BuildInfo.version}",
-          |    "bspVersion" : "${BuildInfo.bspVersion}",
-          |    "capabilities" : {
-          |      "compileProvider" : {
-          |        "languageIds" : [
-          |          "scala",
-          |          "java"
-          |        ]
-          |      },
-          |      "testProvider" : {
-          |        "languageIds" : [
-          |          "scala",
-          |          "java"
-          |        ]
-          |      },
-          |      "runProvider" : {
-          |        "languageIds" : [
-          |          "scala",
-          |          "java"
-          |        ]
-          |      },
-          |      "inverseSourcesProvider" : true,
-          |      "dependencySourcesProvider" : true,
-          |      "resourcesProvider" : true,
-          |      "buildTargetChangedProvider" : false,
-          |      "jvmTestEnvironmentProvider" : true,
-          |      "jvmRunEnvironmentProvider" : true,
-          |      "canReload" : false
-          |    },
-          |    "data" : null
-          |  },
-          |  "id" : "2",
-          |  "jsonrpc" : "2.0"
-          |}
-          | --> {
-          |  "method" : "build/initialized",
-          |  "params" : {
-          |    
-          |  },
-          |  "jsonrpc" : "2.0"
-          |}""".stripMargin
+      s"""|
+          |  --> content: {"result":{"displayName":"${BuildInfo.bloopName}","version":"${BuildInfo.version}","bspVersion":"${BuildInfo.bspVersion}","capabilities":{"compileProvider":{"languageIds":["scala","java"]},"testProvider":{"languageIds":["scala","java"]},"runProvider":{"languageIds":["scala","java"]},"inverseSourcesProvider":true,"dependencySourcesProvider":true,"resourcesProvider":true,"buildTargetChangedProvider":false,"jvmTestEnvironmentProvider":true,"jvmRunEnvironmentProvider":true,"canReload":false}},"id":2,"jsonrpc":"2.0"}
+          |  --> content: {"method":"build/initialized","params":{},"jsonrpc":"2.0"}
+          |$spaces""".stripMargin
     )
   }
 
