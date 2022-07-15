@@ -5,11 +5,11 @@ on:
     branches: [ main ]
 
 jobs:
-  submit-dependency-graph:
-    name: Submit dependency graph
+  update-graph:
+    name: Update graph
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
         with:
           submodules: true
-      - uses: scalacenter/sbt-dependency-graph-action@v1
+      - uses: scalacenter/sbt-dependency-submission@v2
