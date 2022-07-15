@@ -175,12 +175,12 @@ sealed trait Task[+A] { self =>
   def failed: Task[Throwable] =
     self.materialize.flatMap {
       case Failure(e) => Task(e)
-      case Success(_) => Task.raiseError(new NoSuchElementException())
+      case Success(_) => Task.raiseError(new NoSuchElementException("failed"))
     }
 
   def onErrorRestartIf(f: Throwable => Boolean): Task[A] =
     self.materialize.flatMap {
-      case Failure(e) if f(e) => self
+      case Failure(e) if f(e) => self.onErrorRestartIf(f)
       case Failure(e) => Task.raiseError(e)
       case Success(v) => Task(v)
     }
