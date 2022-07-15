@@ -53,44 +53,39 @@ object JsBridge {
       }
     override def trace(t: => Throwable): Unit = logger.trace(t)
   }
-  private case class LinkerInput(
-      isFullLinkJS: Boolean,
-      moduleKind: ModuleKindJS,
-      target: Path
-  )
   private object ScalaJSLinker {
-    private val cache = TrieMap.empty[LinkerInput, WeakReference[Linker]]
-    def reuseOrCreate(input: LinkerInput): Linker =
-      if (input.isFullLinkJS) createLinker(input)
-      else {
-        cache.get(input) match {
-          case Some(WeakReference(linker)) => linker
+    private val cache = TrieMap.empty[Path, WeakReference[(JsConfig, Linker)]]
+    def reuseOrCreate(config: JsConfig, target: Path): Linker =
+      if (config.mode == LinkerMode.Release) createLinker(config)
+      else
+        cache.get(target) match {
+          case Some(WeakReference((`config`, linker))) => linker
           case _ =>
-            val newLinker = createLinker(input)
-            cache.update(input, WeakReference(newLinker))
+            val newLinker = createLinker(config)
+            cache.update(target, WeakReference((config, newLinker)))
             newLinker
         }
-      }
-    private def createLinker(input: LinkerInput): Linker = {
-      val semantics = input.isFullLinkJS match {
-        case true => Semantics.Defaults.optimized
-        case false => Semantics.Defaults
-      }
-      val scalaJSModuleKind = input.moduleKind match {
+    private def createLinker(config: JsConfig): Linker = {
+      val isFullLinkJS = config.mode == LinkerMode.Release
+      val semantics =
+        if (isFullLinkJS) Semantics.Defaults.optimized
+        else Semantics.Defaults
+      val scalaJSModuleKind = config.kind match {
         case ModuleKindJS.NoModule => ScalaJSModuleKind.NoModule
         case ModuleKindJS.CommonJSModule => ScalaJSModuleKind.CommonJSModule
         case ModuleKindJS.ESModule => ScalaJSModuleKind.ESModule
       }
 
-      val useClosure = input.isFullLinkJS && input.moduleKind != ModuleKindJS.ESModule
+      val useClosure = isFullLinkJS && config.kind != ModuleKindJS.ESModule
 
-      val config = StandardConfig()
+      val linkerConfig = StandardConfig()
         .withOptimizer(true)
         .withClosureCompilerIfAvailable(useClosure)
         .withSemantics(semantics)
         .withModuleKind(scalaJSModuleKind)
+        .withSourceMap(config.emitSourceMaps)
 
-      StandardImpl.clearableLinker(config)
+      StandardImpl.clearableLinker(linkerConfig)
     }
   }
 
@@ -106,13 +101,7 @@ object JsBridge {
   ): Unit = {
     implicit val ec = executionContext
     implicit val logFilter: DebugFilter = DebugFilter.Link
-    val linker = ScalaJSLinker.reuseOrCreate(
-      LinkerInput(
-        isFullLinkJS = config.mode == LinkerMode.Release,
-        moduleKind = config.kind,
-        target = target
-      )
-    )
+    val linker = ScalaJSLinker.reuseOrCreate(config, target)
 
     val cache = StandardImpl.irFileCache().newCache
     val irContainersPairs = PathIRContainer.fromClasspath(classpath)
