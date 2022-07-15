@@ -829,6 +829,7 @@ val allProjects = Seq(
 
 val allProjectsToRelease = Seq[ProjectReference](
   bloopShared,
+  bloopTask,
   backend,
   frontend,
   jsonConfig210.jvm,
