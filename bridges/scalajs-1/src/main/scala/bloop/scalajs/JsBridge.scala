@@ -2,7 +2,7 @@ package bloop.scalajs
 
 import java.nio.file.Path
 
-import scala.collection.mutable
+import scala.collection.concurrent.TrieMap
 import scala.concurrent.Await
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.Duration
@@ -59,14 +59,18 @@ object JsBridge {
       target: Path
   )
   private object ScalaJSLinker {
-    private val cache = mutable.Map.empty[LinkerInput, WeakReference[Linker]]
-    def reuseOrCreate(input: LinkerInput): Linker = cache.get(input) match {
-      case Some(WeakReference(linker)) => linker
-      case _ =>
-        val newLinker = createLinker(input)
-        cache.update(input, WeakReference(newLinker))
-        newLinker
-    }
+    private val cache = TrieMap.empty[LinkerInput, WeakReference[Linker]]
+    def reuseOrCreate(input: LinkerInput): Linker =
+      if (input.isFullLinkJS) createLinker(input)
+      else {
+        cache.get(input) match {
+          case Some(WeakReference(linker)) => linker
+          case _ =>
+            val newLinker = createLinker(input)
+            cache.update(input, WeakReference(newLinker))
+            newLinker
+        }
+      }
     private def createLinker(input: LinkerInput): Linker = {
       val semantics = input.isFullLinkJS match {
         case true => Semantics.Defaults.optimized
