@@ -175,7 +175,6 @@ object ClasspathHasher {
                     logger
                       .warn(s"Unexpected hash computation of $entry was cancelled, restarting...")
                     Task.eval(acquireHashingEntry(entry, entryIdx)).asyncBoundary
-                    //Task.fork(Task.eval(acquireHashingEntry(entry, entryIdx)))
                   }
                 } else {
                   Task.now {

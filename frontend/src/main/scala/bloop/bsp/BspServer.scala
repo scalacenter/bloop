@@ -71,15 +71,25 @@ object BspServer {
       val in = socket.getInputStream
       val out = socket.getOutputStream
 
-    // FORMAT: OFF
-    val bspLogger = new BspClientLogger(logger)
-    val stopBspConnection = CancelablePromise[Unit]()
+      val bspLogger = new BspClientLogger(logger)
+      val stopBspConnection = CancelablePromise[Unit]()
 
-    val client = BloopLanguageClient.fromOutputStream(out, bspLogger)
-    val provider = new BloopBspServices(state, client, config, stopBspConnection, externalObserver, isCommunicationActive, connectedBspClients, scheduler, ioScheduler)
-    // In this case BloopLanguageServer doesn't use input observable
-    val server = new BloopLanguageServer(Observable.never, client, provider.services, ioScheduler, bspLogger)
-    // FORMAT: ON
+      val client = BloopLanguageClient.fromOutputStream(out, bspLogger)
+      val provider = new BloopBspServices(
+        state,
+        client,
+        config,
+        stopBspConnection,
+        externalObserver,
+        isCommunicationActive,
+        connectedBspClients,
+        scheduler,
+        ioScheduler
+      )
+      // In this case BloopLanguageServer doesn't use input observable
+      val server =
+        new BloopLanguageServer(Observable.never, client, provider.services, ioScheduler, bspLogger)
+
       def error(msg: String): Unit = provider.stateAfterExecution.logger.error(msg)
 
       val inputExit = CancelablePromise[Unit]()
@@ -104,7 +114,7 @@ object BspServer {
         Task.fromFuture(stopBspConnection.future)
       )
 
-      def stopListeting(): Unit = {
+      def stopListeting(cancelled: Boolean): Unit = {
         if (isCommunicationActive.getAndSet(false)) {
           val latestState = provider.stateAfterExecution
           val initializedClientInfo = provider.unregisterClient
@@ -119,6 +129,8 @@ object BspServer {
               case None => clients0
             }
           }
+          if (cancelled) error(s"BSP server cancelled, closing socket...")
+          else error(s"BSP server stopped")
           server.cancelAllRequests()
           ioScheduler.scheduleOnce(
             100,
@@ -136,8 +148,8 @@ object BspServer {
       }
 
       process
-        .doOnCancel(Task(stopListeting()))
-        .doOnFinish(_ => Task(stopListeting()))
+        .doOnCancel(Task(stopListeting(cancelled = true)))
+        .doOnFinish(_ => Task(stopListeting(cancelled = false)))
         .map(_ => provider.stateAfterExecution)
     }
 

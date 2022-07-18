@@ -51,7 +51,7 @@ object BloopRpcServices {
           val method = endpoint.method
           message match {
             case Request(`method`, params, id, jsonrpc, headers) =>
-              val paramsJson = params.getOrElse(RawJson.nullValue)
+              val paramsJson = params.flatMap(v => Option(v)).getOrElse(RawJson.emptyObj)
               Try(readFromArray[A](paramsJson.value)) match {
                 case Success(value) =>
                   f(value).materialize.map { v =>
@@ -87,7 +87,7 @@ object BloopRpcServices {
           val method = endpoint.method
           message match {
             case Notification(`method`, params, _, headers) =>
-              val paramsJson = params.getOrElse(RawJson.nullValue)
+              val paramsJson = params.flatMap(v => Option(v)).getOrElse(RawJson.emptyObj)
               Try(readFromArray[A](paramsJson.value)) match {
                 case Success(value) => f(value).map(a => Response.None)
                 case Failure(err) => fail(s"Failed to parse notification $message. Errors: $err")
