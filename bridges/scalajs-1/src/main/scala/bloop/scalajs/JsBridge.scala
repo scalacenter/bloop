@@ -6,7 +6,7 @@ import scala.collection.concurrent.TrieMap
 import scala.concurrent.Await
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.Duration
-import scala.ref.WeakReference
+import scala.ref.SoftReference
 
 import bloop.config.Config.JsConfig
 import bloop.config.Config.LinkerMode
@@ -54,15 +54,15 @@ object JsBridge {
     override def trace(t: => Throwable): Unit = logger.trace(t)
   }
   private object ScalaJSLinker {
-    private val cache = TrieMap.empty[Path, WeakReference[(JsConfig, Linker)]]
+    private val cache = TrieMap.empty[Path, SoftReference[(JsConfig, Linker)]]
     def reuseOrCreate(config: JsConfig, target: Path): Linker =
       if (config.mode == LinkerMode.Release) createLinker(config)
       else
         cache.get(target) match {
-          case Some(WeakReference((`config`, linker))) => linker
+          case Some(SoftReference((`config`, linker))) => linker
           case _ =>
             val newLinker = createLinker(config)
-            cache.update(target, WeakReference((config, newLinker)))
+            cache.update(target, SoftReference((config, newLinker)))
             newLinker
         }
     private def createLinker(config: JsConfig): Linker = {
