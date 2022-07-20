@@ -79,7 +79,6 @@ object JsBridge {
       val useClosure = isFullLinkJS && config.kind != ModuleKindJS.ESModule
 
       val linkerConfig = StandardConfig()
-        .withOptimizer(true)
         .withClosureCompiler(useClosure)
         .withSemantics(semantics)
         .withModuleKind(scalaJSModuleKind)
