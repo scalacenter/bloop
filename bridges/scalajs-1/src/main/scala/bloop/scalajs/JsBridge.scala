@@ -80,7 +80,7 @@ object JsBridge {
 
       val linkerConfig = StandardConfig()
         .withOptimizer(true)
-        .withClosureCompilerIfAvailable(useClosure)
+        .withClosureCompiler(useClosure)
         .withSemantics(semantics)
         .withModuleKind(scalaJSModuleKind)
         .withSourceMap(config.emitSourceMaps)
