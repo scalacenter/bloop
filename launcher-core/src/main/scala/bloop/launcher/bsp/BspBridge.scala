@@ -41,11 +41,8 @@ final class BspBridge(
     bspServerStatus = None
   }
 
-  case class RunningBspConnection(bsp: BspConnection, out: ByteArrayOutputStream) {
-    def logs: List[String] = {
-      val contents = new String(out.toByteArray(), StandardCharsets.UTF_8)
-      contents.linesIterator.toList
-    }
+  case class RunningBspConnection(bsp: BspConnection, out: BspBridge.LogsRecordingStream) {
+    def logs: Seq[String] = out.logs
   }
 
   /**
@@ -71,7 +68,7 @@ final class BspBridge(
     // Reset the status as it can be called several times
     resetServerStatus()
 
-    val cliOut = new ByteArrayOutputStream()
+    val cliOut = BspBridge.LogsRecordingStream(maxLines = 200)
     val cli = createCli(new PrintStream(cliOut))
     val (bspCmd, openConnection) = deriveBspInvocation(useTcp, launcherTmpDir)
     println(Feedback.openingBspConnection(bspCmd), out)
@@ -301,4 +298,54 @@ final class BspBridge(
       dest.write(buffer)
     }
   }
+}
+
+object BspBridge {
+
+  class LogsRecordingStream(
+    maxLines: Int,
+    mkString: StringBuilder => String
+  ) extends OutputStream {
+    val queue =  scala.collection.mutable.Queue.empty[String]
+    var currLine = new StringBuilder()
+    def write(b: Int): Unit = {
+      synchronized {
+        if (b == '\n'){
+          if (queue.length == maxLines)
+            queue.dequeue()
+          
+          queue.enqueue(mkString(currLine))
+          currLine = new StringBuilder()
+        } else {
+          currLine.append(b.toChar)
+        }
+      }
+    }
+
+    def logs: Seq[String] = {
+      val tail = queue.toVector
+      if (currLine.nonEmpty)
+        tail :+ currLine.toString()
+      else
+        tail
+    }
+  }
+
+  object LogsRecordingStream {
+    def apply(maxLines: Int): LogsRecordingStream =  {
+      val mkString = 
+        if (scala.util.Properties.isWin)
+          (b: StringBuilder) => { 
+              if (b.last == '\r')
+                b.deleteCharAt(b.length - 1)
+              b.toString
+          }
+        else
+          (b: StringBuilder) => b.toString()
+      new LogsRecordingStream(maxLines, mkString)
+    }
+
+  }
+  
+
 }
