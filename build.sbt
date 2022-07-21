@@ -74,25 +74,12 @@ import build.Dependencies.{
   Sbt1Version
 }
 
-lazy val bloopTask = project
-  .in(file("bloop-task"))
-  .settings(scalafixSettings)
-  .settings(testSettings ++ testSuiteSettings)
-  .dependsOn(bloopShared)
-  .settings(
-    name := "bloop-task",
-    libraryDependencies ++= List(
-      Dependencies.monix
-    )
-  )
-
 lazy val backend = project
   .enablePlugins(BuildInfoPlugin)
   .disablePlugins(ScriptedPlugin)
   .settings(scalafixSettings)
   .settings(testSettings ++ testSuiteSettings)
   .dependsOn(bloopShared)
-  .dependsOn(bloopTask)
   .settings(
     name := "bloop-backend",
     buildInfoPackage := "bloop.internal.build",
@@ -829,7 +816,6 @@ val allProjects = Seq(
 
 val allProjectsToRelease = Seq[ProjectReference](
   bloopShared,
-  bloopTask,
   backend,
   frontend,
   jsonConfig210.jvm,
