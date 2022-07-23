@@ -1,6 +1,8 @@
 package sbt.internal.inc.bloop.internal
 
 import java.io.File
+import java.nio.file.FileSystem
+import java.nio.file.FileSystems
 import java.nio.file.Path
 import java.{util => ju}
 
@@ -75,6 +77,7 @@ final class BloopAnalysisCallback(
   private[this] val reportedProblems = new mutable.HashMap[Path, mutable.ListBuffer[Problem]]
   private[this] val mainClasses = new mutable.HashMap[Path, mutable.ListBuffer[String]]
   private[this] val binaryDeps = new mutable.HashMap[Path, mutable.HashSet[Path]]
+  private[this] val binaryDepsZips = new mutable.HashMap[String, FileSystem]
 
   // source file to set of generated (class file, binary class name); only non local classes are stored here
   private[this] val nonLocalClasses = new mutable.HashMap[Path, mutable.HashSet[(Path, String)]]
@@ -139,13 +142,28 @@ final class BloopAnalysisCallback(
       add(intSrcDeps, sourceClassName, InternalDependency.of(sourceClassName, onClassName, context))
   }
 
+  private[this] def safePath(path: Path): Path =
+    path.getFileSystem match {
+      case fs if fs.getClass.getName == "jdk.nio.zipfs.ZipFileSystem" =>
+        // The FileSystem of path might be closed when we read path later on, so
+        // we try to duplicate it with a FileSystem instance of our own, that we know
+        // won't be closed by then.
+        val fs0 = binaryDepsZips.getOrElseUpdate(
+          fs.toString,
+          // Resource management: we let those be closed upon GC… Hope this isn't a problem on Windows…
+          FileSystems.newFileSystem(java.nio.file.Paths.get(fs.toString))
+        )
+        fs0.getPath(path.toString)
+      case _ => path
+    }
+
   private[this] def externalBinaryDependency(
       binary: Path,
       className: String,
       source: VirtualFileRef
   ): Unit = {
-    binaryClassName.put(binary, className)
-    add(binaryDeps, converter.toPath(source), binary)
+    binaryClassName.put(safePath(binary), className)
+    add(binaryDeps, converter.toPath(source), safePath(binary))
   }
 
   private[this] def externalSourceDependency(
