@@ -21,6 +21,11 @@ Install bloop by adding the following line to your `project/plugins.sbt`:
 addSbtPlugin("ch.epfl.scala" % "sbt-bloop" % "@VERSION@")
 ```
 
+If this does not work due to using an internal Artifactory, use instead:
+```sbt
+libraryDependencies += "ch.epfl.scala" % "sbt-bloop_2.12_1.0" % "@VERSION@"
+```
+
 After that, start up sbt or reload your sbt shell to load the plugin.
 
 ## Export your build
