@@ -144,7 +144,17 @@ object Tasks {
       }
 
       val cwd = project.workingDirectory
-      TestTask.runTestSuites(state, project, cwd, userTestOptions, testFilter, testClasses, handleAndStore, mode)
+      TestTask
+        .runTestSuites(
+          state,
+          project,
+          cwd,
+          userTestOptions,
+          testFilter,
+          testClasses,
+          handleAndStore,
+          mode
+        )
         .map { exitCode => TestRun(project, exitCode, resultsBuilder.result()) }
     }
 
