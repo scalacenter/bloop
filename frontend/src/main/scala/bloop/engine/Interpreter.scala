@@ -371,7 +371,7 @@ object Interpreter {
             handler,
             cmd.parallel,
             RunMode.Normal
-          )
+          ).map(testRuns => state.mergeStatus(testRuns.status))
         }
       }
 
