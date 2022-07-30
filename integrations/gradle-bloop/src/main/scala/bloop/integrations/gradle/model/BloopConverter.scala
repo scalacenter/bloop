@@ -65,7 +65,7 @@ import org.gradle.plugins.ide.internal.tooling.java.DefaultInstalledJdk
  * Define the conversion from Gradle's project model to Bloop's project model.
  * @param parameters Plugin input parameters
  */
-class BloopConverter(parameters: BloopParameters, info: String => Unit) {
+class BloopConverter(parameters: BloopParameters) {
 
   def toBloopConfig(
       projectName: String,
@@ -174,9 +174,10 @@ class BloopConverter(parameters: BloopParameters, info: String => Unit) {
       // some configs aren't allowed to be resolved - hence the catch
       // this can bring too many artifacts into the resolution section (e.g. junit on main projects) but there's no way to know which artifact is required by which sourceset
       // filter out internal scala plugin configurations
-      val additionalModules = project.getConfigurations.asScala
+      val allArtifacts = project.getConfigurations.asScala
         .filter(_.isCanBeResolved)
         .flatMap(getConfigurationArtifacts)
+      val additionalModules = allArtifacts
         .filterNot(f => allOutputsToSourceSets.contains(f.getFile))
         .map(artifactToConfigModule(_, project))
         .toList
@@ -195,27 +196,34 @@ class BloopConverter(parameters: BloopParameters, info: String => Unit) {
           (List(Tag.Test), Some(Config.Test.defaultConfiguration))
         else (List(Tag.Library), None)
 
-      val bloopProject = Config.Project(
-        name = projectName,
-        directory = project.getProjectDir.toPath,
-        workspaceDir = Option(project.getRootProject.getProjectDir.toPath),
-        sources = sources,
-        sourcesGlobs = None,
-        sourceRoots = None,
-        dependencies = projectDependencies,
-        classpath = compileClasspathItems,
-        out = outDir,
-        classesDir = classesDir,
-        resources = if (resources.isEmpty) None else Some(resources),
-        `scala` = None,
-        java = getAndroidJavaConfig(project, variant),
-        sbt = None,
-        test = testConfig,
-        platform = None,
-        resolution = if (modules.isEmpty) None else Some(Config.Resolution(modules)),
-        tags = if (tags.isEmpty) None else Some(tags)
-      )
-      Success(Config.File(Config.File.LatestVersion, bloopProject))
+      for {
+        scalaConfig <- getScalaConfig(
+          project,
+          None,
+          allArtifacts
+        )
+
+        bloopProject = Config.Project(
+          name = projectName,
+          directory = project.getProjectDir.toPath,
+          workspaceDir = Option(project.getRootProject.getProjectDir.toPath),
+          sources = sources,
+          sourcesGlobs = None,
+          sourceRoots = None,
+          dependencies = projectDependencies,
+          classpath = compileClasspathItems,
+          out = outDir,
+          classesDir = classesDir,
+          resources = if (resources.isEmpty) None else Some(resources),
+          `scala` = scalaConfig,
+          java = getAndroidJavaConfig(variant),
+          sbt = None,
+          test = testConfig,
+          platform = None,
+          resolution = if (modules.isEmpty) None else Some(Config.Resolution(modules)),
+          tags = if (tags.isEmpty) None else Some(tags)
+        )
+      } yield Config.File(Config.File.LatestVersion, bloopProject)
     }
   }
 
@@ -229,13 +237,11 @@ class BloopConverter(parameters: BloopParameters, info: String => Unit) {
    *
    * NOTE: Java classes will be also put into the above defined directory, not as with Gradle
    *
-   * @param projectName unique project name
    * @param project The Gradle project model
    * @param sourceSet The source set to convert
    * @return Bloop configuration
    */
   def toBloopConfig(
-      projectName: String,
       project: Project,
       sourceSet: SourceSet,
       targetDir: File
@@ -355,7 +361,7 @@ class BloopConverter(parameters: BloopParameters, info: String => Unit) {
       for {
         scalaConfig <- getScalaConfig(
           project,
-          sourceSet,
+          Some(sourceSet),
           compileArtifacts
         )
 
@@ -672,12 +678,12 @@ class BloopConverter(parameters: BloopParameters, info: String => Unit) {
     Option(variant.getJavaCompileProvider().getOrNull)
   }
 
-  private def getAndroidJavaConfig(project: Project, variant: BaseVariant): Option[Config.Java] = {
+  private def getAndroidJavaConfig(variant: BaseVariant): Option[Config.Java] = {
     getAndroidJavaCompile(variant).flatMap(javaCompile => {
       val options = javaCompile.getOptions
       // bug in DefaultJavaCompileSpec handling Android bootstrapClasspath causes crash so set to null
       options.setBootstrapClasspath(null)
-      getJavaConfig(project, javaCompile, options)
+      getJavaConfig(javaCompile, options)
     })
   }
 
@@ -812,9 +818,6 @@ class BloopConverter(parameters: BloopParameters, info: String => Unit) {
   private def getOutDir(targetDir: File, projectName: String): Path =
     (targetDir / projectName / "build").toPath
 
-  private def getOutDir(targetDir: File, project: Project, sourceSet: SourceSet): Path =
-    getOutDir(targetDir, getProjectName(project, sourceSet))
-
   private def getClassesDir(targetDir: File, projectName: String): Path =
     (targetDir / projectName / "build" / "classes").toPath
 
@@ -903,12 +906,14 @@ class BloopConverter(parameters: BloopParameters, info: String => Unit) {
 
   private def getScalaConfig(
       project: Project,
-      sourceSet: SourceSet,
-      artifacts: List[ResolvedArtifactResult]
+      sourceSet: Option[SourceSet],
+      artifacts: Iterable[ResolvedArtifactResult]
   ): Try[Option[Config.Scala]] = {
     def isJavaOnly: Boolean = {
-      val allSourceFiles = sourceSet.getAllSource.getFiles.asScala.toList
-      !allSourceFiles.filter(f => f.exists && f.isFile).exists(_.getName.endsWith(".scala"))
+      !sourceSet.exists(ss => {
+        val allSourceFiles = ss.getAllSource.getFiles.asScala.toList
+        allSourceFiles.filter(f => f.exists && f.isFile).exists(_.getName.endsWith(".scala"))
+      })
     }
 
     // Finding the compiler group and version from the standard Scala library added as dependency
@@ -922,41 +927,57 @@ class BloopConverter(parameters: BloopParameters, info: String => Unit) {
       artifactIds.filter(f => stdLibNames.contains(f.getComponentIdentifier.getModule))
     stdLibIds.headOption match {
       case Some(stdLibArtifact) =>
-        val scalaCompileTaskName = sourceSet.getCompileTaskName("scala")
-        val scalaCompileTask = project.getTask[ScalaCompile](scalaCompileTaskName)
+        val scalaCompileTask = sourceSet
+          .map(sourceSet => {
+            // task name is defined on the source set
+            val scalaCompileTaskName = sourceSet.getCompileTaskName("scala")
+            Option(project.getTask[ScalaCompile](scalaCompileTaskName))
+          })
+          .getOrElse({
+            // no sourceset - probably Android plugin - look for any ScalaCompile task
+            val scalaCompileTasks = project.getTasks.withType(classOf[ScalaCompile])
+            scalaCompileTasks.asScala.headOption
+          })
 
-        if (scalaCompileTask != null) {
-          val scalaVersion = stdLibArtifact.getComponentIdentifier.getVersion
-          val scalaOrg = stdLibArtifact.getComponentIdentifier.getGroup
-          val scalaJars = scalaCompileTask.getScalaClasspath.asScala.map(_.toPath).toList
-          val opts = scalaCompileTask.getScalaCompileOptions
-          val options = optionList(opts) ++ getPluginsAsOptions(scalaCompileTask)
-          val compilerName = parameters.compilerName.getOrElse("scala-compiler")
-          val compileOrder =
-            if (!sourceSet.getJava.getSourceDirectories.isEmpty) JavaThenScala
-            else Mixed
-          val setup = CompileSetup.empty.copy(order = compileOrder)
+        scalaCompileTask match {
+          case Some(compileTask) =>
+            val scalaVersion = stdLibArtifact.getComponentIdentifier.getVersion
+            val scalaOrg = stdLibArtifact.getComponentIdentifier.getGroup
+            val scalaJars = compileTask.getScalaClasspath.asScala.map(_.toPath).toList
+            val opts = compileTask.getScalaCompileOptions
+            val options = optionList(opts) ++ getPluginsAsOptions(compileTask)
+            val compilerName = parameters.compilerName.getOrElse("scala-compiler")
+            val noJavaFiles =
+              sourceSet.exists(sourceSet => sourceSet.getJava.getSourceDirectories.isEmpty)
+            val compileOrder = if (noJavaFiles) Mixed else JavaThenScala
+            val setup = CompileSetup.empty.copy(order = compileOrder)
 
-          // Use the compile setup and analysis out defaults, Gradle doesn't expose its customization
-          Success(
-            Some(
-              Config
-                .Scala(scalaOrg, compilerName, scalaVersion, options, scalaJars, None, Some(setup))
+            // Use the compile setup and analysis out defaults, Gradle doesn't expose its customization
+            Success(
+              Some(
+                Config
+                  .Scala(
+                    scalaOrg,
+                    compilerName,
+                    scalaVersion,
+                    options,
+                    scalaJars,
+                    None,
+                    Some(setup)
+                  )
+              )
             )
-          )
-        } else {
-          if (isJavaOnly) Success(None)
-          else {
-            // This is a heavy error on Gradle's side, but we will only report it in Scala projects
-            Failure(
-              new GradleException(s"$scalaCompileTaskName task is missing from ${project.getName}")
-            )
-          }
+          case None =>
+            if (isJavaOnly) Success(None)
+            else {
+              // This is a heavy error on Gradle's side, but we will only report it in Scala projects
+              Failure(new GradleException(s"No ScalaCompile task in ${project.getName}"))
+            }
         }
-
       case None if isJavaOnly => Success(None)
       case None =>
-        val target = s"project ${project.getName}/${sourceSet.getName}"
+        val target =
+          s"project ${project.getName}/${sourceSet.map(sourceSet => sourceSet.getName).getOrElse("No sourceset")}"
         val artifactNames =
           if (artifacts.isEmpty) ""
           else
@@ -988,11 +1009,10 @@ class BloopConverter(parameters: BloopParameters, info: String => Unit) {
   private def getJavaConfig(project: Project, sourceSet: SourceSet): Option[Config.Java] = {
     val javaCompile = getJavaCompileTask(project, sourceSet)
     val options = javaCompile.getOptions
-    getJavaConfig(project, javaCompile, options)
+    getJavaConfig(javaCompile, options)
   }
 
   private def getJavaConfig(
-      project: Project,
       javaCompile: JavaCompile,
       options: CompileOptions
   ): Option[Config.Java] = {
