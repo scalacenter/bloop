@@ -33,11 +33,8 @@ import org.junit._
 import org.junit.rules.TemporaryFolder
 
 /*
- * To remote debug the ConfigGenerationSuite...
- * - change "gradlePluginBuildSettings" "Keys.fork in Test" in BuildPlugin.scala to "false"
- * - scala-library-2.12.8.jar disappears from classpath when fork=false.  Add manually for now to getClasspath output
- * - add ".withDebug(true)" to the GradleRunner in the particular test to debug and ".forwardOutput()" to see println
- * - run tests under gradleBloop212 project
+ * To debug the ConfigGenerationSuite within VSCode...
+ * - add `.withDebug(true)` to the GradleRunner in the particular test to debug and `.forwardOutput()` see println
  */
 
 // minimum supported version
@@ -47,15 +44,23 @@ class ConfigGenerationSuite_5_0 extends ConfigGenerationSuite {
 }
 
 // maximum supported version
-class ConfigGenerationSuite_7_3 extends ConfigGenerationSuite {
-  protected val gradleVersion: String = "7.3"
+class ConfigGenerationSuite_7_5 extends ConfigGenerationSuite {
+  protected val gradleVersion: String = "7.5"
   protected val supportsCurrentJavaVersion: Boolean = true
 }
+/*
+// needed for scala android plugin testing - Disabled - see #worksWithAndroidScalaPlugin
+class ConfigGenerationSuite_Android_Scala_plugin extends ConfigGenerationSuite {
+  protected val gradleVersion: String = "6.6"
+  protected val supportsCurrentJavaVersion: Boolean = !Properties.isJavaAtLeast("15")
+}
+ */
 
 abstract class ConfigGenerationSuite extends BaseConfigSuite {
   protected val gradleVersion: String
   protected val supportsCurrentJavaVersion: Boolean
   private def supportsAndroid: Boolean = gradleVersion >= "6.1.1"
+  //private def supportsAndroidScalaPlugin: Boolean = gradleVersion == "6.6"
   private def supportsScala3: Boolean = gradleVersion >= "7.3"
   private def canConsumeTestRuntime: Boolean = gradleVersion < "7.0"
   private def supportsLazyArchives: Boolean = gradleVersion >= "4.9"
@@ -311,6 +316,134 @@ abstract class ConfigGenerationSuite extends BaseConfigSuite {
     }
   }
 
+// This test should run but won't.
+// It works as a local gradle build file.
+// Leaving this example commented as it's the only test for the scala-android plugin.
+// The issue is that the scala-android plugin requires the Android plugin to be applied first and that doesn't seem to be happening when using the GradleRunner but does work if this is run as a build file.
+
+  /*
+  @Test def worksWithAndroidScalaPlugin: Unit = {
+    if (supportsAndroid && supportsAndroidScalaPlugin && supportsCurrentJavaVersion) {
+      val buildSettings = testProjectDir.newFile("settings.gradle")
+      testProjectDir.newFolder("src", "main", "scala")
+      testProjectDir.newFolder("src", "main", "java")
+      testProjectDir.newFolder("src", "androidTest", "scala")
+      testProjectDir.newFolder("src", "androidTest", "java")
+      val buildFile = testProjectDir.newFile("build.gradle")
+
+      writeBuildScript(
+        buildFile,
+        s"""
+           |buildscript {
+           |  repositories {
+           |    google()
+           |    jcenter()
+           |  }
+           |  dependencies {
+           |    classpath 'com.android.tools.build:gradle:4.0.2'
+           |    classpath 'scala.android.plugin:scala-android-plugin:20210222.1057'
+           |  }
+           |}
+           |plugins {
+           |  id 'bloop'
+           |}
+           |
+           |allprojects {
+           |  apply plugin: 'com.android.application'
+           |  apply plugin: 'com.android.internal.application'
+           |  apply plugin: 'bloop'
+           |
+           |  android {
+           |    compileSdkVersion 29
+           |  }
+           |}
+           |
+           |project.plugins.withId("com.android.internal.application") {
+           |  // delay plugin apply til after Android
+           |  allprojects {
+           |    apply plugin: "scala.android"
+           |  }
+           |}
+           |
+           |tasks.withType(ScalaCompile) {
+           |	scalaCompileOptions.additionalParameters = ["-deprecation", "-unchecked", "-encoding", "utf8"]
+           |}
+           |
+           |repositories {
+           |  mavenCentral()
+           |}
+           |dependencies {
+           |  implementation 'org.scala-lang:scala-library:2.13.8'
+           |}
+        """.stripMargin
+      )
+
+      writeBuildScript(
+        buildSettings,
+        """
+          |rootProject.name = 'android-project'
+        """.stripMargin
+      )
+
+      createHelloWorldScalaTestSource(testProjectDir.getRoot, "")
+
+      GradleRunner
+        .create()
+        .withGradleVersion(gradleVersion)
+        .withProjectDir(testProjectDir.getRoot)
+        .withPluginClasspath(getClasspath)
+        .withDebug(true)
+        .forwardOutput()
+        .withArguments("bloopInstall", "-Si")
+        .build()
+
+      val bloopDir = new File(testProjectDir.getRoot, ".bloop")
+
+      val bloopDebug = new File(bloopDir, "android-project-debug.json")
+      val bloopDebugAndroidTest = new File(bloopDir, "android-project-debug-androidTest.json")
+      val bloopRelease = new File(bloopDir, "android-project-release.json")
+
+      val configDebug = readValidBloopConfig(bloopDebug)
+      val configDebugAndroidTest = readValidBloopConfig(bloopDebugAndroidTest)
+      val configRelease = readValidBloopConfig(bloopRelease)
+
+      assert(hasTag(configDebug, Tag.Library))
+      assert(hasTag(configDebugAndroidTest, Tag.Test))
+      assert(hasTag(configRelease, Tag.Library))
+
+      assert(configDebug.project.dependencies.isEmpty)
+      assertEquals(List("android-project-debug"), configDebugAndroidTest.project.dependencies.sorted)
+      assert(configRelease.project.dependencies.isEmpty)
+
+      assert(hasCompileClasspathEntryName(configDebugAndroidTest, "/android-project-debug/build/classes"))
+
+      assert(configDebug.project.test.isEmpty)
+      assert(configDebugAndroidTest.project.test.nonEmpty)
+      assert(configRelease.project.test.isEmpty)
+
+      assertTrue(hasCompileClasspathEntryName(configDebug, "/R.jar"))
+      assertTrue(hasCompileClasspathEntryName(configDebugAndroidTest, "/R.jar"))
+      assertTrue(hasCompileClasspathEntryName(configRelease, "/R.jar"))
+
+      assertTrue(configDebug.project.`scala`.nonEmpty)
+      assertTrue(configDebugAndroidTest.project.`scala`.nonEmpty)
+      assertTrue(configRelease.project.`scala`.nonEmpty)
+
+      assertEquals(
+        List("-deprecation", "-encoding", "utf8", "-unchecked"),
+        configDebug.project.`scala`.get.options
+      )
+      assertEquals(
+        List("-deprecation", "-encoding", "utf8", "-unchecked"),
+        configDebugAndroidTest.project.`scala`.get.options
+      )
+      assertEquals(
+        List("-deprecation", "-encoding", "utf8", "-unchecked"),
+        configRelease.project.`scala`.get.options
+      )
+    }
+  }
+   */
   @Test def worksWithSourcesSetSourceNotEqualToResources(): Unit = {
     if (supportsCurrentJavaVersion) {
       val buildFile = testProjectDir.newFile("build.gradle")

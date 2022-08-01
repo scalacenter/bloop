@@ -44,7 +44,7 @@ class BloopInstallTask extends DefaultTask with PluginUtils with TaskLogging {
 
   def runBloopPlugin(): Unit = {
     val parameters = extension.createParameters
-    val converter = new BloopConverter(parameters, info)
+    val converter = new BloopConverter(parameters)
     val targetDir: File = parameters.targetDir
     info(s"Generating Bloop configuration to ${targetDir.getAbsolutePath}")
 
@@ -97,7 +97,7 @@ object ScalaJavaInstall {
     val targetFile = targetDir / s"$projectName.json"
     // Let's keep the error message as similar to the one in the sbt plugin as possible
     info(s"Generated ${targetFile.getAbsolutePath}")
-    converter.toBloopConfig(projectName, project, sourceSet, targetDir) match {
+    converter.toBloopConfig(project, sourceSet, targetDir) match {
       case Failure(reason) =>
         info(s"Skipping ${project.getName}/${sourceSet.getName} because: $reason")
       case Success(bloopConfig) =>
