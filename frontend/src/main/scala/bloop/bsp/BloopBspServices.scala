@@ -24,8 +24,14 @@ import ch.epfl.scala.bsp.CompileResult
 import ch.epfl.scala.bsp.StatusCode
 import ch.epfl.scala.bsp.Uri
 import ch.epfl.scala.bsp.endpoints
+import ch.epfl.scala.bsp.CompileResult
+import ch.epfl.scala.bsp.MessageType
 import ch.epfl.scala.bsp.SbtBuildTarget.encodeSbtBuildTarget
 import ch.epfl.scala.bsp.ScalaBuildTarget.encodeScalaBuildTarget
+import ch.epfl.scala.bsp.ShowMessageParams
+import ch.epfl.scala.bsp.StatusCode
+import ch.epfl.scala.bsp.Uri
+import ch.epfl.scala.bsp.endpoints
 import ch.epfl.scala.debugadapter.DebugServer
 import ch.epfl.scala.debugadapter.DebuggeeRunner
 
