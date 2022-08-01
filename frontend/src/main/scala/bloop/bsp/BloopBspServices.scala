@@ -722,8 +722,8 @@ final class BloopBspServices(
                 Task.sequence(mappings.map { case (_, p) => test(p, state) })
 
               sequentialTestExecution.materialize.map {
-                case Success(testRunss) =>
-                  testRunss.reduceOption(_ ++ _) match {
+                case Success(testRunsSeq) =>
+                  testRunsSeq.reduceOption(_ ++ _) match {
                     case None =>
                       (newState, Right(bsp.TestResult(originId, bsp.StatusCode.Ok, None, None)))
                     case Some(testRuns) =>

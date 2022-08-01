@@ -131,6 +131,8 @@ object Tasks {
   ): Task[TestRuns] = {
 
     val testTasks = projectsToTest.map { project =>
+      // note: mutable state here, to collect all `TestSuiteEvent.Results` produced while running tests
+      // it should be fine, since it's scoped to this particular evaluation of `TestTask.runTestSuites`
       val resultsBuilder = List.newBuilder[TestSuiteEvent.Results]
       val handleAndStore = new LoggingEventHandler(state.logger) {
         override def report(): Unit = testEventHandler.report()
