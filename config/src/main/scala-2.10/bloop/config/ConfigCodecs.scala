@@ -218,6 +218,9 @@ object ConfigCodecs {
   implicit val sourcesGlobsEncoder: ObjectEncoder[SourcesGlobs] = deriveEncoder
   implicit val sourcesGlobsDecoder: Decoder[SourcesGlobs] = deriveDecoder
 
+  implicit val sourceGeneratorEncoder: ObjectEncoder[SourceGenerator] = deriveEncoder
+  implicit val sourceGeneratorDecoder: Decoder[SourceGenerator] = deriveDecoder
+
   implicit val projectEncoder: ObjectEncoder[Project] = deriveEncoder
   implicit val projectDecoder: Decoder[Project] = deriveDecoder
 

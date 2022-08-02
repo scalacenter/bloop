@@ -10,6 +10,7 @@ import bloop.cli.CommonOptions
 import bloop.data.Project
 import bloop.engine.Feedback
 import bloop.engine.caches.LastSuccessfulResult
+import bloop.engine.caches.SourceGeneratorCache
 import bloop.io.AbsolutePath
 import bloop.logging.DebugFilter
 import bloop.logging.Logger
@@ -150,6 +151,7 @@ object CompileBundle {
   implicit val filter: DebugFilter.Compilation.type = bloop.logging.DebugFilter.Compilation
   def computeFrom(
       inputs: CompileDefinitions.BundleInputs,
+      sourceGeneratorCache: SourceGeneratorCache,
       clientExternalClassesDir: AbsolutePath,
       reporter: ObservedReporter,
       lastSuccessful: LastSuccessfulResult,
@@ -181,7 +183,14 @@ object CompileBundle {
 
       val sourceHashesTask = tracer.traceTaskVerbose("discovering and hashing sources") { _ =>
         bloop.io.SourceHasher
-          .findAndHashSourcesInProject(project, 20, cancelCompilation, ioScheduler)
+          .findAndHashSourcesInProject(
+            project,
+            sourceGeneratorCache,
+            20,
+            cancelCompilation,
+            ioScheduler,
+            logger
+          )
           .map(res => res.map(_.sortBy(_.source.id())))
           .executeOn(ioScheduler)
       }

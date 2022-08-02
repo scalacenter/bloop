@@ -14,6 +14,8 @@ import scala.concurrent.Promise
 
 import bloop.UniqueCompileInputs.HashedSource
 import bloop.data.Project
+import bloop.engine.caches.SourceGeneratorCache
+import bloop.logging.Logger
 import bloop.task.Task
 import bloop.util.monix.FoldLeftAsyncConsumer
 
@@ -54,9 +56,11 @@ object SourceHasher {
    */
   def findAndHashSourcesInProject(
       project: Project,
+      sourceGeneratorCache: SourceGeneratorCache,
       parallelUnits: Int,
       cancelCompilation: Promise[Unit],
-      scheduler: Scheduler
+      scheduler: Scheduler,
+      logger: Logger
   ): Task[Either[Unit, List[HashedSource]]] = {
     val isCancelled = AtomicBoolean(false)
     val sourceFilesAndDirectories = project.sources.distinct
@@ -97,7 +101,7 @@ object SourceHasher {
       ): FileVisitResult = FileVisitResult.CONTINUE
     }
 
-    val discoverFileTree = Task {
+    val discoverUnmanagedFileTree = Task {
       val discovery = fileVisitor(matchSourceFile)
       val opts = java.util.EnumSet.of(FileVisitOption.FOLLOW_LINKS)
       sourceFilesAndDirectories.foreach { sourcePath =>
@@ -114,10 +118,20 @@ object SourceHasher {
           Files.walkFileTree(glob.directory.underlying, opts, glob.walkDepth, discovery)
         }
       }
-    }.doOnFinish {
-      case Some(t) => Task(observer.onError(t))
-      case None => Task(observer.onComplete())
     }
+
+    val discoverManagedFileTree = Task
+      .gatherUnordered {
+        project.sourceGenerators
+          .map(sourceGeneratorCache.update(_, logger))
+      }
+      .map(_.foreach(_.foreach(path => observer.onNext(path.underlying))))
+
+    val discoverFileTree =
+      Task.gatherUnordered(discoverUnmanagedFileTree :: discoverManagedFileTree :: Nil).doOnFinish {
+        case Some(t) => Task(observer.onError(t))
+        case None => Task(observer.onComplete())
+      }
 
     val collectHashesConsumer: Consumer[HashedSource, mutable.ListBuffer[HashedSource]] = {
       val empty = mutable.ListBuffer.empty[HashedSource]

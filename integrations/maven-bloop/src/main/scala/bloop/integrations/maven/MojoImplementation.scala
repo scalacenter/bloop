@@ -285,7 +285,7 @@ object MojoImplementation {
           case a: Resource => Option(Paths.get(a.getDirectory()))
           case _ => None
         })
-        val project = Config.Project(name, baseDirectory, Some(root.toPath), sourceDirs, None, None, fullDependencies, classpath, out, classesDir, resources, `scala`, java, sbt, test, platform, resolution, Some(tags))
+        val project = Config.Project(name, baseDirectory, Some(root.toPath), sourceDirs, None, None, fullDependencies, classpath, out, classesDir, resources, `scala`, java, sbt, test, platform, resolution, Some(tags), None)
         Config.File(Config.File.LatestVersion, project)
       }
       // FORMAT: ON

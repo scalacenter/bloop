@@ -221,7 +221,8 @@ class BloopConverter(parameters: BloopParameters) {
           test = testConfig,
           platform = None,
           resolution = if (modules.isEmpty) None else Some(Config.Resolution(modules)),
-          tags = if (tags.isEmpty) None else Some(tags)
+          tags = if (tags.isEmpty) None else Some(tags),
+          sourceGenerators = None
         )
       } yield Config.File(Config.File.LatestVersion, bloopProject)
     }
@@ -383,7 +384,8 @@ class BloopConverter(parameters: BloopParameters) {
           test = getTestConfig(testTask),
           platform = getPlatform(project, sourceSet, testTask, runtimeClasspath),
           resolution = if (modules.isEmpty) None else Some(Config.Resolution(modules)),
-          tags = if (tags.isEmpty) None else Some(tags)
+          tags = if (tags.isEmpty) None else Some(tags),
+          sourceGenerators = None
         )
       } yield Config.File(Config.File.LatestVersion, bloopProject)
     }

@@ -118,7 +118,12 @@ object Interpreter {
       f: State => Task[State]
   ): Task[State] = {
     val reachable = Dag.dfs(getProjectsDag(projects, state))
-    val projectsSourcesAndDirs = reachable.map(_.allSourceFilesAndDirectories)
+    val projectsSourcesAndDirs = reachable.map { project =>
+      for {
+        unmanaged <- project.allUnmanagedSourceFilesAndDirectories
+        generatorInputs <- project.allGeneratorInputs
+      } yield unmanaged ++ generatorInputs
+    }
     val groupTasks =
       projectsSourcesAndDirs.grouped(8).map(group => Task.gatherUnordered(group)).toList
     Task

@@ -21,7 +21,7 @@ import bloop.engine.{
   Run,
   State
 }
-import bloop.engine.caches.ResultsCache
+import bloop.engine.caches.{ResultsCache, SourceGeneratorCache}
 import bloop.io.AbsolutePath
 import bloop.logging.{BloopLogger, Logger, NoopLogger}
 import bloop.task.Task
@@ -95,7 +95,7 @@ abstract class CommunityBuild(val buildpressHomeDir: AbsolutePath) {
     val loadedProjects = BuildLoader.loadSynchronously(configDirectory, logger)
     val workspaceSettings = WorkspaceSettings.readFromFile(configDirectory, logger)
     val build = Build(configDirectory, loadedProjects, workspaceSettings)
-    val state = State.forTests(build, compilerCache, logger)
+    val state = State.forTests(build, compilerCache, SourceGeneratorCache.empty, logger)
     state.copy(results = ResultsCache.emptyForTests)
   }
 
@@ -139,6 +139,7 @@ abstract class CommunityBuild(val buildpressHomeDir: AbsolutePath) {
         sources = Nil,
         sourcesGlobs = Nil,
         sourceRoots = None,
+        sourceGenerators = Nil,
         testFrameworks = Nil,
         testOptions = Config.TestOptions.empty,
         out = dummyClassesDir,

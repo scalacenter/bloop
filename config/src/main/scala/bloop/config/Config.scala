@@ -236,6 +236,12 @@ object Config {
       excludes: List[String]
   )
 
+  case class SourceGenerator(
+      sourcesGlobs: List[SourcesGlobs],
+      outputDirectory: Path,
+      argv: List[String]
+  )
+
   case class Project(
       name: String,
       directory: Path,
@@ -254,12 +260,13 @@ object Config {
       test: Option[Test],
       platform: Option[Platform],
       resolution: Option[Resolution],
-      tags: Option[List[String]]
+      tags: Option[List[String]],
+      sourceGenerators: Option[List[SourceGenerator]]
   )
 
   object Project {
     // FORMAT: OFF
-    private[bloop] val empty: Project = Project("", emptyPath, None, List(), None, None, List(), List(),  emptyPath, emptyPath, None, None, None, None, None, None, None, None)
+    private[bloop] val empty: Project = Project("", emptyPath, None, List(), None, None, List(), List(),  emptyPath, emptyPath, None, None, None, None, None, None, None, None, None)
     // FORMAT: ON
 
     def analysisFileName(projectName: String): String = s"$projectName-analysis.bin"
@@ -328,6 +335,7 @@ object Config {
         Some(Test(List(), TestOptions(Nil, Nil))),
         Some(platform),
         Some(Resolution(Nil)),
+        None,
         None
       )
 

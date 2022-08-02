@@ -39,7 +39,14 @@ object SourceHasherSpec extends bloop.testing.BaseSuite {
       val projectA = state.getProjectFor(`A`)
 
       val sourceHashesTask =
-        SourceHasher.findAndHashSourcesInProject(projectA, 2, cancelPromise, ioScheduler)
+        SourceHasher.findAndHashSourcesInProject(
+          projectA,
+          state.state.sourceGeneratorCache,
+          2,
+          cancelPromise,
+          ioScheduler,
+          logger
+        )
       val running = sourceHashesTask.runAsync(ioScheduler)
 
       Thread.sleep(2)
@@ -50,7 +57,14 @@ object SourceHasherSpec extends bloop.testing.BaseSuite {
       assert(cancelledResult.isLeft)
 
       val sourceHashesTask2 =
-        SourceHasher.findAndHashSourcesInProject(projectA, 2, cancelPromise2, ioScheduler)
+        SourceHasher.findAndHashSourcesInProject(
+          projectA,
+          state.state.sourceGeneratorCache,
+          2,
+          cancelPromise2,
+          ioScheduler,
+          logger
+        )
       val running2 = sourceHashesTask2.runAsync(ioScheduler)
       val uncancelledResult = Await.result(running2, FiniteDuration(20, "s"))
       assert(uncancelledResult.isRight)

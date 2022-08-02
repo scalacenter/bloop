@@ -14,6 +14,7 @@ import bloop.bsp.ProjectUris
 import bloop.config.Config
 import bloop.config.ConfigCodecs
 import bloop.engine.Dag
+import bloop.engine.SourceGenerator
 import bloop.engine.tasks.toolchains.JvmToolchain
 import bloop.engine.tasks.toolchains.ScalaJsToolchain
 import bloop.engine.tasks.toolchains.ScalaNativeToolchain
@@ -45,6 +46,7 @@ final case class Project(
     sources: List[AbsolutePath],
     sourcesGlobs: List[SourcesGlobs],
     sourceRoots: Option[List[AbsolutePath]],
+    sourceGenerators: List[SourceGenerator],
     testFrameworks: List[Config.TestFramework],
     testOptions: Config.TestOptions,
     out: AbsolutePath,
@@ -88,8 +90,11 @@ final case class Project(
     customWorkingDirectory.getOrElse(baseDirectory)
   }
 
+  def allGeneratorInputs: Task[List[AbsolutePath]] =
+    Task.sequence(sourceGenerators.map(_.getSources)).map(_.flatten)
+
   /** Returns concatenated list of "sources" and expanded "sourcesGlobs". */
-  def allSourceFilesAndDirectories: Task[List[AbsolutePath]] = Task {
+  def allUnmanagedSourceFilesAndDirectories: Task[List[AbsolutePath]] = Task {
     val buf = mutable.ListBuffer.empty[AbsolutePath]
     buf ++= sources
     for (glob <- sourcesGlobs) glob.walkThrough(buf += _)
@@ -370,6 +375,7 @@ object Project {
       project.sources.map(AbsolutePath.apply),
       SourcesGlobs.fromConfig(project, logger),
       sourceRoots,
+      project.sourceGenerators.getOrElse(Nil).map(SourceGenerator.fromConfig),
       project.test.map(_.frameworks).getOrElse(Nil),
       project.test.map(_.options).getOrElse(Config.TestOptions.empty),
       AbsolutePath(project.out),
