@@ -1,5 +1,7 @@
 package sbt.internal.inc.bloop.internal
 
+import scala.collection.parallel.immutable.ParVector
+
 import _root_.bloop.UniqueCompileInputs
 import _root_.bloop.tracing.BraveTracer
 import monix.eval.Task
@@ -178,9 +180,16 @@ private final class BloopNameHashing(
           }
         }
       }
+      val removedProducts =
+        lookup.removedProducts(previousAnalysis).getOrElse {
+          new ParVector(previous.allProducts.toVector)
+            .filter(p => {
+              !equivS.equiv(previous.product(p), stamps.product(p))
+            })
+            .toVector
+            .toSet
+        }
 
-      // Unnecessary to compute removed products because we can ensure read-only classes dir is untouched
-      val removedProducts = Set.empty[VirtualFileRef]
       val changedBinaries: Set[VirtualFileRef] = tracer.traceVerbose("changed binaries") { _ =>
         lookup.changedBinaries(previousAnalysis).getOrElse {
           val detectChange = IncrementalCommon.isLibraryModified(
