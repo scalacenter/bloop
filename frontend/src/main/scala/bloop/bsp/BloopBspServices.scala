@@ -1089,7 +1089,9 @@ final class BloopBspServices(
             .sequence {
               parentGenerators.reverse.map { project =>
                 val generators = project.sourceGenerators
-                val tasks = generators.map(state.sourceGeneratorCache.update(_, state.logger))
+                val tasks = generators.map(
+                  state.sourceGeneratorCache.update(_, state.logger, state.commonOptions)
+                )
                 Task.gatherUnordered(tasks)
               }
             }

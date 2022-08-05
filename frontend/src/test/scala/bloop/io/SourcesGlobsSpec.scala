@@ -50,11 +50,10 @@ object SourcesGlobsSpec extends bloop.testing.BaseSuite {
         )
         val hashedSources = SourceHasher.findAndHashSourcesInProject(
           project,
-          state.sourceGeneratorCache,
+          state.sourceGeneratorCache.update(_, logger, state.commonOptions),
           1,
           Promise[Unit](),
-          ioScheduler,
-          logger
+          ioScheduler
         )
         val Right(result) = TestUtil.await(10, TimeUnit.SECONDS)(hashedSources)
         val obtainedFilenames = result

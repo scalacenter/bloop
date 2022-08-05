@@ -359,10 +359,11 @@ object Project {
     val sourceRoots = project.sourceRoots.map(_.map(AbsolutePath.apply))
 
     val tags = project.tags.getOrElse(Nil)
+    val projectDirectory = AbsolutePath(project.directory)
 
     Project(
       project.name,
-      AbsolutePath(project.directory),
+      projectDirectory,
       project.workspaceDir.map(AbsolutePath.apply),
       project.dependencies,
       instance,
@@ -375,7 +376,7 @@ object Project {
       project.sources.map(AbsolutePath.apply),
       SourcesGlobs.fromConfig(project, logger),
       sourceRoots,
-      project.sourceGenerators.getOrElse(Nil).map(SourceGenerator.fromConfig),
+      project.sourceGenerators.getOrElse(Nil).map(SourceGenerator.fromConfig(projectDirectory, _)),
       project.test.map(_.frameworks).getOrElse(Nil),
       project.test.map(_.options).getOrElse(Config.TestOptions.empty),
       AbsolutePath(project.out),

@@ -185,11 +185,10 @@ object CompileBundle {
         bloop.io.SourceHasher
           .findAndHashSourcesInProject(
             project,
-            sourceGeneratorCache,
+            sourceGeneratorCache.update(_, logger, options),
             20,
             cancelCompilation,
-            ioScheduler,
-            logger
+            ioScheduler
           )
           .map(res => res.map(_.sortBy(_.source.id())))
           .executeOn(ioScheduler)

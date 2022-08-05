@@ -14,8 +14,7 @@ import scala.concurrent.Promise
 
 import bloop.UniqueCompileInputs.HashedSource
 import bloop.data.Project
-import bloop.engine.caches.SourceGeneratorCache
-import bloop.logging.Logger
+import bloop.engine.SourceGenerator
 import bloop.task.Task
 import bloop.util.monix.FoldLeftAsyncConsumer
 
@@ -49,18 +48,17 @@ object SourceHasher {
    * `cancelCompilation` will be completed.
    *
    * @param project The project where the sources will be discovered.
+   * @param updateGenerator A function that runs the given source generator.
    * @param parallelUnits The amount of sources we can hash at once.
    * @param cancelCompilation A promise that will be completed if task is cancelled.
    * @param scheduler The scheduler that should be used for internal Monix usage.
-   * @param logger The logger where every action will be logged.
    */
   def findAndHashSourcesInProject(
       project: Project,
-      sourceGeneratorCache: SourceGeneratorCache,
+      updateGenerator: SourceGenerator => Task[List[AbsolutePath]],
       parallelUnits: Int,
       cancelCompilation: Promise[Unit],
-      scheduler: Scheduler,
-      logger: Logger
+      scheduler: Scheduler
   ): Task[Either[Unit, List[HashedSource]]] = {
     val isCancelled = AtomicBoolean(false)
     val sourceFilesAndDirectories = project.sources.distinct
@@ -122,8 +120,7 @@ object SourceHasher {
 
     val discoverManagedFileTree = Task
       .gatherUnordered {
-        project.sourceGenerators
-          .map(sourceGeneratorCache.update(_, logger))
+        project.sourceGenerators.map(updateGenerator)
       }
       .map(_.foreach(_.foreach(path => observer.onNext(path.underlying))))
 

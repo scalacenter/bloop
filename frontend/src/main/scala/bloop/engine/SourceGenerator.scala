@@ -3,11 +3,12 @@ package bloop.engine
 import java.nio.file.FileSystems
 
 import scala.collection.mutable
-import scala.sys.process._
 import scala.util.control.NoStackTrace
 
+import bloop.cli.CommonOptions
 import bloop.config.Config
 import bloop.data.SourcesGlobs
+import bloop.exec.Forker
 import bloop.io.AbsolutePath
 import bloop.io.ByteHasher
 import bloop.io.Paths
@@ -16,6 +17,7 @@ import bloop.logging.Logger
 import bloop.task.Task
 
 final case class SourceGenerator(
+    cwd: AbsolutePath,
     sourcesGlobs: List[SourcesGlobs],
     outputDirectory: AbsolutePath,
     argv: List[String]
@@ -30,16 +32,20 @@ final case class SourceGenerator(
    * @param logger The logger to report source generator messages.
    * @return The new known inpouts and outputs of this source generator.
    */
-  def update(previous: SourceGenerator.Run, logger: Logger): Task[SourceGenerator.Run] =
+  def update(
+      previous: SourceGenerator.Run,
+      logger: Logger,
+      opts: CommonOptions
+  ): Task[SourceGenerator.Run] =
     needsUpdate(previous).flatMap {
       case SourceGenerator.NoChanges =>
         Task.now(previous)
       case SourceGenerator.InputChanges(newInputs) =>
         logger.debug("Changes detected to inputs of source generator")(DebugFilter.Compilation)
-        run(newInputs, logger)
+        run(newInputs, logger, opts)
       case SourceGenerator.OutputChanges(inputs) =>
         logger.debug("Changes detected to outputs of source generator")(DebugFilter.Compilation)
-        run(inputs, logger)
+        run(inputs, logger, opts)
     }
 
   /**
@@ -53,14 +59,17 @@ final case class SourceGenerator(
     buf.result()
   }
 
-  private def run(inputs: Map[AbsolutePath, Int], logger: Logger): Task[SourceGenerator.Run] = {
-    Task {
-      val command = (argv :+ outputDirectory.syntax) ++ inputs.keys.map(_.syntax)
-      logger.debug { () =>
-        command.mkString(s"Running source generator:${System.lineSeparator()}$$ ", " ", "")
-      }
-      command.!(processLogger(logger))
-    }.flatMap {
+  private def run(
+      inputs: Map[AbsolutePath, Int],
+      logger: Logger,
+      opts: CommonOptions
+  ): Task[SourceGenerator.Run] = {
+    val command = (argv :+ outputDirectory.syntax) ++ inputs.keys.map(_.syntax)
+    logger.debug { () =>
+      command.mkString(s"Running source generator:${System.lineSeparator()}$$ ", " ", "")
+    }
+
+    Forker.run(cwd, command, logger, opts).flatMap {
       case 0 =>
         hashOutputs.map(SourceGenerator.PreviousRun(inputs, _))
       case exitCode =>
@@ -96,14 +105,6 @@ final case class SourceGenerator(
 
   private def hashFiles(files: List[AbsolutePath]): Map[AbsolutePath, Int] =
     files.map(f => f -> ByteHasher.hashFileContents(f.toFile)).toMap
-
-  private def processLogger(logger: Logger): ProcessLogger = {
-    new ProcessLogger() {
-      override def out(s: => String): Unit = logger.debug(s)(DebugFilter.Compilation)
-      override def err(s: => String): Unit = logger.error(s)
-      override def buffer[T](f: => T): T = f
-    }
-  }
 }
 
 object SourceGenerator {
@@ -118,7 +119,7 @@ object SourceGenerator {
   private case class InputChanges(newInputs: Map[AbsolutePath, Int]) extends Changes
   private case class OutputChanges(inputs: Map[AbsolutePath, Int]) extends Changes
 
-  def fromConfig(generator: Config.SourceGenerator): SourceGenerator = {
+  def fromConfig(cwd: AbsolutePath, generator: Config.SourceGenerator): SourceGenerator = {
     val sourcesGlobs = generator.sourcesGlobs.map {
       case Config.SourcesGlobs(directory, depth, includes, excludes) =>
         val fs = FileSystems.getDefault
@@ -132,6 +133,7 @@ object SourceGenerator {
         )
     }
     new SourceGenerator(
+      cwd,
       sourcesGlobs,
       AbsolutePath(generator.outputDirectory),
       generator.argv
