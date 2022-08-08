@@ -199,6 +199,52 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
       }
     }
 
+    def testTask(
+        project: TestProject,
+        originId: Option[String] = None,
+        arguments: Option[List[String]] = None,
+        dataKind: Option[String] = None,
+        data: Option[Json] = None,
+        clearDiagnostics: Boolean = true
+    ): Task[ManagedBspTestState] = {
+      runAfterTargets(project) { target =>
+        // Handle internal state before sending test request
+        if (clearDiagnostics) diagnostics.clear()
+        currentCompileIteration.increment(1)
+        val params = bsp.TestParams(List(target), originId, arguments, dataKind, data)
+
+        BuildTarget.test.request(params).flatMap {
+          case Right(r) =>
+            // `headL` returns latest saved state from bsp because source is behavior subject
+            serverStates.headL.map { state =>
+              new ManagedBspTestState(
+                state,
+                r.statusCode,
+                currentCompileIteration,
+                diagnostics,
+                client0,
+                serverStates
+              )
+            }
+          case Left(e) => fail(s"Compilation error for request ${e.id}:\n${e.error}")
+        }
+      }
+    }
+
+    def test(
+        project: TestProject,
+        originId: Option[String] = None,
+        arguments: Option[List[String]] = None,
+        dataKind: Option[String] = None,
+        data: Option[Json] = None,
+        clearDiagnostics: Boolean = true,
+        timeout: Long = 5
+    ): ManagedBspTestState = {
+      val task = testTask(project, originId, arguments, dataKind, data, clearDiagnostics)
+
+      TestUtil.await(FiniteDuration(timeout, "s"))(task)
+    }
+
     def cleanTask(project: TestProject): Task[ManagedBspTestState] = {
       runAfterTargets(project) { target =>
         rpcRequest(BuildTarget.cleanCache, bsp.CleanCacheParams(List(target))).flatMap { r =>
