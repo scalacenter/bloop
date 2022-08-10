@@ -351,14 +351,4 @@ trait BspClientTest {
       }
   }
 
-  //TODO??
-  sealed trait BspClientAction
-  object BspClientAction {
-    case object CompileEmpty extends BspClientAction // Required to check errors when sending no tid
-    case class Compile(target: bsp.BuildTargetIdentifier) extends BspClientAction
-    case class CreateFile(path: AbsolutePath, contents: String) extends BspClientAction
-    case class DeleteFile(path: AbsolutePath) extends BspClientAction
-    case class OverwriteFile(path: AbsolutePath, contents: String) extends BspClientAction
-  }
-
 }

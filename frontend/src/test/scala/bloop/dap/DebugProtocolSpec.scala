@@ -12,6 +12,7 @@ import bloop.util.TestUtil
 
 import com.github.plokhotnyuk.jsoniter_scala.core._
 import jsonrpc4s.RawJson
+import com.github.plokhotnyuk.jsoniter_scala.macros.JsonCodecMaker
 
 object DebugProtocolSpec extends DebugBspBaseSuite {
   test("starts a debug session") {
@@ -183,8 +184,8 @@ object DebugProtocolSpec extends DebugBspBaseSuite {
   def testSuiteParams(
       filters: List[String]
   ): bsp.BuildTargetIdentifier => bsp.DebugSessionParams = { target =>
-    import bloop.util.jsoniter.JsoniterCodecs._
     val targets = List(target)
+    implicit val codec = JsonCodecMaker.make[List[String]]
     val json = writeToArray[List[String]](filters)
     bsp.DebugSessionParams(targets, ScalaTestSuites, RawJson(json))
   }

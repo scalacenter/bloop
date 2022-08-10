@@ -21,7 +21,7 @@ import monix.execution.Callback
  * This task was introduced as a compatibilty layer to ublock bloop migration from monix2.
  *  there is an important difference between monix2 and monix3  in cancellation mechanic:
  *  - monix2 - cancel is a signal that triggers `doOnCancel` callbacks and the whole task anyway completes.
- *  - monix3 - cancel actually cancel the runLoop of task and turns `CancellableFuture` into icomletable one.
+ *  - monix3 - cancel actually cancel the runLoop of task and turns `CancellableFuture` into incomletable one.
  *
  * Bloop is hugely relies on `doOnCancel` usage and old cancellation mechanic.
  * Actually, most of bsp-methods are kind of function `(Input, State) => State`.
@@ -607,8 +607,7 @@ object Task {
   }
 
   def sleep(duration: FiniteDuration): Task[Unit] =
-    //Wrap(MonixTask.sleep(duration), List.empty)
-    Wrap(MonixTask.unit.delayExecution(duration), List.empty)
+    Wrap(MonixTask.sleep(duration), List.empty)
 
   def fromTry[A](v: Try[A]): Task[A] =
     v match {

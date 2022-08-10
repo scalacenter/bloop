@@ -77,6 +77,7 @@ import monix.execution.Scheduler
 import monix.execution.atomic.AtomicBoolean
 import monix.execution.atomic.AtomicInt
 import monix.reactive.subjects.BehaviorSubject
+import com.github.plokhotnyuk.jsoniter_scala.macros.JsonCodecMaker
 
 final class BloopBspServices(
     callSiteState: State,
@@ -620,7 +621,7 @@ final class BloopBspServices(
             BloopDebuggeeRunner.forMainClass(projects, main, state, ioScheduler)
           )
         case bsp.DebugSessionParamsDataKind.ScalaTestSuites =>
-          import bloop.util.jsoniter.JsoniterCodecs._
+          implicit val codec = JsonCodecMaker.make[List[String]]
           convert[List[String]](classNames => {
             val testClasses = ScalaTestSuites(classNames)
             BloopDebuggeeRunner.forTestSuite(projects, testClasses, state, ioScheduler)

@@ -34,18 +34,14 @@ class BspCompileSpec(
     }
     val contentLogs = logger.debugs.flatMap(_.split("\n")).filter(_.startsWith("  --> content:"))
     val allButInitializeRequest = contentLogs.filterNot(_.contains("""build/initialize""""))
-    // some IDEs might trim spaces in multiline string
-    val spaces = "       "
     // Filter out the initialize request that contains platform-specific details
     assertNoDiff(
       allButInitializeRequest.mkString(lineSeparator),
-      s"""|
-          |  --> content: {"result":{"displayName":"${BuildInfo.bloopName}","version":"${BuildInfo.version}","bspVersion":"${BuildInfo.bspVersion}","capabilities":{"compileProvider":{"languageIds":["scala","java"]},"testProvider":{"languageIds":["scala","java"]},"runProvider":{"languageIds":["scala","java"]},"inverseSourcesProvider":true,"dependencySourcesProvider":true,"resourcesProvider":true,"buildTargetChangedProvider":false,"jvmTestEnvironmentProvider":true,"jvmRunEnvironmentProvider":true,"canReload":false}},"id":2,"jsonrpc":"2.0"}
+      s"""|  --> content: {"result":{"displayName":"${BuildInfo.bloopName}","version":"${BuildInfo.version}","bspVersion":"${BuildInfo.bspVersion}","capabilities":{"compileProvider":{"languageIds":["scala","java"]},"testProvider":{"languageIds":["scala","java"]},"runProvider":{"languageIds":["scala","java"]},"inverseSourcesProvider":true,"dependencySourcesProvider":true,"resourcesProvider":true,"buildTargetChangedProvider":false,"jvmTestEnvironmentProvider":true,"jvmRunEnvironmentProvider":true,"canReload":false}},"id":2,"jsonrpc":"2.0"}
           |  --> content: {"method":"build/initialized","params":{},"jsonrpc":"2.0"}
           |  --> content: {"method":"build/shutdown","params":{},"id":3,"jsonrpc":"2.0"}
           |  --> content: {"result":{},"id":3,"jsonrpc":"2.0"}
-          |  --> content: {"method":"build/exit","params":{},"jsonrpc":"2.0"}
-          |$spaces""".stripMargin
+          |  --> content: {"method":"build/exit","params":{},"jsonrpc":"2.0"}""".stripMargin
     )
   }
 

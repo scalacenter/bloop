@@ -11,8 +11,8 @@ import scribe.LoggerSupport
 import BloopRpcServices.BloopEndpoint
 
 /**
- * This is the similar thing as `jsonrpc4s.Services` that is udea to describe a groupd of JSON-RPC ednpoints.
- * Introduced in oder to operate over `bloop.task.Task` instead of `monix.eval.Task`
+ * This is the similar thing as `jsonrpc4s.Services` that is used to describe a group of JSON-RPC endpoints.
+ * Introduced in order to operate over `bloop.task.Task` instead of `monix.eval.Task`
  */
 case class BloopRpcServices(endpoints: List[BloopEndpoint], loggerSupport: LoggerSupport) {
   def requestAsync[A, B](endpoint: Endpoint[A, B])(
