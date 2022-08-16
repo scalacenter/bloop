@@ -100,7 +100,7 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
     def findBuildTarget(project: TestProject): bsp.BuildTarget = {
       val workspaceTargetTask = {
         Workspace.buildTargets.request(bsp.WorkspaceBuildTargetsRequest()).map {
-          case Left(_) => fail("The request for build targets in ${state.build.origin} failed!")
+          case Left(_) => fail(s"The request for build targets in ${state.build.origin} failed!")
           case Right(ts) =>
             ts.targets.map(t => t.id -> t).find(_._1 == project.bspId) match {
               case Some((_, target)) => target
@@ -128,7 +128,7 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
         project: TestProject
     )(f: bsp.BuildTargetIdentifier => Task[T]): Task[T] = {
       Workspace.buildTargets.request(bsp.WorkspaceBuildTargetsRequest()).flatMap {
-        case Left(_) => fail("The request for build targets in ${state.build.origin} failed!")
+        case Left(_) => fail(s"The request for build targets in ${state.build.origin} failed!")
         case Right(ts) =>
           ts.targets.map(_.id).find(_ == project.bspId) match {
             case Some(target) => f(target)
