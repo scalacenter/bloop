@@ -104,7 +104,7 @@ lazy val config = project
   .settings(
     sonatypeSetting,
     name := "bloop-config",
-    scalaVersion := (backend / Keys.scalaVersion).value,
+    crossScalaVersions := Seq(Dependencies.Scala212Version, Dependencies.Scala213Version),
     scalacOptions := {
       scalacOptions.value.filterNot(opt => opt == "-deprecation"),
     },
