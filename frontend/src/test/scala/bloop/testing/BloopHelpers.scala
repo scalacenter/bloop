@@ -124,7 +124,7 @@ trait BloopHelpers {
     bloop.config.read(contents.getBytes()).flatMap { cfg =>
       import java.nio.file.StandardOpenOption
       val previousBaseDir = cfg.project.workspaceDir.get.toString()
-      val newContents = contents.replace(previousBaseDir, newBaseDir)
+      val newContents = contents.replace("\"" + previousBaseDir, "\"" + newBaseDir)
       Files.write(
         configFile,
         newContents.getBytes,
