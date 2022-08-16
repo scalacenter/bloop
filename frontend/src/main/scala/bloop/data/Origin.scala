@@ -8,7 +8,7 @@ import bloop.util.CacheHashCode
 
 case class Origin(path: AbsolutePath, lastModifiedtime: FileTime, size: Long, hash: Int)
     extends CacheHashCode {
-  def toAttributedPath: AttributedPath = AttributedPath(path, lastModifiedtime, size)
+  def toAttributedPath: AttributedPath = AttributedPath.of(path, lastModifiedtime, size)
 }
 
 object Origin {
