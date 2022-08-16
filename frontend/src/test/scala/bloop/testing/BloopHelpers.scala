@@ -98,8 +98,7 @@ trait BloopHelpers {
       val all = files.map { f =>
         Task {
           val configFile = f.path.underlying
-          val oldWorkspace = AbsolutePath(baseDir)
-          loadTestProjectFromDisk(configFile, oldWorkspace.syntax, workspace.syntax)
+          loadTestProjectFromDisk(configFile, workspace.syntax)
         }
       }
 
@@ -117,25 +116,28 @@ trait BloopHelpers {
 
   private def loadTestProjectFromDisk(
       configFile: Path,
-      previousBaseDir: String,
       newBaseDir: String
   ): TestProject = {
     val bytes = Files.readAllBytes(configFile)
-    val contents = new String(bytes, StandardCharsets.UTF_8)
-    val newContents = contents.replace(previousBaseDir, newBaseDir)
-    import java.nio.file.StandardOpenOption
-    Files.write(
-      configFile,
-      newContents.getBytes(StandardCharsets.UTF_8),
-      StandardOpenOption.TRUNCATE_EXISTING,
-      StandardOpenOption.SYNC,
-      StandardOpenOption.WRITE
-    )
+    val contents = new String(bytes)
 
-    bloop.config.read(newContents.getBytes(StandardCharsets.UTF_8)) match {
+    bloop.config.read(contents.getBytes()).flatMap { cfg =>
+      import java.nio.file.StandardOpenOption
+      val previousBaseDir = cfg.project.workspaceDir.get.toString()
+      val newContents = contents.replace("\"" + previousBaseDir, "\"" + newBaseDir)
+      Files.write(
+        configFile,
+        newContents.getBytes,
+        StandardOpenOption.TRUNCATE_EXISTING,
+        StandardOpenOption.SYNC,
+        StandardOpenOption.WRITE
+      )
+      bloop.config.read(newContents.getBytes())
+    } match {
       case Left(error) => throw error
       case Right(file) => TestProject(file.project, None)
     }
+
   }
 
   final class TestState(val state: State) {
