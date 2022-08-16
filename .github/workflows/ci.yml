@@ -16,7 +16,7 @@ jobs:
         with:
           submodules: true
           fetch-depth: 0
-      - uses: coursier/setup-action@v1.2.0
+      - uses: coursier/setup-action@v1.2.1
         with:
           apps: scalafmt
           jvm: "temurin:17"
@@ -35,7 +35,7 @@ jobs:
         with:
           submodules: true
           fetch-depth: 0
-      - uses: coursier/setup-action@v1.2.0
+      - uses: coursier/setup-action@v1.2.1
         with:
           jvm: "temurin:17"
       - name: Tests
@@ -56,7 +56,7 @@ jobs:
         with:
           submodules: true
           fetch-depth: 0
-      - uses: coursier/setup-action@v1.2.0
+      - uses: coursier/setup-action@v1.2.1
         with:
           jvm: "temurin:17"
       - name: Compile and test main projects
@@ -79,7 +79,7 @@ jobs:
         with:
           submodules: true
           fetch-depth: 0
-      - uses: coursier/setup-action@v1.2.0
+      - uses: coursier/setup-action@v1.2.1
         with:
           jvm: "temurin:17"
       - name: Release
