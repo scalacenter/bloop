@@ -12,10 +12,12 @@ import scala.concurrent.ExecutionContext
 
 import bloop.io.AbsolutePath
 import bloop.io.Paths
+import bloop.logging.RecordingLogger
 
 import org.junit.Assert._
 import org.junit.Test
 import org.junit.experimental.categories.Category
+import sbt.internal.inc.BloopComponentCompiler
 import sbt.internal.inc.javac.WriteReportingJavaFileObject
 import sbt.io.syntax.File
 import xsbti.compile.ClassFileManager
@@ -95,6 +97,55 @@ class CompilerCacheSpec {
     } finally {
       Paths.delete(tempDir)
     }
+  }
+
+  @Test
+  def noOptionsSameCompiler(): Unit = withCompilerCache { compilerCache =>
+    val scalaInstance = ScalaInstance.resolve(
+      "org.scala-lang",
+      "scala-compiler",
+      bloop.internal.build.BloopScalaInfo.scalaVersion,
+      new RecordingLogger()
+    )
+
+    val javac0 = compilerCache.get(scalaInstance, None, Nil).javaTools().javac()
+    val javac1 = compilerCache.get(scalaInstance, None, Nil).javaTools().javac()
+    assertTrue(javac0 + " was not eq to " + javac1, javac0 eq javac1)
+  }
+
+  @Test
+  def runtimeOptionsNeverLocal(): Unit = withCompilerCache { compilerCache =>
+    val scalaInstance = ScalaInstance.resolve(
+      "org.scala-lang",
+      "scala-compiler",
+      bloop.internal.build.BloopScalaInfo.scalaVersion,
+      new RecordingLogger()
+    )
+
+    // We first populate the compiler cache with a compiler that may be local.
+    val javac0 = compilerCache.get(scalaInstance, None, Nil).javaTools().javac()
+    val javac1 = compilerCache.get(scalaInstance, None, List("-J-Dfoo=bar")).javaTools().javac()
+
+    assertTrue(
+      s"`javac1` was not a forked compiler, despite the runtime flag: ${javac0.getClass}",
+      javac1.isInstanceOf[compilerCache.BloopForkedJavaCompiler]
+    )
+  }
+
+  private def withCompilerCache(op: CompilerCache => Unit): Unit = {
+    val tempDir = AbsolutePath(Files.createTempDirectory("compiler-cache-spec"))
+    try {
+      val ec = ExecutionContext.global
+      val logger = new RecordingLogger()
+      val componentProvider =
+        BloopComponentCompiler.getComponentProvider(tempDir.resolve("components"))
+      val compilerCache =
+        new CompilerCache(componentProvider, tempDir, logger, List.empty, None, None, ec)
+      op(compilerCache)
+    } finally {
+      Paths.delete(tempDir)
+    }
+
   }
 
 }

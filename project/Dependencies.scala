@@ -11,7 +11,7 @@ object Dependencies {
   val javaDebugVersion = "0.21.0+1-7f1080f1"
 
   val scalazVersion = "7.2.20"
-  val lmVersion = "1.0.0"
+  val lmVersion = "1.1.5"
   val caseAppVersion = "2.0.6"
   val sourcecodeVersion = "0.1.4"
   val sbtTestInterfaceVersion = "1.0"
@@ -30,7 +30,7 @@ object Dependencies {
   val zipkinSenderVersion = "2.7.15"
   val asmVersion = "7.0"
   val snailgunVersion = "0.4.1-sc2"
-  val debugAdapterVersion = "2.2.0-M3"
+  val debugAdapterVersion = "2.2.0"
   val coursierInterfaceVersion = "1.0.7"
 
   import sbt.librarymanagement.syntax.stringToOrganization

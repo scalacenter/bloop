@@ -463,7 +463,7 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
             |  public void entrypoint(String[] args) {
             |    A$ a = A$.MODULE$;
             |    System.out.println(a.HelloWorld());
-            |  }  
+            |  }
             |}""".stripMargin
         val `C.scala` =
           """/C.scala
@@ -1827,6 +1827,52 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
 
       val compiledState = state.compile(`B`)
       assertExitStatus(compiledState, ExitStatus.Ok)
+    }
+  }
+
+  test("detects removed products") {
+    TestUtil.withinWorkspace { workspace =>
+      object Sources {
+        val `A.scala` =
+          """/a/A.scala
+            |package a
+            |class A
+          """.stripMargin
+
+        val `B.scala` =
+          """/a/B.scala
+            |package a
+            |class B extends A
+          """.stripMargin
+
+        val `B2.scala` =
+          """/a/B.scala
+            |package a
+            |class B extends A {
+            |  def foo: Int = ???
+            |}
+          """.stripMargin
+      }
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val `A` = TestProject(workspace, "a", List(Sources.`A.scala`, Sources.`B.scala`))
+
+      val projects = List(`A`)
+      val state = loadState(workspace, projects, logger)
+
+      val firstState = state.compile(`A`)
+      assertExitStatus(firstState, ExitStatus.Ok)
+
+      writeFile(`A`.srcFor("a/B.scala"), Sources.`B2.scala`)
+      def deleteAProduct(classesDir: AbsolutePath): Unit = {
+        val productA = classesDir.resolve("a").resolve("A.class")
+        Files.delete(productA.underlying)
+      }
+
+      deleteAProduct(firstState.getLastClassesDir(`A`).get)
+
+      val secondState = firstState.compile(`A`)
+      assertExitStatus(secondState, ExitStatus.Ok)
+
     }
   }
 }

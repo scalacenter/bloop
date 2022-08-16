@@ -16,6 +16,7 @@ import javax.tools.{JavaCompiler => JavaxCompiler}
 import scala.collection.mutable.HashSet
 import scala.concurrent.ExecutionContext
 
+import bloop.CompilerCache.JavacKey
 import bloop.io.AbsolutePath
 import bloop.io.Paths
 import bloop.logging.Logger
@@ -43,13 +44,16 @@ import xsbti.compile.ScalaCompiler
 import xsbti.{Logger => XLogger}
 import xsbti.{Reporter => XReporter}
 
+object CompilerCache {
+  final case class JavacKey(javacBin: Option[AbsolutePath], allowLocal: Boolean)
+}
 final class CompilerCache(
     componentProvider: ComponentProvider,
     retrieveDir: AbsolutePath,
     logger: Logger,
     userResolvers: List[Resolver],
     userScalaCache: Option[ConcurrentHashMap[ScalaInstance, ScalaCompiler]],
-    userJavacCache: Option[ConcurrentHashMap[Option[AbsolutePath], JavaCompiler]],
+    userJavacCache: Option[ConcurrentHashMap[JavacKey, JavaCompiler]],
     scheduler: ExecutionContext
 ) {
 
@@ -57,7 +61,7 @@ final class CompilerCache(
     userScalaCache.getOrElse(new ConcurrentHashMap[ScalaInstance, ScalaCompiler]())
 
   private val javaCompilerCache =
-    userJavacCache.getOrElse(new ConcurrentHashMap[Option[AbsolutePath], JavaCompiler]())
+    userJavacCache.getOrElse(new ConcurrentHashMap[JavacKey, JavaCompiler]())
 
   def get(
       scalaInstance: ScalaInstance,
@@ -69,8 +73,12 @@ final class CompilerCache(
       getScalaCompiler(_, componentProvider)
     )
 
+    val allowLocal = !hasRuntimeJavacOptions(javacOptions)
     val javaCompiler =
-      javaCompilerCache.computeIfAbsent(javacBin, getJavaCompiler(logger, _, javacOptions))
+      javaCompilerCache.computeIfAbsent(
+        JavacKey(javacBin, allowLocal),
+        key => getJavaCompiler(logger, key.javacBin, javacOptions)
+      )
 
     val javaDoc = Javadoc.local.getOrElse(Javadoc.fork())
     val javaTools = JavaTools(javaCompiler, javaDoc)
@@ -94,7 +102,7 @@ final class CompilerCache(
       javacBin: Option[AbsolutePath],
       javacOptions: List[String]
   ): JavaCompiler = {
-    val allowLocal = !javacOptions.exists(_.startsWith("-J"))
+    val allowLocal = !hasRuntimeJavacOptions(javacOptions)
     javacBin match {
       case Some(bin) if JavaRuntime.javac.exists(isSameCompiler(logger, _, bin)) =>
         // Same bin as the one derived from this VM? Prefer built-in compiler if JDK
@@ -399,5 +407,9 @@ final class CompilerCache(
         logger.trace(ex)
         false
     }
+  }
+
+  private def hasRuntimeJavacOptions(javacOptions: List[String]): Boolean = {
+    javacOptions.exists(_.startsWith("-J"))
   }
 }
