@@ -13,6 +13,25 @@ ThisBuild / bloopExportJarClassifiers := Some(Set("sources"))
 
 ThisBuild / scalafixDependencies += "com.github.liancheng" %% "organize-imports" % "0.6.0"
 
+// Add hook for scalafmt validation
+Global / onLoad ~= { old =>
+  if (!scala.util.Properties.isWin) {
+    import java.nio.file._
+    val prePush = Paths.get(".git", "hooks", "pre-push")
+    Files.createDirectories(prePush.getParent)
+    Files.write(
+      prePush,
+      """#!/bin/sh
+        |set -eux
+        |bin/scalafmt --diff --diff-branch main
+        |git diff --exit-code
+        |""".stripMargin.getBytes()
+    )
+    prePush.toFile.setExecutable(true)
+  }
+  old
+}
+
 val scalafixSettings: Seq[Setting[_]] = Seq(
   scalacOptions ++= {
     if (scalaVersion.value.startsWith("2.11")) Seq("-Ywarn-unused-import")
