@@ -11,11 +11,11 @@ import scala.concurrent.Promise
 import scala.util.Failure
 import scala.util.Success
 import scala.util.Try
+import scala.util.control.NonFatal
 
 import monix.execution.Cancelable
 import monix.execution.CancelableFuture
 import monix.execution.cancelables.SingleAssignmentCancelable
-import monix.execution.misc.NonFatal
 import monix.execution.schedulers.TrampolinedRunnable
 
 /**

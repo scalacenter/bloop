@@ -24,10 +24,10 @@ import bloop.engine.{
 import bloop.engine.caches.ResultsCache
 import bloop.io.AbsolutePath
 import bloop.logging.{BloopLogger, Logger, NoopLogger}
-import monix.eval.Task
-import monix.execution.misc.NonFatal
+import bloop.task.Task
 import bloop.engine.tasks.compilation.CompileGatekeeper
 import sbt.internal.inc.BloopComponentCompiler
+import scala.util.control.NonFatal
 
 object CommunityBuild
     extends CommunityBuild(

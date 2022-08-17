@@ -8,10 +8,9 @@ import bloop.cli.BspProtocol
 import bloop.cli.ExitStatus
 import bloop.engine.ExecutionContext
 import bloop.logging.RecordingLogger
+import bloop.task.Task
 import bloop.util.TestProject
 import bloop.util.TestUtil
-
-import monix.eval.Task
 
 object TcpBspSbtClientSpec extends BspSbtClientSpec(BspProtocol.Tcp)
 
@@ -331,8 +330,8 @@ class BspSbtClientSpec(
       originId: String,
       logger: RecordingLogger
   ): ManagedBspTestState = {
-    val allCompilationTasks = projects.map(
-      project => state.compileTask(project, originId = Some(originId), clearDiagnostics = false)
+    val allCompilationTasks = projects.map(project =>
+      state.compileTask(project, originId = Some(originId), clearDiagnostics = false)
     )
 
     val duration = new FiniteDuration(20, TimeUnit.SECONDS)

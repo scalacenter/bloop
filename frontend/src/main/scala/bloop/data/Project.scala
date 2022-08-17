@@ -21,12 +21,12 @@ import bloop.io.AbsolutePath
 import bloop.io.ByteHasher
 import bloop.logging.DebugFilter
 import bloop.logging.Logger
+import bloop.task.Task
 
 import com.typesafe.config.ConfigException
 import com.typesafe.config.ConfigFactory
 import com.typesafe.config.ConfigParseOptions
 import com.typesafe.config.ConfigSyntax
-import monix.eval.Task
 import xsbti.compile.ClasspathOptions
 import xsbti.compile.CompileOrder
 

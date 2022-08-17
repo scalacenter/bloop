@@ -19,6 +19,8 @@ import java.util
 import scala.collection.mutable
 import scala.util.Properties
 
+import java.time.temporal.ChronoUnit
+
 object Paths {
   private def createDirFor(filepath: String): AbsolutePath =
     AbsolutePath(Files.createDirectories(NioPaths.get(filepath)))
@@ -103,7 +105,24 @@ object Paths {
     out.toList
   }
 
-  case class AttributedPath(path: AbsolutePath, lastModifiedTime: FileTime, size: Long)
+  // sealed abstract is an abomination for scala 2.12 to get private which actually works
+  sealed abstract case class AttributedPath(
+      path: AbsolutePath,
+      lastModifiedTime: FileTime,
+      size: Long
+  ) {
+    def withPath(newPath: AbsolutePath): AttributedPath =
+      new AttributedPath(newPath, lastModifiedTime, size) {}
+  }
+
+  object AttributedPath {
+    def of(path: AbsolutePath, lastModifiedTime: FileTime, size: Long): AttributedPath = {
+      // this logic exists to maintain consistency between old and new JVMs. Older JVMs does not provide more than millisecond precision for `Instant`s by default
+      val truncatedFileTime =
+        FileTime.from(lastModifiedTime.toInstant.truncatedTo(ChronoUnit.MILLIS))
+      new AttributedPath(path, truncatedFileTime, size) {}
+    }
+  }
 
   /**
    * Get all files under `base` that match the pattern `pattern` up to depth `maxDepth`.
@@ -131,7 +150,7 @@ object Paths {
     val visitor = new FileVisitor[Path] {
       def visitFile(file: Path, attributes: BasicFileAttributes): FileVisitResult = {
         if (matcher.matches(file)) {
-          out += AttributedPath(
+          out += AttributedPath.of(
             AbsolutePath(file),
             // Truncate to milliseconds, to workaround precision discrepancy issues in the tests
             FileTime.fromMillis(attributes.lastModifiedTime().toMillis),

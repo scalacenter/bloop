@@ -12,9 +12,8 @@ import bloop.engine.ClientPool
 import bloop.engine.State
 import bloop.io.AbsolutePath
 import bloop.logging.Logger
+import bloop.task.Task
 import bloop.util.Environment
-
-import monix.eval.Task
 
 /** Cache that holds the state associated to each loaded build. */
 final class StateCache(cache: ConcurrentHashMap[AbsolutePath, StateCache.CachedState]) {

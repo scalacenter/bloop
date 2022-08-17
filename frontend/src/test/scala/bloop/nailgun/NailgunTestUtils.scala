@@ -10,9 +10,11 @@ import java.util.concurrent.TimeUnit
 
 import scala.concurrent.Await
 import scala.concurrent.duration.FiniteDuration
+import scala.util.control.NonFatal
 
 import bloop.Bloop
 import bloop.internal.build.BuildInfo
+import bloop.task.Task
 import bloop.testing.BaseSuite
 import bloop.logging.{DebugFilter, ProcessLogger, RecordingLogger}
 import bloop.util.{TestUtil, CrossPlatform}
@@ -25,7 +27,6 @@ import com.martiansoftware.nailgun.{
 
 import com.martiansoftware.nailgun.BloopThreadLocalInputStream
 import com.martiansoftware.nailgun.ThreadLocalPrintStream
-import monix.eval.Task
 import monix.execution.Scheduler
 import org.apache.commons.io.IOUtils
 import java.io.File
@@ -82,7 +83,6 @@ trait NailgunTestUtils {
       // Trick nailgun into thinking these are the real streams
       import java.net.InetAddress
       val addr = InetAddress.getLoopbackAddress
-      import monix.execution.misc.NonFatal
       try {
         val server = Bloop.launchServer(
           localIn,

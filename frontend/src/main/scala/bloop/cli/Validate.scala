@@ -10,10 +10,9 @@ import bloop.engine.Print
 import bloop.engine.Run
 import bloop.engine.State
 import bloop.io.AbsolutePath
+import bloop.task.Task
 import bloop.util.CrossPlatform
 import bloop.util.Environment
-
-import monix.eval.Task
 
 object Validate {
   private def cliError(msg: String, commonOptions: CommonOptions): Action =

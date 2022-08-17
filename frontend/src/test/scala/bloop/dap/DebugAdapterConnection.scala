@@ -10,6 +10,7 @@ import scala.concurrent.Promise
 
 import bloop.dap.DebugTestEndpoints._
 import bloop.engine.ExecutionContext
+import bloop.task.Task
 
 import com.microsoft.java.debug.core.protocol.Events
 import com.microsoft.java.debug.core.protocol.Requests._
@@ -20,7 +21,6 @@ import com.microsoft.java.debug.core.protocol.Responses.SetBreakpointsResponseBo
 import com.microsoft.java.debug.core.protocol.Responses.StackTraceResponseBody
 import com.microsoft.java.debug.core.protocol.Responses.VariablesResponseBody
 import com.microsoft.java.debug.core.protocol.Types.Capabilities
-import monix.eval.Task
 import monix.execution.Cancelable
 import monix.execution.Scheduler
 

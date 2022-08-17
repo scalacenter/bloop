@@ -6,6 +6,7 @@ import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 import scala.language.experimental.macros
 import scala.reflect.ClassTag
+import scala.util.control.NonFatal
 
 import bloop.Compiler
 import bloop.cli.ExitStatus
@@ -16,11 +17,10 @@ import bloop.io.Paths.AttributedPath
 import bloop.logging.BspServerLogger
 import bloop.logging.RecordingLogger
 import bloop.reporter.Problem
+import bloop.task.Task
 import bloop.util.TestProject
 import bloop.util.TestUtil
 
-import monix.eval.Task
-import monix.execution.misc.NonFatal
 import utest.TestSuite
 import utest.Tests
 import utest.asserts.Asserts
@@ -140,11 +140,11 @@ abstract class BaseSuite extends TestSuite with BloopHelpers {
         val osInsensitivePath = ap.path.syntax.replace(prefixPath, "").replace(File.separator, "/")
         val maskedRelativePath = AbsolutePath(osInsensitivePath)
         if (!maskedRelativePath.syntax.startsWith("/classes-")) {
-          ap.copy(path = maskedRelativePath)
+          ap.withPath(maskedRelativePath)
         } else {
           // Remove '/classes-*' from path
           val newPath = maskedRelativePath.syntax.split(File.separatorChar).tail.tail.mkString("/")
-          ap.copy(path = AbsolutePath("/" + newPath))
+          ap.withPath(AbsolutePath("/" + newPath))
         }
       }
 

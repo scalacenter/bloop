@@ -17,11 +17,8 @@ import scala.xml.XML
 import bloop.engine.ExecutionContext
 import bloop.logging.DebugFilter
 import bloop.logging.Logger
+import bloop.task.Task
 import bloop.tracing.BraveTracer
-
-import monix.eval.Task
-import monix.reactive.Consumer
-import monix.reactive.Observable
 
 object CompilerPluginAllowlist {
 
@@ -104,20 +101,6 @@ object CompilerPluginAllowlist {
           val cachePluginResults = new Array[Boolean](pluginCompilerFlags.size)
 
           tracer.traceTaskVerbose("enabling plugin caching") { tracer =>
-            // Consumers are processed with `foreachParallel`, so we side-effect on `cachePluginResults`
-            val parallelConsumer = {
-              Consumer.foreachParallelAsync[WorkItem](parallelUnits) {
-                case WorkItem(pluginCompilerFlag, idx, p) =>
-                  shouldCachePlugin(pluginCompilerFlag, tracer, logger).materialize.map {
-                    case scala.util.Success(cache) =>
-                      p.success(cache)
-                      pluginPromises.remove(pluginCompilerFlag)
-                      cachePluginResults(idx) = cache
-                    case scala.util.Failure(t) => p.failure(t)
-                  }
-              }
-            }
-
             val acquiredByOtherTasks = new mutable.ListBuffer[Task[Unit]]()
             val acquiredByThisInvocation = new mutable.ListBuffer[WorkItem]()
 
@@ -135,9 +118,21 @@ object CompilerPluginAllowlist {
                 }
             }
 
-            Observable
-              .fromIterable(acquiredByThisInvocation.toList)
-              .consumeWith(parallelConsumer)
+            Task
+              .parSequenceN(parallelUnits)(
+                acquiredByThisInvocation.toList
+                  .map {
+                    // Consumers are processed with `foreachParallel`, so we side-effect on `cachePluginResults`
+                    case WorkItem(pluginCompilerFlag, idx, p) =>
+                      shouldCachePlugin(pluginCompilerFlag, tracer, logger).materialize.map {
+                        case scala.util.Success(cache) =>
+                          p.success(cache)
+                          pluginPromises.remove(pluginCompilerFlag)
+                          cachePluginResults(idx) = cache
+                        case scala.util.Failure(t) => p.failure(t)
+                      }
+                  }
+              )
               .flatMap { _ =>
                 // Then, we block on those tasks that were picked up by different invocations
                 val blockingBatches = {
@@ -146,7 +141,7 @@ object CompilerPluginAllowlist {
                     .map(group => Task.gatherUnordered(group))
                 }
 
-                Task.sequence(blockingBatches).map(_.flatten).map { _ =>
+                Task.sequence(blockingBatches.toList).map(_.flatten).map { _ =>
                   val enableCacheFlag = cachePluginResults.forall(_ == true)
                   if (!enableCacheFlag) scalacOptions
                   else "-Ycache-plugin-class-loader:last-modified" :: scalacOptions

@@ -36,13 +36,13 @@ import bloop.logging.LoggerAction.LogInfoMessage
 import bloop.logging.ObservedLogger
 import bloop.logging.RecordingLogger
 import bloop.reporter.ReporterAction
+import bloop.task.Task
 import bloop.util.TestProject
 import bloop.util.TestUtil
 
 import com.microsoft.java.debug.core.protocol.Requests.SetBreakpointArguments
 import com.microsoft.java.debug.core.protocol.Types
 import com.microsoft.java.debug.core.protocol.Types.SourceBreakpoint
-import monix.eval.Task
 import monix.execution.Ack
 import monix.reactive.Observer
 

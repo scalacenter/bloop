@@ -14,9 +14,9 @@ import scala.concurrent.Promise
 
 import bloop.UniqueCompileInputs.HashedSource
 import bloop.data.Project
+import bloop.task.Task
 import bloop.util.monix.FoldLeftAsyncConsumer
 
-import monix.eval.Task
 import monix.execution.Cancelable
 import monix.execution.Scheduler
 import monix.execution.atomic.AtomicBoolean
@@ -132,8 +132,8 @@ object SourceHasher {
         Cancelable.empty
       } else {
         val (out, consumerSubscription) = collectHashesConsumer.createSubscriber(cb, scheduler)
-        val hashSourcesInParallel = observable.mapAsync(parallelUnits) { (source: Path) =>
-          Task.eval {
+        val hashSourcesInParallel = observable.mapParallelOrdered(parallelUnits) { (source: Path) =>
+          monix.eval.Task.eval {
             val hash = ByteHasher.hashFileContents(source.toFile)
             HashedSource(PlainVirtualFileConverter.converter.toVirtualFile(source), hash)
           }

@@ -8,14 +8,13 @@ import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
 
 import scala.collection.mutable
+import scala.util.control.NonFatal
 import scala.util.matching.Regex
 
 import bloop.io.AbsolutePath
 import bloop.io.Filenames
 import bloop.io.Paths
 import bloop.util.UUIDUtil
-
-import monix.execution.misc.NonFatal
 
 sealed trait ClientInfo {
 

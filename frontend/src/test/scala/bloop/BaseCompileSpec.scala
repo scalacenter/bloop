@@ -10,6 +10,7 @@ import java.util.concurrent.TimeUnit
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 import scala.concurrent.duration.FiniteDuration
+import scala.util.control.NonFatal
 
 import bloop.cli.CommonOptions
 import bloop.cli.ExitStatus
@@ -23,13 +24,11 @@ import bloop.io.Environment.lineSeparator
 import bloop.io.RelativePath
 import bloop.io.{Paths => BloopPaths}
 import bloop.logging.RecordingLogger
+import bloop.task.Task
 import bloop.testing.DiffAssertions
 import bloop.util.BaseTestProject
 import bloop.util.BuildUtil
 import bloop.util.TestUtil
-
-import monix.eval.Task
-import monix.execution.misc.NonFatal
 
 abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
   protected def TestProject: BaseTestProject
@@ -1506,7 +1505,7 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
       val configDir = TestProject.populateWorkspace(workspace, List(`A`))
       val compileArgs = Array("compile", "a", "--config-dir", configDir.syntax)
       val compileAction = Cli.parse(compileArgs, options)
-      def runCompileAsync = Task.fork(Task.eval(Cli.run(compileAction, NoPool)))
+      def runCompileAsync = Task.eval(Cli.run(compileAction, NoPool)).executeAsync
       val runCompile = Task.gatherUnordered(List(runCompileAsync, runCompileAsync)).map(_ => ())
       Await.result(runCompile.runAsync(ExecutionContext.ioScheduler), FiniteDuration(10, "s"))
 

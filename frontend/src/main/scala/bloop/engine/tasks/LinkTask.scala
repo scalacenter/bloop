@@ -11,8 +11,7 @@ import bloop.engine.State
 import bloop.engine.tasks.toolchains.ScalaJsToolchain
 import bloop.engine.tasks.toolchains.ScalaNativeToolchain
 import bloop.io.AbsolutePath
-
-import monix.eval.Task
+import bloop.task.Task
 
 object LinkTask {
   def linkMainWithJs(

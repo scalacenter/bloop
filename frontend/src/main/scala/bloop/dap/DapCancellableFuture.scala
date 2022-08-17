@@ -4,7 +4,8 @@ import scala.concurrent.Future
 import scala.concurrent.Promise
 import scala.util.Success
 
-import monix.eval.Task
+import bloop.task.Task
+
 import monix.execution.Cancelable
 import monix.execution.Scheduler
 

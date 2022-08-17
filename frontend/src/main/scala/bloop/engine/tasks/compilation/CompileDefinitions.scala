@@ -4,8 +4,7 @@ import bloop.CompileProducts
 import bloop.PartialCompileProducts
 import bloop.data.Project
 import bloop.engine.Dag
-
-import monix.eval.Task
+import bloop.task.Task
 
 object CompileDefinitions {
   type ProjectId = String
