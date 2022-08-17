@@ -5,6 +5,8 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
 
+import scala.util._
+
 import ch.epfl.scala.bsp.JvmEnvironmentItem
 import ch.epfl.scala.bsp.ScalacOptionsItem
 import ch.epfl.scala.bsp.Uri
@@ -18,6 +20,8 @@ import bloop.logging.RecordingLogger
 import bloop.testing.DiffAssertions.TestFailedException
 import bloop.util.TestProject
 import bloop.util.TestUtil
+
+import com.github.plokhotnyuk.jsoniter_scala.core._
 
 object TcpBspProtocolSpec extends BspProtocolSpec(BspProtocol.Tcp)
 object LocalBspProtocolSpec extends BspProtocolSpec(BspProtocol.Local)
@@ -292,9 +296,10 @@ class BspProtocolSpec(
           ("ScalaCheck", List("hello.ScalaCheckTest")),
           ("specs2", List("hello.Specs2Test")),
           ("utest", List("hello.EternalUTest", "hello.UTestTest")),
-          ("ScalaTest", List("hello.ScalaTestTest", "hello.WritingTest", "hello.ResourcesTest")),
-        ).map { case (framework, classes) =>
-          ScalaTestClassesItem(project.bspId, classes, Some(framework))
+          ("ScalaTest", List("hello.ScalaTestTest", "hello.WritingTest", "hello.ResourcesTest"))
+        ).map {
+          case (framework, classes) =>
+            ScalaTestClassesItem(project.bspId, classes, Some(framework))
         }
 
         val testSuites = compiledState.testClasses(project)
@@ -323,8 +328,8 @@ class BspProtocolSpec(
           val bspTarget = build.state.findBuildTarget(project)
           assert(bspTarget.languageIds.sorted == List("java", "scala"))
           val json = bspTarget.data.get
-          bsp.ScalaBuildTarget.decodeScalaBuildTarget(json.hcursor) match {
-            case Right(scalaTarget) =>
+          Try(readFromArray[bsp.ScalaBuildTarget](json.value)) match {
+            case Success(scalaTarget) =>
               val expectedVersion = project.config.scala.get.version
               val expectedPlatform = project.config.platform.get match {
                 case _: Config.Platform.Jvm => bsp.ScalaPlatform.Jvm
@@ -337,7 +342,7 @@ class BspProtocolSpec(
               assert(expectedVersion == scalaTarget.scalaVersion)
               assert(expectedVersion.startsWith(scalaTarget.scalaBinaryVersion))
               assert(scalaTarget.platform == expectedPlatform)
-            case Left(_) => fail(s"Couldn't decode scala build target for ${bspTarget}")
+            case Failure(_) => fail(s"Couldn't decode scala build target for ${bspTarget}")
           }
         }
 

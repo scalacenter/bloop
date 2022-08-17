@@ -63,7 +63,7 @@ final class BspBridge(
   def establishBspConnectionViaBinary(
       createCli: PrintStream => BloopgunCli,
       bloopAdditionalArgs: List[String],
-      useTcp: Boolean,
+      useTcp: Boolean
   ): RunningBspConnection = {
     // Reset the status as it can be called several times
     resetServerStatus()
@@ -303,17 +303,17 @@ final class BspBridge(
 object BspBridge {
 
   class LogsRecordingStream(
-    maxLines: Int,
-    mkString: StringBuilder => String
+      maxLines: Int,
+      mkString: StringBuilder => String
   ) extends OutputStream {
-    val queue =  scala.collection.mutable.Queue.empty[String]
+    val queue = scala.collection.mutable.Queue.empty[String]
     var currLine = new StringBuilder()
     def write(b: Int): Unit = {
       synchronized {
-        if (b == '\n'){
+        if (b == '\n') {
           if (queue.length == maxLines)
             queue.dequeue()
-          
+
           queue.enqueue(mkString(currLine))
           currLine = new StringBuilder()
         } else {
@@ -332,13 +332,13 @@ object BspBridge {
   }
 
   object LogsRecordingStream {
-    def apply(maxLines: Int): LogsRecordingStream =  {
-      val mkString = 
+    def apply(maxLines: Int): LogsRecordingStream = {
+      val mkString =
         if (scala.util.Properties.isWin)
-          (b: StringBuilder) => { 
-              if (b.last == '\r')
-                b.deleteCharAt(b.length - 1)
-              b.toString
+          (b: StringBuilder) => {
+            if (b.last == '\r')
+              b.deleteCharAt(b.length - 1)
+            b.toString
           }
         else
           (b: StringBuilder) => b.toString()
@@ -346,6 +346,5 @@ object BspBridge {
     }
 
   }
-  
 
 }

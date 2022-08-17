@@ -32,10 +32,9 @@ import bloop.logging.Logger
 import bloop.logging.NoopLogger
 import bloop.reporter.LogReporter
 import bloop.reporter.ReporterInputs
+import bloop.task.Task
 import bloop.testing.LoggingEventHandler
 import bloop.testing.TestInternals
-
-import monix.eval.Task
 
 object Interpreter {
   // This is stack-safe because of Monix's trampolined execution

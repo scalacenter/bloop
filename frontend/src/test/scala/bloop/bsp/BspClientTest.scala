@@ -4,17 +4,12 @@ import java.io.File
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.Path
-import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ExecutionException
 
 import scala.collection.mutable
 import scala.concurrent.Promise
 import scala.concurrent.duration.FiniteDuration
-import scala.meta.jsonrpc.BaseProtocolMessage
-import scala.meta.jsonrpc.LanguageClient
-import scala.meta.jsonrpc.LanguageServer
-import scala.meta.jsonrpc.Response
-import scala.meta.jsonrpc.Services
+import scala.util._
 
 import ch.epfl.scala.bsp
 import ch.epfl.scala.bsp.endpoints
@@ -34,13 +29,14 @@ import bloop.io.RelativePath
 import bloop.logging.BspClientLogger
 import bloop.logging.RecordingLogger
 import bloop.logging.Slf4jAdapter
+import bloop.task.Task
 import bloop.util.TestUtil
 import bloop.util.UUIDUtil
 
-import monix.eval.Task
+import com.github.plokhotnyuk.jsoniter_scala.core._
+import jsonrpc4s._
 import monix.execution.ExecutionModel
 import monix.execution.Scheduler
-import monix.{eval => me}
 import sbt.internal.util.MessageOnlyException
 
 object BspClientTest extends BspClientTest
@@ -118,13 +114,13 @@ trait BspClientTest {
       cmd: Commands.ValidatedBsp,
       configDirectory: AbsolutePath,
       logger0: BspClientLogger[_],
-      customServices: Services => Services = identity[Services],
+      customServices: BloopRpcServices => BloopRpcServices = identity[BloopRpcServices],
       allowError: Boolean = false,
       reusePreviousState: Boolean = false,
       addDiagnosticsHandler: Boolean = true,
       userState: Option[State] = None,
       userScheduler: Option[Scheduler] = None
-  )(runEndpoints: LanguageClient => me.Task[Either[Response.Error, T]]): Option[T] = {
+  )(runEndpoints: BloopLanguageClient => Task[Either[Response.Error, T]]): Option[T] = {
     val ioScheduler = userScheduler.getOrElse(defaultScheduler)
     val logger = logger0.asVerbose.asInstanceOf[logger0.type]
     // Set an empty results cache and update the state globally
@@ -146,33 +142,37 @@ trait BspClientTest {
       val in = socket.getInputStream
       val out = socket.getOutputStream
 
-      implicit val lsClient = new LanguageClient(out, logger)
-      val messages = BaseProtocolMessage.fromInputStream(in, logger)
+      val lsClient = BloopLanguageClient.fromOutputStream(out, logger)
+      val messages = LowLevelMessage
+        .fromInputStream(in, logger)
+        .map(msg => LowLevelMessage.toMsg(msg))
       val services =
         customServices(TestUtil.createTestServices(addDiagnosticsHandler, logger))
-      val lsServer = new LanguageServer(messages, lsClient, services, ioScheduler, logger)
-      
+      val lsServer = new BloopLanguageServer(messages, lsClient, services, ioScheduler, logger)
+
       lsServer.startTask.runAsync(ioScheduler)
 
       val cwd = configDirectory.underlying.getParent
-      val initializeServer = endpoints.Build.initialize.request(
-        bsp.InitializeBuildParams(
-          "test-bloop-client",
-          "1.0.0",
-          BuildInfo.bspVersion,
-          rootUri = bsp.Uri(cwd.toAbsolutePath.toUri),
-          capabilities = bsp.BuildClientCapabilities(List("scala")),
-          None
+      val initializeServer =
+        lsClient.request(
+          endpoints.Build.initialize,
+          bsp.InitializeBuildParams(
+            "test-bloop-client",
+            "1.0.0",
+            BuildInfo.bspVersion,
+            rootUri = bsp.Uri(cwd.toAbsolutePath.toUri),
+            capabilities = bsp.BuildClientCapabilities(List("scala")),
+            None
+          )
         )
-      )
 
       for {
         // Delay the task to let the bloop server go live
         initializeResult <- initializeServer.delayExecution(FiniteDuration(1, "s"))
-        _ = endpoints.Build.initialized.notify(bsp.InitializedBuildParams())
+        _ = lsClient.notify(endpoints.Build.initialized, bsp.InitializedBuildParams())
         otherCalls <- runEndpoints(lsClient)
-        _ <- endpoints.Build.shutdown.request(bsp.Shutdown())
-        _ = endpoints.Build.exit.notify(bsp.Exit())
+        _ <- lsClient.request(endpoints.Build.shutdown, bsp.Shutdown())
+        _ = lsClient.notify(endpoints.Build.exit, bsp.Exit())
       } yield {
         socket.close()
         otherCalls match {
@@ -200,10 +200,10 @@ trait BspClientTest {
     }
   }
 
-  def establishClientConnection(cmd: Commands.ValidatedBsp): me.Task[java.net.Socket] = {
+  def establishClientConnection(cmd: Commands.ValidatedBsp): Task[java.net.Socket] = {
     import bloop.sockets.UnixDomainSocket
     import bloop.sockets.Win32NamedPipeSocket
-    val connectToServer = me.Task {
+    val connectToServer = Task {
       cmd match {
         case cmd: Commands.TcpBsp => new java.net.Socket(cmd.host, cmd.port)
         case cmd: Commands.UnixLocalBsp => new UnixDomainSocket(cmd.socket.syntax)
@@ -215,17 +215,17 @@ trait BspClientTest {
 
   // Courtesy of @olafurpg
   def retryBackoff[A](
-      source: me.Task[A],
+      source: Task[A],
       maxRetries: Int,
       firstDelay: FiniteDuration
-  ): me.Task[A] = {
+  ): Task[A] = {
     source.onErrorHandleWith {
       case ex: Exception =>
         if (maxRetries > 0)
           // Recursive call, it's OK as Monix is stack-safe
           retryBackoff(source, maxRetries - 1, firstDelay * 2)
             .delayExecution(firstDelay)
-        else me.Task.raiseError(ex)
+        else Task.raiseError(ex)
     }
   }
 
@@ -255,60 +255,58 @@ trait BspClientTest {
       compileIteration: () => Int,
       record: (bsp.BuildTargetIdentifier, StringBuilder => StringBuilder) => Unit,
       compileStartPromises: Option[mutable.HashMap[bsp.BuildTargetIdentifier, Promise[Unit]]]
-  ): Services => Services = { (s: Services) =>
+  ): BloopRpcServices => BloopRpcServices = { (s: BloopRpcServices) =>
     s.notification(endpoints.Build.taskStart) { taskStart =>
-        taskStart.dataKind match {
-          case Some(bsp.TaskDataKind.CompileTask) =>
-            val json = taskStart.data.get
-            bsp.CompileTask.decodeCompileTask(json.hcursor) match {
-              case Left(_) => ()
-              case Right(compileTask) =>
-                compileStartPromises.foreach(
-                  promises => promises.get(compileTask.target).map(_.trySuccess(()))
-                )
-                record(
-                  compileTask.target,
-                  (builder: StringBuilder) => {
-                    builder.synchronized {
-                      builder.++=(s"#${compileIteration()}: task start ${taskStart.taskId.id}\n")
-                      taskStart.message.foreach(msg => builder.++=(s"  -> Msg: ${msg}\n"))
-                      taskStart.dataKind.foreach(msg => builder.++=(s"  -> Data kind: ${msg}\n"))
-                      builder
-                    }
+      taskStart.dataKind match {
+        case Some(bsp.TaskDataKind.CompileTask) =>
+          val json = taskStart.data.get
+          Try(readFromArray[bsp.CompileTask](json.value)) match {
+            case Failure(_) => ()
+            case Success(compileTask) =>
+              compileStartPromises.foreach(promises =>
+                promises.get(compileTask.target).map(_.trySuccess(()))
+              )
+              record(
+                compileTask.target,
+                (builder: StringBuilder) => {
+                  builder.synchronized {
+                    builder.++=(s"#${compileIteration()}: task start ${taskStart.taskId.id}\n")
+                    taskStart.message.foreach(msg => builder.++=(s"  -> Msg: ${msg}\n"))
+                    taskStart.dataKind.foreach(msg => builder.++=(s"  -> Data kind: ${msg}\n"))
+                    builder
                   }
-                )
-            }
-          case _ => ()
-        }
-        ()
+                }
+              )
+          }
+        case _ => ()
       }
-      .notification(endpoints.Build.taskFinish) { taskFinish =>
-        taskFinish.dataKind match {
-          case Some(bsp.TaskDataKind.CompileReport) =>
-            val json = taskFinish.data.get
-            bsp.CompileReport.decodeCompileReport(json.hcursor) match {
-              case Left(_) => ()
-              case Right(report) =>
-                record(
-                  report.target,
-                  (builder: StringBuilder) => {
-                    builder.synchronized {
-                      builder.++=(s"#${compileIteration()}: task finish ${taskFinish.taskId.id}\n")
-                      builder.++=(s"  -> errors ${report.errors}, warnings ${report.warnings}\n")
-                      report.originId.foreach(originId => builder.++=(s"  -> origin = $originId\n"))
-                      taskFinish.message.foreach(msg => builder.++=(s"  -> Msg: ${msg}\n"))
-                      taskFinish.dataKind.foreach(msg => builder.++=(s"  -> Data kind: ${msg}\n"))
-                      builder
-                    }
+      ()
+    }.notification(endpoints.Build.taskFinish) { taskFinish =>
+      taskFinish.dataKind match {
+        case Some(bsp.TaskDataKind.CompileReport) =>
+          val json = taskFinish.data.get
+          Try(readFromArray[bsp.CompileReport](json.value)) match {
+            case Failure(_) => ()
+            case Success(report) =>
+              record(
+                report.target,
+                (builder: StringBuilder) => {
+                  builder.synchronized {
+                    builder.++=(s"#${compileIteration()}: task finish ${taskFinish.taskId.id}\n")
+                    builder.++=(s"  -> errors ${report.errors}, warnings ${report.warnings}\n")
+                    report.originId.foreach(originId => builder.++=(s"  -> origin = $originId\n"))
+                    taskFinish.message.foreach(msg => builder.++=(s"  -> Msg: ${msg}\n"))
+                    taskFinish.dataKind.foreach(msg => builder.++=(s"  -> Data kind: ${msg}\n"))
+                    builder
                   }
-                )
-            }
-          case _ => ()
-        }
+                }
+              )
+          }
+        case _ => ()
+      }
 
-        ()
-      }
-      .notification(endpoints.Build.taskProgress) { case _ => () }
+      ()
+    }.notification(endpoints.Build.taskProgress) { case _ => () }
       .notification(endpoints.Build.publishDiagnostics) {
         case bsp.PublishDiagnosticsParams(tid, btid, originId, diagnostics, reset) =>
           record(
@@ -353,202 +351,4 @@ trait BspClientTest {
       }
   }
 
-  sealed trait BspClientAction
-  object BspClientAction {
-    case object CompileEmpty extends BspClientAction // Required to check errors when sending no tid
-    case class Compile(target: bsp.BuildTargetIdentifier) extends BspClientAction
-    case class CreateFile(path: AbsolutePath, contents: String) extends BspClientAction
-    case class DeleteFile(path: AbsolutePath) extends BspClientAction
-    case class OverwriteFile(path: AbsolutePath, contents: String) extends BspClientAction
-  }
-
-  def runCompileTest(
-      bspCmd: Commands.ValidatedBsp,
-      testActions: List[BspClientAction],
-      configDir: AbsolutePath,
-      expectErrors: Boolean = false,
-      userState: Option[State] = None,
-      userScheduler: Option[Scheduler] = None
-  ): Map[bsp.BuildTargetIdentifier, String] = {
-    var compileIteration = 1
-    val compilationResults = new StringBuilder()
-    val logger = new BspClientLogger(new RecordingLogger)
-    val stringifiedDiagnostics = new ConcurrentHashMap[bsp.BuildTargetIdentifier, StringBuilder]()
-
-    def runFromWorkspaceTargets(targets: List[bsp.BuildTarget])(implicit client: LanguageClient) = {
-      def compileProject(tid: bsp.BuildTargetIdentifier): Task[Either[String, Unit]] = {
-        endpoints.BuildTarget.compile
-          .request(bsp.CompileParams(List(tid), None, None))
-          .map {
-            case Right(r) => compilationResults.++=(s"${r.statusCode}"); Right(())
-            case Left(e) =>
-              Left(
-                s"""Compilation error for request ${e.id}:
-                   |${e.error}""".stripMargin
-              )
-          }
-      }
-
-      import scala.collection.mutable
-      val createdFiles = mutable.HashSet.empty[AbsolutePath]
-      val originalFiles = mutable.HashMap.empty[AbsolutePath, String]
-      def runTestAction(action: BspClientAction): Task[Either[String, Unit]] = {
-        action match {
-          case BspClientAction.CompileEmpty =>
-            endpoints.BuildTarget.compile
-              .request(bsp.CompileParams(List(), None, None))
-              .map {
-                case Right(r) =>
-                  if (r.statusCode.code == 0) Right(())
-                  else {
-                    val builder = new StringBuilder()
-                    builder.++=(s"Error when compiling no target: ${r}\n")
-                    logger.underlying.errors.foreach(error => builder.++=(error))
-                    Left(builder.mkString)
-                  }
-                case Left(e) =>
-                  Left(
-                    s"""Compilation error for request ${e.id}:
-                       |${e.error}""".stripMargin
-                  )
-              }
-          case BspClientAction.Compile(tid) =>
-            targets.map(_.id).find(_ == tid) match {
-              case Some(tid) =>
-                compileProject(tid).map { res =>
-                  compileIteration += 1
-                  res
-                }
-              case None => Task.now(Left(s"Missing target ${tid}"))
-            }
-          case BspClientAction.CreateFile(path, contents) =>
-            Task {
-              if (path.exists) {
-                Left(s"File path $path already exists, use `OverwriteFile` instead of `CreateFile`")
-              } else {
-                createdFiles.+=(path)
-                Files.write(path.underlying, contents.getBytes(StandardCharsets.UTF_8))
-                Right(())
-              }
-            }
-
-          case BspClientAction.DeleteFile(path) =>
-            Task {
-              if (path.exists) {
-                if (createdFiles.contains(path)) {
-                  createdFiles.-=(path)
-                } else {
-                  val originalContents = new String(path.readAllBytes, StandardCharsets.UTF_8)
-                  originalFiles.+=(path -> originalContents)
-                }
-
-                Files.delete(path.underlying)
-                Right(())
-              } else {
-                Left(s"File path ${path} doesn't exist, we cannot delete it.")
-              }
-            }
-
-          case BspClientAction.OverwriteFile(path, contents) =>
-            Task {
-              if (createdFiles.contains(path)) ()
-              else {
-                val isNotOverwritten = !originalFiles.contains(path)
-                if (isNotOverwritten) {
-                  val originalContents = new String(path.readAllBytes, StandardCharsets.UTF_8)
-                  originalFiles.+=(path -> originalContents)
-                }
-              }
-
-              Files.write(path.underlying, contents.getBytes(StandardCharsets.UTF_8))
-              Right(())
-            }
-        }
-      }
-
-      val finalResult = testActions match {
-        case Nil => sys.error("Test actions are empty!")
-        case x :: xs =>
-          xs.foldLeft(runTestAction(x)) {
-            case (previousResult, nextAction) =>
-              previousResult.flatMap {
-                case Right(()) => runTestAction(nextAction)
-                case Left(msg) => Task.now(Left(msg))
-              }
-          }
-      }
-
-      val deleteAllResources = Task {
-        createdFiles.foreach { createdFileDuringTest =>
-          Files.deleteIfExists(createdFileDuringTest.underlying)
-        }
-
-        originalFiles.foreach {
-          case (originalFileBeforeTest, originalContents) =>
-            Files.write(
-              originalFileBeforeTest.underlying,
-              originalContents.getBytes(StandardCharsets.UTF_8)
-            )
-        }
-      }
-
-      finalResult.doOnCancel(deleteAllResources).doOnFinish(_ => deleteAllResources).map { res =>
-        res.map { _ =>
-          targets.map { target =>
-            val tid = target.id
-            tid -> Option(stringifiedDiagnostics.get(tid)).map(_.mkString).getOrElse("")
-          }.toMap
-        }
-      }
-    }
-
-    def addToStringReport(
-        btid: bsp.BuildTargetIdentifier,
-        add: StringBuilder => StringBuilder
-    ): Unit = {
-      stringifiedDiagnostics.compute(
-        btid,
-        (_, builder0) => add(if (builder0 == null) new StringBuilder() else builder0)
-      )
-      ()
-    }
-
-    reportIfError(logger, expectErrors) {
-      val runTest = BspClientTest.runTest(
-        bspCmd,
-        configDir,
-        logger,
-        addServicesTest(configDir, () => compileIteration, addToStringReport, None),
-        addDiagnosticsHandler = false,
-        userState = userState,
-        userScheduler = userScheduler
-      ) { c =>
-        implicit val client = c
-        endpoints.Workspace.buildTargets.request(bsp.WorkspaceBuildTargetsRequest()).flatMap { ts =>
-          ts match {
-            case Right(workspaceTargets) =>
-              runFromWorkspaceTargets(workspaceTargets.targets).flatMap {
-                case Left(msg) => Task.now(Left(Response.internalError(msg)))
-                case Right(res) => Task.now(Right(res))
-              }
-
-            case Left(error) =>
-              Task.now(Left(Response.internalError(s"Target request failed with $error.")))
-          }
-        }
-      }
-      runTest match {
-        case Some(res) => res
-        case None => Map.empty
-      }
-    }
-  }
-
-  def checkDiagnostics(diagnostics: Map[bsp.BuildTargetIdentifier, String])(
-      tid: bsp.BuildTargetIdentifier,
-      expected: String
-  ): Unit = {
-    val obtained = diagnostics.get(tid).getOrElse(sys.error(s"No diagnostics found for ${tid}"))
-    TestUtil.assertNoDiff(expected, obtained)
-  }
 }

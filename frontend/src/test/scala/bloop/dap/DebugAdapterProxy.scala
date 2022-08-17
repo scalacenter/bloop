@@ -1,31 +1,33 @@
 package bloop.dap
 
+import java.io.OutputStream
 import java.net.Socket
 import java.net.SocketException
 import java.nio.ByteBuffer
+import java.nio.channels.Channels
 
 import scala.collection.mutable
 import scala.concurrent.Future
 import scala.concurrent.Promise
-import scala.meta.jsonrpc.BaseProtocolMessage
-import scala.meta.jsonrpc.MessageWriter
 
-import bloop.bsp.BloopLanguageClient
 import bloop.engine.ExecutionContext
+import bloop.task.Task
 
 import com.microsoft.java.debug.core.protocol.Events
 import com.microsoft.java.debug.core.protocol.Events.DebugEvent
 import com.microsoft.java.debug.core.protocol.JsonUtils
 import com.microsoft.java.debug.core.protocol.Messages
 import com.microsoft.java.debug.core.protocol.Messages.ProtocolMessage
-import monix.eval.Task
+import jsonrpc4s.LowLevelMessage
+import jsonrpc4s.LowLevelMessageWriter
 import monix.execution.Ack
 import monix.execution.Scheduler
 import monix.reactive.MulticastStrategy
 import monix.reactive.Observable
+import monix.reactive.Observable.Operator
 import monix.reactive.Observer
-import monix.reactive.observables.ObservableLike.Operator
 import monix.reactive.observers.Subscriber
+import scribe.LoggerSupport
 
 /**
  * Handles communication with the debug adapter.
@@ -56,17 +58,22 @@ private[dap] final class DebugAdapterProxy(
   }
 
   def blockForAllOutput: Task[String] = {
-    events.completedL.map { _ =>
-      outputBuf.toString()
-    }
+    Task.liftMonixTaskUncancellable(
+      events.completedL.map { _ =>
+        outputBuf.toString()
+      }
+    )
   }
 
   private var lastSeenIndex: Long = -1
   def next[E <: DebugEvent](event: DebugTestProtocol.Event[E]): Task[E] = {
-    events.zipWithIndex
-      .dropWhile(_._2 <= lastSeenIndex)
-      .findF(_._1.event == event.name)
-      .headOptionL
+    Task
+      .liftMonixTaskUncancellable(
+        events.zipWithIndex
+          .dropWhile(_._2 <= lastSeenIndex)
+          .findF(_._1.event == event.name)
+          .headOptionL
+      )
       .flatMap {
         case Some((event, idx)) =>
           lastSeenIndex = idx
@@ -78,9 +85,12 @@ private[dap] final class DebugAdapterProxy(
   }
 
   def all[E <: DebugEvent](event: DebugTestProtocol.Event[E]): Task[List[E]] = {
-    events
-      .findF(_.event == event.name)
-      .toListL
+    Task
+      .liftMonixTaskUncancellable(
+        events
+          .findF(_.event == event.name)
+          .toListL
+      )
       .flatMap(events => Task.sequence(events.map(event.deserialize(_))))
   }
 
@@ -123,21 +133,22 @@ private[dap] final class DebugAdapterProxy(
 
 private[dap] object DebugAdapterProxy {
   def apply(socket: Socket): DebugAdapterProxy = {
-    val in = BaseProtocolMessage
-      .fromInputStream(socket.getInputStream, null)
+    val in = LowLevelMessage
+      .fromInputStream(socket.getInputStream(), null)
       .liftByOperator(Parser)
+      .guaranteeCase { _ => monix.eval.Task(socket.close()) }
 
-    val out = new Writer(BloopLanguageClient.fromOutputStream(socket.getOutputStream, null))
+    val out = new Writer(fromOutputStream(socket.getOutputStream(), null))
 
     new DebugAdapterProxy(in, out)
   }
 
-  private object Parser extends Operator[BaseProtocolMessage, Messages.ProtocolMessage] {
+  private object Parser extends Operator[LowLevelMessage, Messages.ProtocolMessage] {
     override def apply(
         upstream: Subscriber[Messages.ProtocolMessage]
-    ): Subscriber[BaseProtocolMessage] =
-      new Subscriber[BaseProtocolMessage] {
-        override def onNext(elem: BaseProtocolMessage): Future[Ack] = {
+    ): Subscriber[LowLevelMessage] =
+      new Subscriber[LowLevelMessage] {
+        override def onNext(elem: LowLevelMessage): Future[Ack] = {
           val content = new String(elem.content)
           val messageKind = JsonUtils.fromJson(content, classOf[ProtocolMessage]).`type`
           val targetType = messageKind match {
@@ -164,11 +175,59 @@ private[dap] object DebugAdapterProxy {
       extends Observer[Messages.ProtocolMessage] {
     override def onNext(elem: ProtocolMessage): Future[Ack] = {
       val bytes = JsonUtils.toJson(elem).getBytes
-      val message = BaseProtocolMessage.fromBytes(bytes)
-      val serialized = MessageWriter.write(message)
+      val protocolMsg = LowLevelMessage.fromBytes(
+        Map("Content-Length" -> bytes.length.toString),
+        bytes
+      )
+
+      val serialized = LowLevelMessageWriter.write(protocolMsg)
       underlying.onNext(serialized)
     }
     override def onError(ex: Throwable): Unit = underlying.onError(ex)
     override def onComplete(): Unit = underlying.onComplete()
+  }
+
+  /**
+   * An observer implementation that writes messages to the underlying output
+   * stream. This class is copied over from lsp4s but has been modified to
+   * synchronize writing on the output stream. Synchronizing makes sure BSP
+   * clients see server responses in the order they were sent.
+   *
+   * If this is a bottleneck in the future, we can consider removing the
+   * synchronized blocks here and in the body of `BloopLanguageClient` and
+   * replace them with a ring buffer and an id generator to make sure all
+   * server interactions are sent out in order. As it's not a performance
+   * blocker for now, we opt for the synchronized approach.
+   */
+  def fromOutputStream(
+      out: OutputStream,
+      logger: LoggerSupport
+  ): Observer.Sync[ByteBuffer] = {
+    new Observer.Sync[ByteBuffer] {
+      private[this] var isClosed: Boolean = false
+      private[this] val channel = Channels.newChannel(out)
+      override def onNext(elem: ByteBuffer): Ack = out.synchronized {
+        if (isClosed) Ack.Stop
+        else {
+          try {
+            channel.write(elem)
+            out.flush()
+            Ack.Continue
+          } catch {
+            case t: java.io.IOException =>
+              logger.trace("OutputStream closed!", t)
+              isClosed = true
+              Ack.Stop
+          }
+        }
+      }
+      override def onError(ex: Throwable): Unit = ()
+      override def onComplete(): Unit = {
+        out.synchronized {
+          channel.close()
+          out.close()
+        }
+      }
+    }
   }
 }

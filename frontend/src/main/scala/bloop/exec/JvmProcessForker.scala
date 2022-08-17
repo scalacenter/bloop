@@ -19,9 +19,8 @@ import bloop.io.AbsolutePath
 import bloop.io.Paths
 import bloop.logging.DebugFilter
 import bloop.logging.Logger
+import bloop.task.Task
 import bloop.util.CrossPlatform
-
-import monix.eval.Task
 
 /**
  * Collects configuration to start a new program in a new process

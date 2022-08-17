@@ -12,12 +12,12 @@ import scala.concurrent.ExecutionException
 import scala.concurrent.duration.Duration
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.duration.TimeUnit
-import scala.meta.jsonrpc.Services
 import scala.tools.nsc.Properties
 import scala.util.control.NonFatal
 
 import bloop.CompilerCache
 import bloop.ScalaInstance
+import bloop.bsp.BloopRpcServices
 import bloop.cli.Commands
 import bloop.config.Config
 import bloop.config.Config.CompileOrder
@@ -46,7 +46,7 @@ import bloop.logging.DebugFilter
 import bloop.logging.Logger
 import bloop.logging.RecordingLogger
 
-import _root_.monix.eval.Task
+import _root_.bloop.task.Task
 import _root_.monix.execution.Scheduler
 import org.junit.Assert
 import sbt.internal.inc.BloopComponentCompiler
@@ -527,7 +527,7 @@ object TestUtil {
   def createTestServices(
       addDiagnosticsHandler: Boolean,
       logger0: BspClientLogger[_]
-  ): Services = {
+  ): BloopRpcServices = {
     implicit val ctx: DebugFilter = DebugFilter.Bsp
     import ch.epfl.scala.bsp
     import ch.epfl.scala.bsp.endpoints
@@ -539,7 +539,7 @@ object TestUtil {
       }
     }
 
-    val rawServices = Services
+    val rawServices = BloopRpcServices
       .empty(logger0)
       .notification(endpoints.Build.showMessage) {
         case bsp.ShowMessageParams(bsp.MessageType.Log, _, o, msg) => logger.debug(fmt(msg, o))

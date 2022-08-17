@@ -19,12 +19,12 @@ import bloop.logging.ObservedLogger
 import bloop.reporter.ProblemPerPhase
 import bloop.reporter.Reporter
 import bloop.reporter.ZincReporter
+import bloop.task.Task
 import bloop.tracing.BraveTracer
 import bloop.util.AnalysisUtils
 import bloop.util.CacheHashCode
 import bloop.util.UUIDUtil
 
-import monix.eval.Task
 import monix.execution.Scheduler
 import sbt.internal.inc.Analysis
 import sbt.internal.inc.ConcreteAnalysisContents

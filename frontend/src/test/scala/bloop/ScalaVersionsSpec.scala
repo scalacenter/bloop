@@ -1,15 +1,14 @@
 package bloop
 import scala.concurrent.duration.FiniteDuration
+import scala.util.control.NonFatal
 
 import bloop.cli.ExitStatus
 import bloop.engine.ExecutionContext
 import bloop.io.AbsolutePath
 import bloop.logging.RecordingLogger
+import bloop.task.Task
 import bloop.util.TestProject
 import bloop.util.TestUtil
-
-import monix.eval.Task
-import monix.execution.misc.NonFatal
 
 object ScalaVersionsSpec extends bloop.testing.BaseSuite {
   test("cross-compile build to latest Scala versions") {
@@ -80,7 +79,7 @@ object ScalaVersionsSpec extends bloop.testing.BaseSuite {
     try {
       TestUtil.await(FiniteDuration(120, "s"), ExecutionContext.ioScheduler) {
         Task
-          .sequence(all.grouped(2).map(group => Task.gatherUnordered(group)))
+          .sequence(all.grouped(2).map(group => Task.gatherUnordered(group)).toList)
           .map(_ => ())
       }
     } catch {

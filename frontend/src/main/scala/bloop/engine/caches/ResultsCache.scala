@@ -8,6 +8,7 @@ import java.util.concurrent.ConcurrentHashMap
 import scala.collection.mutable
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
+import scala.util.control.NonFatal
 
 import bloop.CompileOutPaths
 import bloop.CompileProducts
@@ -29,9 +30,8 @@ import bloop.logging.Logger
 import bloop.logging.ObservedLogger
 import bloop.reporter.LogReporter
 import bloop.reporter.ReporterConfig
+import bloop.task.Task
 
-import monix.eval.Task
-import monix.execution.misc.NonFatal
 import sbt.internal.inc.Analysis
 import sbt.internal.inc.FileAnalysisStore
 import xsbti.compile.PreviousResult

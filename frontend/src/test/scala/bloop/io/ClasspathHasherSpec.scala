@@ -8,11 +8,11 @@ import scala.concurrent.duration.FiniteDuration
 
 import bloop.DependencyResolution
 import bloop.logging.RecordingLogger
+import bloop.task.Task
 import bloop.tracing.BraveTracer
 import bloop.tracing.TraceProperties
 import bloop.util.TestUtil
 
-import monix.eval.Task
 import sbt.internal.inc.bloop.internal.BloopStamps
 
 object ClasspathHasherSpec extends bloop.testing.BaseSuite {

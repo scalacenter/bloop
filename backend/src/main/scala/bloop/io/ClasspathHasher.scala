@@ -13,11 +13,13 @@ import java.util.zip.ZipEntry
 
 import scala.collection.mutable
 import scala.concurrent.Promise
+import scala.util.control.NonFatal
 
 import bloop.logging.Logger
+import bloop.task.Task
 import bloop.tracing.BraveTracer
 
-import monix.eval.Task
+import monix.eval.{Task => MonixTask}
 import monix.execution.Cancelable
 import monix.execution.Scheduler
 import monix.execution.atomic.AtomicBoolean
@@ -76,10 +78,10 @@ object ClasspathHasher {
 
     val isCancelled = AtomicBoolean(false)
     val parallelConsumer = {
-      Consumer.foreachParallelAsync[AcquiredTask](parallelUnits) {
+      Consumer.foreachParallelTask[AcquiredTask](parallelUnits) {
         case AcquiredTask(path, idx, p) =>
           // Use task.now because Monix's load balancer already forces an async boundary
-          val hashingTask = Task.now {
+          val hashingTask = MonixTask.now {
             val hash =
               try {
                 if (cancelCompilation.isCompleted) {
@@ -108,7 +110,7 @@ object ClasspathHasher {
                 }
               } catch {
                 // Can happen when a file doesn't exist, for example
-                case monix.execution.misc.NonFatal(_) => BloopStamps.emptyHash(path)
+                case NonFatal(_) => BloopStamps.emptyHash(path)
               }
             classpathHashes(idx) = hash
             hashingPromises.remove(path, p)
@@ -147,8 +149,8 @@ object ClasspathHasher {
           )
 
           hashingTask
-            .doOnCancel(Task(timeoutCancellation.cancel()))
-            .doOnFinish(_ => Task(timeoutCancellation.cancel()))
+            .doOnCancel(MonixTask(timeoutCancellation.cancel()))
+            .doOnFinish(_ => MonixTask(timeoutCancellation.cancel()))
       }
     }
 
@@ -172,7 +174,7 @@ object ClasspathHasher {
                     // If the process that acquired it cancels the computation, try acquiring it again
                     logger
                       .warn(s"Unexpected hash computation of $entry was cancelled, restarting...")
-                    Task.fork(Task.eval(acquireHashingEntry(entry, entryIdx)))
+                    Task.eval(acquireHashingEntry(entry, entryIdx)).asyncBoundary
                   }
                 } else {
                   Task.now {

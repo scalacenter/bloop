@@ -18,8 +18,8 @@ import bloop.exec.JvmProcessForker
 import bloop.io.AbsolutePath
 import bloop.logging.DebugFilter
 import bloop.logging.Logger
+import bloop.task.Task
 
-import monix.eval.Task
 import monix.execution.atomic.AtomicBoolean
 import org.scalatools.testing.{Framework => OldFramework}
 import sbt.internal.inc.Analysis
@@ -170,10 +170,10 @@ object TestInternals {
       }
     }
 
-    runner
-      .delayExecutionWith(listener.startServer)
-      .executeOn(ExecutionContext.ioScheduler)
-      .doOnCancel(Task(cancel()))
+    listener.startServer *>
+      runner
+        .executeOn(ExecutionContext.ioScheduler)
+        .doOnCancel(Task(cancel()))
   }
 
   /**

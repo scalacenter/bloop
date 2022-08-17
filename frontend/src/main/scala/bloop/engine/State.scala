@@ -10,8 +10,8 @@ import bloop.engine.caches.StateCache
 import bloop.io.Paths
 import bloop.logging.DebugFilter
 import bloop.logging.Logger
+import bloop.task.Task
 
-import monix.eval.Task
 import sbt.internal.inc.BloopComponentCompiler
 
 /**

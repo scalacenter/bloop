@@ -6,9 +6,9 @@ import scala.concurrent.Promise
 import bloop.UniqueCompileInputs
 import bloop.logging.ObservedLogger
 import bloop.reporter.ZincReporter
+import bloop.task.Task
 import bloop.tracing.BraveTracer
 
-import monix.eval.Task
 import sbt.internal.inc.Analysis
 import sbt.internal.inc.CompileConfiguration
 import sbt.internal.inc.CompileOutput

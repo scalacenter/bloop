@@ -13,9 +13,7 @@ import bloop.io.ByteHasher
 import bloop.io.Paths.AttributedPath
 import bloop.logging.DebugFilter
 import bloop.logging.Logger
-
-import monix.eval.Coeval
-import monix.eval.Task
+import bloop.task.Task
 
 object BuildLoader {
 
@@ -116,18 +114,20 @@ object BuildLoader {
 
     val enableMetalsInProjectsTask = projectsByScalaVersion.toList.map {
       case (scalaVersionOpt, projects) =>
-        tryEnablingSemanticDB(
-          projects,
-          javaSemanticSettings,
-          scalaVersionOpt.flatMap(scalaVersion =>
-            scalaSemanticdbSettings.map(f => (scalaVersion, f))
-          ),
-          logger
-        ) { (scalaPlugin: Option[AbsolutePath], javaPlugin: Option[AbsolutePath]) =>
-          projects.map(p =>
-            Project.enableMetalsSettings(p, configDir, scalaPlugin, javaPlugin, logger) -> Some(p)
-          )
-        }.task
+        Task {
+          tryEnablingSemanticDB(
+            projects,
+            javaSemanticSettings,
+            scalaVersionOpt.flatMap(scalaVersion =>
+              scalaSemanticdbSettings.map(f => (scalaVersion, f))
+            ),
+            logger
+          ) { (scalaPlugin: Option[AbsolutePath], javaPlugin: Option[AbsolutePath]) =>
+            projects.map(p =>
+              Project.enableMetalsSettings(p, configDir, scalaPlugin, javaPlugin, logger) -> Some(p)
+            )
+          }
+        }
     }
 
     Task.gatherUnordered(enableMetalsInProjectsTask).map(_.flatten)
@@ -168,7 +168,7 @@ object BuildLoader {
             version <- project.scalaInstance.map(_.version)
             settings <- semanticdb.scalaSemanticdbSettings
           } yield (version, settings)
-          val coeval = tryEnablingSemanticDB(
+          tryEnablingSemanticDB(
             List(project),
             semanticdb.javaSemanticdbSettings,
             scalaSemanticdbVersionAndSettings,
@@ -179,12 +179,6 @@ object BuildLoader {
               project,
               settings
             )
-          }
-
-          // Run coeval, we rethrow but note that `tryEnablingSemanticDB` handles errors
-          coeval.run match {
-            case Left(value) => throw value
-            case Right(value) => value
           }
       }
     }
@@ -240,14 +234,12 @@ object BuildLoader {
       logger: Logger
   )(
       enableMetals: (Option[AbsolutePath], Option[AbsolutePath]) => T
-  ): Coeval[T] = {
-    Coeval.eval {
-      val javaSemanticdbPath =
-        javaSemanticSettings.flatMap(tryEnablingJavaSemanticDB(projects, _, logger))
-      val scalaSemanticdbPath =
-        scalaSemanticdbVersionAndSettings.flatMap(tryEnablingScalaSemanticDB(projects, _, logger))
-      enableMetals(scalaSemanticdbPath, javaSemanticdbPath)
-    }
+  ): T = {
+    val javaSemanticdbPath =
+      javaSemanticSettings.flatMap(tryEnablingJavaSemanticDB(projects, _, logger))
+    val scalaSemanticdbPath =
+      scalaSemanticdbVersionAndSettings.flatMap(tryEnablingScalaSemanticDB(projects, _, logger))
+    enableMetals(scalaSemanticdbPath, javaSemanticdbPath)
   }
 
   private def loadProject(bytes: Array[Byte], origin: Origin, logger: Logger): Project = {

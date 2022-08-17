@@ -11,7 +11,9 @@ import java.util.concurrent.ConcurrentHashMap
 
 import scala.concurrent.Promise
 
-import monix.eval.Task
+import bloop.task.Task
+
+import monix.eval.{Task => MonixTask}
 import monix.execution.Cancelable
 import monix.execution.Scheduler
 import monix.execution.atomic.AtomicBoolean
@@ -148,7 +150,7 @@ object ParallelOps {
       Cancelable.cancelAll(completeSubscribers :: tasksToCancel)
     }
 
-    val copyFileSequentially = Consumer.foreachAsync[((Path, BasicFileAttributes), Path)] {
+    val copyFileSequentially = Consumer.foreachTask[((Path, BasicFileAttributes), Path)] {
       case ((originFile, originAttrs), targetFile) =>
         def copy(replaceExisting: Boolean): Unit = {
           if (replaceExisting) {
@@ -169,7 +171,7 @@ object ParallelOps {
         }
 
         // It's important that this task is not forked for performance reasons
-        def triggerCopy(p: Promise[Unit]) = Task.eval {
+        def triggerCopy(p: Promise[Unit]) = MonixTask.eval {
           try {
             // Skip work if cancellation is on and complete promise in finalizer
             if (isCancelled.get) ()
@@ -205,25 +207,27 @@ object ParallelOps {
           ()
         }
 
-        def acquireFile: Task[Unit] = {
+        def acquireFile: MonixTask[Unit] = {
           val currentPromise = Promise[Unit]()
           val promiseInMap = takenByOtherCopyProcess.putIfAbsent(originFile, currentPromise)
           if (promiseInMap == null) {
             triggerCopy(currentPromise)
           } else {
-            Task.fromFuture(promiseInMap.future).flatMap(_ => acquireFile)
+            MonixTask.fromFuture(promiseInMap.future).flatMap(_ => acquireFile)
           }
         }
 
         acquireFile.coeval(scheduler).value match {
           // The happy path is that we evaluate the task and return
-          case Right(()) => Task.now(())
+          case Right(()) => MonixTask.now(())
           case Left(cancelable) =>
             // Blocked on another process to finish the copy of a file, when it's done we restart
             cancelables.synchronized { cancelables.+=(cancelable) }
-            Task
+            MonixTask
               .fromFuture(cancelable)
-              .doOnFinish(_ => Task { cancelables.synchronized { cancelables.-=(cancelable) }; () })
+              .doOnFinish(_ =>
+                MonixTask { cancelables.synchronized { cancelables.-=(cancelable) }; () }
+              )
         }
     }
 

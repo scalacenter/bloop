@@ -20,10 +20,10 @@ import bloop.io.Paths
 import bloop.logging.BloopLogger
 import bloop.logging.DebugFilter
 import bloop.logging.Logger
+import bloop.task.Task
 import bloop.util.CrossPlatform
 import bloop.util.JavaRuntime
 
-import _root_.monix.eval.Task
 import caseapp.core.help.Help
 import com.martiansoftware.nailgun.NGContext
 import monix.execution.atomic.AtomicBoolean
@@ -439,13 +439,14 @@ object Cli {
         if (!freshDir.exists) Task.unit
         else {
           out.println(s"Preparing to delete dir ${freshDir}")
-          Task.eval(Paths.delete(freshDir)).executeWithFork
+          Task.eval(Paths.delete(freshDir)).asyncBoundary
         }
       }
 
       val groups = deleteTasks
         .grouped(4)
         .map(group => Task.gatherUnordered(group).map(_ => ()))
+        .toList
 
       Task
         .sequence(groups)

@@ -2,9 +2,10 @@ package bloop.dap
 
 import java.net.URI
 
+import bloop.task.Task
+
 import com.microsoft.java.debug.core.protocol.Events
 import com.microsoft.java.debug.core.protocol.Types.Capabilities
-import monix.eval.Task
 import monix.execution.Scheduler
 
 /**

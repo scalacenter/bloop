@@ -17,13 +17,12 @@ import bloop.io.Environment.LineSplitter
 import bloop.io.Environment.lineSeparator
 import bloop.io.RelativePath
 import bloop.logging.RecordingLogger
+import bloop.task.Task
 import bloop.util.BuildUtil
 import bloop.util.CrossPlatform
 import bloop.util.SystemProperties
 import bloop.util.TestProject
 import bloop.util.TestUtil
-
-import monix.eval.Task
 
 object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
   // Use only TCP to run deduplication
@@ -882,7 +881,7 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
             """
               |request received: build/initialize
               |BSP initialization handshake complete.
-              |Cancelling request "5"
+              |Cancelling request Number(5.0)
           """.stripMargin
           )
 
