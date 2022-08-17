@@ -140,11 +140,11 @@ abstract class BaseSuite extends TestSuite with BloopHelpers {
         val osInsensitivePath = ap.path.syntax.replace(prefixPath, "").replace(File.separator, "/")
         val maskedRelativePath = AbsolutePath(osInsensitivePath)
         if (!maskedRelativePath.syntax.startsWith("/classes-")) {
-          ap.copy(path = maskedRelativePath)
+          ap.withPath(maskedRelativePath)
         } else {
           // Remove '/classes-*' from path
           val newPath = maskedRelativePath.syntax.split(File.separatorChar).tail.tail.mkString("/")
-          ap.copy(path = AbsolutePath("/" + newPath))
+          ap.withPath(AbsolutePath("/" + newPath))
         }
       }
 
