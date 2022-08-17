@@ -14,10 +14,9 @@ import bloop.io.AbsolutePath
 import bloop.io.Environment.lineSeparator
 import bloop.io.{Paths => BloopPaths}
 import bloop.logging.RecordingLogger
+import bloop.task.Task
 import bloop.util.TestProject
 import bloop.util.TestUtil
-
-import monix.eval.Task
 
 object TcpBspCompileSpec extends BspCompileSpec(BspProtocol.Tcp)
 object LocalBspCompileSpec extends BspCompileSpec(BspProtocol.Local)
@@ -33,77 +32,16 @@ class BspCompileSpec(
         assertExitStatus(state, ExitStatus.Ok)
       }
     }
-    val jsonrpc = logger.debugs.filter(_.startsWith(" -->"))
+    val contentLogs = logger.debugs.flatMap(_.split("\n")).filter(_.startsWith("  --> content:"))
+    val allButInitializeRequest = contentLogs.filterNot(_.contains("""build/initialize""""))
     // Filter out the initialize request that contains platform-specific details
-    val allButInitializeRequest = jsonrpc.filterNot(_.contains("""build/initialize""""))
     assertNoDiff(
       allButInitializeRequest.mkString(lineSeparator),
-      s"""| --> {
-          |  "result" : {
-          |    "displayName" : "${BuildInfo.bloopName}",
-          |    "version" : "${BuildInfo.version}",
-          |    "bspVersion" : "${BuildInfo.bspVersion}",
-          |    "capabilities" : {
-          |      "compileProvider" : {
-          |        "languageIds" : [
-          |          "scala",
-          |          "java"
-          |        ]
-          |      },
-          |      "testProvider" : {
-          |        "languageIds" : [
-          |          "scala",
-          |          "java"
-          |        ]
-          |      },
-          |      "runProvider" : {
-          |        "languageIds" : [
-          |          "scala",
-          |          "java"
-          |        ]
-          |      },
-          |      "inverseSourcesProvider" : true,
-          |      "dependencySourcesProvider" : true,
-          |      "resourcesProvider" : true,
-          |      "buildTargetChangedProvider" : false,
-          |      "jvmTestEnvironmentProvider" : true,
-          |      "jvmRunEnvironmentProvider" : true,
-          |      "canReload" : false
-          |    },
-          |    "data" : null
-          |  },
-          |  "id" : "2",
-          |  "jsonrpc" : "2.0"
-          |}
-          | --> {
-          |  "method" : "build/initialized",
-          |  "params" : {
-          |    
-          |  },
-          |  "jsonrpc" : "2.0"
-          |}
-          | --> {
-          |  "method" : "build/shutdown",
-          |  "params" : {
-          |    
-          |  },
-          |  "id" : "3",
-          |  "jsonrpc" : "2.0"
-          |}
-          | --> {
-          |  "result" : {
-          |    
-          |  },
-          |  "id" : "3",
-          |  "jsonrpc" : "2.0"
-          |}
-          | --> {
-          |  "method" : "build/exit",
-          |  "params" : {
-          |    
-          |  },
-          |  "jsonrpc" : "2.0"
-          |}""".stripMargin
+      s"""|  --> content: {"result":{"displayName":"${BuildInfo.bloopName}","version":"${BuildInfo.version}","bspVersion":"${BuildInfo.bspVersion}","capabilities":{"compileProvider":{"languageIds":["scala","java"]},"testProvider":{"languageIds":["scala","java"]},"runProvider":{"languageIds":["scala","java"]},"inverseSourcesProvider":true,"dependencySourcesProvider":true,"resourcesProvider":true,"buildTargetChangedProvider":false,"jvmTestEnvironmentProvider":true,"jvmRunEnvironmentProvider":true,"canReload":false}},"id":2,"jsonrpc":"2.0"}
+          |  --> content: {"method":"build/initialized","params":{},"jsonrpc":"2.0"}
+          |  --> content: {"method":"build/shutdown","params":{},"id":3,"jsonrpc":"2.0"}
+          |  --> content: {"result":{},"id":3,"jsonrpc":"2.0"}
+          |  --> content: {"method":"build/exit","params":{},"jsonrpc":"2.0"}""".stripMargin
     )
   }
 
@@ -439,7 +377,10 @@ class BspCompileSpec(
       }
 
       // Change the semanticdb jar every time we upgrade Scala version
-      require(BuildInfo.scalaVersion == "2.12.15", "Bumping scala version requires new semanticdb-scalac")
+      require(
+        BuildInfo.scalaVersion == "2.12.15",
+        "Bumping scala version requires new semanticdb-scalac"
+      )
       val sourceDir = workspace.resolve("a").resolve("src")
       val semanticdbJar = unsafeGetResource("semanticdb-scalac_2.12.15-4.4.34.jar")
       val semanticdbOpts = List(

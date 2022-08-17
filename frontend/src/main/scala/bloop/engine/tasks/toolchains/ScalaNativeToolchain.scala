@@ -12,8 +12,7 @@ import bloop.data.Project
 import bloop.internal.build.BuildInfo
 import bloop.io.AbsolutePath
 import bloop.logging.Logger
-
-import monix.eval.Task
+import bloop.task.Task
 
 final class ScalaNativeToolchain private (classLoader: ClassLoader) {
 

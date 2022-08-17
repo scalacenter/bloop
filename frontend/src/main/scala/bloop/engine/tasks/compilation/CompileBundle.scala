@@ -17,9 +17,9 @@ import bloop.logging.LoggerAction
 import bloop.logging.ObservedLogger
 import bloop.reporter.ObservedReporter
 import bloop.reporter.ReporterAction
+import bloop.task.Task
 import bloop.tracing.BraveTracer
 
-import monix.eval.Task
 import monix.reactive.Observable
 import sbt.internal.inc.PlainVirtualFileConverter
 

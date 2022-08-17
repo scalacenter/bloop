@@ -17,13 +17,13 @@ import bloop.exec.JvmProcessForker
 import bloop.io.AbsolutePath
 import bloop.logging.DebugFilter
 import bloop.logging.Logger
+import bloop.task.Task
 import bloop.testing.DiscoveredTestFrameworks
 import bloop.testing.FingerprintInfo
 import bloop.testing.LoggingEventHandler
 import bloop.testing.TestInternals
 import bloop.util.JavaCompat.EnrichOptional
 
-import monix.eval.Task
 import monix.execution.atomic.AtomicBoolean
 import sbt.internal.inc.Analysis
 import sbt.testing.Framework

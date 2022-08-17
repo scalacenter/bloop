@@ -13,8 +13,8 @@ import bloop.logging.DebugFilter
 import bloop.logging.Logger
 import bloop.logging.LoggerAction
 import bloop.reporter.ReporterAction
+import bloop.task.Task
 
-import monix.eval.Task
 import monix.execution.atomic.AtomicBoolean
 import monix.execution.atomic.AtomicInt
 import monix.reactive.Observable

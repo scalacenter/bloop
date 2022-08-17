@@ -14,13 +14,13 @@ import bloop.engine.State
 import bloop.logging.DebugFilter
 import bloop.logging.Logger
 import bloop.logging.Slf4jAdapter
+import bloop.task.Task
 import bloop.util.monix.FoldLeftAsyncConsumer
 
 import io.methvin.watcher.DirectoryChangeEvent
 import io.methvin.watcher.DirectoryChangeEvent.EventType
 import io.methvin.watcher.DirectoryChangeListener
 import io.methvin.watcher.DirectoryWatcher
-import monix.eval.Task
 import monix.execution.Cancelable
 import monix.execution.atomic.AtomicBoolean
 import monix.reactive.MulticastStrategy
@@ -185,15 +185,15 @@ final class SourceWatcher private (
       else FiniteDuration(userMs.toLong, "ms")
     }
 
-    observable
-      .transform(self => new BloopBufferTimedObservable(self, timespan, 0))
+    val consumeTask = new BloopBufferTimedObservable(observable, timespan, 0)
       .liftByOperator(
         new BloopWhileBusyDropEventsAndSignalOperator((es: Seq[Seq[DirectoryChangeEvent]]) =>
           es.flatten
         )
       )
       .consumeWith(fileEventConsumer)
-      .doOnCancel(Task(watchCancellation.cancel()))
+
+    Task.liftMonixTask(consumeTask, () => watchCancellation.cancel())
   }
 
   def notifyWatch(): Unit = {

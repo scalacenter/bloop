@@ -1,10 +1,9 @@
 package bloop
 
+import bloop.task.Task
 import bloop.testing.BaseSuite
 import bloop.tracing.BraveTracer
 import bloop.tracing.TraceProperties
-
-import monix.eval.Task
 
 object TracerSpec extends BaseSuite {
   test("forty clients can send zipkin traces concurrently") {

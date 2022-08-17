@@ -1,10 +1,10 @@
 package sbt.internal.inc.bloop.internal
 
 import scala.collection.parallel.immutable.ParVector
+import bloop.task.Task
 
 import _root_.bloop.UniqueCompileInputs
 import _root_.bloop.tracing.BraveTracer
-import monix.eval.Task
 import sbt.internal.inc._
 import sbt.util.Logger
 import xsbti.FileConverter

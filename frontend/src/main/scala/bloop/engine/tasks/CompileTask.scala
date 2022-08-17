@@ -30,9 +30,9 @@ import bloop.reporter.ObservedReporter
 import bloop.reporter.Reporter
 import bloop.reporter.ReporterAction
 import bloop.reporter.ReporterInputs
+import bloop.task.Task
 import bloop.tracing.BraveTracer
 
-import monix.eval.Task
 import monix.execution.CancelableFuture
 import monix.reactive.MulticastStrategy
 import monix.reactive.Observable
@@ -389,7 +389,7 @@ object CompileTask {
       parallelUnits: Int = Runtime.getRuntime().availableProcessors()
   ): Unit = {
     val aggregatedTask = Task.sequence(
-      tasks.toList.grouped(parallelUnits).map(group => Task.gatherUnordered(group))
+      tasks.toList.grouped(parallelUnits).map(group => Task.gatherUnordered(group)).toList
     )
     aggregatedTask.map(_ => ()).runAsync(ExecutionContext.ioScheduler)
     ()
@@ -442,10 +442,10 @@ object CompileTask {
     previousReadOnlyToDelete match {
       case None => Task.unit
       case Some(classesDir) =>
-        Task.fork(Task.eval {
+        Task.eval {
           logger.debug(s"Deleting contents of orphan dir $classesDir")
           BloopPaths.delete(classesDir)
-        })
+        }.asyncBoundary
     }
   }
 }

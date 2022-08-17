@@ -11,13 +11,10 @@ import bloop.engine.Build
 import bloop.internal.build.BuildInfo
 import bloop.io.AbsolutePath
 import bloop.logging.RecordingLogger
+import bloop.task.Task
 import bloop.testing.BaseSuite
 import bloop.tracing.TraceProperties
 import bloop.util.TestUtil
-
-import monix.eval.Task
-import scala.util.Try
-import bloop.data.TraceSettings
 
 object BuildLoaderSpec extends BaseSuite {
   val semanticdbVersion = "4.4.34"

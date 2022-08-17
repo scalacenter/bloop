@@ -1,62 +1,46 @@
 package bloop.bsp
 
-import java.nio.ByteBuffer
-
 import scala.collection.concurrent.TrieMap
-import scala.meta.jsonrpc.BaseProtocolMessage
-import scala.meta.jsonrpc.CancelParams
-import scala.meta.jsonrpc.Message
-import scala.meta.jsonrpc.NamedJsonRpcService
-import scala.meta.jsonrpc.Notification
-import scala.meta.jsonrpc.Request
-import scala.meta.jsonrpc.Response
-import scala.meta.jsonrpc.Service
-import scala.meta.jsonrpc.Services
 import scala.util.control.NonFatal
 
+import bloop.task.Task
 import bloop.util.monix.FoldLeftAsyncConsumer
 
-import io.circe.Json
-import io.circe.jawn.parseByteBuffer
-import io.circe.syntax._
-import monix.eval.Task
+import jsonrpc4s._
 import monix.execution.CancelableFuture
 import monix.execution.Scheduler
 import monix.reactive.Observable
 import scribe.LoggerSupport
 
 final class BloopLanguageServer(
-    in: Observable[BaseProtocolMessage],
+    in: Observable[Message],
     client: BloopLanguageClient,
-    services: Services,
+    services: BloopRpcServices,
     requestScheduler: Scheduler,
     logger: LoggerSupport
 ) {
-  private val activeClientRequests: TrieMap[Json, CancelableFuture[_]] = TrieMap.empty
-  private val cancelNotification =
-    Service.notification[CancelParams]("$/cancelRequest", logger) {
-      new Service[CancelParams, Unit] {
-        def handle(params: CancelParams): Task[Unit] = {
-          val id = params.id
-          activeClientRequests.get(id) match {
-            case None =>
-              Task {
-                logger.warn(s"Can't cancel request $id, no active request found.")
-                () // Response.empty
-              }
-            case Some(request) =>
-              Task {
-                logger.info(s"Cancelling request $id")
-                request.cancel()
-                () // Response.cancelled(id)
-              }
+  private val activeClientRequests: TrieMap[RequestId, CancelableFuture[Response]] = TrieMap.empty
+
+  private def withCancel(svcs: BloopRpcServices): BloopRpcServices =
+    svcs.notificationAsync(RpcActions.cancelRequest) { params =>
+      val id = params.id
+      activeClientRequests.get(id) match {
+        case None =>
+          Task {
+            logger.warn(s"Can't cancel request $id, no active request found.")
+            () // Response.empty
           }
-        }
+        case Some(request) =>
+          Task {
+            logger.info(s"Cancelling request $id")
+            request.cancel()
+            () // Response.cancelled(id)
+          }
       }
     }
 
-  private val handlersByMethodName: Map[String, NamedJsonRpcService] =
-    services.addService(cancelNotification).byMethodName
+  private val handlersByMethodName: Map[String, Message => Task[Response]] =
+    withCancel(services).endpoints.map(ep => ep.name -> ((m: Message) => ep.handle(m))).toMap
 
   def cancelAllRequests(): Unit = {
     activeClientRequests.values.foreach { cancelable =>
@@ -70,80 +54,65 @@ final class BloopLanguageServer(
     Task.gatherUnordered(futures).materialize.map(_ => ())
   }
 
-  def handleValidMessage(message: Message): Task[Response] = message match {
-    case response: Response =>
-      Task {
-        client.clientRespond(response)
-        Response.empty
-      }
-    case Notification(method, _) =>
-      handlersByMethodName.get(method) match {
-        case None =>
-          Task {
-            // Can't respond to invalid notifications
-            logger.error(s"Unknown method '$method'")
-            Response.empty
-          }
-
-        case Some(handler) =>
-          handler
-            .handle(message)
-            .map {
-              case Response.Empty => Response.empty
-              case nonEmpty =>
-                logger.error(
-                  s"Obtained non-empty response $nonEmpty for notification $message. " +
-                    s"Expected Response.empty"
-                )
-                Response.empty
-            }
-            .onErrorRecover {
-              case NonFatal(e) =>
-                logger.error(s"Error handling notification $message", e)
-                Response.empty
-            }
-      }
-
-    case request @ Request(method, _, id) =>
-      handlersByMethodName.get(method) match {
-        case None =>
-          Task {
-            logger.info(s"Method not found '$method'")
-            Response.methodNotFound(method, id)
-          }
-
-        case Some(handler) =>
-          val jsonId = request.id.asJson
-          val unregisterUponCompletion = Task { activeClientRequests.remove(jsonId); () }
-          val response = handler
-            .handle(request)
-            .doOnFinish(_ => unregisterUponCompletion)
-            .onErrorRecover {
-              case NonFatal(e) =>
-                logger.error(s"Unhandled error handling request $request", e)
-                Response.internalError(e.getMessage, request.id)
-            }
-
-          val runningResponse = response.runAsync(requestScheduler)
-          activeClientRequests.put(jsonId, runningResponse)
-          Task.fromFuture(runningResponse)
-      }
-
+  def handleResponse(response: Response): Task[Response] = Task {
+    client.clientRespond(response)
+    Response.None
   }
 
-  def handleMessage(message: BaseProtocolMessage): Task[Response] =
-    parseByteBuffer(ByteBuffer.wrap(message.content)) match {
-      case Left(err) => Task.now(Response.parseError(err.toString))
-      case Right(json) =>
-        json.as[Message] match {
-          case Left(err) => Task.now(Response.invalidRequest(err.toString))
-          case Right(msg) => handleValidMessage(msg)
+  def handleNotification(notification: Notification): Task[Response] = {
+    handlersByMethodName.get(notification.method) match {
+      case None =>
+        Task {
+          // Can't respond to invalid notifications
+          logger.error(s"Unknown method '${notification.method}'")
+          Response.None
         }
+      case Some(handler) =>
+        handler(notification)
+          .onErrorRecover {
+            case NonFatal(e) =>
+              logger.error(s"Error handling notification $notification", e)
+              Response.None
+          }
+          .map {
+            case Response.None => Response.None
+            case nonEmpty =>
+              logger.error(s"Obtained non-empty response $nonEmpty for notification $notification!")
+              Response.None
+          }
     }
+  }
 
-  def startTask: Task[Unit] = {
+  def handleRequest(request: Request): Task[Response] = {
+    import request.{method, id}
+    handlersByMethodName.get(method) match {
+      case None =>
+        Task {
+          logger.info(s"Method not found '$method'")
+          Response.methodNotFound(method, id)
+        }
+
+      case Some(handler) =>
+        val response = handler(request).onErrorRecover {
+          case NonFatal(e) =>
+            logger.error(s"Unhandled JSON-RPC error handling request $request", e)
+            Response.internalError(e.getMessage, request.id)
+        }
+        val runningResponse = response.runAsync(requestScheduler)
+        activeClientRequests.put(request.id, runningResponse)
+        Task.fromFuture(runningResponse)
+    }
+  }
+
+  def handleValidMessage(message: Message): Task[Response] = message match {
+    case response: Response => handleResponse(response)
+    case notification: Notification => handleNotification(notification)
+    case request: Request => handleRequest(request)
+  }
+
+  def startTask: monix.eval.Task[Unit] = {
     in.foreachL { msg =>
-      handleMessage(msg)
+      handleValidMessage(msg)
         .map(client.serverRespond)
         .onErrorRecover { case NonFatal(e) => logger.error("Unhandled error", e) }
         .runAsync(requestScheduler)
@@ -152,12 +121,14 @@ final class BloopLanguageServer(
   }
 
   def processMessagesSequentiallyTask: Task[Unit] = {
-    in.consumeWith(FoldLeftAsyncConsumer.consume[Unit, BaseProtocolMessage](()) {
-      case (_, msg) =>
-        handleMessage(msg)
-          .map(client.serverRespond)
-          .onErrorRecover { case NonFatal(e) => logger.error("Unhandled error", e) }
-          .map(_ => ())
-    })
+    Task.liftMonixTaskUncancellable(
+      in.consumeWith(FoldLeftAsyncConsumer.consume[Unit, Message](()) {
+        case (_, msg) =>
+          handleValidMessage(msg)
+            .map(client.serverRespond)
+            .onErrorRecover { case NonFatal(e) => logger.error("Unhandled error", e) }
+            .map(_ => ())
+      })
+    )
   }
 }

@@ -16,8 +16,8 @@ import bloop.engine.ExecutionContext
 import bloop.io.AbsolutePath
 import bloop.logging.DebugFilter
 import bloop.logging.Logger
+import bloop.task.Task
 
-import monix.eval.Task
 import monix.execution.Cancelable
 
 object Forker {

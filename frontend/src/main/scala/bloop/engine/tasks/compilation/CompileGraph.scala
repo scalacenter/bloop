@@ -26,10 +26,10 @@ import bloop.engine.tasks.compilation.CompileDefinitions.CompileTraversal
 import bloop.logging.DebugFilter
 import bloop.logging.LoggerAction
 import bloop.reporter.ReporterAction
+import bloop.task.Task
 import bloop.util.JavaCompat.EnrichOptional
 import bloop.util.SystemProperties
 
-import monix.eval.Task
 import xsbti.compile.PreviousResult
 
 object CompileGraph {
