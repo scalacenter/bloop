@@ -53,6 +53,14 @@ final class SourceWatcher private (
       )
 
     var watchingEnabled: Boolean = true
+    val isSourceFile: Path => Boolean = {
+      val sourceGeneratorGlobs = for {
+        loadedProject <- state0.build.loadedProjects
+        sourceGenerator <- loadedProject.project.sourceGenerators
+        glob <- sourceGenerator.sourcesGlobs
+      } yield glob
+      path => SourceHasher.matchSourceFile(path) || sourceGeneratorGlobs.exists(_.matches(path))
+    }
     val listener = new DirectoryChangeListener {
       override def isWatching: Boolean = watchingEnabled
 
@@ -68,7 +76,7 @@ final class SourceWatcher private (
         val targetFile = event.path()
         val attrs = Files.readAttributes(targetFile, classOf[BasicFileAttributes])
 
-        if (attrs.isRegularFile && SourceHasher.matchSourceFile(targetFile)) {
+        if (attrs.isRegularFile && isSourceFile(targetFile)) {
           if (attrs.size != 0L) {
             val resubmission = scheduledResubmissions.remove(targetFile)
             if (resubmission != null) resubmission.cancel()

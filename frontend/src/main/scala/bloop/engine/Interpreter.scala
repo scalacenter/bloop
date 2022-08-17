@@ -121,8 +121,8 @@ object Interpreter {
     val projectsSourcesAndDirs = reachable.map { project =>
       for {
         unmanaged <- project.allUnmanagedSourceFilesAndDirectories
-        generatorInputs <- project.allGeneratorInputs
-      } yield unmanaged ++ generatorInputs
+        generatorSourceDirs = project.sourceGenerators.flatMap(_.sourcesGlobs.map(_.directory))
+      } yield unmanaged ++ generatorSourceDirs
     }
     val groupTasks =
       projectsSourcesAndDirs.grouped(8).map(group => Task.gatherUnordered(group)).toList

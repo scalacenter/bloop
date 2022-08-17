@@ -464,7 +464,7 @@ object TestUtil {
 
   /** Creates an empty workspace where operations can happen. */
   def withinWorkspace[T](op: AbsolutePath => T): T = {
-    val temp = Files.createTempDirectory("bloop-test-workspace")
+    val temp = Files.createTempDirectory("bloop-test-workspace").toRealPath()
     try op(AbsolutePath(temp))
     finally delete(AbsolutePath(temp))
   }
