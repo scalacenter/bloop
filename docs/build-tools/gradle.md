@@ -16,7 +16,10 @@ Learn how to get set up by following the instructions below.
 
 ## Requirements
 
-- At least Gradle `v4.3`, latest (tested) supported version is `v6.1`
+- For Scala 2: at least Gradle `v5.0`
+- For Scala 3: at least Gradle `v7.3`
+- For Android: at least Gradle `v6.1.1`
+- Latest (tested) supported version is `v7.5`
 
 ## Install the plugin
 
@@ -48,7 +51,10 @@ Then, enable bloop in all your Gradle projects with:
 
 ```gradle
 allprojects {
-  apply plugin: 'bloop'
+  // test is for compatibility with Metals import
+  if (!plugins.hasPlugin("bloop")) {
+    apply plugin: "bloop"
+  }
 }
 ```
 
@@ -147,5 +153,7 @@ If your build only has a handful of Scala/Java projects and you don't want to
 enable Bloop in all projects by default, you can selectively enable bloop with:
 
 ```groovy
-apply plugin: 'bloop'
+if (!plugins.hasPlugin("bloop")) {
+  apply plugin: "bloop"
+}
 ```
