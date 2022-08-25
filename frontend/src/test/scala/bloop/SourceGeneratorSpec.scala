@@ -45,7 +45,7 @@ object SourceGeneratorSpec extends bloop.testing.BaseSuite {
           Config.SourcesGlobs(workspace.underlying, None, "glob:*.test_input" :: Nil, Nil)
         ),
         outputDirectory = generatedSourcesA,
-        argv = generator
+        command = generator
       )
       val `A` = TestProject(workspace, "a", sourcesA, sourceGenerators = sourceGeneratorA :: Nil)
 
@@ -72,7 +72,7 @@ object SourceGeneratorSpec extends bloop.testing.BaseSuite {
           Config.SourcesGlobs(generatedSourcesA, None, "glob:*.scala" :: Nil, Nil)
         ),
         outputDirectory = generatedSourcesB,
-        argv = generator
+        command = generator
       )
       val `B` = TestProject(
         workspace,
@@ -97,7 +97,7 @@ object SourceGeneratorSpec extends bloop.testing.BaseSuite {
       val sourceGenerator = Config.SourceGenerator(
         sourcesGlobs = Nil,
         outputDirectory = workspace.underlying.resolve("source-generator-output"),
-        argv = generator ++ List("fail_now")
+        command = generator ++ List("fail_now")
       )
       val `A` = TestProject(workspace, "a", Nil, sourceGenerators = sourceGenerator :: Nil)
       val projects = List(`A`)
@@ -222,7 +222,7 @@ object SourceGeneratorSpec extends bloop.testing.BaseSuite {
     val sourceGenerator = Config.SourceGenerator(
       sourcesGlobs = List(Config.SourcesGlobs(workspace.underlying, None, includeGlobs, Nil)),
       outputDirectory = workspace.underlying.resolve("source-generator-output"),
-      argv = generator
+      command = generator
     )
     val `A` = TestProject(workspace, "a", Nil, sourceGenerators = sourceGenerator :: Nil)
     val projects = List(`A`)

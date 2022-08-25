@@ -20,7 +20,7 @@ final case class SourceGenerator(
     cwd: AbsolutePath,
     sourcesGlobs: List[SourcesGlobs],
     outputDirectory: AbsolutePath,
-    argv: List[String]
+    command: List[String]
 ) {
 
   /**
@@ -64,12 +64,12 @@ final case class SourceGenerator(
       logger: Logger,
       opts: CommonOptions
   ): Task[SourceGenerator.Run] = {
-    val command = (argv :+ outputDirectory.syntax) ++ inputs.keys.map(_.syntax)
+    val cmd = (command :+ outputDirectory.syntax) ++ inputs.keys.map(_.syntax)
     logger.debug { () =>
-      command.mkString(s"Running source generator:${System.lineSeparator()}$$ ", " ", "")
+      cmd.mkString(s"Running source generator:${System.lineSeparator()}$$ ", " ", "")
     }
 
-    Forker.run(cwd, command, logger, opts).flatMap {
+    Forker.run(cwd, cmd, logger, opts).flatMap {
       case 0 =>
         hashOutputs.map(SourceGenerator.PreviousRun(inputs, _))
       case exitCode =>
@@ -136,7 +136,7 @@ object SourceGenerator {
       cwd,
       sourcesGlobs,
       AbsolutePath(generator.outputDirectory),
-      generator.argv
+      generator.command
     )
   }
 

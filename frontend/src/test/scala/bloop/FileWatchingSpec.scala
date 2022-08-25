@@ -368,7 +368,7 @@ object FileWatchingSpec extends BaseSuite {
         sourcesGlobs =
           Config.SourcesGlobs(generatorSources.underlying, None, List("glob:test.in"), Nil) :: Nil,
         outputDirectory = workspace.underlying.resolve("source-generator-output"),
-        argv = generator
+        command = generator
       )
       val `A` = TestProject(workspace, "a", List(source), sourceGenerators = List(sourceGenerator))
       val projects = List(`A`)

@@ -239,7 +239,7 @@ object Config {
   case class SourceGenerator(
       sourcesGlobs: List[SourcesGlobs],
       outputDirectory: Path,
-      argv: List[String]
+      command: List[String]
   )
 
   case class Project(

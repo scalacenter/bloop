@@ -29,7 +29,7 @@ abstract class BspSourceGeneratorSpec(override val protocol: BspProtocol) extend
       val sourceGenerator = Config.SourceGenerator(
         sourcesGlobs = Nil,
         outputDirectory = output.underlying,
-        argv = generator
+        command = generator
       )
       val `A` = TestProject(workspace, "a", Nil, sourceGenerators = sourceGenerator :: Nil)
 
@@ -66,15 +66,14 @@ abstract class BspSourceGeneratorSpec(override val protocol: BspProtocol) extend
           Config.SourcesGlobs(workspace.underlying, None, "glob:*.test_input" :: Nil, Nil)
         ),
         outputDirectory = outputA.underlying,
-        argv = generator
+        command = generator
       )
       val `A` = TestProject(workspace, "a", Nil, sourceGenerators = sourceGeneratorA :: Nil)
 
       // The inputs of the source generator of project A
       List(
-        "file_one.test_input",
+        "file.test_input",
         "file_two.test_input",
-        "file_three.test_input",
         "excluded_file.whatever"
       ).foreach { file =>
         writeFile(workspace.resolve(file), "")
@@ -86,7 +85,7 @@ abstract class BspSourceGeneratorSpec(override val protocol: BspProtocol) extend
           Config.SourcesGlobs(outputA.underlying, None, "glob:*.scala" :: Nil, Nil)
         ),
         outputDirectory = outputB.underlying,
-        argv = generator
+        command = generator
       )
       val `B` = TestProject(
         workspace,
@@ -97,8 +96,27 @@ abstract class BspSourceGeneratorSpec(override val protocol: BspProtocol) extend
       )
 
       loadBspState(workspace, `A` :: `B` :: Nil, logger) { state =>
-        val obtained = state.requestSources(`B`).items
-        val expected = SourcesItem(
+        val obtainedA = state.requestSources(`A`).items
+        val expectedA = SourcesItem(
+          `A`.bspId,
+          List(
+            SourceItem(
+              Uri(workspace.resolve("a").resolve("src").toBspUri),
+              SourceItemKind.Directory,
+              generated = false
+            ),
+            SourceItem(
+              Uri(outputA.resolve("NameLengths_2.scala").toBspUri),
+              SourceItemKind.File,
+              generated = true
+            )
+          ),
+          None
+        )
+        assertEquals(obtainedA, expectedA :: Nil)
+
+        val obtainedB = state.requestSources(`B`).items
+        val expectedB = SourcesItem(
           `B`.bspId,
           List(
             SourceItem(
@@ -114,7 +132,7 @@ abstract class BspSourceGeneratorSpec(override val protocol: BspProtocol) extend
           ),
           None
         )
-        assertEquals(obtained, expected :: Nil)
+        assertEquals(obtainedB, expectedB :: Nil)
       }
     }
   }

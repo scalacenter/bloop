@@ -725,8 +725,8 @@
                 "/home/code/generated-sources"
               ]
             },
-            "argv": {
-              "$id": "/properties/project/properties/sourceGenerators/properties/argv",
+            "command": {
+              "$id": "/properties/project/properties/sourceGenerators/properties/command",
               "type": "array",
               "items": {
                 "type": "string"
