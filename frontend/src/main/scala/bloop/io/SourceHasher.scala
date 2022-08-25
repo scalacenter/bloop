@@ -14,6 +14,7 @@ import scala.concurrent.Promise
 
 import bloop.UniqueCompileInputs.HashedSource
 import bloop.data.Project
+import bloop.engine.SourceGenerator
 import bloop.task.Task
 import bloop.util.monix.FoldLeftAsyncConsumer
 
@@ -47,13 +48,14 @@ object SourceHasher {
    * `cancelCompilation` will be completed.
    *
    * @param project The project where the sources will be discovered.
+   * @param updateGenerator A function that runs the given source generator.
    * @param parallelUnits The amount of sources we can hash at once.
    * @param cancelCompilation A promise that will be completed if task is cancelled.
    * @param scheduler The scheduler that should be used for internal Monix usage.
-   * @param logger The logger where every action will be logged.
    */
   def findAndHashSourcesInProject(
       project: Project,
+      updateGenerator: SourceGenerator => Task[List[AbsolutePath]],
       parallelUnits: Int,
       cancelCompilation: Promise[Unit],
       scheduler: Scheduler
@@ -97,7 +99,7 @@ object SourceHasher {
       ): FileVisitResult = FileVisitResult.CONTINUE
     }
 
-    val discoverFileTree = Task {
+    val discoverUnmanagedFileTree = Task {
       val discovery = fileVisitor(matchSourceFile)
       val opts = java.util.EnumSet.of(FileVisitOption.FOLLOW_LINKS)
       sourceFilesAndDirectories.foreach { sourcePath =>
@@ -114,10 +116,19 @@ object SourceHasher {
           Files.walkFileTree(glob.directory.underlying, opts, glob.walkDepth, discovery)
         }
       }
-    }.doOnFinish {
-      case Some(t) => Task(observer.onError(t))
-      case None => Task(observer.onComplete())
     }
+
+    val discoverManagedFileTree = Task
+      .gatherUnordered {
+        project.sourceGenerators.map(updateGenerator)
+      }
+      .map(_.foreach(_.foreach(path => observer.onNext(path.underlying))))
+
+    val discoverFileTree =
+      Task.gatherUnordered(discoverUnmanagedFileTree :: discoverManagedFileTree :: Nil).doOnFinish {
+        case Some(t) => Task(observer.onError(t))
+        case None => Task(observer.onComplete())
+      }
 
     val collectHashesConsumer: Consumer[HashedSource, mutable.ListBuffer[HashedSource]] = {
       val empty = mutable.ListBuffer.empty[HashedSource]

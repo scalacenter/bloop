@@ -4,6 +4,44 @@
   "title": "Bloop configuration file ",
   "description": "The JSON Schema for the bloop configuration file.",
   "definitions": {
+    "sourcesGlobs": {
+      "$id": "/properties/project/properties/sourcesGlobs",
+      "type": "object",
+      "properties": {
+        "directory": {
+          "$id": "/properties/project/properties/sourcesGlobs/properties/directory",
+          "title": "The Directory Schema",
+          "type": "string",
+          "examples": [
+            "/home/code/src"
+          ]
+        },
+        "walkDepth": {
+          "$id": "/properties/project/properties/sourcesGlobs/properties/walkDepth",
+          "title": "The WalkDepth Schema",
+          "type": "number",
+          "examples": [
+            1
+          ]
+        },
+        "includes": {
+          "$id": "/properties/project/properties/sourcesGlobs/properties/includes",
+          "title": "The Includes Schema",
+          "type": "string",
+          "examples": [
+            "glob:*.scala"
+          ]
+        },
+        "excludes": {
+          "$id": "/properties/project/properties/sourcesGlobs/properties/excludes",
+          "title": "The Excludes Schema",
+          "type": "string",
+          "examples": [
+            "glob:*Test.scala"
+          ]
+        }
+      }
+    },
     "jvmPlatform": {
       "$id": "/properties/project/properties/jvmPlatform",
       "type": "object",
@@ -372,6 +410,13 @@
             ]
           }
         },
+        "sourcesGlobs": {
+          "$id": "/properties/project/properties/sourcesGlobs",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/sourcesGlobs"
+          }
+        },
         "dependencies": {
           "$id": "/properties/project/properties/dependencies",
           "type": "array",
@@ -654,6 +699,42 @@
               "test",
               "library"
             ]
+          }
+        }
+      },
+      "sourceGenerators": {
+        "$id": "/properties/project/properties/sourceGenerators",
+        "type": "array",
+        "title": "The SourceGenerators Schema",
+        "description": "The source generators used by this project",
+        "items": {
+          "$id": "/properties/project/properties/sourceGenerators/items",
+          "type": "object",
+          "properties": {
+            "sourcesGlobs": {
+              "$id": "/properties/project/properties/sourceGenerators/properties/sourcesGlobs",
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/sourcesGlobs"
+              }
+            },
+            "outputDirectory": {
+              "$id": "/properties/project/properties/sourceGenerators/properties/outputDirectory",
+              "type": "string",
+              "examples": [
+                "/home/code/generated-sources"
+              ]
+            },
+            "command": {
+              "$id": "/properties/project/properties/sourceGenerators/properties/command",
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "examples": [
+                ["/bin/my-generator.sh", "arg0", "arg1"]
+              ]
+            }
           }
         }
       }

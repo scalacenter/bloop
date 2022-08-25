@@ -20,6 +20,7 @@ import bloop.engine.Build
 import bloop.engine.BuildLoader
 import bloop.engine.Run
 import bloop.engine.State
+import bloop.engine.caches.SourceGeneratorCache
 import bloop.io.AbsolutePath
 import bloop.logging.BloopLogger
 import bloop.util.TestUtil
@@ -3597,7 +3598,7 @@ abstract class ConfigGenerationSuite extends BaseConfigSuite {
     val loadedProjects = BuildLoader.loadSynchronously(configDirectory, logger)
     val workspaceSettings = WorkspaceSettings.readFromFile(configDirectory, logger)
     val build = Build(configDirectory, loadedProjects, workspaceSettings)
-    State.forTests(build, TestUtil.getCompilerCache(logger), logger)
+    State.forTests(build, TestUtil.getCompilerCache(logger), SourceGeneratorCache.empty, logger)
   }
 
   private def compileBloopProject(

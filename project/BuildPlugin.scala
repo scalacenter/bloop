@@ -555,8 +555,14 @@ object BuildImplementation {
               val junitJars = jars.filter(j => j.contains("junit") || j.contains("hamcrest"))
               "junitTestJars" -> junitJars
           }
+          val sampleSourceGenerator = (Test / Keys.resourceDirectory).value / "source-generator.py"
 
-          List(junitTestJars, BuildKeys.bloopCoursierJson, (ThisBuild / Keys.baseDirectory))
+          List(
+            "sampleSourceGenerator" -> sampleSourceGenerator,
+            junitTestJars,
+            BuildKeys.bloopCoursierJson,
+            (ThisBuild / Keys.baseDirectory)
+          )
         },
         (Test / BuildInfoKeys.buildInfoPackage) := "bloop.internal.build",
         (Test / BuildInfoKeys.buildInfoObject) := "BuildTestInfo"
