@@ -209,6 +209,25 @@ object SourceGeneratorSpec extends bloop.testing.BaseSuite {
     }
   }
 
+  test("source generator is not re-run when nothing has changed") {
+    singleProjectWithSourceGenerator("glob:*.in" :: Nil) { (workspace, project, state) =>
+      val generatorOutput = project.config.sourceGenerators
+        .flatMap(_.headOption)
+        .map(p => AbsolutePath(p.outputDirectory))
+      writeFile(workspace.resolve("hello.in"), "hello")
+      writeFile(project.srcFor("test.scala", exists = false), assertNInputs(n = 1))
+      val compiledState1 = state.compile(project)
+      val origHash = sourceHashFor("NameLengths_1.scala", project, compiledState1)
+      assertExitStatus(compiledState1, ExitStatus.Ok)
+
+      val compiledState2 = compiledState1.compile(project)
+      assertExitStatus(compiledState2, ExitStatus.Ok)
+
+      val newHash = sourceHashFor("NameLengths_1.scala", project, compiledState2)
+      assertEquals(origHash, newHash)
+    }
+  }
+
   private def assertNInputs(n: Int): String =
     s"""class Foo {
        |  val length = generated.NameLengths.args_${n}
