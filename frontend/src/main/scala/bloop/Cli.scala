@@ -96,7 +96,7 @@ object Cli {
       case x: java.util.concurrent.ExecutionException =>
         // print stack trace of fatal errors thrown in asynchronous code, see https://stackoverflow.com/questions/17265022/what-is-a-boxed-error-in-scala
         // the stack trace is somehow propagated all the way to the client when printing this
-        x.getCause.printStackTrace()
+        x.getCause.printStackTrace(ngContext.out)
         ngContext.exit(ExitStatus.UnexpectedError.code)
     }
   }
