@@ -5,7 +5,7 @@ addSbtPlugin("com.dwijnand" % "sbt-dynver" % "4.0.0")
 addSbtPlugin("org.scalameta" % "sbt-scalafmt" % "2.0.4")
 addSbtPlugin("com.eed3si9n" % "sbt-buildinfo" % "0.7.0")
 addSbtPlugin("com.typesafe.sbt" % "sbt-git" % "0.9.3")
-addSbtPlugin("com.typesafe.sbt" % "sbt-site" % "1.3.1")
+addSbtPlugin("com.typesafe.sbt" % "sbt-site" % "1.3.3")
 addSbtPlugin("com.typesafe.sbt" % "sbt-ghpages" % "0.6.2")
 addSbtPlugin("org.scala-debugger" % "sbt-jdi-tools" % "1.1.1")
 
