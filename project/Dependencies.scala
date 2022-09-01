@@ -48,7 +48,7 @@ object Dependencies {
   val sourcecode = "com.lihaoyi" %% "sourcecode" % sourcecodeVersion
   val sbtTestInterface = "org.scala-sbt" % "test-interface" % sbtTestInterfaceVersion
   val sbtTestAgent = "org.scala-sbt" % "test-agent" % sbtTestAgentVersion
-  val logback = "ch.qos.logback" % "logback-classic" % "1.2.3"
+  val logback = "ch.qos.logback" % "logback-classic" % "1.2.11"
 
   val utest = "com.lihaoyi" %% "utest" % "0.6.9"
   val pprint = "com.lihaoyi" %% "pprint" % "0.5.5"
