@@ -50,7 +50,7 @@ object Dependencies {
   val sbtTestAgent = "org.scala-sbt" % "test-agent" % sbtTestAgentVersion
   val logback = "ch.qos.logback" % "logback-classic" % "1.2.3"
 
-  val utest = "com.lihaoyi" %% "utest" % "0.6.9"
+  val utest = "com.lihaoyi" %% "utest" % "0.8.0"
   val pprint = "com.lihaoyi" %% "pprint" % "0.5.5"
   val scalacheck = "org.scalacheck" %% "scalacheck" % "1.14.3"
   val junit = "com.github.sbt" % "junit-interface" % junitVersion
