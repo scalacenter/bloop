@@ -10,7 +10,7 @@ object Dependencies {
   val bspVersion = "2.0.0-M15"
   val javaDebugVersion = "0.21.0+1-7f1080f1"
 
-  val scalazVersion = "7.2.20"
+  val scalazVersion = "7.2.34"
   val lmVersion = "1.1.5"
   val caseAppVersion = "2.0.6"
   val sourcecodeVersion = "0.1.4"
