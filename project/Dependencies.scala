@@ -1,7 +1,7 @@
 package build
 
 object Dependencies {
-  val Scala212Version = "2.12.15"
+  val Scala212Version = "2.12.16"
   val Scala213Version = "2.13.8"
 
   // Keep in sync in BloopComponentCompiler
