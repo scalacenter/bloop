@@ -51,7 +51,7 @@ object Dependencies {
   val logback = "ch.qos.logback" % "logback-classic" % "1.2.3"
 
   val utest = "com.lihaoyi" %% "utest" % "0.6.9"
-  val pprint = "com.lihaoyi" %% "pprint" % "0.5.5"
+  val pprint = "com.lihaoyi" %% "pprint" % "0.5.9"
   val scalacheck = "org.scalacheck" %% "scalacheck" % "1.14.3"
   val junit = "com.github.sbt" % "junit-interface" % junitVersion
   val directoryWatcher = "ch.epfl.scala" % "directory-watcher" % directoryWatcherVersion
