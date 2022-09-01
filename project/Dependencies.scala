@@ -19,7 +19,7 @@ object Dependencies {
   val junitVersion = "0.13.3"
   val directoryWatcherVersion = "0.8.0+6-f651bd93"
   val monixVersion = "3.2.0"
-  val jsoniterVersion = "2.4.0"
+  val jsoniterVersion = "2.4.4"
   val scalaNative04Version = "0.4.0"
   val scalaJs1Version = "1.3.1"
   val scalaJsEnvsVersion = "1.1.1"
