@@ -62,6 +62,17 @@ class DagSpec {
     case Leaf(f) => assert(f == p, s"$f is not $p")
   }
 
+  private def assertAppearsBefore[T](elems: List[T], ancestor: T, successor: T): Unit = {
+    Assert.assertTrue(
+      s"$ancestor doesnt appear before $successor in $elems",
+      elems.indexOf(ancestor) < elems.indexOf(successor)
+    )
+  }
+
+  private def assertAppearsBefore[T](elems: List[T], ancestor: T, successors: List[T]): Unit = {
+    successors.foreach(assertAppearsBefore(elems, ancestor, _))
+  }
+
   @Test def EmptyDAG(): Unit = {
     val dags = fromMap(Map())
     assert(dags.isEmpty)
@@ -268,5 +279,18 @@ class DagSpec {
     Assert.assertEquals("all case 7", Set(i, h), allInverseDeps(List(h, i)))
     Assert.assertEquals("all case 8", Set(i, h), allInverseDeps(List(h)))
     Assert.assertEquals("all case 9", Set(i), allInverseDeps(List(i)))
+  }
+
+  @Test
+  def TestTopologicalSort(): Unit = {
+    import ComplexDag._
+    val allProjects = List(a, b, c, d, e, f, g, h, i)
+    val dags = fromMap(allProjects.map(p => p.name -> p).toMap)
+    val sorted = Dag.topologicalSort(Aggregate(dags))
+    assertAppearsBefore(sorted, a, List(b, c, d, e))
+    assertAppearsBefore(sorted, c, List(d, e))
+    assertAppearsBefore(sorted, d, List(e))
+    assertAppearsBefore(sorted, f, List(g, h, i))
+    assertAppearsBefore(sorted, h, List(i))
   }
 }

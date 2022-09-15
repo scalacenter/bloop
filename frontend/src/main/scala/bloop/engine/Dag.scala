@@ -8,6 +8,7 @@ import bloop.data.Project
 import bloop.util.CacheHashCode
 
 import scalaz.Show
+import scala.collection.immutable.ListSet
 
 /**
  * A [[Dag]] is a Directed Acyclic Graph where each node contains a value of T
@@ -364,5 +365,17 @@ object Dag {
        |${nodes.mkString("  ", "\n  ", "\n  ")}
        |${edges.mkString("  ", "\n  ", "")}
        |}""".stripMargin
+  }
+
+  def topologicalSort[T](dag: Dag[T]): List[T] = {
+    def inner(buf: ListSet[T], dag: Dag[T]): ListSet[T] = dag match {
+      case Leaf(value) =>
+        buf + value
+      case Parent(value, children) =>
+        children.foldLeft(buf)(inner(_, _)) + value
+      case Aggregate(dags) =>
+        dags.foldLeft(buf)(inner(_, _))
+    }
+    inner(ListSet.empty, dag).toList
   }
 }

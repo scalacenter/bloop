@@ -1064,52 +1064,49 @@ final class BloopBspServices(
         projects: Seq[ProjectMapping],
         state: State
     ): BspResult[bsp.SourcesResult] = {
-      val sourcesItems = projects.iterator.map {
-        case (target, project) =>
-          def sourceItem(s: AbsolutePath, isGenerated: Boolean): bsp.SourceItem = {
-            import bsp.SourceItemKind._
-            val uri = s.underlying.toUri()
-            val (bspUri, kind) = if (s.exists) {
-              (uri, if (s.isFile) File else Directory)
-            } else {
-              val fileMatcher = FileSystems.getDefault.getPathMatcher("glob:*.{scala, java}")
-              if (fileMatcher.matches(s.underlying.getFileName)) (uri, File)
-              // If path doesn't exist and its name doesn't look like a file, assume it's a dir
-              else (new URI(uri.toString + "/"), Directory)
-            }
-            bsp.SourceItem(bsp.Uri(bspUri), kind, isGenerated)
-          }
+      def sourceItem(s: AbsolutePath, isGenerated: Boolean): bsp.SourceItem = {
+        import bsp.SourceItemKind._
+        val uri = s.underlying.toUri()
+        val (bspUri, kind) = if (s.exists) {
+          (uri, if (s.isFile) File else Directory)
+        } else {
+          val fileMatcher = FileSystems.getDefault.getPathMatcher("glob:*.{scala, java}")
+          if (fileMatcher.matches(s.underlying.getFileName)) (uri, File)
+          // If path doesn't exist and its name doesn't look like a file, assume it's a dir
+          else (new URI(uri.toString + "/"), Directory)
+        }
+        bsp.SourceItem(bsp.Uri(bspUri), kind, isGenerated)
+      }
 
-          val unmanagedSources = project.allUnmanagedSourceFilesAndDirectories.map { sources =>
-            sources.map(sourceItem(_, isGenerated = false))
-          }
+      val dag = Aggregate(projects.map(p => state.build.getDagFor(p._2)).toList)
 
-          val parentGenerators = Dag.dfs(state.build.getDagFor(project))
-          val managedSources = Task
-            .sequence {
-              parentGenerators.reverse.map { project =>
-                val generators = project.sourceGenerators
-                val tasks = generators.map(
-                  state.sourceGeneratorCache.update(_, state.logger, state.commonOptions)
-                )
-                Task.gatherUnordered(tasks)
-              }
-            }
-            .map {
-              // Take only the result of the last set of generators, since these are the generated
-              // sources of the project we're interested in.
-              _.lastOption.map(_.flatten.map(sourceItem(_, isGenerated = true))).getOrElse(Nil)
-            }
-            .executeOn(ioScheduler)
+      // Collect the projects' sources following the projects topological sorting, so that
+      // source generators that depend on other source generators' outputs can run correctly.
+      val collectSourcesTasks = Dag.topologicalSort(dag).map { project =>
+        val unmanagedSources = project.allUnmanagedSourceFilesAndDirectories.map { sources =>
+          sources.map(sourceItem(_, isGenerated = false))
+        }
 
-          val roots = project.sourceRoots.map(_.map(p => bsp.Uri(p.toBspUri)))
-          for {
-            unmanaged <- unmanagedSources
-            managed <- managedSources
-          } yield bsp.SourcesItem(target, unmanaged ++ managed, roots)
-      }.toList
+        val managedSources = {
+          val tasks = project.sourceGenerators
+            .map(state.sourceGeneratorCache.update(_, state.logger, state.commonOptions))
+          Task.gatherUnordered(tasks).map(_.flatten.map(sourceItem(_, isGenerated = true)))
+        }
 
-      Task.sequence(sourcesItems).map { items =>
+        for {
+          unmanaged <- unmanagedSources
+          managed <- managedSources
+        } yield (project, unmanaged ++ managed)
+      }
+
+      val projectToTarget = projects.map { case (target, project) => project -> target }.toMap
+      Task.sequence(collectSourcesTasks).map { results =>
+        val items = results.flatMap {
+          case (project, items) =>
+            val roots = project.sourceRoots.map(_.map(p => bsp.Uri(p.toBspUri)))
+            projectToTarget.get(project).map(bsp.SourcesItem(_, items, roots))
+        }
+
         (state, Right(bsp.SourcesResult(items)))
       }
     }
