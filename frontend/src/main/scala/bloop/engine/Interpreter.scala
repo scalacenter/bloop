@@ -362,16 +362,18 @@ object Interpreter {
 
           val handler = new LoggingEventHandler(state.logger)
 
-          Tasks.test(
-            state,
-            projectsToTest,
-            cmd.args,
-            testFilter,
-            ScalaTestSuites.empty,
-            handler,
-            cmd.parallel,
-            RunMode.Normal
-          )
+          Tasks
+            .test(
+              state,
+              projectsToTest,
+              cmd.args,
+              testFilter,
+              ScalaTestSuites.empty,
+              handler,
+              cmd.parallel,
+              RunMode.Normal
+            )
+            .map(testRuns => state.mergeStatus(testRuns.status))
         }
       }
 

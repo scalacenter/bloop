@@ -20,6 +20,14 @@ import ch.epfl.scala.bsp
 import ch.epfl.scala.bsp.BuildTargetIdentifier
 import ch.epfl.scala.bsp.MessageType
 import ch.epfl.scala.bsp.ShowMessageParams
+import ch.epfl.scala.bsp.CompileResult
+import ch.epfl.scala.bsp.StatusCode
+import ch.epfl.scala.bsp.Uri
+import ch.epfl.scala.bsp.endpoints
+import ch.epfl.scala.bsp.CompileResult
+import ch.epfl.scala.bsp.MessageType
+import ch.epfl.scala.bsp.ShowMessageParams
+import ch.epfl.scala.bsp.StatusCode
 import ch.epfl.scala.bsp.Uri
 import ch.epfl.scala.bsp.endpoints
 import ch.epfl.scala.debugadapter.DebugServer
@@ -689,10 +697,7 @@ final class BloopBspServices(
   }
 
   def test(params: bsp.TestParams): BspEndpointResponse[bsp.TestResult] = {
-    def test(
-        project: Project,
-        state: State
-    ): Task[State] = {
+    def test(project: Project, state: State): Task[Tasks.TestRuns] = {
       val testFilter = TestInternals.parseFilters(Nil) // Don't support test only for now
       val handler = new LoggingEventHandler(state.logger)
       Tasks.test(
@@ -717,25 +722,35 @@ final class BloopBspServices(
           val args = params.arguments.getOrElse(Nil)
           val logger = logger0.asBspServerVerbose
           compileProjects(mappings, state, args, originId, logger).flatMap {
-            case (newState, compileResult) =>
-              compileResult match {
-                case Right(_) =>
-                  val sequentialTestExecution = mappings.foldLeft(Task.now(newState)) {
-                    case (taskState, (_, p)) => taskState.flatMap(state => test(p, state))
-                  }
+            case (newState, Right(CompileResult(_, StatusCode.Ok, _, _))) =>
+              val sequentialTestExecution: Task[Seq[Tasks.TestRuns]] =
+                Task.sequence(mappings.map { case (_, p) => test(p, state) })
 
-                  sequentialTestExecution.materialize.map(_.toEither).map {
-                    case Right(newState) =>
+              sequentialTestExecution.materialize.map {
+                case Success(testRunsSeq) =>
+                  testRunsSeq.reduceOption(_ ++ _) match {
+                    case None =>
                       (newState, Right(bsp.TestResult(originId, bsp.StatusCode.Ok, None, None)))
-                    case Left(e) =>
-                      //(newState, Right(bsp.TestResult(None, bsp.StatusCode.Error, None)))
-                      val errorMessage =
-                        Response.internalError(s"Failed test execution: ${e.getMessage}")
-                      (newState, Left(errorMessage))
+                    case Some(testRuns) =>
+                      val status = testRuns.status
+                      val bspStatus =
+                        if (status == ExitStatus.Ok) bsp.StatusCode.Ok else bsp.StatusCode.Error
+                      (
+                        newState.mergeStatus(status),
+                        Right(bsp.TestResult(originId, bspStatus, None, None))
+                      )
                   }
-
-                case Left(error) => Task.now((newState, Left(error)))
+                case Failure(e) =>
+                  val errorMessage =
+                    Response.internalError(s"Failed test execution: ${e.getMessage}")
+                  (newState, Left(errorMessage))
               }
+
+            case (newState, Right(CompileResult(_, errorCode, _, _))) =>
+              Task.now((newState, Right(bsp.TestResult(originId, errorCode, None, None))))
+
+            case (newState, Left(error)) =>
+              Task.now((newState, Left(error)))
           }
       }
     }
