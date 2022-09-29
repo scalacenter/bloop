@@ -26,8 +26,6 @@ import ch.epfl.scala.bsp.Uri
 import ch.epfl.scala.bsp.endpoints
 import ch.epfl.scala.bsp.CompileResult
 import ch.epfl.scala.bsp.MessageType
-import ch.epfl.scala.bsp.SbtBuildTarget.encodeSbtBuildTarget
-import ch.epfl.scala.bsp.ScalaBuildTarget.encodeScalaBuildTarget
 import ch.epfl.scala.bsp.ShowMessageParams
 import ch.epfl.scala.bsp.StatusCode
 import ch.epfl.scala.bsp.Uri
@@ -701,9 +699,16 @@ final class BloopBspServices(
   def test(params: bsp.TestParams): BspEndpointResponse[bsp.TestResult] = {
     def test(project: Project, state: State): Task[Tasks.TestRuns] = {
       val testFilter = TestInternals.parseFilters(Nil) // Don't support test only for now
-      val handler = new BspLoggingEventHandler(state.logger, client)
-
-      Tasks.test(state, List(project), Nil, testFilter, ScalaTestSuites.empty, handler, mode = RunMode.Normal)
+      val handler = new LoggingEventHandler(state.logger)
+      Tasks.test(
+        state,
+        List(project),
+        Nil,
+        testFilter,
+        ScalaTestSuites.empty,
+        handler,
+        mode = RunMode.Normal
+      )
     }
 
     val originId = params.originId
@@ -728,14 +733,16 @@ final class BloopBspServices(
                       (newState, Right(bsp.TestResult(originId, bsp.StatusCode.Ok, None, None)))
                     case Some(testRuns) =>
                       val status = testRuns.status
-                      val bspStatus = if (status == ExitStatus.Ok) bsp.StatusCode.Ok else bsp.StatusCode.Error
+                      val bspStatus =
+                        if (status == ExitStatus.Ok) bsp.StatusCode.Ok else bsp.StatusCode.Error
                       (
                         newState.mergeStatus(status),
                         Right(bsp.TestResult(originId, bspStatus, None, None))
                       )
                   }
                 case Failure(e) =>
-                  val errorMessage = JsonRpcResponse.internalError(s"Failed test execution: ${e.getMessage}")
+                  val errorMessage =
+                    Response.internalError(s"Failed test execution: ${e.getMessage}")
                   (newState, Left(errorMessage))
               }
 
@@ -1139,12 +1146,14 @@ final class BloopBspServices(
       project.sourcesGlobs.exists(glob => glob.matches(document))
     val document = AbsolutePath(request.textDocument.uri.toPath).underlying
     ifInitialized(None) { (state: State, _: BspServerLogger) =>
-      val matchingProjects = state.build.loadedProjects.filter { loadedProject =>
-        val project = loadedProject.project
-        matchesSources(document, project) || matchesGlobs(document, project)
-      }.map { loadedProject =>
-        bsp.BuildTargetIdentifier(loadedProject.project.bspUri)
-      }
+      val matchingProjects = state.build.loadedProjects
+        .filter { loadedProject =>
+          val project = loadedProject.project
+          matchesSources(document, project) || matchesGlobs(document, project)
+        }
+        .map { loadedProject =>
+          bsp.BuildTargetIdentifier(loadedProject.project.bspUri)
+        }
       Task.now((state, Right(bsp.InverseSourcesResult(matchingProjects))))
     }
   }

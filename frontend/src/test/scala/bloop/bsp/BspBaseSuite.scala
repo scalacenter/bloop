@@ -204,7 +204,7 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
         originId: Option[String] = None,
         arguments: Option[List[String]] = None,
         dataKind: Option[String] = None,
-        data: Option[Json] = None,
+        data: Option[RawJson] = None,
         clearDiagnostics: Boolean = true
     ): Task[ManagedBspTestState] = {
       runAfterTargets(project) { target =>
@@ -213,10 +213,13 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
         currentCompileIteration.increment(1)
         val params = bsp.TestParams(List(target), originId, arguments, dataKind, data)
 
-        BuildTarget.test.request(params).flatMap {
-          case Right(r) =>
-            // `headL` returns latest saved state from bsp because source is behavior subject
-            serverStates.headL.map { state =>
+        rpcRequest(BuildTarget.test, params).flatMap { r =>
+          // `headL` returns latest saved state from bsp because source is behavior subject
+          Task
+            .liftMonixTaskUncancellable(
+              serverStates.headL
+            )
+            .map { state =>
               new ManagedBspTestState(
                 state,
                 r.statusCode,
@@ -226,7 +229,6 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
                 serverStates
               )
             }
-          case Left(e) => fail(s"Compilation error for request ${e.id}:\n${e.error}")
         }
       }
     }
@@ -236,7 +238,7 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
         originId: Option[String] = None,
         arguments: Option[List[String]] = None,
         dataKind: Option[String] = None,
-        data: Option[Json] = None,
+        data: Option[RawJson] = None,
         clearDiagnostics: Boolean = true,
         timeout: Long = 5
     ): ManagedBspTestState = {
