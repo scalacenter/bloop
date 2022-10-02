@@ -310,7 +310,7 @@ final class BloopBspServices(
               compileProvider = Some(BloopBspServices.DefaultCompileProvider),
               testProvider = Some(BloopBspServices.DefaultTestProvider),
               runProvider = Some(BloopBspServices.DefaultRunProvider),
-              debugProvider = None, // todo kpodsiad
+              debugProvider = Some(BloopBspServices.DefaultDebugProvider),
               inverseSourcesProvider = Some(true),
               dependencySourcesProvider = Some(true),
               dependencyModulesProvider = None,
@@ -1041,7 +1041,8 @@ final class BloopBspServices(
               val capabilities = bsp.BuildTargetCapabilities(
                 canCompile = true,
                 canTest = true,
-                canRun = true
+                canRun = true,
+                canDebug = true
               )
               val isJavaOnly = p.scalaInstance.isEmpty
               val languageIds =
@@ -1344,4 +1345,5 @@ object BloopBspServices {
   private[bloop] val DefaultCompileProvider = bsp.CompileProvider(DefaultLanguages)
   private[bloop] val DefaultTestProvider = bsp.TestProvider(DefaultLanguages)
   private[bloop] val DefaultRunProvider = bsp.RunProvider(DefaultLanguages)
+  private[bloop] val DefaultDebugProvider = bsp.DebugProvider(DefaultLanguages)
 }
