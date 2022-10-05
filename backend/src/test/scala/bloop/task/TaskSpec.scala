@@ -183,4 +183,15 @@ class TaskSpec {
 
   }
 
+  @Test
+  def timeoutTo2: Unit = {
+    val ref = new AtomicBoolean(true)
+    val t1 = Task.unit.delayExecution(500.milli)
+    val t2 = Task(ref.set(false))
+    val withTimeout = t1.timeoutTo(1.second, t2)
+
+    Await.result((withTimeout *> Task.sleep(2.seconds)).runAsync, 3.second)
+    assertEquals(true, ref.get())
+  }
+
 }
