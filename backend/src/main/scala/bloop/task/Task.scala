@@ -164,11 +164,14 @@ sealed trait Task[+A] { self =>
     Task
       .chooseFirstOf(
         self,
-        Task.sleep(duration).flatMap(_ => backup)
+        Task.sleep(duration)
       )
-      .map {
-        case Left((a, _)) => a
-        case Right((_, b)) => b
+      .flatMap {
+        case Left((a, _)) =>
+          Task.now(a)
+        case Right((a, _)) =>
+          a.cancel()
+          backup
       }
   }
 
