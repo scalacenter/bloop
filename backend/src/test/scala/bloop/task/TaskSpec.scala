@@ -148,7 +148,7 @@ class TaskSpec {
   @Test
   def memoize1: Unit = {
     val memoizedTime = Task
-      .create[Long] { (sh, cb) =>
+      .create[Long] { (_, cb) =>
         cb.onSuccess(System.currentTimeMillis())
         Cancelable.empty
       }
@@ -166,7 +166,7 @@ class TaskSpec {
   @Test
   def memoize2: Unit = {
     val memoizedTime = Task
-      .create[Long] { (sh, cb) =>
+      .create[Long] { (_, cb) =>
         cb.onSuccess(System.currentTimeMillis())
         Cancelable.empty
       }
@@ -180,7 +180,6 @@ class TaskSpec {
 
     val (one, two) = Await.result(future, 1.second)
     assertEquals(one, two)
-
   }
 
   @Test
@@ -190,7 +189,8 @@ class TaskSpec {
     val t2 = Task(ref.set(false))
     val withTimeout = t1.timeoutTo(1.second, t2)
 
-    Await.result((withTimeout *> Task.sleep(2.seconds)).runAsync, 3.second)
+    // await just a bit longer than timeout value to see if t2 was cancelled (not executed)
+    Await.result((withTimeout *> Task.sleep(1.seconds)).runAsync, 3.second)
     assertEquals(true, ref.get())
   }
 

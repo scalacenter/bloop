@@ -346,7 +346,8 @@ lazy val frontend: Project = project
       Dependencies.scalazCore,
       Dependencies.monix,
       Dependencies.caseApp,
-      Dependencies.scalaDebugAdapter
+      Dependencies.scalaDebugAdapter,
+      Dependencies.oslib % Test
     ),
     dependencyOverrides += Dependencies.shapeless
   )

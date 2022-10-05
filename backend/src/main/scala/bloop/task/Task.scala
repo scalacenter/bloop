@@ -160,6 +160,8 @@ sealed trait Task[+A] { self =>
   def as[B](b: => B): Task[B] =
     self.map(_ => b)
 
+  @inline def void(): Task[Unit] = as(())
+
   def timeoutTo[B >: A](duration: FiniteDuration, backup: Task[B]): Task[B] = {
     Task
       .chooseFirstOf(
@@ -168,9 +170,10 @@ sealed trait Task[+A] { self =>
       )
       .flatMap {
         case Left((a, _)) =>
+          // there no need to cancel fb - it's just sleeping
           Task.now(a)
-        case Right((a, _)) =>
-          a.cancel()
+        case Right((fa, _)) =>
+          fa.cancel()
           backup
       }
   }
