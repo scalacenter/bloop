@@ -533,6 +533,16 @@ abstract class BaseSuite extends TestSuite with BloopHelpers {
     )
   }
 
+  @nowarn("msg=parameter value run|maxDuration in method ignore is never used")
+  def ignore(name: String, maxDuration: Duration)(
+      run: => Task[Unit]
+  ): Unit = {
+    myTests += FlatTest(
+      utest.ufansi.Color.LightRed(s"IGNORED - $name").toString(),
+      () => ()
+    )
+  }
+
   def testOnlyOnJava8(name: String)(fun: => Any): Unit = {
     if (TestUtil.isJdk8) test(name)(fun)
     else ignore(name, label = s"IGNORED ON JAVA v${TestUtil.jdkVersion}")(fun)
@@ -564,11 +574,19 @@ abstract class BaseSuite extends TestSuite with BloopHelpers {
     myTests += FlatTest(name, () => { fun; () })
   }
 
-  def testAsync(name: String, maxDuration: Duration = Duration("20s"))(
+  def testAsync(name: String, maxDuration: Duration = Duration("10s"))(
       run: => Unit
   ): Unit = {
     test(name) {
       Await.result(Task { run }.runAsync(ExecutionContext.scheduler), maxDuration)
+    }
+  }
+
+  def testAsyncT(name: String, maxDuration: Duration)(
+      run: => Task[Unit]
+  ): Unit = {
+    test(name) {
+      Await.result(run.runAsync(ExecutionContext.scheduler), maxDuration)
     }
   }
 

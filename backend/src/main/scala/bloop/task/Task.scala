@@ -160,6 +160,8 @@ sealed trait Task[+A] { self =>
   def as[B](b: => B): Task[B] =
     self.map(_ => b)
 
+  @inline def void(): Task[Unit] = as(())
+
   def timeoutTo[B >: A](duration: FiniteDuration, backup: Task[B]): Task[B] = {
     Task
       .chooseFirstOf(
