@@ -179,7 +179,7 @@ object CompileBundle {
       import compileDependenciesData.dependencyClasspath
       val out = options.ngout
       val classpathHashesTask = bloop.io.ClasspathHasher
-        .hash(dependencyClasspath, 10, cancelCompilation, ioScheduler, logger, tracer, out)
+        .hash(dependencyClasspath, 10, cancelCompilation, logger, tracer, out)
         .executeOn(ioScheduler)
 
       val sourceHashesTask = tracer.traceTaskVerbose("discovering and hashing sources") { _ =>
