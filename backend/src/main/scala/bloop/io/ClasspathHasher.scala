@@ -118,6 +118,7 @@ object ClasspathHasher {
         val msg =
           s"Hashing ${path} is taking more than ${timeoutSeconds}s"
         try {
+          pprint.log(msg)
           logger.warn(msg)
           serverOut.println(msg)
         } catch { case NonFatal(_) => () }

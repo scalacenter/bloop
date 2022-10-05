@@ -14,7 +14,7 @@ import bloop.util.TestUtil
 import sbt.internal.inc.bloop.internal.BloopStamps
 
 object ClasspathHasherSpec extends bloop.testing.BaseSuite {
-  val testTimeout = 5.seconds
+  val testTimeout = 10.seconds
 
   val monix = DependencyResolution.Artifact("io.monix", "monix_2.13", "3.4.0")
   val spark = DependencyResolution.Artifact("org.apache.spark", "spark-core_2.13", "3.3.0")
@@ -49,8 +49,13 @@ object ClasspathHasherSpec extends bloop.testing.BaseSuite {
         expected = false,
         "Cancel promise shouldn't be completed if hashing wasn't cancelled"
       )
+      pprint.log(fileHashes)
+      val emptyHashses = jars.map(path => BloopStamps.emptyHash(path.underlying))
+      pprint.log(emptyHashses)
       assertEquals(
-        obtained = fileHashes.forall(_ != BloopStamps.cancelledHash),
+        obtained = fileHashes.forall(hash =>
+          hash != BloopStamps.cancelledHash && hash != BloopStamps.emptyHash(hash.file)
+        ),
         expected = true,
         hint = s"All hashes should be computed correctly, but found cancelled hash in $fileHashes"
       )
@@ -99,6 +104,7 @@ object ClasspathHasherSpec extends bloop.testing.BaseSuite {
       }
 
       if (nonCached.nonEmpty) {
+        println(debugOutput)
         fail(
           s"Hashing should used cached results for when computing hashes, but $nonCached were computed"
         )

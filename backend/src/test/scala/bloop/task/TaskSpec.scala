@@ -180,7 +180,30 @@ class TaskSpec {
 
     val (one, two) = Await.result(future, 1.second)
     assertEquals(one, two)
+  }
 
+  @Test
+  def timeoutTo: Unit = {
+    val ref = new AtomicBoolean(true)
+    val t1 = Task(1L).delayExecution(2.seconds)
+    val t2 = (Task(ref.set(false)) *> Task(2L))
+    val combined = t1.timeoutTo(1.second, t2)
+
+    val result = Await.result(combined.runAsync, 2.second)
+    assertEquals(result, 2)
+    assertEquals(ref.get(), false)
+  }
+
+  @Test
+  def timeoutTo2: Unit = {
+    val ref = new AtomicBoolean(true)
+    val t1 = Task(1L).delayExecution(500.milli)
+    val t2 = (Task(ref.set(false)) *> Task(2L))
+    val combined = t1.timeoutTo(1.second, t2)
+
+    val result = Await.result(combined.runAsync, 3.second)
+    assertEquals(result, 1)
+    assertEquals(ref.get(), true)
   }
 
 }
