@@ -250,7 +250,20 @@ object CompileTask {
       val dir = state.client.getUniqueClassesDirFor(inputs.project, forceGeneration = true)
       val underlying = createReporter(ReporterInputs(inputs.project, cwd, rawLogger))
       val reporter = new ObservedReporter(logger, underlying)
-      CompileBundle.computeFrom(inputs, dir, reporter, last, prev, cancel, logger, obs, t, o)
+      val sourceGeneratorCache = state.sourceGeneratorCache
+      CompileBundle.computeFrom(
+        inputs,
+        sourceGeneratorCache,
+        dir,
+        reporter,
+        last,
+        prev,
+        cancel,
+        logger,
+        obs,
+        t,
+        o
+      )
     }
 
     val client = state.client

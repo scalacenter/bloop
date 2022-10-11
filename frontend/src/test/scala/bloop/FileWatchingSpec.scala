@@ -10,6 +10,7 @@ import bloop.config.Config
 import bloop.data.Project
 import bloop.engine.Dag
 import bloop.engine.ExecutionContext
+import bloop.internal.build.BuildTestInfo
 import bloop.io.AbsolutePath
 import bloop.io.Environment.lineSeparator
 import bloop.logging.DebugFilter
@@ -17,6 +18,7 @@ import bloop.logging.PublisherLogger
 import bloop.logging.RecordingLogger
 import bloop.task.Task
 import bloop.testing.BaseSuite
+import bloop.util.CrossPlatform
 import bloop.util.TestProject
 import bloop.util.TestUtil
 
@@ -24,7 +26,12 @@ import monix.reactive.MulticastStrategy
 import monix.reactive.Observable
 
 object FileWatchingSpec extends BaseSuite {
+  private val generator: List[String] =
+    if (CrossPlatform.isWindows) List("python", BuildTestInfo.sampleSourceGenerator.getAbsolutePath)
+    else List(BuildTestInfo.sampleSourceGenerator.getAbsolutePath)
+
   System.setProperty("file-watcher-batch-window-ms", "100")
+
   test("simulate an incremental compiler session with file watching enabled") {
     TestUtil.withinWorkspace { workspace =>
       import ExecutionContext.ioScheduler
@@ -344,6 +351,56 @@ object FileWatchingSpec extends BaseSuite {
                 |""".stripMargin
           )
         }
+      }
+    }
+  }
+
+  test("watcher matches source generator inputs") {
+    TestUtil.withinWorkspace { workspace =>
+      import ExecutionContext.ioScheduler
+      val source =
+        """/A.scala
+          |object A { val x = generated.NameLengths.args_1 }
+          |""".stripMargin
+      val generatorSources = workspace.resolve("generator-inputs").createDirectories
+      writeFile(generatorSources.resolve("test.in"), "foobar")
+      val sourceGenerator = Config.SourceGenerator(
+        sourcesGlobs =
+          Config.SourcesGlobs(generatorSources.underlying, None, List("glob:test.in"), Nil) :: Nil,
+        outputDirectory = workspace.underlying.resolve("source-generator-output"),
+        command = generator
+      )
+      val `A` = TestProject(workspace, "a", List(source), sourceGenerators = List(sourceGenerator))
+      val projects = List(`A`)
+      val initialState = loadState(workspace, projects, new RecordingLogger())
+      val compiledState = initialState.compile(`A`)
+      assert(compiledState.status == ExitStatus.Ok)
+      assertValidCompilationState(compiledState, projects)
+
+      val (logObserver, logsObservable) =
+        Observable.multicast[(String, String)](MulticastStrategy.replay)(ioScheduler)
+      val logger = new PublisherLogger(logObserver, DebugFilter.All)
+
+      compiledState.withLogger(logger).compileHandle(`A`, watch = true)
+
+      val HasIterationStoppedMsg = s"Watching 2"
+      def waitUntilIteration(totalIterations: Int): Task[Unit] =
+        waitUntilWatchIteration(logsObservable, totalIterations, HasIterationStoppedMsg, None)
+
+      def testValidLatestState: TestState = {
+        val state = compiledState.getLatestSavedStateGlobally()
+        assert(state.status == ExitStatus.Ok)
+        assertValidCompilationState(state, projects)
+        state
+      }
+
+      TestUtil.await(FiniteDuration(20, TimeUnit.SECONDS), ExecutionContext.ioScheduler) {
+        for {
+          _ <- waitUntilIteration(1)
+          _ <- Task(testValidLatestState)
+          _ <- Task(writeFile(generatorSources.resolve("test.in"), "updated"))
+          _ <- waitUntilIteration(2)
+        } yield ()
       }
     }
   }

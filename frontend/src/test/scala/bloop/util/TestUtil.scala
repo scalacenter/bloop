@@ -34,6 +34,7 @@ import bloop.engine.Interpreter
 import bloop.engine.Run
 import bloop.engine.State
 import bloop.engine.caches.ResultsCache
+import bloop.engine.caches.SourceGeneratorCache
 import bloop.io.AbsolutePath
 import bloop.io.Environment.LineSplitter
 import bloop.io.Environment.lineSeparator
@@ -260,7 +261,8 @@ object TestUtil {
     }
     val workspaceSettings = WorkspaceSettings.readFromFile(configDirectory, logger)
     val build = Build(configDirectory, transformedProjects, workspaceSettings)
-    val state = State.forTests(build, TestUtil.getCompilerCache(logger), logger)
+    val state =
+      State.forTests(build, TestUtil.getCompilerCache(logger), SourceGeneratorCache.empty, logger)
     val state1 = state.copy(commonOptions = state.commonOptions.copy(env = runAndTestProperties))
     if (!emptyResults) state1 else state1.copy(results = ResultsCache.emptyForTests)
   }
@@ -337,7 +339,8 @@ object TestUtil {
       }
       val loaded = projects.map(p => LoadedProject.RawProject(p))
       val build = Build(temp, loaded.toList, None)
-      val state = State.forTests(build, TestUtil.getCompilerCache(logger), logger)
+      val state =
+        State.forTests(build, TestUtil.getCompilerCache(logger), SourceGeneratorCache.empty, logger)
       try op(state)
       catch {
         case NonFatal(t) =>
@@ -406,6 +409,7 @@ object TestUtil {
       sources = sourceDirectories,
       sourcesGlobs = Nil,
       sourceRoots = None,
+      sourceGenerators = Nil,
       testFrameworks = testFrameworks,
       testOptions = Config.TestOptions.empty,
       out = out,
@@ -490,7 +494,7 @@ object TestUtil {
   /** Creates an empty workspace where operations can happen. */
   def withinWorkspace[T](op: AbsolutePath => T): T = {
     val temp = baseTmpDir.resolve(s"test-${tmpDirCount.incrementAndGet()}")
-    Files.createDirectories(temp)
+    Files.createDirectories(temp).toRealPath()
     try op(AbsolutePath(temp))
     finally delete(AbsolutePath(temp))
   }
@@ -547,7 +551,7 @@ object TestUtil {
     val classesDir = Files.createDirectory(outDir.resolve("classes"))
 
     // format: OFF
-    val configFileG = bloop.config.Config.File(Config.File.LatestVersion, Config.Project("g", baseDir, Option(baseDir), Nil, None, None, List("g"), Nil, outDir, classesDir, None, None, None, None, None, None, None, None))
+    val configFileG = bloop.config.Config.File(Config.File.LatestVersion, Config.Project("g", baseDir, Option(baseDir), Nil, None, None, List("g"), Nil, outDir, classesDir, None, None, None, None, None, None, None, None, None))
     bloop.config.write(configFileG, jsonTargetG)
     // format: ON
 
