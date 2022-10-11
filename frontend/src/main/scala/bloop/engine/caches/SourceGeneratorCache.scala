@@ -9,22 +9,25 @@ import bloop.logging.Logger
 import bloop.task.Task
 
 final class SourceGeneratorCache private (
-    cache: ConcurrentHashMap[SourceGenerator, SourceGenerator.Run]
+    cache: ConcurrentHashMap[SourceGenerator, Task[SourceGenerator.Run]]
 ) {
   def update(
       sourceGenerator: SourceGenerator,
       logger: Logger,
       opts: CommonOptions
   ): Task[List[AbsolutePath]] = {
-    val previous = getStateFor(sourceGenerator)
-    sourceGenerator.update(previous, logger, opts).map {
-      case SourceGenerator.NoRun => Nil
-      case SourceGenerator.PreviousRun(_, outputs) => outputs.keys.toList.sortBy(_.syntax)
-    }
-  }
-
-  private def getStateFor(sourceGenerator: SourceGenerator): SourceGenerator.Run = {
-    Option(cache.get(sourceGenerator)).getOrElse(SourceGenerator.NoRun)
+    cache
+      .compute(
+        sourceGenerator,
+        { (_, prev) =>
+          val previous = Option(prev).getOrElse(Task.now(SourceGenerator.NoRun))
+          previous.flatMap(sourceGenerator.update(_, logger, opts)).memoize
+        }
+      )
+      .map {
+        case SourceGenerator.NoRun => Nil
+        case SourceGenerator.PreviousRun(_, outputs) => outputs.keys.toList.sortBy(_.syntax)
+      }
   }
 }
 
