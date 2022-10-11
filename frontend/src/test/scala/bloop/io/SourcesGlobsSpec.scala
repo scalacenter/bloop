@@ -50,6 +50,7 @@ object SourcesGlobsSpec extends bloop.testing.BaseSuite {
         )
         val hashedSources = SourceHasher.findAndHashSourcesInProject(
           project,
+          state.sourceGeneratorCache.update(_, logger, state.commonOptions),
           1,
           Promise[Unit](),
           ioScheduler

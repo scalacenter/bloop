@@ -118,7 +118,12 @@ object Interpreter {
       f: State => Task[State]
   ): Task[State] = {
     val reachable = Dag.dfs(getProjectsDag(projects, state))
-    val projectsSourcesAndDirs = reachable.map(_.allSourceFilesAndDirectories)
+    val projectsSourcesAndDirs = reachable.map { project =>
+      for {
+        unmanaged <- project.allUnmanagedSourceFilesAndDirectories
+        generatorSourceDirs = project.sourceGenerators.flatMap(_.sourcesGlobs.map(_.directory))
+      } yield unmanaged ++ generatorSourceDirs
+    }
     val groupTasks =
       projectsSourcesAndDirs.grouped(8).map(group => Task.gatherUnordered(group)).toList
     Task
@@ -357,16 +362,18 @@ object Interpreter {
 
           val handler = new LoggingEventHandler(state.logger)
 
-          Tasks.test(
-            state,
-            projectsToTest,
-            cmd.args,
-            testFilter,
-            ScalaTestSuites.empty,
-            handler,
-            cmd.parallel,
-            RunMode.Normal
-          )
+          Tasks
+            .test(
+              state,
+              projectsToTest,
+              cmd.args,
+              testFilter,
+              ScalaTestSuites.empty,
+              handler,
+              cmd.parallel,
+              RunMode.Normal
+            )
+            .map(testRuns => state.mergeStatus(testRuns.status))
         }
       }
 

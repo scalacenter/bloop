@@ -41,6 +41,18 @@ object BloopRpcServices {
 
   object BloopEndpoint {
 
+    private def extractJsonParams(params: Option[RawJson]): RawJson = {
+      // if params are empty, bsp4s endpoint's codec might decode it as just a 'null'
+      // and then parsing it using `readFromArray` fails
+      // to avoid this issue replace 'null' by empty object '{}'
+      params
+        .map(json =>
+          if (java.util.Arrays.equals(json.value, RawJson.nullValue.value)) RawJson.emptyObj
+          else json
+        )
+        .getOrElse(RawJson.emptyObj)
+    }
+
     def request[A, B](
         endpoint: Endpoint[A, B]
     )(f: A => Task[Either[Response.Error, B]]): BloopEndpoint =
@@ -51,7 +63,7 @@ object BloopRpcServices {
           val method = endpoint.method
           message match {
             case Request(`method`, params, id, jsonrpc, headers) =>
-              val paramsJson = params.flatMap(v => Option(v)).getOrElse(RawJson.emptyObj)
+              val paramsJson = extractJsonParams(params)
               Try(readFromArray[A](paramsJson.value)) match {
                 case Success(value) =>
                   f(value).materialize.map { v =>
@@ -87,10 +99,11 @@ object BloopRpcServices {
           val method = endpoint.method
           message match {
             case Notification(`method`, params, _, headers) =>
-              val paramsJson = params.flatMap(v => Option(v)).getOrElse(RawJson.emptyObj)
+              val paramsJson = extractJsonParams(params)
               Try(readFromArray[A](paramsJson.value)) match {
                 case Success(value) => f(value).map(a => Response.None)
-                case Failure(err) => fail(s"Failed to parse notification $message. Errors: $err")
+                case Failure(err) =>
+                  fail(s"Failed to parse notification $message. Params: $paramsJson. Errors: $err")
               }
             case Notification(invalidMethod, _, _, headers) =>
               fail(s"Expected method '$method', obtained '$invalidMethod'")

@@ -20,6 +20,14 @@ import ch.epfl.scala.bsp
 import ch.epfl.scala.bsp.BuildTargetIdentifier
 import ch.epfl.scala.bsp.MessageType
 import ch.epfl.scala.bsp.ShowMessageParams
+import ch.epfl.scala.bsp.CompileResult
+import ch.epfl.scala.bsp.StatusCode
+import ch.epfl.scala.bsp.Uri
+import ch.epfl.scala.bsp.endpoints
+import ch.epfl.scala.bsp.CompileResult
+import ch.epfl.scala.bsp.MessageType
+import ch.epfl.scala.bsp.ShowMessageParams
+import ch.epfl.scala.bsp.StatusCode
 import ch.epfl.scala.bsp.Uri
 import ch.epfl.scala.bsp.endpoints
 import ch.epfl.scala.debugadapter.DebugServer
@@ -302,7 +310,7 @@ final class BloopBspServices(
               compileProvider = Some(BloopBspServices.DefaultCompileProvider),
               testProvider = Some(BloopBspServices.DefaultTestProvider),
               runProvider = Some(BloopBspServices.DefaultRunProvider),
-              debugProvider = None, // todo kpodsiad
+              debugProvider = Some(BloopBspServices.DefaultDebugProvider),
               inverseSourcesProvider = Some(true),
               dependencySourcesProvider = Some(true),
               dependencyModulesProvider = None,
@@ -689,10 +697,7 @@ final class BloopBspServices(
   }
 
   def test(params: bsp.TestParams): BspEndpointResponse[bsp.TestResult] = {
-    def test(
-        project: Project,
-        state: State
-    ): Task[State] = {
+    def test(project: Project, state: State): Task[Tasks.TestRuns] = {
       val testFilter = TestInternals.parseFilters(Nil) // Don't support test only for now
       val handler = new LoggingEventHandler(state.logger)
       Tasks.test(
@@ -717,25 +722,35 @@ final class BloopBspServices(
           val args = params.arguments.getOrElse(Nil)
           val logger = logger0.asBspServerVerbose
           compileProjects(mappings, state, args, originId, logger).flatMap {
-            case (newState, compileResult) =>
-              compileResult match {
-                case Right(_) =>
-                  val sequentialTestExecution = mappings.foldLeft(Task.now(newState)) {
-                    case (taskState, (_, p)) => taskState.flatMap(state => test(p, state))
-                  }
+            case (newState, Right(CompileResult(_, StatusCode.Ok, _, _))) =>
+              val sequentialTestExecution: Task[Seq[Tasks.TestRuns]] =
+                Task.sequence(mappings.map { case (_, p) => test(p, state) })
 
-                  sequentialTestExecution.materialize.map(_.toEither).map {
-                    case Right(newState) =>
+              sequentialTestExecution.materialize.map {
+                case Success(testRunsSeq) =>
+                  testRunsSeq.reduceOption(_ ++ _) match {
+                    case None =>
                       (newState, Right(bsp.TestResult(originId, bsp.StatusCode.Ok, None, None)))
-                    case Left(e) =>
-                      //(newState, Right(bsp.TestResult(None, bsp.StatusCode.Error, None)))
-                      val errorMessage =
-                        Response.internalError(s"Failed test execution: ${e.getMessage}")
-                      (newState, Left(errorMessage))
+                    case Some(testRuns) =>
+                      val status = testRuns.status
+                      val bspStatus =
+                        if (status == ExitStatus.Ok) bsp.StatusCode.Ok else bsp.StatusCode.Error
+                      (
+                        newState.mergeStatus(status),
+                        Right(bsp.TestResult(originId, bspStatus, None, None))
+                      )
                   }
-
-                case Left(error) => Task.now((newState, Left(error)))
+                case Failure(e) =>
+                  val errorMessage =
+                    Response.internalError(s"Failed test execution: ${e.getMessage}")
+                  (newState, Left(errorMessage))
               }
+
+            case (newState, Right(CompileResult(_, errorCode, _, _))) =>
+              Task.now((newState, Right(bsp.TestResult(originId, errorCode, None, None))))
+
+            case (newState, Left(error)) =>
+              Task.now((newState, Left(error)))
           }
       }
     }
@@ -1026,7 +1041,8 @@ final class BloopBspServices(
               val capabilities = bsp.BuildTargetCapabilities(
                 canCompile = true,
                 canTest = true,
-                canRun = true
+                canRun = true,
+                canDebug = true
               )
               val isJavaOnly = p.scalaInstance.isEmpty
               val languageIds =
@@ -1064,29 +1080,49 @@ final class BloopBspServices(
         projects: Seq[ProjectMapping],
         state: State
     ): BspResult[bsp.SourcesResult] = {
-      val sourcesItems = projects.iterator.map {
-        case (target, project) =>
-          project.allSourceFilesAndDirectories.map { sources =>
-            val items = sources.map { s =>
-              import bsp.SourceItemKind._
-              val uri = s.underlying.toUri()
-              val (bspUri, kind) = if (s.exists) {
-                (uri, if (s.isFile) File else Directory)
-              } else {
-                val fileMatcher = FileSystems.getDefault.getPathMatcher("glob:*.{scala, java}")
-                if (fileMatcher.matches(s.underlying.getFileName)) (uri, File)
-                // If path doesn't exist and its name doesn't look like a file, assume it's a dir
-                else (new URI(uri.toString + "/"), Directory)
-              }
-              // TODO(jvican): Don't default on false for generated, add this info to JSON fields
-              bsp.SourceItem(bsp.Uri(bspUri), kind, false)
-            }
-            val roots = project.sourceRoots.map(_.map(p => bsp.Uri(p.toBspUri)))
-            bsp.SourcesItem(target, items, roots)
-          }
-      }.toList
+      def sourceItem(s: AbsolutePath, isGenerated: Boolean): bsp.SourceItem = {
+        import bsp.SourceItemKind._
+        val uri = s.underlying.toUri()
+        val (bspUri, kind) = if (s.exists) {
+          (uri, if (s.isFile) File else Directory)
+        } else {
+          val fileMatcher = FileSystems.getDefault.getPathMatcher("glob:*.{scala, java}")
+          if (fileMatcher.matches(s.underlying.getFileName)) (uri, File)
+          // If path doesn't exist and its name doesn't look like a file, assume it's a dir
+          else (new URI(uri.toString + "/"), Directory)
+        }
+        bsp.SourceItem(bsp.Uri(bspUri), kind, isGenerated)
+      }
 
-      Task.sequence(sourcesItems).map { items =>
+      val dag = Aggregate(projects.map(p => state.build.getDagFor(p._2)).toList)
+
+      // Collect the projects' sources following the projects topological sorting, so that
+      // source generators that depend on other source generators' outputs can run correctly.
+      val collectSourcesTasks = Dag.topologicalSort(dag).map { project =>
+        val unmanagedSources = project.allUnmanagedSourceFilesAndDirectories.map { sources =>
+          sources.map(sourceItem(_, isGenerated = false))
+        }
+
+        val managedSources = {
+          val tasks = project.sourceGenerators
+            .map(state.sourceGeneratorCache.update(_, state.logger, state.commonOptions))
+          Task.gatherUnordered(tasks).map(_.flatten.map(sourceItem(_, isGenerated = true)))
+        }
+
+        for {
+          unmanaged <- unmanagedSources
+          managed <- managedSources
+        } yield (project, unmanaged ++ managed)
+      }
+
+      val projectToTarget = projects.map { case (target, project) => project -> target }.toMap
+      Task.sequence(collectSourcesTasks).map { results =>
+        val items = results.flatMap {
+          case (project, items) =>
+            val roots = project.sourceRoots.map(_.map(p => bsp.Uri(p.toBspUri)))
+            projectToTarget.get(project).map(bsp.SourcesItem(_, items, roots))
+        }
+
         (state, Right(bsp.SourcesResult(items)))
       }
     }
@@ -1309,4 +1345,5 @@ object BloopBspServices {
   private[bloop] val DefaultCompileProvider = bsp.CompileProvider(DefaultLanguages)
   private[bloop] val DefaultTestProvider = bsp.TestProvider(DefaultLanguages)
   private[bloop] val DefaultRunProvider = bsp.RunProvider(DefaultLanguages)
+  private[bloop] val DefaultDebugProvider = bsp.DebugProvider(DefaultLanguages)
 }

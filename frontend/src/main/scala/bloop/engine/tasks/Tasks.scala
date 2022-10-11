@@ -93,6 +93,22 @@ object Tasks {
     state
   }
 
+  case class TestRun(project: Project, exitCode: Int, results: List[TestSuiteEvent.Results]) {
+    def testsFailed: Boolean =
+      results.exists(_.events.exists(e => TestFailedStatus.contains(e.status())))
+    def processFailed: Boolean =
+      exitCode != 0
+    def failed: Option[ExitStatus] =
+      if (processFailed || testsFailed) Some(ExitStatus.TestExecutionError) else None
+  }
+
+  case class TestRuns(runs: List[TestRun]) {
+    def ++(other: TestRuns): TestRuns =
+      TestRuns(runs ++ other.runs)
+    def status: ExitStatus =
+      runs.view.flatMap(_.failed).headOption.getOrElse(ExitStatus.Ok)
+  }
+
   /**
    * Run the tests for all projects in `projectsToTest`.
    *
@@ -112,53 +128,45 @@ object Tasks {
       testEventHandler: BloopTestSuiteEventHandler,
       runInParallel: Boolean = false,
       mode: RunMode
-  ): Task[State] = {
-    import state.logger
-    implicit val logContext: DebugFilter = DebugFilter.Test
+  ): Task[TestRuns] = {
 
-    var failure = false
     val testTasks = projectsToTest.map { project =>
-      /* Intercept test failures to set the correct error code */
-      val failureHandler = new LoggingEventHandler(state.logger) {
+      // note: mutable state here, to collect all `TestSuiteEvent.Results` produced while running tests
+      // it should be fine, since it's scoped to this particular evaluation of `TestTask.runTestSuites`
+      val resultsBuilder = List.newBuilder[TestSuiteEvent.Results]
+      val handleAndStore = new LoggingEventHandler(state.logger) {
         override def report(): Unit = testEventHandler.report()
         override def handle(event: TestSuiteEvent): Unit = {
           testEventHandler.handle(event)
           event match {
-            case TestSuiteEvent.Results(_, ev)
-                if ev.exists(e => TestFailedStatus.contains(e.status())) =>
-              failure = true
+            case x: TestSuiteEvent.Results => resultsBuilder += x
             case _ => ()
           }
         }
       }
 
       val cwd = project.workingDirectory
-      TestTask.runTestSuites(
-        state,
-        project,
-        cwd,
-        userTestOptions,
-        testFilter,
-        testClasses,
-        failureHandler,
-        mode
-      )
+      TestTask
+        .runTestSuites(
+          state,
+          project,
+          cwd,
+          userTestOptions,
+          testFilter,
+          testClasses,
+          handleAndStore,
+          mode
+        )
+        .map { exitCode => TestRun(project, exitCode, resultsBuilder.result()) }
     }
 
-    val runAll: List[Task[Int]] => Task[List[Int]] =
-      if (runInParallel) {
-        Task.gather
-      } else {
-        Task.sequence
-      }
+    def runAll[A]: List[Task[A]] => Task[List[A]] =
+      if (runInParallel) Task.gather else Task.sequence
 
-    runAll(testTasks).map { exitCodes =>
+    runAll(testTasks).map { testRuns =>
       // When the test execution is over report no matter what the result is
       testEventHandler.report()
-      logger.debug(s"Test suites failed: $failure")
-      val isOk = !failure && exitCodes.forall(_ == 0)
-      if (isOk) state.mergeStatus(ExitStatus.Ok)
-      else state.copy(status = ExitStatus.TestExecutionError)
+      TestRuns(testRuns)
     }
   }
 
