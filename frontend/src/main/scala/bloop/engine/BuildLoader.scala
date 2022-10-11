@@ -205,11 +205,9 @@ object BuildLoader {
   ): Option[AbsolutePath] = {
     val (scalaVersion, scalaSemanticdbSettings) = scalaSemanticdbVersionAndSettings
     // Recognize 2.12.8-abdcddd as supported if 2.12.8 exists in supported versions
-    val isUnsupportedVersion =
-      !scalaSemanticdbSettings.supportedScalaVersions.exists(scalaVersion.startsWith(_))
-    if (isUnsupportedVersion) {
-      if (!scalaVersion.startsWith("3."))
-        logger.debug(Feedback.skippedUnsupportedScalaMetals(scalaVersion))(DebugFilter.All)
+    val isSupportedVersion =
+      scalaSemanticdbSettings.supportedScalaVersions.exists(scalaVersion.startsWith(_))
+    if (scalaVersion.startsWith("3.")) {
       None
     } else {
       SemanticDBCache.fetchScalaPlugin(
@@ -220,8 +218,12 @@ object BuildLoader {
         case Right(path) =>
           logger.debug(Feedback.configuredMetalsScalaProjects(projects))(DebugFilter.All)
           Some(path)
-        case Left(cause) =>
+        case Left(cause) if isSupportedVersion =>
           logger.displayWarningToUser(Feedback.failedMetalsScalaConfiguration(scalaVersion, cause))
+          None
+
+        // We try to download anyway, but don't print the exception
+        case _ =>
           None
       }
     }
