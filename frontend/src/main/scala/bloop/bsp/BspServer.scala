@@ -149,7 +149,11 @@ object BspServer {
 
       process
         .doOnCancel(Task(stopListeting(cancelled = true)))
-        .doOnFinish(_ => Task(stopListeting(cancelled = false)))
+        .doOnFinish { errOpt =>
+          for (err <- errOpt)
+            err.printStackTrace(System.err)
+          Task(stopListeting(cancelled = false))
+        }
         .map(_ => provider.stateAfterExecution)
     }
 
