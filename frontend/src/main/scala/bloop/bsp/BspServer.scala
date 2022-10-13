@@ -90,9 +90,6 @@ object BspServer {
       val server =
         new BloopLanguageServer(Observable.never, client, provider.services, ioScheduler, bspLogger)
 
-      def warn(msg: String): Unit = provider.stateAfterExecution.logger.warn(msg)
-      def error(msg: String): Unit = provider.stateAfterExecution.logger.error(msg)
-
       val inputExit = CancelablePromise[Unit]()
       val mesages =
         LowLevelMessage
@@ -130,8 +127,10 @@ object BspServer {
               case None => clients0
             }
           }
-          if (cancelled) warn(s"BSP server cancelled, closing socket...")
-          else error(s"BSP server stopped")
+          bspLogger.info {
+            if (cancelled) "BSP server cancelled, closing socket..."
+            else "BSP server stopped"
+          }
           server.cancelAllRequests()
           ioScheduler.scheduleOnce(
             100,
