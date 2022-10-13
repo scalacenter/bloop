@@ -294,6 +294,7 @@ object CompileTask {
               case FinalNormalCompileResult.HasException(project, err) =>
                 val errMsg = err.fold(identity, _.getMessage)
                 rawLogger.error(s"Unexpected error when compiling ${project.name}: '$errMsg'")
+                err.foreach(_.printStackTrace(System.err))
                 err.foreach(rawLogger.trace(_))
               case _ => () // Do nothing when the final compilation result is not an actual error
             }
