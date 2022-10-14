@@ -19,6 +19,11 @@ import sbt.io.IO
 object ClasspathHasherSpec extends bloop.testing.BaseSuite {
   val testTimeout = 10.seconds
 
+  val jsoniter = DependencyResolution.Artifact(
+    "com.github.plokhotnyuk.jsoniter-scala",
+    "jsoniter-scala-core_2.13",
+    "2.17.5"
+  )
   val monix = DependencyResolution.Artifact("io.monix", "monix_2.13", "3.4.0")
   val spark = DependencyResolution.Artifact("org.apache.spark", "spark-core_2.13", "3.3.0")
   val hadoop = DependencyResolution.Artifact("org.apache.hadoop", "hadoop-common", "3.3.4")
@@ -27,14 +32,16 @@ object ClasspathHasherSpec extends bloop.testing.BaseSuite {
   val monixJar = "monix_2.13-3.4.0.jar"
   val expectedHash = 581779648
 
+  def makeClasspathHasher: ClasspathHasher = new ClasspathHasher
+
   testAsyncT("hash deps", testTimeout) {
     val cancelPromise = Promise[Unit]()
     val logger = new RecordingLogger()
     val tracer = BraveTracer("hashes-correctly", TraceProperties.default)
-    val jars = resolveArtifacts(logger, monix)
+    val jars = resolveArtifacts(monix)
 
     val hashClasspathTask =
-      ClasspathHasher.hash(
+      makeClasspathHasher.hash(
         classpath = jars,
         parallelUnits = 2,
         cancelCompilation = cancelPromise,
@@ -43,7 +50,7 @@ object ClasspathHasherSpec extends bloop.testing.BaseSuite {
         serverOut = System.out
       )
 
-    val task = for {
+    for {
       result <- hashClasspathTask
     } yield {
       val fileHashes = result.orFail(_ => "Obtained empty result from hashing")
@@ -59,6 +66,23 @@ object ClasspathHasherSpec extends bloop.testing.BaseSuite {
         expected = true,
         hint = s"All hashes should be computed correctly, but found cancelled hash in $fileHashes"
       )
+
+      val dependencies = jars.toVector
+      val cacheMisses = dependencies.flatMap { path =>
+        logger.debugs.find(entry =>
+          entry.contains(path.toString) && entry.startsWith("Cache miss for")
+        )
+      }
+
+      // check if all jars hit cache miss and were computed
+      assertEquals(
+        obtained = cacheMisses.size,
+        expected = dependencies.size,
+        hint = s"Not everyone entry missed the cache when hashing ${dependencies
+          .mkString("\n")} (${fileHashes.mkString("\n")})"
+      )
+
+      // check if hash is computed in a stable way across test runs
       fileHashes.find(_.file.toString.contains(monixJar)) match {
         case None => fail(s"There is no $monixJar among hashed jars, although it should be")
         case Some(fileHash) =>
@@ -68,18 +92,17 @@ object ClasspathHasherSpec extends bloop.testing.BaseSuite {
           )
       }
     }
-
-    task *> Task.sleep(5.second)
   }
 
   testAsyncT("results are cached", testTimeout) {
     val cancelPromise = Promise[Unit]()
-    val logger = new RecordingLogger()
     val tracer = BraveTracer("hashes-correctly", TraceProperties.default)
-    val jars = resolveArtifacts(logger, monix)
+    val jars = resolveArtifacts(monix)
 
-    val hashClasspathTask =
-      ClasspathHasher.hash(
+    val classpathHasher = makeClasspathHasher
+
+    def hashClasspathTask(logger: Logger) =
+      classpathHasher.hash(
         classpath = jars,
         parallelUnits = 2,
         cancelCompilation = cancelPromise,
@@ -89,9 +112,12 @@ object ClasspathHasherSpec extends bloop.testing.BaseSuite {
       )
 
     for {
-      _ <- hashClasspathTask
-      cachedResult <- hashClasspathTask
+      logger1 <- Task.now(new RecordingLogger())
+      _ <- hashClasspathTask(logger1)
+      logger = new RecordingLogger()
+      cachedResult <- hashClasspathTask(logger)
     } yield {
+
       val fileHashes = cachedResult.orFail(_ => "Obtained empty result from hashing")
       assertEquals(
         obtained = fileHashes.forall(_ != BloopStamps.cancelledHash),
@@ -106,19 +132,57 @@ object ClasspathHasherSpec extends bloop.testing.BaseSuite {
       }
 
       if (nonCached.nonEmpty) {
-        pprint.log(debugOutput)
         fail(
           s"Hashing should used cached results for when computing hashes, but $nonCached were computed"
         )
       }
+    }
+  }
 
-      fileHashes.find(_.file.toString.contains(monixJar)) match {
-        case None => fail(s"There is no $monixJar among hashed jars, although it should be")
-        case Some(fileHash) =>
-          assertEquals(
-            obtained = fileHash.hash,
-            expected = expectedHash
-          )
+  testAsyncT("work is shared accros tasks", testTimeout) {
+    import bloop.engine.ExecutionContext.ioScheduler
+
+    val cancelPromise = Promise[Unit]()
+    val tracer = BraveTracer("results are cached", TraceProperties.default)
+
+    // use small library to not pollute test output
+    val jars = resolveArtifacts(jsoniter)
+
+    val classpathHasher = makeClasspathHasher
+
+    def hashClasspathTask(logger: Logger) =
+      classpathHasher.hash(
+        classpath = jars,
+        parallelUnits = 2,
+        cancelCompilation = cancelPromise,
+        logger = logger,
+        tracer = tracer,
+        serverOut = System.out
+      )
+
+    for {
+      _ <- Task.now(hashClasspathTask(new RecordingLogger()).runAsync)
+      logger2 = new RecordingLogger()
+      cachedResult <- Task.fromFuture(hashClasspathTask(logger2).runAsync)
+    } yield {
+
+      val fileHashes = cachedResult.orFail(_ => "Obtained empty result from hashing")
+      assertEquals(
+        obtained = fileHashes.forall(_ != BloopStamps.cancelledHash),
+        expected = true,
+        hint = s"All hashes should be computed correctly, but found cancelled hash in $fileHashes"
+      )
+
+      val debugOutput = logger2.debugs.toSet
+
+      val nonCached = jars.toList.filterNot { path =>
+        debugOutput.contains(s"Wait for hashing of $path to complete")
+      }
+
+      if (nonCached.nonEmpty) {
+        fail(
+          s"Hashing should share workload when computing hashes at the same time, but $nonCached were computed"
+        )
       }
     }
   }
@@ -140,8 +204,10 @@ object ClasspathHasherSpec extends bloop.testing.BaseSuite {
 
       val filesToHash = Array(AbsolutePath(file.toNIO))
 
+      val classpathHasher = makeClasspathHasher
+
       val hashClasspathTask =
-        ClasspathHasher.hash(
+        classpathHasher.hash(
           classpath = filesToHash,
           parallelUnits = 2,
           cancelCompilation = cancelPromise,
@@ -199,16 +265,22 @@ object ClasspathHasherSpec extends bloop.testing.BaseSuite {
     }
   }
 
-  testAsyncT("cancellation", 10.second) {
+  testAsyncT("cancellation of single task", testTimeout) {
     import bloop.engine.ExecutionContext.ioScheduler
 
     val logger = new RecordingLogger()
     val cancelPromise = Promise[Unit]()
-    val tracer = BraveTracer("cancels-correctly-test", TraceProperties.default)
-    val jars = resolveArtifacts(logger, monix, spark, hadoop)
+    val tracer = BraveTracer("cancel-single-task", TraceProperties.default)
+
+    // use big libraries with a lot of dependencies, some of them have common deps which will
+    // result in situation where dep A is being computed by task1 and at the same time by task2
+    // in such case task2 is waiting for task1 to be be finished
+    val jars = resolveArtifacts(monix, spark, hadoop)
+
+    val classpathHasher = makeClasspathHasher
 
     val hashClasspathTask =
-      ClasspathHasher.hash(
+      classpathHasher.hash(
         jars,
         2,
         cancelPromise,
@@ -243,10 +315,78 @@ object ClasspathHasherSpec extends bloop.testing.BaseSuite {
     }
   }
 
+  testAsyncT("cancel one task, other one should work just fine", testTimeout) {
+    import bloop.engine.ExecutionContext.ioScheduler
+
+    val logger1 = new RecordingLogger()
+    val cancelPromise1 = Promise[Unit]()
+
+    val logger2 = new RecordingLogger()
+    val cancelPromise2 = Promise[Unit]()
+
+    val tracer = BraveTracer("cancel-single-task", TraceProperties.default)
+
+    // use big libraries with a lot of dependencies, some of them have common deps which will
+    // result in situation where dep A is being computed by task1 and at the same time by task2
+    // in such case task2 is waiting for task1 to be be finished
+    val jars = resolveArtifacts(monix, spark, hadoop)
+
+    val classpathHasher = makeClasspathHasher
+
+    def hashClasspathTask(logger: Logger, cancelPromise: Promise[Unit]) =
+      classpathHasher.hash(
+        jars,
+        2,
+        cancelPromise,
+        logger,
+        tracer,
+        System.out
+      )
+
+    // start hashing, wait small amount of time and then cancel task
+    val startAndCancelTask = Task.defer {
+      for {
+        running <-
+          Task(hashClasspathTask(logger1, cancelPromise1).runAsync)
+        _ <- Task.sleep(20.millis)
+        _ <- Task(running.cancel())
+      } yield ()
+    }
+
+    for {
+      _ <- startAndCancelTask
+      result <- hashClasspathTask(logger2, cancelPromise2)
+    } yield {
+      assertEquals(
+        obtained = cancelPromise1.isCompleted,
+        expected = true,
+        hint = "Cancelation promise of task1 should be completed"
+      )
+
+      assertEquals(
+        obtained = cancelPromise2.isCompleted,
+        expected = false,
+        hint = "Cancelation promise of task2 should not be completed"
+      )
+
+      assertEquals(
+        obtained = result.isRight,
+        expected = true,
+        hint = "Task2 should return valid result"
+      )
+
+      assertEquals(
+        obtained = logger2.warnings.exists(_.startsWith("Unexpected hash computation of")),
+        expected = true,
+        hint = "Task2 should recover from task1 cancellation"
+      )
+    }
+  }
+
   private def resolveArtifacts(
-      logger: Logger,
       deps: DependencyResolution.Artifact*
   ): Array[AbsolutePath] = {
+    val logger = new RecordingLogger()
     deps.toArray.flatMap(a =>
       // Force independent resolution for every artifact
       DependencyResolution.resolve(List(a), logger)

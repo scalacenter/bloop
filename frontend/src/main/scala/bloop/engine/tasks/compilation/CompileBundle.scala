@@ -177,7 +177,7 @@ object CompileBundle {
       import bloop.engine.ExecutionContext.ioScheduler
       import compileDependenciesData.dependencyClasspath
       val out = options.ngout
-      val classpathHashesTask = bloop.io.ClasspathHasher
+      val classpathHashesTask = bloop.io.ClasspathHasher.global
         .hash(dependencyClasspath, 10, cancelCompilation, logger, tracer, out)
         .executeOn(ioScheduler)
 
