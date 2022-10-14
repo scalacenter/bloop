@@ -593,6 +593,7 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
       // https://github.com/scalacenter/bloop/issues/281
       super.ignore(name, "DISABLED")(fun)
     } else {
+      pprint.log(name)
       super.test(name)(fun)
     }
   }
