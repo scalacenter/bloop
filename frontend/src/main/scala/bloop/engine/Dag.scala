@@ -8,7 +8,6 @@ import bloop.data.Project
 import bloop.util.CacheHashCode
 
 import scalaz.Show
-import scala.collection.immutable.ListSet
 
 /**
  * A [[Dag]] is a Directed Acyclic Graph where each node contains a value of T
@@ -168,7 +167,7 @@ object Dag {
               case Leaf(_) => acc
               case p @ Parent(value, children) if targets.contains(value) =>
                 val transitiveChildren = transitives.get(p).getOrElse {
-                  val transitives0 = children.flatMap(Dag.dfs(_))
+                  val transitives0 = children.flatMap(Dag.dfs(_, mode = PreOrder))
                   transitives.+=(p -> transitives0)
                   transitives0
                 }
@@ -291,10 +290,14 @@ object Dag {
     InverseDependencies(roots.toList, cascaded.toList)
   }
 
+  sealed trait TraversalMode
+  case object PreOrder extends TraversalMode
+  case object PostOrder extends TraversalMode
+
   /**
    * Depth first search
    */
-  def dfs[T](dag: Dag[T]): List[T] = {
+  def dfs[T](dag: Dag[T], mode: TraversalMode): List[T] = {
     val visited = scala.collection.mutable.HashSet[Dag[T]]()
     val buffer = new ListBuffer[T]()
     def loop(dag: Dag[T]): Unit = {
@@ -305,9 +308,12 @@ object Dag {
           case Leaf(value) => buffer.+=(value)
           case Aggregate(dags) =>
             dags.foreach(loop(_))
-          case Parent(value, children) =>
+          case Parent(value, children) if mode == PreOrder =>
             buffer.+=(value)
             children.foreach(loop(_))
+          case Parent(value, children) if mode == PostOrder =>
+            children.foreach(loop(_))
+            buffer.+=(value)
         }
       }
     }
@@ -342,7 +348,7 @@ object Dag {
     }
 
     // Inefficient implementation, but there is no need for efficiency here.
-    val all = Dag.dfs(dag).toSet
+    val all = Dag.dfs(dag, mode = PreOrder).toSet
     val nodes = all.map { node =>
       val id = Show.shows(node)
       s""""$id" [label="$id"];"""
@@ -357,7 +363,7 @@ object Dag {
   }
 
   def toDotGraph(dags: List[Dag[Project]]): String = {
-    val projects = dags.flatMap(dfs).toSet
+    val projects = dags.flatMap(dfs(_, mode = PreOrder)).toSet
     val nodes = projects.map(node => s""""${node.name}" [label="${node.name}"];""")
     val edges = projects.flatMap(n => n.dependencies.map(p => s""""${n.name}" -> "$p";"""))
     s"""digraph "project" {
@@ -365,17 +371,5 @@ object Dag {
        |${nodes.mkString("  ", "\n  ", "\n  ")}
        |${edges.mkString("  ", "\n  ", "")}
        |}""".stripMargin
-  }
-
-  def topologicalSort[T](dag: Dag[T]): List[T] = {
-    def inner(buf: ListSet[T], dag: Dag[T]): ListSet[T] = dag match {
-      case Leaf(value) =>
-        buf + value
-      case Parent(value, children) =>
-        children.foldLeft(buf)(inner(_, _)) + value
-      case Aggregate(dags) =>
-        dags.foldLeft(buf)(inner(_, _))
-    }
-    inner(ListSet.empty, dag).toList
   }
 }

@@ -268,7 +268,7 @@ object CompileTask {
 
     val client = state.client
     CompileGraph.traverse(dag, client, store, setup(_), compile(_)).flatMap { pdag =>
-      val partialResults = Dag.dfs(pdag)
+      val partialResults = Dag.dfs(pdag, mode = Dag.PreOrder)
       val finalResults = partialResults.map(r => PartialCompileResult.toFinalResult(r))
       Task.gatherUnordered(finalResults).map(_.flatten).flatMap { results =>
         val cleanUpTasksToRunInBackground =

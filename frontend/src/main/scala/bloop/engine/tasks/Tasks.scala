@@ -41,7 +41,7 @@ object Tasks {
   def clean(state: State, targets: List[Project], includeDeps: Boolean): Task[State] = {
     val allTargetsToClean =
       if (!includeDeps) targets
-      else targets.flatMap(t => Dag.dfs(state.build.getDagFor(t))).distinct
+      else targets.flatMap(t => Dag.dfs(state.build.getDagFor(t), mode = Dag.PreOrder)).distinct
     state.results.cleanSuccessful(allTargetsToClean.toSet, state.client, state.logger).map {
       newResults =>
         state.copy(results = newResults)
