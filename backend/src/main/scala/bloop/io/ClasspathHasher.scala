@@ -57,7 +57,7 @@ class ClasspathHasher {
       tracer: BraveTracer,
       serverOut: PrintStream
   ): Task[Either[Unit, Vector[FileHash]]] = {
-    val timeoutSeconds: Long = 2L
+    val timeoutSeconds: Long = 10L
 
     implicit val debugFilter: DebugFilter = DebugFilter.Compilation
 
@@ -96,14 +96,11 @@ class ClasspathHasher {
       def hash(path: Path): Task[FileHash] = Task {
         val hash =
           try {
-            if (cancelCompilation.isCompleted) {
-              BloopStamps.cancelledHash(path)
-            } else if (isCancelled.get) {
+            if (isCancelled.get) {
               cancelCompilation.trySuccess(())
               BloopStamps.cancelledHash(path)
             } else {
-              val hash = hashFile()
-              hash
+              hashFile()
             }
           } catch {
             // Can happen when a file doesn't exist, for example
