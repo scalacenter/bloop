@@ -195,6 +195,8 @@ class ClasspathHasher {
 
     hashes
       .map { result =>
+        pprint.log(this.cacheMetadataJar.size())
+        pprint.log(this.hashingPromises.size())
         if (isCancelled.get || cancelCompilation.isCompleted) {
           cancelCompilation.trySuccess(())
           Left(())
