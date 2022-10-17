@@ -117,7 +117,7 @@ object Interpreter {
   private[bloop] def watch(projects: List[Project], state: State)(
       f: State => Task[State]
   ): Task[State] = {
-    val reachable = Dag.dfs(getProjectsDag(projects, state))
+    val reachable = Dag.dfs(getProjectsDag(projects, state), mode = Dag.PreOrder)
     val projectsSourcesAndDirs = reachable.map { project =>
       for {
         unmanaged <- project.allUnmanagedSourceFilesAndDirectories
@@ -339,7 +339,10 @@ object Interpreter {
         if (!cmd.cascade) {
           val projectsToTest = {
             if (!cmd.includeDependencies) userSelectedProjects
-            else userSelectedProjects.flatMap(p => Dag.dfs(state.build.getDagFor(p)))
+            else
+              userSelectedProjects.flatMap(p =>
+                Dag.dfs(state.build.getDagFor(p), mode = Dag.PreOrder)
+              )
           }
 
           (userSelectedProjects, projectsToTest)

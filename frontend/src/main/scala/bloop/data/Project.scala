@@ -127,7 +127,7 @@ final case class Project(
     val cp = (this.genericClassesDir :: rawClasspath).toBuffer
 
     // Add the resources right before the classes directory if found in the classpath
-    Dag.dfs(dag).foreach { p =>
+    Dag.dfs(dag, mode = Dag.PreOrder).foreach { p =>
       val genericClassesDir = p.genericClassesDir
       val uniqueClassesDir = client.getUniqueClassesDirFor(p, forceGeneration = true)
       val index = cp.indexOf(genericClassesDir)

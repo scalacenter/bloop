@@ -162,7 +162,7 @@ class RunSpec extends BloopHelpers {
         case Some(rootWithAggregation) =>
           val dag = state.build.getDagFor(rootWithAggregation)
           // Create dependent resources so that they appear in the full dependency classpath
-          val dependentResources = Dag.dfs(dag).flatMap(_.resources)
+          val dependentResources = Dag.dfs(dag, mode = Dag.PreOrder).flatMap(_.resources)
           dependentResources.foreach { resource =>
             if (resource.exists) ()
             else Files.createDirectories(resource.underlying)

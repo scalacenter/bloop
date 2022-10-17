@@ -167,7 +167,7 @@ class DagSpec {
 
   @Test def EmptyDfs(): Unit = {
     val dags = fromMap(Map())
-    val dfss = dags.map(dag => Dag.dfs(dag))
+    val dfss = dags.map(dag => Dag.dfs(dag, mode = Dag.PreOrder))
     assert(dfss.isEmpty, "DFS for empty dag is empty")
   }
 
@@ -175,7 +175,7 @@ class DagSpec {
     import TestProjects.a
     val projectsMap = List(a.name -> a).toMap
     val dags = fromMap(projectsMap)
-    val dfss = dags.map(dag => Dag.dfs(dag))
+    val dfss = dags.map(dag => Dag.dfs(dag, mode = Dag.PreOrder))
     assert(dfss.size == 1)
     assert(dfss.head == List(a), s"DFS for simple dag does not contain $a")
   }
@@ -183,7 +183,7 @@ class DagSpec {
   @Test def CompleteDfs(): Unit = {
     val projectsMap = TestProjects.complete.map(p => p.name -> p).toMap
     val dags = fromMap(projectsMap)
-    val dfss = dags.map(dag => Dag.dfs(dag))
+    val dfss = dags.map(dag => Dag.dfs(dag, mode = Dag.PreOrder))
     assert(dfss.size == 3)
     assert(dfss.head == List(TestProjects.e))
     assert(dfss.tail.head == List(TestProjects.f, TestProjects.d, TestProjects.c, TestProjects.a))
@@ -286,7 +286,7 @@ class DagSpec {
     import ComplexDag._
     val allProjects = List(a, b, c, d, e, f, g, h, i)
     val dags = fromMap(allProjects.map(p => p.name -> p).toMap)
-    val sorted = Dag.topologicalSort(Aggregate(dags))
+    val sorted = Dag.dfs(Aggregate(dags), mode = Dag.PostOrder)
     assertAppearsBefore(sorted, a, List(b, c, d, e))
     assertAppearsBefore(sorted, c, List(d, e))
     assertAppearsBefore(sorted, d, List(e))
