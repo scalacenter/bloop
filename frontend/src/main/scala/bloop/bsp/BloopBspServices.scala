@@ -724,7 +724,7 @@ final class BloopBspServices(
           compileProjects(mappings, state, args, originId, logger).flatMap {
             case (newState, Right(CompileResult(_, StatusCode.Ok, _, _))) =>
               val sequentialTestExecution: Task[Seq[Tasks.TestRuns]] =
-                Task.sequence(mappings.map { case (_, p) => test(p, state) })
+                Task.sequence(mappings.map { case (_, p) => test(p, newState) })
 
               sequentialTestExecution.materialize.map {
                 case Success(testRunsSeq) =>
