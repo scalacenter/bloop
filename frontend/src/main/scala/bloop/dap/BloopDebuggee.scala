@@ -1,14 +1,10 @@
 package bloop.dap
 
-import java.net.URLClassLoader
-import java.nio.file.Path
-
 import scala.collection.mutable
 
 import ch.epfl.scala.bsp.ScalaMainClass
 import ch.epfl.scala.debugadapter._
 
-import bloop.ScalaInstance
 import bloop.bsp.ScalaTestSuites
 import bloop.cli.ExitStatus
 import bloop.data.ClientInfo
@@ -17,24 +13,22 @@ import bloop.data.Platform
 import bloop.data.Project
 import bloop.engine.Dag
 import bloop.engine.State
-import bloop.engine.caches.ExpressionCompilerCache
 import bloop.engine.tasks.RunMode
 import bloop.engine.tasks.Tasks
-import bloop.logging.Logger
 import bloop.task.Task
 import bloop.testing.DebugLoggingEventHandler
 import bloop.testing.TestInternals
 
 import monix.execution.Scheduler
 
-abstract class BloopDebuggeeRunner(
+abstract class BloopDebuggee(
     initialState: State,
     ioScheduler: Scheduler,
     debugeeScalaVersion: Option[String]
-) extends DebuggeeRunner {
+) extends Debuggee {
 
   // The version doesn't matter for project without Scala version (Java only)
-  val scalaVersion = debugeeScalaVersion.getOrElse("2.13.8")
+  val scalaVersion = ScalaVersion(debugeeScalaVersion.getOrElse("2.13.8"))
 
   override def run(listener: DebuggeeListener): CancelableFuture[Unit] = {
     val debugSessionLogger = new DebuggeeLogger(listener, initialState.logger)
@@ -52,14 +46,14 @@ abstract class BloopDebuggeeRunner(
 private final class MainClassDebugAdapter(
     project: Project,
     mainClass: ScalaMainClass,
-    val classPathEntries: Seq[ClassPathEntry],
-    val evaluationClassLoader: Option[ClassLoader],
+    val modules: Seq[Module],
+    val libraries: Seq[Library],
+    val unmanagedEntries: Seq[UnmanagedEntry],
     env: JdkConfig,
     initialState: State,
     ioScheduler: Scheduler,
-    override val classPath: Seq[Path],
-    val debugeeScalaVersion: Option[String]
-) extends BloopDebuggeeRunner(initialState, ioScheduler, debugeeScalaVersion) {
+    scalaVersion: Option[String]
+) extends BloopDebuggee(initialState, ioScheduler, scalaVersion) {
   val javaRuntime: Option[JavaRuntime] = JavaRuntime(env.javaHome.underlying)
   def name: String = s"${getClass.getSimpleName}(${project.name}, ${mainClass.`class`})"
   def start(state: State, listener: DebuggeeListener): Task[ExitStatus] = {
@@ -86,14 +80,14 @@ private final class MainClassDebugAdapter(
 private final class TestSuiteDebugAdapter(
     projects: Seq[Project],
     testClasses: ScalaTestSuites,
-    val classPathEntries: Seq[ClassPathEntry],
+    val modules: Seq[Module],
+    val libraries: Seq[Library],
+    val unmanagedEntries: Seq[UnmanagedEntry],
     val javaRuntime: Option[JavaRuntime],
-    val evaluationClassLoader: Option[ClassLoader],
     initialState: State,
     ioScheduler: Scheduler,
-    override val classPath: Seq[Path],
     val debugeeScalaVersion: Option[String]
-) extends BloopDebuggeeRunner(initialState, ioScheduler, debugeeScalaVersion) {
+) extends BloopDebuggee(initialState, ioScheduler, debugeeScalaVersion) {
   override def name: String = {
     val projectsStr = projects.map(_.bspUri).mkString("[", ", ", "]")
     val selectedTests = testClasses.suites
@@ -123,14 +117,14 @@ private final class TestSuiteDebugAdapter(
 }
 
 private final class AttachRemoteDebugAdapter(
-    val classPathEntries: Seq[ClassPathEntry],
+    val modules: Seq[Module],
+    val libraries: Seq[Library],
+    val unmanagedEntries: Seq[UnmanagedEntry],
     val javaRuntime: Option[JavaRuntime],
-    val evaluationClassLoader: Option[ClassLoader],
     initialState: State,
     ioScheduler: Scheduler,
-    override val classPath: Seq[Path],
     val debugeeScalaVersion: Option[String]
-) extends BloopDebuggeeRunner(initialState, ioScheduler, debugeeScalaVersion) {
+) extends BloopDebuggee(initialState, ioScheduler, debugeeScalaVersion) {
   override def name: String = s"${getClass.getSimpleName}(${initialState.build.origin})"
   override def start(state: State, listener: DebuggeeListener): Task[ExitStatus] = Task(
     ExitStatus.Ok
@@ -144,25 +138,27 @@ object BloopDebuggeeRunner {
       mainClass: ScalaMainClass,
       state: State,
       ioScheduler: Scheduler
-  ): Either[String, DebuggeeRunner] = {
+  ): Either[String, Debuggee] = {
     projects match {
       case Seq() => Left(s"No projects specified for main class: [$mainClass]")
       case Seq(project) =>
         project.platform match {
           case jvm: Platform.Jvm =>
-            val classPathEntries = getClassPathEntries(state, project)
-            val evaluationClassLoader = getEvaluationClassLoader(project, state)
-            val classpath = getClasspath(state, project)
+            val dag = state.build.getDagFor(project)
+            val modules = getModules(dag, state.client)
+            val libraries = getLibraries(dag)
+            val unmanagedEntries =
+              getUnmanagedEntries(project, dag, state.client, modules ++ libraries)
             Right(
               new MainClassDebugAdapter(
                 project,
                 mainClass,
-                classPathEntries,
-                evaluationClassLoader,
+                modules,
+                libraries,
+                unmanagedEntries,
                 jvm.config,
                 state,
                 ioScheduler,
-                classpath,
                 project.scalaInstance.map(_.version)
               )
             )
@@ -178,26 +174,27 @@ object BloopDebuggeeRunner {
       testClasses: ScalaTestSuites,
       state: State,
       ioScheduler: Scheduler
-  ): Either[String, DebuggeeRunner] = {
+  ): Either[String, Debuggee] = {
     projects match {
       case Seq() =>
         Left(s"No projects specified for the test suites: [${testClasses.classNames.sorted}]")
       case Seq(project) if project.platform.isInstanceOf[Platform.Jvm] =>
+        val dag = state.build.getDagFor(project)
+        val modules = getModules(dag, state.client)
+        val libraries = getLibraries(dag)
+        val unmanagedEntries = getUnmanagedEntries(project, dag, state.client, modules ++ libraries)
         val Platform.Jvm(config, _, _, _, _, _) = project.platform
-        val classPathEntries = getClassPathEntries(state, project)
         val javaRuntime = JavaRuntime(config.javaHome.underlying)
-        val evaluationClassLoader = getEvaluationClassLoader(project, state)
-        val classpath = getClasspath(state, project)
         Right(
           new TestSuiteDebugAdapter(
             projects,
             testClasses,
-            classPathEntries,
+            modules,
+            libraries,
+            unmanagedEntries,
             javaRuntime,
-            evaluationClassLoader,
             state,
             ioScheduler,
-            classpath,
             project.scalaInstance.map(_.version)
           )
         )
@@ -208,11 +205,11 @@ object BloopDebuggeeRunner {
             projects,
             testClasses,
             Seq.empty,
-            None,
+            Seq.empty,
+            Seq.empty,
             None,
             state,
             ioScheduler,
-            Seq.empty,
             project.scalaInstance.map(_.version)
           )
         )
@@ -224,66 +221,38 @@ object BloopDebuggeeRunner {
       state: State,
       ioScheduler: Scheduler,
       projects: Seq[Project]
-  ): DebuggeeRunner = {
+  ): Debuggee = {
     projects match {
       case Seq(project) if project.platform.isInstanceOf[Platform.Jvm] =>
+        val dag = state.build.getDagFor(project)
+        val libraries = getLibraries(dag)
+        val modules = getModules(dag, state.client)
+        val unmanagedEntries = getUnmanagedEntries(project, dag, state.client, modules ++ libraries)
         val Platform.Jvm(config, _, _, _, _, _) = project.platform
-        val classPathEntries = getClassPathEntries(state, project)
         val javaRuntime = JavaRuntime(config.javaHome.underlying)
-        val evaluationClassLoader = getEvaluationClassLoader(project, state)
-        val classpath = getClasspath(state, project)
         new AttachRemoteDebugAdapter(
-          classPathEntries,
+          modules,
+          libraries,
+          unmanagedEntries,
           javaRuntime,
-          evaluationClassLoader,
           state,
           ioScheduler,
-          classpath,
           project.scalaInstance.map(_.version)
         )
       case projects =>
         new AttachRemoteDebugAdapter(
           Seq.empty,
-          None,
+          Seq.empty,
+          Seq.empty,
           None,
           state,
           ioScheduler,
-          Seq.empty,
           projects.headOption.flatMap(_.scalaInstance).map(_.version)
         )
     }
   }
 
-  private def getClassPathEntries(state: State, project: Project): Seq[ClassPathEntry] = {
-    val dag = state.build.getDagFor(project)
-    getLibraries(dag) ++ getClassDirectories(dag, state.client)
-  }
-
-  private def getEvaluationClassLoader(
-      project: Project,
-      state: State
-  ): Option[ClassLoader] = {
-    project.scalaInstance
-      .flatMap(getEvaluationClassLoader(_, state.logger))
-  }
-
-  private def getEvaluationClassLoader(
-      scalaInstance: ScalaInstance,
-      logger: Logger
-  ): Option[ClassLoader] = {
-    ExpressionCompilerCache.fetch(scalaInstance.version, logger) match {
-      case Left(error) =>
-        logger.warn(error)
-        logger.warn(s"Expression evaluation will not work.")
-        None
-      case Right(expressionCompilerJar) =>
-        val evaluationClassLoader =
-          new URLClassLoader(Array(expressionCompilerJar.toFile.toURI.toURL), scalaInstance.loader)
-        Some(evaluationClassLoader)
-    }
-  }
-
-  private def getLibraries(dag: Dag[Project]): Seq[ClassPathEntry] = {
+  private def getLibraries(dag: Dag[Project]): Seq[Library] = {
     Dag
       .dfs(dag, mode = Dag.PreOrder)
       .flatMap(_.resolution)
@@ -295,18 +264,26 @@ object BloopDebuggeeRunner {
           sourceJar <- module.artifacts.find(_.classifier.contains("sources"))
         } yield {
           val sourceEntry = SourceJar(sourceJar.path)
-          ClassPathEntry(classJar.path, Seq(sourceEntry))
+          Library(module.name, module.version, classJar.path, Seq(sourceEntry))
         }
       }
       .distinct
   }
 
-  private def getClasspath(state: State, project: Project): Seq[Path] = {
-    val dag = state.build.getDagFor(project)
-    project.fullClasspath(dag, state.client).map(_.underlying).toSeq
+  private def getUnmanagedEntries(
+      project: Project,
+      dag: Dag[Project],
+      client: ClientInfo,
+      managedEntries: Seq[ManagedEntry]
+  ): Seq[UnmanagedEntry] = {
+    val managedPaths = managedEntries.map(_.absolutePath).toSet
+    val fullClasspath = project.fullClasspath(dag, client).map(_.underlying).toSeq
+    fullClasspath
+      .filter(p => !managedPaths.contains(p))
+      .map(UnmanagedEntry.apply)
   }
 
-  private def getClassDirectories(dag: Dag[Project], client: ClientInfo): Seq[ClassPathEntry] = {
+  private def getModules(dag: Dag[Project], client: ClientInfo): Seq[Module] = {
     Dag.dfs(dag, mode = Dag.PreOrder).map { project =>
       val sourceBuffer = mutable.Buffer.empty[SourceEntry]
       for (sourcePath <- project.sources) {
@@ -328,7 +305,9 @@ object BloopDebuggeeRunner {
         }
       }
       val classDir = client.getUniqueClassesDirFor(project, forceGeneration = true)
-      ClassPathEntry(classDir.underlying, sourceBuffer)
+      val projectName = project.bspUri.toString
+      val scalaVersion = project.scalaInstance.map(si => ScalaVersion(si.version))
+      Module(projectName, scalaVersion, project.scalacOptions, classDir.underlying, sourceBuffer)
     }
   }
 }
