@@ -102,7 +102,7 @@ final class BspServerLogger private (
     val problemPos = event.problem.position
     val problemSeverity = event.problem.severity
     val sourceFile = toOption(problemPos.sourceFile())
-    // TODO: Add code content
+    val code = toOption(event.problem.diagnosticCode()).map(_.code())
 
     (problemPos, sourceFile) match {
       case (ZincInternals.ZincExistsStartPos(startLine, startColumn), Some(file)) =>
@@ -120,7 +120,7 @@ final class BspServerLogger private (
         val source = Some("bloop")
         val uri = bsp.Uri(file.toPath.toUri)
         val severity = bspSeverity(problemSeverity)
-        val diagnostic = bsp.Diagnostic(pos, Some(severity), None, source, message, None)
+        val diagnostic = bsp.Diagnostic(pos, Some(severity), code, source, message, None)
         val textDocument = bsp.TextDocumentIdentifier(uri)
         val buildTargetId = bsp.BuildTargetIdentifier(event.projectUri)
         client.notify(
