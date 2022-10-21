@@ -83,7 +83,6 @@ object BuildKeys {
   import sbt.{Test, TestFrameworks, Tests}
   val buildBase = (ThisBuild / Keys.baseDirectory)
   val buildIntegrationsBase = Def.settingKey[File]("The base directory for our integration builds.")
-  val twitterDodo = Def.settingKey[File]("The location of Twitter's dodo build tool")
   val exportCommunityBuild = Def.taskKey[Unit]("Clone and export the community build.")
   val lazyFullClasspath =
     Def.taskKey[Seq[File]]("Return full classpath without forcing compilation")
@@ -659,29 +658,6 @@ object BuildImplementation {
       System.getProperty("os.name").toLowerCase(Locale.ENGLISH).contains("windows")
     if (isWindows) Def.task(println("Skipping export community build in Windows."))
     else {
-      val baseDir = (ThisBuild / Keys.baseDirectory).value
-      val pluginMainDir = baseDir / "integrations" / "sbt-bloop" / "src" / "main"
-
-      // Only sbt sources are added, add new plugin sources when other build tools are supported
-      val allPluginSourceDirs = Set(
-        baseDir / "config" / "src" / "main" / "scala",
-        baseDir / "config" / "src" / "main" / "scala-2.10",
-        baseDir / "config" / "src" / "main" / "scala-2.11",
-        baseDir / "config" / "src" / "main" / "scala-2.12",
-        baseDir / "config" / "src" / "main" / "scala-2.11-12",
-        pluginMainDir / "scala",
-        pluginMainDir / "scala-2.10",
-        pluginMainDir / "scala-2.12",
-        pluginMainDir / s"scala-sbt-0.13",
-        pluginMainDir / s"scala-sbt-1.0"
-      )
-
-      val allPluginSourceFiles = allPluginSourceDirs.flatMap { sourceDir =>
-        val sourcePath = sourceDir.toPath
-        if (!Files.exists(sourcePath)) Nil
-        else pathFilesUnder(sourcePath, "glob:**.{scala,java}").map(_.toFile)
-      }.toSet
-
       var regenerate: Boolean = false
       val state = Keys.state.value
       val globalBase = sbt.BuildPaths.getGlobalBase(state)
@@ -689,27 +665,9 @@ object BuildImplementation {
       java.nio.file.Files.createDirectories(stagingDir.toPath)
       val cacheDirectory = stagingDir./("community-build-cache")
       val regenerationFile = stagingDir./("regeneration-file.txt")
-      val cachedGenerate = FileFunction.cached(cacheDirectory, sbt.util.FileInfo.hash) { _ =>
-        // Publish local snapshots via Twitter dodo's build tool for exporting the build to work
-        val cmd =
-          "bash" :: BuildKeys.twitterDodo.value.getAbsolutePath :: "--no-test" :: "finagle" :: Nil
-        val dodoSetUp = Process(cmd, baseDir).!
-        if (dodoSetUp != 0)
-          throw new MessageOnlyException(
-            "Failed to publish local snapshots for twitter projects."
-          )
-
-        // Write a dummy regeneration file for the caching to work
-        regenerate = true
-        IO.write(regenerationFile, "true")
-        Set(regenerationFile)
-      }
-
       val s = Keys.streams.value
       val mainClass = "buildpress.Main"
       val bloopVersion = Keys.version.value
-
-      cachedGenerate(allPluginSourceFiles)
       Def.task {
         // Publish the projects before we invoke buildpress
         (circeConfig210 / Keys.publishLocal).value

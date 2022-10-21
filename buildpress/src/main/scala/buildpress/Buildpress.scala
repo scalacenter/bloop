@@ -262,27 +262,50 @@ abstract class Buildpress(
       val clonePath: Path = cloneTargetDir.underlying
       val cloneUri: String = repo.uriWithoutSha
       val cloneCmd = List("git", "clone", cloneUri, cloneTargetDir.syntax)
+      out.println(cloneCmd.toString)
       val cloneSubmoduleCmd = List("git", "submodule", "update", "--init")
       val checkoutCmd = List("git", "checkout", "-q", sha)
-
+      // no need to checkout community build submodules
+      val ignoredSubmodules = Set("dotty")
       for {
         _ <- wrapCommandExecution(
           s"Cloning $cloneUri...",
-          shell.runCommand(cloneCmd, cwd.underlying, Some(4 * 60L), userOutput = Some(out)),
+          shell.runCommand(
+            cloneCmd,
+            cwd.underlying,
+            Some(4 * 60L),
+            userOutput = Some(out),
+            shouldDeriveCommandForPlatform = false
+          ),
           err => s"Failed to clone $cloneUri in $clonePath: $err",
           s"Cloned $cloneUri"
         )
 
-        _ <- wrapCommandExecution(
-          s"Cloning submodules of $cloneUri...",
-          shell.runCommand(cloneSubmoduleCmd, clonePath, Some(60L), userOutput = Some(out)),
-          err => s"Failed to clone submodules of $cloneUri: $err",
-          s"Cloned submodules of $cloneUri"
-        )
+        _ <-
+          if (!ignoredSubmodules(repo.id))
+            wrapCommandExecution(
+              s"Cloning submodules of $cloneUri...",
+              shell.runCommand(
+                cloneSubmoduleCmd,
+                clonePath,
+                Some(60L),
+                userOutput = Some(out),
+                shouldDeriveCommandForPlatform = false
+              ),
+              err => s"Failed to clone submodules of $cloneUri: $err",
+              s"Cloned submodules of $cloneUri"
+            )
+          else Right("")
 
         _ <- wrapCommandExecution(
           s"Checking out $clonePath",
-          shell.runCommand(checkoutCmd, clonePath, Some(30L), userOutput = Some(out)),
+          shell.runCommand(
+            checkoutCmd,
+            clonePath,
+            Some(30L),
+            userOutput = Some(out),
+            shouldDeriveCommandForPlatform = false
+          ),
           err => s"Failed to checkout $sha in $cloneTargetDir: $err",
           s"Checked out $clonePath"
         )
@@ -481,7 +504,13 @@ abstract class Buildpress(
       )
 
       val timeout = Some(15 * 60L) // Maximum wait is 15 minutes
-      shell.runCommand(cmd, baseDir.underlying, timeout, userOutput = Some(out)) match {
+      shell.runCommand(
+        cmd,
+        baseDir.underlying,
+        timeout,
+        userOutput = Some(out),
+        shouldDeriveCommandForPlatform = false
+      ) match {
         case status if status.isOk => Right(())
         case failed =>
           val msg = s"Unexpected failure when running `${cmd.mkString(" ")}` in $baseDir"

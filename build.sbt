@@ -876,7 +876,6 @@ val bloop = project
     (publish / skip) := true,
     crossSbtVersions := Seq(Sbt1Version, Sbt013Version),
     buildIntegrationsBase := (ThisBuild / Keys.baseDirectory).value / "build-integrations",
-    twitterDodo := buildIntegrationsBase.value./("build-twitter"),
     publishLocalAllModules := {
       BuildDefaults
         .publishLocalAllModules(allProjectsToRelease)
