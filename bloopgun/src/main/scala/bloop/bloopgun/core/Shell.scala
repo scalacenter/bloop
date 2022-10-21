@@ -74,11 +74,13 @@ final class Shell(runWithInterpreter: Boolean, detectPython: Boolean) {
       msgsBuffer: Option[ListBuffer[String]] = None,
       userOutput: Option[PrintStream] = None,
       attachTerminal: Boolean = false,
-      useJdkProcessAndInheritIO: Boolean = false
+      useJdkProcessAndInheritIO: Boolean = false,
+      shouldDeriveCommandForPlatform: Boolean = true
   ): StatusCommand = {
     assert(cmd0.nonEmpty)
     val outBuilder = StringBuilder.newBuilder
-    val cmd = deriveCommandForPlatform(cmd0, attachTerminal)
+    val cmd =
+      if (shouldDeriveCommandForPlatform) deriveCommandForPlatform(cmd0, attachTerminal) else cmd0
     val executor = new ProcessExecutor(cmd: _*)
 
     val newEnv = executor.getEnvironment()
