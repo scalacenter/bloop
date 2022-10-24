@@ -33,6 +33,7 @@ import bloop.io.Environment.lineSeparator
 import bloop.logging.Logger
 import bloop.logging.LoggerAction
 import bloop.logging.LoggerAction.LogInfoMessage
+import bloop.logging.NoopLogger
 import bloop.logging.ObservedLogger
 import bloop.logging.RecordingLogger
 import bloop.reporter.ReporterAction
@@ -49,6 +50,7 @@ import monix.reactive.Observer
 object DebugServerSpec extends DebugBspBaseSuite {
   private val ServerNotListening = new IllegalStateException("Server is not accepting connections")
   private val Success: ExitStatus = ExitStatus.Ok
+  private val resolver = new BloopDebugToolsResolver(NoopLogger)
 
   test("cancelling server closes server connection") {
     startDebugServer(Task.now(Success)) { server =>
@@ -961,7 +963,7 @@ object DebugServerSpec extends DebugBspBaseSuite {
       project: TestProject,
       state: ManagedBspTestState,
       testClasses: ScalaTestSuites = ScalaTestSuites(List("MySuite"))
-  ): DebuggeeRunner = {
+  ): Debuggee = {
     val testState = state.compile(project).toTestState
     BloopDebuggeeRunner.forTestSuite(
       Seq(testState.getProjectFor(project)),
@@ -980,7 +982,7 @@ object DebugServerSpec extends DebugBspBaseSuite {
       arguments: List[String] = Nil,
       jvmOptions: List[String] = Nil,
       environmentVariables: List[String] = Nil
-  ): DebuggeeRunner = {
+  ): Debuggee = {
     val testState = state.compile(project).toTestState
     BloopDebuggeeRunner.forMainClass(
       Seq(testState.getProjectFor(project)),
@@ -994,20 +996,20 @@ object DebugServerSpec extends DebugBspBaseSuite {
   }
 
   def startDebugServer(task: Task[ExitStatus])(f: TestServer => Any): Unit = {
-    val runner = new DebuggeeRunner {
-      override def classPathEntries: Seq[ClassPathEntry] = Seq.empty
+    val debuggee = new Debuggee {
+      override def modules: Seq[Module] = Seq.empty
+      override def libraries: Seq[Library] = Seq.empty
+      override def unmanagedEntries: Seq[UnmanagedEntry] = Seq.empty
       override def javaRuntime: Option[JavaRuntime] = None
-      override def evaluationClassLoader: Option[ClassLoader] = None
       def name: String = "MockRunner"
       def run(listener: DebuggeeListener): CancelableFuture[Unit] = {
         DapCancellableFuture.runAsync(task.map(_ => ()), defaultScheduler)
       }
-
-      def scalaVersion: String = "2.12.15"
+      def scalaVersion: ScalaVersion = ScalaVersion("2.12.15")
     }
 
     startDebugServer(
-      runner,
+      debuggee,
       // the runner is a mock so no need to wait for the jvm to startup
       // make the test faster
       Duration.Zero
@@ -1015,16 +1017,19 @@ object DebugServerSpec extends DebugBspBaseSuite {
   }
 
   def startDebugServer(
-      runner: DebuggeeRunner,
+      debuggee: Debuggee,
       gracePeriod: Duration = Duration(5, SECONDS)
   )(f: TestServer => Any): Unit = {
     val logger = new RecordingLogger(ansiCodesSupported = false)
+    val dapLogger = new DebugServerLogger(logger)
+    val debugTools = DebugTools(debuggee, resolver, dapLogger)
 
     val server = DebugServer(
-      runner,
-      new DebugServerLogger(logger),
+      debuggee,
+      debugTools,
+      dapLogger,
       autoCloseSession = true,
-      gracePeriod
+      gracePeriod = gracePeriod
     )(defaultScheduler)
     Task.fromFuture(server.start()).runAsync(defaultScheduler)
 
