@@ -197,7 +197,7 @@ jobs:
       ARTIFACT_NAME: ${{ matrix.artifact }}
     steps:
       - name: Configure Pagefile
-        uses: al-cheb/configure-pagefile-action@v1.2
+        uses: al-cheb/configure-pagefile-action@v1.3
       - name: Refresh Pagefile
         run: |
           (Get-CimInstance Win32_PageFileUsage).AllocatedBaseSize
