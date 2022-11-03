@@ -432,7 +432,7 @@ object CompileGraph {
                   Task.now(Parent(PartialFailure(project, BlockURI, blocked), dagResults))
                 } else {
                   val results: List[PartialSuccess] = {
-                    val transitive = dagResults.flatMap(Dag.dfs(_)).distinct
+                    val transitive = dagResults.flatMap(Dag.dfs(_, mode = Dag.PreOrder)).distinct
                     transitive.collect { case s: PartialSuccess => s }
                   }
 

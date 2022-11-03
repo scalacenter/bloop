@@ -489,7 +489,7 @@ object FileWatchingSpec extends BaseSuite {
   }
 
   private def numberDirsOf(dag: Dag[Project]): Int = {
-    val reachable = Dag.dfs(dag)
+    val reachable = Dag.dfs(dag, mode = Dag.PreOrder)
     val allSources = reachable.iterator.flatMap(_.sources.toList).map(_.underlying).toList
     allSources.filter { p =>
       val s = p.toString
