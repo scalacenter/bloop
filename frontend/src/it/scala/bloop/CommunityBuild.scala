@@ -153,7 +153,7 @@ abstract class CommunityBuild(val buildpressHomeDir: AbsolutePath) {
 
       val newLoaded = LoadedProject.RawProject(rootProject) :: allProjectsInBuild
       val state = initialState.copy(build = initialState.build.copy(loadedProjects = newLoaded))
-      val allReachable = Dag.dfs(state.build.getDagFor(rootProject))
+      val allReachable = Dag.dfs(state.build.getDagFor(rootProject), Dag.PreOrder)
       val reachable = allReachable.filter(_ != rootProject)
       val cleanAction = Run(Commands.Clean(reachable.map(_.name)), Exit(ExitStatus.Ok))
       val cleanedState = execute(cleanAction, state)

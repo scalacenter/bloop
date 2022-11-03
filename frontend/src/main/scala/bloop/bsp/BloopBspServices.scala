@@ -1098,7 +1098,7 @@ final class BloopBspServices(
 
       // Collect the projects' sources following the projects topological sorting, so that
       // source generators that depend on other source generators' outputs can run correctly.
-      val collectSourcesTasks = Dag.topologicalSort(dag).map { project =>
+      val collectSourcesTasks = Dag.dfs(dag, mode = Dag.PostOrder).map { project =>
         val unmanagedSources = project.allUnmanagedSourceFilesAndDirectories.map { sources =>
           sources.map(sourceItem(_, isGenerated = false))
         }

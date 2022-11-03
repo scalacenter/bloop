@@ -285,7 +285,7 @@ object BloopDebuggeeRunner {
 
   private def getLibraries(dag: Dag[Project]): Seq[ClassPathEntry] = {
     Dag
-      .dfs(dag)
+      .dfs(dag, mode = Dag.PreOrder)
       .flatMap(_.resolution)
       .flatMap(_.modules)
       .distinct
@@ -307,7 +307,7 @@ object BloopDebuggeeRunner {
   }
 
   private def getClassDirectories(dag: Dag[Project], client: ClientInfo): Seq[ClassPathEntry] = {
-    Dag.dfs(dag).map { project =>
+    Dag.dfs(dag, mode = Dag.PreOrder).map { project =>
       val sourceBuffer = mutable.Buffer.empty[SourceEntry]
       for (sourcePath <- project.sources) {
         if (sourcePath.isDirectory) {
