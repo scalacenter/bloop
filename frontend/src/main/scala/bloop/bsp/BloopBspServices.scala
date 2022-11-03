@@ -31,7 +31,8 @@ import ch.epfl.scala.bsp.StatusCode
 import ch.epfl.scala.bsp.Uri
 import ch.epfl.scala.bsp.endpoints
 import ch.epfl.scala.debugadapter.DebugServer
-import ch.epfl.scala.debugadapter.DebuggeeRunner
+import ch.epfl.scala.debugadapter.DebugTools
+import ch.epfl.scala.debugadapter.Debuggee
 
 import bloop.Compiler
 import bloop.ScalaInstance
@@ -40,6 +41,7 @@ import bloop.cli.Commands
 import bloop.cli.ExitStatus
 import bloop.cli.Validate
 import bloop.config.Config
+import bloop.dap.BloopDebugToolsResolver
 import bloop.dap.BloopDebuggeeRunner
 import bloop.dap.DebugServerLogger
 import bloop.data.ClientInfo
@@ -605,13 +607,13 @@ final class BloopBspServices(
       params: bsp.DebugSessionParams
   ): BspEndpointResponse[bsp.DebugSessionAddress] = {
 
-    def inferDebuggeeRunner(
+    def inferDebuggee(
         projects: Seq[Project],
         state: State
-    ): BspResponse[DebuggeeRunner] = {
+    ): BspResponse[Debuggee] = {
       def convert[A: JsonValueCodec](
-          f: A => Either[String, DebuggeeRunner]
-      ): Either[Response.Error, DebuggeeRunner] = {
+          f: A => Either[String, Debuggee]
+      ): Either[Response.Error, Debuggee] = {
         Try(readFromArray[A](params.data.value)) match {
           case Failure(error) =>
             Left(Response.invalidRequest(error.getMessage()))
@@ -670,12 +672,15 @@ final class BloopBspServices(
                   )
                 case (state, Right(_)) =>
                   val projects = mappings.map(_._2)
-                  inferDebuggeeRunner(projects, state) match {
-                    case Right(runner) =>
+                  inferDebuggee(projects, state) match {
+                    case Right(debuggee) =>
                       val dapLogger = new DebugServerLogger(logger)
+                      val resolver = new BloopDebugToolsResolver(logger)
+                      val debugTools = DebugTools(debuggee, resolver, dapLogger)
                       val handler =
                         DebugServer.start(
-                          runner,
+                          debuggee,
+                          debugTools,
                           dapLogger,
                           autoCloseSession = true,
                           gracePeriod = Duration(5, TimeUnit.SECONDS)
