@@ -1,5 +1,7 @@
 package bloop.reporter
 
+import java.util.Optional
+
 import xsbti.Severity
 
 /** Describes a problem (error, warning, message, etc.) given to the reporter. */
@@ -13,12 +15,21 @@ final case class Problem private (
     /** Position in the source code where the message was triggered */
     position: xsbti.Position,
     /** The category of this problem. */
-    category: String
+    category: String,
+    /** Unique code attatched to the diagnostic being reported */
+    override val diagnosticCode: Optional[xsbti.DiagnosticCode]
 ) extends xsbti.Problem
 
 object Problem {
   def fromZincProblem(problem: xsbti.Problem): Problem = {
-    Problem(-1, problem.severity(), problem.message(), problem.position(), problem.category())
+    Problem(
+      -1,
+      problem.severity(),
+      problem.message(),
+      problem.position(),
+      problem.category(),
+      problem.diagnosticCode()
+    )
   }
 
   case class DiagnosticsCount(errors: Long, warnings: Long) {

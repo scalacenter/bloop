@@ -94,7 +94,7 @@ abstract class Reporter(
       case _ =>
         val mappedPos = p.position
         val problemID = if (p.position.sourceFile.isPresent) nextID() else -1
-        Problem(problemID, p.severity, p.message, mappedPos, p.category)
+        Problem(problemID, p.severity, p.message, mappedPos, p.category, p.diagnosticCode())
     }
   }
 
