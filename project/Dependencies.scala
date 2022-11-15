@@ -111,9 +111,6 @@ object Dependencies {
     "com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-core" % jsoniterVersion
   val jsoniterMacros =
     "com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-macros" % jsoniterVersion
-  val circeParser = "io.circe" %% "circe-parser" % circeVersion
-  val circeCore = "io.circe" %% "circe-core" % circeVersion
-  val circeGeneric = "io.circe" %% "circe-generic" % circeVersion
   val scalaDebugAdapter = "ch.epfl.scala" %% "scala-debug-adapter" % debugAdapterVersion
 
   val scalaNativeTools04 = "org.scala-native" %% "tools" % scalaNative04Version % Provided
@@ -137,7 +134,6 @@ object Dependencies {
 
   val brave = "io.zipkin.brave" % "brave" % braveVersion
   val zipkinSender = "io.zipkin.reporter2" % "zipkin-sender-urlconnection" % zipkinSenderVersion
-  val zipkinOkHttp = "io.zipkin.reporter2" % "zipkin-sender-okhttp3" % zipkinSenderVersion
 
   val jna = "net.java.dev.jna" % "jna" % jnaVersion
   val jnaPlatform = "net.java.dev.jna" % "jna-platform" % jnaVersion
