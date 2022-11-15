@@ -31,7 +31,6 @@ val sbtBloopBuildJar = project
         baseDir / "project" / "project",
         baseDir / "config" / ".jvm" / "src" / "main" / "scala",
         baseDir / "config" / "src" / "main" / "scala",
-        baseDir / "config" / "src" / "main" / "scala-2.11-13",
         pluginMainDir / "scala",
         pluginMainDir / s"scala-sbt-${Keys.sbtBinaryVersion.value}"
       )

@@ -649,9 +649,7 @@ object BuildImplementation {
   val buildpressHomePath = System.getProperty("user.home") + "/.buildpress"
   def exportCommunityBuild(
       buildpress: Reference,
-      circeConfig210: Reference,
       circeConfig212: Reference,
-      sbtBloop013: Reference,
       sbtBloop10: Reference
   ) = Def.taskDyn {
     val isWindows: Boolean =
@@ -670,9 +668,7 @@ object BuildImplementation {
       val bloopVersion = Keys.version.value
       Def.task {
         // Publish the projects before we invoke buildpress
-        (circeConfig210 / Keys.publishLocal).value
         (circeConfig212 / Keys.publishLocal).value
-        (sbtBloop013 / Keys.publishLocal).value
         (sbtBloop10 / Keys.publishLocal).value
 
         val file = Keys.resourceDirectory
