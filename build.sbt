@@ -161,8 +161,6 @@ lazy val jsonConfig211 = crossProject(JSPlatform, JVMPlatform)
   .settings(
     name := "bloop-config",
     scalaVersion := Scala211Version,
-    (Compile / unmanagedSourceDirectories) +=
-      Keys.baseDirectory.value / ".." / "src" / "main" / "scala-2.11-13",
     testResourceSettings
   )
   .jvmSettings(
@@ -191,8 +189,6 @@ lazy val jsonConfig212 = crossProject(JSPlatform, JVMPlatform)
   .settings(publishJsonModuleSettings)
   .settings(
     name := "bloop-config",
-    (Compile / unmanagedSourceDirectories) +=
-      Keys.baseDirectory.value / ".." / "src" / "main" / "scala-2.11-13",
     scalaVersion := (backend / Keys.scalaVersion).value,
     scalacOptions := {
       scalacOptions.value.filterNot(opt => opt == "-deprecation"),
@@ -224,8 +220,6 @@ lazy val jsonConfig213 = crossProject(JSPlatform, JVMPlatform)
   .settings(publishJsonModuleSettings)
   .settings(
     name := "bloop-config",
-    (Compile / unmanagedSourceDirectories) +=
-      Keys.baseDirectory.value / ".." / "src" / "main" / "scala-2.11-13",
     scalaVersion := Dependencies.Scala213Version,
     testResourceSettings
   )
