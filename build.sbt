@@ -67,7 +67,11 @@ lazy val bloopShared = (project in file("shared"))
   .settings(
     name := "bloop-shared",
     libraryDependencies ++= Seq(
-      Dependencies.bsp4s,
+      Dependencies.jsoniterCore,
+      Dependencies.jsoniterMacros,
+      Dependencies.bsp4s excludeAll ExclusionRule(
+        organization = "com.github.plokhotnyuk.jsoniter-scala"
+      ),
       Dependencies.zinc,
       Dependencies.log4j,
       Dependencies.xxHashLibrary,

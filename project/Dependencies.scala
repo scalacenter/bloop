@@ -38,7 +38,7 @@ object Dependencies {
   val ipcsocketVersion = "1.0.1"
   val monixVersion = "3.2.0"
   val circeVersion = "0.9.3"
-  val jsoniterVersion = "2.4.0"
+  val jsoniterVersion = "2.13.3.2"
   val circeVersion213 = "0.12.2"
   val shapelessVersion = "2.3.4"
   val scalaNative04Version = "0.4.0"
