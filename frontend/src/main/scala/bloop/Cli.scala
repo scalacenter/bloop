@@ -378,7 +378,7 @@ object Cli {
 
       val session = runTaskWithCliClient(configDirectory, action, taskToInterpret, pool, logger)
       val exitSession = Task.defer {
-        cleanUpNonStableCliDirectories(session.client, cliOptions.common.ngout)
+        cleanUpNonStableCliDirectories(session.client)
       }
 
       session.task
@@ -437,15 +437,13 @@ object Cli {
   }
 
   def cleanUpNonStableCliDirectories(
-      client: CliClientInfo,
-      out: PrintStream
+      client: CliClientInfo
   ): Task[Unit] = {
     if (client.useStableCliDirs) Task.unit
     else {
       val deleteTasks = client.getCreatedCliDirectories.map { freshDir =>
         if (!freshDir.exists) Task.unit
         else {
-          out.println(s"Preparing to delete dir ${freshDir}")
           Task.eval(Paths.delete(freshDir)).asyncBoundary
         }
       }
