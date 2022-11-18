@@ -9,7 +9,7 @@ object Dependencies {
   val Sbt013Version = "0.13.18"
   val Sbt1Version = "1.3.3"
 
-  val nailgunVersion = "ee3c4343"
+  val nailgunVersion = "52609605"
   // Used to download the python client instead of resolving
   val nailgunCommit = "a2520c1e"
 
