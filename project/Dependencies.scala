@@ -17,7 +17,7 @@ object Dependencies {
   val zincVersion = "1.7.2"
 
   val bspVersion = "2.0.0"
-  val javaDebugVersion = "0.21.0+1-7f1080f1"
+  val javaDebugVersion = "0.34.0+10"
 
   val scalazVersion = "7.2.20"
   val scalaXmlVersion = "1.2.0"
