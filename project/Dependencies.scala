@@ -17,7 +17,6 @@ object Dependencies {
   val zincVersion = "1.7.2"
 
   val bspVersion = "2.0.0"
-  val javaDebugVersion = "0.21.0+1-7f1080f1"
 
   val scalazVersion = "7.2.20"
   val scalaXmlVersion = "1.2.0"
@@ -62,7 +61,6 @@ object Dependencies {
   val bsp4s = "ch.epfl.scala" %% "bsp4s" % bspVersion
   val bsp4j = "ch.epfl.scala" % "bsp4j" % bspVersion
   val nailgun = "ch.epfl.scala" % "nailgun-server" % nailgunVersion
-  val javaDebug = "ch.epfl.scala" % "com-microsoft-java-debug-core" % javaDebugVersion
 
   val configDirectories = "dev.dirs" % "directories" % configDirsVersion
   val libraryManagement = "org.scala-sbt" %% "librarymanagement-ivy" % lmVersion
