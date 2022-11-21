@@ -16,7 +16,7 @@ val `bloop-build` = project
     exportJars := true,
     addSbtPlugin("org.portable-scala" % "sbt-scalajs-crossproject" % "1.0.0"),
     addSbtPlugin("org.scala-js" % "sbt-scalajs" % "1.6.0"),
-    addSbtPlugin("com.dwijnand" % "sbt-dynver" % "4.0.0"),
+    addSbtPlugin("com.dwijnand" % "sbt-dynver" % "4.1.1"),
     addSbtPlugin("ohnosequences" % "sbt-github-release" % "0.7.0"),
     addSbtPlugin("com.scalawilliam.esbeetee" % "sbt-vspp" % "0.4.11"),
     addSbtPlugin("org.scalameta" % "sbt-scalafmt" % "2.0.4"),
