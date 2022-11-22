@@ -102,7 +102,10 @@ lazy val backend = project
   .settings(
     name := "bloop-backend",
     buildInfoPackage := "bloop.internal.build",
-    buildInfoKeys := BloopBackendInfoKeys,
+    buildInfoKeys := Seq[BuildInfoKey](
+      Keys.scalaVersion,
+      Keys.scalaOrganization
+    ),
     buildInfoObject := "BloopScalaInfo",
     libraryDependencies ++= List(
       Dependencies.nailgun,
@@ -303,7 +306,18 @@ lazy val frontend: Project = project
     (Compile / run / mainClass) := Some("bloop.Cli"),
     (Compile / run / bloopMainClass) := Some("bloop.Cli"),
     buildInfoPackage := "bloop.internal.build",
-    buildInfoKeys := bloopInfoKeys(nativeBridge04, jsBridge06, jsBridge1),
+    buildInfoKeys := List[BuildInfoKey](
+      Keys.organization,
+      build.BuildKeys.bloopName,
+      Keys.version,
+      Keys.scalaVersion,
+      nailgunClientLocation,
+      "zincVersion" -> Dependencies.zincVersion,
+      "bspVersion" -> Dependencies.bspVersion,
+      "nativeBridge04" -> (nativeBridge04Name + "_" + Keys.scalaBinaryVersion.value),
+      "jsBridge06" -> (jsBridge06Name + "_" + Keys.scalaBinaryVersion.value),
+      "jsBridge1" -> (jsBridge1Name + "_" + Keys.scalaBinaryVersion.value)
+    ),
     (run / javaOptions) ++= jvmOptions,
     (Test / javaOptions) ++= jvmOptions,
     (IntegrationTest / javaOptions) ++= jvmOptions,
@@ -706,6 +720,7 @@ val docs = project
     }
   )
 
+val jsBridge06Name = "bloop-js-bridge-0-6"
 lazy val jsBridge06 = project
   .dependsOn(frontend % Provided, frontend % "test->test")
   .in(file("bridges") / "scalajs-0.6")
@@ -713,7 +728,7 @@ lazy val jsBridge06 = project
   .disablePlugins(ScalafixPlugin)
   .settings(testSettings)
   .settings(
-    name := "bloop-js-bridge-0.6",
+    name := jsBridge06Name,
     libraryDependencies ++= List(
       Dependencies.scalaJsTools06,
       Dependencies.scalaJsSbtTestAdapter06,
@@ -721,6 +736,7 @@ lazy val jsBridge06 = project
     )
   )
 
+val jsBridge1Name = "bloop-js-bridge-1"
 lazy val jsBridge1 = project
   .dependsOn(frontend % Provided, frontend % "test->test")
   .in(file("bridges") / "scalajs-1")
@@ -728,7 +744,7 @@ lazy val jsBridge1 = project
   .disablePlugins(ScalafixPlugin)
   .settings(testSettings)
   .settings(
-    name := "bloop-js-bridge-1",
+    name := jsBridge1Name,
     libraryDependencies ++= List(
       Dependencies.scalaJsLinker1,
       Dependencies.scalaJsLogging1,
@@ -739,6 +755,7 @@ lazy val jsBridge1 = project
     )
   )
 
+val nativeBridge04Name = "bloop-native-bridge-0-4"
 lazy val nativeBridge04 = project
   .dependsOn(frontend % Provided, frontend % "test->test")
   .in(file("bridges") / "scala-native-0.4")
@@ -746,7 +763,7 @@ lazy val nativeBridge04 = project
   .disablePlugins(ScriptedPlugin)
   .settings(testSettings)
   .settings(
-    name := "bloop-native-bridge-0.4",
+    name := nativeBridge04Name,
     libraryDependencies += Dependencies.scalaNativeTools04,
     (Test / javaOptions) ++= jvmOptions,
     (Test / fork) := true
