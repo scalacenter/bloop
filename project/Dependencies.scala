@@ -54,7 +54,7 @@ object Dependencies {
   val asmVersion = "7.0"
   val snailgunVersion = "0.4.0"
   val ztExecVersion = "1.11"
-  val debugAdapterVersion = "3.0.4"
+  val debugAdapterVersion = "3.0.5"
 
   import sbt.librarymanagement.syntax.stringToOrganization
   val zinc = "org.scala-sbt" %% "zinc" % zincVersion
