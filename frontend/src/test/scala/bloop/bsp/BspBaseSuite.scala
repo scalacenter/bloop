@@ -1,5 +1,6 @@
 package bloop.bsp
 
+import java.net.BindException
 import java.net.URI
 import java.nio.file.Files
 import java.util.concurrent.ConcurrentHashMap
@@ -619,7 +620,7 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
     val testState = testBuild.state
     val configDir = testState.build.origin
     val bspLogger = new BspClientLogger(logger)
-    val bspCommand = createBspCommand(configDir)
+    def bspCommand() = createBspCommand(configDir)
     openBspConnection(testState.state, bspCommand, configDir, bspLogger).withinSession { bspState =>
       val bspTestBuild = ManagedBspTestBuild(bspState, testBuild.projects)
       runTest(bspTestBuild)
@@ -646,7 +647,7 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
   )(runTest: ManagedBspTestState => Unit): Unit = {
     val bspLogger = new BspClientLogger(logger)
     val configDir = TestProject.populateWorkspace(workspace, projects)
-    val bspCommand = createBspCommand(configDir)
+    def bspCommand() = createBspCommand(configDir)
     val state = TestUtil.loadTestProject(configDir.underlying, logger)
     openBspConnection(
       state,
@@ -660,6 +661,49 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
   }
 
   def openBspConnection[T](
+      state: State,
+      cmd: () => Commands.ValidatedBsp,
+      configDirectory: AbsolutePath,
+      logger: BspClientLogger[_],
+      userIOScheduler: Option[Scheduler] = None,
+      userComputationScheduler: Option[Scheduler] = None,
+      clientName: String = "test-bloop-client",
+      bloopExtraParams: BloopExtraBuildParams = BloopExtraBuildParams.empty,
+      compileStartPromises: Option[mutable.HashMap[bsp.BuildTargetIdentifier, Promise[Unit]]] =
+        None,
+      retry: Int = 3
+  ): UnmanagedBspTestState = {
+    try {
+      openBspConnectionUnsafe(
+        state,
+        cmd(),
+        configDirectory,
+        logger,
+        userIOScheduler,
+        userComputationScheduler,
+        clientName,
+        bloopExtraParams,
+        compileStartPromises
+      )
+    } catch {
+      // in case random number
+      case _: BindException if retry > 0 =>
+        openBspConnection(
+          state,
+          cmd,
+          configDirectory,
+          logger,
+          userIOScheduler,
+          userComputationScheduler,
+          clientName,
+          bloopExtraParams,
+          compileStartPromises,
+          retry - 1
+        )
+    }
+  }
+
+  protected def openBspConnectionUnsafe[T](
       state: State,
       cmd: Commands.ValidatedBsp,
       configDirectory: AbsolutePath,
@@ -818,7 +862,7 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
   def assertEmptyCompilationState(
       state: ManagedBspTestState,
       projects: List[TestProject]
-  )(implicit filename: sourcecode.File, line: sourcecode.Line): Unit = {
+  ): Unit = {
     assertEmptyCompilationState(state.toTestState, projects)
   }
 

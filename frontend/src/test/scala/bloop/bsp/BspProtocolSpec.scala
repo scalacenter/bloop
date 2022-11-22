@@ -363,7 +363,7 @@ class BspProtocolSpec(
     val bspLogger = new BspClientLogger(logger)
     val configDir = TestUtil.createSimpleRecursiveBuild(RelativePath("bloop-config"))
     val state = TestUtil.loadTestProject(configDir.underlying, logger)
-    val bspCommand = createBspCommand(configDir)
+    def bspCommand() = createBspCommand(configDir)
     openBspConnection(state, bspCommand, configDir, bspLogger).withinSession { state =>
       val workspaceTargets = state.workspaceTargets
       assert(workspaceTargets.targets.isEmpty)
