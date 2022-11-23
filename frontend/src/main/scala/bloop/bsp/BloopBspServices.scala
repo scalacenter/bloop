@@ -581,7 +581,7 @@ final class BloopBspServices(
           Task.now((state, Right(ScalaTestClassesResult(Nil))))
 
         case Right(projects) =>
-          val subTasks = projects.toList.map {
+          val subTasks = projects.toList.filter(p => TestTask.isTestProject(p._2)).map {
             case (id, project) =>
               val task = TestTask.findTestNamesWithFramework(project, state)
               val item = task.map { classes =>
