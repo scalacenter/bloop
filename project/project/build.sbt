@@ -1,6 +1,9 @@
 version in ThisBuild := "1.0.0-SNAPSHOT"
 organization in ThisBuild := "ch.epfl.scala"
 
+// TODO only in here temporary for the bloop config snapshot
+ThisBuild / resolvers ++= Resolver.sonatypeOssRepos("snapshots")
+
 val sharedSettings = List(
   Keys.publishArtifact in (Compile, Keys.packageSrc) := false,
   Keys.publishArtifact in (Compile, Keys.packageDoc) := false
@@ -21,7 +24,8 @@ val sbtBloopBuildJar = project
       (scalacOptions in Compile).value.filterNot(_ == "-deprecation"),
     libraryDependencies ++= List(
       "com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-core" % "2.4.0",
-      "com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-macros" % "2.4.0"
+      "com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-macros" % "2.4.0",
+      "ch.epfl.scala" %% "bloop-config" % "1.5.4-6-7dc3eb-SNAPSHOT"
     ),
     // Let's add our sbt plugin sources to the module
     unmanagedSourceDirectories in Compile ++= {
@@ -29,8 +33,6 @@ val sbtBloopBuildJar = project
       val pluginMainDir = baseDir / "integrations" / "sbt-bloop" / "src" / "main"
       List(
         baseDir / "project" / "project",
-        baseDir / "config" / ".jvm" / "src" / "main" / "scala",
-        baseDir / "config" / "src" / "main" / "scala",
         pluginMainDir / "scala",
         pluginMainDir / s"scala-sbt-${Keys.sbtBinaryVersion.value}"
       )

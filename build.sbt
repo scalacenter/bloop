@@ -13,6 +13,9 @@ ThisBuild / bloopExportJarClassifiers := Some(Set("sources"))
 
 ThisBuild / scalafixDependencies += "com.github.liancheng" %% "organize-imports" % "0.6.0"
 
+// TODO only in here temporary for the bloop config snapshot
+ThisBuild / resolvers ++= Resolver.sonatypeOssRepos("snapshots")
+
 // Add hook for scalafmt validation
 Global / onLoad ~= { old =>
   if (!scala.util.Properties.isWin) {
