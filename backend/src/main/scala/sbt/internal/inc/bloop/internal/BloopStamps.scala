@@ -15,14 +15,14 @@ import xsbti.compile.analysis.Stamp
 
 object BloopStamps {
   private val converter = PlainVirtualFileConverter.converter
-  def initial: ReadStamps = {
-    Stamps.initial(
-      Stamper.forLastModifiedInRootPaths(converter),
-      // The hash is for the sources
-      BloopStamps.forHash,
-      Stamper.forHashInRootPaths(converter)
-    )
-  }
+
+  private def underlying = Stamps.initial(
+    BloopStamps.forHash,
+    // The hash is for the sources
+    BloopStamps.forHash,
+    Stamper.forHashInRootPaths(converter)
+  )
+  def initial: ReadStamps = Stamps.timeWrapBinaryStamps(underlying, converter)
 
   private final val emptyHash = scala.util.Random.nextInt()
   private final val directoryHash = scala.util.Random.nextInt()
@@ -34,8 +34,11 @@ object BloopStamps {
   def directoryHash(path: Path): FileHash = FileHash.of(path, directoryHash)
   def isDirectoryHash(fh: FileHash): Boolean = fh.hash == directoryHash
 
-  def forHash(file: VirtualFileRef): Hash = {
-    fromBloopHashToZincHash(ByteHasher.hashFileContents(converter.toPath(file).toFile()))
+  def forHash(fileRef: VirtualFileRef): Hash = {
+    val file = converter.toPath(fileRef).toFile()
+    if (file.exists())
+      fromBloopHashToZincHash(ByteHasher.hashFileContents(file))
+    else fromBloopHashToZincHash(0)
   }
 
   def emptyStamps: Stamp = EmptyStamp
