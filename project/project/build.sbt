@@ -1,9 +1,6 @@
 version in ThisBuild := "1.0.0-SNAPSHOT"
 organization in ThisBuild := "ch.epfl.scala"
 
-// TODO only in here temporary for the bloop config snapshot
-ThisBuild / resolvers ++= Resolver.sonatypeOssRepos("snapshots")
-
 val sharedSettings = List(
   Keys.publishArtifact in (Compile, Keys.packageSrc) := false,
   Keys.publishArtifact in (Compile, Keys.packageDoc) := false

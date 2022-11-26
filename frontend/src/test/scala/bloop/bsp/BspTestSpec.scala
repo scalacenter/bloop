@@ -2,11 +2,11 @@ package bloop.bsp
 
 import bloop.cli.BspProtocol
 import bloop.cli.ExitStatus
+import bloop.internal.build.BuildTestInfo
 import bloop.io.AbsolutePath
 import bloop.logging.RecordingLogger
 import bloop.util.TestProject
 import bloop.util.TestUtil
-import bloop.internal.build.BuildTestInfo
 
 object TcpBspTestSpec extends BspTestSpec(BspProtocol.Tcp)
 object LocalBspTestSpec extends BspTestSpec(BspProtocol.Local)

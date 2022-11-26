@@ -1,20 +1,11 @@
 val mvnVersion = "3.6.1"
 val mvnPluginToolsVersion = "3.6.0"
 
-// TODO only in here temporary for the bloop config snapshot
-ThisBuild / resolvers ++= Resolver.sonatypeOssRepos("snapshots")
-
 // Create a proxy project instead of depending on plugin directly to work around https://github.com/sbt/sbt/issues/892
 val `bloop-shaded-plugin` = project
   .settings(
     sbtPlugin := true,
-    libraryDependencies ++= Seq(
-      "ch.epfl.scala" %% "sbt-bloop-build-naked" % "1.0.0-SNAPSHOT",
-      // TODO idn if this is needed.. no idea why we are getting a
-      // java.lang.NoClassDefFoundError: bloop/config/Config$LinkerMode
-      // for the shaded plugin in CI, but no there.
-      "ch.epfl.scala" %% "bloop-config" % "1.5.4"
-    )
+    libraryDependencies += "ch.epfl.scala" %% "sbt-bloop-build-naked" % "1.0.0-SNAPSHOT"
   )
 
 updateOptions := updateOptions.value.withLatestSnapshots(false)

@@ -2,13 +2,12 @@ package bloop.bsp
 
 import scala.util._
 
+import bloop.bsp.BloopRpcServices.BloopEndpoint
 import bloop.task.Task
 
 import com.github.plokhotnyuk.jsoniter_scala.core.readFromArray
 import jsonrpc4s._
 import scribe.LoggerSupport
-
-import BloopRpcServices.BloopEndpoint
 
 /**
  * This is the similar thing as `jsonrpc4s.Services` that is used to describe a group of JSON-RPC endpoints.

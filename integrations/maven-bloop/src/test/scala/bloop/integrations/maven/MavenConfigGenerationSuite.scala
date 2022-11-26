@@ -14,7 +14,7 @@ import scala.util.control.NonFatal
 
 import bloop.config.Config
 import bloop.config.Tag
-import bloop.config.utils.BaseConfigSuite
+import bloop.integrations.utils.BaseConfigSuite
 
 import org.junit.Assert._
 import org.junit.Test

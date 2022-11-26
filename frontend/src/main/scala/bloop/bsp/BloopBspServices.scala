@@ -18,12 +18,6 @@ import scala.util.Try
 
 import ch.epfl.scala.bsp
 import ch.epfl.scala.bsp.BuildTargetIdentifier
-import ch.epfl.scala.bsp.MessageType
-import ch.epfl.scala.bsp.ShowMessageParams
-import ch.epfl.scala.bsp.CompileResult
-import ch.epfl.scala.bsp.StatusCode
-import ch.epfl.scala.bsp.Uri
-import ch.epfl.scala.bsp.endpoints
 import ch.epfl.scala.bsp.CompileResult
 import ch.epfl.scala.bsp.MessageType
 import ch.epfl.scala.bsp.ShowMessageParams
@@ -80,6 +74,7 @@ import bloop.testing.TestInternals
 import bloop.util.JavaRuntime
 
 import com.github.plokhotnyuk.jsoniter_scala.core._
+import com.github.plokhotnyuk.jsoniter_scala.macros.JsonCodecMaker
 import jsonrpc4s._
 import monix.execution.Cancelable
 import monix.execution.CancelablePromise
@@ -87,7 +82,6 @@ import monix.execution.Scheduler
 import monix.execution.atomic.AtomicBoolean
 import monix.execution.atomic.AtomicInt
 import monix.reactive.subjects.BehaviorSubject
-import com.github.plokhotnyuk.jsoniter_scala.macros.JsonCodecMaker
 
 final class BloopBspServices(
     callSiteState: State,
