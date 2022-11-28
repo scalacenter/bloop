@@ -23,7 +23,7 @@ val `bloop-build` = project
     addSbtPlugin("com.eed3si9n" % "sbt-buildinfo" % "0.11.0"),
     addSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.3.3"),
     addSbtPlugin("com.eed3si9n" % "sbt-assembly" % "0.15.0"),
-    addSbtPlugin("com.typesafe.sbt" % "sbt-git" % "0.9.3"),
+    addSbtPlugin("com.typesafe.sbt" % "sbt-git" % "1.0.2"),
     addSbtPlugin("ch.epfl.scala" % "sbt-release-early" % "2.1.1+4-9d76569a"),
     addSbtPlugin("com.typesafe.sbt" % "sbt-site" % "1.3.1"),
     addSbtPlugin("com.typesafe.sbt" % "sbt-ghpages" % "0.6.2"),
