@@ -268,7 +268,7 @@ lazy val frontend: Project = project
   .enablePlugins(BuildInfoPlugin)
   .configs(IntegrationTest)
   .settings(scalafixSettings)
-  .settings(assemblySettings, releaseSettings)
+  .settings(releaseSettings)
   .settings(
     testSettings,
     testSuiteSettings,

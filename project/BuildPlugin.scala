@@ -21,7 +21,6 @@ import sbt.io.IO
 import sbt.io.syntax.fileToRichFile
 import sbt.librarymanagement.syntax.stringToOrganization
 import sbt.util.FileFunction
-import sbtassembly.PathList
 import sbtdynver.GitDescribeOutput
 import ch.epfl.scala.sbt.release.ReleaseEarlyPlugin.{autoImport => ReleaseEarlyKeys}
 import sbt.internal.BuildLoader
@@ -182,20 +181,6 @@ object BuildKeys {
   )
 
   import sbtbuildinfo.{BuildInfoKey, BuildInfoKeys}
-
-  import sbtassembly.{AssemblyKeys, MergeStrategy}
-  val assemblySettings: Seq[Def.Setting[_]] = List(
-    (AssemblyKeys.assembly / Keys.mainClass) := Some("bloop.Bloop"),
-    (AssemblyKeys.assembly / Keys.test) := {},
-    (AssemblyKeys.assembly / AssemblyKeys.assemblyMergeStrategy) := {
-      case "LICENSE.md" => MergeStrategy.first
-      case "NOTICE.md" => MergeStrategy.first
-      case PathList("io", "github", "soc", "directories", _ @_*) => MergeStrategy.first
-      case x =>
-        val oldStrategy = (AssemblyKeys.assembly / AssemblyKeys.assemblyMergeStrategy).value
-        oldStrategy(x)
-    }
-  )
 
   def shadedModuleSettings = List(
     BloopShadingKeys.shadingNamespace := "bloop.shaded"
