@@ -22,7 +22,7 @@ val sbtBloopBuildJar = project
     libraryDependencies ++= List(
       "com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-core" % "2.4.0",
       "com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-macros" % "2.4.0",
-      "ch.epfl.scala" %% "bloop-config" % "1.5.4"
+      "ch.epfl.scala" %% "bloop-config" % "1.5.5"
     ),
     // Let's add our sbt plugin sources to the module
     unmanagedSourceDirectories in Compile ++= {
@@ -45,7 +45,7 @@ val sbtBloopBuildNakedJar = project
     libraryDependencies ++= List(
       "com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-core" % "2.4.0",
       "com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-macros" % "2.4.0",
-      "ch.epfl.scala" %% "bloop-config" % "1.5.4"
+      "ch.epfl.scala" %% "bloop-config" % "1.5.5"
     ),
     products in Compile := {
       val packagedPluginJar = (packageBin in Compile in sbtBloopBuildJar).value.toPath
