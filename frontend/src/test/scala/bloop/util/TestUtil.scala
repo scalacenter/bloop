@@ -484,6 +484,12 @@ object TestUtil {
     finally delete(AbsolutePath(temp))
   }
 
+  /** Creates an empty workspace where operations can happen. */
+  def withinWorkspace[T](op: AbsolutePath => Task[T]): Task[T] = {
+    val temp = Files.createTempDirectory("bloop-test-workspace").toRealPath()
+    op(AbsolutePath(temp)).doOnFinish(_ => Task(delete(AbsolutePath(temp))))
+  }
+
   def withTemporaryFile[T](op: Path => T): T = {
     val temp = Files.createTempFile("tmp", "")
     try op(temp)

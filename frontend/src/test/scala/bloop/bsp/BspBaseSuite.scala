@@ -67,19 +67,14 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
     }
 
     def withinSession(f: ManagedBspTestState => Unit): Unit = {
-      try f(
-        new ManagedBspTestState(
-          state,
-          bsp.StatusCode.Ok,
-          currentCompileIteration,
-          diagnostics,
-          client,
-          serverStates
-        )
-      )
-      finally {
-        TestUtil.await(FiniteDuration(1, "s"))(closeServer)
-      }
+      try f(toUnsafeManagedState)
+      finally TestUtil.await(FiniteDuration(1, "s"))(closeServer)
+    }
+
+    def withinSession(f: ManagedBspTestState => Task[Unit]): Task[Unit] = {
+      f(toUnsafeManagedState)
+        .doOnFinish(_ => closeServer)
+        .doOnCancel(closeServer)
     }
 
     def simulateClientDroppingOut(): Unit = closeStreamsForcibly()
@@ -645,6 +640,29 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
       bloopExtraParams: BloopExtraBuildParams = BloopExtraBuildParams.empty,
       compileStartPromises: Option[mutable.HashMap[bsp.BuildTargetIdentifier, Promise[Unit]]] = None
   )(runTest: ManagedBspTestState => Unit): Unit = {
+    val bspLogger = new BspClientLogger(logger)
+    val configDir = TestProject.populateWorkspace(workspace, projects)
+    def bspCommand() = createBspCommand(configDir)
+    val state = TestUtil.loadTestProject(configDir.underlying, logger)
+    openBspConnection(
+      state,
+      bspCommand,
+      configDir,
+      bspLogger,
+      clientName = bspClientName,
+      bloopExtraParams = bloopExtraParams,
+      compileStartPromises = compileStartPromises
+    ).withinSession(runTest(_))
+  }
+
+  def loadBspStateWithTask(
+      workspace: AbsolutePath,
+      projects: List[TestProject],
+      logger: RecordingLogger,
+      bspClientName: String = "test-bloop-client",
+      bloopExtraParams: BloopExtraBuildParams = BloopExtraBuildParams.empty,
+      compileStartPromises: Option[mutable.HashMap[bsp.BuildTargetIdentifier, Promise[Unit]]] = None
+  )(runTest: ManagedBspTestState => Task[Unit]): Task[Unit] = {
     val bspLogger = new BspClientLogger(logger)
     val configDir = TestProject.populateWorkspace(workspace, projects)
     def bspCommand() = createBspCommand(configDir)
