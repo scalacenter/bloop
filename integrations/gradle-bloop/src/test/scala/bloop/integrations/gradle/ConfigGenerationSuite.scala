@@ -14,13 +14,13 @@ import bloop.config.Config.Mixed
 import bloop.config.Config.Platform
 import bloop.config.Config.TestFramework
 import bloop.config.Tag
-import bloop.config.utils.BaseConfigSuite
 import bloop.data.WorkspaceSettings
 import bloop.engine.Build
 import bloop.engine.BuildLoader
 import bloop.engine.Run
 import bloop.engine.State
 import bloop.engine.caches.SourceGeneratorCache
+import bloop.integrations.utils.BaseConfigSuite
 import bloop.io.AbsolutePath
 import bloop.logging.BloopLogger
 import bloop.util.TestUtil

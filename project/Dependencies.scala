@@ -55,12 +55,14 @@ object Dependencies {
   val snailgunVersion = "0.4.0"
   val ztExecVersion = "1.11"
   val debugAdapterVersion = "3.0.5"
+  val bloopConfigVersion = "1.5.5"
 
   import sbt.librarymanagement.syntax.stringToOrganization
   val zinc = "org.scala-sbt" %% "zinc" % zincVersion
   val bsp4s = "ch.epfl.scala" %% "bsp4s" % bspVersion
   val bsp4j = "ch.epfl.scala" % "bsp4j" % bspVersion
   val nailgun = "ch.epfl.scala" % "nailgun-server" % nailgunVersion
+  val bloopConfig = "ch.epfl.scala" %% "bloop-config" % bloopConfigVersion
 
   val configDirectories = "dev.dirs" % "directories" % configDirsVersion
   val libraryManagement = "org.scala-sbt" %% "librarymanagement-ivy" % lmVersion

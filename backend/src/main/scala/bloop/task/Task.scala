@@ -12,10 +12,10 @@ import scala.util.Success
 import scala.util.Try
 
 import monix.eval.{Task => MonixTask}
+import monix.execution.Callback
 import monix.execution.Cancelable
 import monix.execution.CancelableFuture
 import monix.execution.Scheduler
-import monix.execution.Callback
 
 /**
  * This task was introduced as a compatibilty layer to ublock bloop migration from monix2.

@@ -11,8 +11,8 @@ import bloop.util.TestProject
 import bloop.util.TestUtil
 
 import com.github.plokhotnyuk.jsoniter_scala.core._
-import jsonrpc4s.RawJson
 import com.github.plokhotnyuk.jsoniter_scala.macros.JsonCodecMaker
+import jsonrpc4s.RawJson
 
 object DebugProtocolSpec extends DebugBspBaseSuite {
   test("starts a debug session") {

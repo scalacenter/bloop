@@ -1,4 +1,4 @@
-package bloop.config.utils
+package bloop.integrations.utils
 
 import java.io.File
 import java.nio.charset.StandardCharsets
@@ -34,7 +34,8 @@ trait BaseConfigSuite {
       fileName: String,
       language: String
   ): Unit = {
-    val srcDir = projectDir.toPath.resolve("src").resolve(sourceSetName).resolve(language)
+    val srcDir =
+      projectDir.toPath.resolve("src").resolve(sourceSetName).resolve(language)
     Files.createDirectories(srcDir)
     val srcFile = srcDir.resolve(s"$fileName.$language")
     Files.write(srcFile, contents.getBytes(StandardCharsets.UTF_8))
@@ -69,8 +70,16 @@ trait BaseConfigSuite {
     createSource(projectDir, JavaHelloWorldSource, "test", "java")
   }
 
-  protected def createHelloWorldScalaTestSource(projectDir: File, source: String = ""): Unit = {
-    createSource(projectDir, if (source.isEmpty) ScalaHelloWorldSource else source, "test", "scala")
+  protected def createHelloWorldScalaTestSource(
+      projectDir: File,
+      source: String = ""
+  ): Unit = {
+    createSource(
+      projectDir,
+      if (source.isEmpty) ScalaHelloWorldSource else source,
+      "test",
+      "scala"
+    )
   }
 
   protected def createHelloWorldScalaTestFixtureSource(
@@ -85,8 +94,16 @@ trait BaseConfigSuite {
     )
   }
 
-  protected def createHelloWorldScalaSource(projectDir: File, source: String = ""): Unit = {
-    createSource(projectDir, if (source.isEmpty) ScalaHelloWorldSource else source, "main", "scala")
+  protected def createHelloWorldScalaSource(
+      projectDir: File,
+      source: String = ""
+  ): Unit = {
+    createSource(
+      projectDir,
+      if (source.isEmpty) ScalaHelloWorldSource else source,
+      "main",
+      "scala"
+    )
   }
 
   protected def readValidBloopConfig(file: File): Config.File = {
@@ -95,17 +112,25 @@ trait BaseConfigSuite {
     bloop.config.read(bytes) match {
       case Right(file) => file
       case Left(failure) =>
-        throw new AssertionError(s"Failed to parse ${file.getAbsolutePath}: $failure")
+        throw new AssertionError(
+          s"Failed to parse ${file.getAbsolutePath}: $failure"
+        )
     }
   }
 
-  protected def hasPathEntryName(entryName: String, paths: List[Path]): Boolean = {
+  protected def hasPathEntryName(
+      entryName: String,
+      paths: List[Path]
+  ): Boolean = {
     val pathValidEntryName = entryName.replace('/', File.separatorChar)
     val pathAsStr = paths.map(_.toString)
     pathAsStr.exists(_.contains(pathValidEntryName))
   }
 
-  protected def hasRuntimeClasspathEntryName(config: Config.File, entryName: String): Boolean = {
+  protected def hasRuntimeClasspathEntryName(
+      config: Config.File,
+      entryName: String
+  ): Boolean = {
     config.project.platform.exists {
       case platform: Config.Platform.Jvm =>
         platform.classpath.exists(hasPathEntryName(entryName, _))
@@ -113,21 +138,35 @@ trait BaseConfigSuite {
     }
   }
 
-  protected def hasCompileClasspathEntryName(config: Config.File, entryName: String): Boolean = {
+  protected def hasCompileClasspathEntryName(
+      config: Config.File,
+      entryName: String
+  ): Boolean = {
     hasPathEntryName(entryName, config.project.classpath)
   }
 
-  protected def hasBothClasspathsEntryName(config: Config.File, entryName: String): Boolean = {
+  protected def hasBothClasspathsEntryName(
+      config: Config.File,
+      entryName: String
+  ): Boolean = {
     hasCompileClasspathEntryName(config, entryName) &&
     hasRuntimeClasspathEntryName(config, entryName)
   }
 
-  protected def idxOfClasspathEntryName(config: Config.File, entryName: String): Int = {
+  protected def idxOfClasspathEntryName(
+      config: Config.File,
+      entryName: String
+  ): Int = {
     val pathValidEntryName = entryName.replace('/', File.separatorChar)
-    config.project.classpath.takeWhile(!_.toString.contains(pathValidEntryName)).size
+    config.project.classpath
+      .takeWhile(!_.toString.contains(pathValidEntryName))
+      .size
   }
 
-  protected def hasTestFramework(config: Config.File, framework: Config.TestFramework): Boolean = {
+  protected def hasTestFramework(
+      config: Config.File,
+      framework: Config.TestFramework
+  ): Boolean = {
     config.project.test.map(_.frameworks).getOrElse(Nil).contains(framework)
   }
 
@@ -151,14 +190,24 @@ trait BaseConfigSuite {
       configs: List[Config.File],
       jarNames: List[String]
   ): Unit = {
-    assertContainsJarNames(configs, jarNames.map(j => s"$j.jar"), _ == _, assertTrue)
+    assertContainsJarNames(
+      configs,
+      jarNames.map(j => s"$j.jar"),
+      _ == _,
+      assertTrue
+    )
   }
 
   protected def assertNoConfigsHaveAnyJars(
       configs: List[Config.File],
       jarNames: List[String]
   ): Unit = {
-    assertContainsJarNames(configs, jarNames.map(j => s"$j.jar"), _ == _, assertFalse)
+    assertContainsJarNames(
+      configs,
+      jarNames.map(j => s"$j.jar"),
+      _ == _,
+      assertFalse
+    )
   }
 
   protected def assertContainsJarNames(
@@ -175,7 +224,10 @@ trait BaseConfigSuite {
             config.project.resolution.exists(
               _.modules.exists(
                 _.artifacts.exists(a =>
-                  matchMethod(PlatformFiles.getFileName(a.path).toString, jarName)
+                  matchMethod(
+                    PlatformFiles.getFileName(a.path).toString,
+                    jarName
+                  )
                 )
               )
             )
