@@ -481,8 +481,8 @@ val publishJsonModuleSettings = List(
 
 lazy val integrationUtils211 = project
   .in(integrations / "utils")
-  .settings(scalafixSettings)
   .settings(
+    scalafixSettings,
     scalaVersion := Dependencies.Scala211Version,
     libraryDependencies += Dependencies.bloopConfig,
     target := (file(
@@ -492,8 +492,8 @@ lazy val integrationUtils211 = project
 
 lazy val integrationUtils212 = project
   .in(integrations / "utils")
-  .settings(scalafixSettings)
   .settings(
+    scalafixSettings,
     scalaVersion := Dependencies.Scala212Version,
     libraryDependencies += Dependencies.bloopConfig,
     target := (file(
@@ -503,8 +503,8 @@ lazy val integrationUtils212 = project
 
 lazy val integrationUtils213 = project
   .in(integrations / "utils")
-  .settings(scalafixSettings)
   .settings(
+    scalafixSettings,
     scalaVersion := Dependencies.Scala213Version,
     libraryDependencies += Dependencies.bloopConfig,
     target := (file(
@@ -517,16 +517,15 @@ lazy val sbtBloop10: Project = project
   .enablePlugins(ScriptedPlugin)
   .disablePlugins(ScalafixPlugin)
   .in(integrations / "sbt-bloop")
-  .settings(BuildDefaults.scriptedSettings)
   .settings(
+    BuildDefaults.scriptedSettings,
     sbtPluginSettings("sbt-bloop", Sbt1Version),
     libraryDependencies += Dependencies.bloopConfig
   )
 
 lazy val mavenBloop = project
   .in(integrations / "maven-bloop")
-  .disablePlugins(ScriptedPlugin)
-  .disablePlugins(ScalafixPlugin)
+  .disablePlugins(ScriptedPlugin, ScalafixPlugin)
   .enablePlugins(BuildInfoPlugin)
   .settings(
     name := "maven-bloop",
@@ -543,24 +542,19 @@ lazy val mavenBloop = project
 lazy val gradleBloop211 = project
   .in(file("integrations") / "gradle-bloop")
   .enablePlugins(BuildInfoPlugin)
-  .disablePlugins(ScriptedPlugin)
-  .disablePlugins(ScalafixPlugin)
-  .settings(name := "gradle-bloop")
-  .settings(BuildDefaults.gradlePluginBuildSettings)
-  .settings(BuildInfoPlugin.buildInfoScopedSettings(Test))
+  .disablePlugins(ScriptedPlugin, ScalafixPlugin)
   .settings(
-    scalaVersion := Dependencies.Scala211Version
-  )
-  .settings(
+    name := "gradle-bloop",
+    BuildDefaults.gradlePluginBuildSettings,
+    BuildInfoPlugin.buildInfoScopedSettings(Test),
+    scalaVersion := Dependencies.Scala211Version,
     libraryDependencies ++= Seq(
       Dependencies.classgraph % Test,
       Dependencies.bloopConfig
     ),
     target := (file(
       "integrations"
-    ) / "gradle-bloop" / "target" / "gradle-bloop-2.11").getAbsoluteFile
-  )
-  .settings(
+    ) / "gradle-bloop" / "target" / "gradle-bloop-2.11").getAbsoluteFile,
     Test / sourceDirectories := Nil,
     Test / bloopGenerate := None,
     Test / compile / skip := true,
@@ -572,46 +566,41 @@ lazy val gradleBloop212 = project
   .in(file("integrations") / "gradle-bloop")
   .enablePlugins(BuildInfoPlugin)
   .disablePlugins(ScriptedPlugin)
-  .settings(name := "gradle-bloop")
-  .settings(scalafixSettings)
-  .dependsOn(frontend % "test->test")
-  .settings(BuildDefaults.gradlePluginBuildSettings, testSettings)
-  .settings(BuildInfoPlugin.buildInfoScopedSettings(Test))
-  .settings(scalaVersion := Dependencies.Scala212Version)
+  .dependsOn(frontend % "test->test", integrationUtils212 % "test->compile")
   .settings(
+    name := "gradle-bloop",
+    scalafixSettings,
+    BuildDefaults.gradlePluginBuildSettings,
+    testSettings,
+    BuildInfoPlugin.buildInfoScopedSettings(Test),
+    scalaVersion := Dependencies.Scala212Version,
     target := (file(
       "integrations"
-    ) / "gradle-bloop" / "target" / "gradle-bloop-2.12").getAbsoluteFile
-  )
-  .settings(
+    ) / "gradle-bloop" / "target" / "gradle-bloop-2.12").getAbsoluteFile,
     libraryDependencies ++= Seq(
       Dependencies.classgraph % Test,
       Dependencies.bloopConfig
     )
   )
-  .dependsOn(integrationUtils212 % "test->compile")
 
 lazy val gradleBloop213 = project
   .in(file("integrations") / "gradle-bloop")
   .enablePlugins(BuildInfoPlugin)
   .disablePlugins(ScriptedPlugin)
-  .settings(name := "gradle-bloop")
-  .settings(scalafixSettings)
-  .settings(BuildDefaults.gradlePluginBuildSettings, testSettings)
-  .settings(BuildInfoPlugin.buildInfoScopedSettings(Test))
-  .settings(scalaVersion := Dependencies.Scala213Version)
   .settings(
+    name := "gradle-bloop",
+    scalafixSettings,
+    BuildDefaults.gradlePluginBuildSettings,
+    testSettings,
+    BuildInfoPlugin.buildInfoScopedSettings(Test),
+    scalaVersion := Dependencies.Scala213Version,
     target := (file(
       "integrations"
-    ) / "gradle-bloop" / "target" / "gradle-bloop-2.13").getAbsoluteFile
-  )
-  .settings(
+    ) / "gradle-bloop" / "target" / "gradle-bloop-2.13").getAbsoluteFile,
     libraryDependencies ++= Seq(
       Dependencies.classgraph % Test,
       Dependencies.bloopConfig
-    )
-  )
-  .settings(
+    ),
     Test / sourceDirectories := Nil,
     Test / bloopGenerate := None,
     Test / compile / skip := true,
