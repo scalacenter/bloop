@@ -213,7 +213,17 @@ object Bloop {
     }
 
     val server =
-      new NGServer(address, poolSize, heartbeatMs, in, out, err, javaLogger, domainSocketProvider)
+      new NGServer(
+        address,
+        poolSize,
+        heartbeatMs,
+        in,
+        out,
+        err,
+        javaLogger,
+        domainSocketProvider,
+        false
+      )
     registerAliases(server)
     ProxySetup.init()
     server
