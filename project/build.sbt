@@ -22,7 +22,7 @@ val `bloop-build` = project
     addSbtPlugin("org.scalameta" % "sbt-scalafmt" % "2.0.4"),
     addSbtPlugin("com.eed3si9n" % "sbt-buildinfo" % "0.11.0"),
     addSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.3.3"),
-    addSbtPlugin("com.typesafe.sbt" % "sbt-git" % "1.0.2"),
+    addSbtPlugin("com.github.sbt" % "sbt-git" % "2.0.0"),
     addSbtPlugin("ch.epfl.scala" % "sbt-release-early" % "2.1.1+4-9d76569a"),
     addSbtPlugin("org.scalameta" % "sbt-mdoc" % "2.3.0"),
     addSbtPlugin("org.scala-debugger" % "sbt-jdi-tools" % "1.1.1"),
