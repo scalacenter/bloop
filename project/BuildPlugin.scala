@@ -339,19 +339,6 @@ object BuildImplementation {
     "-Xmx3g" :: "-Xms1g" :: "-XX:ReservedCodeCacheSize=512m" :: "-XX:MaxInlineLevel=20" :: Nil
 
   object BuildDefaults {
-    private final val kafka =
-      uri("https://github.com/apache/kafka.git#57320981bb98086a0b9f836a29df248b1c0378c3")
-
-    // Currently unused, we leave it here because we might need it in the future
-    private def cloneKafka(state: State): State = {
-      val staging = getStagingDirectory(state)
-      sbt.Resolvers.git(new BuildLoader.ResolveInfo(kafka, staging, null, state)) match {
-        case Some(f) => state.put(BuildKeys.gradleIntegrationDirs, List(f()))
-        case None =>
-          state.log.error("Kafka git reference is invalid and cannot be cloned"); state
-      }
-    }
-
     def exportProjectsInTestResources(
         baseDir: File,
         log: Logger,
