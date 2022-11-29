@@ -82,7 +82,10 @@ object BloopIncremental {
     val setOfSources = sources.toSet
     val incremental = new BloopNameHashing(log, uniqueInputs, options, profiler.profileRun, tracer)
     val initialChanges = incremental.detectInitialChanges(setOfSources, previous, current, lookup, converter, output)
-    def isJrt(path: Path) = path.getFileSystem.provider().getScheme == "jrt"
+    def ignore(path: Path) = {
+      val scheme = path.getFileSystem.provider().getScheme
+      scheme == "jrt" || scheme == "jar"
+    }
     val binaryChanges = new DependencyChanges {
       val modifiedLibraries = initialChanges.libraryDeps.toArray
 
@@ -90,8 +93,13 @@ object BloopIncremental {
         .map(converter.toPath(_))
         .collect {
           // jrt path is neither a jar nor a normal file
-          case path if !isJrt(path) =>
-            path.toFile()
+          case path if !ignore(path) =>
+            try path.toFile()
+            catch {
+              case e: UnsupportedOperationException =>
+                System.err.println(s"Error converting $path (provider scheme ${path.getFileSystem.provider().getScheme}) to a file: $e")
+                throw e
+            }
         }
         .distinct
       val modifiedClasses = initialChanges.external.allModified.toArray
