@@ -127,7 +127,7 @@ object Dependencies {
     "org.scala-js" %% "scalajs-sbt-test-adapter" % scalaJs1Version % Provided
   val scalaJsLogging1 = "org.scala-js" %% "scalajs-logging" % "1.1.1" % Provided
 
-  val classgraph = "io.github.classgraph" % "classgraph" % "4.8.78"
+  val classgraph = "io.github.classgraph" % "classgraph" % "4.8.151"
 
   val xxHashLibrary = "net.jpountz.lz4" % "lz4" % xxHashVersion
   val zt = "org.zeroturnaround" % "zt-zip" % ztVersion
