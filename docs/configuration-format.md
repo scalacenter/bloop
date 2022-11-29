@@ -49,14 +49,24 @@ provide autocompletions and simple type error detection.
 
 ## Generating configuration files
 
-Install the `bloop-config` dependency in your `build.sbt`:
+Install the [`bloop-config`](https://github.com/scalacenter/bloop-config)
+dependency in your build:
+
+_sbt_
 
 ```scala
-libraryDependencies += "ch.epfl.scala" %% "bloop-config" % "1.1.0"
+libraryDependencies += "ch.epfl.scala" %% "bloop-config" % "1.5.5"
 ```
 
-The `bloop-config` module is published to Maven Central and implements encoders and decoders to read
-and write configuration files. Once the library is added in your build:
+_mill_
+
+```scala
+def ivyDeps = Agg(ivy"ch.epfl.scala::bloop-config:1.5.5")
+```
+
+`bloop-config` is published for 2.11-2.13 on the JVM and JS. It implements
+encoders and decoders to read and write configuration files. Once the library is
+added in your build:
 
 1. Create an instance of `bloop.config.Config.File` and populate all its fields.
 2. Write the json file to a `target` path with `bloop.config.Config.File.write(config, target)`.
