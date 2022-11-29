@@ -26,7 +26,7 @@ val `bloop-build` = project
     addSbtPlugin("ch.epfl.scala" % "sbt-release-early" % "2.1.1+4-9d76569a"),
     addSbtPlugin("org.scalameta" % "sbt-mdoc" % "2.3.0"),
     addSbtPlugin("org.scala-debugger" % "sbt-jdi-tools" % "1.1.1"),
-    addSbtPlugin("com.typesafe.sbt" % "sbt-native-packager" % "1.7.6"),
+    addSbtPlugin("com.typesafe.sbt" % "sbt-native-packager" % "1.8.1"),
     // We need to add libdeps for the maven integration plugin to work
     libraryDependencies ++= List(
       "org.eclipse.jgit" % "org.eclipse.jgit" % "5.12.0.202106070339-r",
