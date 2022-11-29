@@ -66,7 +66,8 @@ object BuildKeys {
   def createScalaCenterProject(name: String, f: File): RootProject = {
     if (isCiDisabled) RootProject(f)
     else {
-      val headSha = new _root_.com.typesafe.sbt.git.DefaultReadableGit(f).withGit(_.headCommitSha)
+      val headSha = new _root_.com.github.sbt.git.DefaultReadableGit(base = f, gitOverride = None)
+        .withGit(_.headCommitSha)
       headSha match {
         case Some(commit) => RootProject(uri(s"https://github.com/scalacenter/${name}.git#$commit"))
         case None => sys.error(s"The 'HEAD' sha of '${f}' could not be retrieved.")
