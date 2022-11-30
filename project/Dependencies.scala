@@ -29,7 +29,7 @@ object Dependencies {
   val junitVersion = "0.13.3"
   val graphvizVersion = "0.2.2"
   val directoryWatcherVersion = "0.8.0+6-f651bd93"
-  val mavenApiVersion = "3.6.3"
+  val mavenApiVersion = "3.8.6"
   val mavenAnnotationsVersion = "3.5"
   val mavenScalaPluginVersion = "4.5.3"
   val gradleVersion = "5.0"
