@@ -33,7 +33,7 @@ object Dependencies {
   val mavenAnnotationsVersion = "3.5"
   val mavenScalaPluginVersion = "4.5.3"
   val gradleVersion = "5.0"
-  val groovyVersion = "2.5.4"
+  val groovyVersion = "2.5.19"
   val gradleAndroidPluginVersion = "4.2.2"
   val ipcsocketVersion = "1.0.1"
   val monixVersion = "3.2.0"
