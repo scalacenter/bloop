@@ -82,7 +82,7 @@ abstract class ConfigGenerationSuite extends BaseConfigSuite {
   }
 
   @Test def worksWithAndroidPlugin_3_6(): Unit = {
-    worksWithAndroidPlugin("3.6.4")
+    worksWithAndroidPlugin("3.7.0")
   }
 
   @Test def worksWithAndroidPlugin_4_0(): Unit = {
