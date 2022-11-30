@@ -29,11 +29,11 @@ object Dependencies {
   val junitVersion = "0.13.3"
   val graphvizVersion = "0.2.2"
   val directoryWatcherVersion = "0.8.0+6-f651bd93"
-  val mavenApiVersion = "3.6.1"
+  val mavenApiVersion = "3.8.6"
   val mavenAnnotationsVersion = "3.5"
-  val mavenScalaPluginVersion = "4.5.3"
+  val mavenScalaPluginVersion = "4.5.6"
   val gradleVersion = "5.0"
-  val groovyVersion = "2.5.4"
+  val groovyVersion = "2.5.19"
   val gradleAndroidPluginVersion = "4.2.2"
   val ipcsocketVersion = "1.0.1"
   val monixVersion = "3.2.0"
@@ -48,9 +48,9 @@ object Dependencies {
   val xxHashVersion = "1.3.0"
   val ztVersion = "1.13"
   val difflibVersion = "1.3.0"
-  val braveVersion = "5.6.1"
+  val braveVersion = "5.6.11"
   val zipkinSenderVersion = "2.16.3"
-  val jnaVersion = "5.8.0"
+  val jnaVersion = "5.12.1"
   val asmVersion = "7.0"
   val snailgunVersion = "0.4.0"
   val ztExecVersion = "1.11"
@@ -66,7 +66,7 @@ object Dependencies {
 
   val configDirectories = "dev.dirs" % "directories" % configDirsVersion
   val libraryManagement = "org.scala-sbt" %% "librarymanagement-ivy" % lmVersion
-  val log4j = "org.apache.logging.log4j" % "log4j-core" % "2.17.1"
+  val log4j = "org.apache.logging.log4j" % "log4j-core" % "2.19.0"
   val scalazCore = "org.scalaz" %% "scalaz-core" % scalazVersion
   val scalazConcurrent = "org.scalaz" %% "scalaz-concurrent" % scalazVersion
   val coursierInterface = "io.get-coursier" % "interface" % "1.0.6"
@@ -127,7 +127,7 @@ object Dependencies {
     "org.scala-js" %% "scalajs-sbt-test-adapter" % scalaJs1Version % Provided
   val scalaJsLogging1 = "org.scala-js" %% "scalajs-logging" % "1.1.1" % Provided
 
-  val classgraph = "io.github.classgraph" % "classgraph" % "4.8.78"
+  val classgraph = "io.github.classgraph" % "classgraph" % "4.8.151"
 
   val xxHashLibrary = "net.jpountz.lz4" % "lz4" % xxHashVersion
   val zt = "org.zeroturnaround" % "zt-zip" % ztVersion
