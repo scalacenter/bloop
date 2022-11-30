@@ -1,5 +1,5 @@
 val mvnVersion = "3.6.1"
-val mvnPluginToolsVersion = "3.6.0"
+val mvnPluginToolsVersion = "3.6.4"
 
 // Create a proxy project instead of depending on plugin directly to work around https://github.com/sbt/sbt/issues/892
 val `bloop-shaded-plugin` = project
