@@ -40,7 +40,7 @@ import org.junit.rules.TemporaryFolder
 
 // minimum supported version
 class ConfigGenerationSuite_5_0 extends ConfigGenerationSuite {
-  protected val gradleVersion: String = "5.0"
+  protected val gradleVersion: String = "5.6.4"
   protected val supportsCurrentJavaVersion: Boolean = !Properties.isJavaAtLeast("12")
 }
 
