@@ -42,7 +42,7 @@ object Dependencies {
   val circeVersion213 = "0.12.2"
   val shapelessVersion = "2.3.4"
   val scalaNative04Version = "0.4.0"
-  val scalaJs06Version = "0.6.32"
+  val scalaJs06Version = "0.6.33"
   val scalaJs1Version = "1.3.1"
   val scalaJsEnvsVersion = "1.1.1"
   val xxHashVersion = "1.3.0"
