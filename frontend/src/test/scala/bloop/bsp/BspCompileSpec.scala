@@ -372,7 +372,7 @@ class BspCompileSpec(
         "Bumping scala version requires new semanticdb-scalac"
       )
       val sourceDir = workspace.resolve("a").resolve("src")
-      val semanticdbJar = unsafeGetResource("semanticdb-scalac_2.12.17-4.4.34.jar")
+      val semanticdbJar = unsafeGetResource("semanticdb-scalac_2.12.17-4.6.0.jar")
       val semanticdbOpts = List(
         s"-Xplugin:$semanticdbJar",
         "-Yrangepos",

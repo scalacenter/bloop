@@ -33,9 +33,9 @@ class BspMetalsClientSpec(
     testedScalaVersion == "2.12.17",
     "Updating scala version requires updating semanticDB plugin"
   )
-  private val semanticdbVersion = "4.4.34"
+  private val semanticdbVersion = "4.6.0"
   private val javaSemanticdbVersion = "0.5.7"
-  private val semanticdbJar = "semanticdb-scalac_2.12.17-4.4.34.jar"
+  private val semanticdbJar = "semanticdb-scalac_2.12.17-4.6.0.jar"
 
   private val expectedConfig =
     s"""|{
