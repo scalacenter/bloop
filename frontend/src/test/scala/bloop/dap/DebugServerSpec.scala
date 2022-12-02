@@ -595,7 +595,7 @@ object DebugServerSpec extends DebugBspBaseSuite {
         workspace,
         "r",
         List(source),
-        scalaVersion = Some("2.12.15")
+        scalaVersion = Some("2.12.17")
       )
 
       loadBspStateWithTask(workspace, List(project), logger) { state =>
@@ -654,7 +654,7 @@ object DebugServerSpec extends DebugBspBaseSuite {
 
       val logger = new RecordingLogger(ansiCodesSupported = false)
 
-      val scalaVersion = "2.12.15"
+      val scalaVersion = "2.12.17"
       val compilerJars = ScalaInstance
         .resolve("org.scala-lang", "scala-compiler", scalaVersion, logger)
         .allJars
@@ -728,7 +728,7 @@ object DebugServerSpec extends DebugBspBaseSuite {
         workspace,
         "r",
         List(source),
-        scalaVersion = Some("2.12.15")
+        scalaVersion = Some("2.12.17")
       )
 
       loadBspStateWithTask(workspace, List(project), logger) { state =>
@@ -794,7 +794,7 @@ object DebugServerSpec extends DebugBspBaseSuite {
 
       val logger = new RecordingLogger(ansiCodesSupported = false)
 
-      val scalaVersion = "2.12.15"
+      val scalaVersion = "2.12.17"
       val compilerJars = ScalaInstance
         .resolve("org.scala-lang", "scala-compiler", scalaVersion, logger)
         .allJars
@@ -983,7 +983,7 @@ object DebugServerSpec extends DebugBspBaseSuite {
       def run(listener: DebuggeeListener): CancelableFuture[Unit] = {
         DapCancellableFuture.runAsync(task.map(_ => ()), defaultScheduler)
       }
-      def scalaVersion: ScalaVersion = ScalaVersion("2.12.15")
+      def scalaVersion: ScalaVersion = ScalaVersion("2.12.17")
     }
 
     startDebugServer(

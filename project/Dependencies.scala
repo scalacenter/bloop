@@ -3,7 +3,7 @@ package build
 object Dependencies {
   val Scala210Version = "2.10.7"
   val Scala211Version = "2.11.12"
-  val Scala212Version = "2.12.15"
+  val Scala212Version = "2.12.17"
   val Scala213Version = "2.13.8"
 
   val Sbt013Version = "0.13.18"

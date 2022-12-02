@@ -30,12 +30,12 @@ class BspMetalsClientSpec(
 ) extends BspBaseSuite {
   private val testedScalaVersion = BuildInfo.scalaVersion
   require(
-    testedScalaVersion == "2.12.15",
+    testedScalaVersion == "2.12.17",
     "Updating scala version requires updating semanticDB plugin"
   )
   private val semanticdbVersion = "4.4.34"
   private val javaSemanticdbVersion = "0.5.7"
-  private val semanticdbJar = "semanticdb-scalac_2.12.15-4.4.34.jar"
+  private val semanticdbJar = "semanticdb-scalac_2.12.17-4.4.34.jar"
 
   private val expectedConfig =
     s"""|{
@@ -167,7 +167,7 @@ class BspMetalsClientSpec(
         "-P:semanticdb:failures:warning",
         "-P:semanticdb:synthetics:on",
         "-Xplugin-require:semanticdb",
-        s"-Xplugin:path-to-plugin/semanticdb-scalac_2.12.15-4.4.30.jar.jar",
+        s"-Xplugin:path-to-plugin/semanticdb-scalac_2.12.17-4.4.30.jar.jar",
         "-Yrangepos"
       )
       val `A` = TestProject(
