@@ -14,7 +14,6 @@ import javax.tools.JavaFileObject.Kind
 import javax.tools.{JavaCompiler => JavaxCompiler}
 
 import scala.collection.mutable.HashSet
-import scala.concurrent.ExecutionContext
 
 import bloop.CompilerCache.JavacKey
 import bloop.io.AbsolutePath
@@ -48,18 +47,12 @@ object CompilerCache {
 }
 final class CompilerCache(
     componentProvider: ComponentProvider,
-    retrieveDir: AbsolutePath,
-    logger: Logger,
-    userScalaCache: Option[ConcurrentHashMap[ScalaInstance, ScalaCompiler]],
-    userJavacCache: Option[ConcurrentHashMap[JavacKey, JavaCompiler]],
-    scheduler: ExecutionContext
+    logger: Logger
 ) {
 
-  private val scalaCompilerCache =
-    userScalaCache.getOrElse(new ConcurrentHashMap[ScalaInstance, ScalaCompiler]())
+  private val scalaCompilerCache = new ConcurrentHashMap[ScalaInstance, ScalaCompiler]()
 
-  private val javaCompilerCache =
-    userJavacCache.getOrElse(new ConcurrentHashMap[JavacKey, JavaCompiler]())
+  private val javaCompilerCache = new ConcurrentHashMap[JavacKey, JavaCompiler]()
 
   def get(
       scalaInstance: ScalaInstance,
@@ -86,11 +79,7 @@ final class CompilerCache(
   private[bloop] def withLogger(logger: Logger): CompilerCache = {
     new CompilerCache(
       componentProvider,
-      retrieveDir,
-      logger,
-      userScalaCache,
-      userJavacCache,
-      scheduler
+      logger
     )
   }
 

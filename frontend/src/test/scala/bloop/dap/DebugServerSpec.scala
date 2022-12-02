@@ -45,8 +45,6 @@ import com.microsoft.java.debug.core.protocol.Types
 import com.microsoft.java.debug.core.protocol.Types.SourceBreakpoint
 import monix.execution.Ack
 import monix.reactive.Observer
-import scala.concurrent.Await
-import bloop.engine.ExecutionContext
 
 object DebugServerSpec extends DebugBspBaseSuite {
   private val ServerNotListening = new IllegalStateException("Server is not accepting connections")
