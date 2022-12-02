@@ -33,7 +33,6 @@ import sbt.internal.inc.javac.JavaTools
 import sbt.internal.inc.javac.Javadoc
 import sbt.internal.inc.javac.WriteReportingJavaFileObject
 import sbt.internal.util.LoggerWriter
-import sbt.librarymanagement.Resolver
 import xsbti.ComponentProvider
 import xsbti.VirtualFile
 import xsbti.compile.ClassFileManager
@@ -51,7 +50,6 @@ final class CompilerCache(
     componentProvider: ComponentProvider,
     retrieveDir: AbsolutePath,
     logger: Logger,
-    userResolvers: List[Resolver],
     userScalaCache: Option[ConcurrentHashMap[ScalaInstance, ScalaCompiler]],
     userJavacCache: Option[ConcurrentHashMap[JavacKey, JavaCompiler]],
     scheduler: ExecutionContext
@@ -90,7 +88,6 @@ final class CompilerCache(
       componentProvider,
       retrieveDir,
       logger,
-      userResolvers,
       userScalaCache,
       userJavacCache,
       scheduler

@@ -78,7 +78,7 @@ class CompilerCacheSpec {
         val wr3 = new WriteReportingJavaFileObject(fo3, classFileManager)
 
         val ec = ExecutionContext.global
-        val compilerCache = new CompilerCache(null, tempDir, logger, List.empty, None, None, ec)
+        val compilerCache = new CompilerCache(null, tempDir, logger, None, None, ec)
         val bloopCompiler = new compilerCache.BloopJavaCompiler(compiler)
         val invalidatingFileManager =
           new bloopCompiler.BloopInvalidatingFileManager(javacFileManager, classFileManager)
@@ -140,7 +140,7 @@ class CompilerCacheSpec {
       val componentProvider =
         BloopComponentCompiler.getComponentProvider(tempDir.resolve("components"))
       val compilerCache =
-        new CompilerCache(componentProvider, tempDir, logger, List.empty, None, None, ec)
+        new CompilerCache(componentProvider, tempDir, logger, None, None, ec)
       op(compilerCache)
     } finally {
       Paths.delete(tempDir)
