@@ -41,7 +41,7 @@ final class ObservedLogger[+UseSiteLogger <: Logger] private (
   override def trace(t: Throwable): Unit = {
     underlying.trace(t)
     // TODO(jvican): What to do with traces? Let's try to add logic to => String
-    //observer.onNext(ObservableLogger.LogTraceMessage(msg))
+    // observer.onNext(ObservableLogger.LogTraceMessage(msg))
     ()
   }
 

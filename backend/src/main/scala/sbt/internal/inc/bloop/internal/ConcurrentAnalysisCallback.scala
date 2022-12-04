@@ -231,7 +231,7 @@ final class ConcurrentAnalysisCallback(
       srcClassName: String
   ): Unit = {
     val sourcePath = converter.toPath(source)
-    //println(s"Generated non local class ${source}, ${classFile}, ${binaryClassName}, ${srcClassName}")
+    // println(s"Generated non local class ${source}, ${classFile}, ${binaryClassName}, ${srcClassName}")
     add(nonLocalClasses, sourcePath, (classFile, binaryClassName))
     add(classNames, sourcePath, (srcClassName, binaryClassName))
     classToSource.put(classFile, srcClassName)

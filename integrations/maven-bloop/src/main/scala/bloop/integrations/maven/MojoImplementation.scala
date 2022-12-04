@@ -236,7 +236,7 @@ object MojoImplementation {
                 case _ =>
               }
             resolveArtifact(art).foreach { resolvedFile =>
-              //since we don't resolve dependencies automatically in the plugin, this will be null
+              // since we don't resolve dependencies automatically in the plugin, this will be null
               art.setFile(resolvedFile)
             }
             if (mojo.shouldDownloadSources()) {

@@ -133,7 +133,7 @@ class MavenConfigGenerationSuite extends BaseConfigSuite {
           m.artifacts.exists(_.path.toString().contains("munit_2.13-0.7.26.jar"))
         })
 
-        //junit transitive dependency
+        // junit transitive dependency
         val junitModule = resolutionModules2.find(_.name == "junit")
         assert(junitModule.exists { m =>
           m.artifacts.exists(_.path.toString().contains("junit-4.13.1-sources.jar"))
