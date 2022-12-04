@@ -53,7 +53,7 @@ object Dependencies {
   val jnaVersion = "5.12.1"
   val asmVersion = "7.0"
   val snailgunVersion = "0.4.0"
-  val ztExecVersion = "1.11"
+  val ztExecVersion = "1.12"
   val debugAdapterVersion = "3.0.5"
   val bloopConfigVersion = "1.5.5"
 
