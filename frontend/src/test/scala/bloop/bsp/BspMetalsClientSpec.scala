@@ -117,7 +117,7 @@ class BspMetalsClientSpec(
 
   test("initialize metals client in workspace with already enabled semanticdb") {
     TestUtil.withinWorkspace { workspace =>
-      val pluginPath = s"-Xplugin:path-to-plugin/semanticdb-scalac_2.12.5-4.4.30.jar.jar"
+      val pluginPath = s"-Xplugin:path-to-plugin/semanticdb-scalac_2.12.17-4.6.0.jar"
       val defaultScalacOptions = List(
         "-P:semanticdb:failures:warning",
         s"-P:semanticdb:sourceroot:$workspace",
@@ -167,7 +167,7 @@ class BspMetalsClientSpec(
         "-P:semanticdb:failures:warning",
         "-P:semanticdb:synthetics:on",
         "-Xplugin-require:semanticdb",
-        s"-Xplugin:path-to-plugin/semanticdb-scalac_2.12.17-4.4.30.jar.jar",
+        s"-Xplugin:path-to-plugin/semanticdb-scalac_2.12.17-4.6.0.jar",
         "-Yrangepos"
       )
       val `A` = TestProject(
