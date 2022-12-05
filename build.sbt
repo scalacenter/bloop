@@ -235,7 +235,7 @@ lazy val bloopgunSettings = Seq(
   buildInfoKeys := List(Keys.version),
   buildInfoObject := "BloopgunInfo",
   libraryDependencies ++= List(
-    //Dependencies.configDirectories,
+    // Dependencies.configDirectories,
     Dependencies.snailgun,
     // Use zt-exec instead of nuprocess because it doesn't require JNA (good for graalvm)
     Dependencies.ztExec,

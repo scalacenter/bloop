@@ -735,7 +735,7 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
     val compileIteration = AtomicInt(0)
     val readyToConnect = Promise[Unit]()
     val subject = BehaviorSubject[State](state)
-    //val subject = ConcurrentSubject.behavior[State](state)(ExecutionContext.ioScheduler)
+    // val subject = ConcurrentSubject.behavior[State](state)(ExecutionContext.ioScheduler)
     val computationScheduler = userComputationScheduler.getOrElse(ExecutionContext.scheduler)
     val ioScheduler = userIOScheduler.getOrElse(bspDefaultScheduler)
     val path = RelativePath(configDirectory.underlying.getFileName)
