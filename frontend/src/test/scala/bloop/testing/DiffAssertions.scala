@@ -100,8 +100,8 @@ object DiffAssertions {
     sb.append(
       s"""#${header("Diff")}
           #${stripTrailingWhitespace(
-        Diff.unifiedDiff(obtained, expected, obtainedTitle, expectedTitle)
-      )}"""
+           Diff.unifiedDiff(obtained, expected, obtainedTitle, expectedTitle)
+         )}"""
         .stripMargin('#')
     )
     sb.toString()

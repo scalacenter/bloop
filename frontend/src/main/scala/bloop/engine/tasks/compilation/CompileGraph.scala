@@ -349,7 +349,7 @@ object CompileGraph {
                 logger.displayWarningToUser(
                   s"""Disconnecting from deduplication of ongoing compilation for '${inputs.project.name}'
                      |No progress update for ${(disconnectionTime: FiniteDuration)
-                    .toString()} caused bloop to cancel compilation and schedule a new compile.
+                      .toString()} caused bloop to cancel compilation and schedule a new compile.
                   """.stripMargin
                 )
 
