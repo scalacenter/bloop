@@ -79,7 +79,7 @@ object Dependencies {
   val sbtTestAgent = "org.scala-sbt" % "test-agent" % sbtTestAgentVersion
   val snailgun = ("me.vican.jorge" %% "snailgun-cli" % snailgunVersion)
   val ztExec = "org.zeroturnaround" % "zt-exec" % ztExecVersion
-  val slf4jNop = "org.slf4j" % "slf4j-nop" % "1.7.36"
+  val slf4jNop = "org.slf4j" % "slf4j-nop" % "2.0.5"
 
   val utest = "com.lihaoyi" %% "utest" % "0.8.1"
   val pprint = "com.lihaoyi" %% "pprint" % "0.8.1"
