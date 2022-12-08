@@ -46,7 +46,7 @@ final case class FingerprintInfo[+Print <: Fingerprint](
 object TestInternals {
   private final val sbtOrg = "org.scala-sbt"
   private final val testAgentId = "test-agent"
-  private final val testAgentVersion = "1.4.4"
+  private final val testAgentVersion = "1.8.0"
 
   private implicit val logContext: DebugFilter = DebugFilter.Test
 

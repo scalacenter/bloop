@@ -3,7 +3,7 @@ package build
 object Dependencies {
   val Scala210Version = "2.10.7"
   val Scala211Version = "2.11.12"
-  val Scala212Version = "2.12.15"
+  val Scala212Version = "2.12.17"
   val Scala213Version = "2.13.8"
 
   val Sbt013Version = "0.13.18"
@@ -14,18 +14,17 @@ object Dependencies {
   val nailgunCommit = "a2520c1e"
 
   // Keep in sync in BloopComponentCompiler
-  val zincVersion = "1.7.2"
+  val zincVersion = "1.8.0"
 
   val bspVersion = "2.1.0-M3"
 
   val scalazVersion = "7.2.35"
-  val scalaXmlVersion = "1.2.0"
-  val lmVersion = "1.1.5"
+  val lmVersion = "1.8.0"
   val configDirsVersion = "26"
   val caseAppVersion = "2.0.6"
   val sourcecodeVersion = "0.3.0"
   val sbtTestInterfaceVersion = "1.0"
-  val sbtTestAgentVersion = "1.4.4"
+  val sbtTestAgentVersion = "1.8.0"
   val junitVersion = "0.13.3"
   val graphvizVersion = "0.2.2"
   val directoryWatcherVersion = "0.8.0+6-f651bd93"
@@ -51,7 +50,7 @@ object Dependencies {
   val braveVersion = "5.14.1"
   val zipkinSenderVersion = "2.16.3"
   val jnaVersion = "5.12.1"
-  val asmVersion = "7.0"
+  val asmVersion = "7.3.1"
   val snailgunVersion = "0.4.0"
   val ztExecVersion = "1.11"
   val debugAdapterVersion = "3.0.5"

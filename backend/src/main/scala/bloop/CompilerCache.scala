@@ -14,7 +14,6 @@ import javax.tools.JavaFileObject.Kind
 import javax.tools.{JavaCompiler => JavaxCompiler}
 
 import scala.collection.mutable.HashSet
-import scala.concurrent.ExecutionContext
 
 import bloop.CompilerCache.JavacKey
 import bloop.io.AbsolutePath
@@ -33,7 +32,6 @@ import sbt.internal.inc.javac.JavaTools
 import sbt.internal.inc.javac.Javadoc
 import sbt.internal.inc.javac.WriteReportingJavaFileObject
 import sbt.internal.util.LoggerWriter
-import sbt.librarymanagement.Resolver
 import xsbti.ComponentProvider
 import xsbti.VirtualFile
 import xsbti.compile.ClassFileManager
@@ -49,19 +47,12 @@ object CompilerCache {
 }
 final class CompilerCache(
     componentProvider: ComponentProvider,
-    retrieveDir: AbsolutePath,
-    logger: Logger,
-    userResolvers: List[Resolver],
-    userScalaCache: Option[ConcurrentHashMap[ScalaInstance, ScalaCompiler]],
-    userJavacCache: Option[ConcurrentHashMap[JavacKey, JavaCompiler]],
-    scheduler: ExecutionContext
+    logger: Logger
 ) {
 
-  private val scalaCompilerCache =
-    userScalaCache.getOrElse(new ConcurrentHashMap[ScalaInstance, ScalaCompiler]())
+  private val scalaCompilerCache = new ConcurrentHashMap[ScalaInstance, ScalaCompiler]()
 
-  private val javaCompilerCache =
-    userJavacCache.getOrElse(new ConcurrentHashMap[JavacKey, JavaCompiler]())
+  private val javaCompilerCache = new ConcurrentHashMap[JavacKey, JavaCompiler]()
 
   def get(
       scalaInstance: ScalaInstance,
@@ -88,12 +79,7 @@ final class CompilerCache(
   private[bloop] def withLogger(logger: Logger): CompilerCache = {
     new CompilerCache(
       componentProvider,
-      retrieveDir,
-      logger,
-      userResolvers,
-      userScalaCache,
-      userJavacCache,
-      scheduler
+      logger
     )
   }
 
