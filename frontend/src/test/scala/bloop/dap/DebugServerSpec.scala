@@ -636,6 +636,47 @@ object DebugServerSpec extends DebugBspBaseSuite {
     }
   }
 
+  testTask("set-workspace-directory", FiniteDuration(60, SECONDS)) {
+    TestUtil.withinWorkspace { workspace =>
+      val source =
+        """|/Main.scala
+           |object Main {
+           |  def main(args: Array[String]): Unit = {
+           |    println(java.nio.file.Paths.get("").toAbsolutePath())
+           |  }
+           |}
+           |""".stripMargin
+
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val project = TestProject(
+        workspace,
+        "r",
+        List(source)
+      )
+
+      loadBspStateWithTask(workspace, List(project), logger) { state =>
+        val runner = mainRunner(project, state)
+
+        startDebugServer(runner) { server =>
+          for {
+            client <- server.startConnection
+            _ <- client.initialize()
+            _ <- client.launch()
+            _ <- client.initialized
+            _ <- client.configurationDone()
+            _ <- client.exited
+            _ <- client.terminated
+            finalOutput <- client.takeCurrentOutput
+            _ <- Task.fromFuture(client.closedPromise.future)
+          } yield {
+            assert(client.socket.isClosed)
+            assertNoDiff(finalOutput, workspace.toString)
+          }
+        }
+      }
+    }
+  }
+
   testTask("evaluate expression in test suite", FiniteDuration(60, SECONDS)) {
     TestUtil.withinWorkspace { workspace =>
       val source =
