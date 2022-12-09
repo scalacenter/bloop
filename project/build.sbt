@@ -1,6 +1,3 @@
-val mvnVersion = "3.6.1"
-val mvnPluginToolsVersion = "3.6.4"
-
 // Create a proxy project instead of depending on plugin directly to work around https://github.com/sbt/sbt/issues/892
 val `bloop-shaded-plugin` = project
   .settings(
@@ -28,25 +25,13 @@ val `bloop-build` = project
     addSbtPlugin("org.scalameta" % "sbt-mdoc" % "2.3.6"),
     addSbtPlugin("org.scala-debugger" % "sbt-jdi-tools" % "1.1.1"),
     addSbtPlugin("com.typesafe.sbt" % "sbt-native-packager" % "1.8.1"),
-    // We need to add libdeps for the maven integration plugin to work
     libraryDependencies ++= List(
       "org.eclipse.jgit" % "org.eclipse.jgit" % "5.13.1.202206130422-r",
       "org.eclipse.jgit" % "org.eclipse.jgit.ssh.jsch" % "5.13.1.202206130422-r",
-      "org.apache.maven.plugin-tools" % "maven-plugin-tools-api" % mvnPluginToolsVersion,
-      "org.apache.maven.plugin-tools" % "maven-plugin-annotations" % mvnPluginToolsVersion,
-      "org.apache.maven.plugin-tools" % "maven-plugin-tools-generators" % mvnPluginToolsVersion,
-      "org.apache.maven.plugin-tools" % "maven-plugin-tools-annotations" % mvnPluginToolsVersion,
-      "org.apache.maven" % "maven-core" % mvnVersion,
-      "org.apache.maven" % "maven-plugin-api" % mvnVersion,
-      "org.apache.maven" % "maven-model-builder" % mvnVersion,
       "commons-codec" % "commons-codec" % "1.15"
     ),
-    // 5 hours to find that this had to be overridden because conflicted with sbt-pom-reader
-    dependencyOverrides ++= List("org.apache.maven" % "maven-settings" % mvnVersion),
-    // Add options to enable sbt-shading plugin sources
     libraryDependencies += {
       ("ch.epfl.scala" % "jarjar" % "1.7.2-patched")
-        .exclude("org.apache.maven", "maven-plugin-api")
         .exclude("org.apache.ant", "ant")
     },
     (Compile / unmanagedSourceDirectories) ++= {

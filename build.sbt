@@ -476,12 +476,6 @@ def isJdiJar(file: File): Boolean = {
   if (!System.getProperty("java.specification.version").startsWith("1.")) false
   else file.getAbsolutePath.contains(SbtJdiTools.JavaTools.getAbsolutePath.toString)
 }
-val publishJsonModuleSettings = List(
-  publishM2Configuration := publishM2Configuration.value.withOverwrite(true),
-  publishLocalConfiguration := publishLocalConfiguration.value.withOverwrite(true),
-  // We compile in both so that the maven integration can be tested locally
-  publishLocal := publishLocal.dependsOn(publishM2).value
-)
 
 lazy val integrationUtils211 = project
   .in(integrations / "utils")
@@ -515,7 +509,6 @@ lazy val integrationUtils213 = project
       "integrations"
     ) / "utils" / "target" / "utils-2.13").getAbsoluteFile
   )
-  .settings(publishJsonModuleSettings)
 
 lazy val sbtBloop10: Project = project
   .enablePlugins(ScriptedPlugin)
@@ -526,22 +519,6 @@ lazy val sbtBloop10: Project = project
     sbtPluginSettings("sbt-bloop", Sbt1Version),
     libraryDependencies += Dependencies.bloopConfig
   )
-
-lazy val mavenBloop = project
-  .in(integrations / "maven-bloop")
-  .disablePlugins(ScriptedPlugin, ScalafixPlugin)
-  .enablePlugins(BuildInfoPlugin)
-  .settings(
-    name := "maven-bloop",
-    scalaVersion := Dependencies.Scala213Version,
-    publishM2 := publishM2.dependsOn(integrationUtils213 / publishM2).value,
-    BuildDefaults.mavenPluginBuildSettings,
-    buildInfoKeys := Seq[BuildInfoKey](version),
-    buildInfoPackage := "bloop",
-    libraryDependencies += Dependencies.bloopConfig,
-    testSettings
-  )
-  .dependsOn(integrationUtils213 % "test->compile")
 
 lazy val gradleBloop211 = project
   .in(file("integrations") / "gradle-bloop")
@@ -719,7 +696,6 @@ val allProjects = Seq(
   frontend,
   benchmarks,
   sbtBloop10,
-  mavenBloop,
   gradleBloop211,
   gradleBloop212,
   gradleBloop213,
@@ -742,7 +718,6 @@ val allProjectsToRelease = Seq[ProjectReference](
   backend,
   frontend,
   sbtBloop10,
-  mavenBloop,
   gradleBloop211,
   gradleBloop212,
   gradleBloop213,

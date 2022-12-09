@@ -414,25 +414,6 @@ object BuildImplementation {
       sbt.BuildPaths.getStagingDirectory(state, globalBase)
     }
 
-    import sbt.librarymanagement.Artifact
-    import ch.epfl.scala.sbt.maven.MavenPluginKeys
-    val mavenPluginBuildSettings: Seq[Def.Setting[_]] = List(
-      MavenPluginKeys.mavenPlugin := true,
-      Keys.publishLocal := Keys.publishM2.value,
-      Keys.classpathTypes += "maven-plugin",
-      // This is a bug in sbt, so we fix it here.
-      Keys.makePomConfiguration :=
-        Keys.makePomConfiguration.value.withIncludeTypes(Keys.classpathTypes.value),
-      Keys.libraryDependencies ++= List(
-        Dependencies.mavenCore,
-        Dependencies.mavenPluginApi,
-        Dependencies.mavenPluginAnnotations,
-        // We add an explicit dependency to the maven-plugin artifact in the dependent plugin
-        Dependencies.mavenScalaPlugin
-          .withExplicitArtifacts(Vector(Artifact("scala-maven-plugin", "maven-plugin", "jar")))
-      )
-    )
-
     import sbtbuildinfo.BuildInfoPlugin.{autoImport => BuildInfoKeys}
     val gradlePluginBuildSettings: Seq[Def.Setting[_]] = {
       sbtbuildinfo.BuildInfoPlugin.buildInfoScopedSettings(Test) ++ List(
