@@ -6,13 +6,17 @@ sidebar_label: Maven
 
 ## Getting Started
 
-Configuring bloop with Maven projects speeds up developer workflows and gives you access to a modern Scala toolchain, despite Maven traditionally lacking good Scala suppport.
+Configuring Bloop with Maven projects speeds up developer workflows and gives
+you access to a modern Scala toolchain, despite Maven traditionally lacking good
+Scala support.
 
-However, the Maven integration has a few issues that are not being actively
-worked on. If you're a Maven user, please help out and introduce yourself in
-our [Discord channel](https://discord.gg/KWF9zMhJWS) or comment on one
-of the [open Maven
-tickets](https://github.com/scalacenter/bloop/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc+label%3Amaven).
+However, the Maven integration has a few issues that are not actively being
+worked on. If you're a Maven user, please help out and introduce yourself in our
+[Bloop Discord channel](https://discord.gg/KWF9zMhJWS) or comment on one of the
+[open issues](https://github.com/scalacenter/bloop-maven-plugin/issues) in its
+own repo at
+[`scalacenter/bloop-maven-plugin`](https://github.com/scalacenter/bloop-maven-plugin).
+
 
 <!-- start -->
 
@@ -27,32 +31,24 @@ The Bloop plugin for Maven doesn't need to be installed, you can run
 following command.
 
 ```bash
-$ mvn ch.epfl.scala:maven-bloop_2.13:@VERSION@:bloopInstall
+$ mvn ch.epfl.scala:bloop-maven-plugin:@BLOOP_MAVEN_VERSION@:bloopInstall
 ```
 
 In some cases, when you are using generated sources in you project
 you might need to run:
 
 ```bash
-$ mvn generate-sources ch.epfl.scala:maven-bloop_2.13:@VERSION@:bloopInstall
+$ mvn generate-sources ch.epfl.scala:bloop-maven-plugin:@BLOOP_MAVEN_VERSION@:bloopInstall
 ```
 
-Note that the following command uses the latest Bloop stable version
-@VERSION@.
-
-Here is the list of the latest Bloop stable and development versions. If you
-want to be on the very latest at the cost of misbehaviors, replace the above
-question with the development version.
-
-```scala mdoc:releases
-I am going to be replaced by the docs infrastructure.
-```
-
+**Note**: if you've used this command before you'll have noticed the artifact
+name has changed. In the past you would have used `maven-bloop_2.13`, however as
+of the 2.x series the artifact name has changed to `bloop-maven-plugin`.
 
 To build with a single Scala project `foo` generates two configuration files:
 
 ```bash
-$ mvn ch.epfl.scala:maven-bloop_2.10:@VERSION@:bloopInstall
+$ mvn ch.epfl.scala:bloop-maven-plugin:@BLOOP_MAVEN_VERSION@:bloopInstall
 (...)
 Generated '/disk/foo/.bloop/foo.json'.
 Generated '/disk/foo/.bloop/foo-test.json'.
@@ -62,8 +58,8 @@ where:
 1. `foo` defines the main project; and,
 1. `foo-test` defines the test project and depends on `foo`
 
-`maven-bloop` generates two configuration files per Maven project. One
-project for the main sources and another one for the tests. Bloop will skip
+The `bloop-maven-plugin` generates two configuration files per Maven project.
+One project for the main sources and another one for the tests. Bloop will skip
 config file generation for those projects that are not either Java or Scala.
 
 ## Verify installation and export
@@ -116,6 +112,6 @@ channel](https://discord.gg/KWF9zMhJWS).
 
 ### Detecting Java projects
 
-At the moment, Java projects are not being detected. Head to [this
-ticket](https://github.com/scalacenter/bloop/issues/519) for a reproducible
-example.
+At the moment, Java projects are only partially supported in the Maven export.
+If you experience issues with this please open an
+[issue](https://github.com/scalacenter/bloop-maven-plugin).
