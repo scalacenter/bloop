@@ -8,7 +8,6 @@ object Dependencies {
   val zincVersion = "1.7.2"
 
   val bspVersion = "2.0.0"
-  val javaDebugVersion = "0.21.0+1-7f1080f1"
 
   val scalazVersion = "7.2.20"
   val lmVersion = "1.1.5"
@@ -30,14 +29,13 @@ object Dependencies {
   val zipkinSenderVersion = "2.7.15"
   val asmVersion = "7.0"
   val snailgunVersion = "0.4.1-sc2"
-  val debugAdapterVersion = "3.0.4"
+  val debugAdapterVersion = "3.0.5"
   val coursierInterfaceVersion = "1.0.7"
 
   import sbt.librarymanagement.syntax.stringToOrganization
   val zinc = "org.scala-sbt" %% "zinc" % zincVersion
   val bsp4s = "ch.epfl.scala" %% "bsp4s" % bspVersion
   val nailgun = "io.github.alexarchambault.bleep" % "nailgun-server" % "1.0.4"
-  val javaDebug = "ch.epfl.scala" % "com-microsoft-java-debug-core" % javaDebugVersion
 
   val libraryManagement = "org.scala-sbt" %% "librarymanagement-ivy" % lmVersion
   val log4j = "org.apache.logging.log4j" % "log4j-core" % "2.17.1"
