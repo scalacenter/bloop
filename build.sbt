@@ -123,27 +123,6 @@ val testResourceSettings = {
   })
 }
 
-// Needs to be called `jsonConfig` because of naming conflict with sbt universe...
-lazy val config = project
-  .disablePlugins(ScalafixPlugin)
-  .settings(
-    sonatypeSetting,
-    name := "bloop-config",
-    crossScalaVersions := Seq(Dependencies.Scala212Version, Dependencies.Scala213Version),
-    scalacOptions := {
-      scalacOptions.value.filterNot(opt => opt == "-deprecation"),
-    },
-    testResourceSettings,
-    testSettings,
-    libraryDependencies ++= {
-      List(
-        Dependencies.jsoniterCore,
-        Dependencies.jsoniterMacros % Provided,
-        Dependencies.scalacheck % Test
-      )
-    }
-  )
-
 lazy val tmpDirSettings = Def.settings(
   javaOptions in Test += {
     val tmpDir = (baseDirectory in ThisBuild).value / "target" / "tests-tmp"
@@ -156,8 +135,7 @@ import build.BuildImplementation.jvmOptions
 lazy val frontend: Project = project
   .dependsOn(
     backend,
-    backend % "test->test",
-    config
+    backend % "test->test"
   )
   .enablePlugins(BuildInfoPlugin)
   .configs(IntegrationTest)
@@ -210,6 +188,7 @@ lazy val frontend: Project = project
       Dependencies.jsoniterMacros % Provided,
       Dependencies.caseApp,
       Dependencies.scalaDebugAdapter,
+      Dependencies.bloopConfig,
       Dependencies.libdaemonjvm,
       Dependencies.logback
     )
