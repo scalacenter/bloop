@@ -741,7 +741,12 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
       val closeTask = {
         lsClient.request(endpoints.Build.shutdown, bsp.Shutdown()).flatMap { _ =>
           Task.fromFuture(lsClient.notify(endpoints.Build.exit, bsp.Exit())).map { _ =>
-            socket.close()
+            try {
+              socket.close()
+            } catch {
+              case e: Throwable =>
+                logger.warn("Error closing socket", e)
+            }
             cleanUpLastResources(cmd)
           }
         }
