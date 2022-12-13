@@ -84,7 +84,10 @@ lazy val backend = project
     sonatypeSetting,
     name := "bloop-backend",
     buildInfoPackage := "bloop.internal.build",
-    buildInfoKeys := BloopBackendInfoKeys,
+    buildInfoKeys := Seq[BuildInfoKey](
+      Keys.scalaVersion,
+      Keys.scalaOrganization
+    ),
     buildInfoObject := "BloopScalaInfo",
     libraryDependencies ++= List(
       Dependencies.nailgun,
@@ -179,7 +182,18 @@ lazy val frontend: Project = project
     bloopName := "bloop",
     (Compile / run / mainClass) := Some("bloop.Cli"),
     buildInfoPackage := "bloop.internal.build",
-    buildInfoKeys := bloopInfoKeys(nativeBridge04, jsBridge1),
+    buildInfoKeys := List[BuildInfoKey](
+      Keys.organization,
+      build.BuildKeys.bloopName,
+      Keys.version,
+      Keys.scalaVersion,
+      nailgunClientLocation,
+      "zincVersion" -> Dependencies.zincVersion,
+      "bspVersion" -> Dependencies.bspVersion,
+      "nativeBridge04" -> (nativeBridge04Name + "_" + Keys.scalaBinaryVersion.value),
+      "jsBridge1" -> (jsBridge1Name + "_" + Keys.scalaBinaryVersion.value),
+      "snailgunVersion" -> Dependencies.snailgunVersion
+    ),
     (run / javaOptions) ++= jvmOptions,
     (Test / javaOptions) ++= jvmOptions,
     tmpDirSettings,
@@ -197,6 +211,7 @@ lazy val frontend: Project = project
     )
   )
 
+val jsBridge1Name = "bloop-js-bridge-1"
 lazy val jsBridge1 = project
   .dependsOn(frontend % Provided, frontend % "test->test")
   .in(file("bridges") / "scalajs-1")
@@ -204,7 +219,7 @@ lazy val jsBridge1 = project
   .settings(testSettings)
   .settings(
     sonatypeSetting,
-    name := "bloop-js-bridge-1",
+    name := jsBridge1Name,
     libraryDependencies ++= List(
       Dependencies.scalaJsLinker1,
       Dependencies.scalaJsLogging1,
@@ -215,6 +230,7 @@ lazy val jsBridge1 = project
     )
   )
 
+val nativeBridge04Name = "bloop-native-bridge-0-4"
 lazy val nativeBridge04 = project
   .dependsOn(frontend % Provided, frontend % "test->test")
   .in(file("bridges") / "scala-native-0.4")
@@ -222,7 +238,7 @@ lazy val nativeBridge04 = project
   .settings(testSettings)
   .settings(
     sonatypeSetting,
-    name := "bloop-native-bridge-0.4",
+    name := nativeBridge04Name,
     libraryDependencies += Dependencies.scalaNativeTools04,
     (Test / javaOptions) ++= jvmOptions,
     (Test / fork) := true

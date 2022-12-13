@@ -74,55 +74,6 @@ object BuildKeys {
     ),
     nailgunClientLocation := buildBase.value / "frontend" / "src" / "test" / "resources" / "pynailgun" / "ng.py"
   )
-
-  import sbt.Compile
-
-  import sbtbuildinfo.{BuildInfoKey, BuildInfoKeys}
-  final val BloopBackendInfoKeys: List[BuildInfoKey] = {
-    val scalaJarsKey =
-      BuildInfoKey.map(Keys.scalaInstance) { case (_, i) => "scalaJars" -> i.allJars.toList }
-    List(Keys.scalaVersion, Keys.scalaOrganization, scalaJarsKey)
-  }
-
-  import sbt.util.Logger.{Null => NullLogger}
-  def bloopInfoKeys(
-      nativeBridge04: Reference,
-      jsBridge1: Reference
-  ): List[BuildInfoKey] = {
-    val zincKey = BuildInfoKey.constant("zincVersion" -> Dependencies.zincVersion)
-    val developersKey =
-      BuildInfoKey.map(Keys.developers) { case (k, devs) => k -> devs.map(_.name) }
-    type Module = sbt.internal.librarymanagement.IvySbt#Module
-    def fromIvyModule(id: String, e: BuildInfoKey.Entry[Module]): BuildInfoKey.Entry[String] = {
-      BuildInfoKey.map(e) {
-        case (_, module) =>
-          id -> module.withModule(NullLogger)((_, mod, _) => mod.getModuleRevisionId.getName)
-      }
-    }
-
-    // Add only the artifact name for 0.6 bridge because we replace it
-    val jsBridge10Key = fromIvyModule("jsBridge1", (jsBridge1 / Keys.ivyModule))
-    val nativeBridge04Key = fromIvyModule("nativeBridge04", (nativeBridge04 / Keys.ivyModule))
-    val bspKey = BuildInfoKey.constant("bspVersion" -> Dependencies.bspVersion)
-    val snailgunKey = BuildInfoKey.constant("snailgunVersion" -> Dependencies.snailgunVersion)
-    val extra = List(
-      zincKey,
-      developersKey,
-      nativeBridge04Key,
-      jsBridge10Key,
-      bspKey,
-      snailgunKey
-    )
-    val commonKeys = List[BuildInfoKey](
-      Keys.organization,
-      BuildKeys.bloopName,
-      Keys.version,
-      Keys.scalaVersion,
-      Keys.sbtVersion,
-      nailgunClientLocation
-    )
-    commonKeys ++ extra
-  }
 }
 
 object BuildImplementation {
