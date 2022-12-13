@@ -290,7 +290,7 @@ class BspSbtClientSpec(
             |  -> Msg: Compiling a (1 Scala source)
             |  -> Data kind: compile-task
             |#2: a/src/main/scala/Foo.scala
-            |  -> List(Diagnostic(Range(Position(1,3),Position(1,3)),Some(Error),Some(_),Some(_),';' expected but 'def' found.,None))
+            |  -> List(Diagnostic(Range(Position(1,3),Position(1,3)),Some(Error),Some(_),Some(_),';' expected but 'def' found.,None,None,None))
             |  -> reset = true
             |#2: task finish 2
             |  -> errors 1, warnings 0

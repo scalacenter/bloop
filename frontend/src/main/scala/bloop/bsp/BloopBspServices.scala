@@ -317,6 +317,7 @@ final class BloopBspServices(
               dependencySourcesProvider = Some(true),
               dependencyModulesProvider = None,
               resourcesProvider = Some(true),
+              outputPathsProvider = None,
               buildTargetChangedProvider = Some(false),
               jvmTestEnvironmentProvider = Some(true),
               jvmRunEnvironmentProvider = Some(true),
