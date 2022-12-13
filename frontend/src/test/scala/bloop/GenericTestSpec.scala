@@ -78,8 +78,15 @@ class GenericTestSpec {
 
     val logger = new RecordingLogger(ansiCodesSupported = false)
     val deps = Map("I" -> Set("H", "G", "F"), "H" -> Set("F"))
+    val testProjects = Set("F", "G", "H", "I")
     val junitJars = bloop.internal.build.BuildTestInfo.junitTestJars.map(AbsolutePath.apply).toArray
-    TestUtil.testState(structure, deps, userLogger = Some(logger), extraJars = junitJars) { state =>
+    TestUtil.testState(
+      structure,
+      deps,
+      userLogger = Some(logger),
+      extraJars = junitJars,
+      testProjects = testProjects
+    ) { state =>
       val action = Run(Commands.Test(List("F"), cascade = true, args = List("-v", "-a")))
       val compiledState = TestUtil.blockingExecute(action, state)
       Assert.assertTrue("Unexpected compilation error", compiledState.status.isOk)

@@ -42,6 +42,20 @@ object TestTask {
   implicit private val logContext: DebugFilter = DebugFilter.Test
 
   /**
+   * Does the given project represent a test project? Test project are projects tagged with either
+   * `test` or `integration-test`.
+   *
+   * See [[Tag.Test]], [[Tag.IntegrationTest]]
+   *
+   * @param project The project to test
+   * @return true if `project` is a test project, false otherwise.
+   */
+  def isTestProject(project: Project): Boolean = {
+    project.tags.contains(Tag.Test) ||
+    project.tags.contains(Tag.IntegrationTest)
+  }
+
+  /**
    * Run discovered test suites for a given project and return a status code.
    *
    * @param state The state with which to test.
@@ -65,10 +79,9 @@ object TestTask {
       mode: RunMode
   ): Task[Int] = {
     import state.logger
-    val isTestProject = project.tags.contains(Tag.Test) ||
-      project.tags.contains(Tag.IntegrationTest)
+    val isTest = isTestProject(project)
     def handleEmptyTestFrameworks: Task[Int] = {
-      if (isTestProject) {
+      if (isTest) {
         logger.error(s"Missing configured test frameworks in ${project.name}")
         Task.now(1)
       } else {
@@ -85,7 +98,7 @@ object TestTask {
         logger.warn(s"Skipping test for ${project.name} because compiler result is empty")
         Task.now(0)
       } else {
-        if (isTestProject) {
+        if (isTest) {
           logger.error(s"Missing compilation to test ${project.name}")
           Task.now(1)
         } else {
