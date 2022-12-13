@@ -22,7 +22,7 @@ abstract class DebugBspBaseSuite extends BspBaseSuite {
 
   override def protocol: BspProtocol = if (isWindows) BspProtocol.Tcp else BspProtocol.Local
 
-  override def openBspConnection[T](
+  override def openBspConnectionUnsafe[T](
       state: State,
       cmd: Commands.ValidatedBsp,
       configDirectory: AbsolutePath,
@@ -34,7 +34,7 @@ abstract class DebugBspBaseSuite extends BspBaseSuite {
       compileStartPromises: Option[mutable.HashMap[bsp.BuildTargetIdentifier, Promise[Unit]]] = None
   ): UnmanagedBspTestState = {
     val ioScheduler = userIOScheduler.orElse(Some(debugDefaultScheduler))
-    super.openBspConnection(
+    super.openBspConnectionUnsafe(
       state,
       cmd,
       configDirectory,
