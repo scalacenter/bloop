@@ -10,6 +10,11 @@ Configuring bloop in your Gradle projects will speed up your Scala
 development significantly. It is highly recommended to use Bloop in Gradle
 because Gradle has a pretty long development cycle and it takes a long time
 to do basic build operations such as compilation or running an application.
+
+The Gradle plugin lives in its own repository at
+[scalacenter/gradle-bloop](https://github.com/scalacenter/gradle-bloop). Please
+do report any issues with the Gradle integration there!
+
 Learn how to get set up by following the instructions below.
 
 <!-- start -->
@@ -29,8 +34,6 @@ Here is a list of the latest Bloop stable and development versions.
 I am going to be replaced by the docs infrastructure.
 ```
 
-
-
 Add bloop to your `build.gradle` with:
 
 ```gradle
@@ -41,11 +44,10 @@ buildscript {
   }
 
   dependencies {
-    classpath 'ch.epfl.scala:gradle-bloop_2.12:@VERSION@'
+    classpath 'ch.epfl.scala:gradle-bloop_2.12:@BLOOP_GRADLE_VERSION@'
   }
 }
 ```
-
 
 Then, enable bloop in all your Gradle projects with:
 

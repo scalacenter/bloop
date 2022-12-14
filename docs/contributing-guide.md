@@ -28,14 +28,17 @@ If you're looking for the Maven integration, then you'll want to make those
 changes in
 [scalacenter/bloop-maven-plugin](https://github.com/scalacenter/bloop-maven-plugin).
 
+If you're looking to the Gradle integration, then you'll want to make those
+changes in
+[scalacenter/gradle-bloop](https://github.com/scalacenter/gradle-bloop).
+
 ## Project structure
 
 Here's a list of the most important directories in the bloop repositories.
 
 1. `backend` defines low-level compiler APIs wrapping Zinc APIs.
 1. `frontend` defines the core of bloop, the task scheduling, the CLI and all the supported tasks: compilation, testing, running and linking.
-1. `integrations` contains plugins for some of the supported build tools, sbt
-   and Gradle, to extract any build to bloop.
+1. `integrations` contains the sbt plugin to extract any sbt build to bloop.
 
 When contributing to bloop, you will most likely need to modify code in the
 above directories. The next directories define the rest of the project and
