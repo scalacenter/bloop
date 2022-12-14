@@ -57,7 +57,6 @@ private final class MainClassDebugAdapter(
   val javaRuntime: Option[JavaRuntime] = JavaRuntime(env.javaHome.underlying)
   def name: String = s"${getClass.getSimpleName}(${project.name}, ${mainClass.`class`})"
   def start(state: State, listener: DebuggeeListener): Task[ExitStatus] = {
-    val workingDir = state.commonOptions.workingPath
     // TODO: https://github.com/scalacenter/bloop/issues/1456
     // Metals used to add the `-J` prefix but it is not needed anymore
     // So we cautiously strip it off
@@ -66,7 +65,7 @@ private final class MainClassDebugAdapter(
       state,
       project,
       env,
-      workingDir,
+      project.workspaceDirectory.getOrElse(project.baseDirectory),
       mainClass.`class`,
       mainClass.arguments.toArray,
       jvmOptions.toArray,
