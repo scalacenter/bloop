@@ -28,9 +28,6 @@ object Dependencies {
   val junitVersion = "0.13.3"
   val graphvizVersion = "0.2.2"
   val directoryWatcherVersion = "0.8.0+6-f651bd93"
-  val gradleVersion = "5.0"
-  val groovyVersion = "3.0.13"
-  val gradleAndroidPluginVersion = "4.2.2"
   val ipcsocketVersion = "1.0.1"
   val monixVersion = "3.2.0"
   val circeVersion = "0.9.3"
@@ -85,16 +82,6 @@ object Dependencies {
   val difflib = "com.googlecode.java-diff-utils" % "diffutils" % difflibVersion
 
   import sbt.Provided
-  val gradleAPI = "dev.gradleplugins" % "gradle-api" % gradleVersion % Provided
-  val gradleTestKit = "dev.gradleplugins" % "gradle-test-kit" % gradleVersion % Provided
-  val gradleCore = "org.gradle" % "gradle-core" % gradleVersion % Provided
-  val gradleWorkers = "org.gradle" % "gradle-workers" % gradleVersion % Provided
-  val gradleDependencyManagement =
-    "org.gradle" % "gradle-dependency-management" % gradleVersion % Provided
-  val gradleToolingApi = "org.gradle" % "gradle-tooling-api" % gradleVersion % Provided
-  val groovy = "org.codehaus.groovy" % "groovy" % groovyVersion % Provided
-  val gradleAndroidPlugin =
-    "com.android.tools.build" % "gradle" % gradleAndroidPluginVersion % Provided
 
   val monix = "io.monix" %% "monix" % monixVersion
   val jsoniterCore =
@@ -116,8 +103,6 @@ object Dependencies {
   val scalaJsSbtTestAdapter1 =
     "org.scala-js" %% "scalajs-sbt-test-adapter" % scalaJs1Version % Provided
   val scalaJsLogging1 = "org.scala-js" %% "scalajs-logging" % "1.1.1" % Provided
-
-  val classgraph = "io.github.classgraph" % "classgraph" % "4.8.152"
 
   val xxHashLibrary = "net.jpountz.lz4" % "lz4" % xxHashVersion
   val zt = "org.zeroturnaround" % "zt-zip" % ztVersion

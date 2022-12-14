@@ -27,6 +27,7 @@ import sbt.internal.BuildLoader
 import sbt.librarymanagement.MavenRepository
 import build.BloopShadingPlugin.{autoImport => BloopShadingKeys}
 import sbt.util.Logger
+import sbtbuildinfo.BuildInfoPlugin.{autoImport => BuildInfoKeys}
 
 object BuildPlugin extends AutoPlugin {
   import sbt.plugins.JvmPlugin
@@ -412,31 +413,6 @@ object BuildImplementation {
       // Use the default staging directory, we don't care if the user changed it.
       val globalBase = sbt.BuildPaths.getGlobalBase(state)
       sbt.BuildPaths.getStagingDirectory(state, globalBase)
-    }
-
-    import sbtbuildinfo.BuildInfoPlugin.{autoImport => BuildInfoKeys}
-    val gradlePluginBuildSettings: Seq[Def.Setting[_]] = {
-      sbtbuildinfo.BuildInfoPlugin.buildInfoScopedSettings(Test) ++ List(
-        (Test / Keys.fork) := true,
-        Keys.resolvers ++= List(
-          MavenRepository("Gradle releases", "https://repo.gradle.org/gradle/libs-releases-local/"),
-          MavenRepository("Android plugin", "https://maven.google.com/"),
-          MavenRepository("Android dependencies", "https://repo.spring.io/plugins-release/")
-        ),
-        Keys.libraryDependencies ++= List(
-          Dependencies.gradleAPI,
-          Dependencies.gradleTestKit,
-          Dependencies.gradleCore,
-          Dependencies.gradleToolingApi,
-          Dependencies.groovy,
-          Dependencies.gradleAndroidPlugin
-        ),
-        Keys.publishLocal := Keys.publishLocal.dependsOn(Keys.publishM2).value,
-        // Only generate for tests (they are not published and can contain user-dependent data)
-        (Compile / BuildInfoKeys.buildInfo) := Nil,
-        (Test / BuildInfoKeys.buildInfoPackage) := "bloop.internal.build",
-        (Test / BuildInfoKeys.buildInfoObject) := "BloopGradleIntegration"
-      )
     }
 
     val frontendTestBuildSettings: Seq[Def.Setting[_]] = {
