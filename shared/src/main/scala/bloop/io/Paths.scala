@@ -14,12 +14,11 @@ import java.nio.file.attribute.BasicFileAttributes
 import java.nio.file.attribute.FileTime
 import java.nio.file.attribute.PosixFilePermissions
 import java.nio.file.{Paths => NioPaths}
+import java.time.temporal.ChronoUnit
 import java.util
 
 import scala.collection.mutable
 import scala.util.Properties
-
-import java.time.temporal.ChronoUnit
 
 object Paths {
   private def createDirFor(filepath: String): AbsolutePath =

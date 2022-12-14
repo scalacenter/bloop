@@ -44,7 +44,7 @@ class BspConnectionSpec(
         Task {
           val logger = new RecordingLogger(ansiCodesSupported = false)
           val bspLogger = new BspClientLogger(logger)
-          val bspCommand = createBspCommand(configDir)
+          def bspCommand() = createBspCommand(configDir)
           val state = TestUtil.loadTestProject(configDir.underlying, logger)
 
           // Run the clients on our own unbounded IO scheduler to allow client concurrency
@@ -181,7 +181,7 @@ class BspConnectionSpec(
       def createHangingCompilationViaBsp: Task[Unit] = {
         Task {
           val bspLogger = new BspClientLogger(logger)
-          val bspCommand = createBspCommand(configDir)
+          def bspCommand() = createBspCommand(configDir)
           val state = TestUtil.loadTestProject(configDir.underlying, logger)
 
           // Run the clients on our own unbounded IO scheduler to allow client concurrency

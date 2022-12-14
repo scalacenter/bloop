@@ -18,12 +18,6 @@ import scala.util.Try
 
 import ch.epfl.scala.bsp
 import ch.epfl.scala.bsp.BuildTargetIdentifier
-import ch.epfl.scala.bsp.MessageType
-import ch.epfl.scala.bsp.ShowMessageParams
-import ch.epfl.scala.bsp.CompileResult
-import ch.epfl.scala.bsp.StatusCode
-import ch.epfl.scala.bsp.Uri
-import ch.epfl.scala.bsp.endpoints
 import ch.epfl.scala.bsp.CompileResult
 import ch.epfl.scala.bsp.MessageType
 import ch.epfl.scala.bsp.ShowMessageParams
@@ -80,6 +74,7 @@ import bloop.testing.TestInternals
 import bloop.util.JavaRuntime
 
 import com.github.plokhotnyuk.jsoniter_scala.core._
+import com.github.plokhotnyuk.jsoniter_scala.macros.JsonCodecMaker
 import jsonrpc4s._
 import monix.execution.Cancelable
 import monix.execution.CancelablePromise
@@ -87,7 +82,6 @@ import monix.execution.Scheduler
 import monix.execution.atomic.AtomicBoolean
 import monix.execution.atomic.AtomicInt
 import monix.reactive.subjects.BehaviorSubject
-import com.github.plokhotnyuk.jsoniter_scala.macros.JsonCodecMaker
 
 final class BloopBspServices(
     callSiteState: State,
@@ -317,6 +311,7 @@ final class BloopBspServices(
               dependencySourcesProvider = Some(true),
               dependencyModulesProvider = None,
               resourcesProvider = Some(true),
+              outputPathsProvider = None,
               buildTargetChangedProvider = Some(false),
               jvmTestEnvironmentProvider = Some(true),
               jvmRunEnvironmentProvider = Some(true),
@@ -581,7 +576,7 @@ final class BloopBspServices(
           Task.now((state, Right(ScalaTestClassesResult(Nil))))
 
         case Right(projects) =>
-          val subTasks = projects.toList.map {
+          val subTasks = projects.toList.filter(p => TestTask.isTestProject(p._2)).map {
             case (id, project) =>
               val task = TestTask.findTestNamesWithFramework(project, state)
               val item = task.map { classes =>

@@ -130,7 +130,7 @@ object Tasks {
       mode: RunMode
   ): Task[TestRuns] = {
 
-    val testTasks = projectsToTest.map { project =>
+    val testTasks = projectsToTest.filter(TestTask.isTestProject).map { project =>
       // note: mutable state here, to collect all `TestSuiteEvent.Results` produced while running tests
       // it should be fine, since it's scoped to this particular evaluation of `TestTask.runTestSuites`
       val resultsBuilder = List.newBuilder[TestSuiteEvent.Results]

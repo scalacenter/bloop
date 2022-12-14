@@ -51,11 +51,9 @@ object State {
   private def getCompilerCache(logger: Logger): CompilerCache = synchronized {
     if (singleCompilerCache != null) singleCompilerCache.withLogger(logger)
     else {
-      val scheduler = ExecutionContext.ioScheduler
       val componentsDir = Paths.getCacheDirectory("components")
       val provider = BloopComponentCompiler.getComponentProvider(componentsDir)
-      val jars = Paths.getCacheDirectory("scala-jars")
-      singleCompilerCache = new CompilerCache(provider, jars, logger, Nil, None, None, scheduler)
+      singleCompilerCache = new CompilerCache(provider, logger)
       singleCompilerCache
     }
   }

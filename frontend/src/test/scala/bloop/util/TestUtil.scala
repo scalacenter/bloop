@@ -49,6 +49,7 @@ import bloop.logging.RecordingLogger
 
 import _root_.bloop.task.Task
 import _root_.monix.execution.Scheduler
+import bloop.config.Tag
 import org.junit.Assert
 import sbt.internal.inc.BloopComponentCompiler
 import java.util.concurrent.TimeoutException
@@ -81,10 +82,7 @@ object TestUtil {
   def getCompilerCache(logger: Logger): CompilerCache = synchronized {
     if (singleCompilerCache != null) singleCompilerCache.withLogger(logger)
     else {
-      val scheduler = ExecutionContext.ioScheduler
-      val jars = bloop.io.Paths.getCacheDirectory("scala-jars")
-      singleCompilerCache =
-        new CompilerCache(componentProvider, jars, logger, Nil, None, None, scheduler)
+      singleCompilerCache = new CompilerCache(componentProvider, logger)
       singleCompilerCache
     }
   }
@@ -327,7 +325,8 @@ object TestUtil {
       jdkConfig: JdkConfig = JdkConfig.default,
       order: CompileOrder = Config.Mixed,
       userLogger: Option[Logger] = None,
-      extraJars: Array[AbsolutePath] = Array()
+      extraJars: Array[AbsolutePath] = Array(),
+      testProjects: Set[String] = Set.empty
   )(op: State => T): T = {
     withinWorkspace { temp =>
       val logger = userLogger.getOrElse(BloopLogger.default(temp.toString))
@@ -335,7 +334,19 @@ object TestUtil {
         case (name, sources) =>
           val instance1 = Some(instance)
           val deps = dependenciesMap.getOrElse(name, Set.empty)
-          makeProject(temp, name, sources, deps, instance1, jdkConfig, logger, order, extraJars)
+          val tags = if (testProjects.contains(name)) Tag.Test :: Nil else Nil
+          makeProject(
+            temp,
+            name,
+            sources,
+            deps,
+            instance1,
+            jdkConfig,
+            logger,
+            order,
+            extraJars,
+            tags
+          )
       }
       val loaded = projects.map(p => LoadedProject.RawProject(p))
       val build = Build(temp, loaded.toList, None)
@@ -374,7 +385,8 @@ object TestUtil {
       jdkConfig: JdkConfig,
       logger: Logger,
       compileOrder: CompileOrder,
-      extraJars: Array[AbsolutePath]
+      extraJars: Array[AbsolutePath],
+      tags: List[String]
   ): Project = {
     val origin = syntheticOriginFor(baseDir)
     val baseDirectory = projectDir(baseDir.underlying, name)
@@ -417,7 +429,7 @@ object TestUtil {
       platform = Project.defaultPlatform(logger, classpath, Nil, Some(jdkConfig)),
       sbt = None,
       resolution = None,
-      tags = Nil,
+      tags = tags,
       origin = origin
     )
   }
@@ -497,6 +509,12 @@ object TestUtil {
     Files.createDirectories(temp).toRealPath()
     try op(AbsolutePath(temp))
     finally delete(AbsolutePath(temp))
+  }
+
+  /** Creates an empty workspace where operations can happen. */
+  def withinWorkspace[T](op: AbsolutePath => Task[T]): Task[T] = {
+    val temp = Files.createTempDirectory("bloop-test-workspace").toRealPath()
+    op(AbsolutePath(temp)).doOnFinish(_ => Task(delete(AbsolutePath(temp))))
   }
 
   def withTemporaryFile[T](op: Path => T): T = {

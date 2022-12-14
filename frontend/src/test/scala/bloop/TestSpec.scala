@@ -405,7 +405,7 @@ object NoTestFrameworksSpec extends ProjectBaseSuite("no-test-frameworks") {
       val testState = build.state.test(project)
       try {
         assert(testState.status.isOk)
-        assert(logger.warnings.contains("Missing configured test frameworks in myProject"))
+        // No message is logged - this is not a test target, and therefore it is ignored.
       } catch { case err: AssertionError => logger.dump(); throw err }
   }
 }

@@ -1,6 +1,7 @@
 package sbt.internal.inc.bloop.internal
 
 import scala.collection.parallel.immutable.ParVector
+
 import bloop.task.Task
 
 import _root_.bloop.UniqueCompileInputs

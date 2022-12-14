@@ -561,24 +561,12 @@ abstract class BaseSuite extends TestSuite with BloopHelpers {
     myTests += FlatTest(name, () => { fun; () })
   }
 
-  def testAsync(name: String, maxDuration: Duration = Duration("20s"))(
-      run: => Unit
-  ): Unit = {
-    test(name) {
-      Await.result(Task { run }.runAsync(ExecutionContext.scheduler), maxDuration)
-    }
+  def testTask(name: String, maxDuration: Duration = Duration("20s"))(fun: => Task[Unit]): Unit = {
+    myTests += FlatTest(
+      name,
+      () => { TestUtil.await(maxDuration, ExecutionContext.ioScheduler)(fun) }
+    )
   }
-
-  /*
-  def testAsync(name: String, maxDuration: Duration = Duration("10min"))(
-      run: => Future[Unit]
-  ): Unit = {
-    test(name) {
-      val fut = run
-      Await.result(fut, maxDuration)
-    }
-  }
-   */
 
   def fail(msg: String, stackBump: Int = 0): Nothing = {
     val ex = new DiffAssertions.TestFailedException(msg)

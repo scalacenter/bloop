@@ -120,7 +120,8 @@ final class BspServerLogger private (
         val source = Some("bloop")
         val uri = bsp.Uri(file.toPath.toUri)
         val severity = bspSeverity(problemSeverity)
-        val diagnostic = bsp.Diagnostic(pos, Some(severity), code, source, message, None)
+        val diagnostic =
+          bsp.Diagnostic(pos, Some(severity), code, source, message, None, None, None)
         val textDocument = bsp.TextDocumentIdentifier(uri)
         val buildTargetId = bsp.BuildTargetIdentifier(event.projectUri)
         client.notify(
@@ -138,7 +139,8 @@ final class BspServerLogger private (
         val pos = bsp.Position(0, 0)
         val range = bsp.Range(pos, pos)
         val severity = bspSeverity(problemSeverity)
-        val diagnostic = bsp.Diagnostic(range, Some(severity), None, None, message, None)
+        val diagnostic =
+          bsp.Diagnostic(range, Some(severity), None, None, message, None, None, None)
         val textDocument = bsp.TextDocumentIdentifier(uri)
         val buildTargetId = bsp.BuildTargetIdentifier(event.projectUri)
         client.notify(

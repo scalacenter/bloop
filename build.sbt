@@ -62,7 +62,11 @@ lazy val shared = project
     sonatypeSetting,
     name := "bloop-shared",
     libraryDependencies ++= Seq(
-      Dependencies.bsp4s,
+      Dependencies.jsoniterCore,
+      Dependencies.jsoniterMacros,
+      Dependencies.bsp4s excludeAll ExclusionRule(
+        organization = "com.github.plokhotnyuk.jsoniter-scala"
+      ),
       Dependencies.coursierInterface,
       Dependencies.zinc,
       Dependencies.log4j,
@@ -84,10 +88,12 @@ lazy val backend = project
     sonatypeSetting,
     name := "bloop-backend",
     buildInfoPackage := "bloop.internal.build",
-    buildInfoKeys := BloopBackendInfoKeys,
+    buildInfoKeys := Seq[BuildInfoKey](
+      Keys.scalaVersion,
+      Keys.scalaOrganization
+    ),
     buildInfoObject := "BloopScalaInfo",
     libraryDependencies ++= List(
-      Dependencies.javaDebug,
       Dependencies.nailgun,
       Dependencies.scalazCore,
       Dependencies.scalazConcurrent,
@@ -117,27 +123,6 @@ val testResourceSettings = {
   })
 }
 
-// Needs to be called `jsonConfig` because of naming conflict with sbt universe...
-lazy val config = project
-  .disablePlugins(ScalafixPlugin)
-  .settings(
-    sonatypeSetting,
-    name := "bloop-config",
-    crossScalaVersions := Seq(Dependencies.Scala212Version, Dependencies.Scala213Version),
-    scalacOptions := {
-      scalacOptions.value.filterNot(opt => opt == "-deprecation"),
-    },
-    testResourceSettings,
-    testSettings,
-    libraryDependencies ++= {
-      List(
-        Dependencies.jsoniterCore,
-        Dependencies.jsoniterMacros % Provided,
-        Dependencies.scalacheck % Test
-      )
-    }
-  )
-
 lazy val tmpDirSettings = Def.settings(
   javaOptions in Test += {
     val tmpDir = (baseDirectory in ThisBuild).value / "target" / "tests-tmp"
@@ -150,8 +135,7 @@ import build.BuildImplementation.jvmOptions
 lazy val frontend: Project = project
   .dependsOn(
     backend,
-    backend % "test->test",
-    config
+    backend % "test->test"
   )
   .enablePlugins(BuildInfoPlugin)
   .configs(IntegrationTest)
@@ -180,7 +164,18 @@ lazy val frontend: Project = project
     bloopName := "bloop",
     (Compile / run / mainClass) := Some("bloop.Cli"),
     buildInfoPackage := "bloop.internal.build",
-    buildInfoKeys := bloopInfoKeys(nativeBridge04, jsBridge1),
+    buildInfoKeys := List[BuildInfoKey](
+      Keys.organization,
+      build.BuildKeys.bloopName,
+      Keys.version,
+      Keys.scalaVersion,
+      nailgunClientLocation,
+      "zincVersion" -> Dependencies.zincVersion,
+      "bspVersion" -> Dependencies.bspVersion,
+      "nativeBridge04" -> (nativeBridge04Name + "_" + Keys.scalaBinaryVersion.value),
+      "jsBridge1" -> (jsBridge1Name + "_" + Keys.scalaBinaryVersion.value),
+      "snailgunVersion" -> Dependencies.snailgunVersion
+    ),
     (run / javaOptions) ++= jvmOptions,
     (Test / javaOptions) ++= jvmOptions,
     tmpDirSettings,
@@ -193,11 +188,13 @@ lazy val frontend: Project = project
       Dependencies.jsoniterMacros % Provided,
       Dependencies.caseApp,
       Dependencies.scalaDebugAdapter,
+      Dependencies.bloopConfig,
       Dependencies.libdaemonjvm,
       Dependencies.logback
     )
   )
 
+val jsBridge1Name = "bloop-js-bridge-1"
 lazy val jsBridge1 = project
   .dependsOn(frontend % Provided, frontend % "test->test")
   .in(file("bridges") / "scalajs-1")
@@ -205,7 +202,7 @@ lazy val jsBridge1 = project
   .settings(testSettings)
   .settings(
     sonatypeSetting,
-    name := "bloop-js-bridge-1",
+    name := jsBridge1Name,
     libraryDependencies ++= List(
       Dependencies.scalaJsLinker1,
       Dependencies.scalaJsLogging1,
@@ -216,6 +213,7 @@ lazy val jsBridge1 = project
     )
   )
 
+val nativeBridge04Name = "bloop-native-bridge-0-4"
 lazy val nativeBridge04 = project
   .dependsOn(frontend % Provided, frontend % "test->test")
   .in(file("bridges") / "scala-native-0.4")
@@ -223,7 +221,7 @@ lazy val nativeBridge04 = project
   .settings(testSettings)
   .settings(
     sonatypeSetting,
-    name := "bloop-native-bridge-0.4",
+    name := nativeBridge04Name,
     libraryDependencies += Dependencies.scalaNativeTools04,
     (Test / javaOptions) ++= jvmOptions,
     (Test / fork) := true
