@@ -82,10 +82,7 @@ object TestUtil {
   def getCompilerCache(logger: Logger): CompilerCache = synchronized {
     if (singleCompilerCache != null) singleCompilerCache.withLogger(logger)
     else {
-      val scheduler = ExecutionContext.ioScheduler
-      val jars = bloop.io.Paths.getCacheDirectory("scala-jars")
-      singleCompilerCache =
-        new CompilerCache(componentProvider, jars, logger, Nil, None, None, scheduler)
+      singleCompilerCache = new CompilerCache(componentProvider, logger)
       singleCompilerCache
     }
   }

@@ -8,8 +8,6 @@ import javax.tools.DiagnosticListener
 import javax.tools.JavaFileObject
 import javax.tools.StandardLocation
 
-import scala.concurrent.ExecutionContext
-
 import bloop.io.AbsolutePath
 import bloop.io.Paths
 import bloop.logging.RecordingLogger
@@ -77,8 +75,7 @@ class CompilerCacheSpec {
         val wr2 = new WriteReportingJavaFileObject(fo2, classFileManager)
         val wr3 = new WriteReportingJavaFileObject(fo3, classFileManager)
 
-        val ec = ExecutionContext.global
-        val compilerCache = new CompilerCache(null, tempDir, logger, List.empty, None, None, ec)
+        val compilerCache = new CompilerCache(null, logger)
         val bloopCompiler = new compilerCache.BloopJavaCompiler(compiler)
         val invalidatingFileManager =
           new bloopCompiler.BloopInvalidatingFileManager(javacFileManager, classFileManager)
@@ -135,12 +132,11 @@ class CompilerCacheSpec {
   private def withCompilerCache(op: CompilerCache => Unit): Unit = {
     val tempDir = AbsolutePath(Files.createTempDirectory("compiler-cache-spec"))
     try {
-      val ec = ExecutionContext.global
       val logger = new RecordingLogger()
       val componentProvider =
         BloopComponentCompiler.getComponentProvider(tempDir.resolve("components"))
       val compilerCache =
-        new CompilerCache(componentProvider, tempDir, logger, List.empty, None, None, ec)
+        new CompilerCache(componentProvider, logger)
       op(compilerCache)
     } finally {
       Paths.delete(tempDir)

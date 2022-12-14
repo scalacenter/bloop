@@ -1,20 +1,20 @@
 package build
 
 object Dependencies {
-  val Scala212Version = "2.12.15"
+  val Scala212Version = "2.12.17"
   val Scala213Version = "2.13.8"
 
   // Keep in sync in BloopComponentCompiler
-  val zincVersion = "1.7.2"
+  val zincVersion = "1.8.0"
 
   val bspVersion = "2.1.0-M3"
 
   val scalazVersion = "7.2.35"
-  val lmVersion = "1.1.5"
+  val lmVersion = "1.8.0"
   val caseAppVersion = "2.0.6"
   val sourcecodeVersion = "0.3.0"
   val sbtTestInterfaceVersion = "1.0"
-  val sbtTestAgentVersion = "1.4.4"
+  val sbtTestAgentVersion = "1.8.0"
   val junitVersion = "0.13.3"
   val directoryWatcherVersion = "0.8.0+6-f651bd93"
   val monixVersion = "3.2.0"
