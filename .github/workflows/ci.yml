@@ -37,8 +37,6 @@ jobs:
       - name: Tests
         run: |
           ./bin/sbt-ci.sh \
-              "mavenBloop/publishM2" \
-              "mavenBloop/test" \
               "gradleBloop211/compile" \
               "gradleBloop212/compile" \
               "gradleBloop212/test" \

@@ -28,9 +28,6 @@ object Dependencies {
   val junitVersion = "0.13.3"
   val graphvizVersion = "0.2.2"
   val directoryWatcherVersion = "0.8.0+6-f651bd93"
-  val mavenApiVersion = "3.8.6"
-  val mavenAnnotationsVersion = "3.5"
-  val mavenScalaPluginVersion = "4.5.6"
   val gradleVersion = "5.0"
   val groovyVersion = "3.0.13"
   val gradleAndroidPluginVersion = "4.2.2"
@@ -88,12 +85,6 @@ object Dependencies {
   val difflib = "com.googlecode.java-diff-utils" % "diffutils" % difflibVersion
 
   import sbt.Provided
-  val mavenCore = "org.apache.maven" % "maven-core" % mavenApiVersion % Provided
-  val mavenPluginApi = "org.apache.maven" % "maven-plugin-api" % mavenApiVersion
-  val mavenPluginAnnotations =
-    "org.apache.maven.plugin-tools" % "maven-plugin-annotations" % mavenAnnotationsVersion % Provided
-  val mavenScalaPlugin = "net.alchim31.maven" % "scala-maven-plugin" % mavenScalaPluginVersion
-
   val gradleAPI = "dev.gradleplugins" % "gradle-api" % gradleVersion % Provided
   val gradleTestKit = "dev.gradleplugins" % "gradle-test-kit" % gradleVersion % Provided
   val gradleCore = "org.gradle" % "gradle-core" % gradleVersion % Provided
