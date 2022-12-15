@@ -45,8 +45,6 @@ import com.microsoft.java.debug.core.protocol.Types
 import com.microsoft.java.debug.core.protocol.Types.SourceBreakpoint
 import monix.execution.Ack
 import monix.reactive.Observer
-import scala.concurrent.Await
-import bloop.engine.ExecutionContext
 
 object DebugServerSpec extends DebugBspBaseSuite {
   private val ServerNotListening = new IllegalStateException("Server is not accepting connections")
@@ -595,7 +593,7 @@ object DebugServerSpec extends DebugBspBaseSuite {
         workspace,
         "r",
         List(source),
-        scalaVersion = Some("2.12.15")
+        scalaVersion = Some("2.12.17")
       )
 
       loadBspStateWithTask(workspace, List(project), logger) { state =>
@@ -636,6 +634,47 @@ object DebugServerSpec extends DebugBspBaseSuite {
     }
   }
 
+  testTask("set-workspace-directory", FiniteDuration(60, SECONDS)) {
+    TestUtil.withinWorkspace { workspace =>
+      val source =
+        """|/Main.scala
+           |object Main {
+           |  def main(args: Array[String]): Unit = {
+           |    println(java.nio.file.Paths.get("").toAbsolutePath())
+           |  }
+           |}
+           |""".stripMargin
+
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val project = TestProject(
+        workspace,
+        "r",
+        List(source)
+      )
+
+      loadBspStateWithTask(workspace, List(project), logger) { state =>
+        val runner = mainRunner(project, state)
+
+        startDebugServer(runner) { server =>
+          for {
+            client <- server.startConnection
+            _ <- client.initialize()
+            _ <- client.launch()
+            _ <- client.initialized
+            _ <- client.configurationDone()
+            _ <- client.exited
+            _ <- client.terminated
+            finalOutput <- client.takeCurrentOutput
+            _ <- Task.fromFuture(client.closedPromise.future)
+          } yield {
+            assert(client.socket.isClosed)
+            assertNoDiff(finalOutput, workspace.toString)
+          }
+        }
+      }
+    }
+  }
+
   testTask("evaluate expression in test suite", FiniteDuration(60, SECONDS)) {
     TestUtil.withinWorkspace { workspace =>
       val source =
@@ -654,7 +693,7 @@ object DebugServerSpec extends DebugBspBaseSuite {
 
       val logger = new RecordingLogger(ansiCodesSupported = false)
 
-      val scalaVersion = "2.12.15"
+      val scalaVersion = "2.12.17"
       val compilerJars = ScalaInstance
         .resolve("org.scala-lang", "scala-compiler", scalaVersion, logger)
         .allJars
@@ -728,7 +767,7 @@ object DebugServerSpec extends DebugBspBaseSuite {
         workspace,
         "r",
         List(source),
-        scalaVersion = Some("2.12.15")
+        scalaVersion = Some("2.12.17")
       )
 
       loadBspStateWithTask(workspace, List(project), logger) { state =>
@@ -794,7 +833,7 @@ object DebugServerSpec extends DebugBspBaseSuite {
 
       val logger = new RecordingLogger(ansiCodesSupported = false)
 
-      val scalaVersion = "2.12.15"
+      val scalaVersion = "2.12.17"
       val compilerJars = ScalaInstance
         .resolve("org.scala-lang", "scala-compiler", scalaVersion, logger)
         .allJars
@@ -983,7 +1022,7 @@ object DebugServerSpec extends DebugBspBaseSuite {
       def run(listener: DebuggeeListener): CancelableFuture[Unit] = {
         DapCancellableFuture.runAsync(task.map(_ => ()), defaultScheduler)
       }
-      def scalaVersion: ScalaVersion = ScalaVersion("2.12.15")
+      def scalaVersion: ScalaVersion = ScalaVersion("2.12.17")
     }
 
     startDebugServer(

@@ -142,12 +142,12 @@ object ScalaJsToolchain extends ToolchainCompanion[ScalaJsToolchain] {
         DependencyResolution
           .Artifact("org.scala-js", s"scalajs-linker_$scalaVersion", platformVersion),
         DependencyResolution
-          .Artifact("org.scala-js", s"scalajs-env-nodejs_$scalaVersion", "1.1.1"),
+          .Artifact("org.scala-js", s"scalajs-env-nodejs_$scalaVersion", "1.4.0"),
         // See https://github.com/scala-js/scala-js-env-jsdom-nodejs/issues/41
         DependencyResolution
           .Artifact("org.scala-js", s"scalajs-env-jsdom-nodejs_$scalaVersion", "1.1.0"),
         DependencyResolution
-          .Artifact("org.scala-js", s"scalajs-logging_$scalaVersion", "1.1.1")
+          .Artifact("org.scala-js", s"scalajs-logging_$scalaVersion", "1.4.0")
       )
   }
 
@@ -160,7 +160,7 @@ object ScalaJsToolchain extends ToolchainCompanion[ScalaJsToolchain] {
       DependencyResolution
         .Artifact("org.scala-js", s"scalajs-sbt-test-adapter_$scalaVersion", platformVersion),
       DependencyResolution
-        .Artifact("org.scala-js", s"scalajs-js-envs_$scalaVersion", "1.1.1")
+        .Artifact("org.scala-js", s"scalajs-js-envs_$scalaVersion", "1.4.0")
     )
 
     val artifacts = sharedArtifacts ++ scalaJsArtifacts(platformVersion, scalaVersion)

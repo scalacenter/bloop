@@ -37,11 +37,6 @@ jobs:
       - name: Tests
         run: |
           ./bin/sbt-ci.sh \
-              "mavenBloop/publishM2" \
-              "mavenBloop/test" \
-              "gradleBloop211/compile" \
-              "gradleBloop212/compile" \
-              "gradleBloop212/test" \
               "sbtBloop10/publishLocal" \
               "sbtBloop10/scripted"
         shell: bash
@@ -142,10 +137,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macOS-latest]
+        os: [ubuntu-20.04, macOS-latest]
         jdk: [graalvm-ce-java11@21.1.0]
         include:
-          - os: ubuntu-latest
+          - os: ubuntu-20.04
             artifact: bloop-linux
           - os: macos-latest
             artifact: bloop-macos
@@ -248,7 +243,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        os: [ubuntu-latest]
+        os: [ubuntu-20.04]
         jdk: [adopt@1.8]
     env:
       CI: true

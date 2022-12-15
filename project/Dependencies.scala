@@ -3,7 +3,7 @@ package build
 object Dependencies {
   val Scala210Version = "2.10.7"
   val Scala211Version = "2.11.12"
-  val Scala212Version = "2.12.15"
+  val Scala212Version = "2.12.17"
   val Scala213Version = "2.13.8"
 
   val Sbt013Version = "0.13.18"
@@ -14,46 +14,39 @@ object Dependencies {
   val nailgunCommit = "a2520c1e"
 
   // Keep in sync in BloopComponentCompiler
-  val zincVersion = "1.7.2"
+  val zincVersion = "1.8.0"
 
   val bspVersion = "2.1.0-M3"
 
-  val scalazVersion = "7.2.20"
-  val scalaXmlVersion = "1.2.0"
-  val lmVersion = "1.1.5"
+  val scalazVersion = "7.2.35"
+  val lmVersion = "1.8.0"
   val configDirsVersion = "26"
   val caseAppVersion = "2.0.6"
   val sourcecodeVersion = "0.3.0"
   val sbtTestInterfaceVersion = "1.0"
-  val sbtTestAgentVersion = "1.4.4"
+  val sbtTestAgentVersion = "1.8.0"
   val junitVersion = "0.13.3"
   val graphvizVersion = "0.2.2"
   val directoryWatcherVersion = "0.8.0+6-f651bd93"
-  val mavenApiVersion = "3.6.1"
-  val mavenAnnotationsVersion = "3.5"
-  val mavenScalaPluginVersion = "4.5.3"
-  val gradleVersion = "5.0"
-  val groovyVersion = "2.5.4"
-  val gradleAndroidPluginVersion = "4.2.2"
   val ipcsocketVersion = "1.0.1"
   val monixVersion = "3.2.0"
   val circeVersion = "0.9.3"
   val jsoniterVersion = "2.13.3.2"
   val circeVersion213 = "0.12.2"
   val shapelessVersion = "2.3.4"
-  val scalaNative04Version = "0.4.0"
-  val scalaJs06Version = "0.6.32"
-  val scalaJs1Version = "1.3.1"
+  val scalaNative04Version = "0.4.9"
+  val scalaJs06Version = "0.6.33"
+  val scalaJs1Version = "1.12.0"
   val scalaJsEnvsVersion = "1.1.1"
   val xxHashVersion = "1.3.0"
   val ztVersion = "1.13"
   val difflibVersion = "1.3.0"
-  val braveVersion = "5.6.1"
-  val zipkinSenderVersion = "2.7.15"
-  val jnaVersion = "5.8.0"
-  val asmVersion = "7.0"
+  val braveVersion = "5.14.1"
+  val zipkinSenderVersion = "2.16.3"
+  val jnaVersion = "5.12.1"
+  val asmVersion = "9.4"
   val snailgunVersion = "0.4.0"
-  val ztExecVersion = "1.11"
+  val ztExecVersion = "1.12"
   val debugAdapterVersion = "3.0.5"
   val bloopConfigVersion = "1.5.5"
 
@@ -66,7 +59,7 @@ object Dependencies {
 
   val configDirectories = "dev.dirs" % "directories" % configDirsVersion
   val libraryManagement = "org.scala-sbt" %% "librarymanagement-ivy" % lmVersion
-  val log4j = "org.apache.logging.log4j" % "log4j-core" % "2.17.1"
+  val log4j = "org.apache.logging.log4j" % "log4j-core" % "2.19.0"
   val scalazCore = "org.scalaz" %% "scalaz-core" % scalazVersion
   val scalazConcurrent = "org.scalaz" %% "scalaz-concurrent" % scalazVersion
   val coursierInterface = "io.get-coursier" % "interface" % "1.0.6"
@@ -79,7 +72,7 @@ object Dependencies {
   val sbtTestAgent = "org.scala-sbt" % "test-agent" % sbtTestAgentVersion
   val snailgun = ("me.vican.jorge" %% "snailgun-cli" % snailgunVersion)
   val ztExec = "org.zeroturnaround" % "zt-exec" % ztExecVersion
-  val slf4jNop = "org.slf4j" % "slf4j-nop" % "1.7.2"
+  val slf4jNop = "org.slf4j" % "slf4j-nop" % "1.7.36"
 
   val utest = "com.lihaoyi" %% "utest" % "0.8.1"
   val pprint = "com.lihaoyi" %% "pprint" % "0.8.1"
@@ -89,22 +82,6 @@ object Dependencies {
   val difflib = "com.googlecode.java-diff-utils" % "diffutils" % difflibVersion
 
   import sbt.Provided
-  val mavenCore = "org.apache.maven" % "maven-core" % mavenApiVersion % Provided
-  val mavenPluginApi = "org.apache.maven" % "maven-plugin-api" % mavenApiVersion
-  val mavenPluginAnnotations =
-    "org.apache.maven.plugin-tools" % "maven-plugin-annotations" % mavenAnnotationsVersion % Provided
-  val mavenScalaPlugin = "net.alchim31.maven" % "scala-maven-plugin" % mavenScalaPluginVersion
-
-  val gradleAPI = "dev.gradleplugins" % "gradle-api" % gradleVersion % Provided
-  val gradleTestKit = "dev.gradleplugins" % "gradle-test-kit" % gradleVersion % Provided
-  val gradleCore = "org.gradle" % "gradle-core" % gradleVersion % Provided
-  val gradleWorkers = "org.gradle" % "gradle-workers" % gradleVersion % Provided
-  val gradleDependencyManagement =
-    "org.gradle" % "gradle-dependency-management" % gradleVersion % Provided
-  val gradleToolingApi = "org.gradle" % "gradle-tooling-api" % gradleVersion % Provided
-  val groovy = "org.codehaus.groovy" % "groovy" % groovyVersion % Provided
-  val gradleAndroidPlugin =
-    "com.android.tools.build" % "gradle" % gradleAndroidPluginVersion % Provided
 
   val monix = "io.monix" %% "monix" % monixVersion
   val jsoniterCore =
@@ -126,8 +103,6 @@ object Dependencies {
   val scalaJsSbtTestAdapter1 =
     "org.scala-js" %% "scalajs-sbt-test-adapter" % scalaJs1Version % Provided
   val scalaJsLogging1 = "org.scala-js" %% "scalajs-logging" % "1.1.1" % Provided
-
-  val classgraph = "io.github.classgraph" % "classgraph" % "4.8.78"
 
   val xxHashLibrary = "net.jpountz.lz4" % "lz4" % xxHashVersion
   val zt = "org.zeroturnaround" % "zt-zip" % ztVersion

@@ -39,7 +39,7 @@ object ConsoleSpec extends BaseSuite {
         classpathB.flatMap(elem => Seq("--extra-jars", elem.syntax))
       val expectedCommand =
         s"coursier launch com.lihaoyi:ammonite_${BuildInfo.scalaVersion}:latest.release --main-class ammonite.Main ${coursierClasspathArgs
-          .mkString(" ")} ${("--" :: ammArgs).mkString(" ")}"
+            .mkString(" ")} ${("--" :: ammArgs).mkString(" ")}"
 
       assertNoDiff(
         logger.captureTimeInsensitiveInfos

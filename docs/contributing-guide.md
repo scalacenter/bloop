@@ -17,12 +17,20 @@ Before getting started you'll want to make sure you're in the right place. Some
 tools like [Mill](https://com-lihaoyi.github.io/mill/mill/Intro_to_Mill.html)
 have their Bloop integration built-in, whereas others like
 [sbt](https://www.scala-sbt.org/) are in here. If you're working on an
-integration, make sure it's in this repo
+integration, make sure it's in this repo.
 
 If you're making changes to the actual config structure, you'll want to make
 those changes in the
 [scalacenter/bloop-config](https://github.com/scalacenter/bloop-config) repo,
 which will then need to be released and included in this build.
+
+If you're looking for the Maven integration, then you'll want to make those
+changes in
+[scalacenter/bloop-maven-plugin](https://github.com/scalacenter/bloop-maven-plugin).
+
+If you're looking to the Gradle integration, then you'll want to make those
+changes in
+[scalacenter/gradle-bloop](https://github.com/scalacenter/gradle-bloop).
 
 ## Project structure
 
@@ -30,7 +38,7 @@ Here's a list of the most important directories in the bloop repositories.
 
 1. `backend` defines low-level compiler APIs wrapping Zinc APIs.
 1. `frontend` defines the core of bloop, the task scheduling, the CLI and all the supported tasks: compilation, testing, running and linking.
-1. `integrations` contains plugins for every supported build tool (such as sbt, Maven and Gradle) to extract any build to bloop.
+1. `integrations` contains the sbt plugin to extract any sbt build to bloop.
 
 When contributing to bloop, you will most likely need to modify code in the
 above directories. The next directories define the rest of the project and

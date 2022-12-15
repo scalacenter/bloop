@@ -235,7 +235,7 @@ lazy val bloopgunSettings = Seq(
   buildInfoKeys := List(Keys.version),
   buildInfoObject := "BloopgunInfo",
   libraryDependencies ++= List(
-    //Dependencies.configDirectories,
+    // Dependencies.configDirectories,
     Dependencies.snailgun,
     // Use zt-exec instead of nuprocess because it doesn't require JNA (good for graalvm)
     Dependencies.ztExec,
@@ -476,12 +476,6 @@ def isJdiJar(file: File): Boolean = {
   if (!System.getProperty("java.specification.version").startsWith("1.")) false
   else file.getAbsolutePath.contains(SbtJdiTools.JavaTools.getAbsolutePath.toString)
 }
-val publishJsonModuleSettings = List(
-  publishM2Configuration := publishM2Configuration.value.withOverwrite(true),
-  publishLocalConfiguration := publishLocalConfiguration.value.withOverwrite(true),
-  // We compile in both so that the maven integration can be tested locally
-  publishLocal := publishLocal.dependsOn(publishM2).value
-)
 
 lazy val integrationUtils211 = project
   .in(integrations / "utils")
@@ -515,7 +509,6 @@ lazy val integrationUtils213 = project
       "integrations"
     ) / "utils" / "target" / "utils-2.13").getAbsoluteFile
   )
-  .settings(publishJsonModuleSettings)
 
 lazy val sbtBloop10: Project = project
   .enablePlugins(ScriptedPlugin)
@@ -526,91 +519,6 @@ lazy val sbtBloop10: Project = project
     sbtPluginSettings("sbt-bloop", Sbt1Version),
     libraryDependencies += Dependencies.bloopConfig
   )
-
-lazy val mavenBloop = project
-  .in(integrations / "maven-bloop")
-  .disablePlugins(ScriptedPlugin, ScalafixPlugin)
-  .enablePlugins(BuildInfoPlugin)
-  .settings(
-    name := "maven-bloop",
-    scalaVersion := Dependencies.Scala213Version,
-    publishM2 := publishM2.dependsOn(integrationUtils213 / publishM2).value,
-    BuildDefaults.mavenPluginBuildSettings,
-    buildInfoKeys := Seq[BuildInfoKey](version),
-    buildInfoPackage := "bloop",
-    libraryDependencies += Dependencies.bloopConfig,
-    testSettings
-  )
-  .dependsOn(integrationUtils213 % "test->compile")
-
-lazy val gradleBloop211 = project
-  .in(file("integrations") / "gradle-bloop")
-  .enablePlugins(BuildInfoPlugin)
-  .disablePlugins(ScriptedPlugin, ScalafixPlugin)
-  .settings(
-    name := "gradle-bloop",
-    BuildDefaults.gradlePluginBuildSettings,
-    BuildInfoPlugin.buildInfoScopedSettings(Test),
-    scalaVersion := Dependencies.Scala211Version,
-    libraryDependencies ++= Seq(
-      Dependencies.classgraph % Test,
-      Dependencies.bloopConfig
-    ),
-    target := (file(
-      "integrations"
-    ) / "gradle-bloop" / "target" / "gradle-bloop-2.11").getAbsoluteFile,
-    Test / sourceDirectories := Nil,
-    Test / bloopGenerate := None,
-    Test / compile / skip := true,
-    Test / test / skip := true
-  )
-  .dependsOn(integrationUtils211 % "test->compile")
-
-lazy val gradleBloop212 = project
-  .in(file("integrations") / "gradle-bloop")
-  .enablePlugins(BuildInfoPlugin)
-  .disablePlugins(ScriptedPlugin)
-  .dependsOn(frontend % "test->test", integrationUtils212 % "test->compile")
-  .settings(
-    name := "gradle-bloop",
-    scalafixSettings,
-    BuildDefaults.gradlePluginBuildSettings,
-    testSettings,
-    BuildInfoPlugin.buildInfoScopedSettings(Test),
-    scalaVersion := Dependencies.Scala212Version,
-    target := (file(
-      "integrations"
-    ) / "gradle-bloop" / "target" / "gradle-bloop-2.12").getAbsoluteFile,
-    libraryDependencies ++= Seq(
-      Dependencies.classgraph % Test,
-      Dependencies.bloopConfig
-    )
-  )
-
-lazy val gradleBloop213 = project
-  .in(file("integrations") / "gradle-bloop")
-  .enablePlugins(BuildInfoPlugin)
-  .disablePlugins(ScriptedPlugin)
-  .settings(
-    name := "gradle-bloop",
-    scalafixSettings,
-    BuildDefaults.gradlePluginBuildSettings,
-    testSettings,
-    BuildInfoPlugin.buildInfoScopedSettings(Test),
-    scalaVersion := Dependencies.Scala213Version,
-    target := (file(
-      "integrations"
-    ) / "gradle-bloop" / "target" / "gradle-bloop-2.13").getAbsoluteFile,
-    libraryDependencies ++= Seq(
-      Dependencies.classgraph % Test,
-      Dependencies.bloopConfig
-    ),
-    Test / sourceDirectories := Nil,
-    Test / bloopGenerate := None,
-    Test / compile / skip := true,
-    Test / test / skip := true
-  )
-  .dependsOn(integrationUtils213 % "test->compile")
 
 lazy val buildpressConfig = (project in file("buildpress-config"))
   .settings(scalafixSettings)
@@ -719,10 +627,6 @@ val allProjects = Seq(
   frontend,
   benchmarks,
   sbtBloop10,
-  mavenBloop,
-  gradleBloop211,
-  gradleBloop212,
-  gradleBloop213,
   nativeBridge04,
   jsBridge06,
   jsBridge1,
@@ -742,10 +646,6 @@ val allProjectsToRelease = Seq[ProjectReference](
   backend,
   frontend,
   sbtBloop10,
-  mavenBloop,
-  gradleBloop211,
-  gradleBloop212,
-  gradleBloop213,
   nativeBridge04,
   jsBridge06,
   jsBridge1,
