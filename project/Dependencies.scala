@@ -1,7 +1,9 @@
 package build
 
+import sbt.librarymanagement.syntax.stringToOrganization
+import sbt.Provided
+
 object Dependencies {
-  val Scala210Version = "2.10.7"
   val Scala211Version = "2.11.12"
   val Scala212Version = "2.12.17"
   val Scala213Version = "2.13.8"
@@ -25,13 +27,9 @@ object Dependencies {
   val sbtTestInterfaceVersion = "1.0"
   val sbtTestAgentVersion = "1.8.0"
   val junitVersion = "0.13.3"
-  val graphvizVersion = "0.2.2"
   val directoryWatcherVersion = "0.8.0+6-f651bd93"
-  val ipcsocketVersion = "1.0.1"
   val monixVersion = "3.2.0"
-  val circeVersion = "0.9.3"
   val jsoniterVersion = "2.13.3.2"
-  val circeVersion213 = "0.12.2"
   val shapelessVersion = "2.3.4"
   val scalaNative04Version = "0.4.9"
   val scalaJs06Version = "0.6.33"
@@ -49,7 +47,6 @@ object Dependencies {
   val debugAdapterVersion = "3.0.5"
   val bloopConfigVersion = "1.5.5"
 
-  import sbt.librarymanagement.syntax.stringToOrganization
   val zinc = "org.scala-sbt" %% "zinc" % zincVersion
   val bsp4s = "ch.epfl.scala" %% "bsp4s" % bspVersion
   val bsp4j = "ch.epfl.scala" % "bsp4j" % bspVersion
@@ -75,12 +72,9 @@ object Dependencies {
 
   val utest = "com.lihaoyi" %% "utest" % "0.8.1"
   val pprint = "com.lihaoyi" %% "pprint" % "0.8.1"
-  val scalacheck = "org.scalacheck" %% "scalacheck" % "1.13.4"
   val junit = "com.github.sbt" % "junit-interface" % junitVersion
   val directoryWatcher = "ch.epfl.scala" % "directory-watcher" % directoryWatcherVersion
   val difflib = "com.googlecode.java-diff-utils" % "diffutils" % difflibVersion
-
-  import sbt.Provided
 
   val monix = "io.monix" %% "monix" % monixVersion
   val jsoniterCore =

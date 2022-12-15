@@ -4,19 +4,7 @@ import java.io.File
 
 import ch.epfl.scala.sbt.release.Feedback
 import com.jsuereth.sbtpgp.SbtPgp.{autoImport => Pgp}
-import sbt.{
-  AutoPlugin,
-  BuildPaths,
-  Def,
-  Keys,
-  PluginTrigger,
-  Plugins,
-  State,
-  Task,
-  ThisBuild,
-  uri,
-  Reference
-}
+import sbt._
 import sbt.io.IO
 import sbt.io.syntax.fileToRichFile
 import sbt.librarymanagement.syntax.stringToOrganization
@@ -49,8 +37,6 @@ object BuildPlugin extends AutoPlugin {
 }
 
 object BuildKeys {
-  import sbt.{RootProject, ProjectRef, BuildRef, file, uri}
-
   def inProject(ref: Reference)(ss: Seq[Def.Setting[_]]): Seq[Def.Setting[_]] =
     sbt.inScope(sbt.ThisScope.in(project = ref))(ss)
 
@@ -81,9 +67,7 @@ object BuildKeys {
   final val BenchmarkBridgeBuild = BuildRef(BenchmarkBridgeProject.build)
   final val BenchmarkBridgeCompilation = ProjectRef(BenchmarkBridgeProject.build, "compilation")
 
-  import sbt.{Test, TestFrameworks, Tests}
   val buildBase = (ThisBuild / Keys.baseDirectory)
-  val buildIntegrationsBase = Def.settingKey[File]("The base directory for our integration builds.")
   val exportCommunityBuild = Def.taskKey[Unit]("Clone and export the community build.")
   val lazyFullClasspath =
     Def.taskKey[Seq[File]]("Return full classpath without forcing compilation")
@@ -101,8 +85,6 @@ object BuildKeys {
   val releaseEarlyAllModules = Def.taskKey[Unit]("Release early all modules")
   val releaseSonatypeBundle = Def.taskKey[Unit]("Release sonatype bundle, do nothing if no release")
   val publishLocalAllModules = Def.taskKey[Unit]("Publish all modules locally")
-
-  val gradleIntegrationDirs = sbt.AttributeKey[List[File]]("gradleIntegrationDirs")
 
   // This has to be change every time the bloop config files format changes.
   val schemaVersion = Def.settingKey[String]("The schema version for our bloop build.")
@@ -124,7 +106,6 @@ object BuildKeys {
     nailgunClientLocation := buildBase.value / "nailgun" / "pynailgun" / "ng.py"
   )
 
-  import sbt.Compile
   val buildpressSettings: Seq[Def.Setting[_]] = List(
     (Keys.run / Keys.fork) := true
   )
@@ -236,8 +217,6 @@ object BuildKeys {
 }
 
 object BuildImplementation {
-  import sbt.{url, file}
-  import sbt.{Developer, Resolver, Watched, Compile, Test}
   import sbtdynver.DynVerPlugin.{autoImport => DynVerKeys}
 
   // This should be added to upstream sbt.
@@ -263,8 +242,8 @@ object BuildImplementation {
     // Keys.triggeredMessage := Watched.clearWhenTriggered,
     Keys.resolvers := {
       val oldResolvers = Keys.resolvers.value
-      val sonatypeStaging = Resolver.sonatypeRepo("staging")
-      (oldResolvers :+ sonatypeStaging).distinct
+      val sonatypeStaging = Resolver.sonatypeOssRepos("staging")
+      (oldResolvers ++ sonatypeStaging).distinct
     },
     ReleaseEarlyKeys.releaseEarlyWith := {
       ReleaseEarlyKeys.SonatypePublisher
@@ -286,7 +265,6 @@ object BuildImplementation {
     )
   )
 
-  import sbt.{CrossVersion, compilerPlugin}
   final val metalsSettings: Seq[Def.Setting[_]] = Seq(
     Keys.scalacOptions ++= {
       if (Keys.scalaBinaryVersion.value.startsWith("2.10")) Nil
@@ -329,7 +307,7 @@ object BuildImplementation {
     },
     (Compile / Keys.publishLocalConfiguration) :=
       Keys.publishLocalConfiguration.value.withOverwrite(true)
-  ) // ++ metalsSettings
+  )
 
   final val reasonableCompileOptions = (
     "-deprecation" :: "-encoding" :: "UTF-8" :: "-feature" :: "-language:existentials" ::
@@ -480,12 +458,6 @@ object BuildImplementation {
       }
     }
 
-    val fixScalaVersionForSbtPlugin: Def.Initialize[String] = Def.setting {
-      val orig = Keys.scalaVersion.value
-      val is013 = (Keys.pluginCrossBuild / Keys.sbtVersion).value.startsWith("0.13")
-      if (is013) "2.10.7" else orig
-    }
-
     // From sbt-sensible https://gitlab.com/fommil/sbt-sensible/issues/5, legal requirement
     val getLicense: Def.Initialize[Task[Seq[File]]] = Def.task {
       val orig = (Compile / Keys.resources).value
@@ -515,8 +487,6 @@ object BuildImplementation {
   }
 
   import java.util.Locale
-  import sbt.MessageOnlyException
-  import sbt.{Compile}
   import scala.sys.process.Process
   import java.nio.file.Files
   val buildpressHomePath = System.getProperty("user.home") + "/.buildpress"

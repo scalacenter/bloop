@@ -28,12 +28,10 @@ val `bloop-build` = project
     libraryDependencies ++= List(
       "org.eclipse.jgit" % "org.eclipse.jgit" % "5.13.1.202206130422-r",
       "org.eclipse.jgit" % "org.eclipse.jgit.ssh.jsch" % "5.13.1.202206130422-r",
-      "commons-codec" % "commons-codec" % "1.15"
-    ),
-    libraryDependencies += {
+      "commons-codec" % "commons-codec" % "1.15",
       ("ch.epfl.scala" % "jarjar" % "1.7.2-patched")
         .exclude("org.apache.ant", "ant")
-    },
+    ),
     (Compile / unmanagedSourceDirectories) ++= {
       val baseDir = baseDirectory.value.getParentFile
       List(
