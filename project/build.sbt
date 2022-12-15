@@ -20,23 +20,7 @@ val `bloop-build` = project
     libraryDependencies ++= List(
       "org.eclipse.jgit" % "org.eclipse.jgit" % "5.13.1.202206130422-r",
       "org.eclipse.jgit" % "org.eclipse.jgit.ssh.jsch" % "5.13.1.202206130422-r",
-<<<<<<< HEAD
       "commons-codec" % "commons-codec" % "1.15",
-=======
-      "org.apache.maven.plugin-tools" % "maven-plugin-tools-api" % mvnPluginToolsVersion,
-      "org.apache.maven.plugin-tools" % "maven-plugin-annotations" % mvnPluginToolsVersion,
-      "org.apache.maven.plugin-tools" % "maven-plugin-tools-generators" % mvnPluginToolsVersion,
-      "org.apache.maven.plugin-tools" % "maven-plugin-tools-annotations" % mvnPluginToolsVersion,
-      "org.apache.maven" % "maven-core" % mvnVersion,
-      "org.apache.maven" % "maven-plugin-api" % mvnVersion,
-      "org.apache.maven" % "maven-model-builder" % mvnVersion,
-      "commons-codec" % "commons-codec" % "1.15"
-    ),
-    // 5 hours to find that this had to be overridden because conflicted with sbt-pom-reader
-    dependencyOverrides ++= List("org.apache.maven" % "maven-settings" % mvnVersion),
-    // Add options to enable sbt-shading plugin sources
-    libraryDependencies += {
->>>>>>> bf7bccc1c (Revert commit(s) eec4cfdbb)
       ("ch.epfl.scala" % "jarjar" % "1.7.2-patched")
         .exclude("org.apache.ant", "ant")
     ),
