@@ -89,13 +89,7 @@ lazy val bloopShared = (project in file("shared"))
  * ************************************************************************************************
  */
 import build.Dependencies
-import build.Dependencies.{
-  Scala210Version,
-  Scala211Version,
-  Scala212Version,
-  Sbt013Version,
-  Sbt1Version
-}
+import build.Dependencies.{Scala210Version, Scala211Version, Scala212Version, SbtVersion}
 
 lazy val backend = project
   .enablePlugins(BuildInfoPlugin)
@@ -477,46 +471,13 @@ def isJdiJar(file: File): Boolean = {
   else file.getAbsolutePath.contains(SbtJdiTools.JavaTools.getAbsolutePath.toString)
 }
 
-lazy val integrationUtils211 = project
-  .in(integrations / "utils")
-  .settings(
-    scalafixSettings,
-    scalaVersion := Dependencies.Scala211Version,
-    libraryDependencies += Dependencies.bloopConfig,
-    target := (file(
-      "integrations"
-    ) / "utils" / "target" / "utils-2.11").getAbsoluteFile
-  )
-
-lazy val integrationUtils212 = project
-  .in(integrations / "utils")
-  .settings(
-    scalafixSettings,
-    scalaVersion := Dependencies.Scala212Version,
-    libraryDependencies += Dependencies.bloopConfig,
-    target := (file(
-      "integrations"
-    ) / "utils" / "target" / "utils-2.12").getAbsoluteFile
-  )
-
-lazy val integrationUtils213 = project
-  .in(integrations / "utils")
-  .settings(
-    scalafixSettings,
-    scalaVersion := Dependencies.Scala213Version,
-    libraryDependencies += Dependencies.bloopConfig,
-    target := (file(
-      "integrations"
-    ) / "utils" / "target" / "utils-2.13").getAbsoluteFile
-  )
-
-lazy val sbtBloop10: Project = project
+lazy val sbtBloop: Project = project
   .enablePlugins(ScriptedPlugin)
   .disablePlugins(ScalafixPlugin)
   .in(integrations / "sbt-bloop")
   .settings(
     BuildDefaults.scriptedSettings,
-    sbtPluginSettings("sbt-bloop", Sbt1Version),
+    sbtPluginSettings("sbt-bloop", SbtVersion),
     libraryDependencies += Dependencies.bloopConfig
   )
 
@@ -626,7 +587,7 @@ val allProjects = Seq(
   backend,
   frontend,
   benchmarks,
-  sbtBloop10,
+  sbtBloop,
   nativeBridge04,
   jsBridge06,
   jsBridge1,
@@ -635,17 +596,14 @@ val allProjects = Seq(
   launcherTest,
   sockets,
   bloopgun,
-  bloopgun213,
-  integrationUtils211,
-  integrationUtils212,
-  integrationUtils213
+  bloopgun213
 )
 
 val allProjectsToRelease = Seq[ProjectReference](
   bloopShared,
   backend,
   frontend,
-  sbtBloop10,
+  sbtBloop,
   nativeBridge04,
   jsBridge06,
   jsBridge1,
@@ -670,7 +628,6 @@ val bloop = project
   .settings(
     releaseEarly := { () },
     (publish / skip) := true,
-    crossSbtVersions := Seq(Sbt1Version, Sbt013Version),
     buildIntegrationsBase := (ThisBuild / Keys.baseDirectory).value / "build-integrations",
     publishLocalAllModules := {
       BuildDefaults
@@ -694,7 +651,7 @@ val bloop = project
       build.BuildImplementation
         .exportCommunityBuild(
           buildpress,
-          sbtBloop10
+          sbtBloop
         )
         .value
     }

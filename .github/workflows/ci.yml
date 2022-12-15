@@ -37,8 +37,8 @@ jobs:
       - name: Tests
         run: |
           ./bin/sbt-ci.sh \
-              "sbtBloop10/publishLocal" \
-              "sbtBloop10/scripted"
+              "sbtBloop/publishLocal" \
+              "sbtBloop/scripted"
         shell: bash
   bridges:
     name: Test platform bridges
