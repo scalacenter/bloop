@@ -16,7 +16,8 @@ object Docs {
         Map(
           "VERSION" -> Sonatype.releaseBloop.version,
           "LATEST_VERSION" -> bloop.internal.build.BuildInfo.version,
-          "BLOOP_MAVEN_VERSION" -> Sonatype.releaseBloopMaven.version
+          "BLOOP_MAVEN_VERSION" -> Sonatype.releaseBloopMaven.version,
+          "BLOOP_GRADLE_VERSION" -> Sonatype.releaseBloopGradle.version
         )
       )
       .withArgs(args.toList)

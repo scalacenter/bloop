@@ -24,6 +24,7 @@ object Sonatype {
   lazy val releaseBloop = fetchLatest("bloop-frontend_2.12")
   lazy val releaseBloopMaven = fetchLatest("bloop-maven-plugin")
   lazy val releaseLauncher = fetchLatest("bloop-launcher_2.12")
+  lazy val releaseBloopGradle = fetchLatest("gradle-bloop_2.13")
 
   /** Returns the latest published snapshot release, or the current release if. */
   private def fetchLatest(artifact: String): Release = {
