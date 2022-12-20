@@ -58,8 +58,8 @@ object Dependencies {
   val log4j = "org.apache.logging.log4j" % "log4j-core" % "2.19.0"
   val scalazCore = "org.scalaz" %% "scalaz-core" % scalazVersion
   val scalazConcurrent = "org.scalaz" %% "scalaz-concurrent" % scalazVersion
-  val coursierInterface = "io.get-coursier" % "interface" % "1.0.6"
-  val coursierInterfaceSubs = "io.get-coursier" % "interface-svm-subs" % "1.0.6"
+  val coursierInterface = "io.get-coursier" % "interface" % "1.0.12"
+  val coursierInterfaceSubs = "io.get-coursier" % "interface-svm-subs" % "1.0.12"
   val scalaCollectionCompat = "org.scala-lang.modules" %% "scala-collection-compat" % "2.4.2"
   val shapeless = "com.chuusai" %% "shapeless" % shapelessVersion
   val caseApp = "com.github.alexarchambault" %% "case-app" % caseAppVersion
