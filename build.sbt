@@ -1,4 +1,3 @@
-import _root_.bloop.integrations.sbt.BloopDefaults
 import build.BuildImplementation.BuildDefaults
 import build.BuildImplementation.jvmOptions
 import build.Dependencies
@@ -8,11 +7,6 @@ import xerial.sbt.Sonatype.SonatypeKeys
 Global / useGpg := false
 
 ThisBuild / dynverSeparator := "-"
-
-// Tell bloop to aggregate source deps (benchmark) config files in the same bloop config dir
-Global / bloopAggregateSourceDependencies := true
-
-ThisBuild / bloopExportJarClassifiers := Some(Set("sources"))
 
 ThisBuild / scalafixDependencies += "com.github.liancheng" %% "organize-imports" % "0.6.0"
 
@@ -60,9 +54,7 @@ val benchmarkBridge = project
   .settings(scalafixSettings)
   .settings(
     releaseEarly := { () },
-    (publish / skip) := true,
-    (Compile / bloopGenerate) := None,
-    (Test / bloopGenerate) := None
+    (publish / skip) := true
   )
 
 lazy val bloopShared = project
@@ -151,7 +143,6 @@ lazy val frontend: Project = project
     name := "bloop-frontend",
     bloopName := "bloop",
     (Compile / run / mainClass) := Some("bloop.Cli"),
-    (Compile / run / bloopMainClass) := Some("bloop.Cli"),
     buildInfoPackage := "bloop.internal.build",
     buildInfoKeys := List[BuildInfoKey](
       Keys.organization,
@@ -187,8 +178,6 @@ lazy val frontend: Project = project
     testSuiteSettings,
     Defaults.itSettings,
     BuildDefaults.frontendTestBuildSettings,
-    // Can be removed when metals upgrades to 1.3.0
-    inConfig(IntegrationTest)(BloopDefaults.configSettings),
     inConfig(Compile)(
       build.BuildKeys.lazyFullClasspath := {
         val ownProductDirectories = Keys.productDirectories.value
@@ -200,8 +189,11 @@ lazy val frontend: Project = project
       val main = (Test / resources).value
       val dir = (ThisBuild / baseDirectory).value
       val log = streams.value
+      // Before we export all test resources we ensure the current version of the sbt-bloop
+      // plugin is published
+      (sbtBloop / Keys.publishLocal).value
       val additionalResources =
-        BuildDefaults.exportProjectsInTestResources(dir, log.log, enableCache = true)
+        BuildDefaults.exportProjectsInTestResources(dir, log.log, enableCache = true, version.value)
       main ++ additionalResources
     },
     (Test / unmanagedResources / includeFilter) := {
@@ -342,8 +334,6 @@ lazy val bloopgunShadedSettings = Seq(
   name := "bloopgun",
   (run / fork) := true,
   (Test / fork) := true,
-  (Compile / bloopGenerate) := None,
-  (Test / bloopGenerate) := None,
   libraryDependencies ++= List(Dependencies.scalaCollectionCompat)
 )
 
@@ -408,8 +398,6 @@ lazy val launcherShadedSettings = Seq(
   name := "bloop-launcher",
   (run / fork) := true,
   (Test / fork) := true,
-  (Compile / bloopGenerate) := None,
-  (Test / bloopGenerate) := None,
   libraryDependencies ++= List(
     "net.java.dev.jna" % "jna" % "4.5.0",
     "net.java.dev.jna" % "jna-platform" % "4.5.0",
@@ -567,7 +555,6 @@ lazy val nativeBridge04 = project
 
 /* This project has the only purpose of forcing the resolution of some artifacts that fail spuriously to be fetched.  */
 lazy val twitterIntegrationProjects = project
-  .disablePlugins(BloopShadedPlugin)
   .in(file("target") / "twitter-integration-projects")
   .settings(
     resolvers += MavenRepository("twitter-resolver", "https://maven.twttr.com"),
