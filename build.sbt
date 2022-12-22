@@ -170,6 +170,7 @@ lazy val frontend: Project = project
     scalafixSettings,
     testSettings,
     testSuiteSettings,
+    releaseSettings,
     Defaults.itSettings,
     BuildDefaults.frontendTestBuildSettings,
     inConfig(Compile)(
