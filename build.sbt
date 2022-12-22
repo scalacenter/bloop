@@ -77,7 +77,6 @@ lazy val shared = project
   )
 
 import build.Dependencies
-import build.Dependencies.Scala212Version
 
 lazy val backend = project
   .enablePlugins(BuildInfoPlugin)
