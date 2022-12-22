@@ -7,6 +7,8 @@ ThisBuild / dynverSeparator := "-"
 
 ThisBuild / scalafixDependencies += "com.github.liancheng" %% "organize-imports" % "0.6.0"
 
+ThisBuild / versionScheme := Some("early-semver")
+
 // Add hook for scalafmt validation
 Global / onLoad ~= { old =>
   if (!scala.util.Properties.isWin) {
