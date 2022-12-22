@@ -2,9 +2,6 @@ import build.BuildImplementation.BuildDefaults
 import build.BuildImplementation.jvmOptions
 import build.Dependencies
 import build.Dependencies.{Scala211Version, Scala212Version, SbtVersion}
-import xerial.sbt.Sonatype.SonatypeKeys
-
-Global / useGpg := false
 
 ThisBuild / dynverSeparator := "-"
 
@@ -51,9 +48,8 @@ val benchmarkBridge = project
   .in(file(".benchmark-bridge-compilation"))
   .aggregate(BenchmarkBridgeCompilation)
   .disablePlugins(ScriptedPlugin)
-  .settings(scalafixSettings)
   .settings(
-    releaseEarly := { () },
+    scalafixSettings,
     (publish / skip) := true
   )
 
@@ -172,7 +168,6 @@ lazy val frontend: Project = project
     ),
     dependencyOverrides += Dependencies.shapeless,
     scalafixSettings,
-    releaseSettings,
     testSettings,
     testSuiteSettings,
     Defaults.itSettings,
@@ -469,49 +464,13 @@ val allProjects = Seq(
   bloopgun213
 )
 
-val allProjectsToRelease = Seq[ProjectReference](
-  bloopShared,
-  backend,
-  frontend,
-  sbtBloop,
-  nativeBridge04,
-  jsBridge06,
-  jsBridge1,
-  sockets,
-  bloopgun,
-  bloopgun213,
-  launcher,
-  launcher213,
-  buildpressConfig,
-  buildpress
-)
-
 val allProjectReferences = allProjects.map(p => LocalProject(p.id))
 val bloop = project
   .in(file("."))
   .disablePlugins(ScriptedPlugin)
   .aggregate(allProjectReferences: _*)
   .settings(
-    releaseEarly := { () },
     (publish / skip) := true,
-    publishLocalAllModules := {
-      BuildDefaults
-        .publishLocalAllModules(allProjectsToRelease)
-        .value
-    },
-    releaseEarlyAllModules := {
-      BuildDefaults
-        .releaseEarlyAllModules(allProjectsToRelease)
-        .value
-    },
-    releaseSonatypeBundle := {
-      Def.taskDyn {
-        val bundleDir = SonatypeKeys.sonatypeBundleDirectory.value
-        // Do nothing if sonatype bundle doesn't exist
-        if (!bundleDir.exists) Def.task("")
-        else SonatypeKeys.sonatypeBundleRelease
-      }.value
-    },
     exportCommunityBuild := {
       build.BuildImplementation
         .exportCommunityBuild(
@@ -528,7 +487,7 @@ val isWindows = scala.util.Properties.isWin
 addCommandAlias(
   "install",
   Seq(
-    "publishLocalAllModules",
+    "publishLocal",
     // Don't generate graalvm image if running in Windows
     if (isWindows) "" else "bloopgun/graalvm-native-image:packageBin",
     s"${frontend.id}/test:compile",
@@ -538,6 +497,3 @@ addCommandAlias(
   ).filter(!_.isEmpty)
     .mkString(";", ";", "")
 )
-
-val allReleaseActions = List("releaseEarlyAllModules", "sonatypeBundleRelease")
-addCommandAlias("releaseBloop", allReleaseActions.mkString(";", ";", ""))
