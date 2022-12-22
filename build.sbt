@@ -101,7 +101,6 @@ lazy val backend = project
     libraryDependencies ++= List(
       Dependencies.nailgun,
       Dependencies.scalazCore,
-      Dependencies.scalazConcurrent,
       Dependencies.coursierInterface,
       Dependencies.libraryManagement,
       Dependencies.sourcecode,
