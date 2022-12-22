@@ -7,8 +7,6 @@ ThisBuild / dynverSeparator := "-"
 
 ThisBuild / scalafixDependencies += "com.github.liancheng" %% "organize-imports" % "0.6.0"
 
-ThisBuild / versionScheme := Some("early-semver")
-
 // Add hook for scalafmt validation
 Global / onLoad ~= { old =>
   if (!scala.util.Properties.isWin) {
@@ -288,6 +286,7 @@ lazy val launcherTest = project
   .dependsOn(launcher, frontend % "test->test")
   .settings(
     name := "bloop-launcher-test",
+    (publish / skip) := true,
     scalafixSettings,
     testSuiteSettings,
     (Test / fork) := true,
@@ -451,20 +450,22 @@ lazy val twitterIntegrationProjects = project
   )
 
 val allProjects = Seq(
-  bloopShared,
   backend,
-  frontend,
   benchmarks,
-  sbtBloop,
-  nativeBridge04,
+  bloopgun,
+  bloopgun213,
+  bloopShared,
+  buildpress,
+  buildpressConfig,
+  frontend,
   jsBridge06,
   jsBridge1,
   launcher,
   launcher213,
   launcherTest,
-  sockets,
-  bloopgun,
-  bloopgun213
+  nativeBridge04,
+  sbtBloop,
+  sockets
 )
 
 val allProjectReferences = allProjects.map(p => LocalProject(p.id))
