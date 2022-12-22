@@ -19,6 +19,7 @@ import sbt.io.syntax.fileToRichFile
 import sbt.librarymanagement.syntax.stringToOrganization
 import sbt.util.FileFunction
 import sbtdynver.GitDescribeOutput
+import sbtbuildinfo.BuildInfoPlugin.{autoImport => BuildInfoKeys}
 
 object BuildPlugin extends AutoPlugin {
   import sbt.plugins.JvmPlugin
@@ -155,8 +156,6 @@ object BuildImplementation {
     "-Xmx3g" :: "-Xms1g" :: "-XX:ReservedCodeCacheSize=512m" :: "-XX:MaxInlineLevel=20" :: Nil
 
   object BuildDefaults {
-
-    import sbtbuildinfo.BuildInfoPlugin.{autoImport => BuildInfoKeys}
 
     val frontendTestBuildSettings: Seq[Def.Setting[_]] = {
       sbtbuildinfo.BuildInfoPlugin.buildInfoScopedSettings(Test) ++ List(
