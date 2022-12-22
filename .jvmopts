@@ -1,3 +1,2 @@
 -XX:ReservedCodeCacheSize=512m
--Dmetals.bloop-sbt-already-installed=true
 -Dsbt.execute.extrachecks=true

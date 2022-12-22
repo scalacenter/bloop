@@ -23,14 +23,7 @@ val `bloop-build` = project
       "commons-codec" % "commons-codec" % "1.15",
       ("ch.epfl.scala" % "jarjar" % "1.7.2-patched")
         .exclude("org.apache.ant", "ant")
-    ),
-    (Compile / unmanagedSourceDirectories) ++= {
-      val baseDir = baseDirectory.value.getParentFile
-      List(
-        baseDir / "sbt-shading" / "src" / "main" / "scala",
-        baseDir / "sbt-shading" / "src" / "main" / "java"
-      )
-    }
+    )
   )
 
 Keys.onLoad in Global := {
