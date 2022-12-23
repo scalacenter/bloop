@@ -1,14 +1,6 @@
-// Create a proxy project instead of depending on plugin directly to work around https://github.com/sbt/sbt/issues/892
-val `bloop-shaded-plugin` = project
-  .settings(
-    sbtPlugin := true,
-    libraryDependencies += "ch.epfl.scala" %% "sbt-bloop-build-naked" % "1.0.0-SNAPSHOT"
-  )
-
 updateOptions := updateOptions.value.withLatestSnapshots(false)
 val `bloop-build` = project
   .in(file("."))
-  .dependsOn(`bloop-shaded-plugin`)
   .settings(
     exportJars := true,
     addSbtPlugin("org.portable-scala" % "sbt-scalajs-crossproject" % "1.2.0"),

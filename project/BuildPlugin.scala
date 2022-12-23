@@ -322,7 +322,8 @@ object BuildImplementation {
     def exportProjectsInTestResources(
         baseDir: File,
         log: Logger,
-        enableCache: Boolean
+        enableCache: Boolean,
+        bloopVersion: String
     ): Seq[File] = {
       import java.util.Locale
       val isWindows: Boolean =
@@ -360,9 +361,12 @@ object BuildImplementation {
           log.info(s"Generating bloop configuration files for ${projectDir}")
           val cmd = {
             val isGithubAction = sys.env.get("GITHUB_WORKFLOW").nonEmpty
-            if (isWindows && isGithubAction) "sh" :: "-c" :: "sbt bloopInstall" :: Nil
-            else if (isWindows) "cmd.exe" :: "/C" :: "sbt.bat" :: "bloopInstall" :: Nil
-            else "sbt" :: "bloopInstall" :: Nil
+            if (isWindows && isGithubAction)
+              "sh" :: "-c" :: s"""sbt -DbloopVersion=${bloopVersion} "bloopInstall"""" :: Nil
+            else if (isWindows)
+              "cmd.exe" :: "/C" :: "sbt.bat" :: s"-DbloopVersion=${bloopVersion}" :: "bloopInstall" :: Nil
+            else
+              "sbt" :: s"-DbloopVersion=${bloopVersion}" :: "bloopInstall" :: Nil
           }
           val exitGenerate = Process(cmd, projectDir).!
           if (exitGenerate != 0)

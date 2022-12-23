@@ -1,8 +1,8 @@
 [submodule "nailgun"]
-	path = nailgun
-	url = https://github.com/scalacenter/nailgun.git
-	branch = sync-19-01-2018
+  path = nailgun
+  url = https://github.com/scalacenter/nailgun.git
+  branch = sync-19-01-2018
 [submodule "compiler-benchmark"]
-	path = benchmark-bridge
-	url = https://github.com/scalacenter/compiler-benchmark
-	branch = bloop-updated-2
+  path = benchmark-bridge
+  url = https://github.com/scalacenter/compiler-benchmark
+  branch = bloop
