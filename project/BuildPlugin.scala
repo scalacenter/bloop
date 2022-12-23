@@ -13,7 +13,6 @@ import sbtdynver.GitDescribeOutput
 import ch.epfl.scala.sbt.release.ReleaseEarlyPlugin.{autoImport => ReleaseEarlyKeys}
 import sbt.internal.BuildLoader
 import sbt.librarymanagement.MavenRepository
-import build.BloopShadingPlugin.{autoImport => BloopShadingKeys}
 import sbt.util.Logger
 import sbtbuildinfo.BuildInfoPlugin.{autoImport => BuildInfoKeys}
 
@@ -164,10 +163,6 @@ object BuildKeys {
   )
 
   import sbtbuildinfo.{BuildInfoKey, BuildInfoKeys}
-
-  def shadedModuleSettings = List(
-    BloopShadingKeys.shadingNamespace := "bloop.shaded"
-  )
 
   def sbtPluginSettings(
       name: String,
