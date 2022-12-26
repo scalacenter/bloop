@@ -225,8 +225,8 @@ classifier.
 
 ### Export main class from sbt
 
-If you want bloop to export `mainClass` from your build definition, define either of the following
-settings in your `build.sbt`:
+If you want bloop to export `mainClass` from your build definition, define the following
+setting in your `build.sbt`:
 
 ```scala
 (Compile / run / bloopMainClass) := Some("foo.App")
