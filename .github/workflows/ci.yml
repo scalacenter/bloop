@@ -268,8 +268,13 @@ jobs:
           mv bloop-artifacts frontend/target/graalvm-binaries
           sbt "ci-release; docs/docusaurusPublishGhpages"
         shell: bash
+
       - name: Cut GitHub release and update installers on ${{ matrix.os }}
         run: |
-          . bin/ci-setup-bloopoid-keys.sh
-          export GITHUB_TOKEN="$BLOOPOID_GITHUB_TOKEN"
-          sbt "frontend/updateHomebrewFormula; frontend/updateScoopFormula; frontend/githubRelease"
+          if [[ $GITHUB_REF == "refs/tags"* ]]; then
+            . bin/ci-setup-bloopoid-keys.sh
+            export GITHUB_TOKEN="$BLOOPOID_GITHUB_TOKEN"
+            sbt "frontend/updateHomebrewFormula; frontend/updateScoopFormula; frontend/githubRelease"
+          else
+            echo "skipping release since this is a merge and no new tag is detected"
+          fi
