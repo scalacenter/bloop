@@ -5,9 +5,6 @@
 # Compile, test and run Scala fast
 
 <img alt="GitHub All Releases" src="https://img.shields.io/github/downloads/scalacenter/bloop/total.svg?color=orange&style=flat-square">
-<a href="https://gitter.im/scalacenter/bloop">
-<img alt="Gitter" src="https://img.shields.io/gitter/room/scalacenter/bloop.svg?color=red&logo=gitter&style=flat-square" />
-</a>
 <img alt="GitHub CI" src="https://github.com/scalacenter/bloop/workflows/Continuous%20Integration/badge.svg?style=flat-square" />
 <img alt="GitHub release" src="https://img.shields.io/github/release/scalacenter/bloop.svg?color=green&logo=github">
 <img alt="GitHub" src="https://img.shields.io/github/license/scalacenter/bloop.svg?color=blue&style=flat-square" />
