@@ -127,7 +127,7 @@ jobs:
 
       - uses: actions/setup-node@v3
         with:
-          node-version: "10.x"
+          node-version: "16"
       - name: Set up environment
         run: |
           curl -Lo coursier https://git.io/coursier-cli && chmod +x coursier && ./coursier --help
@@ -245,7 +245,7 @@ jobs:
           java-version: '11'
       - uses: actions/setup-node@v3
         with:
-          node-version: "10.x"
+          node-version: "16"
       - name: Download built GraalVM binaries
         uses: actions/download-artifact@v3
         with:
