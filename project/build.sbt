@@ -13,24 +13,17 @@ val `bloop-build` = project
     // Bumping this will causes issues. For now just lock it
     addSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.3.7"),
     addSbtPlugin("com.github.sbt" % "sbt-git" % "2.0.1"),
-    addSbtPlugin("ch.epfl.scala" % "sbt-release-early" % "2.1.1+4-9d76569a"),
+    addSbtPlugin("com.github.sbt" % "sbt-ci-release" % "1.5.11"),
     addSbtPlugin("org.scalameta" % "sbt-mdoc" % "2.3.6"),
     addSbtPlugin("org.scala-debugger" % "sbt-jdi-tools" % "1.1.1"),
-    addSbtPlugin("com.typesafe.sbt" % "sbt-native-packager" % "1.8.1"),
+    addSbtPlugin("com.github.sbt" % "sbt-native-packager" % "1.9.11"),
     libraryDependencies ++= List(
       "org.eclipse.jgit" % "org.eclipse.jgit" % "6.4.0.202211300538-r",
       "org.eclipse.jgit" % "org.eclipse.jgit.ssh.jsch" % "6.4.0.202211300538-r",
       "commons-codec" % "commons-codec" % "1.15",
       ("ch.epfl.scala" % "jarjar" % "1.7.2-patched")
         .exclude("org.apache.ant", "ant")
-    ),
-    (Compile / unmanagedSourceDirectories) ++= {
-      val baseDir = baseDirectory.value.getParentFile
-      List(
-        baseDir / "sbt-shading" / "src" / "main" / "scala",
-        baseDir / "sbt-shading" / "src" / "main" / "java"
-      )
-    }
+    )
   )
 
 Keys.onLoad in Global := {

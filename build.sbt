@@ -2,9 +2,6 @@ import build.BuildImplementation.BuildDefaults
 import build.BuildImplementation.jvmOptions
 import build.Dependencies
 import build.Dependencies.{Scala211Version, Scala212Version, SbtVersion}
-import xerial.sbt.Sonatype.SonatypeKeys
-
-Global / useGpg := false
 
 ThisBuild / dynverSeparator := "-"
 
@@ -51,9 +48,8 @@ val benchmarkBridge = project
   .in(file(".benchmark-bridge-compilation"))
   .aggregate(BenchmarkBridgeCompilation)
   .disablePlugins(ScriptedPlugin)
-  .settings(scalafixSettings)
   .settings(
-    releaseEarly := { () },
+    scalafixSettings,
     (publish / skip) := true
   )
 
@@ -101,7 +97,6 @@ lazy val backend = project
     libraryDependencies ++= List(
       Dependencies.nailgun,
       Dependencies.scalazCore,
-      Dependencies.scalazConcurrent,
       Dependencies.coursierInterface,
       Dependencies.libraryManagement,
       Dependencies.sourcecode,
@@ -173,9 +168,9 @@ lazy val frontend: Project = project
     ),
     dependencyOverrides += Dependencies.shapeless,
     scalafixSettings,
-    releaseSettings,
     testSettings,
     testSuiteSettings,
+    releaseSettings,
     Defaults.itSettings,
     BuildDefaults.frontendTestBuildSettings,
     inConfig(Compile)(
@@ -230,11 +225,6 @@ lazy val bloopgunSettings = Seq(
     Dependencies.jsoniterMacros % Provided
   ),
   (GraalVMNativeImage / mainClass) := Some("bloop.bloopgun.Bloopgun"),
-  graalVMNativeImageCommand := {
-    val oldPath = graalVMNativeImageCommand.value
-    if (!scala.util.Properties.isWin) oldPath
-    else "C:/Users/runneradmin/.jabba/jdk/graalvm-ce-java11@21.1.0/bin/native-image.cmd"
-  },
   graalVMNativeImageOptions ++= {
     val reflectionFile = (Compile / Keys.sourceDirectory).value./("graal")./("reflection.json")
     val securityOverridesFile =
@@ -245,14 +235,12 @@ lazy val bloopgunSettings = Seq(
       s"${securityOverridesFile.getAbsolutePath()} doesn't exist"
     )
     List(
-      "--no-server",
       "--enable-http",
       "--enable-https",
-      "-H:EnableURLProtocols=http,https",
+      "--enable-url-protocols=http,https",
       "--enable-all-security-services",
       "--no-fallback",
       s"-H:ReflectionConfigurationFiles=$reflectionFile",
-      "--allow-incomplete-classpath",
       "-H:+ReportExceptionStackTraces",
       s"-J-Djava.security.properties=$securityOverridesFile",
       s"-Djava.security.properties=$securityOverridesFile",
@@ -285,85 +273,13 @@ lazy val bloopgun213: Project = project
     target := (file("bloopgun") / "target" / "bloopgun-2.13").getAbsoluteFile
   )
 
-def shadeSettingsForModule(moduleId: String, module: Reference) = List(
-  (Compile / packageBin) := {
-    Def.taskDyn {
-      val baseJar = (module / Compile / Keys.packageBin).value
-      val unshadedJarDependencies =
-        (module / Compile / internalDependencyAsJars).value.map(_.data)
-      shadingPackageBin(baseJar, unshadedJarDependencies)
-    }.value
-  },
-  toShadeJars := {
-    val dependencyJars = (module / Runtime / dependencyClasspath).value.map(_.data)
-    dependencyJars.flatMap { path =>
-      val ppath = path.toString
-      val shouldShadeJar = !(
-        ppath.contains("scala-compiler") ||
-          ppath.contains("scala-library") ||
-          ppath.contains("scala-reflect") ||
-          ppath.contains("scala-xml") ||
-          ppath.contains("macro-compat") ||
-          ppath.contains("bcprov-jdk15on") ||
-          ppath.contains("bcpkix-jdk15on") ||
-          ppath.contains("jna") ||
-          ppath.contains("jna-platform") ||
-          isJdiJar(path)
-      ) && path.exists && !path.isDirectory
-
-      if (!shouldShadeJar) Nil
-      else List(path)
-    }
-  },
-  shadeIgnoredNamespaces := Set("scala"),
-  // Lists *all* Scala dependencies transitively for the shading to work correctly
-  shadeNamespaces := Set(
-    // Bloopgun direct and transitive deps
-    "snailgun",
-    "org.zeroturnaround",
-    "io.github.soc",
-    "org.slf4j",
-    "scopt",
-    "macrocompat",
-    "com.github.plokhotnyuk.jsoniter_scala",
-    "coursierapi"
-  )
-)
-
-lazy val bloopgunShadedSettings = Seq(
-  name := "bloopgun",
-  (run / fork) := true,
-  (Test / fork) := true,
-  libraryDependencies ++= List(Dependencies.scalaCollectionCompat)
-)
-
-lazy val bloopgunShaded = project
-  .in(file("bloopgun/target/shaded-module-2.12"))
-  .disablePlugins(ScriptedPlugin, SbtJdiTools)
-  .enablePlugins(BloopShadingPlugin)
-  .settings(
-    shadedModuleSettings,
-    shadeSettingsForModule("bloopgun-core", bloopgun),
-    bloopgunShadedSettings
-  )
-
-lazy val bloopgunShaded213 = project
-  .in(file("bloopgun/target/shaded-module-2.13"))
-  .disablePlugins(ScriptedPlugin, SbtJdiTools)
-  .enablePlugins(BloopShadingPlugin)
-  .settings(
-    shadedModuleSettings,
-    shadeSettingsForModule("bloopgun-core", bloopgun213),
-    bloopgunShadedSettings,
-    scalaVersion := Dependencies.Scala213Version
-  )
-
 lazy val launcherTest = project
   .in(file("launcher-test"))
   .disablePlugins(ScriptedPlugin)
   .dependsOn(launcher, frontend % "test->test")
   .settings(
     name := "bloop-launcher-test",
+    (publish / skip) := true,
     scalafixSettings,
     testSuiteSettings,
     (Test / fork) := true,
@@ -394,38 +310,6 @@ lazy val launcher213 = project
     target := (file("launcher-core") / "target" / "launcher-2.13").getAbsoluteFile
   )
 
-lazy val launcherShadedSettings = Seq(
-  name := "bloop-launcher",
-  (run / fork) := true,
-  (Test / fork) := true,
-  libraryDependencies ++= List(
-    "net.java.dev.jna" % "jna" % "4.5.0",
-    "net.java.dev.jna" % "jna-platform" % "4.5.0",
-    Dependencies.scalaCollectionCompat
-  )
-)
-
-lazy val launcherShaded = project
-  .in(file("launcher-core/target/shaded-module-2.12"))
-  .disablePlugins(ScriptedPlugin, SbtJdiTools)
-  .enablePlugins(BloopShadingPlugin)
-  .settings(
-    shadedModuleSettings,
-    shadeSettingsForModule("bloop-launcher-core", launcher),
-    launcherShadedSettings
-  )
-
-lazy val launcherShaded213 = project
-  .in(file("launcher-core/target/shaded-module-2.13"))
-  .disablePlugins(ScriptedPlugin, SbtJdiTools)
-  .enablePlugins(BloopShadingPlugin)
-  .settings(
-    shadedModuleSettings,
-    shadeSettingsForModule("bloop-launcher-core", launcher213),
-    launcherShadedSettings,
-    scalaVersion := Dependencies.Scala213Version
-  )
-
 lazy val bloop4j = project
   .disablePlugins(ScriptedPlugin)
   .settings(
@@ -450,12 +334,6 @@ lazy val benchmarks = project
   )
 
 val integrations = file("integrations")
-
-def isJdiJar(file: File): Boolean = {
-  import org.scaladebugger.SbtJdiTools
-  if (!System.getProperty("java.specification.version").startsWith("1.")) false
-  else file.getAbsolutePath.contains(SbtJdiTools.JavaTools.getAbsolutePath.toString)
-}
 
 lazy val sbtBloop: Project = project
   .enablePlugins(ScriptedPlugin)
@@ -565,41 +443,22 @@ lazy val twitterIntegrationProjects = project
   )
 
 val allProjects = Seq(
-  bloopShared,
   backend,
-  frontend,
   benchmarks,
-  sbtBloop,
-  nativeBridge04,
+  bloopgun,
+  bloopgun213,
+  bloopShared,
+  buildpress,
+  buildpressConfig,
+  frontend,
   jsBridge06,
   jsBridge1,
   launcher,
   launcher213,
   launcherTest,
-  sockets,
-  bloopgun,
-  bloopgun213
-)
-
-val allProjectsToRelease = Seq[ProjectReference](
-  bloopShared,
-  backend,
-  frontend,
-  sbtBloop,
   nativeBridge04,
-  jsBridge06,
-  jsBridge1,
-  sockets,
-  bloopgun,
-  bloopgunShaded,
-  bloopgun213,
-  bloopgunShaded213,
-  launcher,
-  launcherShaded,
-  launcher213,
-  launcherShaded213,
-  buildpressConfig,
-  buildpress
+  sbtBloop,
+  sockets
 )
 
 val allProjectReferences = allProjects.map(p => LocalProject(p.id))
@@ -608,26 +467,7 @@ val bloop = project
   .disablePlugins(ScriptedPlugin)
   .aggregate(allProjectReferences: _*)
   .settings(
-    releaseEarly := { () },
     (publish / skip) := true,
-    publishLocalAllModules := {
-      BuildDefaults
-        .publishLocalAllModules(allProjectsToRelease)
-        .value
-    },
-    releaseEarlyAllModules := {
-      BuildDefaults
-        .releaseEarlyAllModules(allProjectsToRelease)
-        .value
-    },
-    releaseSonatypeBundle := {
-      Def.taskDyn {
-        val bundleDir = SonatypeKeys.sonatypeBundleDirectory.value
-        // Do nothing if sonatype bundle doesn't exist
-        if (!bundleDir.exists) Def.task("")
-        else SonatypeKeys.sonatypeBundleRelease
-      }.value
-    },
     exportCommunityBuild := {
       build.BuildImplementation
         .exportCommunityBuild(
@@ -644,9 +484,8 @@ val isWindows = scala.util.Properties.isWin
 addCommandAlias(
   "install",
   Seq(
-    "publishLocalAllModules",
-    // Don't generate graalvm image if running in Windows
-    if (isWindows) "" else "bloopgun/graalvm-native-image:packageBin",
+    "publishLocal",
+    "bloopgun/graalvm-native-image:packageBin",
     s"${frontend.id}/test:compile",
     "createLocalHomebrewFormula",
     "createLocalScoopFormula",
@@ -654,6 +493,3 @@ addCommandAlias(
   ).filter(!_.isEmpty)
     .mkString(";", ";", "")
 )
-
-val allReleaseActions = List("releaseEarlyAllModules", "sonatypeBundleRelease")
-addCommandAlias("releaseBloop", allReleaseActions.mkString(";", ";", ""))

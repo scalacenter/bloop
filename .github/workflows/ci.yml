@@ -14,11 +14,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: olafurpg/setup-scala@v13
+      - uses: graalvm/setup-graalvm@v1
         with:
-          java-version: graalvm-ce-java11@21.1.0
+          version: '22.3.0'
+          java-version: '17'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Check formatting
         run: ./bin/scalafmt --test
+
   integrations:
     name: Build integrations tests
     runs-on: ${{ matrix.os }}
@@ -26,20 +30,20 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macOS-latest]
-        jdk: [graalvm-ce-java11@21.1.0]
     steps:
       - uses: actions/checkout@v3
         with:
           submodules: true
-      - uses: olafurpg/setup-scala@v13
+      - uses: graalvm/setup-graalvm@v1
         with:
-          java-version: ${{ matrix.jdk }}
+          version: '22.3.0'
+          java-version: '11'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Tests
-        run: |
-          ./bin/sbt-ci.sh \
-              "sbtBloop/publishLocal" \
-              "sbtBloop/scripted"
+        run: sbt "sbtBloop/publishLocal; sbtBloop/scripted"
         shell: bash
+
   bridges:
     name: Test platform bridges
     runs-on: ${{ matrix.os }}
@@ -47,21 +51,23 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macOS-latest]
-        jdk: [graalvm-ce-java11@21.1.0]
     steps:
       - uses: actions/checkout@v2
         with:
           submodules: true
-      - uses: olafurpg/setup-scala@v13
+      - uses: graalvm/setup-graalvm@v1
         with:
-          java-version: ${{ matrix.jdk }}
+          version: '22.3.0'
+          java-version: '11'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Tests
         run: |
-          ./bin/sbt-ci.sh \
-              "jsBridge06/publishLocal" \
-              "jsBridge1/publishLocal" \
-              "jsBridge06/test" \
-              "jsBridge1/test" \
+          sbt \
+              "jsBridge06/publishLocal; \
+               jsBridge1/publishLocal; \
+               jsBridge06/test; \
+               jsBridge1/test"
         shell: bash
 
   launcher:
@@ -71,19 +77,21 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macOS-latest]
-        jdk: [graalvm-ce-java11@21.1.0]
     steps:
       - uses: actions/checkout@v2
         with:
           submodules: true
-      - uses: olafurpg/setup-scala@v13
+      - uses: graalvm/setup-graalvm@v1
         with:
-          java-version: ${{ matrix.jdk }}
+          version: '22.3.0'
+          java-version: '11'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          components: 'native-image'
+
       - name: Tests
         run: |
           echo $JAVA_HOME
-          which gu && gu install native-image
-          ./bin/sbt-ci.sh "install" "launcherTest/test"
+          sbt "install; launcherTest/test"
         shell: bash
 
   test:
@@ -92,18 +100,31 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macOS-latest]
-        jdk: [graalvm-ce-java11@21.1.0, adopt@1.11]
+        jdk: ["22.3.0", "11"]
+
     name: Test ${{ matrix.os }} -- ${{ matrix.jdk }}
     env:
       HYDRA_LICENSE: ${{ secrets.HYDRA_LICENSE }}
+
     steps:
       - uses: actions/checkout@v3
         with:
           submodules: true
           fetch-depth: 0
-      - uses: olafurpg/setup-scala@v13
+
+      - uses: actions/setup-java@v3
         with:
+          distribution: 'temurin'
           java-version: ${{ matrix.jdk }}
+          cache: 'sbt'
+        if: matrix.jdk == '11'
+
+      - uses: graalvm/setup-graalvm@v1
+        with:
+          version: ${{ matrix.jdk }}
+          java-version: '11'
+        if: matrix.jdk == '22.3.0'
+
       - uses: actions/setup-node@v3
         with:
           node-version: "10.x"
@@ -114,17 +135,19 @@ jobs:
           java -version
           [[ $HYDRA_LICENSE == floating-key=* ]] && mkdir -p $HOME/.triplequote && echo "$HYDRA_LICENSE" > "$HOME/.triplequote/hydra.license" || echo "Hydra license file was not created"
         shell: bash
+
       - name: Compile and test main projects
         run: |
-          ./bin/sbt-ci.sh \
-              "frontend/test:compile" \
-              "backend/test" \
-              "docs/compile" \
-              "frontend/testOnly bloop.ScalaVersionsSpec" \
-              "frontend/testOnly -bloop.ScalaVersionsSpec" \
-              "frontend/runMain bloop.util.CommandsDocGenerator --test" \
-              "frontend/runMain bloop.util.CommandsDocGenerator --out ../docs/cli/reference.md"
+          sbt \
+              "frontend/test:compile; \
+              backend/test; \
+              docs/compile; \
+              frontend/testOnly bloop.ScalaVersionsSpec; \
+              frontend/testOnly -bloop.ScalaVersionsSpec; \
+              frontend/runMain bloop.util.CommandsDocGenerator --test; \
+              frontend/runMain bloop.util.CommandsDocGenerator --out ../docs/cli/reference.md"
         shell: bash
+
       - name: Check docs are up-to-date
         run: |
           ./bin/check-good-practices.sh
@@ -137,51 +160,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-20.04, macOS-latest]
-        jdk: [graalvm-ce-java11@21.1.0]
+        os: [ubuntu-20.04, macOS-latest, windows-latest]
         include:
           - os: ubuntu-20.04
             artifact: bloop-linux
           - os: macos-latest
             artifact: bloop-macos
-    env:
-      CI: true
-      SKIP_TEST_RESOURCES_GENERATION: true
-      GITHUB_DEPLOY_KEY: ${{ secrets.GITHUB_DEPLOY_KEY }}
-      BLOOPOID_GITHUB_TOKEN: ${{ secrets.BLOOPOID_GITHUB_TOKEN }}
-      ARTIFACT_NAME: ${{ matrix.artifact }}
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          submodules: true
-          fetch-depth: 0
-      - uses: olafurpg/setup-scala@v13
-        with:
-          java-version: ${{ matrix.jdk }}
-      - name: Publish GraalVM Native artifacts
-        run: |
-          echo $JAVA_HOME
-          which gu
-          gu install native-image
-          ./bin/sbt-ci.sh "bloopgun/graalvm-native-image:packageBin"
-          mkdir bloop-artifacts
-          cp bloopgun/target/bloopgun-2.12/graalvm-native-image/bloopgun-core bloop-artifacts/$ARTIFACT_NAME
-        shell: bash
-      - uses: actions/upload-artifact@v3
-        with:
-          name: bloop-artifacts
-          path: bloop-artifacts/${{ matrix.artifact }}
-
-  publish-binaries-windows:
-    name: Publish binaries for ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
-    if: github.event_name == 'push'
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [windows-latest]
-        jdk: [graalvm-ce-java11@21.1.0]
-        include:
           - os: windows-latest
             artifact: bloop-windows
     env:
@@ -191,43 +175,38 @@ jobs:
       BLOOPOID_GITHUB_TOKEN: ${{ secrets.BLOOPOID_GITHUB_TOKEN }}
       ARTIFACT_NAME: ${{ matrix.artifact }}
     steps:
-      - name: Configure Pagefile
-        uses: al-cheb/configure-pagefile-action@v1.3
-      - name: Refresh Pagefile
-        run: |
-          (Get-CimInstance Win32_PageFileUsage).AllocatedBaseSize
       - uses: actions/checkout@v3
         with:
           submodules: true
           fetch-depth: 0
-      - uses: olafurpg/setup-scala@v13
+
+      - uses: graalvm/setup-graalvm@v1
         with:
-          java-version: ${{ matrix.jdk }}
-      - name: Install GraalVM Native Image
-        run: |
-          echo $JAVA_HOME
-          "$JAVA_HOME\bin\gu.cmd" install native-image
-        shell: bash
-      - name: Pre-load sbt with bash
-        # FIXME: This step shouldn't be necessary, but sbt fails to find
-        # org.scala-lang.modules#scala-xml_2.12;1.2.0!scala-xml_2.12.jar when launched with
-        # cmd.
-        # Keep the sbt version in sync with `sbt-ci-release.bat`.
-        run: |
-          sbt -sbt-version 1.7.2 version
-        shell: bash
+          version: '22.3.0'
+          java-version: '17'
+          components: 'native-image'
+          native-image-job-reports: 'true'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Publish GraalVM Native artifacts
-        run: >-
-          "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat" &&
-          "%CD%"\bin\sbt-ci-release.bat
-        shell: cmd
-      - name: Prepare generated Windows GraalVM binary
+        run: sbt "bloopgun213/graalvm-native-image:packageBin"
+
+      - name: Copy artifacts (windows)
+        if: matrix.os == 'windows-latest'
         run: |
           echo $ARTIFACT_NAME
-          ls bloopgun/target/bloopgun-2.12/graalvm-native-image/bloopgun-core.exe
-          mkdir bloop-artifacts
-          cp bloopgun/target/bloopgun-2.12/graalvm-native-image/bloopgun-core.exe bloop-artifacts/$ARTIFACT_NAME
+          ls bloopgun/target/bloopgun-2.13/graalvm-native-image/bloopgun-core.exe
+          mkdir -p bloop-artifacts
+          cp bloopgun/target/bloopgun-2.13/graalvm-native-image/bloopgun-core.exe bloop-artifacts/$ARTIFACT_NAME
         shell: bash
+
+      - name: Copy artifacts (not windows)
+        if: matrix.os != 'windows-latest'
+        run: |
+          echo $ARTIFACT_NAME
+          mkdir -p bloop-artifacts
+          cp bloopgun/target/bloopgun-2.13/graalvm-native-image/bloopgun-core bloop-artifacts/$ARTIFACT_NAME
+
       - uses: actions/upload-artifact@v3
         with:
           name: bloop-artifacts
@@ -237,23 +216,20 @@ jobs:
     name: Release version on ${{ matrix.os }}
     needs:
       - publish-binaries
-      - publish-binaries-windows
     runs-on: ${{ matrix.os }}
     if: github.event_name == 'push'
     strategy:
       fail-fast: true
       matrix:
         os: [ubuntu-20.04]
-        jdk: [adopt@1.8]
+
     env:
       CI: true
       SKIP_TEST_RESOURCES_GENERATION: true
-      SONATYPE_USER: ${{ secrets.SONATYPE_USER }}
+      SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
       SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
-      PGP_PASSWORD: ${{ secrets.PGP_PASSWORD }}
-      PGP_PASSPHRASE: ${{ secrets.PGP_PASSWORD }}
-      PGP_PUBLIC_KEY: ${{ secrets.PGP_PUBLIC_KEY }}
-      PGP_PRIVATE_KEY: ${{ secrets.PGP_PRIVATE_KEY }}
+      PGP_PASSPHRASE: ${{ secrets.PGP_PASSPHRASE }}
+      PGP_SECRET: ${{ secrets.PGP_SECRET }}
       GITHUB_DEPLOY_KEY: ${{ secrets.GITHUB_DEPLOY_KEY }}
       BLOOPOID_GITHUB_TOKEN: ${{ secrets.BLOOPOID_GITHUB_TOKEN }}
       BLOOPOID_SSH_PUBLIC_KEY: ${{ secrets.BLOOPOID_SSH_PUBLIC_KEY }}
@@ -263,9 +239,10 @@ jobs:
         with:
           submodules: true
           fetch-depth: 0
-      - uses: olafurpg/setup-scala@v13
+      - uses: actions/setup-java@v3
         with:
-          java-version: ${{ matrix.jdk }}
+          distribution: 'temurin'
+          java-version: '11'
       - uses: actions/setup-node@v3
         with:
           node-version: "10.x"
@@ -283,21 +260,21 @@ jobs:
         run: |
           yarn install
           touch ~/.profile
-          mkdir "$HOME/.ssh"
-          mkdir "$HOME/.sbt"
-          mkdir "$HOME/.sbt/gpg"
           git config --global user.name "Bloopoid"
           git config --global user.email "bloop@vican.me"
           git config --global push.default simple
-          echo "$PGP_PUBLIC_KEY" > "$HOME/.sbt/gpg/pubring.asc"
-          echo "$PGP_PRIVATE_KEY" > "$HOME/.sbt/gpg/secring.asc"
           ls -l bloop-artifacts
           mkdir -p frontend/target
           mv bloop-artifacts frontend/target/graalvm-binaries
-          ./bin/sbt-ci-publish.sh "releaseBloop" "docs/docusaurusPublishGhpages"
+          sbt "ci-release; docs/docusaurusPublishGhpages"
         shell: bash
+
       - name: Cut GitHub release and update installers on ${{ matrix.os }}
         run: |
-          . bin/ci-setup-bloopoid-keys.sh
-          export GITHUB_TOKEN="$BLOOPOID_GITHUB_TOKEN"
-          ./bin/sbt-ci-release.sh "frontend/updateHomebrewFormula" "frontend/updateScoopFormula" "frontend/githubRelease"
+          if [[ $GITHUB_REF == "refs/tags"* ]]; then
+            . bin/ci-setup-bloopoid-keys.sh
+            export GITHUB_TOKEN="$BLOOPOID_GITHUB_TOKEN"
+            sbt "frontend/updateHomebrewFormula; frontend/updateScoopFormula; frontend/githubRelease"
+          else
+            echo "skipping release since this is a merge and no new tag is detected"
+          fi

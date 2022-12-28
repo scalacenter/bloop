@@ -2,7 +2,6 @@ package build
 
 import java.io.File
 
-import ch.epfl.scala.sbt.release.Feedback
 import com.jsuereth.sbtpgp.SbtPgp.{autoImport => Pgp}
 import sbt._
 import sbt.io.IO
@@ -10,22 +9,20 @@ import sbt.io.syntax.fileToRichFile
 import sbt.librarymanagement.syntax.stringToOrganization
 import sbt.util.FileFunction
 import sbtdynver.GitDescribeOutput
-import ch.epfl.scala.sbt.release.ReleaseEarlyPlugin.{autoImport => ReleaseEarlyKeys}
 import sbt.internal.BuildLoader
 import sbt.librarymanagement.MavenRepository
-import build.BloopShadingPlugin.{autoImport => BloopShadingKeys}
 import sbt.util.Logger
 import sbtbuildinfo.BuildInfoPlugin.{autoImport => BuildInfoKeys}
+import com.geirsson.CiReleasePlugin
 
 object BuildPlugin extends AutoPlugin {
   import sbt.plugins.JvmPlugin
   import sbt.plugins.IvyPlugin
   import com.jsuereth.sbtpgp.SbtPgp
-  import ch.epfl.scala.sbt.release.ReleaseEarlyPlugin
 
   override def trigger: PluginTrigger = allRequirements
   override def requires: Plugins =
-    JvmPlugin && ReleaseEarlyPlugin && SbtPgp && IvyPlugin
+    JvmPlugin && CiReleasePlugin && IvyPlugin
   val autoImport = BuildKeys
 
   override def globalSettings: Seq[Def.Setting[_]] =
@@ -82,9 +79,6 @@ object BuildKeys {
   val createLocalArchPackage = Def.taskKey[Unit]("Create local ArchLinux package build files")
   val bloopCoursierJson = Def.taskKey[File]("Generate a versioned install script")
   val bloopLocalCoursierJson = Def.taskKey[File]("Generate a versioned install script")
-  val releaseEarlyAllModules = Def.taskKey[Unit]("Release early all modules")
-  val releaseSonatypeBundle = Def.taskKey[Unit]("Release sonatype bundle, do nothing if no release")
-  val publishLocalAllModules = Def.taskKey[Unit]("Publish all modules locally")
 
   // This has to be change every time the bloop config files format changes.
   val schemaVersion = Def.settingKey[String]("The schema version for our bloop build.")
@@ -165,10 +159,6 @@ object BuildKeys {
 
   import sbtbuildinfo.{BuildInfoKey, BuildInfoKeys}
 
-  def shadedModuleSettings = List(
-    BloopShadingKeys.shadingNamespace := "bloop.shaded"
-  )
-
   def sbtPluginSettings(
       name: String,
       sbtVersion: String
@@ -176,9 +166,7 @@ object BuildKeys {
     Keys.name := name,
     Keys.sbtPlugin := true,
     Keys.sbtVersion := sbtVersion,
-    Keys.target := (file("integrations") / "sbt-bloop" / "target" / sbtVersion).getAbsoluteFile,
-    Keys.publishMavenStyle :=
-      ReleaseEarlyKeys.releaseEarlyWith.value == ReleaseEarlyKeys.SonatypePublisher
+    Keys.target := (file("integrations") / "sbt-bloop" / "target" / sbtVersion).getAbsoluteFile
   )
 
   def benchmarksSettings(dep: Reference): Seq[Def.Setting[_]] = List(
@@ -245,9 +233,6 @@ object BuildImplementation {
       val sonatypeStaging = Resolver.sonatypeOssRepos("staging")
       (oldResolvers ++ sonatypeStaging).distinct
     },
-    ReleaseEarlyKeys.releaseEarlyWith := {
-      ReleaseEarlyKeys.SonatypePublisher
-    },
     Keys.startYear := Some(2017),
     Keys.autoAPIMappings := true,
     Keys.publishMavenStyle := true,
@@ -280,7 +265,6 @@ object BuildImplementation {
   )
 
   final val projectSettings: Seq[Def.Setting[_]] = Seq(
-    ReleaseEarlyKeys.releaseEarlyPublish := BuildDefaults.releaseEarlyPublish.value,
     Keys.scalacOptions := {
       CrossVersion.partialVersion(Keys.scalaVersion.value) match {
         case Some((2, 13)) =>
@@ -431,36 +415,6 @@ object BuildImplementation {
           Seq("-Xmx1024M", "-Dplugin.version=" + Keys.version.value)
       }
     )
-
-    val releaseEarlyPublish: Def.Initialize[Task[Unit]] = Def.task {
-      val logger = Keys.streams.value.log
-      val name = Keys.name.value
-      // We force publishSigned for all of the modules, yes or yes.
-      logger.info(Feedback.logReleaseSonatype(name))
-      Pgp.PgpKeys.publishSigned.value
-    }
-
-    def releaseEarlyAllModules(projects: Seq[sbt.ProjectReference]): Def.Initialize[Task[Unit]] = {
-      Def.taskDyn {
-        val filter = sbt.ScopeFilter(
-          sbt.inProjects(projects: _*),
-          sbt.inConfigurations(sbt.Compile)
-        )
-
-        ReleaseEarlyKeys.releaseEarly.all(filter).map(_ => ())
-      }
-    }
-
-    def publishLocalAllModules(projects: Seq[sbt.ProjectReference]): Def.Initialize[Task[Unit]] = {
-      Def.taskDyn {
-        val filter = sbt.ScopeFilter(
-          sbt.inProjects(projects: _*),
-          sbt.inConfigurations(sbt.Compile)
-        )
-
-        Keys.publishLocal.all(filter).map(_ => ())
-      }
-    }
 
     // From sbt-sensible https://gitlab.com/fommil/sbt-sensible/issues/5, legal requirement
     val getLicense: Def.Initialize[Task[Seq[File]]] = Def.task {

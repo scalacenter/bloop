@@ -19,7 +19,7 @@ object Dependencies {
 
   val bspVersion = "2.1.0-M3"
 
-  val scalazVersion = "7.2.35"
+  val scalazVersion = "7.3.7"
   val lmVersion = "1.8.0"
   val configDirsVersion = "26"
   val caseAppVersion = "2.0.6"
@@ -57,9 +57,8 @@ object Dependencies {
   val libraryManagement = "org.scala-sbt" %% "librarymanagement-ivy" % lmVersion
   val log4j = "org.apache.logging.log4j" % "log4j-core" % "2.19.0"
   val scalazCore = "org.scalaz" %% "scalaz-core" % scalazVersion
-  val scalazConcurrent = "org.scalaz" %% "scalaz-concurrent" % scalazVersion
-  val coursierInterface = "io.get-coursier" % "interface" % "1.0.6"
-  val coursierInterfaceSubs = "io.get-coursier" % "interface-svm-subs" % "1.0.6"
+  val coursierInterface = "io.get-coursier" % "interface" % "1.0.12"
+  val coursierInterfaceSubs = "io.get-coursier" % "interface-svm-subs" % "1.0.12"
   val scalaCollectionCompat = "org.scala-lang.modules" %% "scala-collection-compat" % "2.4.2"
   val shapeless = "com.chuusai" %% "shapeless" % shapelessVersion
   val caseApp = "com.github.alexarchambault" %% "case-app" % caseAppVersion
@@ -68,7 +67,7 @@ object Dependencies {
   val sbtTestAgent = "org.scala-sbt" % "test-agent" % sbtTestAgentVersion
   val snailgun = ("me.vican.jorge" %% "snailgun-cli" % snailgunVersion)
   val ztExec = "org.zeroturnaround" % "zt-exec" % ztExecVersion
-  val slf4jNop = "org.slf4j" % "slf4j-nop" % "1.7.36"
+  val slf4jNop = "org.slf4j" % "slf4j-nop" % "2.0.6"
 
   val utest = "com.lihaoyi" %% "utest" % "0.8.1"
   val pprint = "com.lihaoyi" %% "pprint" % "0.8.1"
