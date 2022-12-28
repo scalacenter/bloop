@@ -225,11 +225,6 @@ lazy val bloopgunSettings = Seq(
     Dependencies.jsoniterMacros % Provided
   ),
   (GraalVMNativeImage / mainClass) := Some("bloop.bloopgun.Bloopgun"),
-  graalVMNativeImageCommand := {
-    val oldPath = graalVMNativeImageCommand.value
-    if (!scala.util.Properties.isWin) oldPath
-    else "C:/Users/runneradmin/.jabba/jdk/graalvm-ce-java11@21.1.0/bin/native-image.cmd"
-  },
   graalVMNativeImageOptions ++= {
     val reflectionFile = (Compile / Keys.sourceDirectory).value./("graal")./("reflection.json")
     val securityOverridesFile =
@@ -240,14 +235,12 @@ lazy val bloopgunSettings = Seq(
       s"${securityOverridesFile.getAbsolutePath()} doesn't exist"
     )
     List(
-      "--no-server",
       "--enable-http",
       "--enable-https",
-      "-H:EnableURLProtocols=http,https",
+      "--enable-url-protocols=http,https",
       "--enable-all-security-services",
       "--no-fallback",
       s"-H:ReflectionConfigurationFiles=$reflectionFile",
-      "--allow-incomplete-classpath",
       "-H:+ReportExceptionStackTraces",
       s"-J-Djava.security.properties=$securityOverridesFile",
       s"-Djava.security.properties=$securityOverridesFile",
@@ -499,8 +492,7 @@ addCommandAlias(
   "install",
   Seq(
     "publishLocal",
-    // Don't generate graalvm image if running in Windows
-    if (isWindows) "" else "bloopgun/graalvm-native-image:packageBin",
+    "bloopgun/graalvm-native-image:packageBin",
     s"${frontend.id}/test:compile",
     "createLocalHomebrewFormula",
     "createLocalScoopFormula",
