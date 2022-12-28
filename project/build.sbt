@@ -18,8 +18,8 @@ val `bloop-build` = project
     addSbtPlugin("org.scala-debugger" % "sbt-jdi-tools" % "1.1.1"),
     addSbtPlugin("com.github.sbt" % "sbt-native-packager" % "1.9.11"),
     libraryDependencies ++= List(
-      "org.eclipse.jgit" % "org.eclipse.jgit" % "5.13.1.202206130422-r",
-      "org.eclipse.jgit" % "org.eclipse.jgit.ssh.jsch" % "5.13.1.202206130422-r",
+      "org.eclipse.jgit" % "org.eclipse.jgit" % "6.4.0.202211300538-r",
+      "org.eclipse.jgit" % "org.eclipse.jgit.ssh.jsch" % "6.4.0.202211300538-r",
       "commons-codec" % "commons-codec" % "1.15",
       ("ch.epfl.scala" % "jarjar" % "1.7.2-patched")
         .exclude("org.apache.ant", "ant")
