@@ -347,8 +347,15 @@ lazy val sbtBloop: Project = project
   .disablePlugins(ScalafixPlugin)
   .in(integrations / "sbt-bloop")
   .settings(
-    BuildDefaults.scriptedSettings,
-    sbtPluginSettings("sbt-bloop", SbtVersion),
+    scriptedBufferLog := false,
+    scriptedLaunchOpts := {
+      scriptedLaunchOpts.value ++
+        Seq("-Xmx1024M", "-Dplugin.version=" + version.value)
+    },
+    name := "sbt-bloop",
+    sbtPlugin := true,
+    sbtVersion := SbtVersion,
+    target := (file("integrations") / "sbt-bloop" / "target" / SbtVersion).getAbsoluteFile,
     libraryDependencies += Dependencies.bloopConfig
   )
 
@@ -369,7 +376,7 @@ lazy val buildpress = project
   .dependsOn(bloopgun, bloopShared, buildpressConfig)
   .settings(
     scalaVersion := Scala212Version,
-    buildpressSettings,
+    (run / fork) := true,
     libraryDependencies ++= List(
       Dependencies.caseApp
     )

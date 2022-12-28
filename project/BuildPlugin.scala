@@ -14,6 +14,7 @@ import sbt.librarymanagement.MavenRepository
 import sbt.util.Logger
 import sbtbuildinfo.BuildInfoPlugin.{autoImport => BuildInfoKeys}
 import com.geirsson.CiReleasePlugin
+import ohnosequences.sbt.GithubRelease.{keys => GHReleaseKeys}
 
 object BuildPlugin extends AutoPlugin {
   import sbt.plugins.JvmPlugin
@@ -34,15 +35,6 @@ object BuildPlugin extends AutoPlugin {
 }
 
 object BuildKeys {
-  def inProject(ref: Reference)(ss: Seq[Def.Setting[_]]): Seq[Def.Setting[_]] =
-    sbt.inScope(sbt.ThisScope.in(project = ref))(ss)
-
-  def inProjectRefs(refs: Seq[Reference])(ss: Def.Setting[_]*): Seq[Def.Setting[_]] =
-    refs.flatMap(inProject(_)(ss))
-
-  def inCompileAndTest(ss: Def.Setting[_]*): Seq[Def.Setting[_]] =
-    Seq(sbt.Compile, sbt.Test).flatMap(sbt.inConfig(_)(ss))
-
   // Use absolute paths so that references work even if `ThisBuild` changes
   final val AbsolutePath = file(".").getCanonicalFile.getAbsolutePath
 
@@ -100,11 +92,6 @@ object BuildKeys {
     nailgunClientLocation := buildBase.value / "nailgun" / "pynailgun" / "ng.py"
   )
 
-  val buildpressSettings: Seq[Def.Setting[_]] = List(
-    (Keys.run / Keys.fork) := true
-  )
-
-  import ohnosequences.sbt.GithubRelease.{keys => GHReleaseKeys}
   val releaseSettings = Seq(
     GHReleaseKeys.ghreleaseTitle := { tagName =>
       tagName.toString
@@ -159,25 +146,15 @@ object BuildKeys {
 
   import sbtbuildinfo.{BuildInfoKey, BuildInfoKeys}
 
-  def sbtPluginSettings(
-      name: String,
-      sbtVersion: String
-  ): Seq[Def.Setting[_]] = List(
-    Keys.name := name,
-    Keys.sbtPlugin := true,
-    Keys.sbtVersion := sbtVersion,
-    Keys.target := (file("integrations") / "sbt-bloop" / "target" / sbtVersion).getAbsoluteFile
-  )
-
   def benchmarksSettings(dep: Reference): Seq[Def.Setting[_]] = List(
     (Keys.publish / Keys.skip) := true,
     BuildInfoKeys.buildInfoKeys := {
       val fullClasspathFiles =
-        BuildInfoKey.map(BuildKeys.lazyFullClasspath.in(sbt.Compile).in(dep)) {
+        BuildInfoKey.map(dep / Compile / BuildKeys.lazyFullClasspath) {
           case (key, value) => ("fullCompilationClasspath", value.toList)
         }
       Seq[BuildInfoKey](
-        Keys.resourceDirectory in sbt.Test in dep,
+        dep / Test / Keys.resourceDirectory,
         fullClasspathFiles
       )
     },
@@ -248,20 +225,6 @@ object BuildImplementation {
         "scm:git:git@github.com:scalacenter/bloop.git"
       )
     )
-  )
-
-  final val metalsSettings: Seq[Def.Setting[_]] = Seq(
-    Keys.scalacOptions ++= {
-      if (Keys.scalaBinaryVersion.value.startsWith("2.10")) Nil
-      else List("-Yrangepos")
-    },
-    Keys.libraryDependencies ++= {
-      if (Keys.scalaBinaryVersion.value.startsWith("2.10")) Nil
-      else
-        List(
-          compilerPlugin("org.scalameta" % "semanticdb-scalac" % "2.1.5" cross CrossVersion.full)
-        )
-    }
   )
 
   final val projectSettings: Seq[Def.Setting[_]] = Seq(
@@ -407,15 +370,6 @@ object BuildImplementation {
       )
     }
 
-    import sbt.ScriptedPlugin.{autoImport => ScriptedKeys}
-    val scriptedSettings: Seq[Def.Setting[_]] = List(
-      ScriptedKeys.scriptedBufferLog := false,
-      ScriptedKeys.scriptedLaunchOpts := {
-        ScriptedKeys.scriptedLaunchOpts.value ++
-          Seq("-Xmx1024M", "-Dplugin.version=" + Keys.version.value)
-      }
-    )
-
     // From sbt-sensible https://gitlab.com/fommil/sbt-sensible/issues/5, legal requirement
     val getLicense: Def.Initialize[Task[Seq[File]]] = Def.task {
       val orig = (Compile / Keys.resources).value
@@ -470,10 +424,7 @@ object BuildImplementation {
         // Publish the projects before we invoke buildpress
         (sbtBloop / Keys.publishLocal).value
 
-        val file = Keys.resourceDirectory
-          .in(Compile)
-          .in(buildpress)
-          .value
+        val file = (buildpress / Compile / Keys.resourceDirectory).value
           ./("bloop-community-build.buildpress")
 
         // We regenerate again if something in the plugin sources has changed
@@ -488,8 +439,8 @@ object BuildImplementation {
         ) ++ regenerateArgs
 
         import sbt.internal.util.Attributed.data
-        val classpath = (Keys.fullClasspath in Compile in buildpress).value
-        val runner = (Keys.runner in (Compile, Keys.run) in buildpress).value
+        val classpath = (buildpress / Compile / Keys.fullClasspath).value
+        val runner = ((buildpress / Compile / Keys.run) / Keys.runner).value
         runner.run(mainClass, data(classpath), buildpressArgs, s.log).get
       }
     }
