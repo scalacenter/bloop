@@ -438,17 +438,6 @@ lazy val nativeBridge04 = project
     (Test / fork) := true
   )
 
-/* This project has the only purpose of forcing the resolution of some artifacts that fail spuriously to be fetched.  */
-lazy val twitterIntegrationProjects = project
-  .in(file("target") / "twitter-integration-projects")
-  .settings(
-    resolvers += MavenRepository("twitter-resolver", "https://maven.twttr.com"),
-    libraryDependencies += "com.hadoop.gplcompression" % "hadoop-lzo" % "0.4.19",
-    libraryDependencies += "com.twitter.common" % "util" % "0.0.118",
-    libraryDependencies += "com.twitter.common" % "quantity" % "0.0.96",
-    libraryDependencies += "com.twitter" % "scrooge-serializer_2.11" % "4.12.0"
-  )
-
 val allProjects = Seq(
   backend,
   benchmarks,
