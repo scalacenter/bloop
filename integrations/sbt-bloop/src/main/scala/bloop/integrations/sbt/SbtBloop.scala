@@ -25,6 +25,7 @@ import sbt.Def
 import sbt.File
 import sbt.Global
 import sbt.Inc
+import sbt.Incomplete
 import sbt.IntegrationTest
 import sbt.KeyRanks
 import sbt.Keys
@@ -40,6 +41,7 @@ import sbt.ThisBuild
 import sbt.ThisProject
 import sbt.Value
 import xsbti.compile.CompileOrder
+import sbt.Result
 
 object BloopPlugin extends AutoPlugin {
   import sbt.plugins.JvmPlugin
@@ -78,8 +80,8 @@ object BloopKeys {
     taskKey[Seq[(File, File)]]("Directory where to write the class files")
   val bloopInstall: TaskKey[Unit] =
     taskKey[Unit]("Generate all bloop configuration files")
-  val bloopGenerate: TaskKey[Option[File]] =
-    taskKey[Option[File]]("Generate bloop configuration file for this project")
+  val bloopGenerate: TaskKey[Result[Option[File]]] =
+    taskKey[Result[Option[File]]]("Generate bloop configuration file for this project")
   val bloopPostGenerate: TaskKey[Unit] =
     taskKey[Unit]("Force resource generators for Bloop.")
 
@@ -866,7 +868,7 @@ object BloopDefaults {
   private[bloop] val targetNamesToConfigs =
     new ConcurrentHashMap[String, GeneratedProject]()
 
-  def bloopGenerate: Def.Initialize[Task[Option[File]]] = Def.taskDyn {
+  def bloopGenerate: Def.Initialize[Task[Result[Option[File]]]] = Def.taskDyn {
     val logger = Keys.streams.value.log
     val project = Keys.thisProject.value
     val scoped = Keys.resolvedScoped.value
@@ -882,8 +884,8 @@ object BloopDefaults {
     }
 
     lazy val generated = Option(targetNamesToConfigs.get(projectName))
-    if (isMetaBuild && configuration == Test) inlinedTask[Option[File]](None)
-    else if (!hasConfigSettings) inlinedTask[Option[File]](None)
+    if (isMetaBuild && configuration == Test) inlinedTask[Result[Option[File]]](Value(None))
+    else if (!hasConfigSettings) inlinedTask[Result[Option[File]]](Value(None))
     else if (generated.isDefined && generated.get.fromSbtUniverseId == currentSbtUniverse) {
       Def.task {
         // Force source generators on this task manually
@@ -891,7 +893,7 @@ object BloopDefaults {
 
         // Force classpath to force side-effects downstream to fully simulate `bloopGenerate`
         val _ = emulateDependencyClasspath.value
-        generated.map(_.outPath.toFile)
+        Value(generated.map(_.outPath.toFile))
       }
     } else
       {
@@ -1066,15 +1068,9 @@ object BloopDefaults {
 
             logger.debug(s"Bloop wrote the configuration of project '$projectName' to '$outFile'")
             logger.success(s"Generated $userFriendlyConfigPath")
-            Some(outFile)
+            Option(outFile)
           }
-      }.result.map {
-        case Inc(cause) =>
-          logger.error(s"Couldn't run bloopGenerate for $projectName. Cause:\n$cause")
-          None
-        case Value(maybeFile) =>
-          maybeFile
-      }
+      }.result
   }
 
   /**
@@ -1119,6 +1115,7 @@ object BloopDefaults {
   }
 
   def bloopInstall: Def.Initialize[Task[Unit]] = Def.taskDyn {
+    val logger = Keys.streams.value.log
     val filter = sbt.ScopeFilter(
       sbt.inAnyProject,
       sbt.inAnyConfiguration,
@@ -1139,9 +1136,25 @@ object BloopDefaults {
     BloopKeys.bloopGenerate
       .all(filter)
       .map(_.toSet)
+      .map(_.foldLeft(Set.empty[Option[File]] -> Set.empty[Incomplete]) {
+        case ((succ, fail), res) =>
+          res match {
+            case Inc(incomplete) => succ -> (fail + incomplete)
+            case Value(fileOpt) => (succ + fileOpt) -> fail
+          }
+      })
       // Smart trick to modify state once a task has completed (who said tasks cannot alter state?)
-      .apply((t: Task[Set[Option[File]]]) => sbt.SessionVar.transform(t, removeProjects))
-      .map(_ => ())
+      .apply((t: Task[(Set[Option[File]], Set[Incomplete])]) =>
+        sbt.SessionVar
+          .transform(t.map { case (files, _) => files }, removeProjects)
+          .flatMap(_ => t.map { case (_, fail) => fail })
+      )
+      .map(fail =>
+        if (fail.nonEmpty) {
+          logger.error(s"Couldn't run bloopGenerate. Cause: ${fail.mkString("\n")}")
+          throw fail.head
+        }
+      )
   }
 
   lazy val bloopConfigDir: Def.Initialize[Option[File]] = Def.setting { None }
