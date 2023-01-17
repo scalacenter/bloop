@@ -134,7 +134,7 @@ final class ConcurrentAnalysisCallback(
       val map = if (reported) reportedProblems else unreportedProblems
       map
         .getOrElseUpdate(source.toPath(), new ConcurrentLinkedQueue)
-        .add(InterfaceUtil.problem(category, pos, msg, severity, None))
+        .add(InterfaceUtil.problem(category, pos, msg, severity, None, None, Nil))
     }
   }
 
