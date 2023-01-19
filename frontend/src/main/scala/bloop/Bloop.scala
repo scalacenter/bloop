@@ -102,6 +102,8 @@ object Bloop {
                 loop(remainingAttempts - 1)
               } else
                 throw new Exception(err)
+            case Left(_: LockError.AlreadyRunning) =>
+              sys.exit(222) // Special exit code if a server is already running
             case Left(err: LockError.FatalError) =>
               throw new Exception(err)
             case Right(()) =>
