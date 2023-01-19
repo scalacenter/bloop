@@ -14,6 +14,7 @@ import java.util.concurrent.Executors
 import java.util.concurrent.ThreadFactory
 import java.util.concurrent.atomic.AtomicInteger
 
+import scala.annotation.tailrec
 import scala.concurrent.duration.DurationInt
 import scala.util.Properties
 import scala.util.Try
@@ -85,12 +86,29 @@ object Bloop {
       case Left(hostPort) =>
         startServer(Left(hostPort))
       case Right(lockFiles) =>
-        Lock.tryAcquire(lockFiles, LockProcess.default) {
-          startServer(Right(lockFiles.socketPaths))
-        } match {
-          case Left(err) => throw new Exception(err)
-          case Right(()) =>
+        val period = 3.second
+        val attempts = 10
+
+        @tailrec
+        def loop(remainingAttempts: Int): Unit = {
+          val res = Lock.tryAcquire(lockFiles, LockProcess.default) {
+            startServer(Right(lockFiles.socketPaths))
+          }
+          res match {
+            case Left(err: LockError.RecoverableError) =>
+              if (remainingAttempts > 0) {
+                System.err.println(s"Caught $err, trying again in $period")
+                Thread.sleep(period.toMillis)
+                loop(remainingAttempts - 1)
+              } else
+                throw new Exception(err)
+            case Left(err: LockError.FatalError) =>
+              throw new Exception(err)
+            case Right(()) =>
+          }
         }
+
+        loop(attempts)
     }
   }
 
