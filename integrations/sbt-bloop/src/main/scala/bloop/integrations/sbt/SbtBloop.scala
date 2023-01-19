@@ -1092,21 +1092,20 @@ object BloopDefaults {
   }
 
   private final val allJson = sbt.GlobFilter("*.json")
-  private final val removeStaleProjects = {
-    allConfigDirs: Set[File] =>
-      { (state: State, generatedFiles: Set[Option[File]]) =>
-        val logger = state.globalLogging.full
-        val allConfigs =
-          allConfigDirs.flatMap(configDir => sbt.PathFinder(configDir).*(allJson).get)
-        allConfigs.diff(generatedFiles.flatMap(_.toList)).foreach { configFile =>
-          if (configFile.getName() == "bloop.settings.json") ()
-          else {
-            sbt.IO.delete(configFile)
-            logger.warn(s"Removed stale $configFile")
-          }
+  private final val removeStaleProjects = { allConfigDirs: Set[File] =>
+    { (state: State, generatedFiles: Set[Option[File]]) =>
+      val logger = state.globalLogging.full
+      val allConfigs =
+        allConfigDirs.flatMap(configDir => sbt.PathFinder(configDir).*(allJson).get)
+      allConfigs.diff(generatedFiles.flatMap(_.toList)).foreach { configFile =>
+        if (configFile.getName() == "bloop.settings.json") ()
+        else {
+          sbt.IO.delete(configFile)
+          logger.warn(s"Removed stale $configFile")
         }
-        state
       }
+      state
+    }
   }
 
   def bloopGlobalUniqueIdTask: Def.Initialize[String] = Def.setting {
