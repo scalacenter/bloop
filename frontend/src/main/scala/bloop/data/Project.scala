@@ -290,7 +290,14 @@ object Project {
         else {
           val scalaJars = scala.jars.map(AbsolutePath.apply)
           Some(
-            ScalaInstance(scala.organization, scala.name, scala.version, scalaJars, logger)
+            ScalaInstance(
+              scala.organization,
+              scala.name,
+              scala.version,
+              scalaJars,
+              logger,
+              scala.bridgeJars.map(_.map(AbsolutePath(_)))
+            )
           )
         }
       }
