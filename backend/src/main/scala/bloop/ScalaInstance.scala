@@ -23,7 +23,8 @@ final class ScalaInstance private (
     val organization: String,
     val name: String,
     override val version: String,
-    override val allJars: Array[File]
+    override val allJars: Array[File],
+    val bridgeJarsOpt: Option[Seq[File]] = None
 ) extends xsbti.compile.ScalaInstance {
 
   override lazy val loaderCompilerOnly: ClassLoader =
@@ -153,6 +154,15 @@ object ScalaInstance {
 
   private[ScalaInstance] final val ScalacCompilerName = "scala-compiler"
 
+  def apply(
+      scalaOrg: String,
+      scalaName: String,
+      scalaVersion: String,
+      allJars: Seq[AbsolutePath],
+      logger: Logger
+  ): ScalaInstance =
+    apply(scalaOrg, scalaName, scalaVersion, allJars, logger, None)
+
   /**
    * Reuses all jars to create an Scala instance if and only if all of them exist.
    *
@@ -170,7 +180,8 @@ object ScalaInstance {
       scalaName: String,
       scalaVersion: String,
       allJars: Seq[AbsolutePath],
-      logger: Logger
+      logger: Logger,
+      bridgeJarsOpt: Option[Seq[AbsolutePath]]
   ): ScalaInstance = {
     val jarsKey = allJars.map(_.underlying).sortBy(_.toString).toList
     if (allJars.nonEmpty) {
@@ -179,7 +190,13 @@ object ScalaInstance {
           DebugFilter.Compilation
         )
         jarsKey.foreach(p => logger.debug(s"  => $p")(DebugFilter.Compilation))
-        new ScalaInstance(scalaOrg, scalaName, scalaVersion, allJars.map(_.toFile).toArray)
+        new ScalaInstance(
+          scalaOrg,
+          scalaName,
+          scalaVersion,
+          allJars.map(_.toFile).toArray,
+          bridgeJarsOpt.map(_.map(_.toFile))
+        )
       }
 
       val nonExistingJars = allJars.filter(j => !Files.exists(j.underlying))

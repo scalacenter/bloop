@@ -116,7 +116,11 @@ object BloopComponentCompiler {
      */
     private def compiledBridge(bridgeSources: ModuleID, scalaInstance: ScalaInstance): File = {
       val raw = new RawCompiler(scalaInstance, ClasspathOptionsUtil.auto, logger)
-      val zinc = new BloopComponentCompiler(raw, manager, bridgeSources, logger)
+      val bridgeJarsOpt = scalaInstance match {
+        case b: _root_.bloop.ScalaInstance => b.bridgeJarsOpt
+        case _ => None
+      }
+      val zinc = new BloopComponentCompiler(raw, manager, bridgeSources, bridgeJarsOpt, logger)
       logger.debug(s"Getting $bridgeSources for Scala ${scalaInstance.version}")(
         DebugFilter.Compilation
       )
@@ -229,6 +233,7 @@ private[inc] class BloopComponentCompiler(
     compiler: RawCompiler,
     manager: BloopComponentManager,
     bridgeSources: ModuleID,
+    bridgeJarsOpt: Option[Seq[File]],
     logger: BloopLogger
 ) {
   implicit val debugFilter: DebugFilter.Compilation.type = DebugFilter.Compilation
@@ -257,23 +262,25 @@ private[inc] class BloopComponentCompiler(
       IO.withTemporaryDirectory { _ =>
         val shouldResolveSources =
           bridgeSources.explicitArtifacts.exists(_.`type` == "src")
-        val allArtifacts = BloopDependencyResolution.resolveWithErrors(
-          List(
-            BloopDependencyResolution
-              .Artifact(bridgeSources.organization, bridgeSources.name, bridgeSources.revision)
-          ),
-          logger,
-          resolveSources = shouldResolveSources,
-          List(
-            coursierapi.MavenRepository.of(
-              "https://scala-ci.typesafe.com/artifactory/scala-integration/"
+        val allArtifacts = bridgeJarsOpt.map(_.map(_.toPath)).getOrElse {
+          BloopDependencyResolution.resolveWithErrors(
+            List(
+              BloopDependencyResolution
+                .Artifact(bridgeSources.organization, bridgeSources.name, bridgeSources.revision)
+            ),
+            logger,
+            resolveSources = shouldResolveSources,
+            List(
+              coursierapi.MavenRepository.of(
+                "https://scala-ci.typesafe.com/artifactory/scala-integration/"
+              )
             )
-          )
-        ) match {
-          case Right(paths) => paths.map(_.underlying).toVector
-          case Left(t) =>
-            val msg = s"Couldn't retrieve module $bridgeSources"
-            throw new InvalidComponent(msg, t)
+          ) match {
+            case Right(paths) => paths.map(_.underlying).toVector
+            case Left(t) =>
+              val msg = s"Couldn't retrieve module $bridgeSources"
+              throw new InvalidComponent(msg, t)
+          }
         }
 
         if (!shouldResolveSources) {
@@ -286,7 +293,7 @@ private[inc] class BloopComponentCompiler(
             if (!HydraSupport.isEnabled(compiler.scalaInstance)) (bridgeSources.name, sources)
             else {
               val hydraBridgeModule = HydraSupport.getModuleForBridgeSources(compiler.scalaInstance)
-              mergeBloopAndHydraBridges(sources, hydraBridgeModule) match {
+              mergeBloopAndHydraBridges(sources.toVector, hydraBridgeModule) match {
                 case Right(mergedHydraBridgeSourceJar) =>
                   (hydraBridgeModule.name, mergedHydraBridgeSourceJar)
                 case Left(error) =>
