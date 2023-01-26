@@ -56,7 +56,7 @@ class LauncherReleasesModifier extends StringModifier {
         </table>
       } catch {
         // The given artifact could not be released
-        case t: org.jsoup.HttpStatusException =>
+        case _: org.jsoup.HttpStatusException =>
           <blockquote>
             The launcher module has not yet hit Maven Central. This section will
             be updated next time there is a change in the bloop docs.
