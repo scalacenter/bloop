@@ -1,5 +1,7 @@
 package bloop
 
+import java.nio.file.Paths
+
 import scala.tools.nsc.Properties
 
 import bloop.io.AbsolutePath
@@ -53,14 +55,13 @@ object HydraCompileSpec extends BaseCompileSpec {
     }
   }
 
-  // private lazy val hydraLicenseExists: Boolean = {
-  //   val hydraLicense = Paths.get(System.getProperty("user.home"), ".triplequote", "hydra.license")
-  //   hydraLicense.toFile.exists()
-  // }
+  private lazy val hydraLicenseExists: Boolean = {
+    val hydraLicense = Paths.get(System.getProperty("user.home"), ".triplequote", "hydra.license")
+    hydraLicense.toFile.exists()
+  }
 
   override def test(name: String)(fun: => Any): Unit = {
-    // if (hydraLicenseExists) super.test(name)(fun)
-    // else ignore(name, "Hydra license is missing")(fun)
-    ignore(name, "Hydra license is missing")(fun)
+    if (hydraLicenseExists) super.test(name)(fun)
+    else ignore(name, "Hydra license is missing")(fun)
   }
 }
