@@ -147,7 +147,7 @@ object ScalaJsToolchain extends ToolchainCompanion[ScalaJsToolchain] {
         DependencyResolution
           .Artifact("org.scala-js", s"scalajs-env-jsdom-nodejs_$scalaVersion", "1.1.0"),
         DependencyResolution
-          .Artifact("org.scala-js", s"scalajs-logging_$scalaVersion", "1.4.0")
+          .Artifact("org.scala-js", s"scalajs-logging_$scalaVersion", "1.1.1")
       )
   }
 
