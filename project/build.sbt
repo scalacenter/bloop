@@ -1,5 +1,5 @@
 addSbtPlugin("org.portable-scala" % "sbt-scalajs-crossproject" % "1.2.0")
-addSbtPlugin("org.scala-js" % "sbt-scalajs" % "1.12.0")
+addSbtPlugin("org.scala-js" % "sbt-scalajs" % "1.13.0")
 addSbtPlugin("com.dwijnand" % "sbt-dynver" % "4.1.1")
 addSbtPlugin("ohnosequences" % "sbt-github-release" % "0.7.0")
 addSbtPlugin("com.scalawilliam.esbeetee" % "sbt-vspp" % "0.4.11")
