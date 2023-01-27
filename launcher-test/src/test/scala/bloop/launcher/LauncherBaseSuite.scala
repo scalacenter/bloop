@@ -238,7 +238,7 @@ abstract class LauncherBaseSuite(
     val services = TestUtil.createTestServices(false, logger)
     val lsServer = new BloopLanguageServer(messages, lsClient, services, bspScheduler, logger)
 
-    lsServer.startTask.runAsync(bspScheduler)
+    lsServer.startTask.runToFuture(bspScheduler)
 
     val initializeServer =
       lsClient.request(

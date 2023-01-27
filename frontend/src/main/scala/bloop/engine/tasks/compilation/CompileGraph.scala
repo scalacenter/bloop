@@ -244,7 +244,7 @@ object CompileGraph {
           runningCompilation.traversal.executeOn(ExecutionContext.ioScheduler)
 
         val deduplicateStreamSideEffectsHandle =
-          replayEventsTask.runAsync(ExecutionContext.ioScheduler)
+          replayEventsTask.runToFuture(ExecutionContext.ioScheduler)
 
         /**
          * Deduplicate and change the implementation of the task returning the

@@ -90,8 +90,8 @@ class BloopLanguageClient(
     for {
       id <- response match {
         case Response.None => Some(RequestId.Null)
-        case Response.Success(_, requestId, jsonrpc, _) => Some(requestId)
-        case Response.Error(_, requestId, jsonrpc, _) => Some(requestId)
+        case Response.Success(_, requestId, _, _) => Some(requestId)
+        case Response.Error(_, requestId, _, _) => Some(requestId)
       }
       callback <- activeServerRequests.remove(id).orElse {
         logger.error(s"Response to unknown request: $response")
