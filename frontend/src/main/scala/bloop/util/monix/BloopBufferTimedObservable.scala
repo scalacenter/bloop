@@ -12,7 +12,7 @@ import monix.execution.Ack.Continue
 import monix.execution.Ack.Stop
 import monix.execution.Cancelable
 import monix.execution.cancelables.CompositeCancelable
-import monix.execution.cancelables.MultiAssignmentCancelable
+import monix.execution.cancelables.OrderedCancelable
 import monix.reactive.Observable
 import monix.reactive.observers.Subscriber
 
@@ -26,7 +26,7 @@ final class BloopBufferTimedObservable[+A](
   require(maxCount >= 0, "maxCount must be positive")
 
   def unsafeSubscribeFn(out: Subscriber[Seq[A]]): Cancelable = {
-    val periodicTask = MultiAssignmentCancelable()
+    val periodicTask = OrderedCancelable()
 
     val connection = source.unsafeSubscribeFn(new Subscriber[A] with Runnable { self =>
       implicit val scheduler = out.scheduler
@@ -37,7 +37,7 @@ final class BloopBufferTimedObservable[+A](
       // MUST BE synchronized by `self`
       private[this] var buffer = ListBuffer.empty[A]
       // MUST BE synchronized by `self`
-      private[this] var expiresAt = scheduler.currentTimeMillis() + timespanMillis
+      private[this] var expiresAt = scheduler.clockRealTime(TimeUnit.MILLISECONDS) + timespanMillis
 
       locally {
         // Scheduling the first tick, in the constructor
@@ -46,7 +46,7 @@ final class BloopBufferTimedObservable[+A](
 
       // Runs periodically, every `timespan`
       def run(): Unit = self.synchronized {
-        val now = scheduler.currentTimeMillis()
+        val now = scheduler.clockRealTime(TimeUnit.MILLISECONDS)
         // Do we still have time remaining?
         if (now < expiresAt) {
           // If we still have time remaining, it's either a scheduler
@@ -94,7 +94,7 @@ final class BloopBufferTimedObservable[+A](
       }
 
       def onNext(elem: A): Future[Ack] = self.synchronized {
-        val now = scheduler.currentTimeMillis()
+        val now = scheduler.clockRealTime(TimeUnit.MILLISECONDS)
         buffer.append(elem)
 
         if (expiresAt <= now || (maxCount > 0 && maxCount <= buffer.length))

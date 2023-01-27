@@ -132,7 +132,7 @@ sealed trait Task[+A] { self =>
 
   final def transform[R](fa: A => R, fe: Throwable => R): Task[R] =
     Task.Transform(
-      (t: MonixTask[A]) => t.transform(fa, fe),
+      (t: MonixTask[A]) => t.redeem(fe, fa),
       self,
       List.empty
     )
@@ -639,7 +639,7 @@ object Task {
 
   def liftMonixTask[A](t: MonixTask[A], cancel: () => Unit): Task[A] =
     Task.create { (sh, cb) =>
-      t.runAsync(sh)
+      t.runToFuture(sh)
         .onComplete {
           case Success(v) => cb.onSuccess(v)
           case Failure(e) => cb.onError(e)

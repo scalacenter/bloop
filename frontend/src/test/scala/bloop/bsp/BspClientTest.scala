@@ -150,7 +150,7 @@ trait BspClientTest {
         customServices(TestUtil.createTestServices(addDiagnosticsHandler, logger))
       val lsServer = new BloopLanguageServer(messages, lsClient, services, ioScheduler, logger)
 
-      lsServer.startTask.runAsync(ioScheduler)
+      lsServer.startTask.runToFuture(ioScheduler)
 
       val cwd = configDirectory.underlying.getParent
       val initializeServer =
