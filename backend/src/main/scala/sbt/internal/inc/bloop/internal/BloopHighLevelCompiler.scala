@@ -134,7 +134,7 @@ final class BloopHighLevelCompiler(
             )
           } catch {
             case t: StackOverflowError =>
-              val msg = "Encountered StackOverflowError coming from the compiler. You might need to restart Bloop build server"
+              val msg = "Encountered a StackOverflowError coming from the compiler. You might need to restart your Bloop build server"
               logger.error(s"${msg}:\n${t.getStackTrace().mkString("\n")}")
               throw new CompileFailed(new Array(0), msg, new Array(0), t)
             case NonFatal(t) =>
