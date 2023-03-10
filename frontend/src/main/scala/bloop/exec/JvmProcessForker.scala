@@ -44,12 +44,13 @@ trait JvmProcessForker {
    * @param mainClass       The fully qualified name of the class to run
    * @param args            The arguments to pass to the main method.
    * @param jvmOptions      The java options to pass to the jvm.
+   * @param envVars         Env vars which should be passed to the jvm.
    * @param logger          Where to log the messages from execution
    * @param opts            The options to run the program with
    * @param extraClasspath  Paths to append to the classpath before running
    * @return 0 if the execution exited successfully, a non-zero number otherwise
    */
-  def runMain(
+  final def runMain(
       cwd: AbsolutePath,
       mainClass: String,
       args: Array[String],
@@ -58,6 +59,28 @@ trait JvmProcessForker {
       logger: Logger,
       opts: CommonOptions,
       extraClasspath: Array[AbsolutePath] = Array.empty
+  ): Task[Int] = {
+    val newEnv = envVars.foldLeft(opts.env) {
+      case (properties, line) =>
+        val eqIdx = line.indexOf("=")
+        if (eqIdx > 0 && eqIdx != line.length - 1) {
+          val key = line.substring(0, eqIdx)
+          val value = line.substring(eqIdx + 1)
+          properties.withProperty(key, value)
+        } else properties
+    }
+    val commonOptionWithEnv = opts.withEnv(newEnv)
+    runMain(cwd, mainClass, args, jvmOptions, logger, commonOptionWithEnv, extraClasspath)
+  }
+
+  protected[exec] def runMain(
+      cwd: AbsolutePath,
+      mainClass: String,
+      args: Array[String],
+      jvmOptions: Array[String],
+      logger: Logger,
+      opts: CommonOptions,
+      extraClasspath: Array[AbsolutePath]
   ): Task[Int]
 }
 
@@ -99,7 +122,6 @@ final class JvmForker(config: JdkConfig, classpath: Array[AbsolutePath]) extends
       mainClass: String,
       args: Array[String],
       jargs: Array[String],
-      envVars: List[String],
       logger: Logger,
       opts: CommonOptions,
       extraClasspath: Array[AbsolutePath]
@@ -107,14 +129,6 @@ final class JvmForker(config: JdkConfig, classpath: Array[AbsolutePath]) extends
     val jvmOptions = jargs ++ config.javaOptions
     val fullClasspath = classpath ++ extraClasspath
     val fullClasspathStr = fullClasspath.map(_.syntax).mkString(File.pathSeparator)
-    envVars.foreach(line => {
-      val eqIdx = line.indexOf("=")
-      if (eqIdx > 0 && eqIdx != line.length - 1) {
-        val key = line.substring(0, eqIdx)
-        val value = line.substring(eqIdx + 1)
-        opts.env.setProperty(key, value)
-      }
-    })
 
     // Windows max cmd line length is 32767, which seems to be the least of the common shells.
     val processCmdCharLimit = 30000
@@ -228,13 +242,12 @@ final class JvmDebuggingForker(underlying: JvmProcessForker) extends JvmProcessF
       mainClass: String,
       args: Array[String],
       jargs0: Array[String],
-      envVars: List[String],
       logger: Logger,
       opts: CommonOptions,
       extraClasspath: Array[AbsolutePath]
   ): Task[Int] = {
     val jargs = jargs0 :+ enableDebugInterface
-    underlying.runMain(cwd, mainClass, args, jargs, envVars, logger, opts, extraClasspath)
+    underlying.runMain(cwd, mainClass, args, jargs, logger, opts, extraClasspath)
   }
 
   private def enableDebugInterface: String = {
