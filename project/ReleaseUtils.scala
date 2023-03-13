@@ -162,6 +162,13 @@ object ReleaseUtils {
        |      prefix.install "bin"
        |  end
        |
+       |  service do
+       |    run [opt_bin/"bloop", "server"]
+       |    keep_alive true
+       |    log_path "/tmp/homebrew.bloop.stdout.log"
+       |    error_log_path "/tmp/homebrew.bloop.stderr.log"
+       |  end
+       |
        |  test do
        |  end
        |end""".stripMargin
