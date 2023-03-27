@@ -4,5 +4,11 @@ addSbtPlugin("org.wartremover" % "sbt-wartremover" % "2.3.7")
 addSbtPlugin("ch.epfl.scala" % "sbt-scalafix" % "0.9.1")
 addSbtPlugin("com.softwaremill.clippy" % "plugin-sbt" % "0.5.3")
 
-addSbtPlugin("ch.epfl.scala" % "sbt-bloop" % "1.4.11-9-827a32e7")
+val pluginVersion = sys.props.getOrElse(
+  "bloopVersion",
+  throw new RuntimeException("Unable to find -DbloopVersion")
+)
+
+addSbtPlugin("ch.epfl.scala" % "sbt-bloop" % pluginVersion)
+
 updateOptions := updateOptions.value.withLatestSnapshots(false)

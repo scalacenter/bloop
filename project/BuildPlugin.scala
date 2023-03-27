@@ -2,19 +2,7 @@ package build
 
 import java.io.File
 
-import sbt.{
-  AutoPlugin,
-  BuildPaths,
-  Def,
-  Keys,
-  PluginTrigger,
-  Plugins,
-  State,
-  Task,
-  ThisBuild,
-  uri,
-  Reference
-}
+import sbt._
 import sbt.io.syntax.fileToRichFile
 import sbt.librarymanagement.syntax.stringToOrganization
 import sbt.util.FileFunction
@@ -39,8 +27,6 @@ object BuildPlugin extends AutoPlugin {
 }
 
 object BuildKeys {
-  import sbt.{RootProject, ProjectRef, BuildRef, file, uri}
-
   def inProject(ref: Reference)(ss: Seq[Def.Setting[_]]): Seq[Def.Setting[_]] =
     sbt.inScope(sbt.ThisScope.in(project = ref))(ss)
 
@@ -78,8 +64,6 @@ object BuildKeys {
 }
 
 object BuildImplementation {
-  import sbt.{url, file}
-  import sbt.{Developer, Resolver, Watched, Compile, Test}
   import sbtdynver.DynVerPlugin.{autoImport => DynVerKeys}
 
   // This should be added to upstream sbt.
@@ -114,8 +98,6 @@ object BuildImplementation {
       )
     )
   )
-
-  import sbt.CrossVersion
 
   final val projectSettings: Seq[Def.Setting[_]] = Seq(
     Keys.scalacOptions := {

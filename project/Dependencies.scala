@@ -1,5 +1,8 @@
 package build
 
+import sbt.librarymanagement.syntax.stringToOrganization
+import sbt.Provided
+
 object Dependencies {
   val Scala212Version = "2.12.17"
   val Scala213Version = "2.13.8"
@@ -9,7 +12,7 @@ object Dependencies {
 
   val bspVersion = "2.1.0-M3"
 
-  val scalazVersion = "7.2.35"
+  val scalazVersion = "7.3.7"
   val lmVersion = "1.8.0"
   val caseAppVersion = "2.0.6"
   val sourcecodeVersion = "0.3.0"
@@ -31,9 +34,8 @@ object Dependencies {
   val snailgunVersion = "0.4.1-sc2"
   val debugAdapterVersion = "3.0.5"
   val bloopConfigVersion = "1.5.5"
-  val coursierInterfaceVersion = "1.0.7"
+  val coursierInterfaceVersion = "1.0.12"
 
-  import sbt.librarymanagement.syntax.stringToOrganization
   val zinc = "org.scala-sbt" %% "zinc" % zincVersion
   val bsp4s = "ch.epfl.scala" %% "bsp4s" % bspVersion
   val nailgun = "io.github.alexarchambault.bleep" % "nailgun-server" % "1.0.4"
@@ -42,7 +44,6 @@ object Dependencies {
   val libraryManagement = "org.scala-sbt" %% "librarymanagement-ivy" % lmVersion
   val log4j = "org.apache.logging.log4j" % "log4j-core" % "2.19.0"
   val scalazCore = "org.scalaz" %% "scalaz-core" % scalazVersion
-  val scalazConcurrent = "org.scalaz" %% "scalaz-concurrent" % scalazVersion
   val coursierInterface = "io.get-coursier" % "interface" % coursierInterfaceVersion
   val caseApp = "com.github.alexarchambault" %% "case-app" % caseAppVersion
   val sourcecode = "com.lihaoyi" %% "sourcecode" % sourcecodeVersion
@@ -52,12 +53,9 @@ object Dependencies {
 
   val utest = "com.lihaoyi" %% "utest" % "0.8.1"
   val pprint = "com.lihaoyi" %% "pprint" % "0.8.1"
-  val scalacheck = "org.scalacheck" %% "scalacheck" % "1.14.3"
   val junit = "com.github.sbt" % "junit-interface" % junitVersion
   val directoryWatcher = "ch.epfl.scala" % "directory-watcher" % directoryWatcherVersion
   val difflib = "com.googlecode.java-diff-utils" % "diffutils" % difflibVersion
-
-  import sbt.Provided
 
   val monix = "io.monix" %% "monix" % monixVersion
   val jsoniterCore =
