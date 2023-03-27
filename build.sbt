@@ -93,6 +93,7 @@ lazy val backend = project
       Keys.scalaOrganization
     ),
     buildInfoObject := "BloopScalaInfo",
+    Test / publishArtifact := true,
     libraryDependencies ++= List(
       Dependencies.nailgun,
       Dependencies.scalazCore,
@@ -165,6 +166,7 @@ lazy val frontend: Project = project
     (Test / fork) := true,
     (IntegrationTest / run / fork) := true,
     (test / parallelExecution) := false,
+    Test / publishArtifact := true,
     libraryDependencies ++= List(
       Dependencies.jsoniterMacros % Provided,
       Dependencies.caseApp,
