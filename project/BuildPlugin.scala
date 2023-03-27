@@ -8,6 +8,7 @@ import sbt.librarymanagement.syntax.stringToOrganization
 import sbt.util.FileFunction
 import sbtdynver.GitDescribeOutput
 import sbtbuildinfo.BuildInfoPlugin.{autoImport => BuildInfoKeys}
+import com.geirsson.CiReleasePlugin
 
 object BuildPlugin extends AutoPlugin {
   import sbt.plugins.JvmPlugin
