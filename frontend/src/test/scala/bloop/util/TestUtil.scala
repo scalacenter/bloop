@@ -21,6 +21,7 @@ import bloop.bsp.BloopRpcServices
 import bloop.cli.Commands
 import bloop.config.Config
 import bloop.config.Config.CompileOrder
+import bloop.config.Tag
 import bloop.data.JdkConfig
 import bloop.data.LoadedProject
 import bloop.data.Origin
@@ -49,7 +50,6 @@ import bloop.logging.RecordingLogger
 
 import _root_.bloop.task.Task
 import _root_.monix.execution.Scheduler
-import bloop.config.Tag
 import org.junit.Assert
 import sbt.internal.inc.BloopComponentCompiler
 import java.util.concurrent.TimeoutException

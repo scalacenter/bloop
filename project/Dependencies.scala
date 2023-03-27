@@ -12,7 +12,7 @@ object Dependencies {
 
   val bspVersion = "2.1.0-M3"
 
-  val scalazVersion = "7.2.35"
+  val scalazVersion = "7.3.7"
   val lmVersion = "1.8.0"
   val caseAppVersion = "2.0.6"
   val sourcecodeVersion = "0.3.0"
@@ -44,7 +44,6 @@ object Dependencies {
   val libraryManagement = "org.scala-sbt" %% "librarymanagement-ivy" % lmVersion
   val log4j = "org.apache.logging.log4j" % "log4j-core" % "2.19.0"
   val scalazCore = "org.scalaz" %% "scalaz-core" % scalazVersion
-  val scalazConcurrent = "org.scalaz" %% "scalaz-concurrent" % scalazVersion
   val coursierInterface = "io.get-coursier" % "interface" % coursierInterfaceVersion
   val caseApp = "com.github.alexarchambault" %% "case-app" % caseAppVersion
   val sourcecode = "com.lihaoyi" %% "sourcecode" % sourcecodeVersion

@@ -28,6 +28,7 @@ import com.typesafe.config.ConfigException
 import com.typesafe.config.ConfigFactory
 import com.typesafe.config.ConfigParseOptions
 import com.typesafe.config.ConfigSyntax
+import scalaz.Cord
 import xsbti.compile.ClasspathOptions
 import xsbti.compile.CompileOrder
 
@@ -274,7 +275,10 @@ final case class Project(
 object Project {
   private implicit val filter: DebugFilter.All.type = DebugFilter.All
   final implicit val ps: scalaz.Show[Project] =
-    new scalaz.Show[Project] { override def shows(f: Project): String = f.name }
+    new scalaz.Show[Project] {
+      override def shows(f: Project): String = f.name
+      override def show(f: Project): Cord = Cord(shows(f))
+    }
 
   final class ProjectReadException(msg: String, cause: Throwable)
       extends RuntimeException(msg, cause)

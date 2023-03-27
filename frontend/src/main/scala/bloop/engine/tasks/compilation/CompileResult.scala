@@ -10,6 +10,8 @@ import bloop.reporter.Problem
 import bloop.task.Task
 import bloop.util.CacheHashCode
 
+import scalaz.Cord
+
 sealed trait CompileResult[+R] {
   def result: R
 }
@@ -134,5 +136,6 @@ object FinalCompileResult {
           }
       }
     }
+    override def show(f: FinalCompileResult): Cord = Cord(shows(f))
   }
 }
