@@ -23,18 +23,3 @@ libraryDependencies ++= List(
   ("ch.epfl.scala" % "jarjar" % "1.7.2-patched")
     .exclude("org.apache.ant", "ant")
 )
-
-Keys.onLoad in Global := {
-  val oldOnLoad = (Keys.onLoad in Global).value
-  oldOnLoad.andThen { state =>
-    val files = IO.listFiles(state.baseDir / "benchmark-bridge")
-    if (!files.isEmpty) state
-    else {
-      throw new sbt.internal.util.MessageOnlyException(
-        """
-          |It looks like you didn't fully set up Bloop after cloning (git submodules are missing).
-          |Read the contributing guide for more information: https://scalacenter.github.io/bloop/docs/contributing-guide#set-the-repository-up""".stripMargin
-      )
-    }
-  }
-}

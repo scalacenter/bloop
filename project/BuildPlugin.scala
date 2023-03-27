@@ -51,11 +51,6 @@ object BuildKeys {
     }
   }
 
-  final val BenchmarkBridgeProject =
-    createScalaCenterProject("compiler-benchmark", file(s"$AbsolutePath/benchmark-bridge"))
-  final val BenchmarkBridgeBuild = BuildRef(BenchmarkBridgeProject.build)
-  final val BenchmarkBridgeCompilation = ProjectRef(BenchmarkBridgeProject.build, "compilation")
-
   val buildBase = (ThisBuild / Keys.baseDirectory)
   val exportCommunityBuild = Def.taskKey[Unit]("Clone and export the community build.")
   val lazyFullClasspath =
@@ -142,42 +137,6 @@ object BuildKeys {
     updateHomebrewFormula := ReleaseUtils.updateHomebrewFormula.value,
     updateScoopFormula := ReleaseUtils.updateScoopFormula.value,
     updateArchPackage := ReleaseUtils.updateArchPackage.value
-  )
-
-  import sbtbuildinfo.{BuildInfoKey, BuildInfoKeys}
-
-  def benchmarksSettings(dep: Reference): Seq[Def.Setting[_]] = List(
-    (Keys.publish / Keys.skip) := true,
-    BuildInfoKeys.buildInfoKeys := {
-      val fullClasspathFiles =
-        BuildInfoKey.map(dep / Compile / BuildKeys.lazyFullClasspath) {
-          case (key, value) => ("fullCompilationClasspath", value.toList)
-        }
-      Seq[BuildInfoKey](
-        dep / Test / Keys.resourceDirectory,
-        fullClasspathFiles
-      )
-    },
-    BuildInfoKeys.buildInfoPackage := "bloop.benchmarks",
-    Keys.javaOptions ++= {
-      def refOf(version: String) = {
-        val HasSha = """(?:.+?)-([0-9a-f]{8})(?:\+\d{8}-\d{4})?""".r
-        version match {
-          case HasSha(sha) => sha
-          case _ => version
-        }
-      }
-      List(
-        "-Dsbt.launcher=" + (sys
-          .props("java.class.path")
-          .split(java.io.File.pathSeparatorChar)
-          .find(_.contains("sbt-launch"))
-          .getOrElse("")),
-        "-DbloopVersion=" + (dep / Keys.version).value,
-        "-DbloopRef=" + refOf((dep / Keys.version).value),
-        "-Dgit.localdir=" + buildBase.value.getAbsolutePath
-      )
-    }
   )
 }
 

@@ -35,4 +35,3 @@ package-lock.json
 .metals/
 **/metals.sbt
 *.lock
-benchmark-bridge/corpus/

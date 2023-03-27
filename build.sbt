@@ -44,14 +44,6 @@ val scalafixSettings: Seq[Setting[_]] = Seq(
 /**
  * ************************************************************************************************
  */
-val benchmarkBridge = project
-  .in(file(".benchmark-bridge-compilation"))
-  .aggregate(BenchmarkBridgeCompilation)
-  .disablePlugins(ScriptedPlugin)
-  .settings(
-    scalafixSettings,
-    (publish / skip) := true
-  )
 
 lazy val bloopShared = project
   .in(file("shared"))
@@ -327,16 +319,6 @@ lazy val bloop4j = project
     )
   )
 
-lazy val benchmarks = project
-  .dependsOn(frontend % "compile->it", BenchmarkBridgeCompilation % "compile->compile")
-  .disablePlugins(ScriptedPlugin)
-  .enablePlugins(BuildInfoPlugin, JmhPlugin)
-  .settings(
-    scalafixSettings,
-    benchmarksSettings(frontend),
-    (publish / skip) := true
-  )
-
 val integrations = file("integrations")
 
 lazy val sbtBloop: Project = project
@@ -402,7 +384,6 @@ val docs = project
 
 val allProjects = Seq(
   backend,
-  benchmarks,
   bloopgun,
   bloopgun213,
   bloopShared,
