@@ -1,4 +1,5 @@
 import build.BuildImplementation.BuildDefaults
+import build.BuildImplementation.jvmOptions
 import scala.util.Properties
 
 inThisBuild(
@@ -57,10 +58,10 @@ val scalafixSettings: Seq[Setting[_]] = Seq(
 )
 
 lazy val shared = project
-  .settings(scalafixSettings)
   .settings(
     sonatypeSetting,
     name := "bloop-shared",
+    scalafixSettings,
     libraryDependencies ++= Seq(
       Dependencies.jsoniterCore,
       Dependencies.jsoniterMacros,
@@ -80,12 +81,12 @@ import build.Dependencies
 
 lazy val backend = project
   .enablePlugins(BuildInfoPlugin)
-  .settings(scalafixSettings)
-  .settings(testSettings ++ testSuiteSettings)
   .dependsOn(shared)
   .settings(
     sonatypeSetting,
     name := "bloop-backend",
+    scalafixSettings,
+    testSettings ++ testSuiteSettings,
     buildInfoPackage := "bloop.internal.build",
     buildInfoKeys := Seq[BuildInfoKey](
       Keys.scalaVersion,
@@ -129,7 +130,6 @@ lazy val tmpDirSettings = Def.settings(
   }
 )
 
-import build.BuildImplementation.jvmOptions
 // For the moment, the dependency is fixed
 lazy val frontend: Project = project
   .dependsOn(
@@ -138,27 +138,9 @@ lazy val frontend: Project = project
   )
   .enablePlugins(BuildInfoPlugin)
   .configs(IntegrationTest)
-  .settings(scalafixSettings)
   .settings(
     sonatypeSetting,
-    testSettings,
-    testSuiteSettings,
-    Defaults.itSettings,
     BuildDefaults.frontendTestBuildSettings,
-    (Test / unmanagedResources / includeFilter) := {
-      new FileFilter {
-        def accept(file: File): Boolean = {
-          val abs = file.getAbsolutePath
-          !(
-            abs.contains("scala-2.12") ||
-              abs.contains("classes-") ||
-              abs.contains("target")
-          )
-        }
-      }
-    }
-  )
-  .settings(
     name := "bloop-frontend",
     bloopName := "bloop",
     (Compile / run / mainClass) := Some("bloop.Cli"),
@@ -192,16 +174,16 @@ lazy val frontend: Project = project
       Dependencies.logback
     )
   )
+  .disablePlugins(ScalafixPlugin)
 
 val jsBridge1Name = "bloop-js-bridge-1"
 lazy val jsBridge1 = project
   .dependsOn(frontend % Provided, frontend % "test->test")
   .in(file("bridges") / "scalajs-1")
-  .disablePlugins(ScalafixPlugin)
-  .settings(testSettings)
   .settings(
     sonatypeSetting,
     name := jsBridge1Name,
+    testSettings,
     libraryDependencies ++= List(
       Dependencies.scalaJsLinker1,
       Dependencies.scalaJsLogging1,
@@ -217,10 +199,10 @@ lazy val nativeBridge04 = project
   .dependsOn(frontend % Provided, frontend % "test->test")
   .in(file("bridges") / "scala-native-0.4")
   .disablePlugins(ScalafixPlugin)
-  .settings(testSettings)
   .settings(
     sonatypeSetting,
     name := nativeBridge04Name,
+    testSettings,
     libraryDependencies += Dependencies.scalaNativeTools04,
     (Test / javaOptions) ++= jvmOptions,
     (Test / fork) := true

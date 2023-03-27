@@ -1,5 +1,8 @@
 package build
 
+import sbt.librarymanagement.syntax.stringToOrganization
+import sbt.Provided
+
 object Dependencies {
   val Scala212Version = "2.12.17"
   val Scala213Version = "2.13.8"
@@ -33,7 +36,6 @@ object Dependencies {
   val bloopConfigVersion = "1.5.5"
   val coursierInterfaceVersion = "1.0.7"
 
-  import sbt.librarymanagement.syntax.stringToOrganization
   val zinc = "org.scala-sbt" %% "zinc" % zincVersion
   val bsp4s = "ch.epfl.scala" %% "bsp4s" % bspVersion
   val nailgun = "io.github.alexarchambault.bleep" % "nailgun-server" % "1.0.4"
@@ -52,12 +54,9 @@ object Dependencies {
 
   val utest = "com.lihaoyi" %% "utest" % "0.8.1"
   val pprint = "com.lihaoyi" %% "pprint" % "0.8.1"
-  val scalacheck = "org.scalacheck" %% "scalacheck" % "1.14.3"
   val junit = "com.github.sbt" % "junit-interface" % junitVersion
   val directoryWatcher = "ch.epfl.scala" % "directory-watcher" % directoryWatcherVersion
   val difflib = "com.googlecode.java-diff-utils" % "diffutils" % difflibVersion
-
-  import sbt.Provided
 
   val monix = "io.monix" %% "monix" % monixVersion
   val jsoniterCore =
