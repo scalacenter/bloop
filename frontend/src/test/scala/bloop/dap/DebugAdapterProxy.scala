@@ -71,7 +71,7 @@ private[dap] final class DebugAdapterProxy(
       .liftMonixTaskUncancellable(
         events.zipWithIndex
           .dropWhile(_._2 <= lastSeenIndex)
-          .findF(_._1.event == event.name)
+          .find(_._1.event == event.name)
           .headOptionL
       )
       .flatMap {
@@ -88,7 +88,7 @@ private[dap] final class DebugAdapterProxy(
     Task
       .liftMonixTaskUncancellable(
         events
-          .findF(_.event == event.name)
+          .find(_.event == event.name)
           .toListL
       )
       .flatMap(events => Task.sequence(events.map(event.deserialize(_))))
@@ -110,7 +110,7 @@ private[dap] final class DebugAdapterProxy(
   def startBackgroundListening(scheduler: Scheduler): Unit = {
     input
       .foreachL(handleMessage)
-      .runOnComplete(_ => observer.onComplete())(scheduler)
+      .runAsync(_ => observer.onComplete())(scheduler)
     ()
   }
 

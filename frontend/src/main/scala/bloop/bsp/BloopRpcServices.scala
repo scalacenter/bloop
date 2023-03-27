@@ -61,7 +61,7 @@ object BloopRpcServices {
           import endpoint.{codecA, codecB}
           val method = endpoint.method
           message match {
-            case Request(`method`, params, id, jsonrpc, headers) =>
+            case Request(`method`, params, id, _, _) =>
               val paramsJson = extractJsonParams(params)
               Try(readFromArray[A](paramsJson.value)) match {
                 case Success(value) =>
@@ -97,14 +97,14 @@ object BloopRpcServices {
           import endpoint.codecA
           val method = endpoint.method
           message match {
-            case Notification(`method`, params, _, headers) =>
+            case Notification(`method`, params, _, _) =>
               val paramsJson = extractJsonParams(params)
               Try(readFromArray[A](paramsJson.value)) match {
-                case Success(value) => f(value).map(a => Response.None)
+                case Success(value) => f(value).map(_ => Response.None)
                 case Failure(err) =>
                   fail(s"Failed to parse notification $message. Params: $paramsJson. Errors: $err")
               }
-            case Notification(invalidMethod, _, _, headers) =>
+            case Notification(invalidMethod, _, _, _) =>
               fail(s"Expected method '$method', obtained '$invalidMethod'")
             case _ => fail(s"Expected notification, obtained $message")
           }
