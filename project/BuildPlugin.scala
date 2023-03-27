@@ -8,6 +8,7 @@ import sbt.librarymanagement.syntax.stringToOrganization
 import sbt.util.FileFunction
 import sbtdynver.GitDescribeOutput
 import sbtbuildinfo.BuildInfoPlugin.{autoImport => BuildInfoKeys}
+import com.geirsson.CiReleasePlugin
 
 object BuildPlugin extends AutoPlugin {
   import sbt.plugins.JvmPlugin
@@ -27,15 +28,6 @@ object BuildPlugin extends AutoPlugin {
 }
 
 object BuildKeys {
-  def inProject(ref: Reference)(ss: Seq[Def.Setting[_]]): Seq[Def.Setting[_]] =
-    sbt.inScope(sbt.ThisScope.in(project = ref))(ss)
-
-  def inProjectRefs(refs: Seq[Reference])(ss: Def.Setting[_]*): Seq[Def.Setting[_]] =
-    refs.flatMap(inProject(_)(ss))
-
-  def inCompileAndTest(ss: Def.Setting[_]*): Seq[Def.Setting[_]] =
-    Seq(sbt.Compile, sbt.Test).flatMap(sbt.inConfig(_)(ss))
-
   import sbt.{Test, TestFrameworks, Tests}
   val buildBase = (ThisBuild / Keys.baseDirectory)
 

@@ -17,24 +17,24 @@ object Dependencies {
   val caseAppVersion = "2.0.6"
   val sourcecodeVersion = "0.3.0"
   val sbtTestInterfaceVersion = "1.0"
-  val sbtTestAgentVersion = "1.8.0"
+  val sbtTestAgentVersion = "1.8.2"
   val junitVersion = "0.13.3"
   val directoryWatcherVersion = "0.8.0+6-f651bd93"
   val monixVersion = "3.2.0"
   val jsoniterVersion = "2.13.3.2"
-  val scalaNative04Version = "0.4.9"
-  val scalaJs1Version = "1.12.0"
+  val scalaNative04Version = "0.4.11"
+  val scalaJs1Version = "1.13.0"
   val scalaJsEnvsVersion = "1.1.1"
   val xxHashVersion = "1.3.0"
-  val ztVersion = "1.13"
+  val ztVersion = "1.15"
   val difflibVersion = "1.3.0"
-  val braveVersion = "5.14.1"
+  val braveVersion = "5.15.0"
   val zipkinSenderVersion = "2.16.3"
-  val asmVersion = "9.4"
+  val asmVersion = "9.5"
   val snailgunVersion = "0.4.1-sc2"
-  val debugAdapterVersion = "3.0.5"
+  val debugAdapterVersion = "3.0.7"
   val bloopConfigVersion = "1.5.5"
-  val coursierInterfaceVersion = "1.0.12"
+  val coursierInterfaceVersion = "1.0.13"
 
   val zinc = "org.scala-sbt" %% "zinc" % zincVersion
   val bsp4s = "ch.epfl.scala" %% "bsp4s" % bspVersion
@@ -42,7 +42,7 @@ object Dependencies {
   val bloopConfig = "ch.epfl.scala" %% "bloop-config" % bloopConfigVersion
 
   val libraryManagement = "org.scala-sbt" %% "librarymanagement-ivy" % lmVersion
-  val log4j = "org.apache.logging.log4j" % "log4j-core" % "2.19.0"
+  val log4j = "org.apache.logging.log4j" % "log4j-core" % "2.20.0"
   val scalazCore = "org.scalaz" %% "scalaz-core" % scalazVersion
   val coursierInterface = "io.get-coursier" % "interface" % coursierInterfaceVersion
   val caseApp = "com.github.alexarchambault" %% "case-app" % caseAppVersion

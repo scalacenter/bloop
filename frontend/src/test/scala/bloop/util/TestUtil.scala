@@ -57,6 +57,7 @@ import java.security.SecureRandom
 import java.util.concurrent.atomic.AtomicInteger
 import java.nio.file.attribute.PosixFilePermissions
 import xsbti.ComponentProvider
+import java.lang.management.ManagementFactory
 
 object TestUtil {
   def projectDir(base: Path, name: String): Path = base.resolve(name)
@@ -266,9 +267,7 @@ object TestUtil {
   }
 
   private[bloop] def runAndTestProperties = {
-    val props = new bloop.cli.CommonOptions.PrettyProperties()
-    props.put("BLOOP_OWNER", "owner")
-    props
+    new bloop.cli.CommonOptions.PrettyProperties(Map("BLOOP_OWNER" -> "owner"))
   }
 
   /**
@@ -664,15 +663,11 @@ object TestUtil {
 
   def printThreadDump(): Unit = {
     import scala.collection.JavaConverters._
-    val l = Thread.getAllStackTraces().asScala.toVector.sortBy(_._1.getName)
     System.err.println("Thread dump:")
     System.err.println()
-    for ((thread, trace) <- l) {
-      System.err.println(thread.getName)
-      for (e <- trace)
-        System.err.println(s"  $e")
-      System.err.println("")
-    }
+    val mxBean = ManagementFactory.getThreadMXBean()
+    val stacktraces = mxBean.dumpAllThreads(true, true)
+    stacktraces.foreach(threadInfo => System.err.println(threadInfo))
     System.err.println("----------")
   }
 

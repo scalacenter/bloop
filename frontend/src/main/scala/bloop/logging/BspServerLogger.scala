@@ -16,6 +16,8 @@ import com.github.plokhotnyuk.jsoniter_scala.macros.JsonCodecMaker
 import jsonrpc4s.RawJson
 import monix.execution.atomic.AtomicInt
 import sbt.internal.inc.bloop.ZincInternals
+import xsbti.DiagnosticRelatedInformation
+import xsbti.Position
 import xsbti.Severity
 
 /**
@@ -96,8 +98,44 @@ final class BspServerLogger private (
     }
   }
 
+  private def bspRange(pos: Position, startLine: Int, startColumn: Int) = {
+    pos match {
+      case ZincInternals.ZincRangePos(endLine, endColumn) =>
+        val start = bsp.Position(startLine - 1, startColumn)
+        val end = bsp.Position(endLine - 1, endColumn)
+        bsp.Range(start, end)
+      case _ =>
+        val pos = bsp.Position(startLine - 1, startColumn)
+        bsp.Range(pos, pos)
+    }
+
+  }
+
+  private def bspRelatedInformation(
+      relatedInformationList: List[DiagnosticRelatedInformation],
+      startLine: Int,
+      startColumn: Int
+  ): Option[List[bsp.DiagnosticRelatedInformation]] = {
+    import sbt.util.InterfaceUtil.toOption
+
+    if (relatedInformationList.isEmpty) None
+    else
+      Some(relatedInformationList.flatMap { relatedInformation =>
+        toOption(relatedInformation.position().sourceFile()).map { file =>
+          bsp.DiagnosticRelatedInformation(
+            bsp.Location(
+              bsp.Uri(file.toPath.toUri),
+              bspRange(relatedInformation.position(), startLine, startColumn)
+            ),
+            relatedInformation.message()
+          )
+        }
+      })
+  }
+
   def diagnostic(event: CompilationEvent.Diagnostic): Unit = {
     import sbt.util.InterfaceUtil.toOption
+    import scala.collection.JavaConverters._
     val message = event.problem.message
     val problemPos = event.problem.position
     val problemSeverity = event.problem.severity
@@ -107,21 +145,29 @@ final class BspServerLogger private (
     (problemPos, sourceFile) match {
       case (ZincInternals.ZincExistsStartPos(startLine, startColumn), Some(file)) =>
         // Lines in Scalac are indexed by 1, BSP expects 0-index positions
-        val pos = problemPos match {
-          case ZincInternals.ZincRangePos(endLine, endColumn) =>
-            val start = bsp.Position(startLine - 1, startColumn)
-            val end = bsp.Position(endLine - 1, endColumn)
-            bsp.Range(start, end)
-          case _ =>
-            val pos = bsp.Position(startLine - 1, startColumn)
-            bsp.Range(pos, pos)
-        }
+        val pos = bspRange(problemPos, startLine, startColumn)
 
         val source = Some("bloop")
         val uri = bsp.Uri(file.toPath.toUri)
         val severity = bspSeverity(problemSeverity)
         val diagnostic =
-          bsp.Diagnostic(pos, Some(severity), code, source, message, None, None, None)
+          bsp.Diagnostic(
+            pos,
+            Some(severity),
+            code,
+            source,
+            message,
+            bspRelatedInformation(
+              event.problem
+                .diagnosticRelatedInforamation()
+                .asScala
+                .toList,
+              startLine,
+              startColumn
+            ),
+            None,
+            None
+          )
         val textDocument = bsp.TextDocumentIdentifier(uri)
         val buildTargetId = bsp.BuildTargetIdentifier(event.projectUri)
         client.notify(
@@ -140,7 +186,23 @@ final class BspServerLogger private (
         val range = bsp.Range(pos, pos)
         val severity = bspSeverity(problemSeverity)
         val diagnostic =
-          bsp.Diagnostic(range, Some(severity), None, None, message, None, None, None)
+          bsp.Diagnostic(
+            range,
+            Some(severity),
+            None,
+            None,
+            message,
+            bspRelatedInformation(
+              event.problem
+                .diagnosticRelatedInforamation()
+                .asScala
+                .toList,
+              startLine = 0,
+              startColumn = 0
+            ),
+            None,
+            None
+          )
         val textDocument = bsp.TextDocumentIdentifier(uri)
         val buildTargetId = bsp.BuildTargetIdentifier(event.projectUri)
         client.notify(

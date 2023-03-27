@@ -128,7 +128,7 @@ class TaskSpec {
           Cancelable.empty
         }
         .runAsync
-    val out = Await.result(future, 1.second)
+    val out = Await.result(future, 1.second).toLong
     assertEquals(out, 42)
   }
 
@@ -141,14 +141,14 @@ class TaskSpec {
       )(_ + _)
       .runAsync
 
-    val out = Await.result(future, 1.second)
+    val out = Await.result(future, 1.second).toLong
     assertEquals(out, 3)
   }
 
   @Test
   def memoize1: Unit = {
     val memoizedTime = Task
-      .create[Long] { (sh, cb) =>
+      .create[Long] { (_, cb) =>
         cb.onSuccess(System.currentTimeMillis())
         Cancelable.empty
       }
@@ -166,7 +166,7 @@ class TaskSpec {
   @Test
   def memoize2: Unit = {
     val memoizedTime = Task
-      .create[Long] { (sh, cb) =>
+      .create[Long] { (_, cb) =>
         cb.onSuccess(System.currentTimeMillis())
         Cancelable.empty
       }
