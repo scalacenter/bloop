@@ -26,7 +26,7 @@ object Dependencies {
   val scalaJs1Version = "1.12.0"
   val scalaJsEnvsVersion = "1.1.1"
   val xxHashVersion = "1.3.0"
-  val ztVersion = "1.13"
+  val ztVersion = "1.15"
   val difflibVersion = "1.3.0"
   val braveVersion = "5.14.1"
   val zipkinSenderVersion = "2.16.3"
