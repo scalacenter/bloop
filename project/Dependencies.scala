@@ -32,7 +32,7 @@ object Dependencies {
   val zipkinSenderVersion = "2.16.3"
   val asmVersion = "9.4"
   val snailgunVersion = "0.4.1-sc2"
-  val debugAdapterVersion = "3.0.5"
+  val debugAdapterVersion = "3.0.7"
   val bloopConfigVersion = "1.5.5"
   val coursierInterfaceVersion = "1.0.13"
 
@@ -42,7 +42,7 @@ object Dependencies {
   val bloopConfig = "ch.epfl.scala" %% "bloop-config" % bloopConfigVersion
 
   val libraryManagement = "org.scala-sbt" %% "librarymanagement-ivy" % lmVersion
-  val log4j = "org.apache.logging.log4j" % "log4j-core" % "2.19.0"
+  val log4j = "org.apache.logging.log4j" % "log4j-core" % "2.20.0"
   val scalazCore = "org.scalaz" %% "scalaz-core" % scalazVersion
   val coursierInterface = "io.get-coursier" % "interface" % coursierInterfaceVersion
   val caseApp = "com.github.alexarchambault" %% "case-app" % caseAppVersion

@@ -9,7 +9,7 @@ addSbtPlugin("ch.epfl.scala" % "sbt-scalafix" % "0.10.4")
 addSbtPlugin("com.github.sbt" % "sbt-ci-release" % "1.5.9")
 
 libraryDependencies ++= List(
-  "org.eclipse.jgit" % "org.eclipse.jgit" % "6.4.0.202211300538-r",
-  "org.eclipse.jgit" % "org.eclipse.jgit.ssh.jsch" % "6.4.0.202211300538-r",
+  "org.eclipse.jgit" % "org.eclipse.jgit" % "6.5.0.202303070854-r",
+  "org.eclipse.jgit" % "org.eclipse.jgit.ssh.jsch" % "6.5.0.202303070854-r",
   "commons-codec" % "commons-codec" % "1.15"
 )
