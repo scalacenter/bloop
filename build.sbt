@@ -272,7 +272,7 @@ lazy val bloopgun213: Project = project
 lazy val launcherTest = project
   .in(file("launcher-test"))
   .disablePlugins(ScriptedPlugin)
-  .dependsOn(launcher, frontend % "test->test")
+  .dependsOn(launcher)
   .settings(
     name := "bloop-launcher-test",
     (publish / skip) := true,
@@ -281,7 +281,8 @@ lazy val launcherTest = project
     (Test / fork) := true,
     (Test / parallelExecution) := false,
     libraryDependencies ++= List(
-      Dependencies.coursierInterface
+      Dependencies.coursierInterface,
+      "io.github.alexarchambault.bleep" %% "bloop-frontend" % "1.5.6-sc-6" % "test->test"
     )
   )
 

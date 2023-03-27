@@ -105,8 +105,8 @@ abstract class LauncherBaseSuite(
     }
   }
 
-  override def afterAll(): Unit = {
-    super.afterAll()
+  override def utestAfterAll(): Unit = {
+    super.utestAfterAll()
     oldIvyHome.foreach(h => System.setProperty("ivy.home", h))
     oldCoursierCacheDir.foreach(c => System.setProperty("coursier.cache", c))
     val newOldMap = oldEnv.asScala.toMap.asJava
