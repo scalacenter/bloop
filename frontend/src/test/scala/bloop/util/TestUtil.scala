@@ -267,9 +267,7 @@ object TestUtil {
   }
 
   private[bloop] def runAndTestProperties = {
-    val props = new bloop.cli.CommonOptions.PrettyProperties()
-    props.put("BLOOP_OWNER", "owner")
-    props
+    new bloop.cli.CommonOptions.PrettyProperties(Map("BLOOP_OWNER" -> "owner"))
   }
 
   /**

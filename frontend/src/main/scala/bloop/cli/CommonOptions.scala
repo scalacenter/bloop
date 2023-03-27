@@ -30,42 +30,37 @@ case class CommonOptions(
     @Hidden env: CommonOptions.PrettyProperties = CommonOptions.currentEnv
 ) {
   def workingPath: AbsolutePath = AbsolutePath(workingDirectory)
+
+  def withEnv(env: CommonOptions.PrettyProperties): CommonOptions =
+    copy(env = env)
 }
 
 object CommonOptions {
   final val default: CommonOptions = CommonOptions()
 
   // Our own version of properties in which we override `toString`
-  final class PrettyProperties extends Properties {
-    override def toString: String = synchronized {
-      super.keySet().toArray.map(_.toString).mkString(", ")
+  final class PrettyProperties(val toMap: Map[String, String]) {
+    override def toString: String = {
+      toMap.keySet.mkString(", ")
     }
 
-    def toMap: Map[String, String] = {
-      import scala.collection.JavaConverters._
-      this.asScala.toMap
+    def containsKey(key: String): Boolean = toMap.contains(key)
+    def withProperty(key: String, value: String): PrettyProperties = {
+      new PrettyProperties(toMap + (key -> value))
     }
   }
 
   object PrettyProperties {
     def from(p: Properties): PrettyProperties = {
-      val pp = new PrettyProperties()
-      // Scala bug #10418 work-around
-      import scala.collection.JavaConverters._
-      p.asScala.foreach {
-        case (k, v) =>
-          pp.setProperty(k, v)
-      }
-
-      pp
+      import scala.collection.JavaConverters.propertiesAsScalaMapConverter
+      val propertiesMap = p.asScala.toMap
+      new PrettyProperties(propertiesMap)
     }
   }
 
   final lazy val currentEnv: PrettyProperties = {
     import scala.collection.JavaConverters._
-    System.getenv().asScala.foldLeft(new PrettyProperties()) {
-      case (props, (key, value)) => props.setProperty(key, value); props
-    }
+    new PrettyProperties(System.getenv().asScala.toMap)
   }
 
   implicit lazy val parser: Parser[CommonOptions] = Parser.derive
