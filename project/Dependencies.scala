@@ -34,7 +34,7 @@ object Dependencies {
   val snailgunVersion = "0.4.1-sc2"
   val debugAdapterVersion = "3.0.5"
   val bloopConfigVersion = "1.5.5"
-  val coursierInterfaceVersion = "1.0.7"
+  val coursierInterfaceVersion = "1.0.12"
 
   val zinc = "org.scala-sbt" %% "zinc" % zincVersion
   val bsp4s = "ch.epfl.scala" %% "bsp4s" % bspVersion
