@@ -7,7 +7,6 @@ import java.io.OutputStream
 import java.io.PrintStream
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
-import java.{util => ju}
 
 import scala.collection.JavaConverters._
 import scala.concurrent.Promise
@@ -35,7 +34,6 @@ abstract class LauncherBaseSuite(
 ) extends BaseSuite {
   val defaultConfig: ServerConfig = ServerConfig(port = Some(bloopServerPort))
 
-  val oldEnv: ju.Map[String, String] = System.getenv()
   val oldCwd: AbsolutePath = AbsolutePath(System.getProperty("user.dir"))
   val oldHomeDir: AbsolutePath = AbsolutePath(System.getProperty("user.home"))
   val oldIvyHome: Option[String] = Option(System.getProperty("ivy.home"))
@@ -48,7 +46,6 @@ abstract class LauncherBaseSuite(
 
   // Init code acting as beforeAll()
   stopServer(complainIfError = false)
-  prependToPath(bloopBinDirectory.syntax)
   System.setProperty("ivy.home", ivyHome.syntax)
   System.setProperty("bloop.home", AbsolutePath(BuildTestInfo.baseDirectory).syntax)
   System.setProperty("coursier.cache", coursierCacheDir.syntax)
@@ -109,53 +106,7 @@ abstract class LauncherBaseSuite(
     super.utestAfterAll()
     oldIvyHome.foreach(h => System.setProperty("ivy.home", h))
     oldCoursierCacheDir.foreach(c => System.setProperty("coursier.cache", c))
-    val newOldMap = oldEnv.asScala.toMap.asJava
-    changeEnvironment(newOldMap)
     Paths.delete(bloopBinDirectory)
-  }
-
-  import java.{util => ju}
-  private def prependToPath(newEntry: String): Unit = {
-    import java.io.File
-    import bloop.util.CrossPlatform
-    val pathVariableName = if (CrossPlatform.isWindows) "Path" else "PATH"
-    val ourEnv = System.getenv().asScala.toMap
-    val currentPath = ourEnv
-      .get(pathVariableName)
-      .orElse(ourEnv.get("PATH"))
-      .getOrElse(sys.error(s"No Path or PATH in env!"))
-    val newPath = newEntry + File.pathSeparator + currentPath
-    changeEnvironment((ourEnv + (pathVariableName -> newPath)).asJava)
-  }
-
-  private def changeEnvironment(newEnv: ju.Map[String, String]): Unit = {
-    // From https://stackoverflow.com/questions/318239/how-do-i-set-environment-variables-from-java
-    try {
-      val envClass = Class.forName("java.lang.ProcessEnvironment")
-      val envField = envClass.getDeclaredField("theEnvironment")
-      envField.setAccessible(true)
-      val currentEnv = envField.get(null).asInstanceOf[ju.Map[String, String]]
-      currentEnv.putAll(newEnv)
-      val caseInsensitiveEnvField =
-        envClass.getDeclaredField("theCaseInsensitiveEnvironment")
-      caseInsensitiveEnvField.setAccessible(true)
-      val currentCaseInsensitiveEnv =
-        caseInsensitiveEnvField.get(null).asInstanceOf[ju.Map[String, String]]
-      currentCaseInsensitiveEnv.putAll(newEnv)
-    } catch {
-      case _: NoSuchFieldException =>
-        val classes = classOf[ju.Collections].getDeclaredClasses()
-        val currentEnv = System.getenv()
-        classes.foreach { currentClass =>
-          if (currentClass.getName() == "java.util.Collections$UnmodifiableMap") {
-            val mField = currentClass.getDeclaredField("m")
-            mField.setAccessible(true)
-            val currentEnvMap = mField.get(currentEnv).asInstanceOf[ju.Map[String, String]]
-            currentEnvMap.clear()
-            currentEnvMap.putAll(newEnv)
-          }
-        }
-    }
   }
 
   case class LauncherRun(launcher: LauncherMain, output: ByteArrayOutputStream) {
