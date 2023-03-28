@@ -45,26 +45,6 @@ val scalafixSettings: Seq[Setting[_]] = Seq(
  * ************************************************************************************************
  */
 
-lazy val bloopShared = project
-  .in(file("shared"))
-  .settings(
-    name := "bloop-shared",
-    scalafixSettings,
-    libraryDependencies ++= Seq(
-      Dependencies.jsoniterCore,
-      Dependencies.jsoniterMacros,
-      Dependencies.bsp4s excludeAll ExclusionRule(
-        organization = "com.github.plokhotnyuk.jsoniter-scala"
-      ),
-      Dependencies.zinc,
-      Dependencies.log4j,
-      Dependencies.xxHashLibrary,
-      Dependencies.configDirectories,
-      Dependencies.sbtTestInterface,
-      Dependencies.sbtTestAgent
-    )
-  )
-
 lazy val sockets: Project = project
   .settings(
     crossPaths := false,
@@ -244,12 +224,13 @@ lazy val buildpressConfig = (project in file("buildpress-config"))
   )
 
 lazy val buildpress = project
-  .dependsOn(bloopgun, bloopShared, buildpressConfig)
+  .dependsOn(bloopgun, buildpressConfig)
   .settings(
     scalaVersion := Scala212Version,
     (run / fork) := true,
     libraryDependencies ++= List(
-      Dependencies.caseApp
+      Dependencies.caseApp,
+      "io.github.alexarchambault.bleep" %% "bloop-shared" % "1.5.6-sc-6"
     )
   )
 
@@ -277,7 +258,6 @@ val docs = project
 val allProjects = Seq(
   bloopgun,
   bloopgun213,
-  bloopShared,
   buildpress,
   buildpressConfig,
   launcher,
