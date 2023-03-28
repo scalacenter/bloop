@@ -57,6 +57,26 @@ val scalafixSettings: Seq[Setting[_]] = Seq(
   semanticdbVersion := scalafixSemanticdb.revision
 )
 
+lazy val benchmarkBridge = project
+  .in(file(".benchmark-bridge-compilation"))
+  .aggregate(BenchmarkBridgeCompilation)
+  .disablePlugins(ScriptedPlugin)
+  .settings(
+    scalafixSettings,
+    (publish / skip) := true
+  )
+
+lazy val benchmarks = project
+  .dependsOn(frontend % "compile->it") // , BenchmarkBridgeCompilation % "compile->compile")
+  .disablePlugins(ScriptedPlugin)
+  .enablePlugins(BuildInfoPlugin, JmhPlugin)
+  .settings(
+    scalafixSettings,
+    benchmarksSettings(frontend),
+    (publish / skip) := true,
+    libraryDependencySchemes += "org.scala-lang.modules" %% "scala-parallel-collections" % "always"
+  )
+
 lazy val shared = project
   .settings(
     sonatypeSetting,
@@ -135,7 +155,8 @@ lazy val tmpDirSettings = Def.settings(
 lazy val frontend: Project = project
   .dependsOn(
     backend,
-    backend % "test->test"
+    backend % "test->test",
+    buildpressConfig % IntegrationTest
   )
   .enablePlugins(BuildInfoPlugin)
   .configs(IntegrationTest)
@@ -158,10 +179,18 @@ lazy val frontend: Project = project
       "jsBridge1" -> (jsBridge1Name + "_" + Keys.scalaBinaryVersion.value),
       "snailgunVersion" -> Dependencies.snailgunVersion
     ),
+    inConfig(Compile)(
+      build.BuildKeys.lazyFullClasspath := {
+        val ownProductDirectories = Keys.productDirectories.value
+        val dependencyClasspath = build.BuildImplementation.lazyDependencyClasspath.value
+        ownProductDirectories ++ dependencyClasspath
+      }
+    ),
     libraryDependencySchemes += "org.scala-lang.modules" %% "scala-parallel-collections" % "always",
     (run / javaOptions) ++= jvmOptions,
     (Test / javaOptions) ++= jvmOptions,
     tmpDirSettings,
+    Defaults.itSettings,
     (IntegrationTest / javaOptions) ++= jvmOptions,
     (run / fork) := true,
     (Test / fork) := true,
@@ -209,6 +238,21 @@ lazy val nativeBridge04 = project
     libraryDependencies += Dependencies.scalaNativeTools04,
     (Test / javaOptions) ++= jvmOptions,
     (Test / fork) := true
+  )
+
+lazy val buildpressConfig = (project in file("buildpress-config"))
+  .settings(
+    scalafixSettings,
+    libraryDependencies ++= List(
+      Dependencies.jsoniterCore,
+      Dependencies.jsoniterMacros % Provided
+    ),
+    libraryDependencies ++= {
+      if (scalaVersion.value.startsWith("2.12."))
+        Seq(compilerPlugin("org.scalamacros" % "paradise" % "2.1.1" cross CrossVersion.full))
+      else
+        Nil
+    }
   )
 
 (publish / skip) := true

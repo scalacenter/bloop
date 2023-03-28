@@ -29,7 +29,31 @@ object BuildPlugin extends AutoPlugin {
 
 object BuildKeys {
   import sbt.{Test, TestFrameworks, Tests}
+
+  // Use absolute paths so that references work even if `ThisBuild` changes
+  final val AbsolutePath = file(".").getCanonicalFile.getAbsolutePath
+
+  private val isCiDisabled = sys.env.get("CI").isEmpty
+  def createScalaCenterProject(name: String, f: File): RootProject = {
+    if (isCiDisabled) RootProject(f)
+    else {
+      import sys.process._
+      val headSha = Some(Seq("git", "rev-parse", "HEAD").!!.trim).filter(_.nonEmpty)
+      headSha match {
+        case Some(commit) => RootProject(uri(s"https://github.com/scalacenter/${name}.git#$commit"))
+        case None => sys.error(s"The 'HEAD' sha of '${f}' could not be retrieved.")
+      }
+    }
+  }
+
+  final val BenchmarkBridgeProject =
+    createScalaCenterProject("compiler-benchmark", file(s"$AbsolutePath/benchmark-bridge"))
+  final val BenchmarkBridgeBuild = BuildRef(BenchmarkBridgeProject.build)
+  final val BenchmarkBridgeCompilation = ProjectRef(BenchmarkBridgeProject.build, "compilation")
+
   val buildBase = (ThisBuild / Keys.baseDirectory)
+  val lazyFullClasspath =
+    Def.taskKey[Seq[File]]("Return full classpath without forcing compilation")
 
   val bloopName = Def.settingKey[String]("The name to use in build info generated code")
   val nailgunClientLocation = Def.settingKey[sbt.File]("Where to find the python nailgun client")
@@ -52,6 +76,42 @@ object BuildKeys {
       Dependencies.difflib % Test
     ),
     nailgunClientLocation := buildBase.value / "frontend" / "src" / "test" / "resources" / "pynailgun" / "ng.py"
+  )
+
+  import sbtbuildinfo.{BuildInfoKey, BuildInfoKeys}
+
+  def benchmarksSettings(dep: Reference): Seq[Def.Setting[_]] = List(
+    (Keys.publish / Keys.skip) := true,
+    BuildInfoKeys.buildInfoKeys := {
+      val fullClasspathFiles =
+        BuildInfoKey.map(dep / Compile / BuildKeys.lazyFullClasspath) {
+          case (key, value) => ("fullCompilationClasspath", value.toList)
+        }
+      Seq[BuildInfoKey](
+        dep / Test / Keys.resourceDirectory,
+        fullClasspathFiles
+      )
+    },
+    BuildInfoKeys.buildInfoPackage := "bloop.benchmarks",
+    Keys.javaOptions ++= {
+      def refOf(version: String) = {
+        val HasSha = """(?:.+?)-([0-9a-f]{8})(?:\+\d{8}-\d{4})?""".r
+        version match {
+          case HasSha(sha) => sha
+          case _ => version
+        }
+      }
+      List(
+        "-Dsbt.launcher=" + (sys
+          .props("java.class.path")
+          .split(java.io.File.pathSeparatorChar)
+          .find(_.contains("sbt-launch"))
+          .getOrElse("")),
+        "-DbloopVersion=" + (dep / Keys.version).value,
+        "-DbloopRef=" + refOf((dep / Keys.version).value),
+        "-Dgit.localdir=" + buildBase.value.getAbsolutePath
+      )
+    }
   )
 }
 
@@ -181,6 +241,35 @@ object BuildImplementation {
       val isStable = info.map(_.dirtySuffix.value.isEmpty)
       !isStable.exists(stable => !stable || version.endsWith("-SNAPSHOT"))
     }
+  }
+
+  final lazy val lazyInternalDependencyClasspath: Def.Initialize[Task[Seq[File]]] = {
+    Def.taskDyn {
+      val currentProject = Keys.thisProjectRef.value
+      val data = Keys.settingsData.value
+      val deps = Keys.buildDependencies.value
+      val conf = Keys.classpathConfiguration.value
+      val self = Keys.configuration.value
+
+      import scala.collection.JavaConverters._
+      val visited = sbt.Classpaths.interSort(currentProject, conf, data, deps)
+      val productDirs = (new java.util.LinkedHashSet[Task[Seq[File]]]).asScala
+      for ((dep, c) <- visited) {
+        if ((dep != currentProject) || (conf.name != c && self.name != c)) {
+          val classpathKey = (dep / sbt.ConfigKey(c) / Keys.productDirectories)
+          productDirs += classpathKey.get(data).getOrElse(sbt.std.TaskExtra.constant(Nil))
+        }
+      }
+
+      val generatedTask = productDirs.toList.join.map(_.flatten.distinct)
+      Def.task(generatedTask.value)
+    }
+  }
+
+  final lazy val lazyDependencyClasspath: Def.Initialize[Task[Seq[File]]] = Def.task {
+    val internalClasspath = lazyInternalDependencyClasspath.value
+    val externalClasspath = Keys.externalDependencyClasspath.value.map(_.data)
+    internalClasspath ++ externalClasspath
   }
 }
 
