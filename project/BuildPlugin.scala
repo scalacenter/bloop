@@ -76,7 +76,8 @@ object BuildImplementation {
   final val buildSettings: Seq[Def.Setting[_]] = Seq(
     Keys.organization := "io.github.alexarchambault.bleep",
     Keys.updateOptions := Keys.updateOptions.value.withCachedResolution(true),
-    Keys.scalaVersion := Dependencies.Scala212Version,
+    Keys.scalaVersion := Dependencies.Scala213Version,
+    Keys.crossScalaVersions := Seq(Dependencies.Scala212Version, Dependencies.Scala213Version),
     Keys.homepage := Some(ThisRepo),
     Keys.licenses := Seq("Apache-2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0")),
     Keys.developers := List(

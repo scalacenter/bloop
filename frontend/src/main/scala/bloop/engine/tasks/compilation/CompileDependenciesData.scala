@@ -74,8 +74,8 @@ object CompileDependenciesData {
               val newExistingResources =
                 existingResources.filterNot(r => addedResources.contains(r))
               newExistingResources.foreach(r => addedResources.add(r))
-              newExistingResources ++ classesDirs
-            case None => classesDirs
+              (newExistingResources ++ classesDirs).toSeq
+            case None => classesDirs.toSeq
           }
         case None => List(entry)
       }

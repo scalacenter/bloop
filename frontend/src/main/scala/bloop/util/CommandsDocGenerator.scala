@@ -185,6 +185,6 @@ object CommandsDocGenerator {
         }
     }
 
-    parsed.map(_.groupBy(_.projectName).mapValues(_.flatMap(_.examples)))
+    parsed.map(_.groupBy(_.projectName).mapValues(_.flatMap(_.examples)).toMap)
   }
 }

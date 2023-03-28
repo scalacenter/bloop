@@ -306,7 +306,13 @@ object BloopDebuggeeRunner {
       val classDir = client.getUniqueClassesDirFor(project, forceGeneration = true)
       val projectName = project.bspUri.toString
       val scalaVersion = project.scalaInstance.map(si => ScalaVersion(si.version))
-      Module(projectName, scalaVersion, project.scalacOptions, classDir.underlying, sourceBuffer)
+      Module(
+        projectName,
+        scalaVersion,
+        project.scalacOptions,
+        classDir.underlying,
+        sourceBuffer.toSeq
+      )
     }
   }
 }

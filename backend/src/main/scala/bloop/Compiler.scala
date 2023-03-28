@@ -37,7 +37,7 @@ import sbt.internal.inc.bloop.internal.BloopStamps
 import sbt.util.InterfaceUtil
 import xsbti.T2
 import xsbti.VirtualFileRef
-import xsbti.compile._
+import xsbti.compile.{CompilerCache => _, ScalaInstance => _, _}
 
 case class CompileInputs(
     scalaInstance: ScalaInstance,

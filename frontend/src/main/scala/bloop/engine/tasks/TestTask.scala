@@ -320,21 +320,24 @@ object TestTask {
     // usually it is a Array(new SuiteSelector). However, if only subset of test are supposed to
     // be run, then it can be altered to Array[TestSelector]
     val selectedTests = testClasses.suites.map(entry => (entry.className, entry.tests)).toMap
-    includedTests.groupBy(_.framework).mapValues { taskDefs =>
-      taskDefs.map {
-        case TaskDefWithFramework(taskDef, _) =>
-          selectedTests.get(taskDef.fullyQualifiedName()).getOrElse(Nil) match {
-            case Nil => taskDef
-            case selectedTests =>
-              new TaskDef(
-                taskDef.fullyQualifiedName(),
-                taskDef.fingerprint(),
-                false,
-                selectedTests.map(test => new TestSelector(test)).toList.toArray
-              )
-          }
+    includedTests
+      .groupBy(_.framework)
+      .mapValues { taskDefs =>
+        taskDefs.map {
+          case TaskDefWithFramework(taskDef, _) =>
+            selectedTests.get(taskDef.fullyQualifiedName()).getOrElse(Nil) match {
+              case Nil => taskDef
+              case selectedTests =>
+                new TaskDef(
+                  taskDef.fullyQualifiedName(),
+                  taskDef.fingerprint(),
+                  false,
+                  selectedTests.map(test => new TestSelector(test)).toList.toArray
+                )
+            }
+        }
       }
-    }
+      .toMap
   }
 
   private[bloop] def discoverTests(

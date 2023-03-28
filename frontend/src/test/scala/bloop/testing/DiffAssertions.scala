@@ -35,7 +35,9 @@ object DiffAssertions {
       case ex: Exception =>
         if (print) {
           obtained.linesIterator.toList match {
-            case head +: tail =>
+            case head :: Nil =>
+              println(head)
+            case head :: tail =>
               val b = new StringBuilder()
               b.++=("    \"\"\"|" + head).++=(System.lineSeparator())
               tail.foreach { line =>
@@ -45,8 +47,6 @@ object DiffAssertions {
               }
               b.++=("       |\"\"\".stripMargin").++=(System.lineSeparator())
               println(b.mkString)
-            case head +: Nil =>
-              println(head)
             case Nil =>
               println("obtained is empty")
           }
@@ -131,11 +131,11 @@ object DiffAssertions {
     catch {
       case ex: Exception =>
         obtained.linesIterator.toList match {
-          case head +: tail =>
+          case head :: Nil =>
+            println(head)
+          case head :: tail =>
             println("    \"\"\"|" + head)
             tail.foreach(line => println("       |" + line))
-          case head +: Nil =>
-            println(head)
           case Nil =>
             println("obtained is empty")
         }

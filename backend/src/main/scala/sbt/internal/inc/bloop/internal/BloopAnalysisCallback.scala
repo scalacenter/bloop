@@ -320,7 +320,8 @@ final class BloopAnalysisCallback(
   override def isPickleJava(): Boolean = false
   override def getPickleJarPair(): ju.Optional[T2[Path, Path]] = ju.Optional.empty()
 
-  def getOrNil[A, B](m: collection.Map[A, Seq[B]], a: A): Seq[B] = m.get(a).toList.flatten
+  def getOrNil[A, B](m: collection.Map[A, mutable.ListBuffer[B]], a: A): Seq[B] =
+    m.get(a).toList.flatten
   def addCompilation(base: Analysis): Analysis =
     base.copy(compilations = base.compilations.add(compilation))
   def addUsedNames(base: Analysis): Analysis = usedNames.foldLeft(base) {

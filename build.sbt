@@ -158,6 +158,7 @@ lazy val frontend: Project = project
       "jsBridge1" -> (jsBridge1Name + "_" + Keys.scalaBinaryVersion.value),
       "snailgunVersion" -> Dependencies.snailgunVersion
     ),
+    libraryDependencySchemes += "org.scala-lang.modules" %% "scala-parallel-collections" % "always",
     (run / javaOptions) ++= jvmOptions,
     (Test / javaOptions) ++= jvmOptions,
     tmpDirSettings,
