@@ -1,1 +1,0 @@
-Content of my-compile-resource.txt

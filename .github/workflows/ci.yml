@@ -113,13 +113,7 @@ jobs:
       - name: Compile and test main projects
         run: |
           sbt \
-              "frontend/test:compile; \
-              backend/test; \
-              docs/compile; \
-              frontend/testOnly bloop.ScalaVersionsSpec; \
-              frontend/testOnly -bloop.ScalaVersionsSpec; \
-              frontend/runMain bloop.util.CommandsDocGenerator --test; \
-              frontend/runMain bloop.util.CommandsDocGenerator --out ../docs/cli/reference.md"
+              "backend/test; docs/compile;"
         shell: bash
 
       - name: Check docs are up-to-date
@@ -242,13 +236,3 @@ jobs:
           mv bloop-artifacts frontend/target/graalvm-binaries
           sbt "ci-release; docs/docusaurusPublishGhpages"
         shell: bash
-
-      - name: Cut GitHub release and update installers on ${{ matrix.os }}
-        run: |
-          if [[ $GITHUB_REF == "refs/tags"* ]]; then
-            . bin/ci-setup-bloopoid-keys.sh
-            export GITHUB_TOKEN="$BLOOPOID_GITHUB_TOKEN"
-            sbt "frontend/updateHomebrewFormula; frontend/updateScoopFormula; frontend/githubRelease"
-          else
-            echo "skipping release since this is a merge and no new tag is detected"
-          fi

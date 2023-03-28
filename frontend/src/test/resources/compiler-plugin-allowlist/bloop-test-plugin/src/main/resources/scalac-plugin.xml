@@ -1,4 +1,0 @@
-<plugin>
-  <name>bloop-test-plugin</name>
-  <classname>bloop.test.BloopTestPlugin</classname>
-</plugin>

@@ -130,77 +130,6 @@ lazy val defaultBuildInfoSettings = Def.settings(
   )
 )
 
-// For the moment, the dependency is fixed
-lazy val frontend: Project = project
-  .dependsOn(
-    sockets,
-    bloopShared,
-    backend,
-    backend % "test->test",
-    buildpressConfig % "it->compile"
-  )
-  .disablePlugins(ScriptedPlugin)
-  .enablePlugins(BuildInfoPlugin)
-  .configs(IntegrationTest)
-  .settings(
-    name := "bloop-frontend",
-    bloopName := "bloop",
-    (Compile / run / mainClass) := Some("bloop.Cli"),
-    defaultBuildInfoSettings,
-    (run / javaOptions) ++= jvmOptions,
-    (Test / javaOptions) ++= jvmOptions,
-    (IntegrationTest / javaOptions) ++= jvmOptions,
-    (run / fork) := true,
-    (Test / fork) := true,
-    (IntegrationTest / run / fork) := true,
-    (test / parallelExecution) := false,
-    libraryDependencies ++= List(
-      Dependencies.jsoniterMacros % Provided,
-      Dependencies.scalazCore,
-      Dependencies.monix,
-      Dependencies.caseApp,
-      Dependencies.scalaDebugAdapter,
-      Dependencies.bloopConfig
-    ),
-    dependencyOverrides += Dependencies.shapeless,
-    scalafixSettings,
-    testSettings,
-    testSuiteSettings,
-    releaseSettings,
-    Defaults.itSettings,
-    BuildDefaults.frontendTestBuildSettings,
-    inConfig(Compile)(
-      build.BuildKeys.lazyFullClasspath := {
-        val ownProductDirectories = Keys.productDirectories.value
-        val dependencyClasspath = build.BuildImplementation.lazyDependencyClasspath.value
-        ownProductDirectories ++ dependencyClasspath
-      }
-    ),
-    Test / resources := {
-      val main = (Test / resources).value
-      val dir = (ThisBuild / baseDirectory).value
-      val log = streams.value
-      // Before we export all test resources we ensure the current version of the sbt-bloop
-      // plugin is published
-      (sbtBloop / Keys.publishLocal).value
-      val additionalResources =
-        BuildDefaults.exportProjectsInTestResources(dir, log.log, enableCache = true, version.value)
-      main ++ additionalResources
-    },
-    (Test / unmanagedResources / includeFilter) := {
-      new FileFilter {
-        def accept(file: File): Boolean = {
-          val abs = file.getAbsolutePath
-          !(
-            abs.contains("scala-2.12") ||
-              abs.contains("classes-") ||
-              abs.contains("target")
-          )
-        }
-      }
-    }
-  )
-
 lazy val bloopgunSettings = Seq(
   name := "bloopgun-core",
   (run / fork) := true,
@@ -390,7 +319,6 @@ val allProjects = Seq(
   bloopShared,
   buildpress,
   buildpressConfig,
-  frontend,
   launcher,
   launcher213,
   launcherTest,
@@ -421,12 +349,7 @@ val isWindows = scala.util.Properties.isWin
 addCommandAlias(
   "install",
   Seq(
-    "publishLocal",
-    "bloopgun/graalvm-native-image:packageBin",
-    s"${frontend.id}/test:compile",
-    "createLocalHomebrewFormula",
-    "createLocalScoopFormula",
-    "createLocalArchPackage"
+    "bloopgun/graalvm-native-image:packageBin"
   ).filter(!_.isEmpty)
     .mkString(";", ";", "")
 )
