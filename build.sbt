@@ -147,9 +147,9 @@ lazy val frontend: Project = project
       nailgunClientLocation,
       "zincVersion" -> Dependencies.zincVersion,
       "bspVersion" -> Dependencies.bspVersion,
-      "nativeBridge04" -> (nativeBridge04Name + "_" + Keys.scalaBinaryVersion.value),
-      "jsBridge06" -> (jsBridge06Name + "_" + Keys.scalaBinaryVersion.value),
-      "jsBridge1" -> (jsBridge1Name + "_" + Keys.scalaBinaryVersion.value)
+      "nativeBridge04" -> ("bloop-native-bridge-0-4_" + Keys.scalaBinaryVersion.value),
+      "jsBridge06" -> ("bloop-js-bridge-0-6_" + Keys.scalaBinaryVersion.value),
+      "jsBridge1" -> ("bloop-js-bridge-1_" + Keys.scalaBinaryVersion.value)
     ),
     (run / javaOptions) ++= jvmOptions,
     (Test / javaOptions) ++= jvmOptions,
@@ -392,52 +392,6 @@ val docs = project
     }
   )
 
-val jsBridge06Name = "bloop-js-bridge-0-6"
-lazy val jsBridge06 = project
-  .dependsOn(frontend % Provided, frontend % "test->test")
-  .in(file("bridges") / "scalajs-0.6")
-  .disablePlugins(ScriptedPlugin, ScalafixPlugin)
-  .settings(
-    name := jsBridge06Name,
-    testSettings,
-    libraryDependencies ++= List(
-      Dependencies.scalaJsTools06,
-      Dependencies.scalaJsSbtTestAdapter06,
-      Dependencies.scalaJsEnvs06
-    )
-  )
-
-val jsBridge1Name = "bloop-js-bridge-1"
-lazy val jsBridge1 = project
-  .dependsOn(frontend % Provided, frontend % "test->test")
-  .in(file("bridges") / "scalajs-1")
-  .disablePlugins(ScriptedPlugin, ScalafixPlugin)
-  .settings(
-    name := jsBridge1Name,
-    testSettings,
-    libraryDependencies ++= List(
-      Dependencies.scalaJsLinker1,
-      Dependencies.scalaJsLogging1,
-      Dependencies.scalaJsEnvs1,
-      Dependencies.scalaJsEnvNode1,
-      Dependencies.scalaJsEnvJsdomNode1,
-      Dependencies.scalaJsSbtTestAdapter1
-    )
-  )
-
-val nativeBridge04Name = "bloop-native-bridge-0-4"
-lazy val nativeBridge04 = project
-  .dependsOn(frontend % Provided, frontend % "test->test")
-  .in(file("bridges") / "scala-native-0.4")
-  .disablePlugins(ScalafixPlugin, ScriptedPlugin)
-  .settings(
-    name := nativeBridge04Name,
-    testSettings,
-    libraryDependencies += Dependencies.scalaNativeTools04,
-    (Test / javaOptions) ++= jvmOptions,
-    (Test / fork) := true
-  )
-
 val allProjects = Seq(
   backend,
   benchmarks,
@@ -447,12 +401,9 @@ val allProjects = Seq(
   buildpress,
   buildpressConfig,
   frontend,
-  jsBridge06,
-  jsBridge1,
   launcher,
   launcher213,
   launcherTest,
-  nativeBridge04,
   sbtBloop,
   sockets
 )
