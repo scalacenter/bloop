@@ -65,45 +65,6 @@ lazy val bloopShared = project
     )
   )
 
-/**
- * ************************************************************************************************
- */
-/*                            This is the build definition of the wrapper                          */
-/**
- * ************************************************************************************************
- */
-lazy val backend = project
-  .enablePlugins(BuildInfoPlugin)
-  .disablePlugins(ScriptedPlugin)
-  .dependsOn(bloopShared)
-  .settings(
-    name := "bloop-backend",
-    scalafixSettings,
-    testSettings ++ testSuiteSettings,
-    buildInfoPackage := "bloop.internal.build",
-    buildInfoKeys := Seq[BuildInfoKey](
-      Keys.scalaVersion,
-      Keys.scalaOrganization
-    ),
-    buildInfoObject := "BloopScalaInfo",
-    libraryDependencies ++= List(
-      Dependencies.nailgun,
-      Dependencies.scalazCore,
-      Dependencies.coursierInterface,
-      Dependencies.libraryManagement,
-      Dependencies.sourcecode,
-      Dependencies.monix,
-      Dependencies.directoryWatcher,
-      Dependencies.zt,
-      Dependencies.brave,
-      Dependencies.zipkinSender,
-      Dependencies.pprint,
-      Dependencies.difflib,
-      Dependencies.asm,
-      Dependencies.asmUtil
-    )
-  )
-
 lazy val sockets: Project = project
   .settings(
     crossPaths := false,
@@ -211,6 +172,7 @@ lazy val launcherTest = project
     (Test / parallelExecution) := false,
     libraryDependencies ++= List(
       Dependencies.coursierInterface,
+      "io.github.alexarchambault.bleep" %% "bloop-backend" % "1.5.6-sc-6" % "test->test",
       "io.github.alexarchambault.bleep" %% "bloop-frontend" % "1.5.6-sc-6" % "test->test"
     )
   )
@@ -313,7 +275,6 @@ val docs = project
   )
 
 val allProjects = Seq(
-  backend,
   bloopgun,
   bloopgun213,
   bloopShared,

@@ -58,7 +58,7 @@ jobs:
       - uses: graalvm/setup-graalvm@v1
         with:
           version: '22.3.0'
-          java-version: '11'
+          java-version: '17'
           github-token: ${{ secrets.GITHUB_TOKEN }}
           components: 'native-image'
 
@@ -76,7 +76,7 @@ jobs:
         os: [ubuntu-latest, windows-latest, macOS-latest]
         jdk: ["22.3.0", "11"]
 
-    name: Test ${{ matrix.os }} -- ${{ matrix.jdk }}
+    name: Doc tests ${{ matrix.os }} -- ${{ matrix.jdk }}
     env:
       HYDRA_LICENSE: ${{ secrets.HYDRA_LICENSE }}
 
@@ -112,8 +112,7 @@ jobs:
 
       - name: Compile and test main projects
         run: |
-          sbt \
-              "backend/test; docs/compile;"
+          sbt docs/compile
         shell: bash
 
       - name: Check docs are up-to-date
