@@ -122,6 +122,22 @@ lazy val sockets: Project = project
     (Compile / doc / sources) := Nil
   )
 
+lazy val defaultBuildInfoSettings = Def.settings(
+  buildInfoPackage := "bloop.internal.build",
+  buildInfoKeys := List[BuildInfoKey](
+    Keys.organization,
+    build.BuildKeys.bloopName,
+    Keys.version,
+    Keys.scalaVersion,
+    nailgunClientLocation,
+    "zincVersion" -> Dependencies.zincVersion,
+    "bspVersion" -> Dependencies.bspVersion,
+    "nativeBridge04" -> ("bloop-native-bridge-0-4_" + Keys.scalaBinaryVersion.value),
+    "jsBridge06" -> ("bloop-js-bridge-0-6_" + Keys.scalaBinaryVersion.value),
+    "jsBridge1" -> ("bloop-js-bridge-1_" + Keys.scalaBinaryVersion.value)
+  )
+)
+
 // For the moment, the dependency is fixed
 lazy val frontend: Project = project
   .dependsOn(
@@ -138,19 +154,7 @@ lazy val frontend: Project = project
     name := "bloop-frontend",
     bloopName := "bloop",
     (Compile / run / mainClass) := Some("bloop.Cli"),
-    buildInfoPackage := "bloop.internal.build",
-    buildInfoKeys := List[BuildInfoKey](
-      Keys.organization,
-      build.BuildKeys.bloopName,
-      Keys.version,
-      Keys.scalaVersion,
-      nailgunClientLocation,
-      "zincVersion" -> Dependencies.zincVersion,
-      "bspVersion" -> Dependencies.bspVersion,
-      "nativeBridge04" -> ("bloop-native-bridge-0-4_" + Keys.scalaBinaryVersion.value),
-      "jsBridge06" -> ("bloop-js-bridge-0-6_" + Keys.scalaBinaryVersion.value),
-      "jsBridge1" -> ("bloop-js-bridge-1_" + Keys.scalaBinaryVersion.value)
-    ),
+    defaultBuildInfoSettings,
     (run / javaOptions) ++= jvmOptions,
     (Test / javaOptions) ++= jvmOptions,
     (IntegrationTest / javaOptions) ++= jvmOptions,
@@ -377,14 +381,18 @@ lazy val buildpress = project
 
 val docs = project
   .in(file("docs-gen"))
-  .dependsOn(frontend)
-  .enablePlugins(MdocPlugin, DocusaurusPlugin)
+  .enablePlugins(MdocPlugin, DocusaurusPlugin, BuildInfoPlugin)
   .settings(
     name := "bloop-docs",
     moduleName := "bloop-docs",
     scalafixSettings,
+    defaultBuildInfoSettings,
     (publish / skip) := true,
     scalaVersion := Scala212Version,
+    libraryDependencies ++= Seq(
+      Dependencies.coursierInterface,
+      "io.get-coursier" %% "versions" % "0.3.1"
+    ),
     mdoc := (Compile / run).evaluated,
     (Compile / mainClass) := Some("bloop.Docs"),
     (Compile / resources) ++= {

@@ -8,9 +8,6 @@ import org.jsoup.Jsoup
 
 import scala.collection.JavaConverters._
 import scala.util.control.NonFatal
-import bloop.DependencyResolution
-import bloop.logging.NoopLogger
-import coursierapi.MavenRepository
 
 case class Release(version: String, lastModified: Date) {
   def date: String = {
@@ -25,31 +22,35 @@ object Sonatype {
   lazy val releaseLauncher = fetchLatest("bloop-launcher_2.12")
   lazy val releaseBloopGradle = fetchLatest("gradle-bloop_2.13")
 
+  private def isStable(version: String): Boolean =
+    !version.endsWith("SNAPSHOT") &&
+      !version.exists(_.isLetter) &&
+      version
+        .split(Array('.', '-'))
+        .forall(_.lengthCompare(5) <= 0)
+
   /** Returns the latest published snapshot release, or the current release if. */
   private def fetchLatest(artifact: String): Release = {
-    val artifacts = List(
-      DependencyResolution.Artifact("ch.epfl.scala", artifact, "latest.stable")
-    )
-    val resolvedJars = DependencyResolution.resolve(
-      artifacts,
-      NoopLogger,
-      additionalRepos =
-        List(MavenRepository.of(s"https://oss.sonatype.org/content/repositories/staging"))
-    )
 
-    val latestStableVersion = resolvedJars.find(_.syntax.contains(artifact)) match {
-      case None => sys.error(s"Missing jar for resolved artifact '$artifact'")
-      case Some(jar) =>
-        val firstTry =
-          jar.underlying
-            .getFileName()
-            .toString
-            .stripSuffix(".jar")
-            .stripPrefix(artifact + "-")
-
-        if (!firstTry.endsWith("_2.12")) firstTry
-        else jar.getParent.getParent.underlying.getFileName.toString
-    }
+    val latestStableVersion = coursierapi.Versions
+      .create()
+      .addRepositories(
+        coursierapi.MavenRepository.of("https://oss.sonatype.org/content/repositories/staging")
+      )
+      .withModule(coursierapi.Module.of("ch.epfl.scala", artifact))
+      .versions()
+      .getMergedListings()
+      .getAvailable()
+      .asScala
+      .map(coursier.version.Version(_))
+      .filter(v =>
+        isStable(v.repr)
+      ) // Replace with '.filter(_.isStable)' when bumping the coursier versions dependency
+      .sorted
+      .lastOption
+      .getOrElse {
+        ???
+      }
 
     val doc = Jsoup
       .connect(
