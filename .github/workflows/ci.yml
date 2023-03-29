@@ -41,7 +41,8 @@ jobs:
       - name: Tests
         run: |
           .github/setup-test-projects.sh &&\
-          sbt "+jsBridge1/publishLocal" "+jsBridge1/test"
+          ./mill -i "bridges.scalajs-1[_].publishLocal" &&\
+          ./mill -i "bridges.scalajs-1[_].test"
         shell: bash
 
   test:
@@ -62,7 +63,8 @@ jobs:
       - name: Compile and test main projects
         run: |
           .github/setup-test-projects.sh &&\
-          sbt "+backend/test" "+frontend/test"
+          ./mill -i 'backend[_].test' &&\
+          ./mill -i 'frontend[_].test'
         shell: bash
 
   release:
@@ -83,7 +85,7 @@ jobs:
         with:
           jvm: "temurin:17"
       - name: Release
-        run: sbt ci-release
+        run: ./mill -i io.kipp.mill.ci.release.ReleaseModule/publishAll
         env:
           PGP_PASSPHRASE: ${{ secrets.PGP_PASSPHRASE }}
           PGP_SECRET: ${{ secrets.PGP_SECRET }}

@@ -13,8 +13,8 @@ import bloop.util.TestUtil
 object SourceGeneratorSpec extends bloop.testing.BaseSuite {
 
   private val generator: List[String] =
-    if (CrossPlatform.isWindows) List("python", BuildTestInfo.sampleSourceGenerator.getAbsolutePath)
-    else List(BuildTestInfo.sampleSourceGenerator.getAbsolutePath)
+    if (CrossPlatform.isWindows) List("python", BuildTestInfo.sampleSourceGenerator.toString)
+    else List(BuildTestInfo.sampleSourceGenerator.toString)
 
   test("compile a project having a source generator") {
     singleProjectWithSourceGenerator("glob:*.in" :: Nil) { (workspace, project, state) =>

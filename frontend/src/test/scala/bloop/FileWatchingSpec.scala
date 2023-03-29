@@ -27,8 +27,8 @@ import monix.reactive.Observable
 
 object FileWatchingSpec extends BaseSuite {
   private val generator: List[String] =
-    if (CrossPlatform.isWindows) List("python", BuildTestInfo.sampleSourceGenerator.getAbsolutePath)
-    else List(BuildTestInfo.sampleSourceGenerator.getAbsolutePath)
+    if (CrossPlatform.isWindows) List("python", BuildTestInfo.sampleSourceGenerator.toString)
+    else List(BuildTestInfo.sampleSourceGenerator.toString)
 
   System.setProperty("file-watcher-batch-window-ms", "100")
 

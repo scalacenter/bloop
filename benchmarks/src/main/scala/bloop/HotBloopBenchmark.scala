@@ -38,7 +38,7 @@ abstract class HotBloopBenchmarkBase {
   @Setup(Level.Trial) def spawn(): Unit = {
     val configDir = CommunityBuild.getConfigDirForBenchmark(project)
     val base = configDir.getParent
-    val bloopClasspath = BuildInfo.fullCompilationClasspath.map(_.getAbsolutePath).mkString(":")
+    val bloopClasspath = BuildInfo.fullCompilationClasspath.map(_.toString).mkString(":")
 
     val jvmArgs = {
       val defaultJvmArgs = List(
