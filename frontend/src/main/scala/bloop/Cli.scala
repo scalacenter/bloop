@@ -504,8 +504,7 @@ object Cli {
       handle.cancel()
       if (!cancel.isDone)
         cancel.complete(false)
-      if (t.getMessage != null)
-        logger.error(t.getMessage)
+      logger.error(s"Caught $t")
       logger.trace(t)
       ExitStatus.UnexpectedError
     }
