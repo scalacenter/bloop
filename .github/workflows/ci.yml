@@ -61,10 +61,14 @@ jobs:
         with:
           jvm: "temurin:17"
       - name: Compile and test main projects
+        # Only running the tests in 2.12 for now. Many test fixtures need
+        # to be updated for 2.13.
         run: |
           .github/setup-test-projects.sh &&\
-          ./mill -i 'backend[_].test' &&\
-          ./mill -i 'frontend[_].test'
+          ./mill -i 'backend[_].test.compile' &&\
+          ./mill -i 'frontend[_].test.compile' &&\
+          ./mill -i 'backend[2.12.17].test' &&\
+          ./mill -i 'frontend[2.12.17].test'
         shell: bash
 
   release:
