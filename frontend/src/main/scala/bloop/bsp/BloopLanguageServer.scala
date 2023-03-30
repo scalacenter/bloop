@@ -49,7 +49,7 @@ final class BloopLanguageServer(
   }
 
   def awaitRunningTasks: Task[Unit] = {
-    val futures = activeClientRequests.values.map(fut => Task.fromFuture(fut))
+    val futures = activeClientRequests.values.map(fut => Task.fromFuture(fut)).toVector
     // Await until completion and ignore task results
     Task.gatherUnordered(futures).materialize.map(_ => ())
   }

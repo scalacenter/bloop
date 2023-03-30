@@ -262,7 +262,7 @@ trait NailgunTestUtils {
         else
           cmd0 ++ List("--config-dir", configPath)
 
-      val builder = processBuilder(cmd)
+      val builder = processBuilder(cmd).inheritIO()
       val process = builder.start()
       val processLogger = new ProcessLogger(log, process)
       processLogger.start()

@@ -51,7 +51,7 @@ object NailgunSpec extends BaseSuite with NailgunTestUtils {
       client.expectSuccess("help")
       assertNoErrors(logger)
       assertNoDiff(
-        joinLinesForDiff(logger.infos),
+        joinLinesForDiff(logger.serverInfos),
         s"""|bloop ${BuildInfo.version}
             |Usage: bloop [options] [command] [command-options]
             |Available commands: about, autocomplete, bsp, clean, compile, configure, console, help, link, projects, run, test
@@ -68,10 +68,9 @@ object NailgunSpec extends BaseSuite with NailgunTestUtils {
   def nailgunFailsIfCommandDoesntExist(): Unit = {
     withServerInProject { (logger, client) =>
       client.expectFailure("foobar")
-      logger.dump()
       assertNoErrors(logger)
       assertNoDiff(
-        joinLinesForDiff(logger.infos),
+        joinLinesForDiff(logger.serverInfos),
         "Command not found: foobar"
       )
     }
@@ -91,7 +90,7 @@ object NailgunSpec extends BaseSuite with NailgunTestUtils {
         client.expectSuccess("help")
         assertNoErrors(logger)
         assertNoDiff(
-          joinLinesForDiff(logger.infos),
+          joinLinesForDiff(logger.serverInfos),
           s"""|bloop ${BuildInfo.version}
               |Usage: bloop [options] [command] [command-options]
               |Available commands: about, autocomplete, bsp, clean, compile, configure, console, help, link, projects, run, test
@@ -111,7 +110,7 @@ object NailgunSpec extends BaseSuite with NailgunTestUtils {
       client.expectSuccess("about")
       assertNoErrors(logger)
       assertNoDiff(
-        joinLinesForDiff(logger.infos),
+        joinLinesForDiff(logger.serverInfos),
         s"""|bloop v${BuildInfo.version}
             |Using Scala v${BuildInfo.scalaVersion} and Zinc v${BuildInfo.zincVersion}
             |$jvmLine
@@ -131,7 +130,7 @@ object NailgunSpec extends BaseSuite with NailgunTestUtils {
       client.expectSuccess("projects")
       assertNoErrors(logger)
       assertNoDiff(
-        joinLinesForDiff(logger.infos),
+        joinLinesForDiff(logger.serverInfos),
         """|a
            |a-test
            |b
@@ -158,7 +157,7 @@ object NailgunSpec extends BaseSuite with NailgunTestUtils {
 
       assertNoErrors(logger)
       assertNoDiff(
-        joinLinesForDiff(logger.infos),
+        joinLinesForDiff(logger.serverInfos),
         """|a
            |a-test
            |b
@@ -169,7 +168,7 @@ object NailgunSpec extends BaseSuite with NailgunTestUtils {
     }
   }
 
-  test("nailgun about works in build that doesn't load, but listing projects fails") {
+  test("nailgun about works in build that doesn't load but listing projects fails") {
     TestUtil.retry() {
       nailgunAboutWorksInBuildThatDoesntLoadListingProjectsFails()
     }
@@ -181,7 +180,7 @@ object NailgunSpec extends BaseSuite with NailgunTestUtils {
       client.expectSuccess("about")
       client.expectFailure("projects", "--no-color")
       assertNoDiff(
-        joinLinesForDiff(logger.infos),
+        joinLinesForDiff(logger.serverInfos),
         s"""|bloop v${BuildInfo.version}
             |Using Scala v${BuildInfo.scalaVersion} and Zinc v${BuildInfo.zincVersion}
             |$jvmLine
@@ -189,9 +188,10 @@ object NailgunSpec extends BaseSuite with NailgunTestUtils {
             |Maintained by the Scala Center and the community.""".stripMargin
       )
 
-      assertNoDiff(
-        joinLinesForDiff(logger.errors),
-        "[E] Fatal recursive dependency detected in 'g': List(g, g)"
+      assert(
+        logger.cleanedUpServerErrors.contains(
+          "[E] Fatal recursive dependency detected in 'g': List(g, g)"
+        )
       )
     }
   }
@@ -210,7 +210,7 @@ object NailgunSpec extends BaseSuite with NailgunTestUtils {
       assertNoErrors(logger)
       assertNoDiff(
         joinLinesForDiff(
-          logger.captureTimeInsensitiveInfos
+          logger.captureTimeInsensitiveServerInfos
             .filterNot(msg =>
               msg.startsWith("Non-compiled module") ||
                 msg.startsWith(" Compilation completed in")

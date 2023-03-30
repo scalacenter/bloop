@@ -19,8 +19,8 @@ object LocalBspSourceGeneratorSpec extends BspSourceGeneratorSpec(BspProtocol.Lo
 
 abstract class BspSourceGeneratorSpec(override val protocol: BspProtocol) extends BspBaseSuite {
   private val generator =
-    if (CrossPlatform.isWindows) List("python", BuildTestInfo.sampleSourceGenerator.getAbsolutePath)
-    else List(BuildTestInfo.sampleSourceGenerator.getAbsolutePath)
+    if (CrossPlatform.isWindows) List("python", BuildTestInfo.sampleSourceGenerator.toString)
+    else List(BuildTestInfo.sampleSourceGenerator.toString)
 
   test("sources request works") {
     TestUtil.withinWorkspace { workspace =>

@@ -41,7 +41,8 @@ jobs:
       - name: Tests
         run: |
           .github/setup-test-projects.sh &&\
-          sbt "+jsBridge1/publishLocal" "+jsBridge1/test"
+          ./mill -i "bridges.scalajs-1[_].publishLocal" &&\
+          ./mill -i "bridges.scalajs-1[_].test"
         shell: bash
 
   test:
@@ -60,9 +61,14 @@ jobs:
         with:
           jvm: "temurin:17"
       - name: Compile and test main projects
+        # Only running the tests in 2.12 for now. Many test fixtures need
+        # to be updated for 2.13.
         run: |
           .github/setup-test-projects.sh &&\
-          sbt "+backend/test" "+frontend/test"
+          ./mill -i 'backend[_].test.compile' &&\
+          ./mill -i 'frontend[_].test.compile' &&\
+          ./mill -i 'backend[2.12.17].test' &&\
+          ./mill -i 'frontend[2.12.17].test'
         shell: bash
 
   release:
@@ -83,7 +89,7 @@ jobs:
         with:
           jvm: "temurin:17"
       - name: Release
-        run: sbt ci-release
+        run: ./mill -i io.kipp.mill.ci.release.ReleaseModule/publishAll
         env:
           PGP_PASSPHRASE: ${{ secrets.PGP_PASSPHRASE }}
           PGP_SECRET: ${{ secrets.PGP_SECRET }}
