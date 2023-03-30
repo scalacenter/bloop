@@ -39,7 +39,7 @@ object Dependencies {
   def logback = ivy"ch.qos.logback:logback-classic:1.4.6"
   def macroParadise = ivy"org.scalamacros:::paradise:2.1.1"
   def monix = ivy"io.monix::monix:3.2.0"
-  def nailgun = ivy"io.github.alexarchambault.bleep:nailgun-server:1.0.4"
+  def nailgun = ivy"io.github.alexarchambault.bleep:nailgun-server:1.0.6"
   def pprint = ivy"com.lihaoyi::pprint:0.8.1"
   def sbtTestAgent = ivy"org.scala-sbt:test-agent:1.8.2"
   def sbtTestInterface = ivy"org.scala-sbt:test-interface:1.0"

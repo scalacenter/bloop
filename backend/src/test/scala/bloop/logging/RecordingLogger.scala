@@ -19,11 +19,22 @@ class RecordingLogger(
 
   def debugs: List[String] = getMessagesAt(Some("debug"))
   def infos: List[String] = getMessagesAt(Some("info"))
+  def serverInfos: List[String] = getMessagesAt(Some("server-info"))
   def warnings: List[String] = getMessagesAt(Some("warn"))
   def errors: List[String] = getMessagesAt(Some("error"))
+  def serverErrors: List[String] = getMessagesAt(Some("server-error"))
+  def cleanedUpServerErrors: List[String] =
+    serverErrors.filter { msg =>
+      !msg.startsWith("Unable to load nailgun-version.properties") &&
+      !msg.startsWith("NGServer [UNKNOWN] started on address")
+    }
 
   def captureTimeInsensitiveInfos: List[String] = {
     infos.map(info => RecordingLogger.replaceTimingInfo(info))
+  }
+
+  def captureTimeInsensitiveServerInfos: List[String] = {
+    serverInfos.map(info => RecordingLogger.replaceTimingInfo(info))
   }
 
   def renderTimeInsensitiveInfos: String = {
