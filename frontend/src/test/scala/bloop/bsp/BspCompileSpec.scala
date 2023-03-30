@@ -17,6 +17,7 @@ import bloop.logging.RecordingLogger
 import bloop.task.Task
 import bloop.util.TestProject
 import bloop.util.TestUtil
+import scala.tools.nsc.Properties
 
 object TcpBspCompileSpec extends BspCompileSpec(BspProtocol.Tcp)
 object LocalBspCompileSpec extends BspCompileSpec(BspProtocol.Local)
@@ -157,21 +158,22 @@ class BspCompileSpec(
         val compiledState = state.compile(`A`, originId = Some("test-origin"))
         assertExitStatus(compiledState, ExitStatus.Ok)
         assertValidCompilationState(compiledState, projects)
+        val len = if (Properties.versionNumberString.startsWith("2.12.")) 7 else 20
         assertNoDiff(
           compiledState.lastDiagnostics(`A`),
-          """|#1: task start 1
-             |  -> Msg: Compiling a (1 Scala source)
-             |  -> Data kind: compile-task
-             |#1: a/src/Foo.scala
-             |  -> List(Diagnostic(Range(Position(0,0),Position(0,7)),Some(Warning),Some(_),Some(_),Unused import,None,None,None))
-             |  -> reset = true
-             |  -> origin = test-origin
-             |#1: task finish 1
-             |  -> errors 0, warnings 1
-             |  -> origin = test-origin
-             |  -> Msg: Compiled 'a'
-             |  -> Data kind: compile-report
-             |""".stripMargin
+          s"""|#1: task start 1
+              |  -> Msg: Compiling a (1 Scala source)
+              |  -> Data kind: compile-task
+              |#1: a/src/Foo.scala
+              |  -> List(Diagnostic(Range(Position(0,0),Position(0,$len)),Some(Warning),Some(_),Some(_),Unused import,None,None,None))
+              |  -> reset = true
+              |  -> origin = test-origin
+              |#1: task finish 1
+              |  -> errors 0, warnings 1
+              |  -> origin = test-origin
+              |  -> Msg: Compiled 'a'
+              |  -> Data kind: compile-report
+              |""".stripMargin
         )
       }
     }
@@ -312,21 +314,22 @@ class BspCompileSpec(
           hasSameContentsInClassesDir = true
         )
 
+        val len = if (Properties.versionNumberString.startsWith("2.12.")) 0 else 1
         assertSameExternalClassesDirs(compiledState, secondCompiledState, projects)
         assertNoDiff(compiledState.lastDiagnostics(`B`), "")
         assertNoDiff(
           compiledState.lastDiagnostics(`A`),
-          """
-            |#2: task start 3
-            |  -> Msg: Compiling a (1 Scala source)
-            |  -> Data kind: compile-task
-            |#2: a/src/main/scala/Foo.scala
-            |  -> List(Diagnostic(Range(Position(2,28),Position(2,28)),Some(Error),Some(_),Some(_),type mismatch;  found   : Int  required: String,None,None,None))
-            |  -> reset = true
-            |#2: task finish 3
-            |  -> errors 1, warnings 0
-            |  -> Msg: Compiled 'a'
-            |  -> Data kind: compile-report """.stripMargin
+          s"""
+             |#2: task start 3
+             |  -> Msg: Compiling a (1 Scala source)
+             |  -> Data kind: compile-task
+             |#2: a/src/main/scala/Foo.scala
+             |  -> List(Diagnostic(Range(Position(2,28),Position(2,${28 + len})),Some(Error),Some(_),Some(_),type mismatch;  found   : Int  required: String,None,None,None))
+             |  -> reset = true
+             |#2: task finish 3
+             |  -> errors 1, warnings 0
+             |  -> Msg: Compiled 'a'
+             |  -> Data kind: compile-report """.stripMargin
         )
 
         writeFile(`A`.srcFor("/main/scala/Foo.scala"), Sources.`Foo3.scala`)
@@ -376,13 +379,11 @@ class BspCompileSpec(
             |abject A""".stripMargin
       }
 
-      // Change the semanticdb jar every time we upgrade Scala version
-      require(
-        BuildInfo.scalaVersion == "2.12.17",
-        "Bumping scala version requires new semanticdb-scalac"
-      )
       val sourceDir = workspace.resolve("a").resolve("src")
-      val semanticdbJar = unsafeGetResource("semanticdb-scalac_2.12.17-4.6.0.jar")
+      val semanticdbJar =
+        os.proc("cs", "get", s"https://repo1.maven.org/maven2/org/scalameta/semanticdb-scalac_${BuildInfo.scalaVersion}/4.6.0/semanticdb-scalac_${BuildInfo.scalaVersion}-4.6.0.jar")
+          .call()
+          .out.trim()
       val semanticdbOpts = List(
         s"-Xplugin:$semanticdbJar",
         "-Yrangepos",
