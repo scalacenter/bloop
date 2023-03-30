@@ -85,7 +85,7 @@ final case class ResultsCache private (
     // Remove all the successful results from the cache.
     val newSuccessful = successful.filterKeys(p => !projects.contains(p)).toMap
     val newAll = all.filterKeys(p => !projects.contains(p)).toMap
-    val deleteClassesDirs = successful.filterKeys(projects.contains).flatMap {
+    val deleteClassesDirs = successful.filterKeys(projects.contains).toVector.flatMap {
       case (project, result) =>
         List(
           delete(result.classesDir),

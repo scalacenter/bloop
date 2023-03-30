@@ -309,7 +309,7 @@ trait BloopHelpers {
               project -> newResult
             }
           }
-      }
+      }.toVector
 
       TestUtil.await(scala.concurrent.duration.FiniteDuration(5, "s")) {
         Task.gatherUnordered(newSuccessfulTasks).map {
