@@ -1,6 +1,10 @@
 import $ivy.`com.lihaoyi::mill-contrib-jmh:$MILL_VERSION`
 import $ivy.`io.chris-kipp::mill-ci-release::0.1.5`
+import $ivy.`io.github.alexarchambault.mill::mill-native-image::0.1.21`
+import $ivy.`io.github.alexarchambault.mill::mill-native-image-upload:0.1.21`
 
+import io.github.alexarchambault.millnativeimage.NativeImage
+import io.github.alexarchambault.millnativeimage.upload.Upload
 import io.kipp.mill.ci.release.CiReleaseModule
 import mill._
 import mill.contrib.jmh.JmhModule
@@ -14,51 +18,65 @@ object Dependencies {
 
   def scalaVersions = Seq(scala212, scala213)
 
-  def asmVersion = "9.5"
-  def jsoniterVersion = "2.13.3.2"
-  def scalaJs1Version = "1.13.0"
+  def asmVersion         = "9.5"
+  def coursierVersion    = "2.1.0-M6-53-gb4f448130"
+  def graalvmVersion     = "22.2.0"
+  def jsoniterVersion    = "2.13.3.2"
+  def scalaJs1Version    = "1.13.0"
   def scalaJsEnvsVersion = "1.1.1"
 
-  def asm = ivy"org.ow2.asm:asm:$asmVersion"
-  def asmUtil = ivy"org.ow2.asm:asm-util:$asmVersion"
-  def bloopConfig = ivy"ch.epfl.scala::bloop-config:1.5.5"
-  def brave = ivy"io.zipkin.brave:brave:5.15.0"
-  def bsp4s = ivy"ch.epfl.scala::bsp4s:2.1.0-M3"
-  def caseApp = ivy"com.github.alexarchambault::case-app:2.0.6"
+  def asm               = ivy"org.ow2.asm:asm:$asmVersion"
+  def asmUtil           = ivy"org.ow2.asm:asm-util:$asmVersion"
+  def bloopConfig       = ivy"ch.epfl.scala::bloop-config:1.5.5"
+  def brave             = ivy"io.zipkin.brave:brave:5.15.0"
+  def bsp4j             = ivy"ch.epfl.scala:bsp4j:2.0.0"
+  def bsp4s             = ivy"ch.epfl.scala::bsp4s:2.1.0-M3"
+  def caseApp           = ivy"com.github.alexarchambault::case-app:2.0.6"
+  def caseApp21         = ivy"com.github.alexarchambault::case-app:2.1.0-M15"
+  def collectionCompat  = ivy"org.scala-lang.modules::scala-collection-compat:2.8.1"
+  def coursier          = ivy"io.get-coursier::coursier:$coursierVersion"
   def coursierInterface = ivy"io.get-coursier:interface:1.0.13"
-  def difflib = ivy"com.googlecode.java-diff-utils:diffutils:1.3.0"
-  def directoryWatcher = ivy"ch.epfl.scala:directory-watcher:0.8.0+6-f651bd93"
+  def coursierJvm       = ivy"io.get-coursier::coursier-jvm:$coursierVersion"
+  def dependency        = ivy"io.get-coursier::dependency:0.2.2"
+  def difflib           = ivy"com.googlecode.java-diff-utils:diffutils:1.3.0"
+  def directoryWatcher  = ivy"ch.epfl.scala:directory-watcher:0.8.0+6-f651bd93"
+  def expecty           = ivy"com.eed3si9n.expecty::expecty:0.15.4"
   def jsoniterCore =
     ivy"com.github.plokhotnyuk.jsoniter-scala::jsoniter-scala-core:$jsoniterVersion"
   def jsoniterMacros =
     ivy"com.github.plokhotnyuk.jsoniter-scala::jsoniter-scala-macros:$jsoniterVersion"
-  def junit = ivy"com.github.sbt:junit-interface:0.13.3"
-  def libdaemonjvm = ivy"io.github.alexarchambault.libdaemon::libdaemon:0.0.11"
-  def libraryManagement = ivy"org.scala-sbt::librarymanagement-ivy:1.8.0"
-  def log4j = ivy"org.apache.logging.log4j:log4j-core:2.20.0"
-  def logback = ivy"ch.qos.logback:logback-classic:1.4.6"
-  def macroParadise = ivy"org.scalamacros:::paradise:2.1.1"
-  def monix = ivy"io.monix::monix:3.2.0"
-  def nailgun = ivy"io.github.alexarchambault.bleep:nailgun-server:1.0.7"
-  def osLib = ivy"com.lihaoyi::os-lib:0.9.0"
-  def pprint = ivy"com.lihaoyi::pprint:0.8.1"
-  def sbtTestAgent = ivy"org.scala-sbt:test-agent:1.8.2"
-  def sbtTestInterface = ivy"org.scala-sbt:test-interface:1.0"
-  def scalaDebugAdapter = ivy"ch.epfl.scala::scala-debug-adapter:3.0.7"
-  def scalaJsLinker1 = ivy"org.scala-js::scalajs-linker:$scalaJs1Version"
-  def scalaJsEnvs1 = ivy"org.scala-js::scalajs-js-envs:$scalaJsEnvsVersion"
-  def scalaJsEnvNode1 = ivy"org.scala-js::scalajs-env-nodejs:$scalaJsEnvsVersion"
-  def scalaJsEnvJsdomNode1 = ivy"org.scala-js::scalajs-env-jsdom-nodejs:1.1.0"
+  def junit                  = ivy"com.github.sbt:junit-interface:0.13.3"
+  def libdaemonjvm           = ivy"io.github.alexarchambault.libdaemon::libdaemon:0.0.11"
+  def libraryManagement      = ivy"org.scala-sbt::librarymanagement-ivy:1.8.0"
+  def log4j                  = ivy"org.apache.logging.log4j:log4j-core:2.20.0"
+  def logback                = ivy"ch.qos.logback:logback-classic:1.4.6"
+  def macroParadise          = ivy"org.scalamacros:::paradise:2.1.1"
+  def monix                  = ivy"io.monix::monix:3.2.0"
+  def munit                  = ivy"org.scalameta::munit:0.7.29"
+  def nailgun                = ivy"io.github.alexarchambault.bleep:nailgun-server:1.0.7"
+  def osLib                  = ivy"com.lihaoyi::os-lib:0.9.0"
+  def pprint                 = ivy"com.lihaoyi::pprint:0.8.1"
+  def sbtTestAgent           = ivy"org.scala-sbt:test-agent:1.8.2"
+  def sbtTestInterface       = ivy"org.scala-sbt:test-interface:1.0"
+  def scalaDebugAdapter      = ivy"ch.epfl.scala::scala-debug-adapter:3.0.7"
+  def scalaJsLinker1         = ivy"org.scala-js::scalajs-linker:$scalaJs1Version"
+  def scalaJsEnvs1           = ivy"org.scala-js::scalajs-js-envs:$scalaJsEnvsVersion"
+  def scalaJsEnvNode1        = ivy"org.scala-js::scalajs-env-nodejs:$scalaJsEnvsVersion"
+  def scalaJsEnvJsdomNode1   = ivy"org.scala-js::scalajs-env-jsdom-nodejs:1.1.0"
   def scalaJsSbtTestAdapter1 = ivy"org.scala-js::scalajs-sbt-test-adapter:$scalaJs1Version"
-  def scalaJsLogging1 = ivy"org.scala-js::scalajs-logging:1.1.1"
-  def scalaNativeTools04 = ivy"org.scala-native::tools:0.4.11"
-  def scalazCore = ivy"org.scalaz::scalaz-core:7.3.7"
-  def sourcecode = ivy"com.lihaoyi::sourcecode:0.3.0"
-  def utest = ivy"com.lihaoyi::utest:0.8.1"
+  def scalaJsLogging1        = ivy"org.scala-js::scalajs-logging:1.1.1"
+  def scalaNativeTools04     = ivy"org.scala-native::tools:0.4.11"
+  def scalazCore             = ivy"org.scalaz::scalaz-core:7.3.7"
+  def snailgun      = ivy"io.github.alexarchambault.scala-cli.snailgun::snailgun-core:0.4.1-sc2"
+  def sourcecode    = ivy"com.lihaoyi::sourcecode:0.3.0"
+  def svm           = ivy"org.graalvm.nativeimage:svm:$graalvmVersion"
+  def utest         = ivy"com.lihaoyi::utest:0.8.1"
   def xxHashLibrary = ivy"net.jpountz.lz4:lz4:1.3.0"
-  def zinc = ivy"org.scala-sbt::zinc:1.8.0"
-  def zipkinSender = ivy"io.zipkin.reporter2:zipkin-sender-urlconnection:2.16.3"
-  def zt = ivy"org.zeroturnaround:zt-zip:1.15"
+  def zinc          = ivy"org.scala-sbt::zinc:1.8.0"
+  def zipkinSender  = ivy"io.zipkin.reporter2:zipkin-sender-urlconnection:2.16.3"
+  def zt            = ivy"org.zeroturnaround:zt-zip:1.15"
+
+  def graalVmId = s"graalvm-java17:$graalvmVersion"
 }
 
 trait PublishModule extends CiReleaseModule {
@@ -130,7 +148,7 @@ class Backend(val crossScalaVersion: String) extends BloopCrossSbtModule with Pu
   )
 
   def buildInfoFile = T.persistent {
-    val dir = T.dest / "constants"
+    val dir  = T.dest / "constants"
     val dest = dir / "BloopScalaInfo.scala"
     val code =
       s"""package bloop.internal.build
@@ -179,7 +197,7 @@ class Frontend(val crossScalaVersion: String) extends BloopCrossSbtModule with P
   def mainClass = Some("bloop.Cli")
 
   def buildInfoFile = T.persistent {
-    val dir = T.dest / "constants"
+    val dir  = T.dest / "constants"
     val dest = dir / "BuildInfo.scala"
     val code =
       s"""package bloop.internal.build
@@ -239,7 +257,7 @@ class Frontend(val crossScalaVersion: String) extends BloopCrossSbtModule with P
     )
 
     def buildInfoFile = T.persistent {
-      val dir = T.dest / "constants"
+      val dir  = T.dest / "constants"
       val dest = dir / "BuildTestInfo.scala"
       val junitCp = upstreamAssemblyClasspath()
         .map(_.path)
@@ -334,7 +352,7 @@ object bridges extends Module {
       with PublishModule {
     def artifactName = "bloop-native-bridge-0-4"
 
-    private def updateSources(originalSources: Seq[PathRef]): Seq[PathRef] = {
+    private def updateSources(originalSources: Seq[PathRef]): Seq[PathRef] =
       if (millSourcePath.endsWith(os.rel / "scala-native-04")) {
         val updatedSourcePath = millSourcePath / os.up / "scala-native-0.4"
         originalSources.map {
@@ -342,9 +360,9 @@ object bridges extends Module {
             PathRef(updatedSourcePath / pathRef.path.relativeTo(millSourcePath))
           case other => other
         }
-      } else
+      }
+      else
         originalSources
-    }
 
     def sources = T.sources(updateSources(super.sources()))
 
@@ -381,7 +399,7 @@ class Benchmarks(val crossScalaVersion: String) extends BloopCrossSbtModule with
   )
 
   def buildInfoFile = T.persistent {
-    val dir = T.dest / "constants"
+    val dir  = T.dest / "constants"
     val dest = dir / "BuildInfo.scala"
     val code =
       s"""package bloop.benchmarks
@@ -406,7 +424,7 @@ class Benchmarks(val crossScalaVersion: String) extends BloopCrossSbtModule with
       val HasSha = """(?:.+?)-([0-9a-f]{8})(?:\+\d{8}-\d{4})?""".r
       version match {
         case HasSha(sha) => sha
-        case _ => version
+        case _           => version
       }
     }
     val version = frontend().publishVersion()
@@ -425,5 +443,186 @@ class Benchmarks(val crossScalaVersion: String) extends BloopCrossSbtModule with
       s"-DbloopRef=${refOf(version)}",
       s"-Dgit.localdir=${os.pwd}"
     )
+  }
+}
+
+trait BloopCliModule extends ScalaModule with PublishModule {
+  def javacOptions = super.javacOptions() ++ Seq(
+    "--release",
+    "16"
+  )
+  def scalacOptions = T {
+    val sv         = scalaVersion()
+    val isScala213 = sv.startsWith("2.13.")
+    val extraOptions =
+      if (isScala213) Seq("-Xsource:3", "-Ytasty-reader")
+      else Nil
+    super.scalacOptions() ++ Seq("-Ywarn-unused") ++ extraOptions
+  }
+}
+
+object `bloop-rifle` extends BloopCliModule {
+  def scalaVersion = Dependencies.scala213
+  def ivyDeps = super.ivyDeps() ++ Agg(
+    Dependencies.bsp4j,
+    Dependencies.collectionCompat,
+    Dependencies.libdaemonjvm,
+    Dependencies.snailgun
+  )
+
+  def constantsFile = T.persistent {
+    val dir  = T.dest / "constants"
+    val dest = dir / "Constants.scala"
+    val code =
+      s"""package bloop.rifle.internal
+         |
+         |/** Build-time constants. Generated by mill. */
+         |object Constants {
+         |  def bloopVersion = "${frontend(Dependencies.scala212).publishVersion()}"
+         |  def bloopScalaVersion = "${Dependencies.scala212}"
+         |  def bspVersion = "${Dependencies.bsp4j.dep.version}"
+         |}
+         |""".stripMargin
+    if (!os.isFile(dest) || os.read(dest) != code)
+      os.write.over(dest, code, createFolders = true)
+    PathRef(dir)
+  }
+  def generatedSources = super.generatedSources() ++ Seq(constantsFile())
+
+  object test extends Tests {
+    def testFramework = "munit.Framework"
+    def ivyDeps = super.ivyDeps() ++ Agg(
+      Dependencies.expecty,
+      Dependencies.munit
+    )
+  }
+}
+
+object cli extends BloopCliModule with NativeImage {
+  def scalaVersion = Dependencies.scala213
+  def moduleDeps = Seq(
+    `bloop-rifle`
+  )
+  def ivyDeps = super.ivyDeps() ++ Agg(
+    Dependencies.caseApp21,
+    Dependencies.coursier,
+    Dependencies.coursierJvm,
+    Dependencies.dependency,
+    Dependencies.jsoniterCore,
+    Dependencies.osLib
+  )
+  def compileIvyDeps = super.compileIvyDeps() ++ Agg(
+    Dependencies.jsoniterMacros,
+    Dependencies.svm
+  )
+  private def actualMainClass = "bloop.cli.Bloop"
+  def mainClass               = Some(actualMainClass)
+
+  def nativeImageMainClass    = actualMainClass
+  def nativeImageClassPath    = runClasspath()
+  def nativeImageGraalVmJvmId = Dependencies.graalVmId
+  def nativeImageOptions = super.nativeImageOptions() ++ Seq(
+    "--no-fallback",
+    "--enable-url-protocols=http,https",
+    "-Djdk.http.auth.tunneling.disabledSchemes="
+  )
+  def nativeImagePersist = System.getenv("CI") != null
+
+  def copyToArtifacts(directory: String = "artifacts/") = T.command {
+    val _ = Upload.copyLauncher(
+      nativeImage().path,
+      directory,
+      "bloop",
+      compress = true
+    )
+  }
+}
+
+def tmpDir = T {
+  T.dest.toString
+}
+
+object integration extends BloopCliModule {
+  def scalaVersion = Dependencies.scala213
+  object test extends Tests {
+    def testFramework = "munit.Framework"
+    def ivyDeps = super.ivyDeps() ++ Agg(
+      Dependencies.expecty,
+      Dependencies.munit,
+      Dependencies.osLib,
+      Dependencies.pprint
+    )
+
+    def forkEnv = super.forkEnv() ++ Seq(
+      "BLOOP_CLI_TESTS_TMP_DIR" -> tmpDir()
+    )
+
+    private final class TestHelper(launcherTask: T[PathRef]) {
+      def test(args: String*) = {
+        val argsTask = T.task {
+          val launcher = launcherTask().path
+          val extraArgs = Seq(
+            s"-Dtest.bloop-cli.path=$launcher"
+          )
+          args ++ extraArgs
+        }
+        T.command {
+          testTask(argsTask, T.task(Seq.empty[String]))()
+        }
+      }
+    }
+
+    def jvm(args: String*) =
+      new TestHelper(cli.launcher).test(args: _*)
+    def native(args: String*) =
+      new TestHelper(cli.nativeImage).test(args: _*)
+    def test(args: String*) =
+      jvm(args: _*)
+  }
+}
+
+object ci extends Module {
+  def upload(directory: String = "artifacts/") = T.command {
+    val version = cli.publishVersion()
+
+    val path = os.Path(directory, os.pwd)
+    val launchers = os
+      .list(path)
+      .filter(os.isFile(_))
+      .map(path => path -> path.last)
+    val ghToken = Option(System.getenv("UPLOAD_GH_TOKEN")).getOrElse {
+      sys.error("UPLOAD_GH_TOKEN not set")
+    }
+    val (tag, overwriteAssets) =
+      if (version.endsWith("-SNAPSHOT")) ("nightly", true)
+      else ("v" + version, false)
+
+    Upload.upload(
+      "scala-cli",
+      "bloop-core",
+      ghToken,
+      tag,
+      dryRun = false,
+      overwrite = overwriteAssets
+    )(launchers: _*)
+  }
+
+  def copyJvm(jvm: String = Dependencies.graalVmId, dest: String = "jvm") = T.command {
+    import sys.process._
+    val command = os.proc(
+      "cs",
+      "java-home",
+      "--jvm",
+      jvm,
+      "--update",
+      "--ttl",
+      "0"
+    )
+    val baseJavaHome = os.Path(command.call().out.text().trim, os.pwd)
+    System.err.println(s"Initial Java home $baseJavaHome")
+    val destJavaHome = os.Path(dest, os.pwd)
+    os.copy(baseJavaHome, destJavaHome, createFolders = true)
+    System.err.println(s"New Java home $destJavaHome")
+    destJavaHome
   }
 }
