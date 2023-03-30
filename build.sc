@@ -36,7 +36,7 @@ object Dependencies {
   def libdaemonjvm = ivy"io.github.alexarchambault.libdaemon::libdaemon:0.0.11"
   def libraryManagement = ivy"org.scala-sbt::librarymanagement-ivy:1.8.0"
   def log4j = ivy"org.apache.logging.log4j:log4j-core:2.20.0"
-  def logback = ivy"ch.qos.logback:logback-classic:1.2.3"
+  def logback = ivy"ch.qos.logback:logback-classic:1.4.6"
   def macroParadise = ivy"org.scalamacros:::paradise:2.1.1"
   def monix = ivy"io.monix::monix:3.2.0"
   def nailgun = ivy"io.github.alexarchambault.bleep:nailgun-server:1.0.4"
