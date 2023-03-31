@@ -2,6 +2,7 @@ package bloop.rifle
 
 import ch.epfl.scala.bsp4j
 import bloop.rifle.BloopRifleConfig.{AtLeast, Strict}
+import bloop.rifle.BuildServer
 import bloop.rifle.bloop4j.BloopExtraBuildParams
 import bloop.rifle.internal.Constants
 import org.eclipse.lsp4j.jsonrpc
@@ -12,7 +13,6 @@ import java.nio.file.{Files, Path, Paths}
 import java.util.concurrent.{Future => JFuture, ScheduledExecutorService, TimeoutException}
 
 import scala.annotation.tailrec
-import scala.build.bloop.BuildServer
 import scala.concurrent.Await
 import scala.concurrent.duration._
 import scala.jdk.CollectionConverters._

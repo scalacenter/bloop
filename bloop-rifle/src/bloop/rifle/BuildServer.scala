@@ -1,4 +1,4 @@
-package scala.build.bloop
+package bloop.rifle
 
 import ch.epfl.scala.bsp4j
 
