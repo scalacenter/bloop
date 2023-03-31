@@ -110,9 +110,9 @@ jobs:
         with:
           jvm: "zulu:17"
       - run: |
-          ./mill -i "cli.writeNativeImageScript" generate.sh "" && \
-          export USE_NATIVE_IMAGE_JAVA_PLATFORM_MODULE_SYSTEM=false &&
-          ./generate.sh && \
+          ./mill -i "cli.writeNativeImageScript" generate.sh "" &&\
+          export USE_NATIVE_IMAGE_JAVA_PLATFORM_MODULE_SYSTEM=false &&\
+          ./generate.sh &&\
           ./mill -i "cli.copyToArtifacts" artifacts/
         if: runner.os != 'Windows'
       - run: |
@@ -129,7 +129,12 @@ jobs:
       - run: |
           ./mill -i __.publishLocal &&\
           ./mill -i "integration.test.native"
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' && runner.os != 'Windows'
+      - run: |
+          ./mill.bat -i __.publishLocal
+          ./mill.bat -i integration.test.native
+        if: github.event_name == 'push' && runner.os == 'Windows'
+        shell: bash
 
   upload-launchers:
     name: Upload CLI
