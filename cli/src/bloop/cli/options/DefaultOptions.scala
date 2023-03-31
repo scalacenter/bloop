@@ -15,6 +15,12 @@ import coursier.jvm.JvmCache
 import scala.util.Properties
 
 // format: off
+@HelpMessage(
+  """Interact with Bloop (the build server) or check its status.
+    |
+    |This sub-command allows to check the current status of Bloop.
+    |If Bloop isn't currently running, it will be started.""".stripMargin
+)
 final case class DefaultOptions(
   @Recurse
     logging: LoggingOptions = LoggingOptions(),

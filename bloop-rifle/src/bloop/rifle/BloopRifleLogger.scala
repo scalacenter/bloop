@@ -9,6 +9,7 @@ trait BloopRifleLogger { self =>
   def debug(msg: => String, ex: Throwable): Unit
   final def debug(msg: => String): Unit = debug(msg, null)
   def error(msg: => String, ex: Throwable): Unit
+  def error(msg: => String): Unit
   def runnable(name: String)(r: Runnable): Runnable = { () =>
     try r.run()
     catch {
@@ -39,6 +40,7 @@ object BloopRifleLogger {
       def info(msg: => String)                 = {}
       def debug(msg: => String, ex: Throwable) = {}
       def error(msg: => String, ex: Throwable) = {}
+      def error(msg: => String)                = {}
       def bloopBspStdout                       = None
       def bloopBspStderr                       = None
       def bloopCliInheritStdout                = false

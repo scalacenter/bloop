@@ -53,6 +53,8 @@ final case class LoggingOptions(
             if (verbosity >= 1)
               ex.printStackTrace(System.err)
           }
+          def error(msg: => String) =
+            System.err.println(msg)
           def info(msg: => String) =
             if (verbosity >= 0)
               System.err.println(msg)
