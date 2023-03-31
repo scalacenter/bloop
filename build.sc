@@ -79,7 +79,7 @@ object Dependencies {
   def graalVmId = s"graalvm-java17:$graalvmVersion"
 }
 
-trait PublishModule extends CiReleaseModule {
+trait PublishModule extends CiReleaseModule with PublishLocalNoFluff {
   import io.kipp.mill.ci.release.SonatypeHost
   import mill.scalalib.publish._
   def pomSettings = PomSettings(
@@ -117,6 +117,32 @@ def emptyZip = T {
   zos.close()
   os.write(dest, baos.toByteArray)
   PathRef(dest)
+}
+
+trait PublishLocalNoFluff extends mill.scalalib.PublishModule {
+  // adapted from https://github.com/com-lihaoyi/mill/blob/fea79f0515dda1def83500f0f49993e93338c3de/scalalib/src/PublishModule.scala#L70-L85
+  // writes empty zips as source and doc JARs
+  def publishLocalNoFluff(localIvyRepo: String = null): define.Command[PathRef] = T.command {
+
+    import mill.scalalib.publish.LocalIvyPublisher
+    val publisher = localIvyRepo match {
+      case null => LocalIvyPublisher
+      case repo =>
+        new LocalIvyPublisher(os.Path(repo.replace("{VERSION}", publishVersion()), os.pwd))
+    }
+
+    publisher.publish(
+      jar = jar().path,
+      sourcesJar = emptyZip().path,
+      docJar = emptyZip().path,
+      pom = pom().path,
+      ivy = ivy().path,
+      artifact = artifactMetadata(),
+      extras = extraPublish()
+    )
+
+    jar()
+  }
 }
 
 object shared extends Cross[Shared](Dependencies.scalaVersions: _*)
