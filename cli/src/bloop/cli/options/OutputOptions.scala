@@ -4,6 +4,7 @@ import caseapp._
 import bloop.rifle.BloopRifleConfig
 
 // format: off
+@HelpMessage("Print Bloop output")
 final case class OutputOptions(
   @Recurse
     logging: LoggingOptions = LoggingOptions(),

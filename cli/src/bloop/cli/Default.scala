@@ -44,7 +44,7 @@ object Default extends Command[DefaultOptions] {
         logger.message("Bloop server is running.")
       case Seq(cmd, args @ _*) =>
         val assumeTty = System.console() != null
-        Operations.run(
+        val retCode = Operations.run(
           command = cmd,
           args = args.toArray,
           workingDir = bloopRifleConfig.workingDir.toPath,
@@ -57,6 +57,14 @@ object Default extends Command[DefaultOptions] {
           assumeOutTty = assumeTty,
           assumeErrTty = assumeTty
         )
+        if (retCode == 0)
+          logger.debug(s"Bloop command $cmd ran successfully (return code 0)")
+        else {
+          logger.debug(
+            s"Got return code $retCode from Bloop server when running $cmd, exiting with it"
+          )
+          sys.exit(retCode)
+        }
     }
   }
 }

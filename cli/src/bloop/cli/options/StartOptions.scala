@@ -4,6 +4,7 @@ import caseapp._
 import bloop.rifle.BloopRifleConfig
 
 // format: off
+@HelpMessage("Starts a Bloop instance, if none is running")
 final case class StartOptions(
   @Recurse
     logging: LoggingOptions = LoggingOptions(),

@@ -2,6 +2,7 @@ package bloop.rifle
 
 import ch.epfl.scala.bsp4j
 import bloop.rifle.BloopRifleConfig.{AtLeast, Strict}
+import bloop.rifle.BuildServer
 import bloop.rifle.bloop4j.BloopExtraBuildParams
 import bloop.rifle.internal.Constants
 import org.eclipse.lsp4j.jsonrpc

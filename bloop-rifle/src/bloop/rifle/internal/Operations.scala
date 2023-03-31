@@ -5,7 +5,8 @@ import bloop.rifle.{
   BloopRifleLogger,
   BspConnection,
   BspConnectionAddress,
-  FailedToStartServerException
+  FailedToStartServerExitCodeException,
+  FailedToStartServerTimeoutException
 }
 import libdaemonjvm.LockFiles
 import snailgun.protocol.Streams
@@ -108,6 +109,8 @@ object Operations {
 
     envExists && findInPath("sh").nonEmpty
   }
+
+  private def serverAlreadyRunningExitCode = 222
 
   /** Starts a new bloop server.
     *
@@ -247,13 +250,21 @@ object Operations {
       val start = System.currentTimeMillis()
       () =>
         try {
+          lazy val exitCode = {
+            val value = p.exitValue()
+            if (value == serverAlreadyRunningExitCode)
+              logger.debug(s"Bloop server exited with code $value (server already running)")
+            else
+              logger.debug(s"Bloop server exited with code $value")
+            value
+          }
           val completionOpt =
-            if (!p.isAlive())
-              Some(Failure(new FailedToStartServerException(outputFileOpt = writeOutputToOpt)))
+            if (!p.isAlive() && exitCode != serverAlreadyRunningExitCode)
+              Some(Failure(new FailedToStartServerExitCodeException(exitCode)))
             else if (check(address, logger))
               Some(Success(()))
             else if (timeout.isFinite && System.currentTimeMillis() - start > timeout.toMillis)
-              Some(Failure(new FailedToStartServerException(Some(timeout), writeOutputToOpt)))
+              Some(Failure(new FailedToStartServerTimeoutException(timeout)))
             else
               None
 
@@ -341,7 +352,7 @@ object Operations {
     }
     val runnable: Runnable = logger.runnable(threadName) { () =>
       val maybeRetCode = Try {
-        nailgunClient0.run(
+        val retCode = nailgunClient0.run(
           "bsp",
           protocolArgs,
           workingDir,
@@ -351,6 +362,13 @@ object Operations {
           stop0,
           interactiveSession = false
         )
+        if (retCode != 0)
+          logger.error(
+            s"""Bloop 'bsp' command exited with code $retCode. Something may be wrong with the current configuration.
+               |Running the ${Console.BOLD}clean${Console.RESET} sub-command to clear the working directory and remove caches might help.
+               |If the error persists, please report the issue as a bug and attach a log with increased verbosity by passing ${Console.BOLD}-v -v -v${Console.RESET}.""".stripMargin
+          )
+        retCode
       }
       try promise.complete(maybeRetCode)
       catch { case _: IllegalStateException => }
@@ -396,7 +414,9 @@ object Operations {
             libdaemonjvm.Util.socketFromChannel(socket)
           }
           else if (closed.value.isEmpty)
-            sys.error(s"Timeout while waiting for BSP socket to be created in $socketFile")
+            sys.error(
+              s"Timeout ($timeout) while waiting for BSP socket to be created in $socketFile"
+            )
           else
             sys.error(
               s"Bloop BSP connection in $socketFile was unexpectedly closed or bloop didn't start."
@@ -475,7 +495,7 @@ object Operations {
     val nailgunClient0 = nailgunClient(address)
     val streams        = Streams(None, out, err)
 
-    timeout(30.seconds, scheduler, logger) {
+    timeout(30.seconds + BloopRifleConfig.extraTimeout, scheduler, logger) {
       nailgunClient0.run(
         "about",
         Array.empty,

@@ -4,6 +4,7 @@ import caseapp._
 
 
 // format: off
+@HelpMessage("Stop Bloop if an instance is running.")
 final case class ExitOptions(
   @Recurse
     logging: LoggingOptions = LoggingOptions(),
