@@ -107,12 +107,27 @@ trait BloopCrossSbtModule extends CrossSbtModule {
   }
 }
 
+def emptyZip = T {
+  import java.io._
+  import java.util.zip._
+  val dest = T.dest / "empty.zip"
+  val baos = new ByteArrayOutputStream
+  val zos  = new ZipOutputStream(baos)
+  zos.finish()
+  zos.close()
+  os.write(dest, baos.toByteArray)
+  PathRef(dest)
+}
+
 object shared extends Cross[Shared](Dependencies.scalaVersions: _*)
 class Shared(val crossScalaVersion: String) extends BloopCrossSbtModule with PublishModule {
   def artifactName = "bloop-shared"
   def compileIvyDeps = super.compileIvyDeps() ++ Agg(
     Dependencies.jsoniterMacros
   )
+  def docJar = T {
+    emptyZip()
+  }
   def ivyDeps = super.ivyDeps() ++ Agg(
     Dependencies.bsp4s.exclude(("com.github.plokhotnyuk.jsoniter-scala", "*")),
     Dependencies.coursierInterface,
