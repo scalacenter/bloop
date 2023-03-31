@@ -63,14 +63,13 @@ object Cli {
   }
 
   def nailMain(ngContext: NGContext): Unit = {
-    val server = ngContext.getNGServer
     val env = CommonOptions.PrettyProperties.from(ngContext.getEnv())
     val nailgunOptions = CommonOptions(
       in = ngContext.in,
       out = ngContext.out,
       err = ngContext.err,
-      ngout = server.out,
-      ngerr = server.err,
+      ngout = ngContext.out,
+      ngerr = ngContext.err,
       workingDirectory = ngContext.getWorkingDirectory,
       env = env
     )
@@ -332,8 +331,8 @@ object Cli {
 
     val logger = BloopLogger.at(
       configDirectory.syntax,
-      commonOpts.out,
-      commonOpts.err,
+      commonOpts.ngout,
+      commonOpts.ngerr,
       isVerbose,
       !(cliOptions.noColor || commonOpts.env.containsKey("NO_COLOR")),
       debugFilter

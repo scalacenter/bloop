@@ -248,6 +248,36 @@ trait NailgunTestUtils {
       issueAsProcess(cmd: _*).waitFor()
     }
 
+    def run(cmd0: String*) = {
+      val cmd =
+        if (cmd0.contains("--config-dir"))
+          cmd0
+        else
+          cmd0 ++ List("--config-dir", configPath)
+
+      os.proc(snailgunCommand, s"--nailgun-port=$port", cmd)
+        .call(cwd = os.Path(base), env = Map("BLOOP_OWNER" -> "owner"))
+    }
+
+    def fail(cmd0: String*) = {
+      val cmd =
+        if (cmd0.contains("--config-dir"))
+          cmd0
+        else
+          cmd0 ++ List("--config-dir", configPath)
+
+      val res = os
+        .proc(snailgunCommand, s"--nailgun-port=$port", cmd)
+        .call(
+          cwd = os.Path(base),
+          env = Map("BLOOP_OWNER" -> "owner"),
+          check = false,
+          stderr = os.Pipe
+        )
+      assert(res.exitCode != 0)
+      res
+    }
+
     /**
      * Execute a command `cmd` on the server and return the process
      * executing the specified command.

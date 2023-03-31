@@ -48,10 +48,10 @@ object NailgunSpec extends BaseSuite with NailgunTestUtils {
   }
   def simpleBuildNailgunHelpTest(): Unit = {
     withServerInProject { (logger, client) =>
-      client.expectSuccess("help")
+      val res = client.run("help")
       assertNoErrors(logger)
       assertNoDiff(
-        joinLinesForDiff(logger.serverInfos),
+        res.out.text(),
         s"""|bloop ${BuildInfo.version}
             |Usage: bloop [options] [command] [command-options]
             |Available commands: about, autocomplete, bsp, clean, compile, configure, console, help, link, projects, run, test
@@ -67,10 +67,10 @@ object NailgunSpec extends BaseSuite with NailgunTestUtils {
   }
   def nailgunFailsIfCommandDoesntExist(): Unit = {
     withServerInProject { (logger, client) =>
-      client.expectFailure("foobar")
+      val res = client.fail("foobar")
       assertNoErrors(logger)
       assertNoDiff(
-        joinLinesForDiff(logger.serverInfos),
+        res.out.text(),
         "Command not found: foobar"
       )
     }
@@ -87,10 +87,10 @@ object NailgunSpec extends BaseSuite with NailgunTestUtils {
       val configDir = Files.createDirectories(workspace.resolve(".bloop").underlying)
       val logger = new RecordingLogger(ansiCodesSupported = false)
       withServer(configDir, false, logger) { (logger, client) =>
-        client.expectSuccess("help")
+        val res = client.run("help")
         assertNoErrors(logger)
         assertNoDiff(
-          joinLinesForDiff(logger.serverInfos),
+          res.out.text(),
           s"""|bloop ${BuildInfo.version}
               |Usage: bloop [options] [command] [command-options]
               |Available commands: about, autocomplete, bsp, clean, compile, configure, console, help, link, projects, run, test
@@ -107,10 +107,10 @@ object NailgunSpec extends BaseSuite with NailgunTestUtils {
   }
   def nailgunAboutWorksInSimpleBuild(): Unit = {
     withServerInProject { (logger, client) =>
-      client.expectSuccess("about")
+      val res = client.run("about")
       assertNoErrors(logger)
       assertNoDiff(
-        joinLinesForDiff(logger.serverInfos),
+        res.out.text(),
         s"""|bloop v${BuildInfo.version}
             |Using Scala v${BuildInfo.scalaVersion} and Zinc v${BuildInfo.zincVersion}
             |$jvmLine
@@ -127,10 +127,10 @@ object NailgunSpec extends BaseSuite with NailgunTestUtils {
   }
   def nailgunProjectsWorksInSimpleBuild(): Unit = {
     withServerInProject { (logger, client) =>
-      client.expectSuccess("projects")
+      val res = client.run("projects")
       assertNoErrors(logger)
       assertNoDiff(
-        joinLinesForDiff(logger.serverInfos),
+        res.out.text(),
         """|a
            |a-test
            |b
@@ -148,16 +148,16 @@ object NailgunSpec extends BaseSuite with NailgunTestUtils {
   }
   def nailgunProjectsWorksInSimpleBuildReferencedFromOtherCwd(): Unit = {
     withServerInProject { (logger, client) =>
-      TestUtil.withinWorkspace { workspace =>
+      val output = TestUtil.withinWorkspace { workspace =>
         val externalClient = Client(super.TEST_PORT, logger, workspace.underlying)
         val clientConfig = client.config.toAbsolutePath().toString
-        val process = externalClient.issueAsProcess("projects", "--config-dir", clientConfig)
-        process.waitFor(1, TimeUnit.SECONDS)
+        val res = externalClient.run("projects", "--config-dir", clientConfig)
+        res.out.text()
       }
 
       assertNoErrors(logger)
       assertNoDiff(
-        joinLinesForDiff(logger.serverInfos),
+        output,
         """|a
            |a-test
            |b
@@ -177,10 +177,9 @@ object NailgunSpec extends BaseSuite with NailgunTestUtils {
     val configDir = TestUtil.createSimpleRecursiveBuild(RelativePath(".bloop")).underlying
     val logger = new RecordingLogger(ansiCodesSupported = false)
     withServer(configDir, false, logger) { (logger, client) =>
-      client.expectSuccess("about")
-      client.expectFailure("projects", "--no-color")
+      val res = client.run("about")
       assertNoDiff(
-        joinLinesForDiff(logger.serverInfos),
+        res.out.text(),
         s"""|bloop v${BuildInfo.version}
             |Using Scala v${BuildInfo.scalaVersion} and Zinc v${BuildInfo.zincVersion}
             |$jvmLine
@@ -188,10 +187,13 @@ object NailgunSpec extends BaseSuite with NailgunTestUtils {
             |Maintained by the Scala Center and the community.""".stripMargin
       )
 
+      val failRes = client.fail("projects", "--no-color")
       assert(
-        logger.cleanedUpServerErrors.contains(
-          "[E] Fatal recursive dependency detected in 'g': List(g, g)"
-        )
+        failRes.err
+          .text()
+          .contains(
+            "[E] Fatal recursive dependency detected in 'g': List(g, g)"
+          )
       )
     }
   }
@@ -203,28 +205,29 @@ object NailgunSpec extends BaseSuite with NailgunTestUtils {
   }
   def nailgunCompileWorksInSimpleBuild(): Unit = {
     withServerInProject { (logger, client) =>
-      client.expectSuccess("clean", "b", "--propagate")
-      client.expectSuccess("compile", "b")
-      client.expectSuccess("clean", "-p", "b", "--propagate")
-      client.expectSuccess("compile", "-p", "b")
-      assertNoErrors(logger)
+      client.run("clean", "b", "--propagate")
+      val res0 = client.run("compile", "b")
       assertNoDiff(
-        joinLinesForDiff(
-          logger.captureTimeInsensitiveServerInfos
-            .filterNot(msg =>
-              msg.startsWith("Non-compiled module") ||
-                msg.startsWith(" Compilation completed in")
-            )
-        ),
+        res0.out
+          .text()
+          .replaceAll("\\(\\d*m?s\\)", "???"),
         """|Compiling a (1 Scala source)
-           |Compiled a ???
-           |Compiling b (1 Scala source)
-           |Compiled b ???
-           |Compiling a (1 Scala source)
            |Compiled a ???
            |Compiling b (1 Scala source)
            |Compiled b ???""".stripMargin
       )
+      client.run("clean", "-p", "b", "--propagate")
+      val res1 = client.run("compile", "-p", "b")
+      assertNoDiff(
+        res1.out
+          .text()
+          .replaceAll("\\(\\d*m?s\\)", "???"),
+        """|Compiling a (1 Scala source)
+           |Compiled a ???
+           |Compiling b (1 Scala source)
+           |Compiled b ???""".stripMargin
+      )
+      assertNoErrors(logger)
     }
 
     val newLogger = new RecordingLogger(ansiCodesSupported = false)
@@ -236,8 +239,8 @@ object NailgunSpec extends BaseSuite with NailgunTestUtils {
       Files.write(configFile, newContents.getBytes(UTF_8))
 
       // Checks new nailgun session still produces a no-op compilation
-      client.expectSuccess("compile", "b")
-      assertNoDiff(joinLinesForDiff(newLogger.captureTimeInsensitiveInfos), "")
+      val res = client.run("compile", "b")
+      assertNoDiff(res.out.text(), "")
     }
   }
 

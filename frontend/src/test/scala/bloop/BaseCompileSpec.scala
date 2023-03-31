@@ -1500,7 +1500,8 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
           """.stripMargin
       )
       val testOut = new ByteArrayOutputStream()
-      val options = CommonOptions.default.copy(out = new PrintStream(testOut))
+      val options =
+        CommonOptions.default.copy(out = new PrintStream(testOut), ngout = new PrintStream(testOut))
       val `A` = TestProject(workspace, "a", sources)
       val configDir = TestProject.populateWorkspace(workspace, List(`A`))
       val compileArgs = Array("compile", "a", "--config-dir", configDir.syntax)
