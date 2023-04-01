@@ -57,8 +57,8 @@ object Dependencies {
   val libraryManagement = "org.scala-sbt" %% "librarymanagement-ivy" % lmVersion
   val log4j = "org.apache.logging.log4j" % "log4j-core" % "2.20.0"
   val scalazCore = "org.scalaz" %% "scalaz-core" % scalazVersion
-  val coursierInterface = "io.get-coursier" % "interface" % "1.0.13"
-  val coursierInterfaceSubs = "io.get-coursier" % "interface-svm-subs" % "1.0.13"
+  val coursierInterface = "io.get-coursier" % "interface" % "1.0.14"
+  val coursierInterfaceSubs = "io.get-coursier" % "interface-svm-subs" % "1.0.14"
   val scalaCollectionCompat = "org.scala-lang.modules" %% "scala-collection-compat" % "2.4.2"
   val shapeless = "com.chuusai" %% "shapeless" % shapelessVersion
   val caseApp = "com.github.alexarchambault" %% "case-app" % caseAppVersion
