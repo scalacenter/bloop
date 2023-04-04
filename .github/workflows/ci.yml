@@ -112,12 +112,12 @@ jobs:
           submodules: true
           fetch-depth: 0
 
-      - uses: actions/setup-java@v3
+      - uses: coursier/setup-action@v1
         with:
-          distribution: 'temurin'
-          java-version: ${{ matrix.jdk }}
-          cache: 'sbt'
+          jvm: 'temurin:11.0.18'
         if: matrix.jdk == '11'
+      
+      - uses: coursier/cache-action@v6
 
       - uses: graalvm/setup-graalvm@v1
         with:
@@ -239,10 +239,9 @@ jobs:
         with:
           submodules: true
           fetch-depth: 0
-      - uses: actions/setup-java@v3
+      - uses: coursier/setup-action@v1
         with:
-          distribution: 'temurin'
-          java-version: '11'
+          jvm: 'temurin:11.0.18'
       - uses: actions/setup-node@v3
         with:
           node-version: "16"
