@@ -260,8 +260,8 @@ class Frontend(val crossScalaVersion: String) extends BloopCrossSbtModule with P
          |  def bspVersion = "${Dependencies.bsp4s.dep.version}"
          |  def zincVersion = "${Dependencies.zinc.dep.version}"
          |  def snailgunVersion = "0.4.1-sc2"
-         |  def nativeBridge04 = "${bridges.`scala-native-04`().artifactId}"
-         |  def jsBridge1 = "${bridges.`scalajs-1`().artifactId}"
+         |  def nativeBridge04 = "${bridges.`scala-native-04`().artifactId()}"
+         |  def jsBridge1 = "${bridges.`scalajs-1`().artifactId()}"
          |}
          |""".stripMargin
     if (!os.isFile(dest) || os.read(dest) != code)
