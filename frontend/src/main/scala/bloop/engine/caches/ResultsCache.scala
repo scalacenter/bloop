@@ -170,6 +170,16 @@ object ResultsCache {
   ): Task[ResultsCache] = {
     import bloop.util.JavaCompat.EnrichOptional
 
+    /**
+     * Orphaned internal directories are directories that are not used by any
+     * client and that are currently not the internal classes directory of any project.
+     *
+     * These are usually deleted by Bloop right away, but in some cases there might be left,
+     * which means it's safe to delete them.
+     *
+     * An example path cleaned up by this method is:
+     * .bloop/mtest/bloop-internal-classes/classes-Metals-12MpgYmRSGOOK5fxouxTqg==-iWRxh-luRTOxk3bOx9UAfg==
+     */
     def cleanUpOrphanedInternalDirs(
         project: Project,
         analysisClassesDir: AbsolutePath
@@ -177,7 +187,7 @@ object ResultsCache {
       if (!cleanOrphanedInternalDirs) Task.unit
       else {
         val internalClassesDir =
-          CompileOutPaths.createInternalClassesRootDir(project.genericClassesDir)
+          CompileOutPaths.createInternalClassesRootDir(project.out)
         // This is a surprise, skip any cleanup if internal analysis dir doesn't
         // live under the internal classes dir root assigned to the project
         if (internalClassesDir != analysisClassesDir.getParent) Task.unit
