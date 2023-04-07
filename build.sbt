@@ -44,73 +44,6 @@ val scalafixSettings: Seq[Setting[_]] = Seq(
 /**
  * ************************************************************************************************
  */
-val benchmarkBridge = project
-  .in(file(".benchmark-bridge-compilation"))
-  .aggregate(BenchmarkBridgeCompilation)
-  .disablePlugins(ScriptedPlugin)
-  .settings(
-    scalafixSettings,
-    (publish / skip) := true
-  )
-
-lazy val bloopShared = project
-  .in(file("shared"))
-  .settings(
-    name := "bloop-shared",
-    scalafixSettings,
-    libraryDependencies ++= Seq(
-      Dependencies.jsoniterCore,
-      Dependencies.jsoniterMacros,
-      Dependencies.bsp4s excludeAll ExclusionRule(
-        organization = "com.github.plokhotnyuk.jsoniter-scala"
-      ),
-      Dependencies.zinc,
-      Dependencies.log4j,
-      Dependencies.xxHashLibrary,
-      Dependencies.configDirectories,
-      Dependencies.sbtTestInterface,
-      Dependencies.sbtTestAgent
-    )
-  )
-
-/**
- * ************************************************************************************************
- */
-/*                            This is the build definition of the wrapper                          */
-/**
- * ************************************************************************************************
- */
-lazy val backend = project
-  .enablePlugins(BuildInfoPlugin)
-  .disablePlugins(ScriptedPlugin)
-  .dependsOn(bloopShared)
-  .settings(
-    name := "bloop-backend",
-    scalafixSettings,
-    testSettings ++ testSuiteSettings,
-    buildInfoPackage := "bloop.internal.build",
-    buildInfoKeys := Seq[BuildInfoKey](
-      Keys.scalaVersion,
-      Keys.scalaOrganization
-    ),
-    buildInfoObject := "BloopScalaInfo",
-    libraryDependencies ++= List(
-      Dependencies.nailgun,
-      Dependencies.scalazCore,
-      Dependencies.coursierInterface,
-      Dependencies.libraryManagement,
-      Dependencies.sourcecode,
-      Dependencies.monix,
-      Dependencies.directoryWatcher,
-      Dependencies.zt,
-      Dependencies.brave,
-      Dependencies.zipkinSender,
-      Dependencies.pprint,
-      Dependencies.difflib,
-      Dependencies.asm,
-      Dependencies.asmUtil
-    )
-  )
 
 lazy val sockets: Project = project
   .settings(
@@ -122,88 +55,21 @@ lazy val sockets: Project = project
     (Compile / doc / sources) := Nil
   )
 
-// For the moment, the dependency is fixed
-lazy val frontend: Project = project
-  .dependsOn(
-    sockets,
-    bloopShared,
-    backend,
-    backend % "test->test",
-    buildpressConfig % "it->compile"
+lazy val defaultBuildInfoSettings = Def.settings(
+  buildInfoPackage := "bloop.internal.build",
+  buildInfoKeys := List[BuildInfoKey](
+    Keys.organization,
+    build.BuildKeys.bloopName,
+    Keys.version,
+    Keys.scalaVersion,
+    nailgunClientLocation,
+    "zincVersion" -> Dependencies.zincVersion,
+    "bspVersion" -> Dependencies.bspVersion,
+    "nativeBridge04" -> ("bloop-native-bridge-0-4_" + Keys.scalaBinaryVersion.value),
+    "jsBridge06" -> ("bloop-js-bridge-0-6_" + Keys.scalaBinaryVersion.value),
+    "jsBridge1" -> ("bloop-js-bridge-1_" + Keys.scalaBinaryVersion.value)
   )
-  .disablePlugins(ScriptedPlugin)
-  .enablePlugins(BuildInfoPlugin)
-  .configs(IntegrationTest)
-  .settings(
-    name := "bloop-frontend",
-    bloopName := "bloop",
-    (Compile / run / mainClass) := Some("bloop.Cli"),
-    buildInfoPackage := "bloop.internal.build",
-    buildInfoKeys := List[BuildInfoKey](
-      Keys.organization,
-      build.BuildKeys.bloopName,
-      Keys.version,
-      Keys.scalaVersion,
-      nailgunClientLocation,
-      "zincVersion" -> Dependencies.zincVersion,
-      "bspVersion" -> Dependencies.bspVersion,
-      "nativeBridge04" -> (nativeBridge04Name + "_" + Keys.scalaBinaryVersion.value),
-      "jsBridge06" -> (jsBridge06Name + "_" + Keys.scalaBinaryVersion.value),
-      "jsBridge1" -> (jsBridge1Name + "_" + Keys.scalaBinaryVersion.value)
-    ),
-    (run / javaOptions) ++= jvmOptions,
-    (Test / javaOptions) ++= jvmOptions,
-    (IntegrationTest / javaOptions) ++= jvmOptions,
-    (run / fork) := true,
-    (Test / fork) := true,
-    (IntegrationTest / run / fork) := true,
-    (test / parallelExecution) := false,
-    libraryDependencies ++= List(
-      Dependencies.jsoniterMacros % Provided,
-      Dependencies.scalazCore,
-      Dependencies.monix,
-      Dependencies.caseApp,
-      Dependencies.scalaDebugAdapter,
-      Dependencies.bloopConfig
-    ),
-    dependencyOverrides += Dependencies.shapeless,
-    scalafixSettings,
-    testSettings,
-    testSuiteSettings,
-    releaseSettings,
-    Defaults.itSettings,
-    BuildDefaults.frontendTestBuildSettings,
-    inConfig(Compile)(
-      build.BuildKeys.lazyFullClasspath := {
-        val ownProductDirectories = Keys.productDirectories.value
-        val dependencyClasspath = build.BuildImplementation.lazyDependencyClasspath.value
-        ownProductDirectories ++ dependencyClasspath
-      }
-    ),
-    Test / resources := {
-      val main = (Test / resources).value
-      val dir = (ThisBuild / baseDirectory).value
-      val log = streams.value
-      // Before we export all test resources we ensure the current version of the sbt-bloop
-      // plugin is published
-      (sbtBloop / Keys.publishLocal).value
-      val additionalResources =
-        BuildDefaults.exportProjectsInTestResources(dir, log.log, enableCache = true, version.value)
-      main ++ additionalResources
-    },
-    (Test / unmanagedResources / includeFilter) := {
-      new FileFilter {
-        def accept(file: File): Boolean = {
-          val abs = file.getAbsolutePath
-          !(
-            abs.contains("scala-2.12") ||
-              abs.contains("classes-") ||
-              abs.contains("target")
-          )
-        }
-      }
-    }
-  )
+)
 
 lazy val bloopgunSettings = Seq(
   name := "bloopgun-core",
@@ -276,7 +142,7 @@ lazy val bloopgun213: Project = project
 lazy val launcherTest = project
   .in(file("launcher-test"))
   .disablePlugins(ScriptedPlugin)
-  .dependsOn(launcher, frontend % "test->test")
+  .dependsOn(launcher)
   .settings(
     name := "bloop-launcher-test",
     (publish / skip) := true,
@@ -285,7 +151,9 @@ lazy val launcherTest = project
     (Test / fork) := true,
     (Test / parallelExecution) := false,
     libraryDependencies ++= List(
-      Dependencies.coursierInterface
+      Dependencies.coursierInterface,
+      "io.github.alexarchambault.bleep" %% "bloop-backend" % "1.5.6-sc-6" % "test->test",
+      "io.github.alexarchambault.bleep" %% "bloop-frontend" % "1.5.6-sc-6" % "test->test"
     )
   )
 
@@ -323,16 +191,6 @@ lazy val bloop4j = project
     )
   )
 
-lazy val benchmarks = project
-  .dependsOn(frontend % "compile->it", BenchmarkBridgeCompilation % "compile->compile")
-  .disablePlugins(ScriptedPlugin)
-  .enablePlugins(BuildInfoPlugin, JmhPlugin)
-  .settings(
-    scalafixSettings,
-    benchmarksSettings(frontend),
-    (publish / skip) := true
-  )
-
 val integrations = file("integrations")
 
 lazy val sbtBloop: Project = project
@@ -366,25 +224,30 @@ lazy val buildpressConfig = (project in file("buildpress-config"))
   )
 
 lazy val buildpress = project
-  .dependsOn(bloopgun, bloopShared, buildpressConfig)
+  .dependsOn(bloopgun, buildpressConfig)
   .settings(
     scalaVersion := Scala212Version,
     (run / fork) := true,
     libraryDependencies ++= List(
-      Dependencies.caseApp
+      Dependencies.caseApp,
+      "io.github.alexarchambault.bleep" %% "bloop-shared" % "1.5.6-sc-6"
     )
   )
 
 val docs = project
   .in(file("docs-gen"))
-  .dependsOn(frontend)
-  .enablePlugins(MdocPlugin, DocusaurusPlugin)
+  .enablePlugins(MdocPlugin, DocusaurusPlugin, BuildInfoPlugin)
   .settings(
     name := "bloop-docs",
     moduleName := "bloop-docs",
     scalafixSettings,
+    defaultBuildInfoSettings,
     (publish / skip) := true,
     scalaVersion := Scala212Version,
+    libraryDependencies ++= Seq(
+      Dependencies.coursierInterface,
+      "io.get-coursier" %% "versions" % "0.3.1"
+    ),
     mdoc := (Compile / run).evaluated,
     (Compile / mainClass) := Some("bloop.Docs"),
     (Compile / resources) ++= {
@@ -392,67 +255,14 @@ val docs = project
     }
   )
 
-val jsBridge06Name = "bloop-js-bridge-0-6"
-lazy val jsBridge06 = project
-  .dependsOn(frontend % Provided, frontend % "test->test")
-  .in(file("bridges") / "scalajs-0.6")
-  .disablePlugins(ScriptedPlugin, ScalafixPlugin)
-  .settings(
-    name := jsBridge06Name,
-    testSettings,
-    libraryDependencies ++= List(
-      Dependencies.scalaJsTools06,
-      Dependencies.scalaJsSbtTestAdapter06,
-      Dependencies.scalaJsEnvs06
-    )
-  )
-
-val jsBridge1Name = "bloop-js-bridge-1"
-lazy val jsBridge1 = project
-  .dependsOn(frontend % Provided, frontend % "test->test")
-  .in(file("bridges") / "scalajs-1")
-  .disablePlugins(ScriptedPlugin, ScalafixPlugin)
-  .settings(
-    name := jsBridge1Name,
-    testSettings,
-    libraryDependencies ++= List(
-      Dependencies.scalaJsLinker1,
-      Dependencies.scalaJsLogging1,
-      Dependencies.scalaJsEnvs1,
-      Dependencies.scalaJsEnvNode1,
-      Dependencies.scalaJsEnvJsdomNode1,
-      Dependencies.scalaJsSbtTestAdapter1
-    )
-  )
-
-val nativeBridge04Name = "bloop-native-bridge-0-4"
-lazy val nativeBridge04 = project
-  .dependsOn(frontend % Provided, frontend % "test->test")
-  .in(file("bridges") / "scala-native-0.4")
-  .disablePlugins(ScalafixPlugin, ScriptedPlugin)
-  .settings(
-    name := nativeBridge04Name,
-    testSettings,
-    libraryDependencies += Dependencies.scalaNativeTools04,
-    (Test / javaOptions) ++= jvmOptions,
-    (Test / fork) := true
-  )
-
 val allProjects = Seq(
-  backend,
-  benchmarks,
   bloopgun,
   bloopgun213,
-  bloopShared,
   buildpress,
   buildpressConfig,
-  frontend,
-  jsBridge06,
-  jsBridge1,
   launcher,
   launcher213,
   launcherTest,
-  nativeBridge04,
   sbtBloop,
   sockets
 )
@@ -480,12 +290,7 @@ val isWindows = scala.util.Properties.isWin
 addCommandAlias(
   "install",
   Seq(
-    "publishLocal",
-    "bloopgun/graalvm-native-image:packageBin",
-    s"${frontend.id}/test:compile",
-    "createLocalHomebrewFormula",
-    "createLocalScoopFormula",
-    "createLocalArchPackage"
+    "bloopgun/graalvm-native-image:packageBin"
   ).filter(!_.isEmpty)
     .mkString(";", ";", "")
 )

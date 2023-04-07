@@ -44,32 +44,6 @@ jobs:
         run: sbt "sbtBloop/publishLocal; sbtBloop/scripted"
         shell: bash
 
-  bridges:
-    name: Test platform bridges
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest, macOS-latest]
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          submodules: true
-      - uses: graalvm/setup-graalvm@v1
-        with:
-          version: '22.3.0'
-          java-version: '11'
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Tests
-        run: |
-          sbt \
-              "jsBridge06/publishLocal; \
-               jsBridge1/publishLocal; \
-               jsBridge06/test; \
-               jsBridge1/test"
-        shell: bash
-
   launcher:
     name: Launcher tests
     runs-on: ${{ matrix.os }}
@@ -84,7 +58,7 @@ jobs:
       - uses: graalvm/setup-graalvm@v1
         with:
           version: '22.3.0'
-          java-version: '11'
+          java-version: '17'
           github-token: ${{ secrets.GITHUB_TOKEN }}
           components: 'native-image'
 
@@ -102,7 +76,7 @@ jobs:
         os: [ubuntu-latest, windows-latest, macOS-latest]
         jdk: ["22.3.0", "11"]
 
-    name: Test ${{ matrix.os }} -- ${{ matrix.jdk }}
+    name: Doc tests ${{ matrix.os }} -- ${{ matrix.jdk }}
     env:
       HYDRA_LICENSE: ${{ secrets.HYDRA_LICENSE }}
 
@@ -138,14 +112,7 @@ jobs:
 
       - name: Compile and test main projects
         run: |
-          sbt \
-              "frontend/test:compile; \
-              backend/test; \
-              docs/compile; \
-              frontend/testOnly bloop.ScalaVersionsSpec; \
-              frontend/testOnly -bloop.ScalaVersionsSpec; \
-              frontend/runMain bloop.util.CommandsDocGenerator --test; \
-              frontend/runMain bloop.util.CommandsDocGenerator --out ../docs/cli/reference.md"
+          sbt docs/compile
         shell: bash
 
       - name: Check docs are up-to-date
@@ -267,13 +234,3 @@ jobs:
           mv bloop-artifacts frontend/target/graalvm-binaries
           sbt "ci-release; docs/docusaurusPublishGhpages"
         shell: bash
-
-      - name: Cut GitHub release and update installers on ${{ matrix.os }}
-        run: |
-          if [[ $GITHUB_REF == "refs/tags"* ]]; then
-            . bin/ci-setup-bloopoid-keys.sh
-            export GITHUB_TOKEN="$BLOOPOID_GITHUB_TOKEN"
-            sbt "frontend/updateHomebrewFormula; frontend/updateScoopFormula; frontend/githubRelease"
-          else
-            echo "skipping release since this is a merge and no new tag is detected"
-          fi

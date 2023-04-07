@@ -14,7 +14,6 @@ import sbt.librarymanagement.MavenRepository
 import sbt.util.Logger
 import sbtbuildinfo.BuildInfoPlugin.{autoImport => BuildInfoKeys}
 import com.geirsson.CiReleasePlugin
-import ohnosequences.sbt.GithubRelease.{keys => GHReleaseKeys}
 
 object BuildPlugin extends AutoPlugin {
   import sbt.plugins.JvmPlugin
@@ -51,11 +50,6 @@ object BuildKeys {
     }
   }
 
-  final val BenchmarkBridgeProject =
-    createScalaCenterProject("compiler-benchmark", file(s"$AbsolutePath/benchmark-bridge"))
-  final val BenchmarkBridgeBuild = BuildRef(BenchmarkBridgeProject.build)
-  final val BenchmarkBridgeCompilation = ProjectRef(BenchmarkBridgeProject.build, "compilation")
-
   val buildBase = (ThisBuild / Keys.baseDirectory)
   val exportCommunityBuild = Def.taskKey[Unit]("Clone and export the community build.")
   val lazyFullClasspath =
@@ -63,12 +57,6 @@ object BuildKeys {
 
   val bloopName = Def.settingKey[String]("The name to use in build info generated code")
   val nailgunClientLocation = Def.settingKey[sbt.File]("Where to find the python nailgun client")
-  val updateHomebrewFormula = Def.taskKey[Unit]("Update Homebrew formula")
-  val updateScoopFormula = Def.taskKey[Unit]("Update Scoop formula")
-  val updateArchPackage = Def.taskKey[Unit]("Update AUR package")
-  val createLocalHomebrewFormula = Def.taskKey[Unit]("Create local Homebrew formula")
-  val createLocalScoopFormula = Def.taskKey[Unit]("Create local Scoop formula")
-  val createLocalArchPackage = Def.taskKey[Unit]("Create local ArchLinux package build files")
   val bloopCoursierJson = Def.taskKey[File]("Generate a versioned install script")
   val bloopLocalCoursierJson = Def.taskKey[File]("Generate a versioned install script")
 
@@ -90,94 +78,6 @@ object BuildKeys {
       Dependencies.difflib % Test
     ),
     nailgunClientLocation := buildBase.value / "nailgun" / "pynailgun" / "ng.py"
-  )
-
-  val releaseSettings = Seq(
-    GHReleaseKeys.ghreleaseTitle := { tagName =>
-      tagName.toString
-    },
-    GHReleaseKeys.ghreleaseNotes := { tagName =>
-      IO.read(buildBase.value / "notes" / s"$tagName.md")
-    },
-    GHReleaseKeys.ghreleaseRepoOrg := "scalacenter",
-    GHReleaseKeys.ghreleaseRepoName := "bloop",
-    GHReleaseKeys.ghreleaseAssets ++= {
-      val baseDir = (ThisBuild / Keys.baseDirectory).value
-      val releaseTargetDir = Keys.target.value / "ghrelease-assets"
-
-      val originBloopWindowsBinary = Keys.target.value / "graalvm-binaries" / "bloop-windows"
-      val originBloopLinuxBinary = Keys.target.value / "graalvm-binaries" / "bloop-linux"
-      val originBloopMacosBinary = Keys.target.value / "graalvm-binaries" / "bloop-macos"
-      val targetBloopLinuxBinary = releaseTargetDir / "bloop-x86_64-pc-linux"
-      val targetBloopWindowsBinary = releaseTargetDir / "bloop-x86_64-pc-win32.exe"
-      val targetBloopMacosBinary = releaseTargetDir / "bloop-x86_64-apple-darwin"
-      IO.copyFile(originBloopWindowsBinary, targetBloopWindowsBinary)
-      IO.copyFile(originBloopLinuxBinary, targetBloopLinuxBinary)
-      IO.copyFile(originBloopMacosBinary, targetBloopMacosBinary)
-
-      val originBashCompletions = baseDir / "etc" / "bash-completions"
-      val originZshCompletions = baseDir / "etc" / "zsh-completions"
-      val originFishCompletions = baseDir / "etc" / "fish-completions"
-      val targetBashCompletions = releaseTargetDir / "bash-completions"
-      val targetZshCompletions = releaseTargetDir / "zsh-completions"
-      val targetFishCompletions = releaseTargetDir / "fish-completions"
-      IO.copyFile(originBashCompletions, targetBashCompletions)
-      IO.copyFile(originZshCompletions, targetZshCompletions)
-      IO.copyFile(originFishCompletions, targetFishCompletions)
-
-      val coursierJson = ReleaseUtils.bloopCoursierJson.value
-      List(
-        coursierJson,
-        targetBashCompletions,
-        targetZshCompletions,
-        targetFishCompletions,
-        targetBloopLinuxBinary,
-        targetBloopMacosBinary,
-        targetBloopWindowsBinary
-      )
-    },
-    createLocalHomebrewFormula := ReleaseUtils.createLocalHomebrewFormula.value,
-    createLocalScoopFormula := ReleaseUtils.createLocalScoopFormula.value,
-    createLocalArchPackage := ReleaseUtils.createLocalArchPackage.value,
-    updateHomebrewFormula := ReleaseUtils.updateHomebrewFormula.value,
-    updateScoopFormula := ReleaseUtils.updateScoopFormula.value,
-    updateArchPackage := ReleaseUtils.updateArchPackage.value
-  )
-
-  import sbtbuildinfo.{BuildInfoKey, BuildInfoKeys}
-
-  def benchmarksSettings(dep: Reference): Seq[Def.Setting[_]] = List(
-    (Keys.publish / Keys.skip) := true,
-    BuildInfoKeys.buildInfoKeys := {
-      val fullClasspathFiles =
-        BuildInfoKey.map(dep / Compile / BuildKeys.lazyFullClasspath) {
-          case (key, value) => ("fullCompilationClasspath", value.toList)
-        }
-      Seq[BuildInfoKey](
-        dep / Test / Keys.resourceDirectory,
-        fullClasspathFiles
-      )
-    },
-    BuildInfoKeys.buildInfoPackage := "bloop.benchmarks",
-    Keys.javaOptions ++= {
-      def refOf(version: String) = {
-        val HasSha = """(?:.+?)-([0-9a-f]{8})(?:\+\d{8}-\d{4})?""".r
-        version match {
-          case HasSha(sha) => sha
-          case _ => version
-        }
-      }
-      List(
-        "-Dsbt.launcher=" + (sys
-          .props("java.class.path")
-          .split(java.io.File.pathSeparatorChar)
-          .find(_.contains("sbt-launch"))
-          .getOrElse("")),
-        "-DbloopVersion=" + (dep / Keys.version).value,
-        "-DbloopRef=" + refOf((dep / Keys.version).value),
-        "-Dgit.localdir=" + buildBase.value.getAbsolutePath
-      )
-    }
   )
 }
 

@@ -14,7 +14,7 @@ case class ListeningAndAvailableAt(binary: List[String]) extends ServerStatus
 object ServerStatus {
   def resolveServer(bloopVersion: String, logger: Logger): Option[ResolvedAt] = {
     DependencyResolution.resolveWithErrors(
-      "ch.epfl.scala",
+      "io.github.alexarchambault.bleep",
       "bloop-frontend_2.12",
       bloopVersion,
       logger

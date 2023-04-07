@@ -112,7 +112,7 @@ SYSTEMD_SERVICE_TARGET = join(SYSTEMD_SERVICE_DIR, "bloop.service")
 XDG_APPLICATION_TARGET = join(XDG_DIR, "bloop.desktop")
 XDG_ICON_TARGET = join(XDG_DIR, "bloop.png")
 
-BLOOP_ARTIFACT = "ch.epfl.scala:bloop-frontend_2.12:%s" % BLOOP_VERSION
+BLOOP_ARTIFACT = "io.github.alexarchambault.bleep:bloop-frontend_2.12:%s" % BLOOP_VERSION
 
 BUFFER_SIZE = 4096
 
