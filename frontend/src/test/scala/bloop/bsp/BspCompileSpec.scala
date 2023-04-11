@@ -193,12 +193,14 @@ class BspCompileSpec(
       // Add extra client classes directory
       val projectA = compiledState.getProjectFor(`A`)
       val bspClientsRootDir = projectA.clientClassesRootDirectory
-      val orphanClientClassesDirName = projectA.genericClassesDir.underlying.getFileName().toString
-      val orphanClientClassesDir =
-        bspClientsRootDir.resolve(s"$orphanClientClassesDirName-test-123aAfd12i23")
+      val orphanClientClassesDir = bspClientsRootDir.resolve(s"classes-test-123aAfd12i23")
       Files.createDirectories(orphanClientClassesDir.underlying)
       val fileTime = FileTime.from(Instant.now().minusSeconds(120))
       Files.setLastModifiedTime(orphanClientClassesDir.underlying, fileTime)
+
+      val orphanInternalClassesDir = projectA.out.resolve(s"classes-test-123aAfd12i23")
+      Files.createDirectories(orphanInternalClassesDir.underlying)
+      Files.setLastModifiedTime(orphanInternalClassesDir.underlying, fileTime)
 
       loadBspState(workspace, projects, logger) { bspState =>
         // Ask for scala options to force client to create a client classes dir for `A`
@@ -214,7 +216,7 @@ class BspCompileSpec(
           var check: Boolean = true
           while (check) {
             // The task cleaning up client classes directories should have removed the extra dir
-            check = orphanClientClassesDir.exists
+            check = orphanClientClassesDir.exists && orphanInternalClassesDir.exists
             Thread.sleep(100)
           }
         }.timeoutTo(
