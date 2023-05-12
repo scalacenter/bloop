@@ -213,7 +213,8 @@ class BspProtocolSpec(
         Some(Uri(userClientClassesRootDir.toBspUri)),
         semanticdbVersion = None,
         supportedScalaVersions = None,
-        javaSemanticdbVersion = None
+        javaSemanticdbVersion = None,
+        enableBestEffortMode = None
       )
 
       // Start first client and query for scalac options which creates client classes dirs

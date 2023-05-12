@@ -275,6 +275,7 @@ final class BloopBspServices(
       } else {
         val javaSemanticDBVersion = extraBuildParams.flatMap(_.javaSemanticdbVersion)
         val scalaSemanticDBVersion = extraBuildParams.flatMap(_.semanticdbVersion)
+        val enableBestEffortMode = extraBuildParams.flatMap(_.enableBestEffortMode)
         val supportedScalaVersions =
           if (scalaSemanticDBVersion.nonEmpty)
             extraBuildParams.map(_.supportedScalaVersions.toList.flatten)
@@ -286,7 +287,8 @@ final class BloopBspServices(
               scalaSemanticDBVersion,
               supportedScalaVersions,
               currentRefreshProjectsCommand,
-              currentTraceSettings
+              currentTraceSettings,
+              enableBestEffortMode
             )
           )
         else None
@@ -432,6 +434,7 @@ final class BloopBspServices(
     }
 
     val isPipeline = compileArgs.exists(_ == "--pipeline")
+    val isBestEffort = compileArgs.exists(_ == "--best-effort")
     def compile(projects: List[Project]): Task[State] = {
       val config = ReporterConfig.defaultFormat.copy(reverseOrder = false)
 
@@ -481,6 +484,7 @@ final class BloopBspServices(
         dag,
         createReporter,
         isPipeline,
+        isBestEffort,
         cancelCompilation,
         store,
         logger
@@ -506,7 +510,7 @@ final class BloopBspServices(
             case Compiler.Result.GlobalError(problem, _) => List(problem)
             case Compiler.Result.Cancelled(problems, elapsed, _) =>
               List(reportError(p, problems, elapsed))
-            case f @ Compiler.Result.Failed(problems, t, elapsed, _) =>
+            case f @ Compiler.Result.Failed(problems, t, elapsed, _, _) =>
               previouslyFailedCompilations.put(p, f)
               val acc = List(reportError(p, problems, elapsed))
               t match {

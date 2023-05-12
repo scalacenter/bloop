@@ -216,19 +216,36 @@ final class BloopClassFileManager(
         ) => {
           clientTracer.traceTaskVerbose("copy new products to external classes dir") { _ =>
             val config = ParallelOps.CopyConfiguration(5, CopyMode.ReplaceExisting, Set.empty)
-            ParallelOps
-              .copyDirectories(config)(
-                newClassesDir,
-                clientExternalClassesDir.underlying,
-                inputs.ioScheduler,
-                enableCancellation = false,
-                inputs.logger
-              )
-              .map { walked =>
-                readOnlyCopyDenylist.++=(walked.target)
+            val clientExternalBestEffortDir =
+              clientExternalClassesDir.underlying.resolve("META-INF/best-effort")
+
+            // Deletes all previous best-effort artifacts to get rid of all of the outdated ones.
+            // Since best effort compilation is not affected by incremental compilation,
+            // all relevant files are always produced by the compiler. Because of this,
+            // we can always delete all previous files and copy newly created ones
+            // without losing anything in the process.
+            val deleteClientExternalBestEffortDir =
+              Task {
+                if (Files.exists(clientExternalBestEffortDir)) {
+                  BloopPaths.delete(AbsolutePath(clientExternalBestEffortDir))
+                }
                 ()
-              }
-              .flatMap(_ => deleteAfterCompilation)
+              }.memoize
+
+            deleteClientExternalBestEffortDir *>
+              ParallelOps
+                .copyDirectories(config)(
+                  newClassesDir,
+                  clientExternalClassesDir.underlying,
+                  inputs.ioScheduler,
+                  enableCancellation = false,
+                  inputs.logger
+                )
+                .map { walked =>
+                  readOnlyCopyDenylist.++=(walked.target)
+                  ()
+                }
+                .flatMap(_ => deleteAfterCompilation)
           }
         }
       )

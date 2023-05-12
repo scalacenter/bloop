@@ -306,7 +306,8 @@ object BuildLoaderSpec extends BaseSuite {
             traceEndAnnotation = Some("end"),
             enabled = Some(true)
           )
-        )
+        ),
+        None
       )
 
       val state1 = loadState(workspace1, Nil, logger, Some(settings1))

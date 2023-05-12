@@ -29,6 +29,7 @@ import bloop.reporter.ReporterAction
 import bloop.task.Task
 import bloop.util.JavaCompat.EnrichOptional
 import bloop.util.SystemProperties
+import bloop.util.BestEffortUtils.BestEffortProducts
 
 import xsbti.compile.PreviousResult
 
@@ -46,27 +47,12 @@ object CompileGraph {
   ): PartialSuccess = PartialSuccess(bundle, Task.now(result))
 
   private def blockedBy(dag: Dag[PartialCompileResult]): Option[Project] = {
-    def blockedFromResults(results: List[PartialCompileResult]): Option[Project] = {
-      results match {
-        case Nil => None
-        case result :: _ =>
-          result match {
-            case PartialEmpty => None
-            case _: PartialSuccess => None
-            case f: PartialFailure => Some(f.project)
-            case _: PartialFailures => blockedFromResults(results)
-          }
-      }
-    }
-
     dag match {
       case Leaf(_: PartialSuccess) => None
       case Leaf(f: PartialFailure) => Some(f.project)
-      case Leaf(fs: PartialFailures) => blockedFromResults(fs.failures)
       case Leaf(PartialEmpty) => None
       case Parent(_: PartialSuccess, _) => None
       case Parent(f: PartialFailure, _) => Some(f.project)
-      case Parent(fs: PartialFailures, _) => blockedFromResults(fs.failures)
       case Parent(PartialEmpty, _) => None
       case Aggregate(dags) =>
         dags.foldLeft(None: Option[Project]) {
@@ -377,8 +363,9 @@ object CompileGraph {
       dag: Dag[Project],
       client: ClientInfo,
       store: CompileClientStore,
+      bestEffort: Boolean,
       computeBundle: BundleInputs => Task[CompileBundle],
-      compile: Inputs => Task[ResultBundle]
+      compile: (Inputs, Boolean, Boolean) => Task[ResultBundle]
   ): CompileTraversal = {
     val tasks = new mutable.HashMap[Dag[Project], CompileTraversal]()
     def register(k: Dag[Project], v: CompileTraversal): CompileTraversal = {
@@ -398,7 +385,7 @@ object CompileGraph {
       PartialFailure(bundle.project, FailedOrCancelledPromise, Task.now(results))
     }
 
-    def loop(dag: Dag[Project]): CompileTraversal = {
+    def loop(dag: Dag[Project], isBestEffortDep: Boolean): CompileTraversal = {
       tasks.get(dag) match {
         case Some(task) => task
         case None =>
@@ -406,7 +393,7 @@ object CompileGraph {
             case Leaf(project) =>
               val bundleInputs = BundleInputs(project, dag, Map.empty)
               setupAndDeduplicate(client, bundleInputs, computeBundle) { bundle =>
-                compile(Inputs(bundle, Map.empty)).map { results =>
+                compile(Inputs(bundle, Map.empty), bestEffort, isBestEffortDep).map { results =>
                   results.fromCompiler match {
                     case Compiler.Result.Ok(_) => Leaf(partialSuccess(bundle, results))
                     case _ => Leaf(toPartialFailure(bundle, results))
@@ -415,29 +402,41 @@ object CompileGraph {
               }
 
             case Aggregate(dags) =>
-              val downstream = dags.map(loop)
+              val downstream = dags.map(loop(_, isBestEffortDep = false))
               Task.gatherUnordered(downstream).flatMap { dagResults =>
                 Task.now(Parent(PartialEmpty, dagResults))
               }
 
             case Parent(project, dependencies) =>
-              val downstream = dependencies.map(loop)
+              val downstream = dependencies.map(loop(_, isBestEffortDep = false))
               Task.gatherUnordered(downstream).flatMap { dagResults =>
+                val depsSupportBestEffort =
+                  dependencies.map(Dag.dfs(_, mode = Dag.PreOrder)).flatten.forall(_.isBestEffort)
                 val failed = dagResults.flatMap(dag => blockedBy(dag).toList)
-                if (failed.nonEmpty) {
-                  // Register the name of the projects we're blocked on (intransitively)
-                  val blockedResult = Compiler.Result.Blocked(failed.map(_.name))
-                  val blocked = Task.now(ResultBundle(blockedResult, None, None))
-                  Task.now(Parent(PartialFailure(project, BlockURI, blocked), dagResults))
-                } else {
-                  val results: List[PartialSuccess] = {
-                    val transitive = dagResults.flatMap(Dag.dfs(_, mode = Dag.PreOrder)).distinct
-                    transitive.collect { case s: PartialSuccess => s }
-                  }
 
-                  val projectResults =
-                    results.map(ps => ps.result.map(r => ps.bundle.project -> r))
-                  Task.gatherUnordered(projectResults).flatMap { results =>
+                val allResults = Task.gatherUnordered {
+                  val transitive = dagResults.flatMap(Dag.dfs(_, mode = Dag.PreOrder)).distinct
+                  transitive.flatMap {
+                    case PartialSuccess(bundle, result) => Some(result.map(r => bundle.project -> r))
+                    case PartialFailure(project, _, result) => Some(result.map(r => project -> r))
+                    case _ => None
+                  }
+                }
+
+                allResults.flatMap { results =>
+                  val successfulBestEffort = !results.exists {
+                    case (_, ResultBundle(f: Compiler.Result.Failed, _, _, _)) => f.bestEffortProducts.isEmpty
+                    case _ => false
+                  }
+                  val continue = bestEffort && depsSupportBestEffort && successfulBestEffort || failed.isEmpty
+                  val dependsOnBestEffort = failed.nonEmpty && bestEffort && depsSupportBestEffort || isBestEffortDep
+
+                  if (!continue) {
+                    // Register the name of the projects we're blocked on (intransitively)
+                    val blockedResult = Compiler.Result.Blocked(failed.map(_.name))
+                    val blocked = Task.now(ResultBundle(blockedResult, None, None))
+                    Task.now(Parent(PartialFailure(project, BlockURI, blocked), dagResults))
+                  } else {
                     val dependentProducts = new mutable.ListBuffer[(Project, BundleProducts)]()
                     val dependentResults = new mutable.ListBuffer[(File, PreviousResult)]()
                     results.foreach {
@@ -448,6 +447,11 @@ object CompileGraph {
                         dependentResults
                           .+=(newProducts.newClassesDir.toFile -> newResult)
                           .+=(newProducts.readOnlyClassesDir.toFile -> newResult)
+                      case (p, ResultBundle(f: Compiler.Result.Failed, _, _, _)) =>
+                        f.bestEffortProducts.foreach {
+                          case BestEffortProducts(products, _) =>
+                            dependentProducts += (p -> Right(products))
+                        }
                       case _ => ()
                     }
 
@@ -455,9 +459,9 @@ object CompileGraph {
                     val bundleInputs = BundleInputs(project, dag, dependentProducts.toMap)
                     setupAndDeduplicate(client, bundleInputs, computeBundle) { bundle =>
                       val inputs = Inputs(bundle, resultsMap)
-                      compile(inputs).map { results =>
+                      compile(inputs, bestEffort, dependsOnBestEffort).map { results =>
                         results.fromCompiler match {
-                          case Compiler.Result.Ok(_) =>
+                          case Compiler.Result.Ok(_) if failed.isEmpty =>
                             Parent(partialSuccess(bundle, results), dagResults)
                           case _ => Parent(toPartialFailure(bundle, results), dagResults)
                         }
@@ -471,7 +475,7 @@ object CompileGraph {
       }
     }
 
-    loop(dag)
+    loop(dag, isBestEffortDep = false)
   }
 
   private def errorToString(err: Throwable): String = {

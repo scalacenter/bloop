@@ -9,6 +9,7 @@ import bloop.CompileOutPaths
 import bloop.CompileProducts
 import bloop.Compiler
 import bloop.Compiler.Result.Success
+import bloop.Compiler.Result.Failed
 import bloop.cli.ExitStatus
 import bloop.data.Project
 import bloop.data.WorkspaceSettings
@@ -22,6 +23,7 @@ import bloop.engine.tasks.compilation._
 import bloop.io.ParallelOps
 import bloop.io.ParallelOps.CopyMode
 import bloop.io.{Paths => BloopPaths}
+import bloop.io.AbsolutePath
 import bloop.logging.DebugFilter
 import bloop.logging.Logger
 import bloop.logging.LoggerAction
@@ -32,6 +34,7 @@ import bloop.reporter.ReporterAction
 import bloop.reporter.ReporterInputs
 import bloop.task.Task
 import bloop.tracing.BraveTracer
+import bloop.util.BestEffortUtils.BestEffortProducts
 
 import monix.execution.CancelableFuture
 import monix.reactive.MulticastStrategy
@@ -44,6 +47,7 @@ object CompileTask {
       dag: Dag[Project],
       createReporter: ReporterInputs[UseSiteLogger] => Reporter,
       pipeline: Boolean,
+      bestEffort: Boolean,
       cancelCompilation: Promise[Unit],
       store: CompileClientStore,
       rawLogger: UseSiteLogger
@@ -80,7 +84,11 @@ object CompileTask {
       "client" -> clientName
     )
 
-    def compile(graphInputs: CompileGraph.Inputs): Task[ResultBundle] = {
+    def compile(
+        graphInputs: CompileGraph.Inputs,
+        isBestEffort: Boolean,
+        isBestEffortDep: Boolean
+    ): Task[ResultBundle] = {
       val bundle = graphInputs.bundle
       val project = bundle.project
       val logger = bundle.logger
@@ -164,7 +172,9 @@ object CompileTask {
           // Block on the task associated with this result that sets up the read-only classes dir
           waitOnReadClassesDir.flatMap { _ =>
             // Only when the task is finished, we kickstart the compilation
-            inputs.flatMap(inputs => Compiler.compile(inputs)).map { result =>
+            def compile(inputs: CompileInputs) =
+              Compiler.compile(inputs, isBestEffort, isBestEffortDep)
+            inputs.flatMap(inputs => compile(inputs)).map { result =>
               def runPostCompilationTasks(
                   backgroundTasks: CompileBackgroundTasks
               ): CancelableFuture[Unit] = {
@@ -266,12 +276,12 @@ object CompileTask {
     }
 
     val client = state.client
-    CompileGraph.traverse(dag, client, store, setup(_), compile(_)).flatMap { pdag =>
+    CompileGraph.traverse(dag, client, store, bestEffort, setup(_), compile).flatMap { pdag =>
       val partialResults = Dag.dfs(pdag, mode = Dag.PreOrder)
       val finalResults = partialResults.map(r => PartialCompileResult.toFinalResult(r))
       Task.gatherUnordered(finalResults).map(_.flatten).flatMap { results =>
         val cleanUpTasksToRunInBackground =
-          markUnusedClassesDirAndCollectCleanUpTasks(results, rawLogger)
+          markUnusedClassesDirAndCollectCleanUpTasks(results, state, rawLogger)
 
         val failures = results.flatMap {
           case FinalNormalCompileResult(p, results) =>
@@ -372,6 +382,7 @@ object CompileTask {
 
   private def markUnusedClassesDirAndCollectCleanUpTasks(
       results: List[FinalCompileResult],
+      previousState: State,
       logger: Logger
   ): List[Task[Unit]] = {
     val cleanUpTasksToSpawnInBackground = mutable.ListBuffer[Task[Unit]]()
@@ -379,6 +390,12 @@ object CompileTask {
       val resultBundle = finalResult.result
       val newSuccessful = resultBundle.successful
       val compilerResult = resultBundle.fromCompiler
+      val previousResult =
+        finalResult match {
+          case FinalNormalCompileResult(p, _) =>
+            previousState.results.all.get(p)
+          case _ => None
+        }
       val populateNewProductsTask = newSuccessful.map(_.populatingProducts).getOrElse(Task.unit)
       val cleanUpPreviousLastSuccessful = resultBundle.previous match {
         case None => populateNewProductsTask
@@ -386,7 +403,7 @@ object CompileTask {
           for {
             _ <- previousSuccessful.populatingProducts
             _ <- populateNewProductsTask
-            _ <- cleanUpPreviousResult(previousSuccessful, compilerResult, logger)
+            _ <- cleanUpPreviousResult(previousSuccessful, previousResult, compilerResult, logger)
           } yield ()
       }
 
@@ -426,6 +443,7 @@ object CompileTask {
    */
   private def cleanUpPreviousResult(
       previousSuccessful: LastSuccessfulResult,
+      previousResult: Option[Compiler.Result],
       compilerResult: Compiler.Result,
       logger: Logger
   ): Task[Unit] = {
@@ -447,6 +465,19 @@ object CompileTask {
           val newClassesDir = products.newClassesDir
           logger.debug(s"Scheduling to delete ${previousClassesDir} superseded by $newClassesDir")
           Some(previousClassesDir)
+        }
+      case Failed(_, _, _, _, Some(BestEffortProducts(products, _))) =>
+        val newClassesDir = products.newClassesDir
+        previousResult match {
+          case Some(Failed(_, _, _, _, Some(BestEffortProducts(previousProducts, _)))) =>
+            val previousClassesDir = previousProducts.newClassesDir
+            if (previousClassesDir != newClassesDir) {
+              logger.debug(
+                s"Scheduling to delete ${previousClassesDir} superseded by $newClassesDir"
+              )
+              Some(AbsolutePath(previousClassesDir))
+            } else None
+          case _ => None
         }
       case _ => None
     }

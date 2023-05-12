@@ -11,6 +11,7 @@ import bloop.io.AbsolutePath
 
 case class CompileDependenciesData(
     dependencyClasspath: Array[AbsolutePath],
+    bestEffortDirs: Seq[AbsolutePath],
     allInvalidatedClassFiles: Set[File],
     allGeneratedClassFilePaths: Map[String, File]
 ) {
@@ -22,7 +23,7 @@ case class CompileDependenciesData(
     // Important: always place new classes dir before read-only classes dir
     val classesDirs = Array(newClassesDir, readOnlyClassesDir)
     val resources = Project.pickValidResources(project.resources)
-    resources ++ classesDirs ++ dependencyClasspath
+    resources ++ classesDirs ++ bestEffortDirs ++ dependencyClasspath
   }
 }
 
@@ -33,6 +34,7 @@ object CompileDependenciesData {
   ): CompileDependenciesData = {
     val dependentClassesDir = new mutable.HashMap[AbsolutePath, Array[AbsolutePath]]()
     val dependentResources = new mutable.HashMap[AbsolutePath, Array[AbsolutePath]]()
+    val dependentBestEffortDirs = new mutable.ArrayBuffer[AbsolutePath]()
     val dependentInvalidatedClassFiles = new mutable.HashSet[File]()
     val dependentGeneratedClassFilePaths = new mutable.HashMap[String, File]()
     dependentProducts.foreach {
@@ -47,6 +49,9 @@ object CompileDependenciesData {
           else Array(newClassesDir, readOnlyClassesDir)
         }
 
+        if (project.isBestEffort) {
+          dependentBestEffortDirs ++= classesDirs.map(_.resolve("META-INF").resolve("best-effort"))
+        }
         dependentClassesDir.put(genericClassesDir, classesDirs)
       case (project, Right(products)) =>
         val genericClassesDir = project.genericClassesDir
@@ -59,6 +64,11 @@ object CompileDependenciesData {
         }
         val resources = Project.pickValidResources(project.resources)
 
+        if (project.isBestEffort) {
+          dependentBestEffortDirs ++= classesDirs
+            .map(AbsolutePath(_).resolve("META-INF").resolve("best-effort"))
+            .toSeq
+        }
         dependentClassesDir.put(genericClassesDir, classesDirs.map(AbsolutePath(_)))
         dependentInvalidatedClassFiles.++=(products.invalidatedCompileProducts)
         dependentGeneratedClassFilePaths.++=(products.generatedRelativeClassFilePaths.iterator)
@@ -83,6 +93,7 @@ object CompileDependenciesData {
 
     CompileDependenciesData(
       rewrittenClasspath,
+      dependentBestEffortDirs.toSeq,
       dependentInvalidatedClassFiles.toSet,
       dependentGeneratedClassFilePaths.toMap
     )
