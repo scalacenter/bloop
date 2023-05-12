@@ -10,6 +10,7 @@ import scala.concurrent.Promise
 import bloop.ScalaInstance
 import bloop.bsp.BspServer
 import bloop.bsp.ScalaTestSuites
+import bloop.cli.Commands.Compile
 import bloop.cli.Commands.CompilingCommand
 import bloop.cli.Validate
 import bloop.cli._
@@ -162,6 +163,11 @@ object Interpreter {
         Tasks.clean(state0, projects, true)
       }
     }
+    val isBestEffort =
+      cmd match {
+        case compile: Compile => compile.bestEffort
+        case _ => false
+      }
 
     val compileTask = state.flatMap { state =>
       val config = ReporterKind.toReporterConfig(cmd.reporter).copy(colors = !noColor)
@@ -174,6 +180,7 @@ object Interpreter {
         dag,
         createReporter,
         cmd.pipeline,
+        isBestEffort,
         Promise[Unit](),
         CompileClientStore.NoStore,
         state.logger

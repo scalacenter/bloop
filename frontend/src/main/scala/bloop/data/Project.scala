@@ -1,6 +1,7 @@
 package bloop.data
 
 import java.nio.charset.StandardCharsets
+import java.nio.file.Files
 
 import scala.collection.mutable
 import scala.util.Properties
@@ -23,6 +24,7 @@ import bloop.io.ByteHasher
 import bloop.logging.DebugFilter
 import bloop.logging.Logger
 import bloop.task.Task
+import bloop.util.BestEffortDirs
 
 import com.typesafe.config.ConfigException
 import com.typesafe.config.ConfigFactory
@@ -42,6 +44,7 @@ final case class Project(
     resources: List[AbsolutePath],
     compileSetup: Config.CompileSetup,
     genericClassesDir: AbsolutePath,
+    bestEffortDirs: Option[BestEffortDirs],
     scalacOptions: List[String],
     javacOptions: List[String],
     sources: List[AbsolutePath],
@@ -375,6 +378,7 @@ object Project {
       compileResources,
       setup,
       AbsolutePath(project.classesDir),
+      None,
       scala.map(_.options).getOrElse(Nil),
       project.java.map(_.options).getOrElse(Nil),
       project.sources.map(AbsolutePath.apply),
@@ -433,15 +437,37 @@ object Project {
       configDir: AbsolutePath,
       scalaSemanticDBPlugin: Option[AbsolutePath],
       javaSemanticDBPlugin: Option[AbsolutePath],
+      enableBestEffortMode: Option[Boolean],
       logger: Logger
   ): Project = {
     val workspaceDir = project.workspaceDirectory.getOrElse(configDir.getParent)
+    val bestEffortBaseDir = project.genericClassesDir.getParent.resolve("best-effort")
+    val bestEffortBuildDir = bestEffortBaseDir.resolve("build")
+    val bestEffortDepDir = bestEffortBaseDir.resolve("dep")
     val isDotty = project.scalaInstance.exists(_.isDotty)
 
     def isAtLeastScala3M3(version: String) = {
       version.startsWith("3.") &&
       version != "3.0.0-M1"
       version != "3.0.0-M2"
+    }
+
+    def canEnableBestEffortFlag(version: String): Boolean = {
+      version == "3.3.1-RC1-bin-SNAPSHOT" // TODO add correct version compare
+    }
+
+    def enableBestEffortFlag(options: List[String]): List[String] = {
+      val bestEffortDirOpt = "-Ybest-effort-dir"
+      val withBETastyOpt = "-Ywith-best-effort-tasty"
+      if (!Files.exists(bestEffortBaseDir.underlying))
+        Files.createDirectories(bestEffortBaseDir.underlying)
+      val optsWithDir =
+        if (options.exists(opt => opt.startsWith(bestEffortDirOpt))) options
+        else options ++ List(bestEffortDirOpt, bestEffortBuildDir.toString)
+      val optsWithBETasty =
+        if (optsWithDir.contains(withBETastyOpt)) optsWithDir
+        else options :+ withBETastyOpt
+      optsWithBETasty
     }
 
     def enableScalaSemanticdb(options: List[String], pluginPath: AbsolutePath): List[String] = {
@@ -527,18 +553,35 @@ object Project {
         val scalacOptionsWithSemanticDB = enableScalaSemanticdb(rangedScalacOptions, pluginPath)
         projectWithRangePositions.copy(scalacOptions = scalacOptionsWithSemanticDB)
     }
-    javaSemanticDBPlugin match {
-      case None =>
-        scalaProjectWithRangePositions
-      case Some(pluginPath) =>
-        val javacOptionsWithSemanticDB = enableJavaSemanticdbOptions(javacOptions)
-        val classpathWithSemanticDB =
-          enableJavaSemanticdbClasspath(pluginPath, scalaProjectWithRangePositions.rawClasspath)
-        scalaProjectWithRangePositions.copy(
-          javacOptions = javacOptionsWithSemanticDB,
-          rawClasspath = classpathWithSemanticDB
+
+    val withEnabledJavaSemanticDb =
+      javaSemanticDBPlugin match {
+        case None =>
+          scalaProjectWithRangePositions
+        case Some(pluginPath) =>
+          val javacOptionsWithSemanticDB = enableJavaSemanticdbOptions(javacOptions)
+          val classpathWithSemanticDB =
+            enableJavaSemanticdbClasspath(pluginPath, scalaProjectWithRangePositions.rawClasspath)
+          scalaProjectWithRangePositions.copy(
+            javacOptions = javacOptionsWithSemanticDB,
+            rawClasspath = classpathWithSemanticDB
+          )
+      }
+
+    val withEnabledBestEffortCompilation =
+      if (
+        enableBestEffortMode.getOrElse(false) &&
+        project.scalaInstance.exists(i => canEnableBestEffortFlag(i.version))
+      ) {
+        val options = enableBestEffortFlag(withEnabledJavaSemanticDb.scalacOptions)
+
+        project.copy(
+          bestEffortDirs = Some(BestEffortDirs(bestEffortBuildDir, bestEffortDepDir)),
+          scalacOptions = options
         )
-    }
+      } else withEnabledJavaSemanticDb
+
+    withEnabledBestEffortCompilation
   }
 
   def hasScalaSemanticDBEnabledInCompilerOptions(options: List[String]): Boolean = {

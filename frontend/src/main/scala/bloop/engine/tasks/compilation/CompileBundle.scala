@@ -20,6 +20,7 @@ import bloop.reporter.ObservedReporter
 import bloop.reporter.ReporterAction
 import bloop.task.Task
 import bloop.tracing.BraveTracer
+import bloop.util.BestEffortDirs
 
 import monix.reactive.Observable
 import sbt.internal.inc.PlainVirtualFileConverter
@@ -56,6 +57,7 @@ case object CancelledCompileBundle extends CompileBundle
  *
  * @param project The project to compile.
  * @param clientClassesDir The external client-owned classes directory.
+ * @param clientBestEffortDirs Directories holding the best effort artifacts
  * @param dependenciesData An entity that abstract over all the data of
  * dependent projects, which is required to create a full classpath.
  * @param javaSources A list of Java sources in the project.
@@ -76,6 +78,7 @@ case object CancelledCompileBundle extends CompileBundle
 final case class SuccessfulCompileBundle(
     project: Project,
     clientClassesDir: AbsolutePath,
+    clientBestEffortDirs: Option[BestEffortDirs],
     dependenciesData: CompileDependenciesData,
     javaSources: List[AbsolutePath],
     scalaSources: List[AbsolutePath],
@@ -96,6 +99,7 @@ final case class SuccessfulCompileBundle(
       project.analysisOut,
       project.genericClassesDir,
       clientClassesDir,
+      project.bestEffortDirs,
       readOnlyClassesDir
     )
   }
@@ -229,6 +233,7 @@ object CompileBundle {
           new SuccessfulCompileBundle(
             project,
             clientExternalClassesDir,
+            project.bestEffortDirs,
             compileDependenciesData,
             javaSources,
             scalaSources,

@@ -43,8 +43,6 @@ object PartialCompileResult {
       case PartialEmpty => Task.now(FinalEmptyResult :: Nil)
       case PartialFailure(project, _, bundle) =>
         bundle.map(b => FinalNormalCompileResult(project, b) :: Nil)
-      case PartialFailures(failures, _) =>
-        Task.gatherUnordered(failures.map(toFinalResult(_))).map(_.flatten)
       case PartialSuccess(bundle, result) =>
         result.map(res => FinalNormalCompileResult(bundle.project, res) :: Nil)
     }
@@ -59,12 +57,6 @@ case object PartialEmpty extends PartialCompileResult {
 case class PartialFailure(
     project: Project,
     exception: Throwable,
-    result: Task[ResultBundle]
-) extends PartialCompileResult
-    with CacheHashCode {}
-
-case class PartialFailures(
-    failures: List[PartialCompileResult],
     result: Task[ResultBundle]
 ) extends PartialCompileResult
     with CacheHashCode {}
@@ -93,7 +85,7 @@ object FinalNormalCompileResult {
   object HasException {
     def unapply(res: FinalNormalCompileResult): Option[(Project, Either[String, Throwable])] = {
       res.result.fromCompiler match {
-        case Compiler.Result.Failed(_, Some(err), _, _) =>
+        case Compiler.Result.Failed(_, Some(err), _, _, _) =>
           Some((res.project, Right(err)))
         case Compiler.Result.GlobalError(problem, errOpt) =>
           val err = errOpt.map(Right(_)).getOrElse(Left(problem))
@@ -127,7 +119,7 @@ object FinalCompileResult {
             case Compiler.Result.Blocked(on) => s"${projectName} (blocked on ${on.mkString(", ")})"
             case Compiler.Result.GlobalError(problem, _) =>
               s"${projectName} (failed with global error ${problem})"
-            case Compiler.Result.Failed(problems, t, ms, _) =>
+            case Compiler.Result.Failed(problems, t, ms, _, _) =>
               val extra = t match {
                 case Some(t) => s"exception '${t.getMessage}', "
                 case None => ""
