@@ -46,27 +46,12 @@ object CompileGraph {
   ): PartialSuccess = PartialSuccess(bundle, Task.now(result))
 
   private def blockedBy(dag: Dag[PartialCompileResult]): Option[Project] = {
-    def blockedFromResults(results: List[PartialCompileResult]): Option[Project] = {
-      results match {
-        case Nil => None
-        case result :: _ =>
-          result match {
-            case PartialEmpty => None
-            case _: PartialSuccess => None
-            case f: PartialFailure => Some(f.project)
-            case _: PartialFailures => blockedFromResults(results)
-          }
-      }
-    }
-
     dag match {
       case Leaf(_: PartialSuccess) => None
       case Leaf(f: PartialFailure) => Some(f.project)
-      case Leaf(fs: PartialFailures) => blockedFromResults(fs.failures)
       case Leaf(PartialEmpty) => None
       case Parent(_: PartialSuccess, _) => None
       case Parent(f: PartialFailure, _) => Some(f.project)
-      case Parent(fs: PartialFailures, _) => blockedFromResults(fs.failures)
       case Parent(PartialEmpty, _) => None
       case Aggregate(dags) =>
         dags.foldLeft(None: Option[Project]) {
@@ -378,6 +363,7 @@ object CompileGraph {
       dag: Dag[Project],
       client: ClientInfo,
       store: CompileClientStore,
+      bestEffort: Boolean,
       computeBundle: BundleInputs => Task[CompileBundle],
       compile: Inputs => Task[ResultBundle]
   ): CompileTraversal = {
@@ -424,21 +410,26 @@ object CompileGraph {
             case Parent(project, dependencies) =>
               val downstream = dependencies.map(loop)
               Task.gatherUnordered(downstream).flatMap { dagResults =>
+                val depsSupportBestEffort =
+                  dependencies.map(Dag.dfs(_, mode = Dag.PreOrder)).flatten.forall(_.bestEffortDirs.nonEmpty)
                 val failed = dagResults.flatMap(dag => blockedBy(dag).toList)
-                if (failed.nonEmpty) {
+                val continue = bestEffort && depsSupportBestEffort || failed.isEmpty
+
+                if (!continue) {
                   // Register the name of the projects we're blocked on (intransitively)
                   val blockedResult = Compiler.Result.Blocked(failed.map(_.name))
                   val blocked = Task.now(ResultBundle(blockedResult, None, None))
                   Task.now(Parent(PartialFailure(project, BlockURI, blocked), dagResults))
                 } else {
-                  val results: List[PartialSuccess] = {
+                  val allResults = Task.gatherUnordered {
                     val transitive = dagResults.flatMap(Dag.dfs(_, mode = Dag.PreOrder)).distinct
-                    transitive.collect { case s: PartialSuccess => s }
+                    transitive.flatMap {
+                      case PartialSuccess(bundle, result) => Some(result.map(r => bundle.project -> r))
+                      case PartialFailure(project, _, result) => Some(result.map(r => project -> r))
+                      case _ => None
+                    }
                   }
-
-                  val projectResults =
-                    results.map(ps => ps.result.map(r => ps.bundle.project -> r))
-                  Task.gatherUnordered(projectResults).flatMap { results =>
+                  allResults.flatMap { results =>
                     val dependentProducts = new mutable.ListBuffer[(Project, BundleProducts)]()
                     val dependentResults = new mutable.ListBuffer[(File, PreviousResult)]()
                     results.foreach {
@@ -449,6 +440,10 @@ object CompileGraph {
                         dependentResults
                           .+=(newProducts.newClassesDir.toFile -> newResult)
                           .+=(newProducts.readOnlyClassesDir.toFile -> newResult)
+                      case (p, ResultBundle(f: Compiler.Result.Failed, _, _, _)) =>
+                        f.products.foreach { products =>
+                          dependentProducts += (p -> Right(products))
+                        }
                       case _ => ()
                     }
 
@@ -458,7 +453,7 @@ object CompileGraph {
                       val inputs = Inputs(bundle, resultsMap)
                       compile(inputs).map { results =>
                         results.fromCompiler match {
-                          case Compiler.Result.Ok(_) =>
+                          case Compiler.Result.Ok(_) if failed.isEmpty =>
                             Parent(partialSuccess(bundle, results), dagResults)
                           case _ => Parent(toPartialFailure(bundle, results), dagResults)
                         }

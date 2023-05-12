@@ -252,7 +252,15 @@ object ResultsCache {
                       val reporter = new LogReporter(p, dummy, cwd, ReporterConfig.defaultFormat)
 
                       val products =
-                        CompileProducts(classesDir, classesDir, r, r, Set.empty, Map.empty)
+                        CompileProducts(
+                          classesDir,
+                          classesDir,
+                          p.bestEffortDirs.map(_.buildDir.underlying),
+                          r,
+                          r,
+                          Set.empty,
+                          Map.empty
+                        )
                       val bundle = ResultBundle(
                         Result.Success(inputs, reporter, products, 0L, dummyTasks, false, false),
                         Some(LastSuccessfulResult(inputs, products, Task.now(()))),

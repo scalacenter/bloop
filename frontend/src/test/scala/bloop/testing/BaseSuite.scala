@@ -250,7 +250,7 @@ abstract class BaseSuite extends TestSuite with BloopHelpers {
   ): Unit = {
     if (errors > 0) {
       result match {
-        case Compiler.Result.Failed(problems, t, _, _) =>
+        case Compiler.Result.Failed(problems, t, _, _, _) =>
           val count = Problem.count(problems)
           if (count.errors == 0 && errors != 0) {
             // If there's an exception count it as one error

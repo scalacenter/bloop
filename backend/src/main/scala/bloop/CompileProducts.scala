@@ -32,6 +32,7 @@ import xsbti.compile.PreviousResult
 case class CompileProducts(
     readOnlyClassesDir: Path,
     newClassesDir: Path,
+    bestEffortDepDir: Option[Path],
     resultForDependentCompilationsInSameRun: PreviousResult,
     resultForFutureCompilationRuns: PreviousResult,
     invalidatedCompileProducts: Set[File],
