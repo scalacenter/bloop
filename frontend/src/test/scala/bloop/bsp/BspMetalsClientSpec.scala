@@ -59,7 +59,8 @@ class BspMetalsClientSpec(
         clientClassesRootDir = None,
         semanticdbVersion = Some(semanticdbVersion),
         supportedScalaVersions = Some(List(testedScalaVersion)),
-        javaSemanticdbVersion = Some(javaSemanticdbVersion)
+        javaSemanticdbVersion = Some(javaSemanticdbVersion),
+        enableBestEffortMode = None
       )
 
       loadBspState(workspace, projects, logger, "Metals", bloopExtraParams = extraParams) { state =>
@@ -100,7 +101,8 @@ class BspMetalsClientSpec(
         clientClassesRootDir = None,
         semanticdbVersion = Some(semanticdbVersion), // Doesn't support 2.12.4
         supportedScalaVersions = Some(List(testedScalaVersion)),
-        javaSemanticdbVersion = Some(javaSemanticdbVersion)
+        javaSemanticdbVersion = Some(javaSemanticdbVersion),
+        enableBestEffortMode = None
       )
 
       loadBspState(workspace, projects, logger, "Metals", bloopExtraParams = extraParams) { state =>
@@ -141,7 +143,8 @@ class BspMetalsClientSpec(
         clientClassesRootDir = None,
         semanticdbVersion = Some(semanticdbVersion),
         supportedScalaVersions = Some(List(testedScalaVersion)),
-        javaSemanticdbVersion = Some(javaSemanticdbVersion)
+        javaSemanticdbVersion = Some(javaSemanticdbVersion),
+        enableBestEffortMode = None
       )
 
       loadBspState(workspace, projects, logger, "Metals", bloopExtraParams = extraParams) { state =>
@@ -185,7 +188,8 @@ class BspMetalsClientSpec(
         clientClassesRootDir = None,
         semanticdbVersion = Some(semanticdbVersion),
         supportedScalaVersions = Some(List(testedScalaVersion)),
-        javaSemanticdbVersion = Some(javaSemanticdbVersion)
+        javaSemanticdbVersion = Some(javaSemanticdbVersion),
+        enableBestEffortMode = None
       )
 
       loadBspState(workspace, projects, logger, "Metals", bloopExtraParams = extraParams) { state =>
@@ -208,7 +212,8 @@ class BspMetalsClientSpec(
         clientClassesRootDir = None,
         semanticdbVersion = Some(semanticdbVersion),
         supportedScalaVersions = Some(List(testedScalaVersion)),
-        javaSemanticdbVersion = Some(javaSemanticdbVersion)
+        javaSemanticdbVersion = Some(javaSemanticdbVersion),
+        enableBestEffortMode = None
       )
       val `A` = TestProject(workspace, "A", Nil)
       val projects = List(`A`)
@@ -261,7 +266,8 @@ class BspMetalsClientSpec(
             clientClassesRootDir = None,
             semanticdbVersion = Some(semanticdbVersion),
             supportedScalaVersions = Some(List(testedScalaVersion)),
-            javaSemanticdbVersion = Some(javaSemanticdbVersion)
+            javaSemanticdbVersion = Some(javaSemanticdbVersion),
+            enableBestEffortMode = None
           )
           val bspLogger = new BspClientLogger(logger)
           def bspCommand() = createBspCommand(configDir)
@@ -452,7 +458,8 @@ class BspMetalsClientSpec(
         clientClassesRootDir = None,
         semanticdbVersion = Some(semanticdbVersion),
         supportedScalaVersions = Some(List(testedScalaVersion)),
-        javaSemanticdbVersion = Some(javaSemanticdbVersion)
+        javaSemanticdbVersion = Some(javaSemanticdbVersion),
+        enableBestEffortMode = None
       )
       loadBspState(workspace, projects, logger, "Metals", bloopExtraParams = extraParams) { state =>
         val compiledState = state.compile(`A`).toTestState

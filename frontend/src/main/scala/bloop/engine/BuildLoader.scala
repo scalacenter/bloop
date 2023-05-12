@@ -76,6 +76,7 @@ object BuildLoader {
               configDir,
               semanticdb.javaSemanticdbSettings,
               semanticdb.scalaSemanticdbSettings,
+              settings.enableBestEffortMode,
               logger
             ).map { transformedProjects =>
               transformedProjects.map {
@@ -106,6 +107,7 @@ object BuildLoader {
       configDir: AbsolutePath,
       javaSemanticSettings: Option[JavaSemanticdbSettings],
       scalaSemanticdbSettings: Option[ScalaSemanticdbSettings],
+      enableBestEffortMode: Option[Boolean],
       logger: Logger
   ): Task[List[(Project, Option[Project])]] = {
 
@@ -124,7 +126,14 @@ object BuildLoader {
             logger
           ) { (scalaPlugin: Option[AbsolutePath], javaPlugin: Option[AbsolutePath]) =>
             projects.map(p =>
-              Project.enableMetalsSettings(p, configDir, scalaPlugin, javaPlugin, logger) -> Some(p)
+              Project.enableMetalsSettings(
+                p,
+                configDir,
+                scalaPlugin,
+                javaPlugin,
+                enableBestEffortMode,
+                logger
+              ) -> Some(p)
             )
           }
         }
@@ -175,7 +184,14 @@ object BuildLoader {
             logger
           ) { (scalaPlugin: Option[AbsolutePath], javaPlugin: Option[AbsolutePath]) =>
             LoadedProject.ConfiguredProject(
-              Project.enableMetalsSettings(project, configDir, scalaPlugin, javaPlugin, logger),
+              Project.enableMetalsSettings(
+                project,
+                configDir,
+                scalaPlugin,
+                javaPlugin,
+                settings.enableBestEffortMode,
+                logger
+              ),
               project,
               settings
             )

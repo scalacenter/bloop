@@ -194,6 +194,7 @@ abstract class BaseTestProject {
       outDir.underlying,
       classes.underlying,
       resources = compileResourcesList,
+      bestEffortDir = None,
       scala = Some(scalaConfig),
       java = Some(javacConfig),
       sbt = None,

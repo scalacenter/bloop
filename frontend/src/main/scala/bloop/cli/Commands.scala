@@ -153,6 +153,10 @@ object Commands {
       incremental: Boolean = true,
       @HelpMessage("Pipeline the compilation of modules in your build. By default, false.")
       pipeline: Boolean = false,
+      @HelpMessage(
+        "Activates the best effort mode, used for specific compiler versions. By default, false."
+      )
+      bestEffort: Boolean = false,
       @HelpMessage("Pick reporter to show compilation messages. By default, bloop's used.")
       reporter: ReporterKind = BloopReporter,
       @ExtraName("w")

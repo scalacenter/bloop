@@ -162,6 +162,12 @@ trait BloopHelpers {
       new TestState(TestUtil.blockingExecute(compileTask, state))
     }
 
+    def compileWithBestEffort(projects: TestProject*): TestState = {
+      val projectNames = projects.map(_.config.name).toList
+      val compileTask = Run(Commands.Compile(projectNames, bestEffort = true))
+      new TestState(TestUtil.blockingExecute(compileTask, state))
+    }
+
     def runTask(project: TestProject, watch: Boolean = false): Task[TestState] = {
       val runTask = Run(Commands.Run(List(project.config.name), watch = watch))
       TestUtil.interpreterTask(runTask, state).map(new TestState(_))
