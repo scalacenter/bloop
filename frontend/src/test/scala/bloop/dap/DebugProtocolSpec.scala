@@ -33,7 +33,7 @@ object DebugProtocolSpec extends DebugBspBaseSuite {
         val output = state.withDebugSession(project, mainClassParams("Main")) { client =>
           for {
             _ <- client.initialize()
-            _ <- client.launch()
+            _ <- client.launch(noDebug = true)
             _ <- client.configurationDone()
             _ <- client.exited
             _ <- client.terminated
@@ -65,12 +65,12 @@ object DebugProtocolSpec extends DebugBspBaseSuite {
         val output = state.withDebugSession(project, mainClassParams("Main")) { client =>
           for {
             _ <- client.initialize()
-            _ <- client.launch()
+            _ <- client.launch(noDebug = true)
             _ <- client.configurationDone()
 
             previousSession <- client.restart()
 
-            _ <- client.launch()
+            _ <- client.launch(noDebug = true)
             _ <- client.configurationDone()
             _ <- client.disconnect()
 
@@ -113,7 +113,7 @@ object DebugProtocolSpec extends DebugBspBaseSuite {
           client =>
             for {
               _ <- client.initialize()
-              _ <- client.launch()
+              _ <- client.launch(noDebug = true)
               _ <- client.initialized
               _ <- client.configurationDone()
               output <- client.takeCurrentOutput.restartUntil(!_.isEmpty)
@@ -132,7 +132,7 @@ object DebugProtocolSpec extends DebugBspBaseSuite {
         val output = state.withDebugSession(project, mainClassParams("Main")) { client =>
           for {
             _ <- client.initialize()
-            _ <- client.launch()
+            _ <- client.launch(noDebug = true)
             _ <- client.configurationDone()
             _ <- client.exited
             _ <- client.terminated
@@ -158,7 +158,7 @@ object DebugProtocolSpec extends DebugBspBaseSuite {
               client =>
                 for {
                   _ <- client.initialize()
-                  _ <- client.launch()
+                  _ <- client.launch(noDebug = true)
                   _ <- client.configurationDone()
                   _ <- client.terminated
                   output <- client.blockForAllOutput

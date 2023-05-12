@@ -106,9 +106,9 @@ private[dap] final class DebugAdapterConnection(
     adapter.request(ConfigurationDone, ())
   }
 
-  def launch(): Task[Unit] = {
+  def launch(noDebug: Boolean): Task[Unit] = {
     val arguments = new LaunchArguments
-    arguments.noDebug = true
+    arguments.noDebug = noDebug
     adapter.request(Launch, arguments)
   }
 
