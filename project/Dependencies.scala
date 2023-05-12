@@ -38,7 +38,7 @@ object Dependencies {
   val xxHashVersion = "1.3.0"
   val ztVersion = "1.15"
   val difflibVersion = "1.3.0"
-  val braveVersion = "5.15.1"
+  val braveVersion = "5.16.0"
   val zipkinSenderVersion = "2.16.3"
   val jnaVersion = "5.13.0"
   val asmVersion = "9.5"
