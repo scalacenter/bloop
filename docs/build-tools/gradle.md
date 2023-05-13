@@ -138,9 +138,9 @@ Here's a list of bloop commands you can run next to start playing with bloop:
 
 ## Next steps after installation
 
-Use an IDE such as [Metals](docs/ides/metals) or
-[IntelliJ](docs/ides/intellij) to write code or play with the
-[CLI](docs/cli/tutorial) if you want to explore what CLI options are
+Use an IDE such as [Metals](/bloop/docs/ides/metals) or
+[IntelliJ](/bloop/docs/ides/intellij) to write code or play with the
+[CLI](/bloop/docs/cli/tutorial) if you want to explore what CLI options are
 available.
 
 If you need help, you can always come over our [Discord

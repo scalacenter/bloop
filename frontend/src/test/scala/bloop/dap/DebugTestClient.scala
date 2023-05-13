@@ -28,8 +28,8 @@ final class DebugTestClient(connect: () => DebugAdapterConnection) {
   def configurationDone(): Task[Unit] =
     activeSession.configurationDone()
 
-  def launch(): Task[Unit] =
-    activeSession.launch()
+  def launch(noDebug: Boolean): Task[Unit] =
+    activeSession.launch(noDebug)
 
   def attach(hostName: String, port: Int): Task[Unit] =
     activeSession.attach(hostName: String, port: Int)

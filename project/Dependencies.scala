@@ -38,13 +38,13 @@ object Dependencies {
   val xxHashVersion = "1.3.0"
   val ztVersion = "1.15"
   val difflibVersion = "1.3.0"
-  val braveVersion = "5.15.1"
+  val braveVersion = "5.16.0"
   val zipkinSenderVersion = "2.16.3"
   val jnaVersion = "5.13.0"
   val asmVersion = "9.5"
   val snailgunVersion = "0.4.0"
   val ztExecVersion = "1.12"
-  val debugAdapterVersion = "3.0.9"
+  val debugAdapterVersion = "3.1.1"
   val bloopConfigVersion = "1.5.5"
 
   val zinc = "org.scala-sbt" %% "zinc" % zincVersion
@@ -57,8 +57,8 @@ object Dependencies {
   val libraryManagement = "org.scala-sbt" %% "librarymanagement-ivy" % lmVersion
   val log4j = "org.apache.logging.log4j" % "log4j-core" % "2.20.0"
   val scalazCore = "org.scalaz" %% "scalaz-core" % scalazVersion
-  val coursierInterface = "io.get-coursier" % "interface" % "1.0.15"
-  val coursierInterfaceSubs = "io.get-coursier" % "interface-svm-subs" % "1.0.15"
+  val coursierInterface = "io.get-coursier" % "interface" % "1.0.16"
+  val coursierInterfaceSubs = "io.get-coursier" % "interface-svm-subs" % "1.0.16"
   val scalaCollectionCompat = "org.scala-lang.modules" %% "scala-collection-compat" % "2.4.2"
   val shapeless = "com.chuusai" %% "shapeless" % shapelessVersion
   val caseApp = "com.github.alexarchambault" %% "case-app" % caseAppVersion

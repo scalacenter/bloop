@@ -93,7 +93,7 @@ object DebugServerSpec extends DebugBspBaseSuite {
           for {
             client <- server.startConnection
             _ <- client.initialize()
-            _ <- client.launch()
+            _ <- client.launch(noDebug = true)
             _ <- client.initialized
             _ <- client.configurationDone()
             _ <- Task(server.cancel())
@@ -129,7 +129,7 @@ object DebugServerSpec extends DebugBspBaseSuite {
           for {
             client <- server.startConnection
             _ <- client.initialize()
-            _ <- client.launch()
+            _ <- client.launch(noDebug = true)
             _ <- client.configurationDone()
             _ <- client.exited
             _ <- client.terminated
@@ -182,7 +182,7 @@ object DebugServerSpec extends DebugBspBaseSuite {
           for {
             client <- server.startConnection
             _ <- client.initialize()
-            _ <- client.launch()
+            _ <- client.launch(noDebug = true)
             _ <- client.configurationDone()
             _ <- client.exited
             _ <- client.terminated
@@ -264,7 +264,7 @@ object DebugServerSpec extends DebugBspBaseSuite {
           for {
             client <- server.startConnection
             _ <- client.initialize()
-            _ <- client.launch()
+            _ <- client.launch(noDebug = false)
             _ <- client.initialized
             scalaBreakpointsResult <- client.setBreakpoints(scalaBreakpoints)
             _ = assert(scalaBreakpointsResult.breakpoints.forall(_.verified))
@@ -342,7 +342,7 @@ object DebugServerSpec extends DebugBspBaseSuite {
           for {
             client <- server.startConnection
             _ <- client.initialize()
-            _ <- client.launch()
+            _ <- client.launch(noDebug = false)
             _ <- client.initialized
             breakpoints <- client.setBreakpoints(breakpoints)
             _ = assert(breakpoints.breakpoints.forall(_.verified))
@@ -396,7 +396,7 @@ object DebugServerSpec extends DebugBspBaseSuite {
           for {
             client <- server.startConnection
             _ <- client.initialize()
-            _ <- client.launch()
+            _ <- client.launch(noDebug = true)
             _ <- client.initialized
             _ <- client.configurationDone()
             _ <- client.exited
@@ -433,7 +433,7 @@ object DebugServerSpec extends DebugBspBaseSuite {
       for {
         client <- server.startConnection
         _ <- client.initialize()
-        cause <- client.launch().failed
+        cause <- client.launch(noDebug = true).failed
       } yield {
         assertContains(cause.getMessage, "Operation timed out")
       }
@@ -506,7 +506,7 @@ object DebugServerSpec extends DebugBspBaseSuite {
       for {
         client <- server.startConnection
         _ <- client.initialize()
-        response <- client.launch().failed
+        response <- client.launch(noDebug = true).failed
       } yield {
         assert(response.getMessage.contains(ExitStatus.RunError.name))
       }
@@ -609,7 +609,7 @@ object DebugServerSpec extends DebugBspBaseSuite {
           for {
             client <- server.startConnection
             _ <- client.initialize()
-            _ <- client.launch()
+            _ <- client.launch(noDebug = false)
             _ <- client.initialized
             breakpoints <- client.setBreakpoints(breakpoints)
             _ = assert(breakpoints.breakpoints.forall(_.verified))
@@ -659,7 +659,7 @@ object DebugServerSpec extends DebugBspBaseSuite {
           for {
             client <- server.startConnection
             _ <- client.initialize()
-            _ <- client.launch()
+            _ <- client.launch(noDebug = true)
             _ <- client.initialized
             _ <- client.configurationDone()
             _ <- client.exited
@@ -722,7 +722,7 @@ object DebugServerSpec extends DebugBspBaseSuite {
           for {
             client <- server.startConnection
             _ <- client.initialize()
-            _ <- client.launch()
+            _ <- client.launch(noDebug = false)
             _ <- client.initialized
             breakpoints <- client.setBreakpoints(breakpoints)
             _ = assert(breakpoints.breakpoints.forall(_.verified))
@@ -867,7 +867,7 @@ object DebugServerSpec extends DebugBspBaseSuite {
           for {
             client <- server.startConnection
             _ <- client.initialize()
-            _ <- client.launch()
+            _ <- client.launch(noDebug = true)
             _ <- client.initialized
             _ <- client.configurationDone()
             _ <- client.exited
@@ -1039,10 +1039,9 @@ object DebugServerSpec extends DebugBspBaseSuite {
   )(f: TestServer => Task[Unit]): Task[Unit] = {
     val logger = new RecordingLogger(ansiCodesSupported = false)
     val dapLogger = new DebugServerLogger(logger)
-    val debugTools = DebugTools(debuggee, resolver, dapLogger)
 
     val config = DebugConfig.default.copy(gracePeriod = gracePeriod)
-    val server = DebugServer(debuggee, debugTools, dapLogger, config = config)(defaultScheduler)
+    val server = DebugServer(debuggee, resolver, dapLogger, config = config)(defaultScheduler)
     Task.fromFuture(server.start()).runAsync(defaultScheduler)
 
     val testServer = new TestServer(server)
