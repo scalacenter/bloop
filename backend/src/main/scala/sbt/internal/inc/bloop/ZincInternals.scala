@@ -24,7 +24,7 @@ object ZincInternals {
       rangePosition.orElse {
         for { line <- asIntPos(position.line()) } yield (
           line,
-          asIntPos(position.pointer()).getOrElse(0)
+          asIntPos(position.pointer()).orElse(asIntPos(position.offset())).getOrElse(0)
         )
       }
     }
