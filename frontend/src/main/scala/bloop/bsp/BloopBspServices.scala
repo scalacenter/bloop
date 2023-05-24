@@ -667,6 +667,7 @@ final class BloopBspServices(
                   )
                 case (state, Right(_)) =>
                   val projects = mappings.map(_._2)
+
                   inferDebuggee(projects, state) match {
                     case Right(debuggee) =>
                       val dapLogger = new DebugServerLogger(logger)
