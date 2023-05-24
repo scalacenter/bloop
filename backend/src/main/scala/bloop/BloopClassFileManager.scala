@@ -200,6 +200,8 @@ final class BloopClassFileManager(
   }
 
   def complete(success: Boolean): Unit = {
+
+    val deleteAfterCompilation = Task { BloopPaths.delete(AbsolutePath(backupDir)) }
     if (success) {
       dependentClassFilesLinks.foreach { unnecessaryClassFileLink =>
         Files.deleteIfExists(unnecessaryClassFileLink)
@@ -225,6 +227,7 @@ final class BloopClassFileManager(
                 readOnlyCopyDenylist.++=(walked.target)
                 ()
               }
+              .flatMap(_ => deleteAfterCompilation)
           }
         }
       )
@@ -247,7 +250,9 @@ final class BloopClassFileManager(
       // Delete all compilation products generated in the new classes directory
       val deleteNewDir = Task { BloopPaths.delete(AbsolutePath(newClassesDir)); () }.memoize
       backgroundTasksForFailedCompilation.+=((_, _, clientTracer: BraveTracer) => {
-        clientTracer.traceTask("delete class files after")(_ => deleteNewDir)
+        clientTracer.traceTask("delete class files after")(_ =>
+          deleteNewDir.flatMap(_ => deleteAfterCompilation)
+        )
       })
 
       backgroundTasksForFailedCompilation.+=(
@@ -281,6 +286,7 @@ final class BloopClassFileManager(
           }
       )
     }
+
   }
 
   private def move(c: File): File = {
