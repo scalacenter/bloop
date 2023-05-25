@@ -247,7 +247,7 @@ object BloopZincCompiler {
       skip: Boolean = false,
       incrementalCompilerOptions: IncOptions,
       extra: List[(String, String)]
-  ): Task[CompileConfiguration] = Task.now {
+  )(implicit logger: ObservedLogger[_]): Task[CompileConfiguration] = Task.now {
     // Remove directories from classpath hashes, we're only interested in jars
     val jarClasspathHashes = BloopLookup.filterOutDirsFromHashedClasspath(classpathHashes)
     val compileSetup = MiniSetup.of(
@@ -284,7 +284,7 @@ object BloopZincCompiler {
       earlyOutput = None,
       // deals with pipelining, not supported yet
       earlyAnalysisStore = None,
-      stamper = BloopStamps.initial
+      stamper = BloopStamps.initial(logger)
     )
   }
 }

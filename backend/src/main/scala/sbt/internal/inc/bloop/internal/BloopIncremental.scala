@@ -48,7 +48,7 @@ object BloopIncremental {
       }
     }
 
-    val current = BloopStamps.initial
+    val current = BloopStamps.initial(log)
     val externalAPI = getExternalAPI(lookup)
     val previous = previous0 match { case a: Analysis => a }
     val previousRelations = previous.relations

@@ -12,17 +12,36 @@ import xsbti.VirtualFileRef
 import xsbti.compile.FileHash
 import xsbti.compile.analysis.ReadStamps
 import xsbti.compile.analysis.Stamp
+import scala.util.control.NonFatal
+import sbt.util.Logger
+import sbt.internal.inc.FarmHash
 
 object BloopStamps {
   private val converter = PlainVirtualFileConverter.converter
 
-  private def underlying = Stamps.initial(
+  private def underlying(logger: Logger) = Stamps.initial(
     BloopStamps.forHash,
     // The hash is for the sources
     BloopStamps.forHash,
-    Stamper.forHashInRootPaths(converter)
+    libraryStamp(logger)
   )
-  def initial: ReadStamps = Stamps.timeWrapBinaryStamps(underlying, converter)
+
+  def libraryStamp(logger: Logger): VirtualFileRef => Stamp = { (file: VirtualFileRef) =>
+    {
+      val baseStamp = Stamper.forHashInRootPaths(converter)
+      try {
+        baseStamp(file)
+      } catch {
+        case NonFatal(e) =>
+          logger.error(s"Could not calculate hash for ${file.id} because of ${e.getMessage}")
+          FarmHash.fromLong(emptyHash.toLong)
+      }
+
+    }
+  }
+
+  def initial(logger: Logger): ReadStamps =
+    Stamps.timeWrapBinaryStamps(underlying(logger), converter)
 
   private final val emptyHash = scala.util.Random.nextInt()
   private final val directoryHash = scala.util.Random.nextInt()
