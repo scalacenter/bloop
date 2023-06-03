@@ -273,43 +273,6 @@ lazy val bloopgun213: Project = project
     target := (file("bloopgun") / "target" / "bloopgun-2.13").getAbsoluteFile
   )
 
-lazy val launcherTest = project
-  .in(file("launcher-test"))
-  .disablePlugins(ScriptedPlugin)
-  .dependsOn(launcher, frontend % "test->test")
-  .settings(
-    name := "bloop-launcher-test",
-    (publish / skip) := true,
-    scalafixSettings,
-    testSuiteSettings,
-    (Test / fork) := true,
-    (Test / parallelExecution) := false,
-    libraryDependencies ++= List(
-      Dependencies.coursierInterface
-    )
-  )
-
-lazy val launcher = project
-  .in(file("launcher-core"))
-  .disablePlugins(ScriptedPlugin, ScalafixPlugin)
-  .dependsOn(sockets, bloopgun)
-  .settings(
-    name := "bloop-launcher-core",
-    testSuiteSettings,
-    target := (file("launcher-core") / "target" / "launcher-2.12").getAbsoluteFile
-  )
-
-lazy val launcher213 = project
-  .in(file("launcher-core"))
-  .disablePlugins(ScriptedPlugin, ScalafixPlugin)
-  .dependsOn(sockets, bloopgun213)
-  .settings(
-    name := "bloop-launcher-core",
-    testSuiteSettings,
-    scalaVersion := Dependencies.Scala213Version,
-    target := (file("launcher-core") / "target" / "launcher-2.13").getAbsoluteFile
-  )
-
 lazy val bloop4j = project
   .disablePlugins(ScriptedPlugin)
   .settings(
@@ -449,9 +412,6 @@ val allProjects = Seq(
   frontend,
   jsBridge06,
   jsBridge1,
-  launcher,
-  launcher213,
-  launcherTest,
   nativeBridge04,
   sbtBloop,
   sockets
