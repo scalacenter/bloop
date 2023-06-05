@@ -2,19 +2,20 @@ package sbt.internal.inc.bloop.internal
 
 import java.nio.file.Path
 
+import scala.util.control.NonFatal
+
 import _root_.bloop.io.ByteHasher
 import sbt.internal.inc.EmptyStamp
+import sbt.internal.inc.FarmHash
 import sbt.internal.inc.Hash
 import sbt.internal.inc.PlainVirtualFileConverter
 import sbt.internal.inc.Stamper
 import sbt.internal.inc.Stamps
+import sbt.util.Logger
 import xsbti.VirtualFileRef
 import xsbti.compile.FileHash
 import xsbti.compile.analysis.ReadStamps
 import xsbti.compile.analysis.Stamp
-import scala.util.control.NonFatal
-import sbt.util.Logger
-import sbt.internal.inc.FarmHash
 
 object BloopStamps {
   private val converter = PlainVirtualFileConverter.converter

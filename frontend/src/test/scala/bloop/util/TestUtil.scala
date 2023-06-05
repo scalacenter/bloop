@@ -1,6 +1,7 @@
 package bloop.util
 
 import java.io.File
+import java.lang.management.ManagementFactory
 import java.nio.file.Files
 import java.nio.file.{Path, Paths}
 import java.nio.file.attribute.FileTime
@@ -57,7 +58,6 @@ import java.security.SecureRandom
 import java.util.concurrent.atomic.AtomicInteger
 import java.nio.file.attribute.PosixFilePermissions
 import xsbti.ComponentProvider
-import java.lang.management.ManagementFactory
 
 object TestUtil {
   def projectDir(base: Path, name: String): Path = base.resolve(name)
