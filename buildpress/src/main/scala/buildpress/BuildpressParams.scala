@@ -1,11 +1,19 @@
 package buildpress
 
-import java.nio.file.{Path, Paths}
+import java.nio.file.Path
+import java.nio.file.Paths
+
 import scala.util.Try
+
 import bloop.io.AbsolutePath
-import caseapp.core.argparser.{ArgParser, SimpleArgParser}
+
+import caseapp.ExtraName
+import caseapp.Help
+import caseapp.HelpMessage
+import caseapp.Parser
 import caseapp.core.Error
-import caseapp.{ExtraName, Help, HelpMessage, Parser}
+import caseapp.core.argparser.ArgParser
+import caseapp.core.argparser.SimpleArgParser
 
 final case class BuildpressParams(
     @ExtraName("i")

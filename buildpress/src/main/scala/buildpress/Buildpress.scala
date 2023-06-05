@@ -1,19 +1,30 @@
 package buildpress
 
-import java.io.{IOException, InputStream, PrintStream}
-import java.net.{URI, URISyntaxException}
+import java.io.IOException
+import java.io.InputStream
+import java.io.PrintStream
+import java.net.URI
+import java.net.URISyntaxException
 import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, Path}
+import java.nio.file.Files
+import java.nio.file.Path
+
 import scala.collection.mutable
 import scala.util.control.NonFatal
-import bloop.io.{AbsolutePath, Paths}
-import bloop.io.Environment.{lineSeparator, LineSplitter}
-import buildpress.RepositoryCache.RepoCacheDiff
-import buildpress.io.{BuildpressPaths, SbtProjectHasher}
-import buildpress.util.Traverse._
-import caseapp.core.help.{Help, WithHelp}
+
 import bloop.bloopgun.core.Shell
 import bloop.bloopgun.core.Shell.StatusCommand
+import bloop.io.AbsolutePath
+import bloop.io.Environment.LineSplitter
+import bloop.io.Environment.lineSeparator
+import bloop.io.Paths
+
+import buildpress.RepositoryCache.RepoCacheDiff
+import buildpress.io.BuildpressPaths
+import buildpress.io.SbtProjectHasher
+import buildpress.util.Traverse._
+import caseapp.core.help.Help
+import caseapp.core.help.WithHelp
 
 abstract class Buildpress(
     in: InputStream,

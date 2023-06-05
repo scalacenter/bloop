@@ -1,11 +1,12 @@
 package buildpress.io
-import java.nio.file.Files
-import java.nio.file.SimpleFileVisitor
-import java.nio.file.Path
-import java.nio.file.attribute.BasicFileAttributes
-import java.nio.file.FileVisitResult
 import java.io.IOException
 import java.nio.file.DirectoryNotEmptyException
+import java.nio.file.FileVisitResult
+import java.nio.file.Files
+import java.nio.file.Path
+import java.nio.file.SimpleFileVisitor
+import java.nio.file.attribute.BasicFileAttributes
+
 import bloop.io.AbsolutePath
 
 object BuildpressPaths {
