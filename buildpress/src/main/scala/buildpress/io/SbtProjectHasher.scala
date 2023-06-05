@@ -1,10 +1,19 @@
 package buildpress.io
 
 import java.io.IOException
-import java.nio.file.{Path, PathMatcher, FileVisitor, Files, FileVisitResult, FileVisitOption}
+import java.nio.file.FileVisitOption
+import java.nio.file.FileVisitResult
+import java.nio.file.FileVisitor
+import java.nio.file.Files
+import java.nio.file.Path
+import java.nio.file.PathMatcher
 import java.nio.file.attribute.BasicFileAttributes
-import bloop.io.{AbsolutePath, ByteHasher}
-import buildpress.config.Config.{BuildSettingsHashes, HashedPath}
+
+import bloop.io.AbsolutePath
+import bloop.io.ByteHasher
+
+import buildpress.config.Config.BuildSettingsHashes
+import buildpress.config.Config.HashedPath
 
 object SbtProjectHasher {
   class SbtFileMatcher(root: Path) extends PathMatcher {

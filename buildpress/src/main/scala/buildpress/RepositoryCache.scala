@@ -1,9 +1,13 @@
 package buildpress
 
 import java.io.IOException
+
 import bloop.io.AbsolutePath
+
 import buildpress.RepositoryCache.RepoCacheDiff
-import buildpress.config.Config.{RepoCacheEntries, RepoCacheEntry, RepoCacheFile}
+import buildpress.config.Config.RepoCacheEntries
+import buildpress.config.Config.RepoCacheEntry
+import buildpress.config.Config.RepoCacheFile
 
 final case class RepositoryCache(source: AbsolutePath, repositories: List[ClonedRepository]) {
   private lazy val lookupById: Map[String, ClonedRepository] =
