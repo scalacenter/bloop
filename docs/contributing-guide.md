@@ -57,7 +57,7 @@ bsp/cli connection to it.
 ## Set the repository up
 
 1. Clone the [GitHub repository](https://github.com/scalacenter/bloop)
-1. Change directory to bloop's base directory and run `git submodule update --init`.
+1. Change directory to bloop's base directory and run `git submodule update --init`
 1. Run the sbt shell in the base directory.
 
 If the sbt shell did not fail, you already have a working bloop build in your
@@ -195,6 +195,11 @@ Note the bloop version number in the first line of the above logs.
 
 ## Updating documentation
 
+### Prerequisites
+1. `yarn` is installed - Instructions [here](https://classic.yarnpkg.com/lang/en/docs/install/)
+2. `docusaurus` is installed in `yarn` - run `yarn add docusaurus`
+
+### Running
 The workflow to update the documentation is the following:
 
 1. Run the docs generation via `bloop run docs -w` or `~docs/run` if you're using the sbt shell.
