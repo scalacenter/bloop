@@ -31,7 +31,7 @@ object Dependencies {
   val monixVersion = "3.2.0"
   val jsoniterVersion = "2.13.3.2"
   val shapelessVersion = "2.3.4"
-  val scalaNative04Version = "0.4.12"
+  val scalaNative04Version = "0.4.13"
   val scalaJs06Version = "0.6.33"
   val scalaJs1Version = "1.13.1"
   val scalaJsEnvsVersion = "1.1.1"
