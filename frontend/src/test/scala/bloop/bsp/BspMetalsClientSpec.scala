@@ -30,7 +30,7 @@ class BspMetalsClientSpec(
 ) extends BspBaseSuite {
   private val testedScalaVersion = BuildInfo.scalaVersion
   require(
-    testedScalaVersion == "2.12.17",
+    testedScalaVersion == "2.12.18",
     "Updating scala version requires updating semanticDB plugin"
   )
   private val semanticdbVersion = "4.6.0"
