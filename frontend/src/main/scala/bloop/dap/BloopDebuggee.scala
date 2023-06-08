@@ -28,7 +28,7 @@ abstract class BloopDebuggee(
 ) extends Debuggee {
 
   // The version doesn't matter for project without Scala version (Java only)
-  val scalaVersion = ScalaVersion(debugeeScalaVersion.getOrElse("2.13.8"))
+  val scalaVersion = ScalaVersion(debugeeScalaVersion.getOrElse("2.13.11"))
 
   override def run(listener: DebuggeeListener): CancelableFuture[Unit] = {
     val debugSessionLogger = new DebuggeeLogger(listener, initialState.logger)
