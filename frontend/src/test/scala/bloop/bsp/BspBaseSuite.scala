@@ -597,6 +597,31 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
     }
   }
 
+  def loadBspMetalsBuildFromResources(
+      buildName: String,
+      workspace: AbsolutePath,
+      logger: RecordingLogger,
+      bspClientName: String,
+      bloopExtraParams: BloopExtraBuildParams = BloopExtraBuildParams.empty
+  )(runTest: ManagedBspTestBuild => Unit): Unit = {
+    val testBuild = loadBuildFromResources(buildName, workspace, logger)
+    val testState = testBuild.state
+    val configDir = testState.build.origin
+    val bspLogger = new BspClientLogger(logger)
+    def bspCommand() = createBspCommand(configDir)
+    openBspConnection(
+      testState.state,
+      bspCommand,
+      configDir,
+      bspLogger,
+      clientName = bspClientName,
+      bloopExtraParams = bloopExtraParams
+    ).withinSession { bspState =>
+      val bspTestBuild = ManagedBspTestBuild(bspState, testBuild.projects)
+      runTest(bspTestBuild)
+    }
+  }
+
   def loadBspBuildFromResources(
       buildName: String,
       workspace: AbsolutePath,

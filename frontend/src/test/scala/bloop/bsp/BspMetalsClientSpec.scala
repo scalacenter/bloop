@@ -468,6 +468,65 @@ class BspMetalsClientSpec(
     }
   }
 
+  test("compile is successful with semanticDB and javac processorpath") {
+    TestUtil.withinWorkspace { workspace =>
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+
+      val projectName = "scala-java-processorpath"
+
+      val extraParams = BloopExtraBuildParams(
+        ownsBuildFiles = None,
+        clientClassesRootDir = None,
+        semanticdbVersion = Some(semanticdbVersion),
+        supportedScalaVersions = Some(List(testedScalaVersion)),
+        javaSemanticdbVersion = Some(javaSemanticdbVersion)
+      )
+
+      loadBspMetalsBuildFromResources(projectName, workspace, logger, "Metals", extraParams) {
+        build =>
+          val project = build.projectFor(projectName)
+          val state = build.state
+
+          assertNoDiff(logger.warnings.mkString(lineSeparator), "")
+          assertNoDiffInSettingsFile(
+            build.rawState.build.origin,
+            expectedConfig
+          )
+          assertScalacOptions(
+            state,
+            project,
+            s"""-Xplugin-require:semanticdb
+               |-P:semanticdb:failures:warning
+               |-P:semanticdb:sourceroot:$workspace
+               |-P:semanticdb:synthetics:on
+               |-Xplugin:$semanticdbJar
+               |-Yrangepos
+               |""".stripMargin
+          )
+          val javacOptions = state.javacOptions(project)._2.items.flatMap(_.options)
+          val javaSemanticDBJar = "semanticdb-javac-0.5.7.jar"
+          assert(
+            javacOptions(javacOptions.indexOf("-processorpath") + 1).contains(javaSemanticDBJar)
+          )
+
+          val compiledState = build.state.compile(project).toTestState
+          assert(compiledState.status == ExitStatus.Ok)
+
+          assertSemanticdbFileForProject(
+            "/main/scala/example/Main.scala",
+            compiledState,
+            projectName
+          )
+          assertSemanticdbFileForProject(
+            "/main/java/example/FoobarValueAnalyzer.java",
+            compiledState,
+            projectName
+          )
+      }
+
+    }
+  }
+
   private val dummyFooScalaSources = List(
     """/Foo.scala
       |class Foo
@@ -481,6 +540,26 @@ class BspMetalsClientSpec(
   )
 
   private val dummyFooScalaAndBarJavaSources = dummyFooScalaSources ++ dummyBarJavaSources
+
+  private def assertSemanticdbFileForProject(
+      sourceFileName: String,
+      state: TestState,
+      projectName: String
+  ): Unit = {
+    val file = semanticdbFileProject(sourceFileName, state, projectName)
+    assertIsFile(file)
+  }
+
+  private def semanticdbFileProject(
+      sourceFileName: String,
+      state: TestState,
+      projectName: String
+  ) = {
+    val project = state.build.getProjectFor(projectName).get
+    val classesDir = state.client.getUniqueClassesDirFor(project, forceGeneration = true)
+    val sourcePath = if (sourceFileName.startsWith("/")) sourceFileName else s"/$sourceFileName"
+    classesDir.resolve(s"META-INF/semanticdb/src/$sourcePath.semanticdb")
+  }
 
   private def semanticdbFile(sourceFileName: String, state: TestState) = {
     val projectA = state.build.getProjectFor("A").get
