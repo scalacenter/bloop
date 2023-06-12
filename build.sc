@@ -373,7 +373,9 @@ object bridges extends Module {
   class Scalajs1(val crossScalaVersion: String) extends BloopCrossSbtModule with PublishModule {
     def artifactName = "bloop-js-bridge-1"
     def compileModuleDeps = super.compileModuleDeps ++ Seq(
-      frontend()
+      frontend(),
+      shared(),
+      backend()
     )
     def compileIvyDeps = super.compileIvyDeps() ++ Agg(
       Dependencies.scalaJsLinker1,
@@ -417,7 +419,9 @@ object bridges extends Module {
     def sources = T.sources(updateSources(super.sources()))
 
     def compileModuleDeps = super.compileModuleDeps ++ Seq(
-      frontend()
+      frontend(),
+      shared(),
+      backend()
     )
     def compileIvyDeps = super.compileIvyDeps() ++ Agg(
       Dependencies.scalaNativeTools04
