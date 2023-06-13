@@ -159,7 +159,7 @@ final class BspServerLogger private (
             message,
             bspRelatedInformation(
               event.problem
-                .diagnosticRelatedInforamation()
+                .diagnosticRelatedInformation()
                 .asScala
                 .toList,
               startLine,
@@ -194,7 +194,7 @@ final class BspServerLogger private (
             message,
             bspRelatedInformation(
               event.problem
-                .diagnosticRelatedInforamation()
+                .diagnosticRelatedInformation()
                 .asScala
                 .toList,
               startLine = 0,
