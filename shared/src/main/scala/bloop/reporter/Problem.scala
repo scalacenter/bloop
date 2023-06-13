@@ -17,7 +17,8 @@ final case class Problem private (
     /** The category of this problem. */
     category: String,
     /** Unique code attatched to the diagnostic being reported */
-    override val diagnosticCode: Optional[xsbti.DiagnosticCode]
+    override val diagnosticCode: Optional[xsbti.DiagnosticCode],
+    override val diagnosticRelatedInforamation: java.util.List[xsbti.DiagnosticRelatedInformation]
 ) extends xsbti.Problem
 
 object Problem {
@@ -28,7 +29,8 @@ object Problem {
       problem.message(),
       problem.position(),
       problem.category(),
-      problem.diagnosticCode()
+      problem.diagnosticCode(),
+      problem.diagnosticRelatedInformation()
     )
   }
 
