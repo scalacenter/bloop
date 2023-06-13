@@ -17,8 +17,8 @@ addSbtPlugin("ch.epfl.scala" % "sbt-scalafix" % "0.11.0")
 
 updateOptions := updateOptions.value.withLatestSnapshots(false)
 libraryDependencies ++= List(
-  "org.eclipse.jgit" % "org.eclipse.jgit" % "6.5.0.202303070854-r",
-  "org.eclipse.jgit" % "org.eclipse.jgit.ssh.jsch" % "6.5.0.202303070854-r",
+  "org.eclipse.jgit" % "org.eclipse.jgit" % "6.6.0.202305301015-r",
+  "org.eclipse.jgit" % "org.eclipse.jgit.ssh.jsch" % "6.6.0.202305301015-r",
   "commons-codec" % "commons-codec" % "1.15",
   ("ch.epfl.scala" % "jarjar" % "1.7.2-patched")
     .exclude("org.apache.ant", "ant")
