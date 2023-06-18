@@ -494,7 +494,7 @@ object Project {
         options: List[String],
         pluginPath: AbsolutePath
     ): List[String] = {
-      val pluginOptions = includeSemnaticDBInProcessorPath(options, pluginPath)
+      val pluginOptions = includeSemanticdbInProcessorPath(options, pluginPath)
 
       if (hasJavaSemanticDBEnabledInCompilerOptions(pluginOptions))
         pluginOptions
