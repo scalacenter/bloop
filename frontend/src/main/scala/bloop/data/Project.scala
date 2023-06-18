@@ -477,7 +477,7 @@ object Project {
     def hasProcessorPath(options: List[String]): Boolean =
       options.contains("-processorpath")
 
-    def includeSemnaticDBInProcessorPath(
+    def includeSemanticdbInProcessorPath(
         options: List[String],
         pluginPath: AbsolutePath
     ): List[String] = {
