@@ -477,46 +477,45 @@ class BspMetalsClientSpec(
         javaSemanticdbVersion = Some(javaSemanticdbVersion)
       )
 
-      loadBspMetalsBuildFromResources(projectName, workspace, logger, "Metals", extraParams) {
-        build =>
-          val project = build.projectFor(projectName)
-          val state = build.state
+      loadBspBuildFromResources(projectName, workspace, logger, "Metals", extraParams) { build =>
+        val project = build.projectFor(projectName)
+        val state = build.state
 
-          assertNoDiff(logger.warnings.mkString(lineSeparator), "")
-          assertNoDiffInSettingsFile(
-            build.rawState.build.origin,
-            expectedConfig
-          )
-          assertScalacOptions(
-            state,
-            project,
-            s"""-Xplugin-require:semanticdb
-               |-P:semanticdb:failures:warning
-               |-P:semanticdb:sourceroot:$workspace
-               |-P:semanticdb:synthetics:on
-               |-Xplugin:$semanticdbJar
-               |-Yrangepos
-               |""".stripMargin
-          )
-          val javacOptions = state.javacOptions(project)._2.items.flatMap(_.options)
-          val javaSemanticDBJar = "semanticdb-javac-0.5.7.jar"
-          assert(
-            javacOptions(javacOptions.indexOf("-processorpath") + 1).contains(javaSemanticDBJar)
-          )
+        assertNoDiff(logger.warnings.mkString(lineSeparator), "")
+        assertNoDiffInSettingsFile(
+          build.rawState.build.origin,
+          expectedConfig
+        )
+        assertScalacOptions(
+          state,
+          project,
+          s"""-Xplugin-require:semanticdb
+             |-P:semanticdb:failures:warning
+             |-P:semanticdb:sourceroot:$workspace
+             |-P:semanticdb:synthetics:on
+             |-Xplugin:$semanticdbJar
+             |-Yrangepos
+             |""".stripMargin
+        )
+        val javacOptions = state.javacOptions(project)._2.items.flatMap(_.options)
+        val javaSemanticDBJar = "semanticdb-javac-0.5.7.jar"
+        assert(
+          javacOptions(javacOptions.indexOf("-processorpath") + 1).contains(javaSemanticDBJar)
+        )
 
-          val compiledState = build.state.compile(project).toTestState
-          assert(compiledState.status == ExitStatus.Ok)
+        val compiledState = build.state.compile(project).toTestState
+        assert(compiledState.status == ExitStatus.Ok)
 
-          assertSemanticdbFileForProject(
-            "/main/scala/example/Main.scala",
-            compiledState,
-            projectName
-          )
-          assertSemanticdbFileForProject(
-            "/main/java/example/FoobarValueAnalyzer.java",
-            compiledState,
-            projectName
-          )
+        assertSemanticdbFileForProject(
+          "/main/scala/example/Main.scala",
+          compiledState,
+          projectName
+        )
+        assertSemanticdbFileForProject(
+          "/main/java/example/FoobarValueAnalyzer.java",
+          compiledState,
+          projectName
+        )
       }
 
     }
@@ -552,8 +551,7 @@ class BspMetalsClientSpec(
   ) = {
     val project = state.build.getProjectFor(projectName).get
     val classesDir = state.client.getUniqueClassesDirFor(project, forceGeneration = true)
-    val sourcePath = if (sourceFileName.startsWith("/")) sourceFileName else s"/$sourceFileName"
-    classesDir.resolve(s"META-INF/semanticdb/src/$sourcePath.semanticdb")
+    classesDir.resolve(s"META-INF/semanticdb/src/$sourceFileName.semanticdb")
   }
 
   private def semanticdbFile(sourceFileName: String, state: TestState) = {
