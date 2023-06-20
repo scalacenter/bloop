@@ -20,7 +20,7 @@ object Dependencies {
   val bspVersion = "2.1.0-M3"
 
   val scalazVersion = "7.3.7"
-  val lmVersion = "1.8.0"
+  val lmVersion = "1.9.0"
   val configDirsVersion = "26"
   val caseAppVersion = "2.0.6"
   val sourcecodeVersion = "0.3.0"
@@ -31,7 +31,7 @@ object Dependencies {
   val monixVersion = "3.2.0"
   val jsoniterVersion = "2.13.3.2"
   val shapelessVersion = "2.3.4"
-  val scalaNative04Version = "0.4.12"
+  val scalaNative04Version = "0.4.14"
   val scalaJs06Version = "0.6.33"
   val scalaJs1Version = "1.13.1"
   val scalaJsEnvsVersion = "1.1.1"
@@ -57,8 +57,8 @@ object Dependencies {
   val libraryManagement = "org.scala-sbt" %% "librarymanagement-ivy" % lmVersion
   val log4j = "org.apache.logging.log4j" % "log4j-core" % "2.20.0"
   val scalazCore = "org.scalaz" %% "scalaz-core" % scalazVersion
-  val coursierInterface = "io.get-coursier" % "interface" % "1.0.16"
-  val coursierInterfaceSubs = "io.get-coursier" % "interface-svm-subs" % "1.0.16"
+  val coursierInterface = "io.get-coursier" % "interface" % "1.0.18"
+  val coursierInterfaceSubs = "io.get-coursier" % "interface-svm-subs" % "1.0.18"
   val scalaCollectionCompat = "org.scala-lang.modules" %% "scala-collection-compat" % "2.4.2"
   val shapeless = "com.chuusai" %% "shapeless" % shapelessVersion
   val caseApp = "com.github.alexarchambault" %% "case-app" % caseAppVersion
