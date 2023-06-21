@@ -1,12 +1,13 @@
 package build
 
 import sbt.librarymanagement.syntax.stringToOrganization
+import sbt.librarymanagement.CrossVersion
 import sbt.Provided
 
 object Dependencies {
   val Scala211Version = "2.11.12"
-  val Scala212Version = "2.12.17"
-  val Scala213Version = "2.13.8"
+  val Scala212Version = "2.12.18"
+  val Scala213Version = "2.13.11"
 
   val SbtVersion = "1.3.3"
 
@@ -46,7 +47,7 @@ object Dependencies {
   val ztExecVersion = "1.12"
   val debugAdapterVersion = "3.1.3"
   val bloopConfigVersion = "1.5.5"
-
+  val semanticdbVersion = "4.7.8"
   val zinc = "org.scala-sbt" %% "zinc" % zincVersion
   val bsp4s = "ch.epfl.scala" %% "bsp4s" % bspVersion
   val bsp4j = "ch.epfl.scala" % "bsp4j" % bspVersion
@@ -95,6 +96,7 @@ object Dependencies {
   val scalaJsSbtTestAdapter1 =
     "org.scala-js" %% "scalajs-sbt-test-adapter" % scalaJs1Version % Provided
   val scalaJsLogging1 = "org.scala-js" %% "scalajs-logging" % "1.1.1" % Provided
+  val semanticdb = "org.scalameta" % "semanticdb" % semanticdbVersion cross CrossVersion.full
 
   val xxHashLibrary = "net.jpountz.lz4" % "lz4" % xxHashVersion
   val zt = "org.zeroturnaround" % "zt-zip" % ztVersion
