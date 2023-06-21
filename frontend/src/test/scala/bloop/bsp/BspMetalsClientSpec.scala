@@ -486,12 +486,13 @@ class BspMetalsClientSpec(
           build.rawState.build.origin,
           expectedConfig
         )
+        val projectPath = project.baseDir
         assertScalacOptions(
           state,
           project,
           s"""-Xplugin-require:semanticdb
              |-P:semanticdb:failures:warning
-             |-P:semanticdb:sourceroot:$workspace
+             |-P:semanticdb:sourceroot:$projectPath
              |-P:semanticdb:synthetics:on
              |-Xplugin:$semanticdbJar
              |-Yrangepos
