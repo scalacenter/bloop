@@ -21,6 +21,7 @@ import bloop.logging.RecordingLogger
 import bloop.task.Task
 import bloop.util.TestProject
 import bloop.util.TestUtil
+import bloop.internal.build.BuildTestInfo
 
 object LocalBspMetalsClientSpec extends BspMetalsClientSpec(BspProtocol.Local)
 object TcpBspMetalsClientSpec extends BspMetalsClientSpec(BspProtocol.Tcp)
@@ -29,13 +30,10 @@ class BspMetalsClientSpec(
     override val protocol: BspProtocol
 ) extends BspBaseSuite {
   private val testedScalaVersion = BuildInfo.scalaVersion
-  require(
-    testedScalaVersion == "2.12.17",
-    "Updating scala version requires updating semanticDB plugin"
-  )
-  private val semanticdbVersion = "4.6.0"
+  private val semanticdbVersion = BuildTestInfo.semanticdbVersion
   private val javaSemanticdbVersion = "0.5.7"
-  private val semanticdbJar = "semanticdb-scalac_2.12.17-4.6.0.jar"
+
+  private val semanticdbJar = s"semanticdb-scalac_$testedScalaVersion-$semanticdbVersion.jar"
 
   private val expectedConfig =
     s"""|{
@@ -122,7 +120,7 @@ class BspMetalsClientSpec(
 
   test("initialize metals client in workspace with already enabled semanticdb") {
     TestUtil.withinWorkspace { workspace =>
-      val pluginPath = s"-Xplugin:path-to-plugin/semanticdb-scalac_2.12.17-4.6.0.jar"
+      val pluginPath = s"-Xplugin:path-to-plugin/$semanticdbJar"
       val defaultScalacOptions = List(
         "-P:semanticdb:failures:warning",
         s"-P:semanticdb:sourceroot:$workspace",
@@ -172,7 +170,7 @@ class BspMetalsClientSpec(
         "-P:semanticdb:failures:warning",
         "-P:semanticdb:synthetics:on",
         "-Xplugin-require:semanticdb",
-        s"-Xplugin:path-to-plugin/semanticdb-scalac_2.12.17-4.6.0.jar",
+        s"-Xplugin:path-to-plugin/$semanticdbJar",
         "-Yrangepos"
       )
       val `A` = TestProject(

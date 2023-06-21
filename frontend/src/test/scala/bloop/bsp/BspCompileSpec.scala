@@ -5,11 +5,13 @@ import java.nio.file.attribute.FileTime
 import java.time.Instant
 import java.util.concurrent.TimeUnit
 
+import scala.collection.JavaConverters._
 import scala.concurrent.duration.FiniteDuration
 
 import bloop.cli.BspProtocol
 import bloop.cli.ExitStatus
 import bloop.internal.build.BuildInfo
+import bloop.internal.build.BuildTestInfo
 import bloop.io.AbsolutePath
 import bloop.io.Environment.lineSeparator
 import bloop.io.{Paths => BloopPaths}
@@ -18,6 +20,8 @@ import bloop.task.Task
 import bloop.util.TestProject
 import bloop.util.TestUtil
 import scala.tools.nsc.Properties
+
+import coursierapi.Fetch
 
 object TcpBspCompileSpec extends BspCompileSpec(BspProtocol.Tcp)
 object LocalBspCompileSpec extends BspCompileSpec(BspProtocol.Local)
@@ -382,12 +386,27 @@ class BspCompileSpec(
       }
 
       val sourceDir = workspace.resolve("a").resolve("src")
-      val semanticdbJar =
-        os.proc("cs", "get", s"https://repo1.maven.org/maven2/org/scalameta/semanticdb-scalac_${BuildInfo.scalaVersion}/4.6.0/semanticdb-scalac_${BuildInfo.scalaVersion}-4.6.0.jar")
-          .call()
-          .out.trim()
+      import coursierapi._
+
+      val semanticdbJar = Fetch
+        .create()
+        .addDependencies(
+          Dependency.of(
+            "org.scalameta",
+            s"semanticdb-scalac_${BuildInfo.scalaVersion}",
+            BuildTestInfo.semanticdbVersion
+          )
+        )
+        .fetch()
+        .asScala
+        .collectFirst({
+          case file if file.getName().toString().contains("semanticdb-scalac") => file.toString()
+        })
+
+      assert(semanticdbJar.isDefined)
+
       val semanticdbOpts = List(
-        s"-Xplugin:$semanticdbJar",
+        s"-Xplugin:${semanticdbJar.get}",
         "-Yrangepos",
         s"-P:semanticdb:sourceroot:${sourceDir}"
       )
