@@ -360,6 +360,7 @@ object BuildImplementation {
 
           List(
             "sampleSourceGenerator" -> sampleSourceGenerator,
+            "semanticdbVersion" -> Dependencies.semanticdbVersion,
             junitTestJars,
             BuildKeys.bloopCoursierJson,
             (ThisBuild / Keys.baseDirectory)
