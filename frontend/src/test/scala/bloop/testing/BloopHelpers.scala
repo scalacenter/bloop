@@ -222,6 +222,10 @@ trait BloopHelpers {
       test(project, Nil, Nil)
     }
 
+    def testTask(project: TestProject): Task[TestState] = {
+      testTask(project, Nil, Nil)
+    }
+
     def testHandle(
         project: TestProject,
         only: List[String],
