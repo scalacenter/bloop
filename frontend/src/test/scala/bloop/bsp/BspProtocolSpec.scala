@@ -118,7 +118,9 @@ class BspProtocolSpec(
     object Sources {
       val `A.scala` =
         """/A.scala
-          |object A
+          |object A {
+          |  def main(args: Array[String]): Unit = ???
+          |}
           """.stripMargin
     }
 
@@ -129,6 +131,7 @@ class BspProtocolSpec(
     val jvmConfig = Some(Config.JvmConfig(None, jvmOptions))
     val runtimeJvmOptions = List("-DOTHER_OPTION=Y") ++ workingDirectoryOption
     val runtimeJvmConfig = Some(Config.JvmConfig(None, runtimeJvmOptions))
+    val runtimeMainClasses = Some(List(bsp.JvmMainClass("A", Nil)))
     val `A` = TestProject(
       workspace,
       "a",
@@ -140,8 +143,9 @@ class BspProtocolSpec(
     val projects = List(`A`)
 
     loadBspState(workspace, projects, logger) { state =>
+      val compileState = state.compile(`A`)
       val (stateA: ManagedBspTestState, environmentItems: List[JvmEnvironmentItem]) =
-        extractor(state, `A`)
+        extractor(compileState, `A`)
       assert(environmentItems.size == 1)
       assert(stateA.status == ExitStatus.Ok)
 
@@ -164,10 +168,11 @@ class BspProtocolSpec(
       )
 
       assert(environmentItem.jvmOptions == runtimeJvmOptions)
+      assert(environmentItem.mainClasses == runtimeMainClasses)
     }
   }
 
-  test("check the correct contents of jvm test environment") {
+  test("check-jvm-test-environment") {
     TestUtil.withinWorkspace { workspace =>
       testEnvironmentFetching(
         workspace,
@@ -180,7 +185,7 @@ class BspProtocolSpec(
     }
   }
 
-  test("check the correct contents of jvm run environment") {
+  test("check-jvm-main-environment") {
     TestUtil.withinWorkspace { workspace =>
       testEnvironmentFetching(
         workspace,

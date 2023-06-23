@@ -782,13 +782,15 @@ final class BloopBspServices(
             environmentVariables = state.commonOptions.env.toMap
             workingDirectory = project.workingDirectory.toString
             javaOptions <- project.runtimeJdkConfig.map(_.javaOptions.toList)
+            classNames = Tasks.findMainClasses(state, project)
           } yield {
             bsp.JvmEnvironmentItem(
               id,
               fullClasspath.toList,
               javaOptions,
               workingDirectory,
-              environmentVariables
+              environmentVariables,
+              Some(classNames.map(bsp.JvmMainClass(_, Nil)))
             )
           }).toList
           Task.now((state, Right(environmentEntries)))
