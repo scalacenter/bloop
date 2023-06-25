@@ -1,22 +1,41 @@
 package bloop
 
+import scala.sys.process
+import scala.util.control.NonFatal
+
 import bloop.Compiler.Result.Success
 import bloop.cli.ExitStatus
 import bloop.config.Config
 import bloop.internal.build.BuildTestInfo
 import bloop.io.AbsolutePath
 import bloop.logging.RecordingLogger
-import bloop.util.CrossPlatform
 import bloop.util.TestProject
 import bloop.util.TestUtil
 
 object SourceGeneratorSpec extends bloop.testing.BaseSuite {
 
-  private val generator: List[String] =
-    if (CrossPlatform.isWindows) List("python", BuildTestInfo.sampleSourceGenerator.getAbsolutePath)
-    else List(BuildTestInfo.sampleSourceGenerator.getAbsolutePath)
+  lazy val hasPython3 = hasPythonNamed("python3")
+  lazy val hasPython2 = hasPythonNamed("python")
 
-  test("compile a project having a source generator") {
+  private val generator: List[String] =
+    if (hasPython3) List("python3", BuildTestInfo.sampleSourceGenerator.getAbsolutePath)
+    else if (hasPython2) List("python", BuildTestInfo.sampleSourceGenerator.getAbsolutePath)
+    else Nil
+
+  private def hasPythonNamed(executable: String) = try {
+    process.Process(Seq(executable, "--version")).! == 0
+  } catch {
+    case NonFatal(_) => false
+  }
+
+  lazy val hasPython = hasPython2 || hasPython3
+
+  def testOnlyWithPython(name: String)(fun: => Any): Unit = {
+    if (hasPython) test(name)(fun)
+    else ignore(name, label = s"IGNORED: no python found on path")(fun)
+  }
+
+  testOnlyWithPython("compile a project having a source generator") {
     singleProjectWithSourceGenerator("glob:*.in" :: Nil) { (workspace, project, state) =>
       writeFile(project.srcFor("Foo.scala", exists = false), assertNInputs(n = 3))
       writeFile(workspace.resolve("file_one.in"), "file one")
@@ -30,7 +49,7 @@ object SourceGeneratorSpec extends bloop.testing.BaseSuite {
     }
   }
 
-  test("compile projects with dependent source generators") {
+  testOnlyWithPython("compile projects with dependent source generators") {
     TestUtil.withinWorkspace { workspace =>
       val sourcesA = List(
         """/main/scala/Foo.scala
@@ -91,7 +110,7 @@ object SourceGeneratorSpec extends bloop.testing.BaseSuite {
     }
   }
 
-  test("source generator failure yields compilation failure") {
+  testOnlyWithPython("source generator failure yields compilation failure") {
     TestUtil.withinWorkspace { workspace =>
       val logger = new RecordingLogger(ansiCodesSupported = false)
       val sourceGenerator = Config.SourceGenerator(
@@ -107,7 +126,7 @@ object SourceGeneratorSpec extends bloop.testing.BaseSuite {
     }
   }
 
-  test("source generator is run when there are no matching input files") {
+  testOnlyWithPython("source generator is run when there are no matching input files") {
     singleProjectWithSourceGenerator("glob:*.in" :: Nil) { (_, project, state) =>
       writeFile(project.srcFor("test.scala", exists = false), assertNInputs(n = 0))
       val compiledState = state.compile(project)
@@ -115,7 +134,7 @@ object SourceGeneratorSpec extends bloop.testing.BaseSuite {
     }
   }
 
-  test("source generator is re-run when an input file is removed") {
+  testOnlyWithPython("source generator is re-run when an input file is removed") {
     singleProjectWithSourceGenerator("glob:*.in" :: Nil) { (workspace, project, state) =>
       writeFile(workspace.resolve("hello.in"), "hello")
       writeFile(project.srcFor("test.scala", exists = false), assertNInputs(n = 1))
@@ -130,7 +149,7 @@ object SourceGeneratorSpec extends bloop.testing.BaseSuite {
     }
   }
 
-  test("source generator is re-run when an input file is added") {
+  testOnlyWithPython("source generator is re-run when an input file is added") {
     singleProjectWithSourceGenerator("glob:*.in" :: Nil) { (workspace, project, state) =>
       writeFile(workspace.resolve("hello.in"), "hello")
       writeFile(project.srcFor("test.scala", exists = false), assertNInputs(n = 1))
@@ -145,7 +164,7 @@ object SourceGeneratorSpec extends bloop.testing.BaseSuite {
     }
   }
 
-  test("source generator is re-run when an input file is modified") {
+  testOnlyWithPython("source generator is re-run when an input file is modified") {
     singleProjectWithSourceGenerator("glob:*.in" :: Nil) { (workspace, project, state) =>
       writeFile(workspace.resolve("hello.in"), "hello")
       writeFile(project.srcFor("test.scala", exists = false), assertNInputs(n = 1))
@@ -163,7 +182,7 @@ object SourceGeneratorSpec extends bloop.testing.BaseSuite {
     }
   }
 
-  test("source generator is re-run when an output file is modified") {
+  testOnlyWithPython("source generator is re-run when an output file is modified") {
     singleProjectWithSourceGenerator("glob:*.in" :: Nil) { (workspace, project, state) =>
       val generatorOutput = project.config.sourceGenerators
         .flatMap(_.headOption)
@@ -186,7 +205,7 @@ object SourceGeneratorSpec extends bloop.testing.BaseSuite {
     }
   }
 
-  test("source generator is re-run when an output file is deleted") {
+  testOnlyWithPython("source generator is re-run when an output file is deleted") {
     singleProjectWithSourceGenerator("glob:*.in" :: Nil) { (workspace, project, state) =>
       val generatorOutput = project.config.sourceGenerators
         .flatMap(_.headOption)
@@ -209,11 +228,8 @@ object SourceGeneratorSpec extends bloop.testing.BaseSuite {
     }
   }
 
-  test("source generator is not re-run when nothing has changed") {
+  testOnlyWithPython("source generator is not re-run when nothing has changed") {
     singleProjectWithSourceGenerator("glob:*.in" :: Nil) { (workspace, project, state) =>
-      val generatorOutput = project.config.sourceGenerators
-        .flatMap(_.headOption)
-        .map(p => AbsolutePath(p.outputDirectory))
       writeFile(workspace.resolve("hello.in"), "hello")
       writeFile(project.srcFor("test.scala", exists = false), assertNInputs(n = 1))
       val compiledState1 = state.compile(project)
