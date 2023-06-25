@@ -141,7 +141,6 @@ lazy val frontend: Project = project
       build.BuildKeys.bloopName,
       Keys.version,
       Keys.scalaVersion,
-      nailgunClientLocation,
       "zincVersion" -> Dependencies.zincVersion,
       "bspVersion" -> Dependencies.bspVersion,
       "nativeBridge04" -> (nativeBridge04Name + "_" + Keys.scalaBinaryVersion.value),
