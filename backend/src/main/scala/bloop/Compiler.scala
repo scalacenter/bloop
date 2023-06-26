@@ -57,7 +57,6 @@ case class CompileInputs(
     reporter: ZincReporter,
     logger: ObservedLogger[Logger],
     dependentResults: Map[File, PreviousResult],
-    cancelPromise: Promise[Unit],
     tracer: BraveTracer,
     ioScheduler: Scheduler,
     ioExecutor: Executor,
@@ -165,10 +164,7 @@ object CompileOutPaths {
 object Compiler {
   private implicit val filter: DebugFilter.Compilation.type = bloop.logging.DebugFilter.Compilation
   private val converter = PlainVirtualFileConverter.converter
-  private final class BloopProgress(
-      reporter: ZincReporter,
-      cancelPromise: Promise[Unit]
-  ) extends CompileProgress {
+  private final class BloopProgress(reporter: ZincReporter) extends CompileProgress {
     override def startUnit(phase: String, unitPath: String): Unit = {
       reporter.reportNextPhase(phase, new java.io.File(unitPath))
     }
@@ -179,12 +175,8 @@ object Compiler {
         prevPhase: String,
         nextPhase: String
     ): Boolean = {
-      val isNotCancelled = !cancelPromise.isCompleted
-      if (isNotCancelled) {
-        reporter.reportCompilationProgress(current.toLong, total.toLong)
-      }
-
-      isNotCancelled
+      reporter.reportCompilationProgress(current.toLong, total.toLong)
+      true
     }
   }
 
@@ -242,7 +234,6 @@ object Compiler {
     val logger = compileInputs.logger
     val tracer = compileInputs.tracer
     val compileOut = compileInputs.out
-    val cancelPromise = compileInputs.cancelPromise
     val externalClassesDir = compileOut.externalClassesDir.underlying
     val externalClassesDirPath = externalClassesDir.toString
     val readOnlyClassesDir = compileOut.internalReadOnlyClassesDir.underlying
@@ -333,7 +324,7 @@ object Compiler {
         IncOptions.create().withEnabled(!disableIncremental)
       }
 
-      val progress = Optional.of[CompileProgress](new BloopProgress(reporter, cancelPromise))
+      val progress = Optional.of[CompileProgress](new BloopProgress(reporter))
       Setup.create(lookup, skip, cacheFile, compilerCache, incOptions, reporter, progress, empty)
     }
 
@@ -353,15 +344,6 @@ object Compiler {
     import ch.epfl.scala.bsp
     import scala.util.{Success, Failure}
     val reporter = compileInputs.reporter
-
-    def cancel(): Unit = {
-      // Complete all pending promises when compilation is cancelled
-      logger.debug(s"Cancelling compilation from ${readOnlyClassesDirPath} to ${newClassesDirPath}")
-      compileInputs.cancelPromise.trySuccess(())
-
-      // Always report the compilation of a project no matter if it's completed
-      reporter.reportCancelledCompilation()
-    }
 
     val previousAnalysis = InterfaceUtil.toOption(compileInputs.previousResult.analysis())
     val previousSuccessfulProblems = previousProblemsFromSuccessfulCompilation(previousAnalysis)
@@ -386,14 +368,11 @@ object Compiler {
         logger,
         uniqueInputs,
         newFileManager,
-        cancelPromise,
         tracer,
         classpathOptions
       )
       .materialize
-      .doOnCancel(Task(cancel()))
       .map {
-        case Success(_) if cancelPromise.isCompleted => handleCancellation
         case Success(result) =>
           // Report end of compilation only after we have reported all warnings from previous runs
           val sourcesWithFatal = reporter.getSourceFilesWithFatalWarnings

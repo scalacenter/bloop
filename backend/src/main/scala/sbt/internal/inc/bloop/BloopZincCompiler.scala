@@ -56,7 +56,6 @@ object BloopZincCompiler {
       logger: ObservedLogger[_],
       uniqueInputs: UniqueCompileInputs,
       manager: ClassFileManager,
-      cancelPromise: Promise[Unit],
       tracer: BraveTracer,
       classpathOptions: ClasspathOptions
   ): Task[CompileResult] = {
@@ -90,7 +89,6 @@ object BloopZincCompiler {
         incrementalCompilerOptions,
         extraOptions,
         manager,
-        cancelPromise,
         tracer
       )(logger)
     }
@@ -117,7 +115,6 @@ object BloopZincCompiler {
       incrementalOptions: IncOptions,
       extra: List[(String, String)],
       manager: ClassFileManager,
-      cancelPromise: Promise[Unit],
       tracer: BraveTracer
   )(implicit logger: ObservedLogger[_]): Task[CompileResult] = {
     val prev = previousAnalysis match {
@@ -137,7 +134,7 @@ object BloopZincCompiler {
         val analysis = invalidateAnalysisFromSetup(config.currentSetup, previousSetup, setOfSources, prev, manager, logger)
 
         // Scala needs the explicit type signature to infer the function type arguments
-        val compile: (Set[VirtualFile], DependencyChanges, AnalysisCallback, ClassFileManager) => Task[Unit] = compiler.compile(_, _, _, _, cancelPromise)
+        val compile: (Set[VirtualFile], DependencyChanges, AnalysisCallback, ClassFileManager) => Task[Unit] = compiler.compile(_, _, _, _)
         BloopIncremental
           .compile(
             setOfSources,
