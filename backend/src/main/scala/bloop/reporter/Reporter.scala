@@ -101,7 +101,8 @@ abstract class Reporter(
           mappedPos,
           p.category,
           p.diagnosticCode(),
-          p.diagnosticRelatedInformation()
+          p.diagnosticRelatedInformation(),
+          p.actions()
         )
     }
   }

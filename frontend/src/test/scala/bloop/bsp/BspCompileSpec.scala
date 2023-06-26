@@ -164,19 +164,19 @@ class BspCompileSpec(
         val len = if (Properties.versionNumberString.startsWith("2.12.")) 7 else 20
         assertNoDiff(
           compiledState.lastDiagnostics(`A`),
-          s"""|#1: task start 1
-              |  -> Msg: Compiling a (1 Scala source)
-              |  -> Data kind: compile-task
-              |#1: a/src/Foo.scala
-              |  -> List(Diagnostic(Range(Position(0,0),Position(0,$len)),Some(Warning),Some(_),Some(_),Unused import,None,None,None))
-              |  -> reset = true
-              |  -> origin = test-origin
-              |#1: task finish 1
-              |  -> errors 0, warnings 1
-              |  -> origin = test-origin
-              |  -> Msg: Compiled 'a'
-              |  -> Data kind: compile-report
-              |""".stripMargin
+          """|#1: task start 1
+             |  -> Msg: Compiling a (1 Scala source)
+             |  -> Data kind: compile-task
+             |#1: a/src/Foo.scala
+             |  -> List(Diagnostic(Range(Position(0,0),Position(0,7)),Some(Warning),Some(_),Some(_),Unused import,None,None,Some({"actions":[]})))
+             |  -> reset = true
+             |  -> origin = test-origin
+             |#1: task finish 1
+             |  -> errors 0, warnings 1
+             |  -> origin = test-origin
+             |  -> Msg: Compiled 'a'
+             |  -> Data kind: compile-report
+             |""".stripMargin
         )
       }
     }
@@ -324,17 +324,17 @@ class BspCompileSpec(
         assertNoDiff(compiledState.lastDiagnostics(`B`), "")
         assertNoDiff(
           compiledState.lastDiagnostics(`A`),
-          s"""
-             |#2: task start 3
-             |  -> Msg: Compiling a (1 Scala source)
-             |  -> Data kind: compile-task
-             |#2: a/src/main/scala/Foo.scala
-             |  -> List(Diagnostic(Range(Position(2,28),Position(2,${28 + len})),Some(Error),Some(_),Some(_),type mismatch;  found   : Int  required: String,None,None,None))
-             |  -> reset = true
-             |#2: task finish 3
-             |  -> errors 1, warnings 0
-             |  -> Msg: Compiled 'a'
-             |  -> Data kind: compile-report """.stripMargin
+          """
+            |#2: task start 3
+            |  -> Msg: Compiling a (1 Scala source)
+            |  -> Data kind: compile-task
+            |#2: a/src/main/scala/Foo.scala
+            |  -> List(Diagnostic(Range(Position(2,28),Position(2,28)),Some(Error),Some(_),Some(_),type mismatch;  found   : Int  required: String,None,None,Some({"actions":[]})))
+            |  -> reset = true
+            |#2: task finish 3
+            |  -> errors 1, warnings 0
+            |  -> Msg: Compiled 'a'
+            |  -> Data kind: compile-report """.stripMargin
         )
 
         writeFile(`A`.srcFor("/main/scala/Foo.scala"), Sources.`Foo3.scala`)
@@ -570,7 +570,7 @@ class BspCompileSpec(
             |  -> Msg: Compiling a (1 Scala source)
             |  -> Data kind: compile-task
             |#2: a/src/A.scala
-            |  -> List(Diagnostic(Range(Position(2,6),Position(2,6)),Some(Error),Some(_),Some(_),x is already defined as value x,None,None,None))
+            |  -> List(Diagnostic(Range(Position(2,6),Position(2,6)),Some(Error),Some(_),Some(_),x is already defined as value x,None,None,Some({"actions":[]})))
             |  -> reset = true
             |#2: task finish 2
             |  -> errors 1, warnings 0
@@ -617,10 +617,10 @@ class BspCompileSpec(
             |  -> Msg: Compiling a (1 Scala source)
             |  -> Data kind: compile-task
             |#4: a/src/A.scala
-            |  -> List(Diagnostic(Range(Position(3,6),Position(3,6)),Some(Error),Some(_),Some(_),x is already defined as value x,None,None,None))
+            |  -> List(Diagnostic(Range(Position(3,6),Position(3,6)),Some(Error),Some(_),Some(_),x is already defined as value x,None,None,Some({"actions":[]})))
             |  -> reset = true
             |#4: a/src/A.scala
-            |  -> List(Diagnostic(Range(Position(0,0),Position(0,26)),Some(Warning),Some(_),Some(_),Unused import,None,None,None))
+            |  -> List(Diagnostic(Range(Position(0,0),Position(0,26)),Some(Warning),Some(_),Some(_),Unused import,None,None,Some({"actions":[]})))
             |  -> reset = false
             |#4: task finish 4
             |  -> errors 1, warnings 1
@@ -640,7 +640,7 @@ class BspCompileSpec(
             |  -> Msg: Compiling a (1 Scala source)
             |  -> Data kind: compile-task
             |#5: a/src/A.scala
-            |  -> List(Diagnostic(Range(Position(0,0),Position(0,26)),Some(Warning),Some(_),Some(_),Unused import,None,None,None))
+            |  -> List(Diagnostic(Range(Position(0,0),Position(0,26)),Some(Warning),Some(_),Some(_),Unused import,None,None,Some({"actions":[]})))
             |  -> reset = true
             |#5: task finish 5
             |  -> errors 0, warnings 1
@@ -676,10 +676,10 @@ class BspCompileSpec(
             |  -> Msg: Compiling a (1 Scala source)
             |  -> Data kind: compile-task
             |#6: a/src/A.scala
-            |  -> List(Diagnostic(Range(Position(0,0),Position(0,26)),Some(Warning),Some(_),Some(_),Unused import,None,None,None))
+            |  -> List(Diagnostic(Range(Position(0,0),Position(0,26)),Some(Warning),Some(_),Some(_),Unused import,None,None,Some({"actions":[]})))
             |  -> reset = true
             |#6: a/src/A.scala
-            |  -> List(Diagnostic(Range(Position(1,0),Position(3,1)),Some(Error),Some(_),Some(_),object creation impossible, since value y in trait Base of type Int is not defined,None,None,None))
+            |  -> List(Diagnostic(Range(Position(1,0),Position(3,1)),Some(Error),Some(_),Some(_),object creation impossible, since value y in trait Base of type Int is not defined,None,None,Some({"actions":[]})))
             |  -> reset = false
             |#6: task finish 6
             |  -> errors 1, warnings 1
@@ -700,7 +700,7 @@ class BspCompileSpec(
             |  -> Msg: Compiling a (1 Scala source)
             |  -> Data kind: compile-task
             |#7: a/src/A.scala
-            |  -> List(Diagnostic(Range(Position(0,0),Position(0,26)),Some(Warning),Some(_),Some(_),Unused import,None,None,None))
+            |  -> List(Diagnostic(Range(Position(0,0),Position(0,26)),Some(Warning),Some(_),Some(_),Unused import,None,None,Some({"actions":[]})))
             |  -> reset = true
             |#7: task finish 7
             |  -> errors 0, warnings 0
@@ -759,7 +759,7 @@ class BspCompileSpec(
             |  -> Msg: Start no-op compilation for a
             |  -> Data kind: compile-task
             |#1: a/src/main/scala/App.scala
-            |  -> List(Diagnostic(Range(Position(2,4),Position(2,4)),Some(Warning),Some(_),Some(_),a pure expression does nothing in statement position,None,None,None))
+            |  -> List(Diagnostic(Range(Position(2,4),Position(2,4)),Some(Warning),Some(_),Some(_),a pure expression does nothing in statement position,None,None,Some({"actions":[]})))
             |  -> reset = true
             |#1: task finish 1
             |  -> errors 0, warnings 0
@@ -820,7 +820,7 @@ class BspCompileSpec(
             |  -> Msg: Compiling a (1 Scala source)
             |  -> Data kind: compile-task
             |#1: a/src/main/scala/App.scala
-            |  -> List(Diagnostic(Range(Position(2,4),Position(2,4)),Some(Warning),Some(_),Some(_),a pure expression does nothing in statement position,None,None,None))
+            |  -> List(Diagnostic(Range(Position(2,4),Position(2,4)),Some(Warning),Some(_),Some(_),a pure expression does nothing in statement position,None,None,Some({"actions":[]})))
             |  -> reset = true
             |#1: task finish 1
             |  -> errors 0, warnings 0
@@ -925,7 +925,7 @@ class BspCompileSpec(
             |  -> Msg: Compiling a (1 Scala source)
             |  -> Data kind: compile-task
             |#1: a/src/main/scala/Foo.scala
-            |  -> List(Diagnostic(Range(Position(1,28),Position(1,28)),Some(Error),Some(_),Some(_),type mismatch;  found   : Int  required: String,None,None,None))
+            |  -> List(Diagnostic(Range(Position(1,28),Position(1,28)),Some(Error),Some(_),Some(_),type mismatch;  found   : Int  required: String,None,None,Some({"actions":[]})))
             |  -> reset = true
             |#1: task finish 1
             |  -> errors 1, warnings 0
@@ -957,7 +957,7 @@ class BspCompileSpec(
             |  -> Msg: Compiling a (1 Scala source)
             |  -> Data kind: compile-task
             |#2: a/src/main/scala/Bar.scala
-            |  -> List(Diagnostic(Range(Position(1,28),Position(1,28)),Some(Error),Some(_),Some(_),type mismatch;  found   : Int  required: String,None,None,None))
+            |  -> List(Diagnostic(Range(Position(1,28),Position(1,28)),Some(Error),Some(_),Some(_),type mismatch;  found   : Int  required: String,None,None,Some({"actions":[]})))
             |  -> reset = true
             |#2: a/src/main/scala/Foo.scala
             |  -> List()
@@ -1056,7 +1056,7 @@ class BspCompileSpec(
              |  -> Msg: Compiling a (3 Scala sources)
              |  -> Data kind: compile-task
              |#1: a/src/Foo.scala
-             |  -> List(Diagnostic(Range(Position(0,0),Position(0,7)),Some(Error),Some(_),Some(_),Unused import,None,None,None))
+             |  -> List(Diagnostic(Range(Position(0,0),Position(0,7)),Some(Error),Some(_),Some(_),Unused import,None,None,Some({"actions":[]})))
              |  -> reset = true
              |#1: task finish 1
              |  -> errors 1, warnings 0
@@ -1119,10 +1119,10 @@ class BspCompileSpec(
              |  -> Msg: Compiling a (1 Scala source)
              |  -> Data kind: compile-task
              |#3: a/src/Foo.scala
-             |  -> List(Diagnostic(Range(Position(0,0),Position(0,7)),Some(Error),Some(_),Some(_),Unused import,None,None,None))
+             |  -> List(Diagnostic(Range(Position(0,0),Position(0,7)),Some(Error),Some(_),Some(_),Unused import,None,None,Some({"actions":[]})))
              |  -> reset = true
              |#3: a/src/Foo.scala
-             |  -> List(Diagnostic(Range(Position(1,0),Position(1,7)),Some(Error),Some(_),Some(_),Unused import,None,None,None))
+             |  -> List(Diagnostic(Range(Position(1,0),Position(1,7)),Some(Error),Some(_),Some(_),Unused import,None,None,Some({"actions":[]})))
              |  -> reset = false
              |#3: task finish 5
              |  -> errors 2, warnings 0
@@ -1137,7 +1137,7 @@ class BspCompileSpec(
              |  -> Msg: Compiling b (1 Scala source)
              |  -> Data kind: compile-task
              |#3: b/src/Buzz.scala
-             |  -> List(Diagnostic(Range(Position(0,0),Position(0,7)),Some(Error),Some(_),Some(_),Unused import,None,None,None))
+             |  -> List(Diagnostic(Range(Position(0,0),Position(0,7)),Some(Error),Some(_),Some(_),Unused import,None,None,Some({"actions":[]})))
              |  -> reset = true
              |#3: task finish 6
              |  -> errors 1, warnings 0
