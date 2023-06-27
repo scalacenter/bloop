@@ -484,7 +484,8 @@ object Project {
       if (hasProcessorPath(options)) {
         val (before, after) = options.splitAt(options.indexOf("-processorpath") + 1)
         if (!after.head.contains(pluginPath)) {
-          before ::: s"${after.head}:$pluginPath" :: after.tail
+          val pluginProcessorpath = Seq(after.head, pluginPath).mkString(java.io.File.pathSeparator)
+          before ::: pluginProcessorpath :: after.tail
         } else options
       } else options
 
