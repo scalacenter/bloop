@@ -507,17 +507,17 @@ class BspMetalsClientSpec(
           javacOptions(javacOptions.indexOf("-processorpath") + 1).contains(javaSemanticDBJar)
         )
 
-        val compiledState = build.state.compile(project).toTestState
+        val compiledState = build.state.compile(project)
         assert(compiledState.status == ExitStatus.Ok)
 
         assertSemanticdbFileForProject(
           "/main/scala/example/Main.scala",
-          compiledState,
+          compiledState.toTestState,
           projectName
         )
         assertSemanticdbFileForProject(
           "/main/java/example/FoobarValueAnalyzer.java",
-          compiledState,
+          compiledState.toTestState,
           projectName
         )
       }
