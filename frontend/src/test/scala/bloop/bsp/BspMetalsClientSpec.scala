@@ -466,6 +466,8 @@ class BspMetalsClientSpec(
       val logger = new RecordingLogger(ansiCodesSupported = false)
 
       val projectName = "scala-java-processorpath"
+      val localScalaVersion = "2.12.18"
+      val localSemanticdbJar = s"semanticdb-scalac_$localScalaVersion-$semanticdbVersion.jar"
 
       val extraParams = BloopExtraBuildParams(
         ownsBuildFiles = None,
@@ -492,7 +494,7 @@ class BspMetalsClientSpec(
              |-P:semanticdb:failures:warning
              |-P:semanticdb:sourceroot:$projectPath
              |-P:semanticdb:synthetics:on
-             |-Xplugin:$semanticdbJar
+             |-Xplugin:$localSemanticdbJar
              |-Yrangepos
              |""".stripMargin
         )
