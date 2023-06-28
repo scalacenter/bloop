@@ -1,5 +1,5 @@
 addSbtPlugin("org.portable-scala" % "sbt-scalajs-crossproject" % "1.3.1")
-addSbtPlugin("org.scala-js" % "sbt-scalajs" % "1.13.1")
+addSbtPlugin("org.scala-js" % "sbt-scalajs" % "1.13.2")
 addSbtPlugin("com.github.sbt" % "sbt-dynver" % "5.0.1")
 addSbtPlugin("ohnosequences" % "sbt-github-release" % "0.7.0")
 addSbtPlugin("com.scalawilliam.esbeetee" % "sbt-vspp" % "0.4.11")
@@ -19,7 +19,7 @@ updateOptions := updateOptions.value.withLatestSnapshots(false)
 libraryDependencies ++= List(
   "org.eclipse.jgit" % "org.eclipse.jgit" % "6.6.0.202305301015-r",
   "org.eclipse.jgit" % "org.eclipse.jgit.ssh.jsch" % "6.6.0.202305301015-r",
-  "commons-codec" % "commons-codec" % "1.15",
+  "commons-codec" % "commons-codec" % "1.16.0",
   ("ch.epfl.scala" % "jarjar" % "1.7.2-patched")
     .exclude("org.apache.ant", "ant")
 )

@@ -62,7 +62,6 @@ object BuildKeys {
     Def.taskKey[Seq[File]]("Return full classpath without forcing compilation")
 
   val bloopName = Def.settingKey[String]("The name to use in build info generated code")
-  val nailgunClientLocation = Def.settingKey[sbt.File]("Where to find the python nailgun client")
   val updateHomebrewFormula = Def.taskKey[Unit]("Update Homebrew formula")
   val updateScoopFormula = Def.taskKey[Unit]("Update Scoop formula")
   val updateArchPackage = Def.taskKey[Unit]("Update AUR package")
@@ -88,8 +87,7 @@ object BuildKeys {
     Keys.libraryDependencies ++= List(
       Dependencies.junit % Test,
       Dependencies.difflib % Test
-    ),
-    nailgunClientLocation := buildBase.value / "nailgun" / "pynailgun" / "ng.py"
+    )
   )
 
   val releaseSettings = Seq(
@@ -360,6 +358,7 @@ object BuildImplementation {
 
           List(
             "sampleSourceGenerator" -> sampleSourceGenerator,
+            "semanticdbVersion" -> Dependencies.semanticdbVersion,
             junitTestJars,
             BuildKeys.bloopCoursierJson,
             (ThisBuild / Keys.baseDirectory)

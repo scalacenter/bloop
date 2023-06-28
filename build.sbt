@@ -141,7 +141,6 @@ lazy val frontend: Project = project
       build.BuildKeys.bloopName,
       Keys.version,
       Keys.scalaVersion,
-      nailgunClientLocation,
       "zincVersion" -> Dependencies.zincVersion,
       "bspVersion" -> Dependencies.bspVersion,
       "nativeBridge04" -> (nativeBridge04Name + "_" + Keys.scalaBinaryVersion.value),
@@ -163,6 +162,8 @@ lazy val frontend: Project = project
       Dependencies.scalaDebugAdapter,
       Dependencies.bloopConfig
     ),
+    // needed for tests and to be automatically updated
+    Test / libraryDependencies += Dependencies.semanticdb intransitive (),
     dependencyOverrides += Dependencies.shapeless,
     scalafixSettings,
     testSettings,
