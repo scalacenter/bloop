@@ -211,7 +211,10 @@ final class BloopAnalysisCallback(
         externalSourceDependency(sourceClassName, targetBinaryClassName, api, context)
       case None =>
         // dependency is some other binary on the classpath
-        externalBinaryDependency(classFile, onBinaryName, sourceFile)
+        val name = classFile.toString()
+        // avoid binary deps which are not one of those
+        if (name.endsWith(".class") || name.endsWith(".jar"))
+          externalBinaryDependency(classFile, onBinaryName, sourceFile)
     }
   }
 
