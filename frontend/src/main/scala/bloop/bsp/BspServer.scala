@@ -6,7 +6,6 @@ import java.nio.file.NoSuchFileException
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 
-import scala.concurrent.Future
 import scala.concurrent.Promise
 import scala.util.control.NonFatal
 
@@ -22,15 +21,11 @@ import bloop.logging.DebugFilter
 import bloop.task.Task
 
 import jsonrpc4s._
-import monix.execution.Ack
-import monix.execution.Cancelable
 import monix.execution.CancelablePromise
 import monix.execution.Scheduler
 import monix.execution.atomic.Atomic
 import monix.reactive.Observable
-import monix.reactive.Observer
 import monix.reactive.OverflowStrategy
-import monix.reactive.observers.Subscriber
 import monix.reactive.subjects.BehaviorSubject
 
 object BspServer {
@@ -216,34 +211,4 @@ object BspServer {
     }
   }
 
-  final class PumpOperator[A](pumpTarget: Observer.Sync[A], runningFuture: Cancelable)
-      extends Observable.Operator[A, A] {
-    def apply(out: Subscriber[A]): Subscriber[A] =
-      new Subscriber[A] { self =>
-        implicit val scheduler = out.scheduler
-        private[this] val isActive = Atomic(true)
-
-        def onNext(elem: A): Future[Ack] =
-          out.onNext(elem).syncOnContinue {
-            // Forward and ignore ack; safe because observer is sync
-            pumpTarget.onNext(elem)
-            ()
-          }
-
-        def onComplete(): Unit = {
-          if (isActive.getAndSet(false))
-            out.onComplete()
-        }
-
-        def onError(ex: Throwable): Unit = {
-          if (isActive.getAndSet(false)) {
-            // Complete instead of forwarding error so that completeL finishes
-            out.onComplete()
-            runningFuture.cancel()
-          } else {
-            scheduler.reportFailure(ex)
-          }
-        }
-      }
-  }
 }
