@@ -16,17 +16,17 @@ object Dependencies {
   val nailgunCommit = "a2520c1e"
 
   // Keep in sync in BloopComponentCompiler
-  val zincVersion = "1.8.1"
+  val zincVersion = "1.9.0"
 
   val bspVersion = "2.1.0-M5"
 
   val scalazVersion = "7.3.7"
-  val lmVersion = "1.9.0"
+  val lmVersion = "1.9.1"
   val configDirsVersion = "26"
   val caseAppVersion = "2.0.6"
   val sourcecodeVersion = "0.3.0"
   val sbtTestInterfaceVersion = "1.0"
-  val sbtTestAgentVersion = "1.8.3"
+  val sbtTestAgentVersion = "1.9.0"
   val junitVersion = "0.13.3"
   val directoryWatcherVersion = "0.8.0+6-f651bd93"
   val monixVersion = "3.2.0"
