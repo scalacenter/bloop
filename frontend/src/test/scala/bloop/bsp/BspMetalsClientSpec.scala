@@ -92,32 +92,6 @@ class BspMetalsClientSpec(
     }
   }
 
-  test("do not initialize metals client and save settings with unsupported scala version") {
-    TestUtil.withinWorkspace { workspace =>
-      val `A` = TestProject(workspace, "A", Nil, scalaVersion = Some("2.12.4"))
-      val projects = List(`A`)
-      val configDir = TestProject.populateWorkspace(workspace, projects)
-      val logger = new RecordingLogger(ansiCodesSupported = false)
-      val extraParams = BloopExtraBuildParams(
-        ownsBuildFiles = None,
-        clientClassesRootDir = None,
-        semanticdbVersion = Some(semanticdbVersion), // Doesn't support 2.12.4
-        supportedScalaVersions = Some(List(testedScalaVersion)),
-        javaSemanticdbVersion = Some(javaSemanticdbVersion)
-      )
-
-      loadBspState(workspace, projects, logger, "Metals", bloopExtraParams = extraParams) { state =>
-        assertNoDiffInSettingsFile(
-          configDir,
-          expectedConfig
-        )
-        // Expect only range positions to be added, semanticdb is not supported
-        assertScalacOptions(state, `A`, "-Yrangepos")
-        assertNoDiff(logger.warnings.mkString(lineSeparator), "")
-      }
-    }
-  }
-
   test("initialize metals client in workspace with already enabled semanticdb") {
     TestUtil.withinWorkspace { workspace =>
       val pluginPath = s"-Xplugin:path-to-plugin/$semanticdbJar"
@@ -320,6 +294,40 @@ class BspMetalsClientSpec(
 
       val `A` =
         TestProject(workspace, "A", dummyFooScalaAndBarJavaSources, javacOptions = JavacOptions.A)
+      val projects = List(`A`)
+      val configDir = TestProject.populateWorkspace(workspace, projects)
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      WorkspaceSettings.writeToFile(
+        configDir,
+        WorkspaceSettings
+          .fromSemanticdbSettings("0.5.7", semanticdbVersion, List(testedScalaVersion)),
+        logger
+      )
+      loadBspState(workspace, projects, logger) { state =>
+        val compiledState = state.compile(`A`).toTestState
+        assert(compiledState.status == ExitStatus.Ok)
+        assertSemanticdbFileFor("Foo.scala", compiledState)
+        assertSemanticdbFileFor("Bar.java", compiledState)
+      }
+    }
+  }
+
+  test("compile with old semanticDB") {
+    TestUtil.withinWorkspace { workspace =>
+      object JavacOptions {
+        // This will cause to use the forked javac compiler, since addong any `-J` property causes it
+        val A = List("-J-Xms48m")
+      }
+
+      val `A` =
+        TestProject(
+          workspace,
+          "A",
+          dummyFooScalaAndBarJavaSources,
+          javacOptions = JavacOptions.A,
+          // this Scala version is not supported in the newest semanticdb
+          scalaVersion = Some("2.12.8")
+        )
       val projects = List(`A`)
       val configDir = TestProject.populateWorkspace(workspace, projects)
       val logger = new RecordingLogger(ansiCodesSupported = false)
