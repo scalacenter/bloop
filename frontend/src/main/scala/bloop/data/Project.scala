@@ -474,11 +474,34 @@ object Project {
       options ++ ysemanticdb ++ sourceRoot
     }
 
-    def enableJavaSemanticdbOptions(options: List[String]): List[String] = {
-      if (hasJavaSemanticDBEnabledInCompilerOptions(options)) options
+    def hasProcessorPath(options: List[String]): Boolean =
+      options.contains("-processorpath")
+
+    def includeSemanticdbInProcessorPath(
+        options: List[String],
+        pluginPath: AbsolutePath
+    ): List[String] = {
+      if (hasProcessorPath(options)) {
+        val (before, after) = options.splitAt(options.indexOf("-processorpath") + 1)
+        if (!after.head.contains(pluginPath)) {
+          val pluginProcessorpath = Seq(after.head, pluginPath).mkString(java.io.File.pathSeparator)
+          before ::: pluginProcessorpath :: after.tail
+        } else options
+      } else options
+
+    }
+
+    def enableJavaSemanticdbOptions(
+        options: List[String],
+        pluginPath: AbsolutePath
+    ): List[String] = {
+      val pluginOptions = includeSemanticdbInProcessorPath(options, pluginPath)
+
+      if (hasJavaSemanticDBEnabledInCompilerOptions(pluginOptions))
+        pluginOptions
       else {
         val semanticdbOptions =
-          s"-Xplugin:semanticdb -sourceroot:${workspaceDir} -targetroot:javac-classes-directory" :: options
+          s"-Xplugin:semanticdb -sourceroot:${workspaceDir} -targetroot:javac-classes-directory" :: pluginOptions
         if (project.javaVersionAtLeast("17", logger))
           List(
             "-J--add-exports",
@@ -531,7 +554,7 @@ object Project {
       case None =>
         scalaProjectWithRangePositions
       case Some(pluginPath) =>
-        val javacOptionsWithSemanticDB = enableJavaSemanticdbOptions(javacOptions)
+        val javacOptionsWithSemanticDB = enableJavaSemanticdbOptions(javacOptions, pluginPath)
         val classpathWithSemanticDB =
           enableJavaSemanticdbClasspath(pluginPath, scalaProjectWithRangePositions.rawClasspath)
         scalaProjectWithRangePositions.copy(
