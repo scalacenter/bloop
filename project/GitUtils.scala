@@ -78,9 +78,8 @@ object GitUtils {
   def authSshKey(keyFile: File = getEnvSshKey): GitAuth = {
     import _root_.com.jcraft.jsch.Session
     import _root_.org.eclipse.jgit.api.TransportConfigCallback
-    import _root_.org.eclipse.jgit.transport.{Transport, SshTransport}
-    import _root_.org.eclipse.jgit.transport.ssh.jsch.JschConfigSessionFactory
-    import _root_.org.eclipse.jgit.transport.ssh.jsch.OpenSshConfig.Host
+    import _root_.org.eclipse.jgit.transport.{JschConfigSessionFactory, Transport, SshTransport}
+    import _root_.org.eclipse.jgit.transport.OpenSshConfig.Host
     import _root_.org.eclipse.jgit.util.FS
 
     val sessionFactory = new JschConfigSessionFactory {

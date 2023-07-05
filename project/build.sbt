@@ -17,8 +17,10 @@ addSbtPlugin("ch.epfl.scala" % "sbt-scalafix" % "0.11.0")
 
 updateOptions := updateOptions.value.withLatestSnapshots(false)
 libraryDependencies ++= List(
-  "org.eclipse.jgit" % "org.eclipse.jgit" % "6.6.0.202305301015-r",
-  "org.eclipse.jgit" % "org.eclipse.jgit.ssh.jsch" % "6.6.0.202305301015-r",
+  // set to jgit 5, because 6 is compatible only with java 11,
+  // context https://github.com/scalacenter/bloop/pull/2101
+  "org.eclipse.jgit" % "org.eclipse.jgit" % "5.13.2.202306221912-r",
+  "org.eclipse.jgit" % "org.eclipse.jgit.ssh.jsch" % "5.13.2.202306221912-r",
   "commons-codec" % "commons-codec" % "1.16.0",
   ("ch.epfl.scala" % "jarjar" % "1.7.2-patched")
     .exclude("org.apache.ant", "ant")
