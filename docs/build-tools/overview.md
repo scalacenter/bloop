@@ -14,7 +14,6 @@ Bloop supports several build tools with varying degree of functionality.
 | Mill       |         ✅          |                                   |
 | Bazel      |         ❌          |                                   |
 | Pants      | 🚧 work-in-progress |                                   |
-| Fury       |         ✅          |                                   |
 
 ## Build Export
 
@@ -26,7 +25,7 @@ all you need to get started with Bloop.
 Exporting your build is supported by a large array of popular Scala and Java
 build tools. However, it's a tedious process that users must remember to run
 whenever their build changes (client integrations such as
-[Metals](https://metals.rocks) can export the build automatically, but that's
+[Metals](https://scalameta.org/metals/) can export the build automatically, but that's
 usually not the case if you're interfacing directly with the bloop CLI).
 
 ## Built-in compile, test and run
