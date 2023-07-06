@@ -53,7 +53,15 @@ final class BspServerLogger private (
 
   override def ansiCodesSupported: Boolean = ansiSupported || underlying.ansiCodesSupported()
 
-  override private[logging] def printDebug(msg: String): Unit = underlying.printDebug(msg)
+  override private[logging] def printDebug(msg: String): Unit = {
+    if (isVerbose)
+      client.notify(
+        Build.logMessage,
+        bsp.LogMessageParams(bsp.MessageType.Log, None, originId, msg)
+      )
+    underlying.printDebug(msg)
+
+  }
   override def debug(msg: String)(implicit ctx: DebugFilter): Unit =
     if (debugFilter.isEnabledFor(ctx)) printDebug(msg)
 
