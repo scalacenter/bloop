@@ -454,10 +454,10 @@ object Project {
       // engine so that semanticdb files are replicated in those directories
       val hasSemanticDB = hasScalaSemanticDBEnabledInCompilerOptions(options)
       val pluginOption = if (hasSemanticDB) Nil else List(s"-Xplugin:$pluginPath")
-      val baseOptions = s"-P:semanticdb:sourceroot:$workspaceDir" :: options.filterNot(
-        isScalaSemanticdbSourceRoot
+      val baseOptions = s"-P:semanticdb:sourceroot:$workspaceDir" :: options.filterNot(opt =>
+        isScalaSemanticdbSourceRoot(opt) || baseSemanticdbOptions.contains(opt)
       )
-      (baseOptions ++ baseSemanticdbOptions ++ pluginOption).distinct
+      baseOptions ++ baseSemanticdbOptions ++ pluginOption
     }
 
     def enableDottySemanticdb(options: List[String]) = {
