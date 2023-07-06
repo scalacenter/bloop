@@ -167,7 +167,14 @@ class BspMetalsClientSpec(
         )
 
         val scalacOptions = state.scalaOptions(`A`)._2.items.head.options
-        assert(scalacOptions == correctSourceRootOption :: defaultScalacOptions.drop(1))
+        val expectedScalacOptions = correctSourceRootOption :: List(
+          "-Xplugin:path-to-plugin/semanticdb-scalac_2.12.18-4.7.8.jar",
+          "-Yrangepos",
+          "-P:semanticdb:failures:warning",
+          "-P:semanticdb:synthetics:on",
+          "-Xplugin-require:semanticdb"
+        )
+        assert(scalacOptions == expectedScalacOptions)
       }
     }
   }
@@ -450,6 +457,33 @@ class BspMetalsClientSpec(
   test("save settings and compile with semanticDB") {
     TestUtil.withinWorkspace { workspace =>
       val `A` = TestProject(workspace, "A", dummyFooScalaAndBarJavaSources)
+      val projects = List(`A`)
+      TestProject.populateWorkspace(workspace, projects)
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val extraParams = BloopExtraBuildParams(
+        ownsBuildFiles = None,
+        clientClassesRootDir = None,
+        semanticdbVersion = Some(semanticdbVersion),
+        supportedScalaVersions = Some(List(testedScalaVersion)),
+        javaSemanticdbVersion = Some(javaSemanticdbVersion)
+      )
+      loadBspState(workspace, projects, logger, "Metals", bloopExtraParams = extraParams) { state =>
+        val compiledState = state.compile(`A`).toTestState
+        assert(compiledState.status == ExitStatus.Ok)
+        assertSemanticdbFileFor("Foo.scala", compiledState)
+        assertSemanticdbFileFor("Bar.java", compiledState)
+      }
+    }
+  }
+
+  test("save-compile-semanticDB-many-options") {
+    TestUtil.withinWorkspace { workspace =>
+      val `A` = TestProject(
+        workspace,
+        "A",
+        dummyFooScalaAndBarJavaSources,
+        scalacOptions = List("-release", "8", "-Ybackend-parallelism", "8")
+      )
       val projects = List(`A`)
       TestProject.populateWorkspace(workspace, projects)
       val logger = new RecordingLogger(ansiCodesSupported = false)
