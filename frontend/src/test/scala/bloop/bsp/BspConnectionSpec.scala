@@ -90,7 +90,9 @@ class BspConnectionSpec(
   def checkConnectionIsInitialized(logger: RecordingLogger): Unit = {
     val contentLogs = logger.debugs.flatMap(_.split("\n")).filter(_.startsWith("  --> content:"))
     // Filter out the initialize request that contains platform-specific details
-    val allButInitializeRequest = contentLogs.filterNot(_.contains("""build/initialize""""))
+    val allButInitializeRequest = contentLogs.filterNot(msg =>
+      msg.contains("""build/initialize"""") || msg.contains("logMessage")
+    )
     assertNoDiff(
       allButInitializeRequest.mkString(lineSeparator),
       s"""|

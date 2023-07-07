@@ -36,7 +36,9 @@ class BspCompileSpec(
         assertExitStatus(state, ExitStatus.Ok)
       }
     }
-    val contentLogs = logger.debugs.flatMap(_.split("\n")).filter(_.startsWith("  --> content:"))
+    val contentLogs = logger.debugs
+      .flatMap(_.split("\n"))
+      .filter(msg => msg.startsWith("  --> content:") && !msg.contains("logMessage"))
     val allButInitializeRequest = contentLogs.filterNot(_.contains("""build/initialize""""))
     // Filter out the initialize request that contains platform-specific details
     assertNoDiff(
