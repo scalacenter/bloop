@@ -65,7 +65,20 @@ final class BspServerLogger private (
   override def debug(msg: String)(implicit ctx: DebugFilter): Unit =
     if (debugFilter.isEnabledFor(ctx)) printDebug(msg)
 
-  override def trace(t: Throwable): Unit = underlying.trace(t)
+  override def trace(t: Throwable): Unit = {
+    if (isVerbose) {
+      def msg(t: Throwable): String = {
+        val base = t.getMessage() + "\n" + t.getStackTrace().mkString("\n\t")
+        if (t.getCause() == null) base
+        else base + "\nCaused by: " + msg(t.getCause())
+      }
+      client.notify(
+        Build.logMessage,
+        bsp.LogMessageParams(bsp.MessageType.Log, None, originId, msg(t))
+      )
+    }
+    underlying.trace(t)
+  }
 
   override def error(msg: String): Unit = {
     client.notify(
