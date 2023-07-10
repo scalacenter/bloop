@@ -124,6 +124,7 @@ final class NodeJSEnv(logger: Logger, config: NodeJSConfig) extends JSEnv {
   }
 
   private def internalStart(input: Seq[Input], runConfig: RunConfig): JSRun = {
+    runConfig.logger.debug("Using input file: " + (input.mkString(",")))
     NodeJSEnv.internalStart(logger, config, env)(NodeJSEnv.write(input), runConfig)
   }
 
@@ -290,7 +291,10 @@ object NodeJSEnv {
       import scala.concurrent.ExecutionContext.Implicits.global
 
       private val isClosed = AtomicBoolean(false)
-      override def future: Future[Unit] = cancellable.map(_ => ())
+      override def future: Future[Unit] = cancellable.map { results =>
+        logger.debug(s"Finished with results: ${results}")
+        ()
+      }
       override def close(): Unit = {
         // Make sure we only destroy the process once, the test adapter can call this several times!
         if (!isClosed.getAndSet(true)) {
