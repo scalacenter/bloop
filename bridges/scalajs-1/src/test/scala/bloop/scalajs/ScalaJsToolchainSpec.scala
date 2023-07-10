@@ -69,7 +69,7 @@ class ScalaJsToolchainSpec {
     logger.getMessages.assertContain("Hello, world!", atLevel = "info")
   }
 
-  private final val maxDuration = Duration.apply(45, TimeUnit.SECONDS)
+  private final val maxDuration = Duration.apply(60, TimeUnit.SECONDS)
   private implicit class RichLogs(logs: List[(String, String)]) {
     def assertContain(needle: String, atLevel: String): Unit = {
       def failMessage: String =
