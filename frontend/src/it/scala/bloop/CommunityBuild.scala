@@ -26,8 +26,8 @@ import bloop.io.AbsolutePath
 import bloop.logging.{BloopLogger, Logger, NoopLogger}
 import bloop.task.Task
 import bloop.engine.tasks.compilation.CompileGatekeeper
-import sbt.internal.inc.BloopComponentCompiler
 import scala.util.control.NonFatal
+import xsbti.compile.ZincBridgeProvider
 
 object CommunityBuild
     extends CommunityBuild(
@@ -84,7 +84,9 @@ abstract class CommunityBuild(val buildpressHomeDir: AbsolutePath) {
   val compilerCache: CompilerCache = {
     import bloop.io.Paths
     val provider =
-      BloopComponentCompiler.getComponentProvider(Paths.getCacheDirectory("components"))
+      ZincBridgeProvider.getDefaultComponentProvider(
+        Paths.getCacheDirectory("components").createDirectories.toFile
+      )
     new CompilerCache(provider, NoopLogger)
   }
 

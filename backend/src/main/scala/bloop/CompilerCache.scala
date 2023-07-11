@@ -4,6 +4,7 @@ import java.io.File
 import java.io.IOException
 import java.io.PrintWriter
 import java.lang.Iterable
+import java.net.URLClassLoader
 import java.util.concurrent.ConcurrentHashMap
 import javax.tools.FileObject
 import javax.tools.ForwardingJavaFileManager
@@ -21,26 +22,32 @@ import bloop.io.Paths
 import bloop.logging.Logger
 import bloop.util.JavaRuntime
 
+import _root_.sbt.internal.inc.ZincComponentManager
 import sbt.internal.inc.AnalyzingCompiler
-import sbt.internal.inc.BloopComponentCompiler
-import sbt.internal.inc.BloopZincLibraryManagement
 import sbt.internal.inc.CompilerArguments
 import sbt.internal.inc.PlainVirtualFileConverter
+import sbt.internal.inc.ZincLmUtil
 import sbt.internal.inc.ZincUtil
+import sbt.internal.inc.classpath.ClassLoaderCache
 import sbt.internal.inc.javac.DiagnosticsReporter
 import sbt.internal.inc.javac.JavaTools
 import sbt.internal.inc.javac.Javadoc
 import sbt.internal.inc.javac.WriteReportingJavaFileObject
 import sbt.internal.util.LoggerWriter
+import sbt.librarymanagement.Configurations
+import sbt.librarymanagement.ModuleID
 import xsbti.ComponentProvider
 import xsbti.VirtualFile
 import xsbti.compile.ClassFileManager
+import xsbti.compile.ClasspathOptionsUtil
 import xsbti.compile.Compilers
 import xsbti.compile.JavaCompiler
 import xsbti.compile.Output
 import xsbti.compile.ScalaCompiler
 import xsbti.{Logger => XLogger}
 import xsbti.{Reporter => XReporter}
+import lmcoursier.CoursierDependencyResolution
+import _root_.lmcoursier.CoursierConfiguration
 
 object CompilerCache {
   final case class JavacKey(javacBin: Option[AbsolutePath], allowLocal: Boolean)
@@ -109,20 +116,76 @@ final class CompilerCache(
       scalaInstance: ScalaInstance,
       componentProvider: ComponentProvider
   ): AnalyzingCompiler = {
-    val bridgeSources = BloopComponentCompiler.getModuleForBridgeSources(scalaInstance)
-    val bridgeId = BloopComponentCompiler.getBridgeComponentId(bridgeSources, scalaInstance)
+    val bridgeSources = getModuleForBridgeSources(scalaInstance)
+    val bridgeId = getBridgeComponentId(bridgeSources, scalaInstance)
     componentProvider.component(bridgeId) match {
       case Array(jar) => ZincUtil.scalaCompiler(scalaInstance, jar)
       case _ =>
-        BloopZincLibraryManagement.scalaCompiler(
+        val bridgeCache = Paths.getCacheDirectory("bridge-cache").toFile
+        val loader = Some(new ClassLoaderCache(new URLClassLoader(new Array(0))))
+        ZincLmUtil.scalaCompiler(
           scalaInstance,
+          ClasspathOptionsUtil.boot(),
           BloopComponentsLock,
           componentProvider,
-          Some(Paths.getCacheDirectory("bridge-cache").toFile),
+          Some(bridgeCache),
+          CoursierDependencyResolution(CoursierConfiguration()),
           bridgeSources,
+          bridgeCache,
+          loader,
           logger
         )
     }
+  }
+
+  /**
+   * Returns the id for the compiler interface component.
+   *
+   * The ID contains the following parts:
+   *   - The organization, name and revision.
+   *   - The bin separator to make clear the jar represents binaries.
+   *   - The Scala version for which the compiler interface is meant to.
+   *   - The JVM class version.
+   *
+   * Example: "org.scala-sbt-compiler-bridge-1.0.0-bin_2.11.7__50.0".
+   *
+   * @param sources The moduleID representing the compiler bridge sources.
+   * @param scalaInstance The scala instance that sets the scala version for the id.
+   * @return The complete jar identifier for the bridge sources.
+   */
+  private def getBridgeComponentId(sources: ModuleID, scalaInstance: ScalaInstance): String = {
+
+    val binSeparator = "-bin_"
+    val javaClassVersion: String = System.getProperty("java.class.version")
+    val id = s"${sources.organization}-${sources.name}-${sources.revision}"
+    val scalaVersion = scalaInstance.actualVersion()
+    s"$id$binSeparator${scalaVersion}__$javaClassVersion"
+  }
+
+  private def getModuleForBridgeSources(scalaInstance: ScalaInstance): ModuleID = {
+    def compilerBridgeId(scalaVersion: String) = {
+      // Defaults to bridge for 2.13 for Scala versions bigger than 2.13.x
+      scalaVersion match {
+        case sc if (sc startsWith "0.") => "dotty-sbt-bridge"
+        case sc if (sc startsWith "3.") => "scala3-sbt-bridge"
+        case sc if (sc startsWith "2.10.") => "compiler-bridge_2.10"
+        case sc if (sc startsWith "2.11.") => "compiler-bridge_2.11"
+        case sc if (sc startsWith "2.12.") => "compiler-bridge_2.12"
+        case _ => "compiler-bridge_2.13"
+      }
+    }
+
+    val (isDotty, organization, version) = scalaInstance match {
+      case instance: ScalaInstance if instance.isDotty =>
+        (true, instance.organization, instance.version)
+      case _ => (false, "org.scala-sbt", ZincComponentManager.version)
+    }
+
+    val bridgeId = compilerBridgeId(scalaInstance.version)
+    val module = ModuleID(organization, bridgeId, version).withConfigurations(
+      Some(Configurations.Compile.name)
+    )
+    if (isDotty) module else module.sources()
   }
 
   /**

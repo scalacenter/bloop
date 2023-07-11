@@ -12,8 +12,7 @@ import bloop.io.Paths
 import bloop.logging.DebugFilter
 import bloop.logging.Logger
 import bloop.task.Task
-
-import sbt.internal.inc.BloopComponentCompiler
+import xsbti.compile.ZincBridgeProvider
 
 /**
  * Represents the state for a given build.
@@ -52,7 +51,8 @@ object State {
     if (singleCompilerCache != null) singleCompilerCache.withLogger(logger)
     else {
       val componentsDir = Paths.getCacheDirectory("components")
-      val provider = BloopComponentCompiler.getComponentProvider(componentsDir)
+      if (!componentsDir.exists) componentsDir.createDirectories
+      val provider = ZincBridgeProvider.getDefaultComponentProvider(componentsDir.toFile)
       singleCompilerCache = new CompilerCache(provider, logger)
       singleCompilerCache
     }

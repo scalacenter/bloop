@@ -15,10 +15,10 @@ import bloop.logging.RecordingLogger
 import org.junit.Assert._
 import org.junit.Test
 import org.junit.experimental.categories.Category
-import sbt.internal.inc.BloopComponentCompiler
 import sbt.internal.inc.javac.WriteReportingJavaFileObject
 import sbt.io.syntax.File
 import xsbti.compile.ClassFileManager
+import xsbti.compile.ZincBridgeProvider
 
 @Category(Array(classOf[FastTests]))
 class CompilerCacheSpec {
@@ -133,8 +133,10 @@ class CompilerCacheSpec {
     val tempDir = AbsolutePath(Files.createTempDirectory("compiler-cache-spec"))
     try {
       val logger = new RecordingLogger()
+      val path = tempDir.resolve("components")
+      path.createDirectories
       val componentProvider =
-        BloopComponentCompiler.getComponentProvider(tempDir.resolve("components"))
+        ZincBridgeProvider.getDefaultComponentProvider(path.toFile)
       val compilerCache =
         new CompilerCache(componentProvider, logger)
       op(compilerCache)

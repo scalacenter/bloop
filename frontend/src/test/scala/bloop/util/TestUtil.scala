@@ -52,8 +52,8 @@ import bloop.logging.RecordingLogger
 import _root_.bloop.task.Task
 import _root_.monix.execution.Scheduler
 import org.junit.Assert
-import sbt.internal.inc.BloopComponentCompiler
 import xsbti.ComponentProvider
+import xsbti.compile.ZincBridgeProvider
 
 object TestUtil {
   def projectDir(base: Path, name: String): Path = base.resolve(name)
@@ -73,7 +73,9 @@ object TestUtil {
   }
 
   final val componentProvider: ComponentProvider =
-    BloopComponentCompiler.getComponentProvider(bloop.io.Paths.getCacheDirectory("components"))
+    ZincBridgeProvider.getDefaultComponentProvider(
+      bloop.io.Paths.getCacheDirectory("components").createDirectories.toFile
+    )
 
   private var singleCompilerCache: CompilerCache = null
   def getCompilerCache(logger: Logger): CompilerCache = synchronized {

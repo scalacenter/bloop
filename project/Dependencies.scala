@@ -55,11 +55,12 @@ object Dependencies {
   val bloopConfig = "ch.epfl.scala" %% "bloop-config" % bloopConfigVersion
 
   val configDirectories = "dev.dirs" % "directories" % configDirsVersion
-  val libraryManagement = "org.scala-sbt" %% "librarymanagement-ivy" % lmVersion
+  val zincLmIntegration = "org.scala-sbt" %% "zinc-lm-integration" % lmVersion
   val log4j = "org.apache.logging.log4j" % "log4j-core" % "2.20.0"
   val scalazCore = "org.scalaz" %% "scalaz-core" % scalazVersion
   val coursierInterface = "io.get-coursier" % "interface" % "1.0.18"
   val coursierInterfaceSubs = "io.get-coursier" % "interface-svm-subs" % "1.0.18"
+  val coursierZincLm = "io.get-coursier" %% "lm-coursier" % "2.1.0"
   val scalaCollectionCompat = "org.scala-lang.modules" %% "scala-collection-compat" % "2.4.2"
   val shapeless = "com.chuusai" %% "shapeless" % shapelessVersion
   val caseApp = "com.github.alexarchambault" %% "case-app" % caseAppVersion

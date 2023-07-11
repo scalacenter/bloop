@@ -1,9 +1,11 @@
 package bloop.engine.caches
 
 import java.nio.file.Path
+import java.util.concurrent.ConcurrentHashMap
 
 import scala.collection.JavaConverters._
 import scala.concurrent.Await
+import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
 import scala.util.Failure
 import scala.util.Success
@@ -15,13 +17,10 @@ import bloop.engine.ExecutionContext
 import bloop.io.AbsolutePath
 import bloop.io.Paths
 import bloop.logging.Logger
-import bloop.task.Task
 
-import sbt.internal.inc.BloopComponentCompiler
-import sbt.internal.inc.BloopComponentManager
+import _root_.xsbti.compile.ZincBridgeProvider
 import sbt.internal.inc.IfMissing
-import java.util.concurrent.ConcurrentHashMap
-import scala.concurrent.Future
+import sbt.internal.inc.ZincComponentManager
 
 object SemanticDBCache {
   // to avoid resolving the same fallback semanticdb version multiple times
@@ -51,10 +50,13 @@ object SemanticDBCache {
     if (artifact.version == "latest.release") {
       attemptResolution
     } else {
+      val componentsPath = Paths.getCacheDirectory("semanticdb")
+
+      if (!componentsPath.exists) componentsPath.createDirectories
       val provider =
-        BloopComponentCompiler.getComponentProvider(Paths.getCacheDirectory("semanticdb"))
+        ZincBridgeProvider.getDefaultComponentProvider(componentsPath.toFile)
       val manager =
-        new BloopComponentManager(SemanticDBCacheLock, provider, secondaryCacheDir = None)
+        new ZincComponentManager(SemanticDBCacheLock, provider, None, logger)
       val semanticDBId = s"${artifact.organization}.${artifact.module}.${artifact.version}"
       Try(manager.file(semanticDBId)(IfMissing.Fail)) match {
         case Success(pluginPath) => Right(AbsolutePath(pluginPath))
