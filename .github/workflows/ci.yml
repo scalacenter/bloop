@@ -138,6 +138,7 @@ jobs:
 
       - name: Compile and test main projects
         run: |
+          mkdir -p $HOME/.triplequote && echo "$HYDRA_LICENSE" > "$HOME/.triplequote/hydra.license"
           sbt \
               "frontend/test:compile; \
               backend/test; \
