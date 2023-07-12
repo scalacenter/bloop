@@ -22,6 +22,8 @@ import monix.execution.cancelables.CompositeCancelable
 import monix.reactive.Consumer
 import monix.reactive.MulticastStrategy
 import monix.reactive.Observable
+import bloop.logging.Logger
+import scala.util.control.NonFatal
 
 object ParallelOps {
 
@@ -67,7 +69,8 @@ object ParallelOps {
       origin: Path,
       target: Path,
       scheduler: Scheduler,
-      enableCancellation: Boolean
+      enableCancellation: Boolean,
+      logger: Logger
   ): Task[FileWalk] = Task.defer {
     val isCancelled = AtomicBoolean(false)
 
@@ -152,7 +155,7 @@ object ParallelOps {
 
     val copyFileSequentially = Consumer.foreachTask[((Path, BasicFileAttributes), Path)] {
       case ((originFile, originAttrs), targetFile) =>
-        def copy(replaceExisting: Boolean): Unit = {
+        def copy(replaceExisting: Boolean): Unit = try {
           if (replaceExisting) {
             Files.copy(
               originFile,
@@ -168,6 +171,12 @@ object ParallelOps {
             )
           }
           ()
+        } catch {
+          case NonFatal(t) =>
+            logger.report(
+              s"Unexpected error when copying $originFile to $targetFile, you might need to restart the build server.",
+              t
+            )
         }
 
         // It's important that this task is not forked for performance reasons

@@ -28,6 +28,7 @@ import bloop.util.TestUtil
 
 import monix.execution.CancelableFuture
 import monix.execution.Scheduler
+import bloop.logging.NoopLogger
 
 trait BloopHelpers {
   def loadState(
@@ -87,7 +88,8 @@ trait BloopHelpers {
       baseDir,
       workspace.underlying,
       ExecutionContext.ioScheduler,
-      enableCancellation = false
+      enableCancellation = false,
+      logger
     )
 
     val loadFromNewWorkspace = copyToNewWorkspace.flatMap { _ =>
@@ -305,7 +307,8 @@ trait BloopHelpers {
               classesDir,
               newClassesDir,
               ExecutionContext.ioScheduler,
-              enableCancellation = false
+              enableCancellation = false,
+              NoopLogger
             )
 
             backupDir.map { _ =>

@@ -363,7 +363,8 @@ object CompileTask {
           products.readOnlyClassesDir,
           products.newClassesDir,
           ExecutionContext.ioScheduler,
-          enableCancellation = false
+          enableCancellation = false,
+          logger
         )
       }
 

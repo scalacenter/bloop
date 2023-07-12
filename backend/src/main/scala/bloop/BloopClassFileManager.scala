@@ -221,7 +221,8 @@ final class BloopClassFileManager(
                 newClassesDir,
                 clientExternalClassesDir.underlying,
                 inputs.ioScheduler,
-                enableCancellation = false
+                enableCancellation = false,
+                inputs.logger
               )
               .map { walked =>
                 readOnlyCopyDenylist.++=(walked.target)
@@ -279,7 +280,8 @@ final class BloopClassFileManager(
                     Paths.get(readOnlyClassesDirPath),
                     clientExternalClassesDir.underlying,
                     inputs.ioScheduler,
-                    enableCancellation = false
+                    enableCancellation = false,
+                    inputs.logger
                   )
                   .map(_ => ())
               }
