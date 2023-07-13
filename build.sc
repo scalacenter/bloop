@@ -29,7 +29,7 @@ object Dependencies {
   def asm               = ivy"org.ow2.asm:asm:$asmVersion"
   def asmUtil           = ivy"org.ow2.asm:asm-util:$asmVersion"
   def bloopConfig       = ivy"ch.epfl.scala::bloop-config:1.5.5"
-  def brave             = ivy"io.zipkin.brave:brave:5.15.0"
+  def brave             = ivy"io.zipkin.brave:brave:5.15.1"
   def bsp4j             = ivy"ch.epfl.scala:bsp4j:2.1.0-M3"
   def bsp4s             = ivy"ch.epfl.scala::bsp4s:2.1.0-M3"
   def caseApp           = ivy"com.github.alexarchambault::case-app:2.0.6"
