@@ -5,8 +5,6 @@ import java.nio.file.Paths
 import scala.concurrent.duration.FiniteDuration
 import scala.util.Random
 
-import ch.epfl.scala.bsp.endpoints.BuildTarget.scalacOptions
-
 import bloop.bsp.BloopBspDefinitions.BloopExtraBuildParams
 import bloop.cli.BspProtocol
 import bloop.cli.ExitStatus
@@ -21,7 +19,6 @@ import bloop.logging.RecordingLogger
 import bloop.task.Task
 import bloop.util.TestProject
 import bloop.util.TestUtil
-import bloop.internal.build.BuildTestInfo
 
 object LocalBspMetalsClientSpec extends BspMetalsClientSpec(BspProtocol.Local)
 object TcpBspMetalsClientSpec extends BspMetalsClientSpec(BspProtocol.Tcp)
@@ -173,7 +170,7 @@ class BspMetalsClientSpec(
 
         val scalacOptions = state.scalaOptions(`A`)._2.items.head.options
         val expectedScalacOptions = correctSourceRootOption :: List(
-          "-Xplugin:path-to-plugin/semanticdb-scalac_2.12.18-4.7.8.jar",
+          s"-Xplugin:path-to-plugin/semanticdb-scalac_2.12.18-$semanticdbVersion.jar",
           "-Yrangepos",
           "-P:semanticdb:failures:warning",
           "-P:semanticdb:synthetics:on",
@@ -552,6 +549,9 @@ class BspMetalsClientSpec(
         )
 
         val compiledState = build.state.compile(project)
+        if (compiledState.status != ExitStatus.Ok) {
+          logger.dump()
+        }
         assert(compiledState.status == ExitStatus.Ok)
 
         assertSemanticdbFileForProject(

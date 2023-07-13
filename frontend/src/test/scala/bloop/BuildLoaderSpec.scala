@@ -15,7 +15,6 @@ import bloop.task.Task
 import bloop.testing.BaseSuite
 import bloop.tracing.TraceProperties
 import bloop.util.TestUtil
-import bloop.internal.build.BuildTestInfo
 
 object BuildLoaderSpec extends BaseSuite {
   val semanticdbVersion = "4.8.4"

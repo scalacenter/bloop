@@ -20,8 +20,6 @@ import bloop.util.TestProject
 import bloop.util.TestUtil
 import scala.tools.nsc.Properties
 
-import coursierapi.Fetch
-
 object TcpBspCompileSpec extends BspCompileSpec(BspProtocol.Tcp)
 object LocalBspCompileSpec extends BspCompileSpec(BspProtocol.Local)
 
