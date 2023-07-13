@@ -66,7 +66,7 @@ object Dependencies {
   def scalaJsEnvJsdomNode1   = ivy"org.scala-js::scalajs-env-jsdom-nodejs:1.1.0"
   def scalaJsSbtTestAdapter1 = ivy"org.scala-js::scalajs-sbt-test-adapter:$scalaJs1Version"
   def scalaJsLogging1        = ivy"org.scala-js::scalajs-logging:1.1.1"
-  def scalaNativeTools04     = ivy"org.scala-native::tools:0.4.12"
+  def scalaNativeTools04     = ivy"org.scala-native::tools:0.4.14"
   def scalazCore             = ivy"org.scalaz::scalaz-core:7.3.7"
   def snailgun      = ivy"io.github.alexarchambault.scala-cli.snailgun::snailgun-core:0.4.1-sc2"
   def sourcecode    = ivy"com.lihaoyi::sourcecode:0.3.0"
