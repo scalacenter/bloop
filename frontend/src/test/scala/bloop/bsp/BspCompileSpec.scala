@@ -11,7 +11,6 @@ import scala.concurrent.duration.FiniteDuration
 import bloop.cli.BspProtocol
 import bloop.cli.ExitStatus
 import bloop.internal.build.BuildInfo
-import bloop.internal.build.BuildTestInfo
 import bloop.io.AbsolutePath
 import bloop.io.Environment.lineSeparator
 import bloop.io.{Paths => BloopPaths}
@@ -394,7 +393,7 @@ class BspCompileSpec(
           Dependency.of(
             "org.scalameta",
             s"semanticdb-scalac_${BuildInfo.scalaVersion}",
-            BuildTestInfo.semanticdbVersion
+            "latest.release"
           )
         )
         .fetch()
