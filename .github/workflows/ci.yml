@@ -67,8 +67,8 @@ jobs:
           .github/setup-test-projects.sh &&\
           ./mill -i 'backend[_].test.compile' &&\
           ./mill -i 'frontend[_].test.compile' &&\
-          ./mill -i 'backend[2.12.17].test' &&\
-          ./mill -i 'frontend[2.12.17].test'
+          ./mill -i 'backend[2.12.18].test' &&\
+          ./mill -i 'frontend[2.12.18].test'
         shell: bash
 
   jvm-tests:

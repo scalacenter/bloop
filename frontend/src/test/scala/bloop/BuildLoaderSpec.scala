@@ -18,7 +18,7 @@ import bloop.util.TestUtil
 import bloop.internal.build.BuildTestInfo
 
 object BuildLoaderSpec extends BaseSuite {
-  val semanticdbVersion = BuildTestInfo.semanticdbVersion
+  val semanticdbVersion = "4.8.4"
   val oldSemanticdbVersion = "4.5.13"
 
   testLoad("don't reload if nothing changes") { (testBuild, logger) =>

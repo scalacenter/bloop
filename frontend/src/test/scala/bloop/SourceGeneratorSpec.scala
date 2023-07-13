@@ -18,8 +18,8 @@ object SourceGeneratorSpec extends bloop.testing.BaseSuite {
   lazy val hasPython2 = hasPythonNamed("python")
 
   private val generator: List[String] =
-    if (hasPython3) List("python3", BuildTestInfo.sampleSourceGenerator.getAbsolutePath)
-    else if (hasPython2) List("python", BuildTestInfo.sampleSourceGenerator.getAbsolutePath)
+    if (hasPython3) List("python3", BuildTestInfo.sampleSourceGenerator)
+    else if (hasPython2) List("python", BuildTestInfo.sampleSourceGenerator)
     else Nil
 
   private def hasPythonNamed(executable: String) = try {
