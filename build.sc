@@ -57,7 +57,7 @@ object Dependencies {
   def nailgun                = ivy"io.github.alexarchambault.bleep:nailgun-server:1.0.7"
   def osLib                  = ivy"com.lihaoyi::os-lib:0.9.0"
   def pprint                 = ivy"com.lihaoyi::pprint:0.8.1"
-  def sbtTestAgent           = ivy"org.scala-sbt:test-agent:1.8.2"
+  def sbtTestAgent           = ivy"org.scala-sbt:test-agent:1.9.2"
   def sbtTestInterface       = ivy"org.scala-sbt:test-interface:1.0"
   def scalaDebugAdapter      = ivy"ch.epfl.scala::scala-debug-adapter:3.1.3"
   def scalaJsLinker1         = ivy"org.scala-js::scalajs-linker:$scalaJs1Version"
@@ -482,7 +482,7 @@ class Benchmarks(val crossScalaVersion: String) extends BloopCrossSbtModule with
       .proc(
         "cs",
         "get",
-        "https://repo1.maven.org/maven2/org/scala-sbt/sbt-launch/1.8.2/sbt-launch-1.8.2.jar"
+        "https://repo1.maven.org/maven2/org/scala-sbt/sbt-launch/1.9.2/sbt-launch-1.9.2.jar"
       )
       .call()
       .out
