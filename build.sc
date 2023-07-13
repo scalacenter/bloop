@@ -74,7 +74,7 @@ object Dependencies {
   def utest         = ivy"com.lihaoyi::utest:0.8.1"
   def xxHashLibrary = ivy"net.jpountz.lz4:lz4:1.3.0"
   def zinc          = ivy"org.scala-sbt::zinc:1.8.0"
-  def zipkinSender  = ivy"io.zipkin.reporter2:zipkin-sender-urlconnection:2.16.3"
+  def zipkinSender  = ivy"io.zipkin.reporter2:zipkin-sender-urlconnection:2.16.4"
   def zt            = ivy"org.zeroturnaround:zt-zip:1.15"
 
   def graalVmId = s"graalvm-java17:$graalvmVersion"
