@@ -434,7 +434,8 @@ object Compiler {
                   readOnlyClassesDir,
                   clientClassesDir.underlying,
                   compileInputs.ioScheduler,
-                  enableCancellation = false
+                  enableCancellation = false,
+                  compileInputs.logger
                 )
 
                 lastCopy.map { _ =>
