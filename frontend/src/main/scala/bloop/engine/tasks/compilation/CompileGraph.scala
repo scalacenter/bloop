@@ -365,7 +365,7 @@ object CompileGraph {
       store: CompileClientStore,
       bestEffort: Boolean,
       computeBundle: BundleInputs => Task[CompileBundle],
-      compile: Inputs => Task[ResultBundle]
+      compile: (Inputs, Boolean, Boolean) => Task[ResultBundle]
   ): CompileTraversal = {
     val tasks = new mutable.HashMap[Dag[Project], CompileTraversal]()
     def register(k: Dag[Project], v: CompileTraversal): CompileTraversal = {
@@ -385,7 +385,7 @@ object CompileGraph {
       PartialFailure(bundle.project, FailedOrCancelledPromise, Task.now(results))
     }
 
-    def loop(dag: Dag[Project]): CompileTraversal = {
+    def loop(dag: Dag[Project], isBestEffortDep: Boolean): CompileTraversal = {
       tasks.get(dag) match {
         case Some(task) => task
         case None =>
@@ -393,7 +393,7 @@ object CompileGraph {
             case Leaf(project) =>
               val bundleInputs = BundleInputs(project, dag, Map.empty)
               setupAndDeduplicate(client, bundleInputs, computeBundle) { bundle =>
-                compile(Inputs(bundle, Map.empty)).map { results =>
+                compile(Inputs(bundle, Map.empty), bestEffort, isBestEffortDep).map { results =>
                   results.fromCompiler match {
                     case Compiler.Result.Ok(_) => Leaf(partialSuccess(bundle, results))
                     case _ => Leaf(toPartialFailure(bundle, results))
@@ -402,18 +402,19 @@ object CompileGraph {
               }
 
             case Aggregate(dags) =>
-              val downstream = dags.map(loop)
+              val downstream = dags.map(loop(_, false))
               Task.gatherUnordered(downstream).flatMap { dagResults =>
                 Task.now(Parent(PartialEmpty, dagResults))
               }
 
             case Parent(project, dependencies) =>
-              val downstream = dependencies.map(loop)
+              val downstream = dependencies.map(loop(_, false))
               Task.gatherUnordered(downstream).flatMap { dagResults =>
                 val depsSupportBestEffort =
                   dependencies.map(Dag.dfs(_, mode = Dag.PreOrder)).flatten.forall(_.bestEffortDirs.nonEmpty)
                 val failed = dagResults.flatMap(dag => blockedBy(dag).toList)
                 val continue = bestEffort && depsSupportBestEffort || failed.isEmpty
+                val dependsOnBestEffort = failed.nonEmpty && bestEffort && depsSupportBestEffort || isBestEffortDep
 
                 if (!continue) {
                   // Register the name of the projects we're blocked on (intransitively)
@@ -451,7 +452,7 @@ object CompileGraph {
                     val bundleInputs = BundleInputs(project, dag, dependentProducts.toMap)
                     setupAndDeduplicate(client, bundleInputs, computeBundle) { bundle =>
                       val inputs = Inputs(bundle, resultsMap)
-                      compile(inputs).map { results =>
+                      compile(inputs, bestEffort, dependsOnBestEffort).map { results =>
                         results.fromCompiler match {
                           case Compiler.Result.Ok(_) if failed.isEmpty =>
                             Parent(partialSuccess(bundle, results), dagResults)
@@ -467,7 +468,7 @@ object CompileGraph {
       }
     }
 
-    loop(dag)
+    loop(dag, false)
   }
 
   private def errorToString(err: Throwable): String = {

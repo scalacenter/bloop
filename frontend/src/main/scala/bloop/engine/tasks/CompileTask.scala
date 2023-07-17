@@ -81,7 +81,11 @@ object CompileTask {
       "client" -> clientName
     )
 
-    def compile(graphInputs: CompileGraph.Inputs): Task[ResultBundle] = {
+    def compile(
+        graphInputs: CompileGraph.Inputs,
+        isBestEffort: Boolean,
+        isBestEffortDep: Boolean
+    ): Task[ResultBundle] = {
       val bundle = graphInputs.bundle
       val project = bundle.project
       val logger = bundle.logger
@@ -166,55 +170,56 @@ object CompileTask {
           // Block on the task associated with this result that sets up the read-only classes dir
           waitOnReadClassesDir.flatMap { _ =>
             // Only when the task is finished, we kickstart the compilation
-            inputs.flatMap(inputs => Compiler.compile(inputs)).map { result =>
-              def runPostCompilationTasks(
-                  backgroundTasks: CompileBackgroundTasks
-              ): CancelableFuture[Unit] = {
-                // Post compilation tasks use tracer, so terminate right after they have
-                val postCompilationTasks =
-                  backgroundTasks
-                    .trigger(
-                      externalUserClassesDir,
-                      reporter.underlying,
-                      compileProjectTracer,
-                      logger
-                    )
-                    .doOnFinish(_ => Task(compileProjectTracer.terminate()))
-                postCompilationTasks.runAsync(ExecutionContext.ioScheduler)
-              }
+            inputs.flatMap(inputs => Compiler.compile(inputs, isBestEffort, isBestEffortDep)).map {
+              result =>
+                def runPostCompilationTasks(
+                    backgroundTasks: CompileBackgroundTasks
+                ): CancelableFuture[Unit] = {
+                  // Post compilation tasks use tracer, so terminate right after they have
+                  val postCompilationTasks =
+                    backgroundTasks
+                      .trigger(
+                        externalUserClassesDir,
+                        reporter.underlying,
+                        compileProjectTracer,
+                        logger
+                      )
+                      .doOnFinish(_ => Task(compileProjectTracer.terminate()))
+                  postCompilationTasks.runAsync(ExecutionContext.ioScheduler)
+                }
 
-              // Populate the last successful result if result was success
-              result match {
-                case s: Compiler.Result.Success =>
-                  val runningTasks = runPostCompilationTasks(s.backgroundTasks)
-                  val blockingOnRunningTasks = Task
-                    .fromFuture(runningTasks)
-                    .executeOn(ExecutionContext.ioScheduler)
-                  val populatingTask = {
-                    if (s.isNoOp) blockingOnRunningTasks // Task.unit
-                    else {
-                      for {
-                        _ <- blockingOnRunningTasks
-                        _ <- populateNewReadOnlyClassesDir(s.products, bgTracer, rawLogger)
-                          .doOnFinish(_ => Task(bgTracer.terminate()))
-                      } yield ()
+                // Populate the last successful result if result was success
+                result match {
+                  case s: Compiler.Result.Success =>
+                    val runningTasks = runPostCompilationTasks(s.backgroundTasks)
+                    val blockingOnRunningTasks = Task
+                      .fromFuture(runningTasks)
+                      .executeOn(ExecutionContext.ioScheduler)
+                    val populatingTask = {
+                      if (s.isNoOp) blockingOnRunningTasks // Task.unit
+                      else {
+                        for {
+                          _ <- blockingOnRunningTasks
+                          _ <- populateNewReadOnlyClassesDir(s.products, bgTracer, rawLogger)
+                            .doOnFinish(_ => Task(bgTracer.terminate()))
+                        } yield ()
+                      }
                     }
-                  }
 
-                  // Memoize so that no matter how many times it's run, it's executed only once
-                  val newSuccessful =
-                    LastSuccessfulResult(bundle.uniqueInputs, s.products, populatingTask.memoize)
-                  ResultBundle(s, Some(newSuccessful), Some(lastSuccessful), runningTasks)
-                case f: Compiler.Result.Failed =>
-                  val runningTasks = runPostCompilationTasks(f.backgroundTasks)
-                  ResultBundle(result, None, Some(lastSuccessful), runningTasks)
-                case c: Compiler.Result.Cancelled =>
-                  val runningTasks = runPostCompilationTasks(c.backgroundTasks)
-                  ResultBundle(result, None, Some(lastSuccessful), runningTasks)
-                case _: Compiler.Result.Blocked | Compiler.Result.Empty |
-                    _: Compiler.Result.GlobalError =>
-                  ResultBundle(result, None, None, CancelableFuture.unit)
-              }
+                    // Memoize so that no matter how many times it's run, it's executed only once
+                    val newSuccessful =
+                      LastSuccessfulResult(bundle.uniqueInputs, s.products, populatingTask.memoize)
+                    ResultBundle(s, Some(newSuccessful), Some(lastSuccessful), runningTasks)
+                  case f: Compiler.Result.Failed =>
+                    val runningTasks = runPostCompilationTasks(f.backgroundTasks)
+                    ResultBundle(result, None, Some(lastSuccessful), runningTasks)
+                  case c: Compiler.Result.Cancelled =>
+                    val runningTasks = runPostCompilationTasks(c.backgroundTasks)
+                    ResultBundle(result, None, Some(lastSuccessful), runningTasks)
+                  case _: Compiler.Result.Blocked | Compiler.Result.Empty |
+                      _: Compiler.Result.GlobalError =>
+                    ResultBundle(result, None, None, CancelableFuture.unit)
+                }
             }
           }
       }
@@ -268,7 +273,7 @@ object CompileTask {
     }
 
     val client = state.client
-    CompileGraph.traverse(dag, client, store, bestEffort, setup(_), compile(_)).flatMap { pdag =>
+    CompileGraph.traverse(dag, client, store, bestEffort, setup(_), compile).flatMap { pdag =>
       val partialResults = Dag.dfs(pdag, mode = Dag.PreOrder)
       val finalResults = partialResults.map(r => PartialCompileResult.toFinalResult(r))
       Task.gatherUnordered(finalResults).map(_.flatten).flatMap { results =>
