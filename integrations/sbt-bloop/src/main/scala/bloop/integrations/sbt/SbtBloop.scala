@@ -144,6 +144,7 @@ object BloopDefaults {
       Option(System.getProperty("bloop.export-jar-classifiers"))
         .orElse(Option(System.getenv("BLOOP_EXPORT_JAR_CLASSIFIERS")))
         .map(_.split(",").toSet)
+        .orElse(Some(Set("sources", "javadoc")))
     },
     BloopKeys.bloopInstall := bloopInstall.value,
     BloopKeys.bloopAggregateSourceDependencies := true,
