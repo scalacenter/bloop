@@ -77,8 +77,7 @@ final class BspBridge(
         // Whenever the connection is broken or the server legitimately stops, this returns
         bspServerStatus = Some {
           bspCmd.mkString(" ") -> {
-            // Make it verbose so that bsp preparation logs are emitted
-            val args = bspCmd ++ bloopAdditionalArgs ++ List("--verbose")
+            val args = bspCmd ++ bloopAdditionalArgs
             StatusCommand(cli.run(args.toArray), "")
           }
         }
