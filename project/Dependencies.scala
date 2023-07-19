@@ -17,7 +17,7 @@ object Dependencies {
   // Keep in sync in BloopComponentCompiler
   val zincVersion = "1.8.0"
 
-  val bspVersion = "2.1.0-M4+7-19ce91ec+20230417-1505-SNAPSHOT" // TODO change after release
+  val bspVersion = "2.1.0-M3"
 
   val scalazVersion = "7.3.7"
   val lmVersion = "1.8.0"
@@ -45,7 +45,7 @@ object Dependencies {
   val snailgunVersion = "0.4.0"
   val ztExecVersion = "1.12"
   val debugAdapterVersion = "3.0.9"
-  val bloopConfigVersion = "1.5.5-27-61ebd6-DIRTY5634089d-SNAPSHOT" // TODO change after release
+  val bloopConfigVersion = "1.5.5"
 
   val zinc = "org.scala-sbt" %% "zinc" % zincVersion
   val bsp4s = "ch.epfl.scala" %% "bsp4s" % bspVersion

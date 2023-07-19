@@ -409,7 +409,7 @@ object TestUtil {
       scalaInstance = scalaInstance,
       rawClasspath = classpath,
       resources = Nil,
-      bestEffortDirs = None,
+      isBestEffort = false,
       compileSetup = Config.CompileSetup.empty.copy(order = compileOrder),
       genericClassesDir = classes,
       scalacOptions = Nil,
@@ -539,7 +539,7 @@ object TestUtil {
     val classesDir = Files.createDirectory(outDir.resolve("classes"))
 
     // format: OFF
-    val configFileG = bloop.config.Config.File(Config.File.LatestVersion, Config.Project("g", baseDir, Option(baseDir), Nil, None, None, List("g"), Nil, outDir, classesDir, None, None, None, None, None, None, None, None, None, None))
+    val configFileG = bloop.config.Config.File(Config.File.LatestVersion, Config.Project("g", baseDir, Option(baseDir), Nil, None, None, List("g"), Nil, outDir, classesDir, None, None, None, None, None, None, None, None, None))
     bloop.config.write(configFileG, jsonTargetG)
     // format: ON
 

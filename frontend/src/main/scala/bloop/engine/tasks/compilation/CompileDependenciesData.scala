@@ -8,7 +8,7 @@ import bloop.CompileProducts
 import bloop.PartialCompileProducts
 import bloop.data.Project
 import bloop.io.AbsolutePath
-import bloop.util.BestEffortDirs
+// import bloop.util.BestEffortDirs
 
 case class CompileDependenciesData(
     dependencyClasspath: Array[AbsolutePath],
@@ -35,7 +35,7 @@ object CompileDependenciesData {
   ): CompileDependenciesData = {
     val dependentClassesDir = new mutable.HashMap[AbsolutePath, Array[AbsolutePath]]()
     val dependentResources = new mutable.HashMap[AbsolutePath, Array[AbsolutePath]]()
-    val dependentBestEffortDir = new mutable.ArrayBuffer[AbsolutePath]()
+    val dependentBestEffortDirs = new mutable.ArrayBuffer[AbsolutePath]()
     val dependentInvalidatedClassFiles = new mutable.HashSet[File]()
     val dependentGeneratedClassFilePaths = new mutable.HashMap[String, File]()
     dependentProducts.foreach {
@@ -50,9 +50,8 @@ object CompileDependenciesData {
           else Array(newClassesDir, readOnlyClassesDir)
         }
 
-        project.bestEffortDirs match {
-          case Some(BestEffortDirs(_, depDir)) => dependentBestEffortDir += depDir
-          case _ =>
+        if (project.isBestEffort) {
+          dependentBestEffortDirs ++= classesDirs.map(_.resolve("META-INF").resolve("best-effort"))
         }
         dependentClassesDir.put(genericClassesDir, classesDirs)
       case (project, Right(products)) =>
@@ -66,9 +65,10 @@ object CompileDependenciesData {
         }
         val resources = Project.pickValidResources(project.resources)
 
-        project.bestEffortDirs match {
-          case Some(BestEffortDirs(_, depDir)) => dependentBestEffortDir += depDir
-          case _ =>
+        if (project.isBestEffort) {
+          dependentBestEffortDirs ++= classesDirs
+            .map(AbsolutePath(_).resolve("META-INF").resolve("best-effort"))
+            .toSeq
         }
         dependentClassesDir.put(genericClassesDir, classesDirs.map(AbsolutePath(_)))
         dependentInvalidatedClassFiles.++=(products.invalidatedCompileProducts)
@@ -94,7 +94,7 @@ object CompileDependenciesData {
 
     CompileDependenciesData(
       rewrittenClasspath,
-      dependentBestEffortDir.toSeq,
+      dependentBestEffortDirs.toSeq,
       dependentInvalidatedClassFiles.toSet,
       dependentGeneratedClassFilePaths.toMap
     )

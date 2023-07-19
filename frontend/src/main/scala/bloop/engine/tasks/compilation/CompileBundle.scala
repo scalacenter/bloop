@@ -20,7 +20,6 @@ import bloop.reporter.ObservedReporter
 import bloop.reporter.ReporterAction
 import bloop.task.Task
 import bloop.tracing.BraveTracer
-import bloop.util.BestEffortDirs
 
 import monix.reactive.Observable
 import sbt.internal.inc.PlainVirtualFileConverter
@@ -78,7 +77,6 @@ case object CancelledCompileBundle extends CompileBundle
 final case class SuccessfulCompileBundle(
     project: Project,
     clientClassesDir: AbsolutePath,
-    clientBestEffortDirs: Option[BestEffortDirs],
     dependenciesData: CompileDependenciesData,
     javaSources: List[AbsolutePath],
     scalaSources: List[AbsolutePath],
@@ -99,7 +97,6 @@ final case class SuccessfulCompileBundle(
       project.analysisOut,
       project.genericClassesDir,
       clientClassesDir,
-      project.bestEffortDirs,
       readOnlyClassesDir
     )
   }
@@ -233,7 +230,6 @@ object CompileBundle {
           new SuccessfulCompileBundle(
             project,
             clientExternalClassesDir,
-            project.bestEffortDirs,
             compileDependenciesData,
             javaSources,
             scalaSources,

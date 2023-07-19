@@ -132,7 +132,7 @@ abstract class CommunityBuild(val buildpressHomeDir: AbsolutePath) {
         resources = Nil,
         compileSetup = Config.CompileSetup.empty,
         genericClassesDir = dummyClassesDir,
-        bestEffortDirs = None,
+        isBestEffort = false,
         scalacOptions = Nil,
         javacOptions = Nil,
         sources = Nil,

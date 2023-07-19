@@ -793,8 +793,7 @@ final class BloopBspServices(
               fullClasspath.toList,
               javaOptions,
               workingDirectory,
-              environmentVariables,
-              None
+              environmentVariables
             )
           }).toList
           Task.now((state, Right(environmentEntries)))
@@ -1261,10 +1260,7 @@ final class BloopBspServices(
               target = target,
               options = project.scalacOptions.toList,
               classpath = classpath,
-              classDirectory = classesDir,
-              bestEffortDirectory = project.bestEffortDirs.map(bestEffortDirs =>
-                bsp.Uri(bestEffortDirs.depDir.toBspUri)
-              )
+              classDirectory = classesDir
             )
         }.toList
       )

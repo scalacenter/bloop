@@ -411,7 +411,7 @@ object CompileGraph {
               val downstream = dependencies.map(loop(_, false))
               Task.gatherUnordered(downstream).flatMap { dagResults =>
                 val depsSupportBestEffort =
-                  dependencies.map(Dag.dfs(_, mode = Dag.PreOrder)).flatten.forall(_.bestEffortDirs.nonEmpty)
+                  dependencies.map(Dag.dfs(_, mode = Dag.PreOrder)).flatten.forall(_.isBestEffort)
                 val failed = dagResults.flatMap(dag => blockedBy(dag).toList)
                 val continue = bestEffort && depsSupportBestEffort || failed.isEmpty
                 val dependsOnBestEffort = failed.nonEmpty && bestEffort && depsSupportBestEffort || isBestEffortDep

@@ -22,7 +22,6 @@ import bloop.reporter.ZincReporter
 import bloop.task.Task
 import bloop.tracing.BraveTracer
 import bloop.util.AnalysisUtils
-import bloop.util.BestEffortDirs
 import bloop.util.CacheHashCode
 import bloop.util.UUIDUtil
 
@@ -71,7 +70,6 @@ case class CompileOutPaths(
     analysisOut: AbsolutePath,
     genericClassesDir: AbsolutePath,
     externalClassesDir: AbsolutePath,
-    bestEffortDirs: Option[BestEffortDirs],
     internalReadOnlyClassesDir: AbsolutePath
 ) {
   // Don't change the internals of this method without updating how they are cleaned up
@@ -229,7 +227,7 @@ object Compiler {
       compileInputs: CompileInputs,
       isBestEffortMode: Boolean,
       isBestEffortDep: Boolean
-  ): Task[Result] = { // TODO improve
+  ): Task[Result] = {
     val logger = compileInputs.logger
     val tracer = compileInputs.tracer
     val compileOut = compileInputs.out
@@ -240,9 +238,6 @@ object Compiler {
     val readOnlyClassesDirPath = readOnlyClassesDir.toString
     val newClassesDir = compileOut.internalNewClassesDir.underlying
     val newClassesDirPath = newClassesDir.toString
-    val bestEffortBuildDir = compileOut.bestEffortDirs.map(_.buildDir.underlying)
-    val bestEffortDepDir = compileOut.bestEffortDirs.map(_.depDir.underlying)
-    bestEffortBuildDir.foreach(dir => if (!Files.exists(dir)) Files.createDirectories(dir))
 
     logger.debug(s"External classes directory ${externalClassesDirPath}")
     logger.debug(s"Read-only classes directory ${readOnlyClassesDirPath}")
@@ -385,7 +380,7 @@ object Compiler {
       clientTracer.traceTaskVerbose(descriptionMsg) { _ =>
         Task.defer {
           clientLogger.debug(descriptionMsg)
-          val denyList = 
+          val denyList =
             if (invalidate) {
               val invalidatedClassFiles =
                 allInvalidatedClassFilesForProject.iterator.map(_.toPath).toSet
@@ -446,7 +441,7 @@ object Compiler {
       .doOnCancel(Task(cancel()))
       .map {
         case Success(_) if cancelPromise.isCompleted => handleCancellation
-        case Success(result) if isBestEffortMode && isBestEffortDep =>
+        case Success(_) if isBestEffortMode && isBestEffortDep =>
           handleBestEffortSuccess(
             compileInputs,
             compileOut,
@@ -462,7 +457,8 @@ object Compiler {
             None
           )
         case Failure(cause: xsbti.CompileFailed) if isBestEffortMode =>
-          // copies required files to a bsp directory !!!
+          // Copies required files to a bsp directory.
+          // For the Success case this is done by the enclosing method
           fileManager.complete(true)
           handleBestEffortSuccess(
             compileInputs,
@@ -515,7 +511,6 @@ object Compiler {
             val products = CompileProducts(
               readOnlyClassesDir,
               readOnlyClassesDir,
-              bestEffortDepDir,
               noOpPreviousResult,
               noOpPreviousResult,
               Set(),
@@ -531,7 +526,12 @@ object Compiler {
               ): Task[Unit] = Task.defer {
                 clientLogger.debug(s"Triggering background tasks for $clientClassesDir")
                 val updateClientState =
-                  updateExternalClassesDirWithReadOnly(clientClassesDir, clientTracer, clientLogger, true)
+                  updateExternalClassesDirWithReadOnly(
+                    clientClassesDir,
+                    clientTracer,
+                    clientLogger,
+                    true
+                  )
 
                 val writeAnalysisIfMissing = {
                   if (compileOut.analysisOut.exists) Task.unit
@@ -544,16 +544,7 @@ object Compiler {
                 }
 
                 val deleteNewClassesDir = Task(BloopPaths.delete(AbsolutePath(newClassesDir)))
-                val deleteBestEffortDirsTasks = compileOut.bestEffortDirs match {
-                  case Some(BestEffortDirs(buildDir, depDir)) =>
-                    List(Task(BloopPaths.delete(buildDir)), Task(BloopPaths.delete(depDir)))
-                  case None => List(Task.unit)
-                }
-                val allTasks = List(
-                  deleteNewClassesDir,
-                  updateClientState,
-                  writeAnalysisIfMissing
-                ) ++ deleteBestEffortDirsTasks
+                val allTasks = List(deleteNewClassesDir, updateClientState, writeAnalysisIfMissing)
                 Task
                   .gatherUnordered(allTasks)
                   .map(_ => ())
@@ -633,14 +624,8 @@ object Compiler {
                       }
                     }
                   }
-                  val deleteBestEffortDirsTasks =
-                    compileOut.bestEffortDirs match { // TODO duplicate
-                      case Some(BestEffortDirs(buildDir, depDir)) =>
-                        List(Task(BloopPaths.delete(buildDir)), Task(BloopPaths.delete(depDir)))
-                      case None => List(Task.unit)
-                    }
                   Task
-                    .gatherUnordered(List(firstTask, secondTask) ++ deleteBestEffortDirsTasks)
+                    .gatherUnordered(List(firstTask, secondTask))
                     .map(_ => ())
                 }
 
@@ -651,7 +636,6 @@ object Compiler {
             val products = CompileProducts(
               readOnlyClassesDir,
               newClassesDir,
-              bestEffortDepDir,
               resultForDependentCompilationsInSameRun,
               resultForFutureCompilationRuns,
               allInvalidated.toSet,
@@ -681,13 +665,6 @@ object Compiler {
                 toBackgroundTasks(backgroundTasksForFailedCompilation.toList)
               Result.Failed(failedProblems, None, elapsed, backgroundTasks, None)
             case t: Throwable =>
-              compileOut.bestEffortDirs.foreach {
-                case BestEffortDirs(buildDir, _) =>
-                  logger.info(
-                    "Unsuccessful best effort compilation. No best effort artifacts were created."
-                  )
-                  BloopPaths.delete(buildDir)
-              }
               t.printStackTrace()
               val backgroundTasks =
                 toBackgroundTasks(backgroundTasksForFailedCompilation.toList)
@@ -698,7 +675,7 @@ object Compiler {
 
   /**
    * Handles successful Best Effort compilation.
-   * Does not persist incrementalCompilation analysis.
+   * Does not persist incremental compilation analysis.
    */
   def handleBestEffortSuccess(
       compileInputs: CompileInputs,
@@ -720,7 +697,6 @@ object Compiler {
     val readOnlyClassesDir = compileOut.internalReadOnlyClassesDir.underlying
     val readOnlyClassesDirPath = readOnlyClassesDir.toString
     val newClassesDir = compileOut.internalNewClassesDir.underlying
-    val bestEffortBuildDir = compileOut.bestEffortDirs.map(_.buildDir.underlying)
     val sourcesWithFatal = reporter.getSourceFilesWithFatalWarnings
     val reportedFatalWarnings = isFatalWarningsEnabled && sourcesWithFatal.nonEmpty
     val code = if (reportedFatalWarnings) bsp.StatusCode.Error else bsp.StatusCode.Ok
@@ -732,47 +708,20 @@ object Compiler {
       Some(compileOut.analysisOut)
     )
 
-    // TODO remove
-    val products = compileOut.bestEffortDirs.map {
-      case BestEffortDirs(buildDir, depDir) =>
-        // For Best Effort, delete previous dep directory contents and update with new ones
-        if (Files.exists(depDir.underlying)) BloopPaths.delete(depDir)
-        if (!Files.exists(depDir.underlying)) Files.createDirectories(depDir.underlying)
-        java.nio.file.Files
-          .walk(buildDir.underlying)
-          .forEach { srcFile =>
-            val targetFile =
-              depDir.underlying.resolve(buildDir.underlying.relativize(srcFile))
-            if (Files.isDirectory(srcFile)) {
-              logger.info("copying " + srcFile)
-              Files.createDirectories(targetFile)
-            } else if (Files.isRegularFile(srcFile)) {
-              logger.info("copying file  " + srcFile)
-              Files.copy(
-                srcFile,
-                targetFile,
-                java.nio.file.StandardCopyOption.REPLACE_EXISTING
-              )
-            }
-          }
-        BloopPaths.delete(buildDir)
+    val noOpPreviousResult =
+      updatePreviousResultWithRecentClasspathHashes(
+        compileInputs.previousResult,
+        uniqueInputs
+      )
 
-        val noOpPreviousResult =
-          updatePreviousResultWithRecentClasspathHashes(
-            compileInputs.previousResult,
-            uniqueInputs
-          )
-
-        CompileProducts(
-          readOnlyClassesDir,
-          newClassesDir,
-          bestEffortBuildDir,
-          noOpPreviousResult,
-          noOpPreviousResult,
-          Set.empty,
-          Map.empty
-        )
-    }.get
+    val products = CompileProducts(
+      readOnlyClassesDir,
+      newClassesDir,
+      noOpPreviousResult,
+      noOpPreviousResult,
+      Set.empty,
+      Map.empty
+    )
 
     // Delete all those class files that were invalidated in the external classes dir
     val allInvalidated =

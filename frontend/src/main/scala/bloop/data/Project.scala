@@ -24,7 +24,6 @@ import bloop.io.ByteHasher
 import bloop.logging.DebugFilter
 import bloop.logging.Logger
 import bloop.task.Task
-import bloop.util.BestEffortDirs
 
 import com.typesafe.config.ConfigException
 import com.typesafe.config.ConfigFactory
@@ -44,7 +43,7 @@ final case class Project(
     resources: List[AbsolutePath],
     compileSetup: Config.CompileSetup,
     genericClassesDir: AbsolutePath,
-    bestEffortDirs: Option[BestEffortDirs],
+    isBestEffort: Boolean,
     scalacOptions: List[String],
     javacOptions: List[String],
     sources: List[AbsolutePath],
@@ -378,7 +377,7 @@ object Project {
       compileResources,
       setup,
       AbsolutePath(project.classesDir),
-      None,
+      false,
       scala.map(_.options).getOrElse(Nil),
       project.java.map(_.options).getOrElse(Nil),
       project.sources.map(AbsolutePath.apply),
@@ -441,9 +440,6 @@ object Project {
       logger: Logger
   ): Project = {
     val workspaceDir = project.workspaceDirectory.getOrElse(configDir.getParent)
-    val bestEffortBaseDir = project.genericClassesDir.getParent.resolve("best-effort")
-    val bestEffortBuildDir = bestEffortBaseDir.resolve("build")
-    val bestEffortDepDir = bestEffortBaseDir.resolve("dep")
     val isDotty = project.scalaInstance.exists(_.isDotty)
 
     def isAtLeastScala3M3(version: String) = {
@@ -457,13 +453,11 @@ object Project {
     }
 
     def enableBestEffortFlag(options: List[String]): List[String] = {
-      val bestEffortDirOpt = "-Ybest-effort-dir"
+      val bestEffortOpt = "-Ybest-effort"
       val withBETastyOpt = "-Ywith-best-effort-tasty"
-      if (!Files.exists(bestEffortBaseDir.underlying))
-        Files.createDirectories(bestEffortBaseDir.underlying)
       val optsWithDir =
-        if (options.exists(opt => opt.startsWith(bestEffortDirOpt))) options
-        else options ++ List(bestEffortDirOpt, bestEffortBuildDir.toString)
+        if (options.contains(bestEffortOpt)) options
+        else options :+ bestEffortOpt
       val optsWithBETasty =
         if (optsWithDir.contains(withBETastyOpt)) optsWithDir
         else options :+ withBETastyOpt
@@ -576,7 +570,7 @@ object Project {
         val options = enableBestEffortFlag(withEnabledJavaSemanticDb.scalacOptions)
 
         project.copy(
-          bestEffortDirs = Some(BestEffortDirs(bestEffortBuildDir, bestEffortDepDir)),
+          isBestEffort = true,
           scalacOptions = options
         )
       } else withEnabledJavaSemanticDb

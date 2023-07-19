@@ -255,7 +255,6 @@ object ResultsCache {
                         CompileProducts(
                           classesDir,
                           classesDir,
-                          p.bestEffortDirs.map(_.buildDir.underlying),
                           r,
                           r,
                           Set.empty,
