@@ -161,10 +161,10 @@ final class BspServerLogger private (
   private def toExistingBspPosition(pos: xsbti.Position): Option[bsp.Range] = {
     def asIntPos(opt: Optional[Integer]) = InterfaceUtil.toOption(opt).map(_.toInt)
     for {
-      startLine <- asIntPos(pos.startLine())
-      startColumn <- asIntPos(pos.startColumn())
-      endLine <- asIntPos(pos.endLine())
-      endColumn <- asIntPos(pos.endColumn())
+      startLine <- asIntPos(pos.startLine()).orElse(asIntPos(pos.line()))
+      startColumn <- asIntPos(pos.startColumn()).orElse(asIntPos(pos.pointer()))
+      endLine = asIntPos(pos.endLine()).getOrElse(startLine)
+      endColumn = asIntPos(pos.endColumn()).getOrElse(startColumn)
     } yield bsp.Range(
       bsp.Position(startLine - 1, startColumn),
       bsp.Position(endLine - 1, endColumn)
