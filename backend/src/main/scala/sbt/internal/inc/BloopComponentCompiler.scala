@@ -27,6 +27,7 @@ import xsbti.ComponentProvider
 import xsbti.Logger
 import xsbti.compile.ClasspathOptionsUtil
 import xsbti.compile.CompilerBridgeProvider
+import scala.util.control.NonFatal
 
 object BloopComponentCompiler {
   import xsbti.compile.ScalaInstance
@@ -44,11 +45,22 @@ object BloopComponentCompiler {
 
   private val CompileConf = Some(Configurations.Compile.name)
   def getModuleForBridgeSources(scalaInstance: ScalaInstance): ModuleID = {
+    val isAfter2_13_11 =
+      try {
+        val Array(_, _, patch) = scalaInstance.version().split("\\.")
+        val patchTrimmed = patch.takeWhile(_.isDigit).toInt
+        scalaInstance.version().startsWith("2.13.") && patchTrimmed >= 12
+      } catch {
+        case NonFatal(_) => false
+      }
+
     def compilerBridgeId(scalaVersion: String) = {
+
       // Defaults to bridge for 2.13 for Scala versions bigger than 2.13.x
       scalaVersion match {
         case sc if (sc startsWith "0.") => "dotty-sbt-bridge"
         case sc if (sc startsWith "3.") => "scala3-sbt-bridge"
+        case _ if isAfter2_13_11 => "scala2-sbt-bridge"
         case sc if (sc startsWith "2.10.") => "compiler-bridge_2.10"
         case sc if (sc startsWith "2.11.") => "compiler-bridge_2.11"
         case sc if (sc startsWith "2.12.") => "compiler-bridge_2.12"
@@ -57,7 +69,7 @@ object BloopComponentCompiler {
     }
 
     val (isDotty, organization, version) = scalaInstance match {
-      case instance: BloopScalaInstance if instance.isDotty =>
+      case instance: BloopScalaInstance if instance.isDotty || isAfter2_13_11 =>
         (true, instance.organization, instance.version)
       case _ => (false, "org.scala-sbt", latestVersion)
     }
@@ -250,7 +262,12 @@ private[inc] class BloopComponentCompiler(
               .Artifact(bridgeSources.organization, bridgeSources.name, bridgeSources.revision)
           ),
           logger,
-          resolveSources = shouldResolveSources
+          resolveSources = shouldResolveSources,
+          List(
+            coursierapi.MavenRepository.of(
+              "https://scala-ci.typesafe.com/artifactory/scala-integration/"
+            )
+          )
         ) match {
           case Right(paths) => paths.map(_.underlying).toVector
           case Left(t) =>
