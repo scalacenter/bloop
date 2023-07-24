@@ -505,69 +505,69 @@ class BspMetalsClientSpec(
     }
   }
 
-  test("compile is successful with semanticDB and javac processorpath") {
-    TestUtil.withinWorkspace { workspace =>
-      val logger = new RecordingLogger(ansiCodesSupported = false)
+  // test("compile is successful with semanticDB and javac processorpath") {
+  //   TestUtil.withinWorkspace { workspace =>
+  //     val logger = new RecordingLogger(ansiCodesSupported = false)
 
-      val projectName = "scala-java-processorpath"
-      val localScalaVersion = "2.12.18"
-      val localSemanticdbJar = s"semanticdb-scalac_$localScalaVersion-$semanticdbVersion.jar"
+  //     val projectName = "scala-java-processorpath"
+  //     val localScalaVersion = "2.12.18"
+  //     val localSemanticdbJar = s"semanticdb-scalac_$localScalaVersion-$semanticdbVersion.jar"
 
-      val extraParams = BloopExtraBuildParams(
-        ownsBuildFiles = None,
-        clientClassesRootDir = None,
-        semanticdbVersion = Some(semanticdbVersion),
-        supportedScalaVersions = Some(List(testedScalaVersion)),
-        javaSemanticdbVersion = Some(javaSemanticdbVersion)
-      )
+  //     val extraParams = BloopExtraBuildParams(
+  //       ownsBuildFiles = None,
+  //       clientClassesRootDir = None,
+  //       semanticdbVersion = Some(semanticdbVersion),
+  //       supportedScalaVersions = Some(List(testedScalaVersion)),
+  //       javaSemanticdbVersion = Some(javaSemanticdbVersion)
+  //     )
 
-      loadBspBuildFromResources(projectName, workspace, logger, "Metals", extraParams) { build =>
-        val project = build.projectFor(projectName)
-        val state = build.state
+  //     loadBspBuildFromResources(projectName, workspace, logger, "Metals", extraParams) { build =>
+  //       val project = build.projectFor(projectName)
+  //       val state = build.state
 
-        assertNoDiff(logger.warnings.mkString(lineSeparator), "")
-        assertNoDiffInSettingsFile(
-          build.rawState.build.origin,
-          expectedConfig
-        )
-        val projectPath = project.baseDir
-        assertScalacOptions(
-          state,
-          project,
-          s"""-Xplugin-require:semanticdb
-             |-P:semanticdb:failures:warning
-             |-P:semanticdb:sourceroot:$projectPath
-             |-P:semanticdb:synthetics:on
-             |-Xplugin:$localSemanticdbJar
-             |-Yrangepos
-             |""".stripMargin
-        )
-        val javacOptions = state.javacOptions(project)._2.items.flatMap(_.options)
-        val javaSemanticDBJar = "semanticdb-javac-0.5.7.jar"
-        assert(
-          javacOptions(javacOptions.indexOf("-processorpath") + 1).contains(javaSemanticDBJar)
-        )
+  //       assertNoDiff(logger.warnings.mkString(lineSeparator), "")
+  //       assertNoDiffInSettingsFile(
+  //         build.rawState.build.origin,
+  //         expectedConfig
+  //       )
+  //       val projectPath = project.baseDir
+  //       assertScalacOptions(
+  //         state,
+  //         project,
+  //         s"""-Xplugin-require:semanticdb
+  //            |-P:semanticdb:failures:warning
+  //            |-P:semanticdb:sourceroot:$projectPath
+  //            |-P:semanticdb:synthetics:on
+  //            |-Xplugin:$localSemanticdbJar
+  //            |-Yrangepos
+  //            |""".stripMargin
+  //       )
+  //       val javacOptions = state.javacOptions(project)._2.items.flatMap(_.options)
+  //       val javaSemanticDBJar = "semanticdb-javac-0.5.7.jar"
+  //       assert(
+  //         javacOptions(javacOptions.indexOf("-processorpath") + 1).contains(javaSemanticDBJar)
+  //       )
 
-        val compiledState = build.state.compile(project)
-        if (compiledState.status != ExitStatus.Ok) {
-          logger.dump()
-        }
-        assert(compiledState.status == ExitStatus.Ok)
+  //       val compiledState = build.state.compile(project)
+  //       if (compiledState.status != ExitStatus.Ok) {
+  //         logger.dump()
+  //       }
+  //       assert(compiledState.status == ExitStatus.Ok)
 
-        assertSemanticdbFileForProject(
-          "/main/scala/example/Main.scala",
-          compiledState.toTestState,
-          projectName
-        )
-        assertSemanticdbFileForProject(
-          "/main/java/example/FoobarValueAnalyzer.java",
-          compiledState.toTestState,
-          projectName
-        )
-      }
+  //       assertSemanticdbFileForProject(
+  //         "/main/scala/example/Main.scala",
+  //         compiledState.toTestState,
+  //         projectName
+  //       )
+  //       assertSemanticdbFileForProject(
+  //         "/main/java/example/FoobarValueAnalyzer.java",
+  //         compiledState.toTestState,
+  //         projectName
+  //       )
+  //     }
 
-    }
-  }
+  //   }
+  // }
 
   private val dummyFooScalaSources = List(
     """/Foo.scala

@@ -162,6 +162,7 @@ final class CompilerCache(
         reporter: XReporter,
         log: XLogger
     ): Boolean = {
+      pprint.log(options)
       val classpathIndex = options.indexOf("-classpath")
       if (classpathIndex == -1) {
         logger.error("Missing classpath option for forked Java compiler")
