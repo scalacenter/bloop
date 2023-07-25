@@ -25,7 +25,6 @@ import ch.epfl.scala.bsp.StatusCode
 import ch.epfl.scala.bsp.Uri
 import ch.epfl.scala.bsp.endpoints
 import ch.epfl.scala.debugadapter.DebugServer
-import ch.epfl.scala.debugadapter.DebugTools
 import ch.epfl.scala.debugadapter.Debuggee
 
 import bloop.Compiler
@@ -667,15 +666,15 @@ final class BloopBspServices(
                   )
                 case (state, Right(_)) =>
                   val projects = mappings.map(_._2)
+
                   inferDebuggee(projects, state) match {
                     case Right(debuggee) =>
                       val dapLogger = new DebugServerLogger(logger)
                       val resolver = new BloopDebugToolsResolver(logger)
-                      val debugTools = DebugTools(debuggee, resolver, dapLogger)
                       val handler =
                         DebugServer.start(
                           debuggee,
-                          debugTools,
+                          resolver,
                           dapLogger,
                           autoCloseSession = true,
                           gracePeriod = Duration(5, TimeUnit.SECONDS)
@@ -783,13 +782,15 @@ final class BloopBspServices(
             environmentVariables = state.commonOptions.env.toMap
             workingDirectory = project.workingDirectory.toString
             javaOptions <- project.runtimeJdkConfig.map(_.javaOptions.toList)
+            classNames = Tasks.findMainClasses(state, project)
           } yield {
             bsp.JvmEnvironmentItem(
               id,
               fullClasspath.toList,
               javaOptions,
               workingDirectory,
-              environmentVariables
+              environmentVariables,
+              Some(classNames.map(bsp.JvmMainClass(_, Nil)))
             )
           }).toList
           Task.now((state, Right(environmentEntries)))

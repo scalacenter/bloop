@@ -147,25 +147,32 @@ object JsBridge {
       env: Map[String, String]
   ): (List[sbt.testing.Framework], () => Unit) = {
     implicit val debugFilter: DebugFilter = DebugFilter.Test
-    val nodeModules = baseDirectory.resolve("node_modules").toString
-    logger.debug("Node.js module path: " + nodeModules)
-    val fullEnv = Map("NODE_PATH" -> nodeModules) ++ env
-    val config =
-      NodeJSConfig().withExecutable(nodePath).withCwd(Some(baseDirectory)).withEnv(fullEnv)
-    val nodeEnv =
-      if (!jsConfig.jsdom.contains(true)) new NodeJSEnv(logger, config)
-      else new JsDomNodeJsEnv(logger, config)
+    val nodeModules = baseDirectory.resolve("node_modules")
+    if (nodeModules.toFile().exists()) {
+      logger.debug("Node.js module path: " + nodeModules.toString())
+      val fullEnv = Map("NODE_PATH" -> nodeModules.toString()) ++ env
+      val config =
+        NodeJSConfig().withExecutable(nodePath).withCwd(Some(baseDirectory)).withEnv(fullEnv)
+      val nodeEnv =
+        if (!jsConfig.jsdom.contains(true)) new NodeJSEnv(logger, config)
+        else new JsDomNodeJsEnv(logger, config)
 
-    // The order of the scripts mandates the load order in the JavaScript runtime
-    val input = jsConfig.kind match {
-      case ModuleKindJS.NoModule => Input.Script(jsPath)
-      case ModuleKindJS.CommonJSModule => Input.CommonJSModule(jsPath)
-      case ModuleKindJS.ESModule => Input.ESModule(jsPath)
+      // The order of the scripts mandates the load order in the JavaScript runtime
+      val input = jsConfig.kind match {
+        case ModuleKindJS.NoModule => Input.Script(jsPath)
+        case ModuleKindJS.CommonJSModule => Input.CommonJSModule(jsPath)
+        case ModuleKindJS.ESModule => Input.ESModule(jsPath)
+      }
+
+      val testConfig = TestAdapter.Config().withLogger(new Logger(logger))
+      val adapter = new TestAdapter(nodeEnv, Seq(input), testConfig)
+      val result = adapter.loadFrameworks(frameworkNames).flatMap(_.toList)
+      (result, () => adapter.close())
+    } else {
+      logger.error(
+        s"Cannot discover test frameworks, missing node_modules in test project, expected them at $nodeModules"
+      )
+      (Nil, () => ())
     }
-
-    val testConfig = TestAdapter.Config().withLogger(new Logger(logger))
-    val adapter = new TestAdapter(nodeEnv, Seq(input), testConfig)
-    val result = adapter.loadFrameworks(frameworkNames).flatMap(_.toList)
-    (result, () => adapter.close())
   }
 }

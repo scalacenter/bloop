@@ -1,6 +1,9 @@
 package bloop.logging
 
+import java.util.Optional
 import java.util.concurrent.atomic.AtomicInteger
+
+import scala.collection.JavaConverters._
 
 import ch.epfl.scala.bsp
 import ch.epfl.scala.bsp.BuildTargetIdentifier
@@ -16,6 +19,7 @@ import com.github.plokhotnyuk.jsoniter_scala.macros.JsonCodecMaker
 import jsonrpc4s.RawJson
 import monix.execution.atomic.AtomicInt
 import sbt.internal.inc.bloop.ZincInternals
+import sbt.util.InterfaceUtil
 import xsbti.DiagnosticRelatedInformation
 import xsbti.Position
 import xsbti.Severity
@@ -49,11 +53,32 @@ final class BspServerLogger private (
 
   override def ansiCodesSupported: Boolean = ansiSupported || underlying.ansiCodesSupported()
 
-  override private[logging] def printDebug(msg: String): Unit = underlying.printDebug(msg)
+  override private[logging] def printDebug(msg: String): Unit = {
+    if (isVerbose)
+      client.notify(
+        Build.logMessage,
+        bsp.LogMessageParams(bsp.MessageType.Log, None, originId, msg)
+      )
+    underlying.printDebug(msg)
+
+  }
   override def debug(msg: String)(implicit ctx: DebugFilter): Unit =
     if (debugFilter.isEnabledFor(ctx)) printDebug(msg)
 
-  override def trace(t: Throwable): Unit = underlying.trace(t)
+  override def trace(t: Throwable): Unit = {
+    if (isVerbose) {
+      def msg(t: Throwable): String = {
+        val base = t.getMessage() + "\n" + t.getStackTrace().mkString("\n\t")
+        if (t.getCause() == null) base
+        else base + "\nCaused by: " + msg(t.getCause())
+      }
+      client.notify(
+        Build.logMessage,
+        bsp.LogMessageParams(bsp.MessageType.Log, None, originId, msg(t))
+      )
+    }
+    underlying.trace(t)
+  }
 
   override def error(msg: String): Unit = {
     client.notify(
@@ -133,15 +158,43 @@ final class BspServerLogger private (
       })
   }
 
+  private def toExistingBspPosition(pos: xsbti.Position): Option[bsp.Range] = {
+    def asIntPos(opt: Optional[Integer]) = InterfaceUtil.toOption(opt).map(_.toInt)
+    for {
+      startLine <- asIntPos(pos.startLine())
+      startColumn <- asIntPos(pos.startColumn())
+      endLine <- asIntPos(pos.endLine())
+      endColumn <- asIntPos(pos.endColumn())
+    } yield bsp.Range(
+      bsp.Position(startLine - 1, startColumn),
+      bsp.Position(endLine - 1, endColumn)
+    )
+  }
+
+  private def toScalaDiagnostic(actions: java.util.List[xsbti.Action]): bsp.ScalaDiagnostic = {
+    val bspActions = actions.asScala.map { action =>
+      val description = InterfaceUtil.toOption(action.description())
+      val edits = action.edit().changes().asScala.flatMap { edit =>
+        toExistingBspPosition(edit.position()).map { range =>
+          bsp.ScalaTextEdit(range, edit.newText())
+        }
+      }
+      val workspaceEdit = bsp.ScalaWorkspaceEdit(Option(edits.toList))
+      bsp.ScalaAction(action.title(), description, Some(workspaceEdit))
+    }
+    bsp.ScalaDiagnostic(Some(bspActions.toList))
+  }
+
   def diagnostic(event: CompilationEvent.Diagnostic): Unit = {
-    import sbt.util.InterfaceUtil.toOption
-    import scala.collection.JavaConverters._
     val message = event.problem.message
     val problemPos = event.problem.position
     val problemSeverity = event.problem.severity
-    val sourceFile = toOption(problemPos.sourceFile())
-    val code = toOption(event.problem.diagnosticCode()).map(_.code())
-
+    val sourceFile = InterfaceUtil.toOption(problemPos.sourceFile())
+    val code = InterfaceUtil.toOption(event.problem.diagnosticCode()).map(_.code())
+    lazy val scalaDiagnostic = toScalaDiagnostic(event.problem.actions())
+    lazy val diagnosticAsRawJson = RawJson(
+      writeToArray(scalaDiagnostic)(bsp.ScalaDiagnostic.codec)
+    )
     (problemPos, sourceFile) match {
       case (ZincInternals.ZincExistsStartPos(startLine, startColumn), Some(file)) =>
         // Lines in Scalac are indexed by 1, BSP expects 0-index positions
@@ -159,14 +212,14 @@ final class BspServerLogger private (
             message,
             bspRelatedInformation(
               event.problem
-                .diagnosticRelatedInforamation()
+                .diagnosticRelatedInformation()
                 .asScala
                 .toList,
               startLine,
               startColumn
             ),
             None,
-            None
+            Option(diagnosticAsRawJson)
           )
         val textDocument = bsp.TextDocumentIdentifier(uri)
         val buildTargetId = bsp.BuildTargetIdentifier(event.projectUri)
@@ -194,14 +247,14 @@ final class BspServerLogger private (
             message,
             bspRelatedInformation(
               event.problem
-                .diagnosticRelatedInforamation()
+                .diagnosticRelatedInformation()
                 .asScala
                 .toList,
               startLine = 0,
               startColumn = 0
             ),
             None,
-            None
+            Option(diagnosticAsRawJson)
           )
         val textDocument = bsp.TextDocumentIdentifier(uri)
         val buildTargetId = bsp.BuildTargetIdentifier(event.projectUri)
