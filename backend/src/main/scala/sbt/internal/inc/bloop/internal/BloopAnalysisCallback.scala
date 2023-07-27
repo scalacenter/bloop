@@ -37,8 +37,11 @@ import xsbti.compile.ClassFileManager
 import xsbti.compile.IncOptions
 import xsbti.compile.Output
 import xsbti.compile.analysis.ReadStamps
+import xsbti.{Action, DiagnosticCode, DiagnosticRelatedInformation}
 
-trait IBloopAnalysisCallback extends xsbti.AnalysisCallback {
+import collection.JavaConverters._
+
+trait IBloopAnalysisCallback extends xsbti.AnalysisCallback2 {
   def get: Analysis
 }
 
@@ -118,6 +121,36 @@ final class BloopAnalysisCallback(
     startSource(converter.toVirtualFile(source.toPath()))
   }
 
+  def problem2(
+      category: String,
+      pos: Position,
+      msg: String,
+      severity: Severity,
+      reported: Boolean,
+      rendered: ju.Optional[String],
+      diagnosticCode: ju.Optional[DiagnosticCode],
+      diagnosticRelatedInformation: ju.List[DiagnosticRelatedInformation],
+      actions: ju.List[Action]
+  ): Unit = {
+    for (source <- InterfaceUtil.jo2o(pos.sourceFile)) {
+      val map = if (reported) reportedProblems else unreportedProblems
+      map
+        .getOrElseUpdate(source.toPath(), new mutable.ListBuffer())
+        .+=(
+          InterfaceUtil.problem(
+            category,
+            pos,
+            msg,
+            severity,
+            None,
+            InterfaceUtil.toOption(diagnosticCode),
+            diagnosticRelatedInformation.asScala.toList,
+            actions.asScala.toList
+          )
+        )
+    }
+  }
+
   def problem(
       category: String,
       pos: Position,
@@ -125,12 +158,7 @@ final class BloopAnalysisCallback(
       severity: Severity,
       reported: Boolean
   ): Unit = {
-    for (source <- InterfaceUtil.jo2o(pos.sourceFile)) {
-      val map = if (reported) reportedProblems else unreportedProblems
-      map
-        .getOrElseUpdate(source.toPath(), new mutable.ListBuffer())
-        .+=(InterfaceUtil.problem(category, pos, msg, severity, None, None, Nil))
-    }
+    problem(category, pos, msg, severity, reported)
   }
 
   def classDependency(

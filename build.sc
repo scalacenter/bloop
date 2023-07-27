@@ -57,7 +57,7 @@ object Dependencies {
   def nailgun                = ivy"io.github.alexarchambault.bleep:nailgun-server:1.0.7"
   def osLib                  = ivy"com.lihaoyi::os-lib:0.9.0"
   def pprint                 = ivy"com.lihaoyi::pprint:0.8.1"
-  def sbtTestAgent           = ivy"org.scala-sbt:test-agent:1.9.2"
+  def sbtTestAgent           = ivy"org.scala-sbt:test-agent:1.9.3"
   def sbtTestInterface       = ivy"org.scala-sbt:test-interface:1.0"
   def scalaDebugAdapter      = ivy"ch.epfl.scala::scala-debug-adapter:3.1.3"
   def scalaJsLinker1         = ivy"org.scala-js::scalajs-linker:$scalaJs1Version"
@@ -73,7 +73,7 @@ object Dependencies {
   def svm           = ivy"org.graalvm.nativeimage:svm:$graalvmVersion"
   def utest         = ivy"com.lihaoyi::utest:0.8.1"
   def xxHashLibrary = ivy"net.jpountz.lz4:lz4:1.3.0"
-  def zinc          = ivy"org.scala-sbt::zinc:1.9.2"
+  def zinc          = ivy"org.scala-sbt::zinc:1.9.3"
   def zipkinSender  = ivy"io.zipkin.reporter2:zipkin-sender-urlconnection:2.16.4"
   def zt            = ivy"org.zeroturnaround:zt-zip:1.15"
 

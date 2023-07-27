@@ -35,6 +35,9 @@ import xsbti.compile.ClassFileManager
 import xsbti.compile.IncOptions
 import xsbti.compile.Output
 import xsbti.compile.analysis.ReadStamps
+import xsbti.{Action, DiagnosticCode, DiagnosticRelatedInformation}
+
+import collection.JavaConverters._
 
 /**
  * This class provides a thread-safe implementation of `xsbti.AnalysisCallback` which is required to compile with the
@@ -123,6 +126,36 @@ final class ConcurrentAnalysisCallback(
     startSource(converter.toVirtualFile(source.toPath()))
   }
 
+  def problem2(
+      category: String,
+      pos: Position,
+      msg: String,
+      severity: Severity,
+      reported: Boolean,
+      rendered: ju.Optional[String],
+      diagnosticCode: ju.Optional[DiagnosticCode],
+      diagnosticRelatedInformation: ju.List[DiagnosticRelatedInformation],
+      actions: ju.List[Action]
+  ): Unit = {
+    for (source <- InterfaceUtil.jo2o(pos.sourceFile)) {
+      val map = if (reported) reportedProblems else unreportedProblems
+      map
+        .getOrElseUpdate(source.toPath(), new ConcurrentLinkedQueue)
+        .add(
+          InterfaceUtil.problem(
+            category,
+            pos,
+            msg,
+            severity,
+            None,
+            InterfaceUtil.toOption(diagnosticCode),
+            diagnosticRelatedInformation.asScala.toList,
+            actions.asScala.toList
+          )
+        )
+    }
+  }
+
   def problem(
       category: String,
       pos: Position,
@@ -130,12 +163,17 @@ final class ConcurrentAnalysisCallback(
       severity: Severity,
       reported: Boolean
   ): Unit = {
-    for (source <- InterfaceUtil.jo2o(pos.sourceFile)) {
-      val map = if (reported) reportedProblems else unreportedProblems
-      map
-        .getOrElseUpdate(source.toPath(), new ConcurrentLinkedQueue)
-        .add(InterfaceUtil.problem(category, pos, msg, severity, None, None, Nil))
-    }
+    problem2(
+      category,
+      pos,
+      msg,
+      severity,
+      reported,
+      rendered = ju.Optional.empty(),
+      diagnosticCode = ju.Optional.empty(),
+      diagnosticRelatedInformation = Nil.asJava,
+      actions = Nil.asJava
+    )
   }
 
   def classDependency(
