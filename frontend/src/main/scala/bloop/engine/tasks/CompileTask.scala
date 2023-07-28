@@ -125,6 +125,13 @@ object CompileTask {
                 5
               )
           }
+          // get Bloop to replace the javac-classes-directory instead of the scip plugin so that no internal javac APIs are used.
+          val newJavacOptions = project.javacOptions.map(option =>
+            option.replaceAllLiterally(
+              "-targetroot:javac-classes-directory",
+              s"-targetroot:${newClassesDir}"
+            )
+          )
 
           val inputs = newScalacOptions.map { newScalacOptions =>
             CompileInputs(
@@ -136,7 +143,7 @@ object CompileTask {
               compileOut,
               project.out,
               newScalacOptions.toArray,
-              project.javacOptions.toArray,
+              newJavacOptions.toArray,
               project.compileJdkConfig.flatMap(_.javacBin),
               project.compileOrder,
               project.classpathOptions,
