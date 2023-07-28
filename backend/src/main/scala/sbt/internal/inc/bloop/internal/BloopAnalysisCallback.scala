@@ -155,7 +155,17 @@ final class BloopAnalysisCallback(
       severity: Severity,
       reported: Boolean
   ): Unit = {
-    problem(category, pos, msg, severity, reported)
+    problem2(
+      category,
+      pos,
+      msg,
+      severity,
+      reported,
+      rendered = ju.Optional.empty(),
+      diagnosticCode = ju.Optional.empty(),
+      diagnosticRelatedInformation = Nil.asJava,
+      actions = Nil.asJava
+    )
   }
 
   def classDependency(
