@@ -47,17 +47,13 @@ object Bloop {
   private val defaultPort: Int = 8212 // 8100 + 'p'
   def main(args: Array[String]): Unit = {
     def toPortNumber(userPort: String) = Try(userPort.toInt).getOrElse(Bloop.defaultPort)
-    val lockFilesOrHostPort = args match {
+    val lockFilesDirOrHostPort = args match {
       case Array() =>
         val dir = bloop.io.Paths.daemonDir.underlying
-        ensureSafeDirectoryExists(dir)
-        val lockFiles = LockFiles.under(dir)
-        Right(lockFiles)
+        Right(dir)
       case Array(daemonArg) if daemonArg.startsWith("daemon:") =>
         val dir = Paths.get(daemonArg.stripPrefix("daemon:"))
-        ensureSafeDirectoryExists(dir)
-        val lockFiles = LockFiles.under(dir)
-        Right(lockFiles)
+        Right(dir)
       case Array(arg) =>
         Left((InetAddress.getLoopbackAddress(), toPortNumber(arg)))
       case Array(host, portStr) =>
@@ -82,15 +78,17 @@ object Bloop {
       truncateFilePeriodically(Paths.get(value))
     }
 
-    lockFilesOrHostPort match {
+    lockFilesDirOrHostPort match {
       case Left(hostPort) =>
         startServer(Left(hostPort))
-      case Right(lockFiles) =>
+      case Right(lockFilesDir) =>
         val period = 3.second
         val attempts = 10
 
         @tailrec
         def loop(remainingAttempts: Int): Unit = {
+          ensureSafeDirectoryExists(lockFilesDir)
+          val lockFiles = LockFiles.under(lockFilesDir)
           val res = Lock.tryAcquire(lockFiles, LockProcess.default) {
             startServer(Right(lockFiles.socketPaths))
           }
@@ -104,6 +102,9 @@ object Bloop {
                 throw new Exception(err)
             case Left(_: LockError.AlreadyRunning) =>
               sys.exit(222) // Special exit code if a server is already running
+            case Left(_: LockError.ZombieFound) =>
+              Files.delete(lockFiles.pidFile)
+              loop(remainingAttempts - 1)
             case Left(err: LockError.FatalError) =>
               throw new Exception(err)
             case Right(()) =>
