@@ -456,7 +456,8 @@ object Compiler {
             previousSuccessfulProblems,
             None
           )
-        case Failure(cause: xsbti.CompileFailed) if isBestEffortMode =>
+        case Failure(cause: xsbti.CompileFailed)
+            if isBestEffortMode && !containsBestEffortFailure(cause) =>
           // Copies required files to a bsp directory.
           // For the Success case this is done by the enclosing method
           fileManager.complete(true)
@@ -672,6 +673,9 @@ object Compiler {
           }
       }
   }
+
+  def containsBestEffortFailure(cause: xsbti.CompileFailed) =
+    cause.problems().exists(_.message().contains("Unsuccessful best-effort compilation."))
 
   /**
    * Handles successful Best Effort compilation.

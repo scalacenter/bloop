@@ -413,24 +413,30 @@ object CompileGraph {
                 val depsSupportBestEffort =
                   dependencies.map(Dag.dfs(_, mode = Dag.PreOrder)).flatten.forall(_.isBestEffort)
                 val failed = dagResults.flatMap(dag => blockedBy(dag).toList)
-                val continue = bestEffort && depsSupportBestEffort || failed.isEmpty
-                val dependsOnBestEffort = failed.nonEmpty && bestEffort && depsSupportBestEffort || isBestEffortDep
 
-                if (!continue) {
-                  // Register the name of the projects we're blocked on (intransitively)
-                  val blockedResult = Compiler.Result.Blocked(failed.map(_.name))
-                  val blocked = Task.now(ResultBundle(blockedResult, None, None))
-                  Task.now(Parent(PartialFailure(project, BlockURI, blocked), dagResults))
-                } else {
-                  val allResults = Task.gatherUnordered {
-                    val transitive = dagResults.flatMap(Dag.dfs(_, mode = Dag.PreOrder)).distinct
-                    transitive.flatMap {
-                      case PartialSuccess(bundle, result) => Some(result.map(r => bundle.project -> r))
-                      case PartialFailure(project, _, result) => Some(result.map(r => project -> r))
-                      case _ => None
-                    }
+                val allResults = Task.gatherUnordered {
+                  val transitive = dagResults.flatMap(Dag.dfs(_, mode = Dag.PreOrder)).distinct
+                  transitive.flatMap {
+                    case PartialSuccess(bundle, result) => Some(result.map(r => bundle.project -> r))
+                    case PartialFailure(project, _, result) => Some(result.map(r => project -> r))
+                    case _ => None
                   }
-                  allResults.flatMap { results =>
+                }
+
+                allResults.flatMap { results =>
+                  val successfulBestEffort = !results.exists {
+                    case (_, ResultBundle(f: Compiler.Result.Failed, _, _, _)) => f.products.isEmpty
+                    case _ => false
+                  }
+                  val continue = bestEffort && depsSupportBestEffort && successfulBestEffort || failed.isEmpty
+                  val dependsOnBestEffort = failed.nonEmpty && bestEffort && depsSupportBestEffort || isBestEffortDep
+
+                  if (!continue) {
+                    // Register the name of the projects we're blocked on (intransitively)
+                    val blockedResult = Compiler.Result.Blocked(failed.map(_.name))
+                    val blocked = Task.now(ResultBundle(blockedResult, None, None))
+                    Task.now(Parent(PartialFailure(project, BlockURI, blocked), dagResults))
+                  } else {
                     val dependentProducts = new mutable.ListBuffer[(Project, BundleProducts)]()
                     val dependentResults = new mutable.ListBuffer[(File, PreviousResult)]()
                     results.foreach {

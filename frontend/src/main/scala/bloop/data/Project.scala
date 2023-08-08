@@ -455,12 +455,12 @@ object Project {
     def enableBestEffortFlag(options: List[String]): List[String] = {
       val bestEffortOpt = "-Ybest-effort"
       val withBETastyOpt = "-Ywith-best-effort-tasty"
-      val optsWithDir =
+      val optsWithBestEffort =
         if (options.contains(bestEffortOpt)) options
         else options :+ bestEffortOpt
       val optsWithBETasty =
-        if (optsWithDir.contains(withBETastyOpt)) optsWithDir
-        else options :+ withBETastyOpt
+        if (optsWithBestEffort.contains(withBETastyOpt)) optsWithBestEffort
+        else optsWithBestEffort :+ withBETastyOpt
       optsWithBETasty
     }
 
