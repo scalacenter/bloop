@@ -21,6 +21,7 @@ import bloop.logging.RecordingLogger
 import bloop.task.Task
 import bloop.util.TestProject
 import bloop.util.TestUtil
+import bloop.Compiler
 
 object LocalBspMetalsClientSpec extends BspMetalsClientSpec(BspProtocol.Local)
 object TcpBspMetalsClientSpec extends BspMetalsClientSpec(BspProtocol.Tcp)
@@ -470,6 +471,56 @@ class BspMetalsClientSpec(
     }
   }
 
+  // TODO replace scala version with a released stable version
+  val bestEffortScalaVersion = "3.3.1-RC1-bin-SNAPSHOT"
+
+  test("best-effort: compile dependency of failing project and produce semanticdb and betasty") {
+    TestUtil.withinWorkspace { workspace =>
+      val `A` = TestProject(
+        workspace,
+        "A",
+        dummyBestEffortSources,
+        scalaVersion = Some(bestEffortScalaVersion)
+      )
+      val `B` = TestProject(
+        workspace,
+        "B",
+        dummyBestEffortDepSources,
+        directDependencies = List(`A`),
+        scalaVersion = Some(bestEffortScalaVersion)
+      )
+      val projects = List(`A`, `B`)
+      TestProject.populateWorkspace(workspace, projects)
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val extraParams = BloopExtraBuildParams(
+        ownsBuildFiles = None,
+        clientClassesRootDir = None,
+        semanticdbVersion = Some(semanticdbVersion),
+        supportedScalaVersions = Some(List(bestEffortScalaVersion)),
+        javaSemanticdbVersion = None,
+        enableBestEffortMode = Some(true)
+      )
+      loadBspState(workspace, projects, logger, "Metals", bloopExtraParams = extraParams) { state =>
+        val compiledStateA = state.compile(`A`, arguments = Some(List("--best-effort"))).toTestState
+        assert(compiledStateA.status == ExitStatus.CompilationError)
+        assertSemanticdbFileFor("TypeError.scala", compiledStateA, "A")
+        assertBetastyFile("TypeError.betasty", compiledStateA, "A")
+        val compiledStateB = state.compile(`B`, arguments = Some(List("--best-effort"))).toTestState
+        assert(compiledStateB.status == ExitStatus.CompilationError)
+        assertSemanticdbFileFor("TypeErrorDependency.scala", compiledStateB, "B")
+        assertBetastyFile("TypeErrorDependency.betasty", compiledStateB, "B")
+
+        val projectB = compiledStateB.build.getProjectFor("B").get
+        compiledStateB.results.all(projectB) match {
+          case Compiler.Result.Failed(problemsPerPhase, crash, _, _, _) =>
+            assert(problemsPerPhase == List.empty) // No new errors should be found
+            assert(crash == None)
+          case result => fail(s"Result ${result} is not classified as failure")
+        }
+      }
+    }
+  }
+
   private val dummyFooScalaSources = List(
     """/Foo.scala
       |class Foo
@@ -484,18 +535,47 @@ class BspMetalsClientSpec(
 
   private val dummyFooScalaAndBarJavaSources = dummyFooScalaSources ++ dummyBarJavaSources
 
-  private def semanticdbFile(sourceFileName: String, state: TestState) = {
-    val projectA = state.build.getProjectFor("A").get
-    val classesDir = state.client.getUniqueClassesDirFor(projectA, forceGeneration = true)
+  private val dummyBestEffortSources = List(
+    """/TypeError.scala
+      |object TypeError:
+      |  val num: Int = ""
+      |""".stripMargin
+  )
+  private val dummyBestEffortDepSources = List(
+    """/TypeErrorDependency.scala
+      |object TypeErrorDependency:
+      |  def num(): Int = TypeError.num
+      |""".stripMargin
+  )
+
+  private def semanticdbFile(
+      sourceFileName: String,
+      state: TestState,
+      projectName: String = "A"
+  ) = {
+    val project = state.build.getProjectFor(projectName).get
+    val classesDir = state.client.getUniqueClassesDirFor(project, forceGeneration = true)
     val sourcePath = if (sourceFileName.startsWith("/")) sourceFileName else s"/$sourceFileName"
-    classesDir.resolve(s"META-INF/semanticdb/A/src/$sourcePath.semanticdb")
+    classesDir.resolve(s"META-INF/semanticdb/$projectName/src/$sourcePath.semanticdb")
+  }
+
+  private def assertBetastyFile(
+      expectedBetastyRelativePath: String,
+      state: TestState,
+      projectName: String
+  ): Unit = {
+    val project = state.build.getProjectFor(projectName).get
+    val classesDir = state.client.getUniqueClassesDirFor(project, forceGeneration = true)
+    val beTastyFile = classesDir.resolve(s"META-INF/best-effort/$expectedBetastyRelativePath")
+    assertIsFile(beTastyFile)
   }
 
   private def assertSemanticdbFileFor(
       sourceFileName: String,
-      state: TestState
+      state: TestState,
+      projectName: String = "A"
   ): Unit = {
-    val file = semanticdbFile(sourceFileName, state)
+    val file = semanticdbFile(sourceFileName, state, projectName)
     assertIsFile(file)
   }
 
