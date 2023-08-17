@@ -29,6 +29,7 @@ import bloop.reporter.ReporterAction
 import bloop.task.Task
 import bloop.util.JavaCompat.EnrichOptional
 import bloop.util.SystemProperties
+import bloop.util.BestEffortUtils.BestEffortProducts
 
 import xsbti.compile.PreviousResult
 
@@ -425,7 +426,7 @@ object CompileGraph {
 
                 allResults.flatMap { results =>
                   val successfulBestEffort = !results.exists {
-                    case (_, ResultBundle(f: Compiler.Result.Failed, _, _, _)) => f.products.isEmpty
+                    case (_, ResultBundle(f: Compiler.Result.Failed, _, _, _)) => f.bestEffortProducts.isEmpty
                     case _ => false
                   }
                   val continue = bestEffort && depsSupportBestEffort && successfulBestEffort || failed.isEmpty
@@ -448,8 +449,9 @@ object CompileGraph {
                           .+=(newProducts.newClassesDir.toFile -> newResult)
                           .+=(newProducts.readOnlyClassesDir.toFile -> newResult)
                       case (p, ResultBundle(f: Compiler.Result.Failed, _, _, _)) =>
-                        f.products.foreach { products =>
-                          dependentProducts += (p -> Right(products))
+                        f.bestEffortProducts.foreach {
+                          case BestEffortProducts(products, _) =>
+                            dependentProducts += (p -> Right(products))
                         }
                       case _ => ()
                     }
