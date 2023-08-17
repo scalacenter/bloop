@@ -17,6 +17,8 @@ import bloop.internal.build.BloopScalaInfo
 import bloop.logging.DebugFilter
 import bloop.logging.Logger
 
+import coursierapi.Repository
+
 final class ScalaInstance private (
     val organization: String,
     val name: String,
@@ -195,12 +197,14 @@ object ScalaInstance {
       scalaOrg: String,
       scalaName: String,
       scalaVersion: String,
-      logger: Logger
+      logger: Logger,
+      additionalRepositories: List[Repository] = Nil
   ): ScalaInstance = {
     def resolveInstance: ScalaInstance = {
       val allPaths = DependencyResolution.resolve(
         List(DependencyResolution.Artifact(scalaOrg, scalaName, scalaVersion)),
-        logger
+        logger,
+        additionalRepos = additionalRepositories
       )
       val allJars = allPaths.collect {
         case path if path.underlying.toString.endsWith(".jar") => path.underlying.toFile
