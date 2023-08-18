@@ -69,8 +69,6 @@ object BloopServer {
   ): BloopRifle.BloopServerRuntimeInfo = {
     val workdir = new File(".").getCanonicalFile.toPath
     def startBloop(bloopVersion: String, bloopJava: String) = {
-      logger.info("Starting compilation server")
-      logger.debug(s"Starting Bloop $bloopVersion at ${config.address.render} using JVM $bloopJava")
       val fut = BloopRifle.startServer(
         config,
         startServerChecksPool,

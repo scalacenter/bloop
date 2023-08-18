@@ -48,6 +48,10 @@ object BloopRifle {
     config.classPath(version) match {
       case Left(ex) => Future.failed(new Exception("Error getting Bloop class path", ex))
       case Right((cp, isScalaCliBloop)) =>
+        logger.info("Starting compilation server")
+        logger.debug(
+          s"Starting Bloop $version at ${config.address.render} using JVM $bloopJava"
+        )
         object IntValue {
           def unapply(s: String): Option[Int] =
             // no String.toIntOption in Scala 2.12.x
