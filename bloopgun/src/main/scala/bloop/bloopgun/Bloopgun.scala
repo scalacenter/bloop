@@ -513,7 +513,9 @@ class BloopgunCli(
           val errorCode = "error=2"
           javaExec match {
             case Some(java)
-                if javaErrorMessage.pattern.matcher(e.getMessage()).find() && e.getMessage.contains(errorCode) =>
+                if javaErrorMessage.pattern.matcher(e.getMessage()).find() && e.getMessage.contains(
+                  errorCode
+                ) =>
               logger.info(s"Java executable was not available on PATH, retrying with $java")
               val (cmd, usedExtraJvmOpts) =
                 cmdWithArgs(found, extraJvmOpts, List(java), globalSettings)
