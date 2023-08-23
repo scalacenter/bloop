@@ -472,7 +472,7 @@ class BspMetalsClientSpec(
   }
 
   // TODO replace scala version with a released stable version
-  val bestEffortScalaVersion = "3.3.1-RC1-bin-SNAPSHOT"
+  val bestEffortScalaVersion = "3.4.0-RC1-bin-SNAPSHOT"
 
   test("best-effort: compile dependency of failing project and produce semanticdb and betasty") {
     TestUtil.withinWorkspace { workspace =>

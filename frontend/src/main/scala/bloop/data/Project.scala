@@ -449,7 +449,7 @@ object Project {
     }
 
     def canEnableBestEffortFlag(version: String): Boolean = {
-      version == "3.3.1-RC1-bin-SNAPSHOT" // TODO add correct version compare
+      version == "3.4.0-RC1-bin-SNAPSHOT" // TODO add correct version compare
     }
 
     def enableBestEffortFlag(options: List[String]): List[String] = {
