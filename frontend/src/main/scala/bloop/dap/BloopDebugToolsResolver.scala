@@ -34,10 +34,10 @@ class BloopDebugToolsResolver(logger: Logger) extends DebugToolsResolver {
     }
   }
 
-  override def resolveStepFilter(scalaVersion: ScalaVersion): Try[ClassLoader] = {
+  override def resolveUnpickler(scalaVersion: ScalaVersion): Try[ClassLoader] = {
     getOrTryUpdate(stepFilterCache, scalaVersion) {
-      val stepFilterModule = s"${BuildInfo.scala3StepFilterName}_${scalaVersion.binaryVersion}"
-      val stepFilter = Artifact(BuildInfo.organization, stepFilterModule, BuildInfo.version)
+      val unpicklerModule = s"${BuildInfo.unpicklerName}_${scalaVersion.binaryVersion}"
+      val stepFilter = Artifact(BuildInfo.organization, unpicklerModule, BuildInfo.version)
       val tastyCore = Artifact("org.scala-lang", "tasty-core_3", scalaVersion.value)
       DependencyResolution
         .resolveWithErrors(List(stepFilter, tastyCore), logger)

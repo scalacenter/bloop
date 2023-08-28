@@ -16,6 +16,7 @@ import com.microsoft.java.debug.core.protocol.Events
 import com.microsoft.java.debug.core.protocol.Requests._
 import com.microsoft.java.debug.core.protocol.Responses.ContinueResponseBody
 import com.microsoft.java.debug.core.protocol.Responses.EvaluateResponseBody
+import com.microsoft.java.debug.core.protocol.Responses.RedefineClassesResponse
 import com.microsoft.java.debug.core.protocol.Responses.ScopesResponseBody
 import com.microsoft.java.debug.core.protocol.Responses.SetBreakpointsResponseBody
 import com.microsoft.java.debug.core.protocol.Responses.StackTraceResponseBody
@@ -117,6 +118,11 @@ private[dap] final class DebugAdapterConnection(
     arguments.hostName = hostName
     arguments.port = port
     adapter.request(Attach, arguments)
+  }
+
+  def redefineClasses(): Task[RedefineClassesResponse] = {
+    val args = new RedefineClassesArguments()
+    adapter.request(RedefineClasses, args)
   }
 
   def close(): Unit = {

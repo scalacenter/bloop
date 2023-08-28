@@ -28,6 +28,7 @@ import bloop.util.JavaRuntime
 import scalaz.Cord
 import xsbti.compile.ClasspathOptions
 import xsbti.compile.CompileOrder
+import io.reactivex.subjects.PublishSubject
 
 final case class Project(
     name: String,
@@ -55,6 +56,8 @@ final case class Project(
     tags: List[String],
     origin: Origin
 ) {
+
+  val classObserver = PublishSubject.create[Seq[String]]()
 
   /** The bsp uri associated with this project. */
   val bspUri: Bsp.Uri = Bsp.Uri(ProjectUris.toURI(baseDirectory, name))

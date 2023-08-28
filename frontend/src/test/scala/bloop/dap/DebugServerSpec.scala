@@ -48,11 +48,84 @@ import coursierapi.Dependency
 import coursierapi.Fetch
 import monix.execution.Ack
 import monix.reactive.Observer
+import io.reactivex.Observable
 
 object DebugServerSpec extends DebugBspBaseSuite {
   private val ServerNotListening = new IllegalStateException("Server is not accepting connections")
   private val Success: ExitStatus = ExitStatus.Ok
   private val resolver = new BloopDebugToolsResolver(NoopLogger)
+
+  testTask("Performs Hot Code Replace", FiniteDuration(16, SECONDS)) {
+    val source2 =
+      """|/example/Main.scala
+         |package example
+         |class A {
+         |  def m() = {
+         |    println("B")
+         |  }
+         |}
+         |""".stripMargin
+    TestUtil.withinWorkspace { workspace =>
+      val source =
+        """|/Main.scala
+           |import example.A
+           |object Main {
+           |  def main(args: Array[String]): Unit = {
+           |    println("A")
+           |    new A().m()
+           |  }
+           |}
+           |""".stripMargin
+      val Asource =
+        """|/example/A.scala
+           |package example
+           |class A {
+           |  def m() = {
+           |    println("A")
+           |  }
+           |}
+           |""".stripMargin
+
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val projectDep = TestProject(workspace, "a", List(Asource))
+      val mainProject = TestProject(workspace, "r", List(source), List(projectDep))
+
+      loadBspStateWithTask(workspace, List(mainProject, projectDep), logger) { state =>
+        val testState = state.compile(mainProject).toTestState
+        val buildProject = testState.getProjectFor(mainProject)
+        def srcFor(srcName: String) =
+          buildProject.sources.map(_.resolve(s"$srcName")).find(_.exists).get
+        val `A.scala` = srcFor("../../a/src/example/A.scala")
+        val breakpoints = breakpointsArgs(srcFor("Main.scala"), 5)
+
+        val runner = mainRunner(mainProject, state)
+
+        startDebugServer(runner) { server =>
+          for {
+            client <- server.startConnection
+            _ <- client.initialize()
+            _ <- client.launch(noDebug = false)
+            _ <- client.initialized
+            bps <- client.setBreakpoints(breakpoints)
+            _ = assert(bps.breakpoints.forall(_.verified))
+            _ <- client.configurationDone()
+            stopped <- client.stopped
+            _ = writeFile(`A.scala`, source2)
+            _ = state.compile(mainProject)
+            _ <- client.redefineClasses()
+            _ <- client.continue(stopped.threadId)
+            _ <- client.exited
+            _ <- client.terminated
+            _ <- Task.fromFuture(client.closedPromise.future)
+            output <- client.takeCurrentOutput
+          } yield {
+            assert(client.socket.isClosed)
+            assertNoDiff(output, "A\nB")
+          }
+        }
+      }
+    }
+  }
 
   testTask("cancelling server closes server connection", FiniteDuration(10, SECONDS)) {
     startDebugServer(Task.now(Success)) { server =>
@@ -615,9 +688,9 @@ object DebugServerSpec extends DebugBspBaseSuite {
 
         val attachRemoteProcessRunner =
           BloopDebuggeeRunner.forAttachRemote(
+            Seq(buildProject),
             state.compile(project).toTestState.state,
-            defaultScheduler,
-            Seq(buildProject)
+            defaultScheduler
           )
 
         startDebugServer(attachRemoteProcessRunner) { server =>
@@ -858,9 +931,9 @@ object DebugServerSpec extends DebugBspBaseSuite {
 
         val attachRemoteProcessRunner =
           BloopDebuggeeRunner.forAttachRemote(
+            Seq(buildProject),
             testState.state,
-            defaultScheduler,
-            Seq(buildProject)
+            defaultScheduler
           )
 
         startDebugServer(attachRemoteProcessRunner) { server =>
@@ -1096,6 +1169,7 @@ object DebugServerSpec extends DebugBspBaseSuite {
       override def modules: Seq[Module] = Seq.empty
       override def libraries: Seq[Library] = Seq.empty
       override def unmanagedEntries: Seq[UnmanagedEntry] = Seq.empty
+      override val classesToUpdate = Observable.empty[Seq[String]]
       override def javaRuntime: Option[JavaRuntime] = None
       def name: String = "MockRunner"
       def run(listener: DebuggeeListener): CancelableFuture[Unit] = {
