@@ -8,6 +8,7 @@ import java.util.concurrent.Executor
 
 import scala.collection.mutable
 import scala.concurrent.Promise
+import scala.util.control.NonFatal
 
 import bloop.io.AbsolutePath
 import bloop.io.ParallelOps
@@ -23,6 +24,7 @@ import bloop.task.Task
 import bloop.tracing.BraveTracer
 import bloop.util.AnalysisUtils
 import bloop.util.CacheHashCode
+import bloop.util.JavaRuntime
 import bloop.util.UUIDUtil
 
 import monix.execution.Scheduler
@@ -289,7 +291,42 @@ object Compiler {
       // Sources are all files
       val sources = inputs.sources.map(path => converter.toVirtualFile(path.underlying))
       val classpath = inputs.classpath.map(path => converter.toVirtualFile(path.underlying))
-      val optionsWithoutFatalWarnings = inputs.scalacOptions.flatMap { option =>
+      def existsReleaseSetting = inputs.scalacOptions.exists(opt =>
+        opt.startsWith("-release") ||
+          opt.startsWith("--release") ||
+          opt.startsWith("-java-output-version")
+      )
+      def sameHome = inputs.javacBin match {
+        case Some(bin) => bin.getParent.getParent == JavaRuntime.home
+        case None => false
+      }
+
+      val scalacOptions = inputs.javacBin.flatMap(binary =>
+        // <JAVA_HOME>/bin/java
+        JavaRuntime.getJavaVersionFromJavaHome(binary.getParent.getParent)
+      ) match {
+        case None => inputs.scalacOptions
+        case Some(_) if existsReleaseSetting || sameHome => inputs.scalacOptions
+        case Some(version) =>
+          try {
+            val numVer = if (version.startsWith("1.8")) 8 else version.takeWhile(_.isDigit).toInt
+            val bloopNumVer = JavaRuntime.version.takeWhile(_.isDigit).toInt
+            if (bloopNumVer > numVer) {
+              inputs.scalacOptions ++ List("-release", numVer.toString())
+            } else {
+              logger.warn(
+                s"Bloop is run with ${JavaRuntime.version} but your code requires $version to compile, " +
+                  "this might cause some compilation issues when using JDK API unsupported by the Bloop's current JVM version"
+              )
+              inputs.scalacOptions
+            }
+          } catch {
+            case NonFatal(_) =>
+              inputs.scalacOptions
+          }
+      }
+
+      val optionsWithoutFatalWarnings = scalacOptions.flatMap { option =>
         if (option != "-Xfatal-warnings") List(option)
         else {
           if (!isFatalWarningsEnabled) isFatalWarningsEnabled = true
