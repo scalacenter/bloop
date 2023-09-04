@@ -10,6 +10,8 @@ import bloop.task.Task
 import bloop.util.TestProject
 import bloop.util.TestUtil
 
+import coursierapi.MavenRepository
+
 object ScalaVersionsSpec extends bloop.testing.BaseSuite {
   var loggers: List[RecordingLogger] = Nil
 
@@ -22,7 +24,15 @@ object ScalaVersionsSpec extends bloop.testing.BaseSuite {
 
       def jarsForScalaVersion(version: String, logger: RecordingLogger) = {
         ScalaInstance
-          .resolve(compilerOrg, compilerArtifact, version, logger)
+          .resolve(
+            compilerOrg,
+            compilerArtifact,
+            version,
+            logger,
+            List(
+              MavenRepository.of("https://scala-ci.typesafe.com/artifactory/scala-integration/")
+            )
+          )
           .allJars
           .map(AbsolutePath(_))
       }
@@ -66,7 +76,8 @@ object ScalaVersionsSpec extends bloop.testing.BaseSuite {
     "2.12.17",
     "2.13.10",
     "3.1.3",
-    "3.2.1"
+    "3.2.1",
+    "2.13.12-bin-86f40c2"
   )
 
   val allVersions = scalaVersions
