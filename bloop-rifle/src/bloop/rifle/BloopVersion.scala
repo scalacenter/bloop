@@ -1,7 +1,8 @@
 package bloop.rifle
 case class BloopVersion(raw: String) {
   def isOlderThan(other: BloopVersion) = {
-    val bloopVRegex = "([0-9]+).([0-9]+)[.]([0-9]+)[-]?([0-9]+)?".r
+    val bloopVRegex = "([0-9]+).([0-9]+)[.]([0-9]+)[-]?[a-z]*[-]?([0-9]+)?".r
+    // https://regex101.com/r/YOZsOH/1
     def unwrapVersionString(v: String) =
       List(1, 2, 3, 4).map(bloopVRegex.findAllIn(v).group(_)).map(x =>
         if (x != null) x.toInt else 0
