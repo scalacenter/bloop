@@ -21,18 +21,18 @@ object Dependencies {
   val bspVersion = "2.1.0-M5"
 
   val scalazVersion = "7.3.7"
-  val lmVersion = "1.9.1"
+  val lmVersion = "1.9.2"
   val configDirsVersion = "26"
   val caseAppVersion = "2.0.6"
   val sourcecodeVersion = "0.3.0"
   val sbtTestInterfaceVersion = "1.0"
-  val sbtTestAgentVersion = "1.9.3"
+  val sbtTestAgentVersion = "1.9.4"
   val junitVersion = "0.13.3"
   val directoryWatcherVersion = "0.8.0+6-f651bd93"
   val monixVersion = "3.2.0"
   val jsoniterVersion = "2.13.3.2"
   val shapelessVersion = "2.3.4"
-  val scalaNative04Version = "0.4.14"
+  val scalaNative04Version = "0.4.15"
   val scalaJs06Version = "0.6.33"
   val scalaJs1Version = "1.13.2"
   val scalaJsEnvsVersion = "1.1.1"
@@ -68,7 +68,7 @@ object Dependencies {
   val sbtTestAgent = "org.scala-sbt" % "test-agent" % sbtTestAgentVersion
   val snailgun = ("me.vican.jorge" %% "snailgun-cli" % snailgunVersion)
   val ztExec = "org.zeroturnaround" % "zt-exec" % ztExecVersion
-  val slf4jNop = "org.slf4j" % "slf4j-nop" % "2.0.7"
+  val slf4jNop = "org.slf4j" % "slf4j-nop" % "2.0.9"
 
   val utest = "com.lihaoyi" %% "utest" % "0.8.1"
   val pprint = "com.lihaoyi" %% "pprint" % "0.8.1"
