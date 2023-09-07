@@ -503,10 +503,15 @@ class BloopgunCli(
         (exitServerStatus, usedExtraJvmOpts)
       } catch {
         case e: IOException =>
+          val javaBinaryName = if (Environment.isWindows) {
+            "java.exe"
+          } else {
+            "java"
+          }
           val javaExec = sys.env
             .get("JAVA_HOME")
             .orElse(sys.props.get("java.home"))
-            .map(Paths.get(_).resolve("bin/java"))
+            .map(Paths.get(_).resolve(s"bin/${javaBinaryName}"))
             .filter(_.toFile().isFile())
             .map(_.toString())
           val javaErrorMessage = "Cannot run program \".*java\"".r
