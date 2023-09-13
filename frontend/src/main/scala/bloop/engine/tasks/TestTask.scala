@@ -249,7 +249,7 @@ object TestTask {
         }
 
       case _: Platform.Native =>
-        logger.error("Detecting test frameworks in Scala Native projects is not yet supported")
+        logger.warn("Detecting test frameworks in Scala Native projects is not yet supported")
         Task.now(None)
     }
   }
