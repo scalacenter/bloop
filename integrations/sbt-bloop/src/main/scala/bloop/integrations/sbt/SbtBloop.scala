@@ -723,7 +723,7 @@ object BloopDefaults {
   private final val CompilerPluginConfig = "plugin->default(compile)"
 
   /** Find native version. Copy pasted from Scala native. */
-  def findVersion(deps: Seq[ModuleID], org: String): Option[String] = {
+  def findNativePluginVersion(deps: Seq[ModuleID], org: String): Option[String] = {
     def isPlugin(d: ModuleID, org: String) =
       d.configurations.toList.contains(CompilerPluginConfig) && d.organization == org
     deps.find(isPlugin(_, org)).map(_.revision)
@@ -762,7 +762,7 @@ object BloopDefaults {
           val nativeLinkStubs = ScalaNativeKeys.nativeLinkStubs.?.value.getOrElse(emptyNative.linkStubs)
           val nativeCompileOptions = ScalaNativeKeys.nativeCompileOptions.?.value.toList.flatten
           val nativeLinkingOptions = ScalaNativeKeys.nativeLinkingOptions.?.value.toList.flatten
-          val nativeVersion = findVersion(libraryDeps, "org.scala-native").getOrElse(emptyNative.version)
+          val nativeVersion = findNativePluginVersion(libraryDeps, "org.scala-native").getOrElse(emptyNative.version)
 
           val nativeMode = ScalaNativeKeys.nativeMode.?.value match {
             case Some("debug") => Config.LinkerMode.Debug
@@ -777,25 +777,28 @@ object BloopDefaults {
       }
     } else if (pluginLabels.contains(ScalaJsPluginLabel)) {
       Def.task {
-        val emptyScalaJs = Config.JsConfig.empty
-        val scalaJsVersion = findVersion(libraryDeps, "org.scala-js").getOrElse(emptyScalaJs.version)
+        val scalaJsVersion = libraryDeps
+          .find(module => module.organization == "org.scala-js" && module.name.startsWith("scalajs-library_"))
+          .map(_.revision)
+          .getOrElse(BuildInfo.latestScalaJsVersion)
+          
         val scalaJsStage = BloopKeys.bloopScalaJSStage.value match {
           case Some(ScalaJsFastOpt) => Config.LinkerMode.Debug
           case Some(ScalaJsFullOpt) => Config.LinkerMode.Release
-          case _ => emptyScalaJs.mode
+          case _ => Config.LinkerMode.Debug
         }
 
         val scalaJsModule = BloopKeys.bloopScalaJSModuleKind.value match {
           case Some(NoJSModule) => Config.ModuleKindJS.NoModule
           case Some(CommonJSModule) => Config.ModuleKindJS.CommonJSModule
           case Some(ESModule) => Config.ModuleKindJS.ESModule
-          case _ => emptyScalaJs.kind
+          case _ => Config.ModuleKindJS.NoModule
         }
 
         val scalaJsEmitSourceMaps =
-          ScalaJsKeys.scalaJSEmitSourceMaps.?.value.getOrElse(emptyScalaJs.emitSourceMaps)
+          ScalaJsKeys.scalaJSEmitSourceMaps.?.value.getOrElse(false)
         val jsdom = Some(false)
-        val jsConfig = Config.JsConfig(scalaJsVersion, scalaJsStage, scalaJsModule, scalaJsEmitSourceMaps, jsdom, None, None, emptyScalaJs.toolchain)
+        val jsConfig = Config.JsConfig(scalaJsVersion, scalaJsStage, scalaJsModule, scalaJsEmitSourceMaps, jsdom, None, None, Nil)
         Config.Platform.Js(jsConfig, mainClass)
       }
     } else {

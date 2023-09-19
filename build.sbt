@@ -336,6 +336,7 @@ val integrations = file("integrations")
 lazy val sbtBloop: Project = project
   .enablePlugins(ScriptedPlugin)
   .disablePlugins(ScalafixPlugin)
+  .enablePlugins(BuildInfoPlugin)
   .in(integrations / "sbt-bloop")
   .settings(
     scriptedBufferLog := false,
@@ -347,7 +348,11 @@ lazy val sbtBloop: Project = project
     sbtPlugin := true,
     sbtVersion := SbtVersion,
     target := (file("integrations") / "sbt-bloop" / "target" / SbtVersion).getAbsoluteFile,
-    libraryDependencies += Dependencies.bloopConfig
+    libraryDependencies += Dependencies.bloopConfig,
+    buildInfoPackage := "bloop.integrations.sbt",
+    buildInfoKeys := List[BuildInfoKey](
+      "latestScalaJsVersion" -> Dependencies.scalaJs1Version
+    )
   )
 
 lazy val buildpressConfig = (project in file("buildpress-config"))
