@@ -201,7 +201,6 @@ object BloopServer {
       .setLocalService(buildClient)
       .create()
     val server = launcher.getRemoteProxy
-    buildClient.onConnectWithServer(server)
 
     val f = launcher.startListening()
 
