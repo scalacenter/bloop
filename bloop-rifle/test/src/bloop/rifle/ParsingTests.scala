@@ -19,6 +19,7 @@ class ParsingTests extends munit.FunSuite {
     expect(!("1.4.9".v isOlderThan "1.4.9".v))
     expect("1.4.10-2".v isOlderThan "1.4.10-4".v)
     expect("1.4.10-2-abc".v isOlderThan "1.4.10-4-def".v)
+    expect("1.5.6-sc-2".v isOlderThan "1.5.6-sc-4".v)
   }
 
   test("jvm release parsing test") {
@@ -29,6 +30,8 @@ class ParsingTests extends munit.FunSuite {
     expect("9".j == Some(9))
     expect("14".j == Some(14))
     expect("17".j == Some(17))
+    expect("17.0.9-ea".j == Some(17))
+    expect("21-ea".j == Some(21))
   }
 
   test("parse jvm version") {
@@ -36,6 +39,8 @@ class ParsingTests extends munit.FunSuite {
     expect("""openjdk version "9" """.jv == Some(9))
     expect("""openjdk version "11.0.11" 2021-04-20 """.jv == Some(11))
     expect("""openjdk version "16" 2021-03-16 """.jv == Some(16))
+    expect("""openjdk version "17.0.9-ea" 2023-10-17 """.jv == Some(17))
+    expect("""openjdk version "21-ea" 2023-09-19 """.jv == Some(21))
   }
 
   val jreBloopOutput =
@@ -55,6 +60,14 @@ class ParsingTests extends munit.FunSuite {
        |  -> Supports debugging user code, Java Debug Interface (JDI) is available.
        |Maintained by the Scala Center and the community.""".stripMargin
 
+  val jdkBloopOutputEA =
+    """|bloop v1.5.6-sc-4
+       |
+       |Using Scala v2.12.17 and Zinc v1.8.0
+       |Running on Java JDK v17.0.9-ea (/usr/lib/jvm/java-17-openjdk-amd64)
+       |  -> Supports debugging user code, Java Debug Interface (JDI) is available.
+       |Maintained by the Scala Center and the community.""".stripMargin
+
   test("parse jre bloop about") {
     expect(jreBloopOutput.p == Some(BloopRifle.BloopServerRuntimeInfo(
       BloopVersion("1.4.11"),
@@ -68,6 +81,14 @@ class ParsingTests extends munit.FunSuite {
       BloopVersion("1.4.11"),
       16,
       "/usr/lib/jvm/java-16-openjdk-amd64"
+    )))
+  }
+
+  test("parse jdk bloop about (EA JDK)") {
+    expect(jdkBloopOutputEA.p == Some(BloopRifle.BloopServerRuntimeInfo(
+      BloopVersion("1.5.6-sc-4"),
+      17,
+      "/usr/lib/jvm/java-17-openjdk-amd64"
     )))
   }
 

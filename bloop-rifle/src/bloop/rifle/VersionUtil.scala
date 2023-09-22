@@ -30,7 +30,8 @@ object VersionUtil {
   def parseBloopAbout(stdoutFromBloopAbout: String): Option[BloopRifle.BloopServerRuntimeInfo] = {
 
     val bloopVersionRegex = "bloop v(.*)\\s".r
-    val bloopJvmRegex     = "Running on Java ... v([0-9._A-Za-z]+) [(](.*)[)]".r
+    val bloopJvmRegex     = "Running on Java ... v([0-9._A-Za-z\\-]+) [(](.*)[)]".r
+    // https://regex101.com/r/lT624X/1
 
     for {
       bloopVersion    <- bloopVersionRegex.findFirstMatchIn(stdoutFromBloopAbout).map(_.group(1))
