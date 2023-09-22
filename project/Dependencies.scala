@@ -16,7 +16,7 @@ object Dependencies {
   val nailgunCommit = "a2520c1e"
 
   // Keep in sync in BloopComponentCompiler
-  val zincVersion = "1.9.3"
+  val zincVersion = "1.9.5"
 
   val bspVersion = "2.1.0-M5"
 
