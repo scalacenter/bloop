@@ -105,7 +105,7 @@ class BspConnectionSpec(
       allButInitializeRequest.mkString(lineSeparator),
       s"""|
           |  --> content: ${TestConstants.buildInitialize}
-          |  --> content: {"method":"build/initialized","params":{},"jsonrpc":"2.0"}""".stripMargin
+          |  --> content: {"method":"build/initialized","jsonrpc":"2.0"}""".stripMargin
     )
   }
 

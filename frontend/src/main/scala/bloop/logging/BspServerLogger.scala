@@ -179,7 +179,7 @@ final class BspServerLogger private (
           bsp.ScalaTextEdit(range, edit.newText())
         }
       }
-      val workspaceEdit = bsp.ScalaWorkspaceEdit(Option(edits.toList))
+      val workspaceEdit = bsp.ScalaWorkspaceEdit(edits.toList)
       bsp.ScalaAction(action.title(), description, Some(workspaceEdit))
     }
     bsp.ScalaDiagnostic(Some(bspActions.toList))
@@ -310,10 +310,11 @@ final class BspServerLogger private (
         event.taskId,
         Some(now),
         Some(event.msg),
-        Some(bsp.TaskDataKind.CompileTask),
+        Some(bsp.TaskStartDataKind.CompileTask),
         Some(RawJson(encoded))
       )
     )
+    bsp.TaskFinishDataKind
     ()
   }
 
@@ -368,7 +369,7 @@ final class BspServerLogger private (
         Some(now),
         Some(s"Compiled '${event.projectName}'"),
         event.code,
-        Some(bsp.TaskDataKind.CompileReport),
+        Some(bsp.TaskFinishDataKind.CompileReport),
         Some(RawJson(encoded))
       )
     )

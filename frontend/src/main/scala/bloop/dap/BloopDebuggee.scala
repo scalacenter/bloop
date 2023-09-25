@@ -2,10 +2,10 @@ package bloop.dap
 
 import scala.collection.mutable
 
+import ch.epfl.scala.bsp
 import ch.epfl.scala.bsp.ScalaMainClass
 import ch.epfl.scala.debugadapter._
 
-import bloop.bsp.ScalaTestSuites
 import bloop.cli.ExitStatus
 import bloop.data.ClientInfo
 import bloop.data.JdkConfig
@@ -55,7 +55,7 @@ private final class MainClassDebugAdapter(
     scalaVersion: Option[String]
 ) extends BloopDebuggee(initialState, ioScheduler, scalaVersion) {
   val javaRuntime: Option[JavaRuntime] = JavaRuntime(env.javaHome.underlying)
-  def name: String = s"${getClass.getSimpleName}(${project.name}, ${mainClass.`class`})"
+  def name: String = s"${getClass.getSimpleName}(${project.name}, ${mainClass.className})"
   def start(state: State, listener: DebuggeeListener): Task[ExitStatus] = {
     // TODO: https://github.com/scalacenter/bloop/issues/1456
     // Metals used to add the `-J` prefix but it is not needed anymore
@@ -66,10 +66,10 @@ private final class MainClassDebugAdapter(
       project,
       env,
       project.workspaceDirectory.getOrElse(project.baseDirectory),
-      mainClass.`class`,
+      mainClass.className,
       mainClass.arguments.toArray,
       jvmOptions.toArray,
-      mainClass.environmentVariables,
+      mainClass.environmentVariables.getOrElse(Nil),
       RunMode.Debug
     )
     runState.map(_.status)
@@ -78,7 +78,7 @@ private final class MainClassDebugAdapter(
 
 private final class TestSuiteDebugAdapter(
     projects: Seq[Project],
-    testClasses: ScalaTestSuites,
+    testClasses: bsp.ScalaTestSuites,
     val modules: Seq[Module],
     val libraries: Seq[Library],
     val unmanagedEntries: Seq[UnmanagedEntry],
@@ -170,13 +170,15 @@ object BloopDebuggeeRunner {
 
   def forTestSuite(
       projects: Seq[Project],
-      testClasses: ScalaTestSuites,
+      testClasses: bsp.ScalaTestSuites,
       state: State,
       ioScheduler: Scheduler
   ): Either[String, Debuggee] = {
     projects match {
       case Seq() =>
-        Left(s"No projects specified for the test suites: [${testClasses.classNames.sorted}]")
+        Left(
+          s"No projects specified for the test suites: [${testClasses.suites.map(_.className).sorted}]"
+        )
       case Seq(project) if project.platform.isInstanceOf[Platform.Jvm] =>
         val dag = state.build.getDagFor(project)
         val modules = getModules(dag, state.client)
