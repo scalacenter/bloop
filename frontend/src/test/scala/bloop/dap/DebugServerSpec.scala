@@ -18,8 +18,7 @@ import ch.epfl.scala.bsp.ScalaMainClass
 import ch.epfl.scala.debugadapter._
 
 import bloop.ScalaInstance
-import bloop.bsp.ScalaTestSuiteSelection
-import bloop.bsp.ScalaTestSuites
+import ch.epfl.scala.bsp
 import bloop.cli.ExitStatus
 import bloop.data.Platform
 import bloop.data.Project
@@ -851,9 +850,9 @@ object DebugServerSpec extends DebugBspBaseSuite {
 
       loadBspStateWithTask(workspace, List(project), logger) { state =>
         val testClasses =
-          ScalaTestSuites(
+          bsp.ScalaTestSuites(
             List(
-              ScalaTestSuiteSelection(
+              bsp.ScalaTestSuiteSelection(
                 "MySuite",
                 List("test1")
               )
@@ -979,7 +978,8 @@ object DebugServerSpec extends DebugBspBaseSuite {
   private def testRunner(
       project: TestProject,
       state: ManagedBspTestState,
-      testClasses: ScalaTestSuites = ScalaTestSuites(List("MySuite"))
+      testClasses: bsp.ScalaTestSuites =
+        bsp.ScalaTestSuites(List(bsp.ScalaTestSuiteSelection("MySuite", Nil)), Nil, Nil)
   ): Debuggee = {
     val testState = state.compile(project).toTestState
     BloopDebuggeeRunner.forTestSuite(
@@ -1003,7 +1003,7 @@ object DebugServerSpec extends DebugBspBaseSuite {
     val testState = state.compile(project).toTestState
     BloopDebuggeeRunner.forMainClass(
       Seq(testState.getProjectFor(project)),
-      new ScalaMainClass("Main", arguments, jvmOptions, environmentVariables),
+      new ScalaMainClass("Main", arguments, jvmOptions, Some(environmentVariables)),
       testState.state,
       defaultScheduler
     ) match {

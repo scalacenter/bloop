@@ -3,9 +3,9 @@ package bloop.engine.tasks
 import java.nio.file.Files
 import java.nio.file.Path
 
+import ch.epfl.scala.bsp
 import ch.epfl.scala.debugadapter.testing.TestSuiteEvent
 
-import bloop.bsp.ScalaTestSuites
 import bloop.cli.ExitStatus
 import bloop.data.JdkConfig
 import bloop.data.Project
@@ -124,7 +124,7 @@ object Tasks {
       projectsToTest: List[Project],
       userTestOptions: List[String],
       testFilter: String => Boolean,
-      testClasses: ScalaTestSuites,
+      testClasses: bsp.ScalaTestSuites,
       testEventHandler: BloopTestSuiteEventHandler,
       runInParallel: Boolean = false,
       mode: RunMode

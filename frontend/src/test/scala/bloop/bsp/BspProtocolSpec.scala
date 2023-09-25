@@ -82,9 +82,9 @@ class BspProtocolSpec(
           assert(result.items.size == 1)
           val optionsItem = result.items.head
           assert(optionsItem.options == expectedOptions)
-          assert(optionsItem.classDirectory.toPath == expectedClassesDir)
+          assert(ProjectUris.toPath(optionsItem.classDirectory) == expectedClassesDir)
           assert(optionsItem.target == expectedId)
-          val pathClasspath = optionsItem.classpath.map(_.toPath)
+          val pathClasspath = optionsItem.classpath.map(ProjectUris.toPath)
           expectedProjectEntries.foreach { expectedProjectEntry =>
             // Ensure there is only one match per every entry
             val matches = pathClasspath.filter(_ == expectedProjectEntry)
@@ -220,26 +220,30 @@ class BspProtocolSpec(
       loadBspState(workspace, projects, logger, bloopExtraParams = extraBloopParams) { bspState =>
         val (_, options) = bspState.scalaOptions(`A`)
         firstScalacOptions = options.items
-        firstScalacOptions.foreach(d => assertIsDirectory(AbsolutePath(d.classDirectory.toPath)))
+        firstScalacOptions.foreach(d =>
+          assertIsDirectory(AbsolutePath(ProjectUris.toPath(d.classDirectory)))
+        )
       }
 
       // Start second client and query for scalac options which should use same dirs as before
       loadBspState(workspace, projects, logger, bloopExtraParams = extraBloopParams) { bspState =>
         val (_, options) = bspState.scalaOptions(`A`)
         secondScalacOptions = options.items
-        secondScalacOptions.foreach(d => assertIsDirectory(AbsolutePath(d.classDirectory.toPath)))
+        secondScalacOptions.foreach(d =>
+          assertIsDirectory(AbsolutePath(ProjectUris.toPath(d.classDirectory)))
+        )
       }
 
       firstScalacOptions.zip(secondScalacOptions).foreach {
         case (firstItem, secondItem) =>
           assertNoDiff(
-            firstItem.classDirectory.value,
-            secondItem.classDirectory.value
+            firstItem.classDirectory,
+            secondItem.classDirectory
           )
       }
 
       firstScalacOptions.foreach { option =>
-        assertIsDirectory(AbsolutePath(option.classDirectory.toPath))
+        assertIsDirectory(AbsolutePath(ProjectUris.toPath(option.classDirectory)))
       }
     }
   }
@@ -284,7 +288,7 @@ class BspProtocolSpec(
         val items = mainClasses.items
         assert(items.size == 1)
 
-        val classes = items.head.classes.map(_.`class`).toSet
+        val classes = items.head.classes.map(_.className).toSet
         assert(classes == expectedClasses)
       }
     }
@@ -304,7 +308,7 @@ class BspProtocolSpec(
           ("ScalaTest", List("hello.ScalaTestTest", "hello.WritingTest", "hello.ResourcesTest"))
         ).map {
           case (framework, classes) =>
-            ScalaTestClassesItem(project.bspId, classes, Some(framework))
+            bsp.ScalaTestClassesItem(project.bspId, Some(framework), classes)
         }
 
         val testSuites = compiledState.testClasses(project)

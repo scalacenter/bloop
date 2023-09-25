@@ -98,8 +98,13 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
     def rpcRequest[A, B](
         endpoint: Endpoint[A, B],
         params: A
+    ): Task[B] = rpcRequest(endpoint, Some(params))
+
+    def rpcRequest[A, B](
+        endpoint: Endpoint[A, B],
+        params: Option[A]
     ): Task[B] = {
-      client0.request(endpoint, params).map {
+      client0.request(endpoint, params, Map.empty).map {
         case RpcFailure(_, e) => fail(s"The request ${endpoint.method} failed with $e")
         case RpcSuccess(a, _) => a
       }
@@ -107,7 +112,7 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
 
     def findBuildTarget(project: TestProject): bsp.BuildTarget = {
       val workspaceTargetTask = {
-        rpcRequest(Workspace.buildTargets, bsp.WorkspaceBuildTargetsRequest()).map { ts =>
+        rpcRequest(Workspace.buildTargets, None).map { ts =>
           ts.targets.map(t => t.id -> t).find(_._1 == project.bspId) match {
             case Some((_, target)) => target
             case None => fail(s"Target ${project.bspId} is missing in the workspace! Found ${ts}")
@@ -120,7 +125,7 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
 
     def workspaceTargets: bsp.WorkspaceBuildTargetsResult = {
       val workspaceTargetsTask =
-        rpcRequest(Workspace.buildTargets, bsp.WorkspaceBuildTargetsRequest())
+        rpcRequest(Workspace.buildTargets, None)
 
       TestUtil.await(FiniteDuration(5, "s"))(workspaceTargetsTask)
     }
@@ -128,7 +133,7 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
     def runAfterTargets[T](
         project: TestProject
     )(f: bsp.BuildTargetIdentifier => Task[T]): Task[T] = {
-      rpcRequest(Workspace.buildTargets, bsp.WorkspaceBuildTargetsRequest()).flatMap { ts =>
+      rpcRequest(Workspace.buildTargets, None).flatMap { ts =>
         ts.targets.map(_.id).find(_ == project.bspId) match {
           case Some(target) => f(target)
           case None => fail(s"Target ${project.bspId} is missing in the workspace! Found ${ts}")
@@ -398,10 +403,10 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
       TestUtil.await(FiniteDuration(5, "s"))(task)
     }
 
-    def testClasses(project: TestProject): ScalaTestClassesResult = {
+    def testClasses(project: TestProject): bsp.ScalaTestClassesResult = {
       val task = runAfterTargets(project) { target =>
         val params = bsp.ScalaTestClassesParams(List(target), None)
-        rpcRequest(ScalaTestClasses.endpoint, params)
+        rpcRequest(endpoints.BuildTarget.scalaTestClasses, params)
       }
 
       TestUtil.await(FiniteDuration(5, "s"))(task)
@@ -419,7 +424,7 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
 
       val session = for {
         address <- sessionAddress
-        uri = URI.create(address.uri)
+        uri = URI.create(address.uri.value)
         client = DebugTestClient(uri)(defaultScheduler)
         result <- f(client)
       } yield result
@@ -804,6 +809,7 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
             BuildInfo.bspVersion,
             rootUri = bsp.Uri(cwd.toAbsolutePath.toUri),
             capabilities = bsp.BuildClientCapabilities(List("scala", "java")),
+            None,
             additionalData
           )
         )
@@ -813,14 +819,14 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
         (startedServer *> initializeServer)
           .flatMap { _ =>
             Task.fromFuture(
-              lsClient.notify(endpoints.Build.initialized, bsp.InitializedBuildParams())
+              lsClient.notify(endpoints.Build.initialized, None)
             )
           }
       }
 
       val closeTask = {
-        lsClient.request(endpoints.Build.shutdown, bsp.Shutdown()).flatMap { _ =>
-          Task.fromFuture(lsClient.notify(endpoints.Build.exit, bsp.Exit())).map { _ =>
+        lsClient.request(endpoints.Build.shutdown, None).flatMap { _ =>
+          Task.fromFuture(lsClient.notify(endpoints.Build.exit, None)).map { _ =>
             try {
               socket.close()
             } catch {
