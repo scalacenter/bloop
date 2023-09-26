@@ -503,17 +503,24 @@ class BloopgunCli(
         (exitServerStatus, usedExtraJvmOpts)
       } catch {
         case e: IOException =>
+          val javaBinaryName = if (Environment.isWindows) {
+            "java.exe"
+          } else {
+            "java"
+          }
           val javaExec = sys.env
             .get("JAVA_HOME")
             .orElse(sys.props.get("java.home"))
-            .map(Paths.get(_).resolve("bin/java"))
+            .map(Paths.get(_).resolve(s"bin/${javaBinaryName}"))
             .filter(_.toFile().isFile())
             .map(_.toString())
-          val javaErrorMessage = "Cannot run program \"java\""
+          val javaErrorMessage = "Cannot run program \".*java\"".r
           val errorCode = "error=2"
           javaExec match {
             case Some(java)
-                if e.getMessage().contains(javaErrorMessage) && e.getMessage.contains(errorCode) =>
+                if javaErrorMessage.pattern.matcher(e.getMessage()).find() && e.getMessage.contains(
+                  errorCode
+                ) =>
               logger.info(s"Java executable was not available on PATH, retrying with $java")
               val (cmd, usedExtraJvmOpts) =
                 cmdWithArgs(found, extraJvmOpts, List(java), globalSettings)

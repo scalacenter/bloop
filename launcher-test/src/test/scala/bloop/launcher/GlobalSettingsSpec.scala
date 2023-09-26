@@ -49,15 +49,11 @@ object GlobalSettingsSpec extends LauncherBaseSuite(BuildInfo.version, BuildInfo
     }
   }
 
-  test("fail to start server when bloop.json Java home is invalid") {
+  test("should start server even when bloop.json Java home is invalid") {
     // Create bloop.json with Java home pointing to non-existent path.
     val doesnotexist = "does-not-exist"
     runBspLauncherWithGlobalJsonSettings(s"""{"javaHome": "$doesnotexist"}""") { result =>
-      assert(result.status == Some(LauncherStatus.FailedToConnectToServer))
-      assertLogsContain(
-        List(doesnotexist, "Error when starting server"),
-        result.launcherLogs
-      )
+      assert(result.status == Some(LauncherStatus.SuccessfulRun))
     }
   }
 
