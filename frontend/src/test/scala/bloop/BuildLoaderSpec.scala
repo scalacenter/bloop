@@ -302,7 +302,8 @@ object BuildLoaderSpec extends BaseSuite {
             verbose = Some(false),
             localServiceName = Some("42"),
             traceStartAnnotation = Some("start"),
-            traceEndAnnotation = Some("end")
+            traceEndAnnotation = Some("end"),
+            enabled = Some(true)
           )
         )
       )
