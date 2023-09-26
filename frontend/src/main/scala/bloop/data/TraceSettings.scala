@@ -8,7 +8,8 @@ case class TraceSettings(
     verbose: Option[Boolean],
     localServiceName: Option[String],
     traceStartAnnotation: Option[String],
-    traceEndAnnotation: Option[String]
+    traceEndAnnotation: Option[String],
+    enabled: Option[Boolean]
 )
 
 object TraceSettings {
@@ -20,7 +21,8 @@ object TraceSettings {
       settings.verbose.getOrElse(default.verbose),
       settings.localServiceName.getOrElse(default.localServiceName),
       settings.traceStartAnnotation.orElse(default.traceStartAnnotation),
-      settings.traceEndAnnotation.orElse(default.traceEndAnnotation)
+      settings.traceEndAnnotation.orElse(default.traceEndAnnotation),
+      settings.enabled.getOrElse(default.enabled)
     )
   }
 
@@ -31,7 +33,8 @@ object TraceSettings {
       verbose = Some(properties.verbose),
       localServiceName = Some(properties.localServiceName),
       traceStartAnnotation = properties.traceStartAnnotation,
-      traceEndAnnotation = properties.traceEndAnnotation
+      traceEndAnnotation = properties.traceEndAnnotation,
+      enabled = Some(properties.enabled)
     )
   }
 }

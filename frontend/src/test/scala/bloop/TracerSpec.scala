@@ -6,9 +6,11 @@ import bloop.tracing.BraveTracer
 import bloop.tracing.TraceProperties
 
 object TracerSpec extends BaseSuite {
+
+  private val defaultOn = TraceProperties.default.copy(enabled = true)
   test("forty clients can send zipkin traces concurrently") {
     def sendTrace(id: String): Unit = {
-      val tracer = BraveTracer(s"encode ${id}", TraceProperties.default)
+      val tracer = BraveTracer(s"encode ${id}", defaultOn)
       Thread.sleep(700)
       tracer.trace(s"previous child ${id}") { tracer =>
         Thread.sleep(500)
@@ -23,7 +25,7 @@ object TracerSpec extends BaseSuite {
       Thread.sleep(750)
       val tracer2 = tracer.toIndependentTracer(
         s"independent encode ${id}",
-        TraceProperties.default
+        defaultOn
       )
       tracer.terminate()
       tracer2.trace(s"previous independent child ${id}") { _ =>
