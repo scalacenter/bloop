@@ -69,7 +69,7 @@ object Dependencies {
   def scalaNativeTools04     = ivy"org.scala-native::tools:0.4.15"
   def scalazCore             = ivy"org.scalaz::scalaz-core:7.3.7"
   def snailgun      = ivy"io.github.alexarchambault.scala-cli.snailgun::snailgun-core:0.4.1-sc2"
-  def sourcecode    = ivy"com.lihaoyi::sourcecode:0.3.0"
+  def sourcecode    = ivy"com.lihaoyi::sourcecode:0.3.1"
   def svm           = ivy"org.graalvm.nativeimage:svm:$graalvmVersion"
   def utest         = ivy"com.lihaoyi::utest:0.8.1"
   def xxHashLibrary = ivy"net.jpountz.lz4:lz4:1.3.0"
