@@ -9,7 +9,6 @@ import scala.concurrent.Promise
 
 import bloop.ScalaInstance
 import bloop.bsp.BspServer
-import bloop.bsp.ScalaTestSuites
 import bloop.cli.Commands.CompilingCommand
 import bloop.cli.Validate
 import bloop.cli._
@@ -371,7 +370,7 @@ object Interpreter {
               projectsToTest,
               cmd.args,
               testFilter,
-              ScalaTestSuites.empty,
+              ch.epfl.scala.bsp.ScalaTestSuites(Nil, Nil, Nil),
               handler,
               cmd.parallel,
               RunMode.Normal

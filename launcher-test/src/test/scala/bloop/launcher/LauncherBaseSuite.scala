@@ -249,17 +249,19 @@ abstract class LauncherBaseSuite(
           bspVersion,
           rootUri = bsp.Uri(Environment.cwd.toUri),
           capabilities = bsp.BuildClientCapabilities(List("scala")),
+          None,
           None
         )
       )
 
     for {
+
       // Delay the task to let the bloop server go live
       initializeResult <- initializeServer
-      _ = lsClient.notify(endpoints.Build.initialized, bsp.InitializedBuildParams())
+      _ = lsClient.notify(endpoints.Build.initialized, None)
       otherCalls <- runEndpoints(lsClient)
-      _ <- lsClient.request(endpoints.Build.shutdown, bsp.Shutdown())
-      _ = lsClient.notify(endpoints.Build.exit, bsp.Exit())
+      _ <- lsClient.request(endpoints.Build.shutdown, None)
+      _ = lsClient.notify(endpoints.Build.exit, None)
     } yield {
       closeForcibly(in)
       closeForcibly(out)

@@ -44,10 +44,10 @@ class BspCompileSpec(
     assertNoDiff(
       allButInitializeRequest.mkString(lineSeparator),
       s"""|  --> content: ${TestConstants.buildInitialize}
-          |  --> content: {"method":"build/initialized","params":{},"jsonrpc":"2.0"}
-          |  --> content: {"method":"build/shutdown","params":{},"id":3,"jsonrpc":"2.0"}
+          |  --> content: {"method":"build/initialized","jsonrpc":"2.0"}
+          |  --> content: {"method":"build/shutdown","id":3,"jsonrpc":"2.0"}
           |  --> content: {"result":{},"id":3,"jsonrpc":"2.0"}
-          |  --> content: {"method":"build/exit","params":{},"jsonrpc":"2.0"}""".stripMargin
+          |  --> content: {"method":"build/exit","jsonrpc":"2.0"}""".stripMargin
     )
   }
 

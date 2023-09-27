@@ -39,11 +39,21 @@ class BloopLanguageClient(
 
   def notify[A](
       endpoint: Endpoint[A, Unit],
-      params: A,
-      headers: Map[String, String] = Map.empty
+      params: A
+  ): Future[Ack] = notify(endpoint, Some(params), Map.empty)
+
+  def notify[A](
+      endpoint: Endpoint[A, Unit],
+      params: Option[A]
+  ): Future[Ack] = notify(endpoint, params, Map.empty)
+
+  def notify[A](
+      endpoint: Endpoint[A, Unit],
+      params: Option[A],
+      headers: Map[String, String]
   ): Future[Ack] = {
     import endpoint.codecA
-    val msg = Notification(endpoint.method, Some(toJson(params)), headers)
+    val msg = Notification(endpoint.method, params.map(toJson(_)), headers)
 
     // Send notifications in the order they are sent by the caller
     notificationsLock.synchronized {
@@ -53,14 +63,24 @@ class BloopLanguageClient(
 
   def request[A, B](
       endpoint: Endpoint[A, B],
-      params: A,
-      headers: Map[String, String] = Map.empty
+      params: A
+  ): Task[RpcResponse[B]] = request(endpoint, Some(params), Map.empty)
+
+  def request[A, B](
+      endpoint: Endpoint[A, B],
+      params: Option[A]
+  ): Task[RpcResponse[B]] = request(endpoint, params, Map.empty)
+
+  def request[A, B](
+      endpoint: Endpoint[A, B],
+      params: Option[A],
+      headers: Map[String, String]
   ): Task[RpcResponse[B]] = {
     import endpoint.{codecA, codecB}
     val reqId = RequestId(counter.incrementAndGet())
     val response = Task.create[Response] { (s, cb) =>
       val scheduled = s.scheduleOnce(Duration(0, "s")) {
-        val json = Request(endpoint.method, Some(toJson(params)), reqId, headers)
+        val json = Request(endpoint.method, params.map(toJson(_)), reqId, headers)
         activeServerRequests.put(reqId, cb)
         out.onNext(json)
         ()

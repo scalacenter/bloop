@@ -10,7 +10,9 @@ import java.nio.file.attribute.BasicFileAttributes
 import java.util.concurrent.ConcurrentHashMap
 
 import scala.concurrent.Promise
+import scala.util.control.NonFatal
 
+import bloop.logging.Logger
 import bloop.task.Task
 
 import monix.eval.{Task => MonixTask}
@@ -22,8 +24,6 @@ import monix.execution.cancelables.CompositeCancelable
 import monix.reactive.Consumer
 import monix.reactive.MulticastStrategy
 import monix.reactive.Observable
-import bloop.logging.Logger
-import scala.util.control.NonFatal
 
 object ParallelOps {
 

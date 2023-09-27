@@ -4,7 +4,6 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 
 import ch.epfl.scala.bsp
-import ch.epfl.scala.bsp.DebugSessionParamsDataKind._
 
 import bloop.logging.RecordingLogger
 import bloop.util.TestProject
@@ -176,9 +175,13 @@ object DebugProtocolSpec extends DebugBspBaseSuite {
   def mainClassParams(mainClass: String): bsp.BuildTargetIdentifier => bsp.DebugSessionParams = {
     target =>
       val targets = List(target)
-      val data = bsp.ScalaMainClass(mainClass, Nil, Nil, Nil)
+      val data = bsp.ScalaMainClass(mainClass, Nil, Nil, None)
       val json = writeToArray[bsp.ScalaMainClass](data)
-      bsp.DebugSessionParams(targets, ScalaMainClass, RawJson(json))
+      bsp.DebugSessionParams(
+        targets,
+        Some(bsp.DebugSessionParamsDataKind.ScalaMainClass),
+        Some(RawJson(json))
+      )
   }
 
   def testSuiteParams(
@@ -187,6 +190,10 @@ object DebugProtocolSpec extends DebugBspBaseSuite {
     val targets = List(target)
     implicit val codec = JsonCodecMaker.make[List[String]]
     val json = writeToArray[List[String]](filters)
-    bsp.DebugSessionParams(targets, ScalaTestSuites, RawJson(json))
+    bsp.DebugSessionParams(
+      targets,
+      Some(bsp.TestParamsDataKind.ScalaTestSuites),
+      Some(RawJson(json))
+    )
   }
 }

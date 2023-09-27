@@ -18,8 +18,8 @@ object TestConstants {
         "dependencySourcesProvider": true,
         "resourcesProvider": true,
         "buildTargetChangedProvider": false,
-        "jvmTestEnvironmentProvider": true,
         "jvmRunEnvironmentProvider": true,
+        "jvmTestEnvironmentProvider": true,
         "canReload": false
       }
     },
