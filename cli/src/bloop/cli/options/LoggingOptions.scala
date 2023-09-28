@@ -4,6 +4,7 @@ import caseapp._
 import coursier.cache.loggers.RefreshLogger
 import bloop.rifle.BloopRifleLogger
 import bloop.cli.Logger
+import java.io.OutputStream
 
 // format: off
 final case class LoggingOptions(
@@ -38,10 +39,10 @@ final case class LoggingOptions(
         RefreshLogger.create()
       def bloopRifleLogger: BloopRifleLogger =
         new BloopRifleLogger {
-          def bloopBspStderr        = None
-          def bloopBspStdout        = None
-          def bloopCliInheritStderr = false
-          def bloopCliInheritStdout = false
+          def bloopBspStderr: Option[OutputStream] = None
+          def bloopBspStdout: Option[OutputStream] = None
+          def bloopCliInheritStderr: Boolean       = false
+          def bloopCliInheritStdout: Boolean       = false
           def debug(msg: => String, ex: Throwable): Unit =
             if (verbosity >= 2) {
               System.err.println(msg)

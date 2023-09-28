@@ -37,13 +37,13 @@ trait BloopRifleLogger { self =>
 object BloopRifleLogger {
   def nop: BloopRifleLogger =
     new BloopRifleLogger {
-      def info(msg: => String)                 = {}
-      def debug(msg: => String, ex: Throwable) = {}
-      def error(msg: => String, ex: Throwable) = {}
-      def error(msg: => String)                = {}
-      def bloopBspStdout                       = None
-      def bloopBspStderr                       = None
-      def bloopCliInheritStdout                = false
-      def bloopCliInheritStderr                = false
+      def info(msg: => String)                         = {}
+      def debug(msg: => String, ex: Throwable)         = {}
+      def error(msg: => String, ex: Throwable)         = {}
+      def error(msg: => String)                        = {}
+      def bloopBspStdout: Option[java.io.OutputStream] = None
+      def bloopBspStderr: Option[java.io.OutputStream] = None
+      def bloopCliInheritStdout                        = false
+      def bloopCliInheritStderr                        = false
     }
 }
