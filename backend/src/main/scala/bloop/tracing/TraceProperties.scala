@@ -8,12 +8,14 @@ case class TraceProperties(
     verbose: Boolean,
     localServiceName: String,
     traceStartAnnotation: Option[String],
-    traceEndAnnotation: Option[String]
+    traceEndAnnotation: Option[String],
+    enabled: Boolean
 )
 
 object TraceProperties {
   val default: TraceProperties = {
     val verbose = Properties.propOrFalse("bloop.tracing.verbose")
+    val enabled = Properties.propOrFalse("bloop.tracing.enabled")
     val debugTracing = Properties.propOrFalse("bloop.tracing.debugTracing")
     val localServiceName = Properties.propOrElse("bloop.tracing.localServiceName", "bloop")
     val traceStartAnnotation = Properties.propOrNone("bloop.tracing.traceStartAnnotation")
@@ -30,7 +32,8 @@ object TraceProperties {
       verbose,
       localServiceName,
       traceStartAnnotation,
-      traceEndAnnotation
+      traceEndAnnotation,
+      enabled
     )
   }
 }

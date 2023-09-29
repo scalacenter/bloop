@@ -1,9 +1,11 @@
 package bloop.engine.caches
 
 import java.nio.file.Path
+import java.util.concurrent.ConcurrentHashMap
 
 import scala.collection.JavaConverters._
 import scala.concurrent.Await
+import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
 import scala.util.Failure
 import scala.util.Success
@@ -15,13 +17,10 @@ import bloop.engine.ExecutionContext
 import bloop.io.AbsolutePath
 import bloop.io.Paths
 import bloop.logging.Logger
-import bloop.task.Task
 
 import sbt.internal.inc.BloopComponentCompiler
 import sbt.internal.inc.BloopComponentManager
 import sbt.internal.inc.IfMissing
-import java.util.concurrent.ConcurrentHashMap
-import scala.concurrent.Future
 
 object SemanticDBCache {
   // to avoid resolving the same fallback semanticdb version multiple times

@@ -15,7 +15,7 @@ import java.io.File
 
 object Dependencies {
   def scala212 = "2.12.18"
-  def scala213 = "2.13.11"
+  def scala213 = "2.13.12"
 
   def scalaVersions = Seq(scala212, scala213)
 
@@ -23,7 +23,7 @@ object Dependencies {
   def coursierVersion    = "2.1.0-M6-53-gb4f448130"
   def graalvmVersion     = "22.2.0"
   def jsoniterVersion    = "2.13.3.2"
-  def scalaJs1Version    = "1.13.2"
+  def scalaJs1Version    = "1.14.0"
   def scalaJsEnvsVersion = "1.1.1"
 
   def asm               = ivy"org.ow2.asm:asm:$asmVersion"
@@ -31,7 +31,7 @@ object Dependencies {
   def bloopConfig       = ivy"ch.epfl.scala::bloop-config:1.5.5"
   def brave             = ivy"io.zipkin.brave:brave:5.16.0"
   def bsp4j             = ivy"ch.epfl.scala:bsp4j:2.1.0-M6"
-  def bsp4s             = ivy"ch.epfl.scala::bsp4s:2.1.0-M5"
+  def bsp4s             = ivy"ch.epfl.scala::bsp4s:2.1.0-M6"
   def caseApp           = ivy"com.github.alexarchambault::case-app:2.0.6"
   def caseApp21         = ivy"com.github.alexarchambault::case-app:2.1.0-M15"
   def collectionCompat  = ivy"org.scala-lang.modules::scala-collection-compat:2.9.0"
@@ -48,7 +48,7 @@ object Dependencies {
     ivy"com.github.plokhotnyuk.jsoniter-scala::jsoniter-scala-macros:$jsoniterVersion"
   def junit                  = ivy"com.github.sbt:junit-interface:0.13.3"
   def libdaemonjvm           = ivy"io.github.alexarchambault.libdaemon::libdaemon:0.0.11"
-  def libraryManagement      = ivy"org.scala-sbt::librarymanagement-ivy:1.9.2"
+  def libraryManagement      = ivy"org.scala-sbt::librarymanagement-ivy:1.9.3"
   def log4j                  = ivy"org.apache.logging.log4j:log4j-core:2.20.0"
   def logback                = ivy"ch.qos.logback:logback-classic:1.4.6"
   def macroParadise          = ivy"org.scalamacros:::paradise:2.1.1"
@@ -57,7 +57,7 @@ object Dependencies {
   def nailgun                = ivy"io.github.alexarchambault.bleep:nailgun-server:1.0.7"
   def osLib                  = ivy"com.lihaoyi::os-lib:0.9.0"
   def pprint                 = ivy"com.lihaoyi::pprint:0.8.1"
-  def sbtTestAgent           = ivy"org.scala-sbt:test-agent:1.9.4"
+  def sbtTestAgent           = ivy"org.scala-sbt:test-agent:1.9.6"
   def sbtTestInterface       = ivy"org.scala-sbt:test-interface:1.0"
   def scalaDebugAdapter      = ivy"ch.epfl.scala::scala-debug-adapter:3.1.4"
   def scalaJsLinker1         = ivy"org.scala-js::scalajs-linker:$scalaJs1Version"
@@ -66,14 +66,14 @@ object Dependencies {
   def scalaJsEnvJsdomNode1   = ivy"org.scala-js::scalajs-env-jsdom-nodejs:1.1.0"
   def scalaJsSbtTestAdapter1 = ivy"org.scala-js::scalajs-sbt-test-adapter:$scalaJs1Version"
   def scalaJsLogging1        = ivy"org.scala-js::scalajs-logging:1.1.1"
-  def scalaNativeTools04     = ivy"org.scala-native::tools:0.4.14"
+  def scalaNativeTools04     = ivy"org.scala-native::tools:0.4.15"
   def scalazCore             = ivy"org.scalaz::scalaz-core:7.3.7"
   def snailgun      = ivy"io.github.alexarchambault.scala-cli.snailgun::snailgun-core:0.4.1-sc2"
-  def sourcecode    = ivy"com.lihaoyi::sourcecode:0.3.0"
+  def sourcecode    = ivy"com.lihaoyi::sourcecode:0.3.1"
   def svm           = ivy"org.graalvm.nativeimage:svm:$graalvmVersion"
   def utest         = ivy"com.lihaoyi::utest:0.8.1"
   def xxHashLibrary = ivy"net.jpountz.lz4:lz4:1.3.0"
-  def zinc          = ivy"org.scala-sbt::zinc:1.9.3"
+  def zinc          = ivy"org.scala-sbt::zinc:1.9.5"
   def zipkinSender  = ivy"io.zipkin.reporter2:zipkin-sender-urlconnection:2.16.4"
   def zt            = ivy"org.zeroturnaround:zt-zip:1.16"
 

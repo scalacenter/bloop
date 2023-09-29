@@ -54,7 +54,7 @@ sealed trait Task[+A] { self =>
   }
 
   final def doOnCancel(f: => Task[Unit]): Task[A] =
-    applyCancel(() => f.runAsync(monix.execution.Scheduler.Implicits.global))
+    applyCancel { () => f.runAsync(monix.execution.Scheduler.Implicits.global); () }
 
   final def doOnFinish(f: Option[Throwable] => Task[Unit]): Task[A] =
     self.materialize.flatMap { v =>

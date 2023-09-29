@@ -1,14 +1,15 @@
 package bloop.cli
 
 import caseapp.core.app.CommandsEntryPoint
+import caseapp.core.app.Command
 
 object Bloop extends CommandsEntryPoint {
-  def progName = "bloop"
-  def commands = Seq(
+  def progName: String = "bloop"
+  def commands: Seq[Command[_]] = Seq(
     Exit,
     Output,
     Start,
     Status
   )
-  override def defaultCommand = Some(Default)
+  override def defaultCommand: Option[Command[_]] = Some(Default)
 }

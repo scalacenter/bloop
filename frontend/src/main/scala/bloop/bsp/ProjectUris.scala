@@ -44,8 +44,8 @@ object ProjectUris {
     )
   }
 
-  def toPath(uri: Uri): Path = {
-    val existingUri = new URI(uri.value)
+  def toPath(uri: String) = {
+    val existingUri = new URI(uri)
     val uriWithNoQuery = new URI(
       existingUri.getScheme,
       existingUri.getUserInfo,
@@ -58,4 +58,6 @@ object ProjectUris {
 
     java.nio.file.Paths.get(uriWithNoQuery)
   }
+  def toPath(uri: Uri): Path = toPath(uri.value)
+
 }

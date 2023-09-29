@@ -4,7 +4,8 @@ import scala.util.Failure
 import scala.util.Success
 import scala.util.control.NonFatal
 
-import bloop.bsp.ScalaTestSuites
+import ch.epfl.scala.bsp
+
 import bloop.cli.ExitStatus
 import bloop.config.Config
 import bloop.config.Tag
@@ -74,7 +75,7 @@ object TestTask {
       cwd: AbsolutePath,
       rawTestOptions: List[String],
       testFilter: String => Boolean,
-      testClasses: ScalaTestSuites,
+      testClasses: bsp.ScalaTestSuites,
       handler: LoggingEventHandler,
       mode: RunMode
   ): Task[Int] = {
@@ -249,7 +250,7 @@ object TestTask {
         }
 
       case _: Platform.Native =>
-        logger.error("Detecting test frameworks in Scala Native projects is not yet supported")
+        logger.warn("Detecting test frameworks in Scala Native projects is not yet supported")
         Task.now(None)
     }
   }
@@ -292,7 +293,7 @@ object TestTask {
       frameworks: List[Framework],
       analysis: CompileAnalysis,
       testFilter: String => Boolean,
-      testClasses: ScalaTestSuites
+      testClasses: bsp.ScalaTestSuites
   ): Map[Framework, List[TaskDef]] = {
     import state.logger
     val tests = discoverTests(analysis, frameworks)

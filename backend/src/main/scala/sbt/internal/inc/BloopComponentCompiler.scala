@@ -14,6 +14,8 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
 
+import scala.util.control.NonFatal
+
 import _root_.bloop.io.AbsolutePath
 import _root_.bloop.logging.DebugFilter
 import _root_.bloop.logging.{Logger => BloopLogger}
@@ -27,7 +29,6 @@ import xsbti.ComponentProvider
 import xsbti.Logger
 import xsbti.compile.ClasspathOptionsUtil
 import xsbti.compile.CompilerBridgeProvider
-import scala.util.control.NonFatal
 
 object BloopComponentCompiler {
   import xsbti.compile.ScalaInstance

@@ -14,14 +14,100 @@ import brave.propagation.TraceContextOrSamplingFlags
 import zipkin2.codec.SpanBytesEncoder.JSON_V1
 import zipkin2.codec.SpanBytesEncoder.JSON_V2
 
-final class BraveTracer private (
+sealed trait BraveTracer {
+  def startNewChildTracer(name: String, tags: (String, String)*): BraveTracer
+
+  def trace[T](name: String, tags: (String, String)*)(
+      thunk: BraveTracer => T
+  ): T
+
+  def traceVerbose[T](name: String, tags: (String, String)*)(
+      thunk: BraveTracer => T
+  ): T
+
+  def traceTask[T](name: String, tags: (String, String)*)(
+      thunk: BraveTracer => Task[T]
+  ): Task[T]
+
+  def traceTaskVerbose[T](name: String, tags: (String, String)*)(
+      thunk: BraveTracer => Task[T]
+  ): Task[T]
+
+  def terminate(): Unit
+
+  def currentSpan: Option[Span]
+
+  def toIndependentTracer(
+      name: String,
+      traceProperties: TraceProperties,
+      tags: (String, String)*
+  ): BraveTracer
+
+}
+
+object NoopTracer extends BraveTracer {
+
+  override def startNewChildTracer(name: String, tags: (String, String)*): BraveTracer = this
+
+  override def trace[T](name: String, tags: (String, String)*)(thunk: BraveTracer => T): T = thunk(
+    this
+  )
+
+  override def traceVerbose[T](name: String, tags: (String, String)*)(thunk: BraveTracer => T): T =
+    thunk(this)
+
+  override def traceTask[T](name: String, tags: (String, String)*)(
+      thunk: BraveTracer => Task[T]
+  ): Task[T] = thunk(this)
+
+  override def traceTaskVerbose[T](name: String, tags: (String, String)*)(
+      thunk: BraveTracer => Task[T]
+  ): Task[T] = thunk(this)
+
+  override def terminate(): Unit = ()
+
+  override def currentSpan: Option[Span] = None
+
+  def toIndependentTracer(
+      name: String,
+      traceProperties: TraceProperties,
+      tags: (String, String)*
+  ): BraveTracer = this
+
+}
+
+object BraveTracer {
+
+  def apply(name: String, properties: TraceProperties, tags: (String, String)*): BraveTracer = {
+    BraveTracer(name, properties, None, tags: _*)
+  }
+
+  def apply(
+      name: String,
+      properties: TraceProperties,
+      ctx: Option[TraceContext],
+      tags: (String, String)*
+  ): BraveTracer = {
+    if (properties.enabled) {
+      BraveTracerInternal(name, properties, ctx, tags: _*)
+    } else {
+      NoopTracer
+    }
+
+  }
+}
+
+final class BraveTracerInternal private (
     tracer: Tracer,
-    val currentSpan: Span,
+    val _currentSpan: Span,
     closeCurrentSpan: () => Unit,
     properties: TraceProperties
-) {
+) extends BraveTracer {
+
+  def currentSpan = Some(_currentSpan)
+
   def startNewChildTracer(name: String, tags: (String, String)*): BraveTracer = {
-    val span = tags.foldLeft(tracer.newChild(currentSpan.context).name(name)) {
+    val span = tags.foldLeft(tracer.newChild(_currentSpan.context).name(name)) {
       case (span, (tagKey, tagValue)) => span.tag(tagKey, tagValue)
     }
 
@@ -32,7 +118,7 @@ final class BraveTracer private (
       span.finish()
     }
 
-    new BraveTracer(tracer, span, closeHandler, properties)
+    new BraveTracerInternal(tracer, span, closeHandler, properties)
   }
 
   def trace[T](name: String, tags: (String, String)*)(
@@ -67,7 +153,7 @@ final class BraveTracer private (
       try thunk(newTracer) // Don't catch and report errors in spans
       catch {
         case NonFatal(t) =>
-          newTracer.currentSpan.error(t)
+          newTracer.currentSpan.foreach(_.error(t))
           throw t
       } finally {
         try newTracer.terminate()
@@ -91,7 +177,7 @@ final class BraveTracer private (
           case None => Task.eval(newTracer.terminate())
           case Some(value) =>
             Task.eval {
-              newTracer.currentSpan.error(value)
+              newTracer.currentSpan.foreach(_.error(value))
               newTracer.terminate()
             }
         }
@@ -116,10 +202,10 @@ final class BraveTracer private (
       traceProperties: TraceProperties,
       tags: (String, String)*
   ): BraveTracer =
-    BraveTracer(name, traceProperties, Some(currentSpan.context), tags: _*)
+    BraveTracer(name, traceProperties, Some(_currentSpan.context), tags: _*)
 }
 
-object BraveTracer {
+object BraveTracerInternal {
   import brave._
   import zipkin2.reporter.AsyncReporter
   import zipkin2.reporter.urlconnection.URLConnectionSender
@@ -132,10 +218,6 @@ object BraveTracer {
       AsyncReporter.builder(sender).build(jsonVersion)
     }
     reporterCache.computeIfAbsent(url, newReporter)
-  }
-
-  def apply(name: String, properties: TraceProperties, tags: (String, String)*): BraveTracer = {
-    BraveTracer(name, properties, None, tags: _*)
   }
 
   def apply(
@@ -178,6 +260,6 @@ object BraveTracer {
       spanReporter.flush()
     }
 
-    new BraveTracer(tracer, rootSpan, closeEverything, properties)
+    new BraveTracerInternal(tracer, rootSpan, closeEverything, properties)
   }
 }

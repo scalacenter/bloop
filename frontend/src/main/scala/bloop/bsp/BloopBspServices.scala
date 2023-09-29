@@ -137,7 +137,7 @@ final class BloopBspServices(
     .requestAsync(endpoints.BuildTarget.run)(p => schedule(run(p)))
     .requestAsync(endpoints.BuildTarget.cleanCache)(p => schedule(clean(p)))
     .requestAsync(endpoints.BuildTarget.scalaMainClasses)(p => schedule(scalaMainClasses(p)))
-    .requestAsync(ScalaTestClasses.endpoint)(p => schedule(scalaTestClasses(p)))
+    .requestAsync(endpoints.BuildTarget.scalaTestClasses)(p => schedule(scalaTestClasses(p)))
     .requestAsync(endpoints.BuildTarget.dependencySources)(p => schedule(dependencySources(p)))
     .requestAsync(endpoints.DebugSession.start)(p => schedule(startDebugSession(p)))
     .requestAsync(endpoints.BuildTarget.jvmTestEnvironment)(p => schedule(jvmTestEnvironment(p)))
@@ -316,6 +316,7 @@ final class BloopBspServices(
               jvmRunEnvironmentProvider = Some(true),
               canReload = Some(false)
             ),
+            None,
             None
           )
         )
@@ -567,12 +568,12 @@ final class BloopBspServices(
 
   def scalaTestClasses(
       params: bsp.ScalaTestClassesParams
-  ): BspEndpointResponse[ScalaTestClassesResult] =
+  ): BspEndpointResponse[bsp.ScalaTestClassesResult] =
     ifInitialized(params.originId) { (state: State, logger: BspServerLogger) =>
       mapToProjects(params.targets, state) match {
         case Left(error) =>
           logger.error(error)
-          Task.now((state, Right(ScalaTestClassesResult(Nil))))
+          Task.now((state, Right(bsp.ScalaTestClassesResult(Nil))))
 
         case Right(projects) =>
           val subTasks = projects.toList.filter(p => TestTask.isTestProject(p._2)).map {
@@ -583,7 +584,7 @@ final class BloopBspServices(
                   .groupBy(_.framework)
                   .map {
                     case (framework, classes) =>
-                      ScalaTestClassesItem(id, classes.flatMap(_.classes), Some(framework))
+                      bsp.ScalaTestClassesItem(id, Some(framework), classes.flatMap(_.classes))
                   }
                   .toList
               }
@@ -591,7 +592,7 @@ final class BloopBspServices(
           }
 
           Task.sequence(subTasks).map { items =>
-            val result = ScalaTestClassesResult(items.flatten)
+            val result = bsp.ScalaTestClassesResult(items.flatten)
             (state, Right(result))
           }
       }
@@ -608,33 +609,43 @@ final class BloopBspServices(
       def convert[A: JsonValueCodec](
           f: A => Either[String, Debuggee]
       ): Either[Response.Error, Debuggee] = {
-        Try(readFromArray[A](params.data.value)) match {
-          case Failure(error) =>
-            Left(Response.invalidRequest(error.getMessage()))
-          case Success(params) =>
-            f(params) match {
-              case Right(adapter) => Right(adapter)
-              case Left(error) => Left(Response.invalidRequest(error))
+        params.data match {
+          case Some(data) =>
+            Try(readFromArray[A](data.value)) match {
+              case Failure(error) =>
+                Left(Response.invalidRequest(error.getMessage()))
+              case Success(params) =>
+                f(params) match {
+                  case Right(adapter) => Right(adapter)
+                  case Left(error) => Left(Response.invalidRequest(error))
+                }
             }
+          case None =>
+            Left(Response.invalidRequest("No debug data available"))
         }
+
       }
 
       params.dataKind match {
-        case bsp.DebugSessionParamsDataKind.ScalaMainClass =>
+        case Some(bsp.DebugSessionParamsDataKind.ScalaMainClass) =>
           convert[bsp.ScalaMainClass](main =>
             BloopDebuggeeRunner.forMainClass(projects, main, state, ioScheduler)
           )
-        case bsp.DebugSessionParamsDataKind.ScalaTestSuites =>
+        case Some(bsp.TestParamsDataKind.ScalaTestSuites) =>
           implicit val codec = JsonCodecMaker.make[List[String]]
           convert[List[String]](classNames => {
-            val testClasses = ScalaTestSuites(classNames)
+            val testClasses = bsp.ScalaTestSuites(
+              classNames.map(className => bsp.ScalaTestSuiteSelection(className, Nil)),
+              Nil,
+              Nil
+            )
             BloopDebuggeeRunner.forTestSuite(projects, testClasses, state, ioScheduler)
           })
-        case "scala-test-suites-selection" =>
-          convert[ScalaTestSuites](testClasses => {
+        case Some(bsp.TestParamsDataKind.ScalaTestSuitesSelection) =>
+          convert[bsp.ScalaTestSuites](testClasses => {
             BloopDebuggeeRunner.forTestSuite(projects, testClasses, state, ioScheduler)
           })
-        case bsp.DebugSessionParamsDataKind.ScalaAttachRemote =>
+        case Some(bsp.DebugSessionParamsDataKind.ScalaAttachRemote) =>
           Right(BloopDebuggeeRunner.forAttachRemote(state, ioScheduler, projects))
         case dataKind => Left(Response.invalidRequest(s"Unsupported data kind: $dataKind"))
       }
@@ -684,7 +695,9 @@ final class BloopBspServices(
                         .map(_ => backgroundDebugServers -= handler.uri)
                         .runAsync(ioScheduler)
                       backgroundDebugServers += handler.uri -> listenAndUnsubscribe
-                      Task.now((state, Right(new bsp.DebugSessionAddress(handler.uri.toString))))
+                      Task.now(
+                        (state, Right(new bsp.DebugSessionAddress(bsp.Uri(handler.uri.toString()))))
+                      )
 
                     case Left(error) =>
                       Task.now((state, Left(error)))
@@ -704,7 +717,7 @@ final class BloopBspServices(
         List(project),
         Nil,
         testFilter,
-        ScalaTestSuites.empty,
+        bsp.ScalaTestSuites(Nil, Nil, Nil),
         handler,
         mode = RunMode.Normal
       )
@@ -804,13 +817,13 @@ final class BloopBspServices(
     def findMainClasses(state: State, project: Project): List[bsp.ScalaMainClass] =
       for {
         className <- Tasks.findMainClasses(state, project)
-      } yield bsp.ScalaMainClass(className, Nil, Nil, Nil)
+      } yield bsp.ScalaMainClass(className, Nil, Nil, None)
 
     ifInitialized(params.originId) { (state: State, logger: BspServerLogger) =>
       mapToProjects(params.targets, state) match {
         case Left(error) =>
           logger.error(error)
-          Task.now((state, Right(bsp.ScalaMainClassesResult(Nil))))
+          Task.now((state, Right(bsp.ScalaMainClassesResult(Nil, params.originId))))
 
         case Right(projects) =>
           val items = for {
@@ -818,7 +831,7 @@ final class BloopBspServices(
             mainClasses = findMainClasses(state, project)
           } yield bsp.ScalaMainClassesItem(id, mainClasses)
 
-          val result = new bsp.ScalaMainClassesResult(items)
+          val result = new bsp.ScalaMainClassesResult(items, params.originId)
           Task.now((state, Right(result)))
       }
     }
@@ -843,7 +856,7 @@ final class BloopBspServices(
           val cmd = Commands.Run(List(project.name))
           Interpreter.getMainClass(state, project, cmd.main) match {
             case Right(name) =>
-              Right(new bsp.ScalaMainClass(name, cmd.args, Nil, Nil))
+              Right(new bsp.ScalaMainClass(name, cmd.args, Nil, None))
             case Left(_) =>
               Left(new IllegalStateException(s"Main class for project $project not found"))
           }
@@ -871,16 +884,16 @@ final class BloopBspServices(
                 project,
                 config,
                 cwd,
-                mainClass.`class`,
+                mainClass.className,
                 mainArgs,
                 skipJargs = false,
-                mainClass.environmentVariables,
+                mainClass.environmentVariables.getOrElse(Nil),
                 RunMode.Normal
               )
             case platform @ Platform.Native(config, _, _) =>
               val cmd = Commands.Run(List(project.name))
               val target = ScalaNativeToolchain.linkTargetFrom(project, config)
-              linkMainWithNative(cmd, project, state, mainClass.`class`, target, platform)
+              linkMainWithNative(cmd, project, state, mainClass.className, target, platform)
                 .flatMap { state =>
                   val args = (target.syntax +: cmd.args).toArray
                   if (!state.status.isOk) Task.now(state)
@@ -889,7 +902,7 @@ final class BloopBspServices(
             case platform @ Platform.Js(config, _, _) =>
               val cmd = Commands.Run(List(project.name))
               val target = ScalaJsToolchain.linkTargetFrom(project, config)
-              linkMainWithJs(cmd, project, state, mainClass.`class`, target, platform)
+              linkMainWithJs(cmd, project, state, mainClass.className, target, platform)
                 .flatMap { state =>
                   // We use node to run the program (is this a special case?)
                   val args = ("node" +: target.syntax +: cmd.args).toArray
@@ -1040,10 +1053,10 @@ final class BloopBspServices(
               }
 
               val capabilities = bsp.BuildTargetCapabilities(
-                canCompile = true,
-                canTest = true,
-                canRun = true,
-                canDebug = true
+                canCompile = Some(true),
+                canTest = Some(true),
+                canRun = Some(true),
+                canDebug = Some(true)
               )
               val isJavaOnly = p.scalaInstance.isEmpty
               val languageIds =
@@ -1256,8 +1269,8 @@ final class BloopBspServices(
             bsp.ScalacOptionsItem(
               target = target,
               options = project.scalacOptions.toList,
-              classpath = classpath,
-              classDirectory = classesDir
+              classpath = classpath.map(_.value),
+              classDirectory = classesDir.value
             )
         }.toList
       )
@@ -1290,8 +1303,8 @@ final class BloopBspServices(
             bsp.JavacOptionsItem(
               target = target,
               options = project.javacOptions.toList,
-              classpath = classpath,
-              classDirectory = classesDir
+              classpath = classpath.map(_.value),
+              classDirectory = classesDir.value
             )
         }.toList
       )

@@ -161,22 +161,23 @@ trait BspClientTest {
         lsClient.request(
           endpoints.Build.initialize,
           bsp.InitializeBuildParams(
-            "test-bloop-client",
-            "1.0.0",
-            BuildInfo.bspVersion,
+            displayName = "test-bloop-client",
+            version = "1.0.0",
+            bspVersion = BuildInfo.bspVersion,
             rootUri = bsp.Uri(cwd.toAbsolutePath.toUri),
             capabilities = bsp.BuildClientCapabilities(List("scala")),
-            None
+            dataKind = None,
+            data = None
           )
         )
 
       for {
         // Delay the task to let the bloop server go live
         initializeResult <- initializeServer.delayExecution(FiniteDuration(1, "s"))
-        _ = lsClient.notify(endpoints.Build.initialized, bsp.InitializedBuildParams())
+        _ = lsClient.notify(endpoints.Build.initialized, params = None)
         otherCalls <- runEndpoints(lsClient)
-        _ <- lsClient.request(endpoints.Build.shutdown, bsp.Shutdown())
-        _ = lsClient.notify(endpoints.Build.exit, bsp.Exit())
+        _ <- lsClient.request(endpoints.Build.shutdown, params = None)
+        _ = lsClient.notify(endpoints.Build.exit, params = None)
       } yield {
         socket.close()
         otherCalls match {
@@ -263,7 +264,7 @@ trait BspClientTest {
   ): BloopRpcServices => BloopRpcServices = { (s: BloopRpcServices) =>
     s.notification(endpoints.Build.taskStart) { taskStart =>
       taskStart.dataKind match {
-        case Some(bsp.TaskDataKind.CompileTask) =>
+        case Some(bsp.TaskStartDataKind.CompileTask) =>
           val json = taskStart.data.get
           Try(readFromArray[bsp.CompileTask](json.value)) match {
             case Failure(_) => ()
@@ -288,7 +289,7 @@ trait BspClientTest {
       ()
     }.notification(endpoints.Build.taskFinish) { taskFinish =>
       taskFinish.dataKind match {
-        case Some(bsp.TaskDataKind.CompileReport) =>
+        case Some(bsp.TaskFinishDataKind.CompileReport) =>
           val json = taskFinish.data.get
           Try(readFromArray[bsp.CompileReport](json.value)) match {
             case Failure(_) => ()

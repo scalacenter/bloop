@@ -4,6 +4,8 @@ import java.io.File
 import java.nio.file.Path
 import java.{util => ju}
 
+import scala.collection.JavaConverters._
+
 import sbt.internal.inc.Analysis
 import sbt.internal.inc.Compilation
 import sbt.internal.inc.Incremental
@@ -15,6 +17,9 @@ import sbt.util.InterfaceUtil
 import xsbt.api.APIUtil
 import xsbt.api.HashAPI
 import xsbt.api.NameHashing
+import xsbti.Action
+import xsbti.DiagnosticCode
+import xsbti.DiagnosticRelatedInformation
 import xsbti.Position
 import xsbti.Problem
 import xsbti.Severity
@@ -35,9 +40,6 @@ import xsbti.compile.ClassFileManager
 import xsbti.compile.IncOptions
 import xsbti.compile.Output
 import xsbti.compile.analysis.ReadStamps
-import xsbti.{Action, DiagnosticCode, DiagnosticRelatedInformation}
-
-import collection.JavaConverters._
 
 /**
  * This class provides a thread-safe implementation of `xsbti.AnalysisCallback` which is required to compile with the
