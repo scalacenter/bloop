@@ -9,7 +9,7 @@ jobs:
     name: Update graph
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: true
       - uses: scalacenter/sbt-dependency-submission@v2
