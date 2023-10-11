@@ -280,72 +280,12 @@ object Compiler {
       )
     }
 
-    var isFatalWarningsEnabled: Boolean = false
+    val isFatalWarningsEnabled: Boolean =
+      compileInputs.scalacOptions.exists(_ == "-Xfatal-warnings")
     def getInputs(compilers: Compilers): Inputs = {
-      val options = getCompilationOptions(compileInputs)
+      val options = getCompilationOptions(compileInputs, logger, newClassesDir)
       val setup = getSetup(compileInputs)
       Inputs.of(compilers, options, setup, compileInputs.previousResult)
-    }
-
-    def getCompilationOptions(inputs: CompileInputs): CompileOptions = {
-      // Sources are all files
-      val sources = inputs.sources.map(path => converter.toVirtualFile(path.underlying))
-      val classpath = inputs.classpath.map(path => converter.toVirtualFile(path.underlying))
-      def existsReleaseSetting = inputs.scalacOptions.exists(opt =>
-        opt.startsWith("-release") ||
-          opt.startsWith("--release") ||
-          opt.startsWith("-java-output-version")
-      )
-      def sameHome = inputs.javacBin match {
-        case Some(bin) => bin.getParent.getParent == JavaRuntime.home
-        case None => false
-      }
-
-      val scalacOptions = inputs.javacBin.flatMap(binary =>
-        // <JAVA_HOME>/bin/java
-        JavaRuntime.getJavaVersionFromJavaHome(binary.getParent.getParent)
-      ) match {
-        case None => inputs.scalacOptions
-        case Some(_) if existsReleaseSetting || sameHome => inputs.scalacOptions
-        case Some(version) =>
-          try {
-            val numVer = if (version.startsWith("1.8")) 8 else version.takeWhile(_.isDigit).toInt
-            val bloopNumVer = JavaRuntime.version.takeWhile(_.isDigit).toInt
-            if (bloopNumVer > numVer) {
-              inputs.scalacOptions ++ List("-release", numVer.toString())
-            } else {
-              logger.warn(
-                s"Bloop is run with ${JavaRuntime.version} but your code requires $version to compile, " +
-                  "this might cause some compilation issues when using JDK API unsupported by the Bloop's current JVM version"
-              )
-              inputs.scalacOptions
-            }
-          } catch {
-            case NonFatal(_) =>
-              inputs.scalacOptions
-          }
-      }
-
-      val optionsWithoutFatalWarnings = scalacOptions.flatMap { option =>
-        if (option != "-Xfatal-warnings") List(option)
-        else {
-          if (!isFatalWarningsEnabled) isFatalWarningsEnabled = true
-          Nil
-        }
-      }
-
-      // Enable fatal warnings in the reporter if they are enabled in the build
-      if (isFatalWarningsEnabled)
-        inputs.reporter.enableFatalWarnings()
-
-      CompileOptions
-        .create()
-        .withClassesDirectory(newClassesDir)
-        .withSources(sources)
-        .withClasspath(classpath)
-        .withScalacOptions(optionsWithoutFatalWarnings)
-        .withJavacOptions(inputs.javacOptions)
-        .withOrder(inputs.compileOrder)
     }
 
     def getSetup(compileInputs: CompileInputs): Setup = {
@@ -662,6 +602,66 @@ object Compiler {
               Result.Failed(Nil, Some(t), elapsed, backgroundTasks)
           }
       }
+  }
+
+  private def getCompilationOptions(
+      inputs: CompileInputs,
+      logger: Logger,
+      newClassesDir: Path
+  ): CompileOptions = {
+    // Sources are all files
+    val sources = inputs.sources.map(path => converter.toVirtualFile(path.underlying))
+    val classpath = inputs.classpath.map(path => converter.toVirtualFile(path.underlying))
+    def existsReleaseSetting = inputs.scalacOptions.exists(opt =>
+      opt.startsWith("-release") ||
+        opt.startsWith("--release") ||
+        opt.startsWith("-java-output-version")
+    )
+    def sameHome = inputs.javacBin match {
+      case Some(bin) => bin.getParent.getParent == JavaRuntime.home
+      case None => false
+    }
+
+    val scalacOptions = inputs.javacBin.flatMap(binary =>
+      // <JAVA_HOME>/bin/java
+      JavaRuntime.getJavaVersionFromJavaHome(binary.getParent.getParent)
+    ) match {
+      case None => inputs.scalacOptions
+      case Some(_) if existsReleaseSetting || sameHome => inputs.scalacOptions
+      case Some(version) =>
+        try {
+          val numVer = if (version.startsWith("1.8")) 8 else version.takeWhile(_.isDigit).toInt
+          val bloopNumVer = JavaRuntime.version.takeWhile(_.isDigit).toInt
+          if (bloopNumVer > numVer) {
+            inputs.scalacOptions ++ List("-release", numVer.toString())
+          } else {
+            logger.warn(
+              s"Bloop is runing with ${JavaRuntime.version} but your code requires $version to compile, " +
+                "this might cause some compilation issues when using JDK API unsupported by the Bloop's current JVM version"
+            )
+            inputs.scalacOptions
+          }
+        } catch {
+          case NonFatal(_) =>
+            inputs.scalacOptions
+        }
+    }
+
+    val optionsWithoutFatalWarnings = scalacOptions.filter(_ != "-Xfatal-warnings")
+    val isFatalWarningsEnabled = scalacOptions.length != optionsWithoutFatalWarnings.length
+
+    // Enable fatal warnings in the reporter if they are enabled in the build
+    if (isFatalWarningsEnabled)
+      inputs.reporter.enableFatalWarnings()
+
+    CompileOptions
+      .create()
+      .withClassesDirectory(newClassesDir)
+      .withSources(sources)
+      .withClasspath(classpath)
+      .withScalacOptions(optionsWithoutFatalWarnings)
+      .withJavacOptions(inputs.javacOptions)
+      .withOrder(inputs.compileOrder)
   }
 
   def toBackgroundTasks(
