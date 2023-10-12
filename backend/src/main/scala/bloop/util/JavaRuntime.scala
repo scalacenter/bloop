@@ -14,6 +14,7 @@ import com.typesafe.config.ConfigFactory
 import com.typesafe.config.ConfigParseOptions
 import com.typesafe.config.ConfigSyntax
 import scala.collection.concurrent.TrieMap
+import scala.util.Properties
 
 sealed trait JavaRuntime
 object JavaRuntime {
@@ -74,7 +75,8 @@ object JavaRuntime {
    * appropriately.
    */
   def javacBinaryFromJavaHome(home: AbsolutePath): Option[AbsolutePath] = {
-    def toJavaBinary(home: AbsolutePath) = home.resolve("bin").resolve("javac")
+    val binaryName = if (Properties.isWin) "javac.exe" else "javac"
+    def toJavaBinary(home: AbsolutePath) = home.resolve("bin").resolve(binaryName)
     if (!home.exists) None
     else {
       Option(toJavaBinary(home))

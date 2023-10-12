@@ -37,7 +37,7 @@ object JavaVersionSpec extends bloop.testing.BaseSuite {
               |     value repeat is not a member of String
               |     L2:   val output = "La ".repeat(2) + "Land";
               |                              ^
-              |a/src/main/scala/Foo.scala: L2 [E1]
+              |$targetFoo: L2 [E1]
               |Failed to compile 'a'
               |""".stripMargin
         )
