@@ -23,11 +23,8 @@ import bloop.io.ByteHasher
 import bloop.logging.DebugFilter
 import bloop.logging.Logger
 import bloop.task.Task
+import bloop.util.JavaRuntime
 
-import com.typesafe.config.ConfigException
-import com.typesafe.config.ConfigFactory
-import com.typesafe.config.ConfigParseOptions
-import com.typesafe.config.ConfigSyntax
 import scalaz.Cord
 import xsbti.compile.ClasspathOptions
 import xsbti.compile.CompileOrder
@@ -225,39 +222,20 @@ final case class Project(
         case i => i
       }
     }
-    def getJavaVersionFromJavaHome(javaHome: AbsolutePath): String = {
-      val releaseFile = javaHome.resolve("release")
-      def rtJar = javaHome.resolve("lib").resolve("rt.jar")
-      if (releaseFile.exists) {
-        val properties = ConfigFactory.parseFile(
-          releaseFile.toFile,
-          ConfigParseOptions.defaults().setSyntax(ConfigSyntax.PROPERTIES)
-        )
-        try properties.getString("JAVA_VERSION").stripPrefix("\"").stripSuffix("\"")
-        catch {
-          case _: ConfigException =>
-            logger.error(
-              s"$javaHome release file missing JAVA_VERSION property - using Bloop's JVM version ${Properties.javaVersion}"
-            )
-            Properties.javaVersion
-        }
-      } else if (rtJar.exists) {
-        // jdk 8 doesn't have `release` file
-        "1.8.0"
-      } else {
-        logger.error(
-          s"No `release` file found in $javaHome - using Bloop's JVM version ${Properties.javaVersion}"
-        )
-        Properties.javaVersion
-      }
-    }
 
     val compileVersion = compileJdkConfig
       .map(f =>
         if (f.javaHome == AbsolutePath(Properties.javaHome))
           Properties.javaVersion
         else
-          getJavaVersionFromJavaHome(f.javaHome)
+          JavaRuntime.getJavaVersionFromJavaHome(f.javaHome).getOrElse {
+
+            logger.error(
+              s"${f.javaHome} release file missing JAVA_VERSION property - using Bloop's JVM version ${Properties.javaVersion}"
+            )
+
+            Properties.javaVersion
+          }
       )
       .getOrElse(Properties.javaVersion)
       .split("-")

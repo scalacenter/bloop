@@ -8,6 +8,7 @@ import java.util.concurrent.Executor
 
 import scala.collection.mutable
 import scala.concurrent.Promise
+import scala.util.control.NonFatal
 
 import bloop.io.AbsolutePath
 import bloop.io.ParallelOps
@@ -23,6 +24,7 @@ import bloop.task.Task
 import bloop.tracing.BraveTracer
 import bloop.util.AnalysisUtils
 import bloop.util.CacheHashCode
+import bloop.util.JavaRuntime
 import bloop.util.UUIDUtil
 
 import monix.execution.Scheduler
@@ -278,37 +280,12 @@ object Compiler {
       )
     }
 
-    var isFatalWarningsEnabled: Boolean = false
+    val isFatalWarningsEnabled: Boolean =
+      compileInputs.scalacOptions.exists(_ == "-Xfatal-warnings")
     def getInputs(compilers: Compilers): Inputs = {
-      val options = getCompilationOptions(compileInputs)
+      val options = getCompilationOptions(compileInputs, logger, newClassesDir)
       val setup = getSetup(compileInputs)
       Inputs.of(compilers, options, setup, compileInputs.previousResult)
-    }
-
-    def getCompilationOptions(inputs: CompileInputs): CompileOptions = {
-      // Sources are all files
-      val sources = inputs.sources.map(path => converter.toVirtualFile(path.underlying))
-      val classpath = inputs.classpath.map(path => converter.toVirtualFile(path.underlying))
-      val optionsWithoutFatalWarnings = inputs.scalacOptions.flatMap { option =>
-        if (option != "-Xfatal-warnings") List(option)
-        else {
-          if (!isFatalWarningsEnabled) isFatalWarningsEnabled = true
-          Nil
-        }
-      }
-
-      // Enable fatal warnings in the reporter if they are enabled in the build
-      if (isFatalWarningsEnabled)
-        inputs.reporter.enableFatalWarnings()
-
-      CompileOptions
-        .create()
-        .withClassesDirectory(newClassesDir)
-        .withSources(sources)
-        .withClasspath(classpath)
-        .withScalacOptions(optionsWithoutFatalWarnings)
-        .withJavacOptions(inputs.javacOptions)
-        .withOrder(inputs.compileOrder)
     }
 
     def getSetup(compileInputs: CompileInputs): Setup = {
@@ -625,6 +602,85 @@ object Compiler {
               Result.Failed(Nil, Some(t), elapsed, backgroundTasks)
           }
       }
+  }
+
+  /**
+   * Bloop runs Scala compilation in the same process as the main server,
+   * so the compilation process will use the same JDK that Bloop is using.
+   * That's why we must ensure that produce class files will be compliant with expected JDK version
+   * and compilation errors will show up when using wrong JDK API.
+   */
+  private def adjustScalacReleaseOptions(
+      scalacOptions: Array[String],
+      javacBin: Option[AbsolutePath],
+      logger: Logger
+  ): Array[String] = {
+    def existsReleaseSetting = scalacOptions.exists(opt =>
+      opt.startsWith("-release") ||
+        opt.startsWith("--release") ||
+        opt.startsWith("-java-output-version")
+    )
+    def sameHome = javacBin match {
+      case Some(bin) => bin.getParent.getParent == JavaRuntime.home
+      case None => false
+    }
+
+    javacBin.flatMap(binary =>
+      // <JAVA_HOME>/bin/java
+      JavaRuntime.getJavaVersionFromJavaHome(binary.getParent.getParent)
+    ) match {
+      case None => scalacOptions
+      case Some(_) if existsReleaseSetting || sameHome => scalacOptions
+      case Some(version) =>
+        try {
+          val numVer = if (version.startsWith("1.8")) 8 else version.takeWhile(_.isDigit).toInt
+          val bloopNumVer = JavaRuntime.version.takeWhile(_.isDigit).toInt
+          if (bloopNumVer > numVer) {
+            scalacOptions ++ List("-release", numVer.toString())
+          } else {
+            logger.warn(
+              s"Bloop is runing with ${JavaRuntime.version} but your code requires $version to compile, " +
+                "this might cause some compilation issues when using JDK API unsupported by the Bloop's current JVM version"
+            )
+            scalacOptions
+          }
+        } catch {
+          case NonFatal(_) =>
+            scalacOptions
+        }
+    }
+  }
+
+  private def getCompilationOptions(
+      inputs: CompileInputs,
+      logger: Logger,
+      newClassesDir: Path
+  ): CompileOptions = {
+    // Sources are all files
+    val sources = inputs.sources.map(path => converter.toVirtualFile(path.underlying))
+    val classpath = inputs.classpath.map(path => converter.toVirtualFile(path.underlying))
+
+    val scalacOptions = adjustScalacReleaseOptions(
+      scalacOptions = inputs.scalacOptions,
+      javacBin = inputs.javacBin,
+      logger = logger
+    )
+
+    val optionsWithoutFatalWarnings = scalacOptions.filter(_ != "-Xfatal-warnings")
+    val areFatalWarningsEnabled = scalacOptions.length != optionsWithoutFatalWarnings.length
+
+    // Enable fatal warnings in the reporter if they are enabled in the build
+    if (areFatalWarningsEnabled)
+      inputs.reporter.enableFatalWarnings()
+
+    CompileOptions
+      .create()
+      .withClassesDirectory(newClassesDir)
+      .withSources(sources)
+      .withClasspath(classpath)
+      .withScalacOptions(optionsWithoutFatalWarnings)
+      .withJavacOptions(inputs.javacOptions)
+      .withOrder(inputs.compileOrder)
   }
 
   def toBackgroundTasks(

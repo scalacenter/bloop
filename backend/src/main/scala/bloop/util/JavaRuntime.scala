@@ -9,6 +9,13 @@ import scala.util.Try
 
 import bloop.io.AbsolutePath
 
+import com.typesafe.config.ConfigException
+import com.typesafe.config.ConfigFactory
+import com.typesafe.config.ConfigParseOptions
+import com.typesafe.config.ConfigSyntax
+import scala.collection.concurrent.TrieMap
+import scala.util.Properties
+
 sealed trait JavaRuntime
 object JavaRuntime {
   case object JDK extends JavaRuntime
@@ -17,9 +24,32 @@ object JavaRuntime {
   val home: AbsolutePath = AbsolutePath(sys.props("java.home"))
   val version: String = sys.props("java.version")
   val javac: Option[AbsolutePath] = javacBinaryFromJavaHome(home)
-
+  private val versions: TrieMap[AbsolutePath, Option[String]] =
+    TrieMap.empty[AbsolutePath, Option[String]]
   // Has to be a def, not a val, otherwise we get "loader constraint violation"
   def javaCompiler: Option[JavaCompiler] = Option(ToolProvider.getSystemJavaCompiler)
+
+  def getJavaVersionFromJavaHome(javaHome: AbsolutePath): Option[String] = versions.getOrElseUpdate(
+    javaHome, {
+      val releaseFile = javaHome.resolve("release")
+      def rtJar = javaHome.resolve("lib").resolve("rt.jar")
+      if (releaseFile.exists) {
+        val properties = ConfigFactory.parseFile(
+          releaseFile.toFile,
+          ConfigParseOptions.defaults().setSyntax(ConfigSyntax.PROPERTIES)
+        )
+        try Some(properties.getString("JAVA_VERSION").stripPrefix("\"").stripSuffix("\""))
+        catch {
+          case _: ConfigException =>
+            None
+        }
+      } else if (rtJar.exists) {
+        Some("1.8")
+      } else {
+        None
+      }
+    }
+  )
 
   /**
    * Detects the runtime of the running JDK instance.
@@ -45,7 +75,8 @@ object JavaRuntime {
    * appropriately.
    */
   def javacBinaryFromJavaHome(home: AbsolutePath): Option[AbsolutePath] = {
-    def toJavaBinary(home: AbsolutePath) = home.resolve("bin").resolve("javac")
+    val binaryName = if (Properties.isWin) "javac.exe" else "javac"
+    def toJavaBinary(home: AbsolutePath) = home.resolve("bin").resolve(binaryName)
     if (!home.exists) None
     else {
       Option(toJavaBinary(home))
