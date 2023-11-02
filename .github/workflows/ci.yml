@@ -125,7 +125,7 @@ jobs:
           java-version: '11'
         if: matrix.jdk == '22.3.0'
 
-      - uses: actions/setup-node@v3
+      - uses: actions/setup-node@v4
         with:
           node-version: "16"
       - name: Set up environment
@@ -242,7 +242,7 @@ jobs:
       - uses: coursier/setup-action@v1
         with:
           jvm: 'temurin:8'
-      - uses: actions/setup-node@v3
+      - uses: actions/setup-node@v4
         with:
           node-version: "16"
       - name: Download built GraalVM binaries
