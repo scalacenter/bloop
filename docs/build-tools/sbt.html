@@ -70,8 +70,8 @@
           <td><code>-r sonatype:releases</code></td>
         </tr>
         <tr>
-          <td>1.5.11-72-41ca072e-SNAPSHOT</td>
-          <td>02 Nov 2023 17:44</td>
+          <td>1.5.11-74-1010d4d5-SNAPSHOT</td>
+          <td>07 Nov 2023 11:00</td>
           <td><code>-r sonatype:releases</code></td>
         </tr>
       </tbody>
@@ -145,9 +145,9 @@ customize the result of the <code>bloopGenerate</code> task (which is scoped at 
 <pre><code class="hljs css language-scala"><span class="hljs-keyword">val</span> foo = project
   .settings(
     <span class="hljs-comment">// Bloop will not generate a target for the compile configuration of `foo`</span>
-    bloopGenerate in <span class="hljs-type">Compile</span> := <span class="hljs-type">None</span>,
+    bloopGenerate in <span class="hljs-type">Compile</span> := <span class="hljs-type">Value</span>(<span class="hljs-type">None</span>),
     <span class="hljs-comment">// Bloop will not generate a target for the test configuration of `foo`</span>
-    bloopGenerate in <span class="hljs-type">Test</span> := <span class="hljs-type">None</span>,
+    bloopGenerate in <span class="hljs-type">Test</span> := <span class="hljs-type">Value</span>(<span class="hljs-type">None</span>),
   )
 </code></pre>
 <p>Next time you export, Bloop will automatically remove the old projects.</p>
