@@ -70,7 +70,7 @@ object Dependencies {
   val ztExec = "org.zeroturnaround" % "zt-exec" % ztExecVersion
   val slf4jNop = "org.slf4j" % "slf4j-nop" % "2.0.9"
 
-  val utest = "com.lihaoyi" %% "utest" % "0.8.1"
+  val utest = "com.lihaoyi" %% "utest" % "0.8.2"
   val pprint = "com.lihaoyi" %% "pprint" % "0.8.1"
   val junit = "com.github.sbt" % "junit-interface" % junitVersion
   val directoryWatcher = "ch.epfl.scala" % "directory-watcher" % directoryWatcherVersion
