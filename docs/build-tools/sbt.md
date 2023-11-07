@@ -112,9 +112,9 @@ customize the result of the `bloopGenerate` task (which is scoped at the configu
 val foo = project
   .settings(
     // Bloop will not generate a target for the compile configuration of `foo`
-    bloopGenerate in Compile := None,
+    bloopGenerate in Compile := Value(None),
     // Bloop will not generate a target for the test configuration of `foo`
-    bloopGenerate in Test := None,
+    bloopGenerate in Test := Value(None),
   )
 ```
 
