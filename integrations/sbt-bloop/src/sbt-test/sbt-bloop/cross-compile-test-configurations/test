@@ -6,5 +6,6 @@
 > checkBloopFile
 $ copy-file changes/export-jars.sbt export-jars.sbt
 > reload
+> updateClassifiers
 > bloopInstall
 > checkSourceAndDocs
