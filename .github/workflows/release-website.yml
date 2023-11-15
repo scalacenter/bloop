@@ -1,0 +1,24 @@
+name: Release website
+on:
+  push:
+    branches: [main]
+    tags: ["*"]
+concurrency:
+  group: release-${{ github.ref }}
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: 17
+          cache: 'sbt'
+      - name: Publish
+        run: |
+          sbt docs/docusaurusPublishGhpages
+        env:
+          GITHUB_DEPLOY_KEY: ${{ secrets.GITHUB_DEPLOY_KEY }}
