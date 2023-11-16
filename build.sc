@@ -19,7 +19,7 @@ object Dependencies {
 
   def scalaVersions = Seq(scala212, scala213)
 
-  def asmVersion         = "9.5"
+  def asmVersion         = "9.6"
   def coursierVersion    = "2.1.0-M6-53-gb4f448130"
   def graalvmVersion     = "22.2.0"
   def jsoniterVersion    = "2.13.3.2"
