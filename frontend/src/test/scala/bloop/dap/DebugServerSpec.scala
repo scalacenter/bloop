@@ -7,6 +7,7 @@ import java.util.NoSuchElementException
 import java.util.concurrent.TimeUnit.MILLISECONDS
 import java.util.concurrent.TimeUnit.SECONDS
 
+import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.concurrent.Future
 import scala.concurrent.Promise
@@ -14,17 +15,18 @@ import scala.concurrent.TimeoutException
 import scala.concurrent.duration.Duration
 import scala.concurrent.duration.FiniteDuration
 
+import ch.epfl.scala.bsp
 import ch.epfl.scala.bsp.ScalaMainClass
 import ch.epfl.scala.debugadapter._
 
 import bloop.ScalaInstance
-import ch.epfl.scala.bsp
 import bloop.cli.ExitStatus
 import bloop.data.Platform
 import bloop.data.Project
 import bloop.engine.State
 import bloop.engine.tasks.RunMode
 import bloop.engine.tasks.Tasks
+import bloop.internal.build
 import bloop.internal.build.BuildTestInfo
 import bloop.io.AbsolutePath
 import bloop.io.Environment.lineSeparator
@@ -42,6 +44,8 @@ import bloop.util.TestUtil
 import com.microsoft.java.debug.core.protocol.Requests.SetBreakpointArguments
 import com.microsoft.java.debug.core.protocol.Types
 import com.microsoft.java.debug.core.protocol.Types.SourceBreakpoint
+import coursierapi.Dependency
+import coursierapi.Fetch
 import monix.execution.Ack
 import monix.reactive.Observer
 
@@ -195,6 +199,81 @@ object DebugServerSpec extends DebugBspBaseSuite {
                 .filterNot(_.contains("JDWP exit error AGENT_ERROR_NO_JNI_ENV"))
                 .mkString(lineSeparator),
               "hello\nworld!"
+            )
+          }
+        }
+      }
+    }
+  }
+
+  testTask(
+    "runs-correct-runtime",
+    FiniteDuration(60, SECONDS)
+  ) {
+    TestUtil.withinWorkspace { workspace =>
+      val runtimeClasspath = Fetch
+        .create()
+        .addDependencies(
+          Dependency.of(
+            "ch.qos.logback",
+            "logback-classic",
+            "1.2.7"
+          ),
+          Dependency.of(
+            "org.scala-lang",
+            "scala-library",
+            build.BuildInfo.scalaVersion
+          )
+        )
+        .fetch()
+        .asScala
+        .map(_.toPath())
+        .toList
+
+      val main =
+        """|/main/scala/Main.scala
+           |object Main {
+           |  def main(args: Array[String]): Unit = {
+           |    println(s">>> hello world! <<<")
+           |    val cn = Class.forName("ch.qos.logback.classic.Logger")
+           |    println(s"$cn")
+           |  }
+           |}
+           |
+           |""".stripMargin
+
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val project =
+        TestProject(workspace, "r", List(main), runtimeClasspath = Some(runtimeClasspath))
+
+      loadBspStateWithTask(workspace, List(project), logger) { state =>
+        val runner = mainRunner(
+          project,
+          state,
+          arguments = Nil,
+          jvmOptions = Nil,
+          environmentVariables = Nil
+        )
+
+        startDebugServer(runner) { server =>
+          for {
+            client <- server.startConnection
+            _ <- client.initialize()
+            _ <- client.launch(noDebug = true)
+            _ <- client.configurationDone()
+            _ <- client.exited
+            _ <- client.terminated
+            _ <- Task.fromFuture(client.closedPromise.future)
+            output <- client.takeCurrentOutput
+          } yield {
+            assert(client.socket.isClosed)
+            assertNoDiff(
+              output.linesIterator
+                .filterNot(_.contains("ERROR: JDWP Unable to get JNI 1.2 environment"))
+                .filterNot(_.contains("JDWP exit error AGENT_ERROR_NO_JNI_ENV"))
+                .mkString(lineSeparator),
+              """|>>> hello world! <<<
+                 |class ch.qos.logback.classic.Logger""".stripMargin
             )
           }
         }
