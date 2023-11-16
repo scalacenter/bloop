@@ -71,7 +71,7 @@ object Dependencies {
   def snailgun      = ivy"io.github.alexarchambault.scala-cli.snailgun::snailgun-core:0.4.1-sc2"
   def sourcecode    = ivy"com.lihaoyi::sourcecode:0.3.1"
   def svm           = ivy"org.graalvm.nativeimage:svm:$graalvmVersion"
-  def utest         = ivy"com.lihaoyi::utest:0.8.1"
+  def utest         = ivy"com.lihaoyi::utest:0.8.2"
   def xxHashLibrary = ivy"net.jpountz.lz4:lz4:1.3.0"
   def zinc          = ivy"org.scala-sbt::zinc:1.9.5"
   def zipkinSender  = ivy"io.zipkin.reporter2:zipkin-sender-urlconnection:2.16.4"
