@@ -22,6 +22,7 @@ import bloop.engine.tasks.compilation._
 import bloop.io.ParallelOps
 import bloop.io.ParallelOps.CopyMode
 import bloop.io.{Paths => BloopPaths}
+import bloop.logging.BloopLogger
 import bloop.logging.DebugFilter
 import bloop.logging.Logger
 import bloop.logging.LoggerAction
@@ -36,7 +37,6 @@ import bloop.tracing.BraveTracer
 import monix.execution.CancelableFuture
 import monix.reactive.MulticastStrategy
 import monix.reactive.Observable
-
 object CompileTask {
   private implicit val logContext: DebugFilter = DebugFilter.Compilation
   def compile[UseSiteLogger <: Logger](
@@ -292,10 +292,8 @@ object CompileTask {
           } else {
             results.foreach {
               case FinalNormalCompileResult.HasException(project, err) =>
-                val errMsg = err.fold(identity, _.getMessage)
-                rawLogger.error(s"Unexpected error when compiling ${project.name}: '$errMsg'")
-                err.foreach(_.printStackTrace(System.err))
-                err.foreach(rawLogger.trace(_))
+                val errMsg = err.fold(identity, BloopLogger.prettyPrintException)
+                rawLogger.error(s"Unexpected error when compiling ${project.name}: $errMsg")
               case _ => () // Do nothing when the final compilation result is not an actual error
             }
 
