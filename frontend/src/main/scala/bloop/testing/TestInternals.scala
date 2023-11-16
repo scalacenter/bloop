@@ -79,7 +79,7 @@ object TestInternals {
    * @return A function that determines whether a test should be run given its FQCN.
    */
   def parseFilters(filters: List[String]): String => Boolean = {
-    val (exclusionFilters, inclusionFilters) = filters.partition(_.startsWith("-"))
+    val (exclusionFilters, inclusionFilters) = filters.map(_.trim).partition(_.startsWith("-"))
     val inc = inclusionFilters.map(toPattern)
     val exc = exclusionFilters.map(f => toPattern(f.tail))
 

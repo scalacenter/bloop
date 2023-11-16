@@ -89,4 +89,15 @@ class TestFilterSpec {
     assertTrue("The filter should match.", filter(input1))
     assertFalse("The filter shouldn't match.", filter(input2))
   }
+
+  @Test
+  def testFilterShouldTrimWhiteSpace: Unit = {
+    val input0 = "foo.hello.world"
+    val input1 = "foo.something.world"
+    // Space at the ends should be ignored
+    val patterns = " foo.hello.world" :: "foo.something.world " :: Nil
+    val filter = TestInternals.parseFilters(patterns)
+    assertTrue("The filter should match.", filter(input0))
+    assertTrue("The filter should match.", filter(input1))
+  }
 }
