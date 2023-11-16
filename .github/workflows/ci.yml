@@ -265,7 +265,7 @@ jobs:
           ls -l bloop-artifacts
           mkdir -p frontend/target
           mv bloop-artifacts frontend/target/graalvm-binaries
-          sbt "ci-release; docs/docusaurusPublishGhpages"
+          sbt ci-release
         shell: bash
 
       - name: Cut GitHub release and update installers on ${{ matrix.os }}
