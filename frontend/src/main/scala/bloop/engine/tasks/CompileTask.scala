@@ -22,6 +22,7 @@ import bloop.engine.tasks.compilation._
 import bloop.io.ParallelOps
 import bloop.io.ParallelOps.CopyMode
 import bloop.io.{Paths => BloopPaths}
+import bloop.logging.BloopLogger
 import bloop.logging.DebugFilter
 import bloop.logging.Logger
 import bloop.logging.LoggerAction
@@ -292,9 +293,8 @@ object CompileTask {
           } else {
             results.foreach {
               case FinalNormalCompileResult.HasException(project, err) =>
-                val errMsg = err.fold(identity, _.getMessage)
-                rawLogger.error(s"Unexpected error when compiling ${project.name}: '$errMsg'")
-                err.foreach(rawLogger.trace(_))
+                val errMsg = err.fold(identity, BloopLogger.prettyPrintException)
+                rawLogger.error(s"Unexpected error when compiling ${project.name}: $errMsg")
               case _ => () // Do nothing when the final compilation result is not an actual error
             }
 
