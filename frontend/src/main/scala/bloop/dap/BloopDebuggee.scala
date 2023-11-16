@@ -155,7 +155,7 @@ object BloopDebuggeeRunner {
                 modules,
                 libraries,
                 unmanagedEntries,
-                jvm.config,
+                jvm.runtimeConfig.getOrElse(jvm.config),
                 state,
                 ioScheduler,
                 project.scalaInstance.map(_.version)
@@ -184,8 +184,8 @@ object BloopDebuggeeRunner {
         val modules = getModules(dag, state.client)
         val libraries = getLibraries(dag)
         val unmanagedEntries = getUnmanagedEntries(project, dag, state.client, modules ++ libraries)
-        val Platform.Jvm(config, _, _, _, _, _) = project.platform
-        val javaRuntime = JavaRuntime(config.javaHome.underlying)
+        val Platform.Jvm(config, _, _, runtimeConfig, _, _) = project.platform
+        val javaRuntime = JavaRuntime(runtimeConfig.getOrElse(config).javaHome.underlying)
         Right(
           new TestSuiteDebugAdapter(
             projects,
@@ -229,8 +229,8 @@ object BloopDebuggeeRunner {
         val libraries = getLibraries(dag)
         val modules = getModules(dag, state.client)
         val unmanagedEntries = getUnmanagedEntries(project, dag, state.client, modules ++ libraries)
-        val Platform.Jvm(config, _, _, _, _, _) = project.platform
-        val javaRuntime = JavaRuntime(config.javaHome.underlying)
+        val Platform.Jvm(config, _, _, runtimeConfig, _, _) = project.platform
+        val javaRuntime = JavaRuntime(runtimeConfig.getOrElse(config).javaHome.underlying)
         new AttachRemoteDebugAdapter(
           modules,
           libraries,

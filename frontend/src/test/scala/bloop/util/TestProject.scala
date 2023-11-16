@@ -107,6 +107,7 @@ abstract class BaseTestProject {
       scalaVersion: Option[String] = None,
       resources: List[String] = Nil,
       runtimeResources: Option[List[String]] = None,
+      runtimeClasspath: Option[List[Path]] = None,
       jvmConfig: Option[Config.JvmConfig] = None,
       runtimeJvmConfig: Option[Config.JvmConfig] = None,
       order: Config.CompileOrder = Config.Mixed,
@@ -136,7 +137,7 @@ abstract class BaseTestProject {
       mkScalaInstance(finalScalaOrg, finalScalaCompiler, scalaVersion, jars.toList, NoopLogger)
 
     val allJars = instance.allJars.map(AbsolutePath.apply)
-    val (compileClasspath, runtimeClasspath) = {
+    val (compileClasspath, runtimeClasspathForStrict) = {
       val transitiveClasspath =
         (directDependencies.flatMap(classpathDeps) ++ allJars ++ jars).map(_.underlying)
       val directClasspath =
@@ -170,7 +171,7 @@ abstract class BaseTestProject {
       javaConfig,
       None,
       runtimeJvmConfig,
-      Some(runtimeClasspath),
+      runtimeClasspath.orElse(Some(runtimeClasspathForStrict)),
       runtimeResourcesList
     )
 
