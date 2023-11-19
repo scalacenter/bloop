@@ -139,6 +139,7 @@ final class BloopBspServices(
     .requestAsync(endpoints.BuildTarget.scalaMainClasses)(p => schedule(scalaMainClasses(p)))
     .requestAsync(endpoints.BuildTarget.scalaTestClasses)(p => schedule(scalaTestClasses(p)))
     .requestAsync(endpoints.BuildTarget.dependencySources)(p => schedule(dependencySources(p)))
+    .requestAsync(endpoints.BuildTarget.dependencyModules)(p => schedule(dependencyModules(p)))
     .requestAsync(endpoints.DebugSession.start)(p => schedule(startDebugSession(p)))
     .requestAsync(endpoints.BuildTarget.jvmTestEnvironment)(p => schedule(jvmTestEnvironment(p)))
     .requestAsync(endpoints.BuildTarget.jvmRunEnvironment)(p => schedule(jvmRunEnvironment(p)))
@@ -308,7 +309,7 @@ final class BloopBspServices(
               debugProvider = Some(BloopBspServices.DefaultDebugProvider),
               inverseSourcesProvider = Some(true),
               dependencySourcesProvider = Some(true),
-              dependencyModulesProvider = None,
+              dependencyModulesProvider = Some(true),
               resourcesProvider = Some(true),
               outputPathsProvider = None,
               buildTargetChangedProvider = Some(false),
@@ -1201,6 +1202,58 @@ final class BloopBspServices(
           logger.error(error)
           Task.now((state, Right(bsp.ResourcesResult(Nil))))
         case Right(mappings) => resources(mappings, state)
+      }
+    }
+  }
+
+  def dependencyModules(
+      request: bsp.DependencyModulesParams
+  ): BspEndpointResponse[bsp.DependencyModulesResult] = {
+    def modules(
+        projects: Seq[ProjectMapping],
+        state: State
+    ): BspResult[bsp.DependencyModulesResult] = {
+      val response = bsp.DependencyModulesResult(
+        projects.iterator.map {
+          case (target, project) =>
+            val modules = project.resolution.toList.flatMap { res =>
+              res.modules.map { module =>
+                val mavenDependencyModule = bsp.MavenDependencyModule(
+                  module.organization,
+                  module.name,
+                  module.version,
+                  module.artifacts.map(artifact =>
+                    bsp.MavenDependencyModuleArtifact(
+                      bsp.Uri(AbsolutePath(artifact.path).toBspUri),
+                      artifact.classifier
+                    )
+                  ),
+                  None
+                )
+
+                val encoded = writeToArray(mavenDependencyModule)
+                bsp.DependencyModule(
+                  module.name,
+                  module.version,
+                  Some(bsp.DependencyModuleDataKind.Maven),
+                  Some(RawJson(encoded))
+                )
+              }
+            }.distinct
+            bsp.DependencyModulesItem(target, modules)
+        }.toList
+      )
+
+      Task.now((state, Right(response)))
+    }
+
+    ifInitialized(None) { (state: State, logger: BspServerLogger) =>
+      mapToProjects(request.targets, state) match {
+        case Left(error) =>
+          // Log the mapping error to the user via a log event + an error status code
+          logger.error(error)
+          Task.now((state, Right(bsp.DependencyModulesResult(Nil))))
+        case Right(mappings) => modules(mappings, state)
       }
     }
   }
