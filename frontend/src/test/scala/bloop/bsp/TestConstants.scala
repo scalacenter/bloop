@@ -16,6 +16,7 @@ object TestConstants {
         "debugProvider": { "languageIds": ["scala", "java"] },
         "inverseSourcesProvider": true,
         "dependencySourcesProvider": true,
+        "dependencyModulesProvider": true,
         "resourcesProvider": true,
         "buildTargetChangedProvider": false,
         "jvmRunEnvironmentProvider": true,
