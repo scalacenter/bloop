@@ -510,6 +510,66 @@ class BspProtocolSpec(
     }
   }
 
+  test("dependency modules request works") {
+    TestUtil.withinWorkspace { workspace =>
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      loadBspBuildFromResources("cross-test-build-scalajs-0.6", workspace, logger) { build =>
+        val mainProject = build.projectFor("test-project")
+        val testProject = build.projectFor("test-project-test")
+        val mainJsProject = build.projectFor("test-projectJS")
+        val testJsProject = build.projectFor("test-projectJS-test")
+        val rootMain = build.projectFor("cross-test-build-scalajs-0-6")
+        val rootTest = build.projectFor("cross-test-build-scalajs-0-6-test")
+
+        def checkDependencyModules(project: TestProject): Unit = {
+          val dependencyModulesResult = build.state.requestDependencyModules(project)
+          assert(dependencyModulesResult.items.size == 1)
+          val dependencyModules = dependencyModulesResult.items.flatMap(item =>
+            item.modules
+              .map(dependencyModule => {
+                val json = dependencyModule.data.get
+                val mavenModule = readFromArray[bsp.MavenDependencyModule](json.value)
+                val artifacts: List[Config.Artifact] = mavenModule.artifacts
+                  .map(artifact =>
+                    Config.Artifact(
+                      dependencyModule.name,
+                      artifact.classifier,
+                      None,
+                      artifact.uri.toPath
+                    )
+                  )
+                  .distinct;
+                new Config.Module(
+                  mavenModule.organization,
+                  mavenModule.name,
+                  mavenModule.version,
+                  None,
+                  artifacts
+                )
+              })
+              .distinct
+          )
+
+          val expectedModules = project.config.resolution.toList.flatMap { res =>
+            res.modules.map { m =>
+              val artifacts = m.artifacts.map(artifact => artifact.copy(checksum = None))
+              m.copy(configurations = None, artifacts = artifacts)
+            }
+          }.distinct
+
+          assertEquals(dependencyModules, expectedModules)
+        }
+
+        checkDependencyModules(mainProject)
+        checkDependencyModules(testProject)
+        checkDependencyModules(mainJsProject)
+        checkDependencyModules(testJsProject)
+        checkDependencyModules(rootMain)
+        checkDependencyModules(rootTest)
+      }
+    }
+  }
+
   test("dependency sources request works") {
     TestUtil.withinWorkspace { workspace =>
       val logger = new RecordingLogger(ansiCodesSupported = false)
