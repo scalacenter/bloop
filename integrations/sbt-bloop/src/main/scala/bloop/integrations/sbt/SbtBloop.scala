@@ -35,6 +35,7 @@ import sbt.Optional
 import sbt.ProjectRef
 import sbt.Provided
 import sbt.ResolvedProject
+import sbt.Runtime
 import sbt.TaskKey
 import sbt.Test
 import sbt.ThisBuild
@@ -600,25 +601,6 @@ object BloopDefaults {
     }
   }
 
-  // Unused for now, but we leave it here because it may be useful in the future.
-  def nameFromDependency(dependency: ClasspathDependency, thisProject: ResolvedProject): String = {
-    import sbt.{LocalProject, LocalRootProject, RootProject}
-
-    val projectName = dependency.project match {
-      case ThisProject => thisProject.id
-      case LocalProject(project) => project
-      // Not sure about these three:
-      case LocalRootProject => "root"
-      case ProjectRef(_, project) => project
-      case RootProject(_) => "root"
-    }
-
-    dependency.configuration match {
-      case Some("compile") | None => projectName
-      case Some(configurationName) => s"$projectName-$configurationName"
-    }
-  }
-
   /**
    * Replace any old path that is used as a scalac option by the new path.
    *
@@ -806,8 +788,19 @@ object BloopDefaults {
         val isForkedExecution = (Keys.fork in configuration in forkScopedTask).value
         val workingDir = if (isForkedExecution) Keys.baseDirectory.value else rootBaseDirectory
         val extraJavaOptions = List(s"-Duser.dir=${workingDir.getAbsolutePath}")
+        lazy val runtimeClasspath =  (Runtime / Keys.fullClasspath).value.map(_.data.toPath()).toList
+        lazy val javaRuntimeHome = (Runtime / Keys.javaHome).value.map(_.toPath())
+        lazy val javaRuntimeOptions = (Runtime / Keys.javaOptions).value
         val config = Config.JvmConfig(Some(javaHome.toPath), (extraJavaOptions ++ javaOptions).toList)
-        Config.Platform.Jvm(config, mainClass, None, None, None)
+        lazy val configRuntime = 
+          Config.JvmConfig(javaRuntimeHome.orElse(Some(javaHome.toPath)), (extraJavaOptions ++ javaRuntimeOptions).toList)
+        /* Runtime config is only used for run task, which is in Compile scope normally.
+         * Test classpath already contains runtime config, so it's not needed to set separate classpath for test scope.
+         */
+        if (configuration == Compile)
+          Config.Platform.Jvm(config, mainClass, Some(configRuntime),  Some(runtimeClasspath), None)
+        else 
+          Config.Platform.Jvm(config, mainClass, None,  None, None)
       }
     }
     // FORMAT: ON
