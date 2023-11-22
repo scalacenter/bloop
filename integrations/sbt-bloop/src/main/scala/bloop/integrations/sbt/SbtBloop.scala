@@ -788,7 +788,8 @@ object BloopDefaults {
         val isForkedExecution = (Keys.fork in configuration in forkScopedTask).value
         val workingDir = if (isForkedExecution) Keys.baseDirectory.value else rootBaseDirectory
         val extraJavaOptions = List(s"-Duser.dir=${workingDir.getAbsolutePath}")
-        lazy val runtimeClasspath =  (Runtime / Keys.fullClasspath).value.map(_.data.toPath()).toList
+        lazy val runtimeClasspath =  BloopKeys.bloopProductDirectories.value.head.toPath() +:
+          (emulateRuntimeDependencyClasspath).value.map(_.toPath.toAbsolutePath).toList
         lazy val javaRuntimeHome = (Runtime / Keys.javaHome).value.map(_.toPath())
         lazy val javaRuntimeOptions = (Runtime / Keys.javaOptions).value
         val config = Config.JvmConfig(Some(javaHome.toPath), (extraJavaOptions ++ javaOptions).toList)
@@ -1206,6 +1207,12 @@ object BloopDefaults {
   def emulateDependencyClasspath: Def.Initialize[Task[Seq[File]]] = Def.task {
     val internalClasspath = BloopKeys.bloopInternalClasspath.value.map(_._2)
     val externalClasspath = Keys.externalDependencyClasspath.value.map(_.data)
+    internalClasspath ++ externalClasspath
+  }
+
+  def emulateRuntimeDependencyClasspath: Def.Initialize[Task[Seq[File]]] = Def.task {
+    val internalClasspath = (Runtime / BloopKeys.bloopInternalClasspath).value.map(_._2)
+    val externalClasspath = (Runtime / Keys.externalDependencyClasspath).value.map(_.data)
     internalClasspath ++ externalClasspath
   }
 
