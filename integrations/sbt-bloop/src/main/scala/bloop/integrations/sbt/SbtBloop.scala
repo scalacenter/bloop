@@ -1147,7 +1147,22 @@ object BloopDefaults {
       )
       .map(fail =>
         if (fail.nonEmpty) {
-          logger.error(s"Couldn't run bloopGenerate. Cause: ${fail.mkString("\n")}")
+          val messages = fail.flatMap { incomplete =>
+            incomplete.directCause.zip(incomplete.message)
+          }
+
+          if (messages.nonEmpty) {
+            logger.error(s"Couldn't run bloopGenerate. The issue might be caused by:")
+            messages.foreach {
+              case (t, message) =>
+                logger.error(message)
+                logger.trace(t)
+            }
+          } else {
+            logger.error(
+              s"Couldn't run bloopGenerate. The issue could be caused by failing to compile the project."
+            )
+          }
           throw fail.head
         }
       )
