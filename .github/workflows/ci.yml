@@ -262,9 +262,11 @@ jobs:
           git config --global user.name "Bloopoid"
           git config --global user.email "bloop@vican.me"
           git config --global push.default simple
-          ls -l bloop-artifacts
+          ls -al bloop-artifacts
           mkdir -p frontend/target
           mv bloop-artifacts frontend/target/graalvm-binaries
+          ls -al frontend/target/graalvm-binaries
+          readlink -f frontend/target/graalvm-binaries
           sbt ci-release
         shell: bash
 
