@@ -169,7 +169,7 @@ object JsBridge {
       val result = adapter.loadFrameworks(frameworkNames).flatMap(_.toList)
       (result, () => adapter.close())
     } else {
-      logger.error(
+      logger.warn(
         s"Cannot discover test frameworks, missing node_modules in test project, expected them at $nodeModules"
       )
       (Nil, () => ())
