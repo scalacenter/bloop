@@ -637,11 +637,13 @@ object Compiler {
           val bloopNumVer = JavaRuntime.version.takeWhile(_.isDigit).toInt
           if (bloopNumVer > numVer) {
             scalacOptions ++ List("-release", numVer.toString())
-          } else {
+          } else if (bloopNumVer < numVer) {
             logger.warn(
               s"Bloop is runing with ${JavaRuntime.version} but your code requires $version to compile, " +
                 "this might cause some compilation issues when using JDK API unsupported by the Bloop's current JVM version"
             )
+            scalacOptions
+          } else {
             scalacOptions
           }
         } catch {
