@@ -40,7 +40,7 @@ object Dependencies {
   val ztVersion = "1.16"
   val difflibVersion = "1.3.0"
   val braveVersion = "5.16.0"
-  val zipkinSenderVersion = "2.16.5"
+  val zipkinSenderVersion = "2.17.0"
   val jnaVersion = "5.14.0"
   val asmVersion = "9.6"
   val snailgunVersion = "0.4.0"
