@@ -119,8 +119,8 @@ object ScalaJsToolchain extends ToolchainCompanion[ScalaJsToolchain] {
 
   def linkTargetFrom(project: Project, config: JsConfig): AbsolutePath = {
     config.output match {
-      case Some(p) => AbsolutePath(p)
-      case None => project.out.resolve(s"${project.name}.js")
+      case Some(p) if p.toFile().isDirectory() => AbsolutePath(p)
+      case None => project.out.resolve(s"${project.name}-js").createDirectories
     }
   }
 

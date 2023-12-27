@@ -902,11 +902,12 @@ final class BloopBspServices(
                 }
             case platform @ Platform.Js(config, _, _) =>
               val cmd = Commands.Run(List(project.name))
-              val target = ScalaJsToolchain.linkTargetFrom(project, config)
-              linkMainWithJs(cmd, project, state, mainClass.className, target, platform)
+              val targetDir = ScalaJsToolchain.linkTargetFrom(project, config)
+              linkMainWithJs(cmd, project, state, mainClass.className, targetDir, platform)
                 .flatMap { state =>
+                  val files = targetDir.list.map(_.toString())
                   // We use node to run the program (is this a special case?)
-                  val args = ("node" +: target.syntax +: cmd.args).toArray
+                  val args = ("node" +: files ::: cmd.args).toArray
                   if (!state.status.isOk) Task.now(state)
                   else Tasks.runNativeOrJs(state, cwd, args)
                 }
