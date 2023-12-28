@@ -44,7 +44,6 @@ val scalafixSettings: Seq[Setting[_]] = Seq(
 val benchmarkBridge = project
   .in(file(".benchmark-bridge-compilation"))
   .aggregate(BenchmarkBridgeCompilation)
-  .disablePlugins(ScriptedPlugin)
   .settings(
     scalafixSettings,
     (publish / skip) := true
@@ -79,7 +78,6 @@ lazy val bloopShared = project
  */
 lazy val backend = project
   .enablePlugins(BuildInfoPlugin)
-  .disablePlugins(ScriptedPlugin)
   .dependsOn(bloopShared)
   .settings(
     name := "bloop-backend",
@@ -128,7 +126,6 @@ lazy val frontend: Project = project
     backend % "test->test",
     buildpressConfig % "it->compile"
   )
-  .disablePlugins(ScriptedPlugin)
   .enablePlugins(BuildInfoPlugin)
   .configs(IntegrationTest)
   .settings(
@@ -160,7 +157,8 @@ lazy val frontend: Project = project
       Dependencies.monix,
       Dependencies.caseApp,
       Dependencies.scalaDebugAdapter,
-      Dependencies.bloopConfig
+      Dependencies.bloopConfig,
+      Dependencies.logback
     ),
     // needed for tests and to be automatically updated
     Test / libraryDependencies += Dependencies.semanticdb intransitive (),
@@ -216,7 +214,7 @@ lazy val bloopgunSettings = Seq(
     Dependencies.snailgun,
     // Use zt-exec instead of nuprocess because it doesn't require JNA (good for graalvm)
     Dependencies.ztExec,
-    Dependencies.slf4jNop,
+    Dependencies.logback,
     Dependencies.coursierInterface,
     Dependencies.coursierInterfaceSubs,
     Dependencies.jsoniterCore,
@@ -225,13 +223,7 @@ lazy val bloopgunSettings = Seq(
   (GraalVMNativeImage / mainClass) := Some("bloop.bloopgun.Bloopgun"),
   graalVMNativeImageOptions ++= {
     val reflectionFile = (Compile / Keys.sourceDirectory).value./("graal")./("reflection.json")
-    val securityOverridesFile =
-      (Compile / Keys.sourceDirectory).value./("graal")./("java.security.overrides")
     assert(reflectionFile.exists, s"${reflectionFile.getAbsolutePath()} doesn't exist")
-    assert(
-      securityOverridesFile.exists,
-      s"${securityOverridesFile.getAbsolutePath()} doesn't exist"
-    )
     List(
       "--enable-http",
       "--enable-https",
@@ -240,8 +232,6 @@ lazy val bloopgunSettings = Seq(
       "--no-fallback",
       s"-H:ReflectionConfigurationFiles=$reflectionFile",
       "-H:+ReportExceptionStackTraces",
-      s"-J-Djava.security.properties=$securityOverridesFile",
-      s"-Djava.security.properties=$securityOverridesFile",
       "--initialize-at-build-time=scala.Symbol",
       "--initialize-at-build-time=scala.Function1",
       "--initialize-at-build-time=scala.Function2",
@@ -273,7 +263,6 @@ lazy val bloopgun213: Project = project
 
 lazy val launcherTest = project
   .in(file("launcher-test"))
-  .disablePlugins(ScriptedPlugin)
   .dependsOn(launcher, frontend % "test->test")
   .settings(
     name := "bloop-launcher-test",
@@ -309,7 +298,6 @@ lazy val launcher213 = project
   )
 
 lazy val bloop4j = project
-  .disablePlugins(ScriptedPlugin)
   .settings(
     name := "bloop4j",
     scalafixSettings,
@@ -323,7 +311,6 @@ lazy val bloop4j = project
 
 lazy val benchmarks = project
   .dependsOn(frontend % "compile->it", BenchmarkBridgeCompilation % "compile->compile")
-  .disablePlugins(ScriptedPlugin)
   .enablePlugins(BuildInfoPlugin, JmhPlugin)
   .settings(
     scalafixSettings,
@@ -464,7 +451,6 @@ val allProjects = Seq(
 val allProjectReferences = allProjects.map(p => LocalProject(p.id))
 val bloop = project
   .in(file("."))
-  .disablePlugins(ScriptedPlugin)
   .aggregate(allProjectReferences: _*)
   .settings(
     (publish / skip) := true,
