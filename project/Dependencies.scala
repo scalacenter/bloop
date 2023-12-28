@@ -56,7 +56,7 @@ object Dependencies {
 
   val configDirectories = "dev.dirs" % "directories" % configDirsVersion
   val libraryManagement = "org.scala-sbt" %% "librarymanagement-ivy" % lmVersion
-  val log4j = "org.apache.logging.log4j" % "log4j-core" % "2.22.0"
+  val log4j = "org.apache.logging.log4j" % "log4j-core" % "2.22.1"
   val scalazCore = "org.scalaz" %% "scalaz-core" % scalazVersion
   val coursierInterface = "io.get-coursier" % "interface" % "1.0.19"
   val coursierInterfaceSubs = "io.get-coursier" % "interface-svm-subs" % "1.0.19"
