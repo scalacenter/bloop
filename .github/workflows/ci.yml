@@ -184,7 +184,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Publish GraalVM Native artifacts
-        run: sbt "bloopgun213/graalvm-native-image:packageBin"
+        run: sbt "bloopgun/graalvm-native-image:packageBin"
 
       - name: Copy artifacts (windows)
         if: matrix.os == 'windows-latest'

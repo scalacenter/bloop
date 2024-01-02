@@ -1,7 +1,7 @@
 import build.BuildImplementation.BuildDefaults
 import build.BuildImplementation.jvmOptions
 import build.Dependencies
-import build.Dependencies.{Scala211Version, Scala212Version, SbtVersion}
+import build.Dependencies.{Scala212Version, SbtVersion}
 
 ThisBuild / dynverSeparator := "-"
 
@@ -242,23 +242,13 @@ lazy val bloopgunSettings = Seq(
 )
 
 lazy val bloopgun: Project = project
-  .disablePlugins(ScriptedPlugin, ScalafixPlugin)
-  .enablePlugins(BuildInfoPlugin, GraalVMNativeImagePlugin)
-  .settings(
-    testSuiteSettings,
-    bloopgunSettings,
-    target := (file("bloopgun") / "target" / "bloopgun-2.12").getAbsoluteFile
-  )
-
-lazy val bloopgun213: Project = project
   .in(file("bloopgun"))
   .disablePlugins(ScriptedPlugin, ScalafixPlugin)
   .enablePlugins(BuildInfoPlugin, GraalVMNativeImagePlugin)
   .settings(
     testSuiteSettings,
     bloopgunSettings,
-    scalaVersion := Dependencies.Scala213Version,
-    target := (file("bloopgun") / "target" / "bloopgun-2.13").getAbsoluteFile
+    scalaVersion := Dependencies.Scala213Version
   )
 
 lazy val launcherTest = project
@@ -273,7 +263,8 @@ lazy val launcherTest = project
     (Test / parallelExecution) := false,
     libraryDependencies ++= List(
       Dependencies.coursierInterface
-    )
+    ),
+    scalaVersion := Dependencies.Scala213Version
   )
 
 lazy val launcher = project
@@ -282,19 +273,7 @@ lazy val launcher = project
   .dependsOn(sockets, bloopgun)
   .settings(
     name := "bloop-launcher-core",
-    testSuiteSettings,
-    target := (file("launcher-core") / "target" / "launcher-2.12").getAbsoluteFile
-  )
-
-lazy val launcher213 = project
-  .in(file("launcher-core"))
-  .disablePlugins(ScriptedPlugin, ScalafixPlugin)
-  .dependsOn(sockets, bloopgun213)
-  .settings(
-    name := "bloop-launcher-core",
-    testSuiteSettings,
-    scalaVersion := Dependencies.Scala213Version,
-    target := (file("launcher-core") / "target" / "launcher-2.13").getAbsoluteFile
+    scalaVersion := Dependencies.Scala213Version
   )
 
 lazy val benchmarks = project
@@ -421,7 +400,6 @@ val allProjects = Seq(
   backend,
   benchmarks,
   bloopgun,
-  bloopgun213,
   bloopShared,
   buildpress,
   buildpressConfig,
@@ -429,7 +407,6 @@ val allProjects = Seq(
   jsBridge06,
   jsBridge1,
   launcher,
-  launcher213,
   launcherTest,
   nativeBridge04,
   sbtBloop,

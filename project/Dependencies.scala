@@ -5,7 +5,6 @@ import sbt.librarymanagement.CrossVersion
 import sbt.Provided
 
 object Dependencies {
-  val Scala211Version = "2.11.12"
   val Scala212Version = "2.12.18"
   val Scala213Version = "2.13.12"
 
