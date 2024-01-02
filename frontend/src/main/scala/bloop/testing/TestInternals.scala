@@ -340,7 +340,7 @@ object TestInternals {
     } catch {
       case _: ClassNotFoundException => None
       case NonFatal(t) =>
-        logger.report(s"Initialisation of test framework $fqn failed", t)
+        logger.error(s"Initialisation of test framework $fqn failed", t)
         None
     }
   }

@@ -60,9 +60,9 @@ import bloop.internal.build.BuildInfo
 import bloop.io.AbsolutePath
 import bloop.io.Environment.lineSeparator
 import bloop.io.RelativePath
-import bloop.logging.BloopLogger
 import bloop.logging.BspServerLogger
 import bloop.logging.DebugFilter
+import bloop.logging.Logger
 import bloop.reporter.BspProjectReporter
 import bloop.reporter.ProblemPerPhase
 import bloop.reporter.ReporterConfig
@@ -559,7 +559,7 @@ final class BloopBspServices(
           Tasks.clean(state, projectsToClean, includeDeps = false).materialize.map {
             case Success(state) => (state, Right(bsp.CleanCacheResult(None, cleaned = true)))
             case Failure(exception) =>
-              val t = BloopLogger.prettyPrintException(exception)
+              val t = Logger.prettyPrintException(exception)
               val msg = s"Unexpected error when cleaning build targets!${lineSeparator}$t"
               state -> Right(bsp.CleanCacheResult(Some(msg), cleaned = false))
           }
