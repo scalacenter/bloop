@@ -173,7 +173,7 @@ object ParallelOps {
           ()
         } catch {
           case NonFatal(t) =>
-            logger.report(
+            logger.error(
               s"Unexpected error when copying $originFile to $targetFile, you might need to restart the build server.",
               t
             )
