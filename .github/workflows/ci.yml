@@ -202,7 +202,7 @@ jobs:
           mkdir -p bloop-artifacts
           cp bloopgun/target/bloopgun-2.13/graalvm-native-image/bloopgun-core bloop-artifacts/$ARTIFACT_NAME
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: bloop-artifacts
           path: bloop-artifacts/${{ matrix.artifact }}
@@ -241,7 +241,7 @@ jobs:
         with:
           node-version: "16"
       - name: Download built GraalVM binaries
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: bloop-artifacts
           path: bloop-artifacts
