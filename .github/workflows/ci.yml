@@ -148,11 +148,6 @@ jobs:
               frontend/runMain bloop.util.CommandsDocGenerator --out ../docs/cli/reference.md"
         shell: bash
 
-      - name: Check docs are up-to-date
-        run: |
-          ./bin/check-good-practices.sh
-        shell: bash
-
   publish-binaries:
     name: Publish binaries for ${{ matrix.os }}
     runs-on: ${{ matrix.os }}

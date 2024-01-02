@@ -8,7 +8,6 @@ import scala.util.Try
 
 import bloop.logging.BloopLogger
 import bloop.logging.Logger
-import bloop.logging.Slf4jAdapter
 import bloop.util.ProxySetup
 
 import com.martiansoftware.nailgun.Alias
@@ -16,6 +15,7 @@ import com.martiansoftware.nailgun.NGConstants
 import com.martiansoftware.nailgun.NGContext
 import com.martiansoftware.nailgun.NGListeningAddress
 import com.martiansoftware.nailgun.NGServer
+import org.slf4j
 
 class Server
 object Server {
@@ -51,7 +51,7 @@ object Server {
       port: Int,
       logger: Logger
   ): NGServer = {
-    val javaLogger = new Slf4jAdapter(logger)
+    val javaLogger = slf4j.LoggerFactory.getLogger(classOf[NGServer])
     val address = new NGListeningAddress(addr, port)
     val poolSize = NGServer.DEFAULT_SESSIONPOOLSIZE
     val heartbeatMs = NGConstants.HEARTBEAT_TIMEOUT_MILLIS.toInt
