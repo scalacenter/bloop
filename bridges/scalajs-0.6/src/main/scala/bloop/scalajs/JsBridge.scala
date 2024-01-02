@@ -97,10 +97,14 @@ object JsBridge {
       .withModuleKind(moduleKind)
       .withSourceMap(config.emitSourceMaps)
 
+    val targetFile = target.toFile()
+    val output =
+      if (targetFile.isDirectory()) target.resolve(s"${project.name}.js").toFile else targetFile
+
     StandardLinker(jsConfig).link(
       irFiles = classpathIrFiles ++ scalajsIRFiles,
       moduleInitializers = initializers,
-      output = AtomicWritableFileVirtualJSFile(target.toFile),
+      output = AtomicWritableFileVirtualJSFile(output),
       logger = new Logger(logger)
     )
   }

@@ -6,6 +6,8 @@ import java.net.URI
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.{Paths => NioPaths}
+import java.util.stream.Collectors
+import collection.JavaConverters._
 
 final class AbsolutePath private (val underlying: Path) extends AnyVal {
   def syntax: String = toString
@@ -21,6 +23,7 @@ final class AbsolutePath private (val underlying: Path) extends AnyVal {
   def getParent: AbsolutePath = AbsolutePath(underlying.getParent)
   def createDirectories: AbsolutePath = AbsolutePath(Files.createDirectories(underlying))
   def exists: Boolean = Files.exists(underlying)
+  def list: List[Path] = Files.list(underlying).collect(Collectors.toList()).asScala.toList
   def isFile: Boolean = Files.isRegularFile(underlying)
   def isDirectory: Boolean = Files.isDirectory(underlying)
   def isSameFile(other: AbsolutePath): Boolean = Files.isSameFile(underlying, other.underlying)

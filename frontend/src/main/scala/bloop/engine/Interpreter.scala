@@ -521,8 +521,8 @@ object Interpreter {
                 LinkTask.linkMainWithNative(cmd, project, state, mainClass, target, platform)
 
               case platform @ Platform.Js(config, _, _) =>
-                val target = ScalaJsToolchain.linkTargetFrom(project, config)
-                LinkTask.linkMainWithJs(cmd, project, state, mainClass, target, platform)
+                val targetDirectory = ScalaJsToolchain.linkTargetFrom(project, config)
+                LinkTask.linkMainWithJs(cmd, project, state, mainClass, targetDirectory, platform)
 
               case _: Platform.Jvm =>
                 val msg = Feedback.noLinkFor(project)
@@ -565,14 +565,16 @@ object Interpreter {
                     else Tasks.runNativeOrJs(state, cwd, args)
                   }
               case platform @ Platform.Js(config, _, _) =>
-                val target = ScalaJsToolchain.linkTargetFrom(project, config)
-                LinkTask.linkMainWithJs(cmd, project, state, mainClass, target, platform).flatMap {
-                  state =>
+                val targetDirectory = ScalaJsToolchain.linkTargetFrom(project, config)
+                LinkTask
+                  .linkMainWithJs(cmd, project, state, mainClass, targetDirectory, platform)
+                  .flatMap { state =>
                     // We use node to run the program (is this a special case?)
-                    val args = ("node" +: target.syntax +: cmd.args).toArray
+                    val files = targetDirectory.list.map(_.toString())
+                    val args = ("node" +: files ::: cmd.args).toArray
                     if (!state.status.isOk) Task.now(state)
                     else Tasks.runNativeOrJs(state, cwd, args)
-                }
+                  }
               case jvm: Platform.Jvm =>
                 val javaEnv = project.runtimeJdkConfig.getOrElse(jvm.config)
                 Tasks.runJVM(
