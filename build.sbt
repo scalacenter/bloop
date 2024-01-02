@@ -308,19 +308,6 @@ lazy val launcher213 = project
     target := (file("launcher-core") / "target" / "launcher-2.13").getAbsoluteFile
   )
 
-lazy val bloop4j = project
-  .disablePlugins(ScriptedPlugin)
-  .settings(
-    name := "bloop4j",
-    scalafixSettings,
-    (run / fork) := true,
-    (Test / fork) := true,
-    libraryDependencies ++= List(
-      Dependencies.bsp4j,
-      Dependencies.bloopConfig
-    )
-  )
-
 lazy val benchmarks = project
   .dependsOn(frontend % "compile->it", BenchmarkBridgeCompilation % "compile->compile")
   .disablePlugins(ScriptedPlugin)
