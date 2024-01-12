@@ -639,7 +639,7 @@ object Compiler {
             scalacOptions ++ List("-release", numVer.toString())
           } else if (bloopNumVer < numVer) {
             logger.warn(
-              s"Bloop is runing with ${JavaRuntime.version} but your code requires $version to compile, " +
+              s"Bloop is running with ${JavaRuntime.version} but your code requires $version to compile, " +
                 "this might cause some compilation issues when using JDK API unsupported by the Bloop's current JVM version"
             )
             scalacOptions
