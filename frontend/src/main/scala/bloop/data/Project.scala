@@ -85,7 +85,7 @@ final case class Project(
       case _ =>
         None
     }
-    customWorkingDirectory.getOrElse(baseDirectory)
+    customWorkingDirectory.orElse(workspaceDirectory).getOrElse(baseDirectory)
   }
 
   def allGeneratorInputs: Task[List[AbsolutePath]] =
