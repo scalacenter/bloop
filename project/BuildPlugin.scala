@@ -104,11 +104,11 @@ object BuildKeys {
       val releaseTargetDir = Keys.target.value / "ghrelease-assets"
 
       val originBloopWindowsBinary =
-        baseDir / "bloop-artifacts" / "bloop-windows"
+        baseDir / "bloop-artifacts" / "bloop-windows" / "bloop-windows"
       val originBloopLinuxBinary =
-        baseDir / "bloop-artifacts" / "bloop-linux"
+        baseDir / "bloop-artifacts" / "bloop-linux" / "bloop-linux"
       val originBloopMacosBinary =
-        baseDir / "bloop-artifacts" / "bloop-macos"
+        baseDir / "bloop-artifacts" / "bloop-macos" / "bloop-macos"
       val targetBloopLinuxBinary = releaseTargetDir / "bloop-x86_64-pc-linux"
       val targetBloopWindowsBinary = releaseTargetDir / "bloop-x86_64-pc-win32.exe"
       val targetBloopMacosBinary = releaseTargetDir / "bloop-x86_64-apple-darwin"
