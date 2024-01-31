@@ -204,7 +204,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: bloop-${{ matrix.artifact }}
+          name: ${{ matrix.artifact }}
           path: bloop-artifacts/${{ matrix.artifact }}
 
   release:
