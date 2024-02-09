@@ -42,7 +42,7 @@ final class SourceWatcher private (
     def runAction(state: State, events: Seq[DirectoryChangeEvent]): Task[State] = {
       // Windows is not supported for now
       if (!bloop.util.CrossPlatform.isWindows)
-        logger.info("\u001b[H\u001b[2J") // Clean terminal before acting on the event action
+        logger.info(bloop.util.Console.clearCommand)
       events.foreach(e => logger.debug(s"A ${e.eventType()} in ${e.path()} has triggered an event"))
       action(state)
     }
