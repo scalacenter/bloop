@@ -19,6 +19,7 @@ import sbt.internal.inc.BloopComponentCompiler
 import sbt.internal.inc.javac.WriteReportingJavaFileObject
 import sbt.io.syntax.File
 import xsbti.compile.ClassFileManager
+import xsbti.compile.ClasspathOptionsUtil
 
 @Category(Array(classOf[FastTests]))
 class CompilerCacheSpec {
@@ -104,10 +105,29 @@ class CompilerCacheSpec {
       bloop.internal.build.BloopScalaInfo.scalaVersion,
       new RecordingLogger()
     )
+    val cpOptions = ClasspathOptionsUtil.boot()
 
-    val javac0 = compilerCache.get(scalaInstance, None, Nil).javaTools().javac()
-    val javac1 = compilerCache.get(scalaInstance, None, Nil).javaTools().javac()
+    val javac0 = compilerCache.get(scalaInstance, cpOptions, None, Nil).javaTools().javac()
+    val javac1 = compilerCache.get(scalaInstance, cpOptions, None, Nil).javaTools().javac()
     assertTrue(javac0 + " was not eq to " + javac1, javac0 eq javac1)
+  }
+
+  @Test
+  def differentClasspathOptions(): Unit = withCompilerCache { compilerCache =>
+    val scalaInstance = ScalaInstance.resolve(
+      "org.scala-lang",
+      "scala-compiler",
+      bloop.internal.build.BloopScalaInfo.scalaVersion,
+      new RecordingLogger()
+    )
+    val classpathOptions1 = ClasspathOptionsUtil.boot()
+    val classpathOptions2 = ClasspathOptionsUtil.manual()
+
+    val scalac1 = compilerCache.get(scalaInstance, classpathOptions1, None, Nil).scalac()
+    val scalac2 = compilerCache.get(scalaInstance, classpathOptions2, None, Nil).scalac()
+    assertEquals(scalac1.classpathOptions, classpathOptions1)
+    assertEquals(scalac2.classpathOptions, classpathOptions2)
+    assertEquals(scalac1.scalaInstance, scalac2.scalaInstance)
   }
 
   @Test
@@ -118,13 +138,15 @@ class CompilerCacheSpec {
       bloop.internal.build.BloopScalaInfo.scalaVersion,
       new RecordingLogger()
     )
+    val cpOptions = ClasspathOptionsUtil.boot()
 
     // We first populate the compiler cache with a compiler that may be local.
-    val javac0 = compilerCache.get(scalaInstance, None, Nil).javaTools().javac()
-    val javac1 = compilerCache.get(scalaInstance, None, List("-J-Dfoo=bar")).javaTools().javac()
+    val _ = compilerCache.get(scalaInstance, cpOptions, None, Nil).javaTools().javac()
+    val javac1 =
+      compilerCache.get(scalaInstance, cpOptions, None, List("-J-Dfoo=bar")).javaTools().javac()
 
     assertTrue(
-      s"`javac1` was not a forked compiler, despite the runtime flag: ${javac0.getClass}",
+      s"`javac1` was not a forked compiler, despite the runtime flag: ${javac1.getClass}",
       javac1.isInstanceOf[compilerCache.BloopForkedJavaCompiler]
     )
   }

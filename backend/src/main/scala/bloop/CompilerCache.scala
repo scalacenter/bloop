@@ -38,9 +38,9 @@ import xsbti.compile.ClassFileManager
 import xsbti.compile.Compilers
 import xsbti.compile.JavaCompiler
 import xsbti.compile.Output
-import xsbti.compile.ScalaCompiler
 import xsbti.{Logger => XLogger}
 import xsbti.{Reporter => XReporter}
+import xsbti.compile.ClasspathOptions
 
 object CompilerCache {
   final case class JavacKey(javacBin: Option[AbsolutePath], allowLocal: Boolean)
@@ -50,19 +50,21 @@ final class CompilerCache(
     logger: Logger
 ) {
 
-  private val scalaCompilerCache = new ConcurrentHashMap[ScalaInstance, ScalaCompiler]()
-
+  private val scalaInstanceCache = new ConcurrentHashMap[ScalaInstance, ScalaInstance]()
   private val javaCompilerCache = new ConcurrentHashMap[JavacKey, JavaCompiler]()
 
   def get(
       scalaInstance: ScalaInstance,
+      classpathOptions: ClasspathOptions,
       javacBin: Option[AbsolutePath],
       javacOptions: List[String]
   ): Compilers = {
-    val scalaCompiler = scalaCompilerCache.computeIfAbsent(
+    val scalaInstanceFromCache = scalaInstanceCache.computeIfAbsent(
       scalaInstance,
-      getScalaCompiler(_, componentProvider)
+      _ => scalaInstance
     )
+    val scalaCompiler =
+      getScalaCompiler(scalaInstanceFromCache, classpathOptions, componentProvider)
 
     val allowLocal = !hasRuntimeJavacOptions(javacOptions)
     val javaCompiler =
@@ -107,12 +109,13 @@ final class CompilerCache(
 
   def getScalaCompiler(
       scalaInstance: ScalaInstance,
+      classpathOptions: ClasspathOptions,
       componentProvider: ComponentProvider
   ): AnalyzingCompiler = {
     val bridgeSources = BloopComponentCompiler.getModuleForBridgeSources(scalaInstance)
     val bridgeId = BloopComponentCompiler.getBridgeComponentId(bridgeSources, scalaInstance)
     componentProvider.component(bridgeId) match {
-      case Array(jar) => ZincUtil.scalaCompiler(scalaInstance, jar)
+      case Array(jar) => ZincUtil.scalaCompiler(scalaInstance, jar, classpathOptions)
       case _ =>
         BloopZincLibraryManagement.scalaCompiler(
           scalaInstance,
@@ -120,6 +123,7 @@ final class CompilerCache(
           componentProvider,
           Some(Paths.getCacheDirectory("bridge-cache").toFile),
           bridgeSources,
+          classpathOptions,
           logger
         )
     }

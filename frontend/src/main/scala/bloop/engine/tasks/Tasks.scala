@@ -73,7 +73,7 @@ object Tasks {
         val loader = ClasspathUtil.makeLoader(pathEntries, instance)
         val compiler =
           state.compilerCache
-            .get(instance, javacBin, project.javacOptions)
+            .get(instance, project.classpathOptions, javacBin, project.javacOptions)
             .scalac
             .asInstanceOf[AnalyzingCompiler]
         val options = project.scalacOptions :+ "-Xnojline"
