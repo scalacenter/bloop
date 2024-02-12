@@ -11,6 +11,7 @@ import bloop.cli.ExitStatus
 import bloop.data.WorkspaceSettings
 import bloop.engine.ExecutionContext
 import bloop.internal.build.BuildInfo
+import bloop.internal.build.BuildTestInfo
 import bloop.io.AbsolutePath
 import bloop.io.Environment.LineSplitter
 import bloop.io.Environment.lineSeparator

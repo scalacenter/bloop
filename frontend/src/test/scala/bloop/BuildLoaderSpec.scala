@@ -9,6 +9,7 @@ import bloop.data.TraceSettings
 import bloop.data.WorkspaceSettings
 import bloop.engine.Build
 import bloop.internal.build.BuildInfo
+import bloop.internal.build.BuildTestInfo
 import bloop.io.AbsolutePath
 import bloop.logging.RecordingLogger
 import bloop.task.Task

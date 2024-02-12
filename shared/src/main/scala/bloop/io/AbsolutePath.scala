@@ -7,7 +7,8 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.{Paths => NioPaths}
 import java.util.stream.Collectors
-import collection.JavaConverters._
+
+import scala.collection.JavaConverters._
 
 final class AbsolutePath private (val underlying: Path) extends AnyVal {
   def syntax: String = toString
