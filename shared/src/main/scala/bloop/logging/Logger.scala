@@ -1,6 +1,7 @@
 package bloop.logging
 
 import java.util.function.Supplier
+
 import bloop.io.Environment
 
 abstract class Logger extends xsbti.Logger with BaseSbtLogger {

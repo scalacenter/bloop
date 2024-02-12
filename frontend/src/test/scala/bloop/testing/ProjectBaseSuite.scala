@@ -2,11 +2,12 @@ package bloop.testing
 
 import java.nio.file.Files
 
+import scala.concurrent.duration.Duration
+
 import bloop.io.AbsolutePath
 import bloop.io.Paths
 import bloop.logging.RecordingLogger
 import bloop.task.Task
-import scala.concurrent.duration.Duration
 
 class ProjectBaseSuite(buildName: String) extends BaseSuite {
   val workspace: AbsolutePath = AbsolutePath(Files.createTempDirectory(s"workspace-${buildName}"))

@@ -13,6 +13,7 @@ import bloop.cli.ExitStatus
 import bloop.data.WorkspaceSettings
 import bloop.engine.ExecutionContext
 import bloop.internal.build.BuildInfo
+import bloop.internal.build.BuildTestInfo
 import bloop.io.AbsolutePath
 import bloop.io.Environment.LineSplitter
 import bloop.io.Environment.lineSeparator
@@ -21,7 +22,6 @@ import bloop.logging.RecordingLogger
 import bloop.task.Task
 import bloop.util.TestProject
 import bloop.util.TestUtil
-import bloop.internal.build.BuildTestInfo
 
 object LocalBspMetalsClientSpec extends BspMetalsClientSpec(BspProtocol.Local)
 object TcpBspMetalsClientSpec extends BspMetalsClientSpec(BspProtocol.Tcp)

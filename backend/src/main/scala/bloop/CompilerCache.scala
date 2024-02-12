@@ -35,12 +35,12 @@ import sbt.internal.util.LoggerWriter
 import xsbti.ComponentProvider
 import xsbti.VirtualFile
 import xsbti.compile.ClassFileManager
+import xsbti.compile.ClasspathOptions
 import xsbti.compile.Compilers
 import xsbti.compile.JavaCompiler
 import xsbti.compile.Output
 import xsbti.{Logger => XLogger}
 import xsbti.{Reporter => XReporter}
-import xsbti.compile.ClasspathOptions
 
 object CompilerCache {
   final case class JavacKey(javacBin: Option[AbsolutePath], allowLocal: Boolean)
