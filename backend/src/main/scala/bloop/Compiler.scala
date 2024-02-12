@@ -319,6 +319,7 @@ object Compiler {
     val classpathOptions = compileInputs.classpathOptions
     val compilers = compileInputs.compilerCache.get(
       scalaInstance,
+      classpathOptions,
       compileInputs.javacBin,
       compileInputs.javacOptions.toList
     )
