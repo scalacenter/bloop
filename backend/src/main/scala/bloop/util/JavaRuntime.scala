@@ -4,7 +4,9 @@ import javax.tools.JavaCompiler
 import javax.tools.ToolProvider
 
 import scala.annotation.nowarn
+import scala.collection.concurrent.TrieMap
 import scala.util.Failure
+import scala.util.Properties
 import scala.util.Try
 
 import bloop.io.AbsolutePath
@@ -13,8 +15,6 @@ import com.typesafe.config.ConfigException
 import com.typesafe.config.ConfigFactory
 import com.typesafe.config.ConfigParseOptions
 import com.typesafe.config.ConfigSyntax
-import scala.collection.concurrent.TrieMap
-import scala.util.Properties
 
 sealed trait JavaRuntime
 object JavaRuntime {
