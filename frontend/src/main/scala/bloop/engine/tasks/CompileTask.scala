@@ -36,10 +36,6 @@ import bloop.tracing.BraveTracer
 import monix.execution.CancelableFuture
 import monix.reactive.MulticastStrategy
 import monix.reactive.Observable
-import xsbti.compile.analysis.ReadStamps
-import xsbti.compile.analysis.Stamp
-import xsbti.VirtualFileRef
-import scala.jdk.CollectionConverters._
 
 object CompileTask {
   private implicit val logContext: DebugFilter = DebugFilter.Compilation
@@ -102,7 +98,6 @@ object CompileTask {
           compileProjectTracer.terminate()
           Task.now(earlyResultBundle)
         case Right(CompileSourcesAndInstance(sources, instance, _)) =>
-          val externalUserClassesDir = bundle.clientClassesDir
           val readOnlyClassesDir = lastSuccessful.classesDir
           val newClassesDir = compileOut.internalNewClassesDir
           val classpath = bundle.dependenciesData.buildFullCompileClasspathFor(
@@ -177,7 +172,7 @@ object CompileTask {
                 val postCompilationTasks =
                   backgroundTasks
                     .trigger(
-                      externalUserClassesDir,
+                      bundle.clientClassesObserver,
                       reporter.underlying,
                       compileProjectTracer,
                       logger
@@ -223,52 +218,6 @@ object CompileTask {
       }
     }
 
-    def registerUpdatedClasses(res: FinalNormalCompileResult, project: Project) = {
-      res.result.fromCompiler match {
-        case s: Success =>
-          val currentAnalysis =
-            Option(s.products.resultForFutureCompilationRuns.analysis().orElse(null))
-          val previous = res.result.previous
-          val previousAnalysis =
-            if (previous.isEmpty) None
-            else Option(previous.get.previous.analysis().orElse(null))
-
-          (currentAnalysis, previousAnalysis) match {
-            case (None, _) | (_, None) => ()
-            case (Some(curr), Some(prev)) =>
-              val currentStamps = curr.readStamps
-              val previousStamps = prev.readStamps
-              val newClasses = getNewClasses(currentStamps, previousStamps)
-              project.classObserver.onNext(newClasses)
-          }
-        case _ => ()
-      }
-    }
-
-    def getNewClasses(currentStamps: ReadStamps, previousStamps: ReadStamps): Seq[String] = {
-      def isNewer(current: Stamp, previous: Stamp) = {
-        if (previous == null) true
-        else {
-          val newHash = current.getHash
-          val oldHash = previous.getHash
-          newHash.isPresent && (!oldHash.isPresent || newHash.get != oldHash.get)
-        }
-      }
-
-      object ClassFile {
-        def unapply(vf: VirtualFileRef): Option[String] = {
-          val fqcn = vf.name
-          if (fqcn.toString.endsWith(".class")) Some(fqcn.stripSuffix(".class"))
-          else None
-        }
-      }
-
-      val oldStamps = previousStamps.getAllProductStamps
-      currentStamps.getAllProductStamps.asScala.collect {
-        case (file @ ClassFile(fqcn), stamp) if isNewer(stamp, oldStamps.get(file)) => fqcn
-      }.toSeq
-    }
-
     def setup(inputs: CompileDefinitions.BundleInputs): Task[CompileBundle] = {
       // Create a multicast observable stream to allow multiple mirrors of loggers
       val (observer, obs) = {
@@ -297,14 +246,14 @@ object CompileTask {
       val o = state.commonOptions
       val cancel = cancelCompilation
       val logger = ObservedLogger(rawLogger, observer)
-      val dir = state.client.getUniqueClassesDirFor(inputs.project, forceGeneration = true)
+      val clientClassesObserver = state.client.getClassesObserverFor(inputs.project)
       val underlying = createReporter(ReporterInputs(inputs.project, cwd, rawLogger))
       val reporter = new ObservedReporter(logger, underlying)
       val sourceGeneratorCache = state.sourceGeneratorCache
       CompileBundle.computeFrom(
         inputs,
         sourceGeneratorCache,
-        dir,
+        clientClassesObserver,
         reporter,
         last,
         prev,
@@ -338,11 +287,6 @@ object CompileTask {
         val newState: State = {
           val stateWithResults = state.copy(results = state.results.addFinalResults(results))
           if (failures.isEmpty) {
-            results.foreach {
-              case res: FinalNormalCompileResult =>
-                registerUpdatedClasses(res, res.project)
-              case _ => ()
-            }
             stateWithResults.copy(status = ExitStatus.Ok)
           } else {
             results.foreach {
@@ -374,9 +318,12 @@ object CompileTask {
         runIOTasksInParallel(cleanUpTasksToRunInBackground)
 
         val runningTasksRequiredForCorrectness = Task.sequence {
-          results.collect {
+          results.flatMap {
             case FinalNormalCompileResult(_, result) =>
-              Task.fromFuture(result.runningBackgroundTasks)
+              val tasksAtEndOfBuildCompilation =
+                Task.fromFuture(result.runningBackgroundTasks)
+              List(tasksAtEndOfBuildCompilation)
+            case _ => Nil
           }
         }
 

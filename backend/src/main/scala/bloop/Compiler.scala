@@ -452,11 +452,12 @@ object Compiler {
 
             val backgroundTasks = new CompileBackgroundTasks {
               def trigger(
-                  clientClassesDir: AbsolutePath,
+                  clientClassesObserver: ClientClassesObserver,
                   clientReporter: Reporter,
                   clientTracer: BraveTracer,
                   clientLogger: Logger
               ): Task[Unit] = Task.defer {
+                val clientClassesDir = clientClassesObserver.classesDir
                 clientLogger.debug(s"Triggering background tasks for $clientClassesDir")
                 val updateClientState =
                   updateExternalClassesDirWithReadOnly(clientClassesDir, clientTracer, clientLogger)
@@ -472,10 +473,20 @@ object Compiler {
                 }
 
                 val deleteNewClassesDir = Task(BloopPaths.delete(AbsolutePath(newClassesDir)))
-                val allTasks = List(deleteNewClassesDir, updateClientState, writeAnalysisIfMissing)
+                val publishClientAnalysis = Task {
+                  rebaseAnalysisClassFiles(
+                    analysis,
+                    readOnlyClassesDir,
+                    clientClassesDir.underlying,
+                    sourcesWithFatal
+                  )
+                }
+                  .flatMap(clientClassesObserver.nextAnalysis)
                 Task
-                  .gatherUnordered(allTasks)
-                  .map(_ => ())
+                  .gatherUnordered(
+                    List(deleteNewClassesDir, updateClientState, writeAnalysisIfMissing)
+                  )
+                  .flatMap(_ => publishClientAnalysis)
                   .onErrorHandleWith(err => {
                     clientLogger.debug("Caught error in background tasks"); clientLogger.trace(err);
                     Task.raiseError(err)
@@ -495,14 +506,12 @@ object Compiler {
             )
           } else {
             val allGeneratedProducts = allGeneratedRelativeClassFilePaths.toMap
-            val analysisForFutureCompilationRuns = {
-              rebaseAnalysisClassFiles(
-                analysis,
-                readOnlyClassesDir,
-                newClassesDir,
-                sourcesWithFatal
-              )
-            }
+            val analysisForFutureCompilationRuns = rebaseAnalysisClassFiles(
+              analysis,
+              readOnlyClassesDir,
+              newClassesDir,
+              sourcesWithFatal
+            )
 
             val resultForFutureCompilationRuns = {
               resultForDependentCompilationsInSameRun.withAnalysis(
@@ -517,12 +526,12 @@ object Compiler {
             // Schedule the tasks to run concurrently after the compilation end
             val backgroundTasksExecution = new CompileBackgroundTasks {
               def trigger(
-                  clientClassesDir: AbsolutePath,
+                  clientClassesObserver: ClientClassesObserver,
                   clientReporter: Reporter,
                   clientTracer: BraveTracer,
                   clientLogger: Logger
               ): Task[Unit] = {
-                val clientClassesDirPath = clientClassesDir.toString
+                val clientClassesDir = clientClassesObserver.classesDir
                 val successBackgroundTasks =
                   backgroundTasksWhenNewSuccessfulAnalysis
                     .map(f => f(clientClassesDir, clientReporter, clientTracer))
@@ -543,7 +552,7 @@ object Compiler {
                       val syntax = path.syntax
                       if (syntax.startsWith(readOnlyClassesDirPath)) {
                         val rebasedFile = AbsolutePath(
-                          syntax.replace(readOnlyClassesDirPath, clientClassesDirPath)
+                          syntax.replace(readOnlyClassesDirPath, clientClassesDir.toString)
                         )
                         if (rebasedFile.exists) {
                           Files.delete(rebasedFile.underlying)
@@ -551,7 +560,18 @@ object Compiler {
                       }
                     }
                   }
-                  Task.gatherUnordered(List(firstTask, secondTask)).map(_ => ())
+
+                  val publishClientAnalysis = Task {
+                    rebaseAnalysisClassFiles(
+                      analysis,
+                      newClassesDir,
+                      clientClassesDir.underlying,
+                      sourcesWithFatal
+                    )
+                  }.flatMap(clientClassesObserver.nextAnalysis)
+                  Task
+                    .gatherUnordered(List(firstTask, secondTask))
+                    .flatMap(_ => publishClientAnalysis)
                 }
 
                 allClientSyncTasks.doOnFinish(_ => Task(clientReporter.reportEndCompilation()))
@@ -691,11 +711,12 @@ object Compiler {
   ): CompileBackgroundTasks = {
     new CompileBackgroundTasks {
       def trigger(
-          clientClassesDir: AbsolutePath,
+          clientClassesObserver: ClientClassesObserver,
           clientReporter: Reporter,
           tracer: BraveTracer,
           clientLogger: Logger
       ): Task[Unit] = {
+        val clientClassesDir = clientClassesObserver.classesDir
         val backgroundTasks = tasks.map(f => f(clientClassesDir, clientReporter, tracer))
         Task.gatherUnordered(backgroundTasks).memoize.map(_ => ())
       }
@@ -783,8 +804,8 @@ object Compiler {
    */
   def rebaseAnalysisClassFiles(
       analysis0: CompileAnalysis,
-      readOnlyClassesDir: Path,
-      newClassesDir: Path,
+      origin: Path,
+      target: Path,
       sourceFilesWithFatalWarnings: scala.collection.Set[File]
   ): Analysis = {
     // Cast to the only internal analysis that we support
@@ -792,10 +813,10 @@ object Compiler {
     def rebase(file: VirtualFileRef): VirtualFileRef = {
 
       val filePath = converter.toPath(file).toAbsolutePath()
-      if (!filePath.startsWith(readOnlyClassesDir)) file
+      if (!filePath.startsWith(origin)) file
       else {
         // Hash for class file is the same because the copy duplicates metadata
-        val path = newClassesDir.resolve(readOnlyClassesDir.relativize(filePath))
+        val path = target.resolve(origin.relativize(filePath))
         converter.toVirtualFile(path)
       }
     }

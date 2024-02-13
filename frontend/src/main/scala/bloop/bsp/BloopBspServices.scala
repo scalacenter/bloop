@@ -603,10 +603,7 @@ final class BloopBspServices(
       params: bsp.DebugSessionParams
   ): BspEndpointResponse[bsp.DebugSessionAddress] = {
 
-    def inferDebuggee(
-        projects: Seq[Project],
-        state: State
-    ): BspResponse[Debuggee] = {
+    def inferDebuggee(projects: Seq[Project], state: State): BspResponse[Debuggee] = {
       def convert[A: JsonValueCodec](
           f: A => Either[String, Debuggee]
       ): Either[Response.Error, Debuggee] = {

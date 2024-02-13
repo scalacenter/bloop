@@ -4,6 +4,8 @@ import scala.concurrent.Future
 import scala.concurrent.Promise
 import scala.util.Success
 
+import ch.epfl.scala.debugadapter.CancelableFuture
+
 import bloop.task.Task
 
 import monix.execution.Cancelable
@@ -16,10 +18,7 @@ private class DapCancellableFuture(future: Future[Unit], cancelable: Cancelable)
 }
 
 object DapCancellableFuture {
-  def runAsync(
-      task: Task[Unit],
-      ioScheduler: Scheduler
-  ): ch.epfl.scala.debugadapter.CancelableFuture[Unit] = {
+  def runAsync(task: Task[Unit])(implicit ioScheduler: Scheduler): CancelableFuture[Unit] = {
     val promise = Promise[Unit]()
     val cancelable = task
       .doOnFinish {
