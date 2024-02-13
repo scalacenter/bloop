@@ -34,13 +34,12 @@ class BloopDebugToolsResolver(logger: Logger) extends DebugToolsResolver {
     }
   }
 
-  override def resolveUnpickler(scalaVersion: ScalaVersion): Try[ClassLoader] = {
-    getOrTryUpdate(stepFilterCache, scalaVersion) {
-      val unpicklerModule = s"${BuildInfo.unpicklerName}_${scalaVersion.binaryVersion}"
-      val stepFilter = Artifact(BuildInfo.organization, unpicklerModule, BuildInfo.version)
-      val tastyCore = Artifact("org.scala-lang", "tasty-core_3", scalaVersion.value)
+  override def resolveDecoder(scalaVersion: ScalaVersion): Try[ClassLoader] = {
+    getOrTryUpdate(decoderCache, scalaVersion) {
+      val decoderModule = s"${BuildInfo.decoderName}_${scalaVersion.binaryVersion}"
+      val artifact = Artifact(BuildInfo.organization, decoderModule, BuildInfo.version)
       DependencyResolution
-        .resolveWithErrors(List(stepFilter, tastyCore), logger)
+        .resolveWithErrors(List(artifact), logger)
         .map(jars => toClassLoader(jars, true))
         .toTry
     }
@@ -66,5 +65,5 @@ class BloopDebugToolsResolver(logger: Logger) extends DebugToolsResolver {
 
 object BloopDebugToolsResolver {
   private val expressionCompilerCache: mutable.Map[ScalaVersion, ClassLoader] = mutable.Map.empty
-  private val stepFilterCache: mutable.Map[ScalaVersion, ClassLoader] = mutable.Map.empty
+  private val decoderCache: mutable.Map[ScalaVersion, ClassLoader] = mutable.Map.empty
 }
