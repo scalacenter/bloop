@@ -160,6 +160,7 @@ class BspSbtClientSpec(
         assertValidCompilationState(newCompiledState, projects)
 
         assertNoDiff(
+          diagnosticsWithoutTaskIds(newCompiledState, `A`),
           s"""# task start 6
              |  -> Msg: Compiling a (1 Scala source)
              |  -> Data kind: compile-task
@@ -167,56 +168,34 @@ class BspSbtClientSpec(
              |  -> errors 0, warnings 0
              |  -> origin = $secondOriginId
              |  -> Msg: Compiled 'a'
-             |  -> Data kind: compile-report""".stripMargin,
-          diagnosticsWithoutTaskIds(newCompiledState, `A`)
+             |  -> Data kind: compile-report""".stripMargin
         )
 
         assertNoDiff(
+          diagnosticsWithoutTaskIds(newCompiledState, `B`),
+          "" // no-op
+        )
+
+        assertNoDiff(
+          diagnosticsWithoutTaskIds(newCompiledState, `C`),
           s"""# task start 7
-             |  -> Msg: Start no-op compilation for b
+             |  -> Msg: Compiling c (1 Scala source)
              |  -> Data kind: compile-task
              |# task finish 7
              |  -> errors 0, warnings 0
              |  -> origin = $secondOriginId
-             |  -> Msg: Compiled 'b'
-             |  -> Data kind: compile-report""".stripMargin,
-          diagnosticsWithoutTaskIds(newCompiledState, `B`)
-        )
-
-        assertNoDiff(
-          s"""# task start 8
-             |  -> Msg: Compiling c (1 Scala source)
-             |  -> Data kind: compile-task
-             |# task finish 8
-             |  -> errors 0, warnings 0
-             |  -> origin = $secondOriginId
              |  -> Msg: Compiled 'c'
-             |  -> Data kind: compile-report""".stripMargin,
-          diagnosticsWithoutTaskIds(newCompiledState, `C`)
+             |  -> Data kind: compile-report""".stripMargin
         )
 
         assertNoDiff(
-          s"""# task start 9
-             |  -> Msg: Start no-op compilation for d
-             |  -> Data kind: compile-task
-             |# task finish 9
-             |  -> errors 0, warnings 0
-             |  -> origin = $secondOriginId
-             |  -> Msg: Compiled 'd'
-             |  -> Data kind: compile-report""".stripMargin,
-          diagnosticsWithoutTaskIds(newCompiledState, `D`)
+          diagnosticsWithoutTaskIds(newCompiledState, `D`),
+          "" // no-op
         )
 
         assertNoDiff(
-          s"""# task start 10
-             |  -> Msg: Start no-op compilation for e
-             |  -> Data kind: compile-task
-             |# task finish 10
-             |  -> errors 0, warnings 0
-             |  -> origin = $secondOriginId
-             |  -> Msg: Compiled 'e'
-             |  -> Data kind: compile-report""".stripMargin,
-          diagnosticsWithoutTaskIds(newCompiledState, `E`)
+          diagnosticsWithoutTaskIds(newCompiledState, `E`),
+          "" // no-op
         )
 
         assertSameExternalClassesDirs(newCompiledState, initialStateBackup, List(`B`, `D`, `E`))
@@ -307,17 +286,9 @@ class BspSbtClientSpec(
 
         assertNoDiff(
           thirdCompiledState.lastDiagnostics(`A`),
-          """
-            |#3: task start 3
-            |  -> Msg: Start no-op compilation for a
-            |  -> Data kind: compile-task
-            |#3: a/src/main/scala/Foo.scala
+          """#3: a/src/main/scala/Foo.scala
             |  -> List()
-            |  -> reset = true
-            |#3: task finish 3
-            |  -> errors 0, warnings 0
-            |  -> Msg: Compiled 'a'
-            |  -> Data kind: compile-report """.stripMargin
+            |  -> reset = true""".stripMargin
         )
       }
     }
