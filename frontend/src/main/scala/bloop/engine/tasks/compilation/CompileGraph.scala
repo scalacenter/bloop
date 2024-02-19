@@ -166,8 +166,7 @@ object CompileGraph {
         val previousProblems =
           Compiler.previousProblemsFromResult(bundle.latestResult, previousSuccessfulProblems)
 
-        val externalClassesDir =
-          client.getUniqueClassesDirFor(bundle.project, forceGeneration = true)
+        val clientClassesObserver = client.getClassesObserverFor(bundle.project)
 
         // Replay events asynchronously to waiting for the compilation result
         import scala.concurrent.duration.FiniteDuration
@@ -210,7 +209,7 @@ object CompileGraph {
                       reporter.processEndCompilation(
                         previousSuccessfulProblems,
                         a.code,
-                        Some(externalClassesDir),
+                        Some(clientClassesObserver.classesDir),
                         Some(bundle.out.analysisOut)
                       )
                   }
@@ -263,7 +262,7 @@ object CompileGraph {
                   case s: Compiler.Result.Success =>
                     // Wait on new classes to be populated for correctness
                     val runningBackgroundTasks = s.backgroundTasks
-                      .trigger(externalClassesDir, reporter, bundle.tracer, logger)
+                      .trigger(clientClassesObserver, reporter, bundle.tracer, logger)
                       .runAsync(ExecutionContext.ioScheduler)
                     Task.now(results.copy(runningBackgroundTasks = runningBackgroundTasks))
                   case _: Compiler.Result.Cancelled =>

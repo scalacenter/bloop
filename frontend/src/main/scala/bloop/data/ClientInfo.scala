@@ -15,6 +15,7 @@ import bloop.io.AbsolutePath
 import bloop.io.Filenames
 import bloop.io.Paths
 import bloop.util.UUIDUtil
+import bloop.ClientClassesObserver
 
 sealed trait ClientInfo {
 
@@ -39,6 +40,18 @@ sealed trait ClientInfo {
    * shared global classes directories.
    */
   def getUniqueClassesDirFor(project: Project, forceGeneration: Boolean): AbsolutePath
+
+  /**
+   * Provides the classes observer for a given project. One can subscribe to it
+   * to get notified when some classes change or get created.
+   * It is used by DAP to hot reload classes in the debuggee process.
+   */
+  private val classesObserver = new ConcurrentHashMap[Project, ClientClassesObserver]()
+  def getClassesObserverFor(project: Project): ClientClassesObserver =
+    classesObserver.computeIfAbsent(
+      project,
+      project => new ClientClassesObserver(getUniqueClassesDirFor(project, true))
+    )
 
   /**
    * Tells the caller whether this client manages its own client classes

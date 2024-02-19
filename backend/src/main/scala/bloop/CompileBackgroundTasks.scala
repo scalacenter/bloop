@@ -8,7 +8,7 @@ import bloop.tracing.BraveTracer
 
 abstract class CompileBackgroundTasks {
   def trigger(
-      clientClassesDir: AbsolutePath,
+      clientClassesObserver: ClientClassesObserver,
       clientReporter: Reporter,
       clientTracer: BraveTracer,
       clientLogger: Logger
@@ -20,7 +20,7 @@ object CompileBackgroundTasks {
   val empty: CompileBackgroundTasks = {
     new CompileBackgroundTasks {
       def trigger(
-          clientClassesDir: AbsolutePath,
+          clientClassesObserver: ClientClassesObserver,
           clientReporter: Reporter,
           clientTracer: BraveTracer,
           clientLogger: Logger

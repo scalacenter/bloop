@@ -45,7 +45,7 @@ object Dependencies {
   val asmVersion = "9.6"
   val snailgunVersion = "0.4.0"
   val ztExecVersion = "1.12"
-  val debugAdapterVersion = "3.1.6"
+  val debugAdapterVersion = "4.0.1"
   val bloopConfigVersion = "1.5.5"
   val semanticdbVersion = "4.7.8"
   val zinc = "org.scala-sbt" %% "zinc" % zincVersion
@@ -60,7 +60,7 @@ object Dependencies {
   val scalazCore = "org.scalaz" %% "scalaz-core" % scalazVersion
   val coursierInterface = "io.get-coursier" % "interface" % "1.0.19"
   val coursierInterfaceSubs = "io.get-coursier" % "interface-svm-subs" % "1.0.19"
-  val scalaCollectionCompat = "org.scala-lang.modules" %% "scala-collection-compat" % "2.4.2"
+  val scalaCollectionCompat = "org.scala-lang.modules" %% "scala-collection-compat" % "2.11.0"
   val shapeless = "com.chuusai" %% "shapeless" % shapelessVersion
   val caseApp = "com.github.alexarchambault" %% "case-app" % caseAppVersion
   val sourcecode = "com.lihaoyi" %% "sourcecode" % sourcecodeVersion

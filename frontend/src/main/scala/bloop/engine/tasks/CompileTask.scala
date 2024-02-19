@@ -98,7 +98,6 @@ object CompileTask {
           compileProjectTracer.terminate()
           Task.now(earlyResultBundle)
         case Right(CompileSourcesAndInstance(sources, instance, _)) =>
-          val externalUserClassesDir = bundle.clientClassesDir
           val readOnlyClassesDir = lastSuccessful.classesDir
           val newClassesDir = compileOut.internalNewClassesDir
           val classpath = bundle.dependenciesData.buildFullCompileClasspathFor(
@@ -173,7 +172,7 @@ object CompileTask {
                 val postCompilationTasks =
                   backgroundTasks
                     .trigger(
-                      externalUserClassesDir,
+                      bundle.clientClassesObserver,
                       reporter.underlying,
                       compileProjectTracer,
                       logger
@@ -247,14 +246,14 @@ object CompileTask {
       val o = state.commonOptions
       val cancel = cancelCompilation
       val logger = ObservedLogger(rawLogger, observer)
-      val dir = state.client.getUniqueClassesDirFor(inputs.project, forceGeneration = true)
+      val clientClassesObserver = state.client.getClassesObserverFor(inputs.project)
       val underlying = createReporter(ReporterInputs(inputs.project, cwd, rawLogger))
       val reporter = new ObservedReporter(logger, underlying)
       val sourceGeneratorCache = state.sourceGeneratorCache
       CompileBundle.computeFrom(
         inputs,
         sourceGeneratorCache,
-        dir,
+        clientClassesObserver,
         reporter,
         last,
         prev,

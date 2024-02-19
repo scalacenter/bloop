@@ -23,6 +23,7 @@ import bloop.tracing.BraveTracer
 
 import monix.reactive.Observable
 import sbt.internal.inc.PlainVirtualFileConverter
+import bloop.ClientClassesObserver
 
 sealed trait CompileBundle
 
@@ -75,7 +76,7 @@ case object CancelledCompileBundle extends CompileBundle
  */
 final case class SuccessfulCompileBundle(
     project: Project,
-    clientClassesDir: AbsolutePath,
+    clientClassesObserver: ClientClassesObserver,
     dependenciesData: CompileDependenciesData,
     javaSources: List[AbsolutePath],
     scalaSources: List[AbsolutePath],
@@ -95,7 +96,7 @@ final case class SuccessfulCompileBundle(
       project.out,
       project.analysisOut,
       project.genericClassesDir,
-      clientClassesDir,
+      clientClassesObserver.classesDir,
       readOnlyClassesDir
     )
   }
@@ -152,7 +153,7 @@ object CompileBundle {
   def computeFrom(
       inputs: CompileDefinitions.BundleInputs,
       sourceGeneratorCache: SourceGeneratorCache,
-      clientExternalClassesDir: AbsolutePath,
+      clientClassesObserver: ClientClassesObserver,
       reporter: ObservedReporter,
       lastSuccessful: LastSuccessfulResult,
       lastResult: Compiler.Result,
@@ -228,7 +229,7 @@ object CompileBundle {
 
           new SuccessfulCompileBundle(
             project,
-            clientExternalClassesDir,
+            clientClassesObserver,
             compileDependenciesData,
             javaSources,
             scalaSources,
