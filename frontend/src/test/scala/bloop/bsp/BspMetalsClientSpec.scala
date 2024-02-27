@@ -168,7 +168,7 @@ class BspMetalsClientSpec(
 
         val scalacOptions = state.scalaOptions(`A`)._2.items.head.options
         val expectedScalacOptions = correctSourceRootOption :: List(
-          "-Xplugin:path-to-plugin/semanticdb-scalac_2.12.18-4.7.8.jar",
+          s"-Xplugin:path-to-plugin/semanticdb-scalac_${BuildInfo.scalaVersion}-${semanticdbVersion}.jar",
           "-Yrangepos",
           "-P:semanticdb:failures:warning",
           "-P:semanticdb:synthetics:on",
