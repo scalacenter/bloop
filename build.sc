@@ -16,8 +16,8 @@ import java.io.File
 import scala.concurrent.duration.{Duration, DurationInt}
 
 object Dependencies {
-  def scala212 = "2.12.18"
-  def scala213 = "2.13.12"
+  def scala212 = "2.12.19"
+  def scala213 = "2.13.13"
 
   def scalaVersions = Seq(scala212, scala213)
 

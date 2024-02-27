@@ -77,7 +77,7 @@ object ScalaVersionsSpec extends bloop.testing.BaseSuite {
     "2.13.10",
     "3.1.3",
     "3.2.1",
-    "2.13.12-bin-86f40c2"
+    "2.13.13"
   )
 
   val allVersions = scalaVersions
