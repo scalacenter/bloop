@@ -6,8 +6,8 @@ import sbt.Provided
 
 object Dependencies {
   val Scala211Version = "2.11.12"
-  val Scala212Version = "2.12.18"
-  val Scala213Version = "2.13.12"
+  val Scala212Version = "2.12.19"
+  val Scala213Version = "2.13.13"
 
   val SbtVersion = "1.3.3"
 
@@ -47,7 +47,7 @@ object Dependencies {
   val ztExecVersion = "1.12"
   val debugAdapterVersion = "4.0.1"
   val bloopConfigVersion = "1.5.5"
-  val semanticdbVersion = "4.7.8"
+  val semanticdbVersion = "4.8.15"
   val zinc = "org.scala-sbt" %% "zinc" % zincVersion
   val bsp4s = "ch.epfl.scala" %% "bsp4s" % bspVersion
   val bsp4j = "ch.epfl.scala" % "bsp4j" % bspVersion
