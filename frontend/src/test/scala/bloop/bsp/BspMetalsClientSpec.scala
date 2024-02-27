@@ -508,7 +508,7 @@ class BspMetalsClientSpec(
       val logger = new RecordingLogger(ansiCodesSupported = false)
 
       val projectName = "scala-java-processorpath"
-      val localScalaVersion = "2.12.18"
+      val localScalaVersion = "2.12.19"
       val localSemanticdbJar = s"semanticdb-scalac_$localScalaVersion-$semanticdbVersion.jar"
 
       val extraParams = BloopExtraBuildParams(
