@@ -40,6 +40,7 @@ import sbt.util.InterfaceUtil
 import xsbti.T2
 import xsbti.VirtualFileRef
 import xsbti.compile.{CompilerCache => _, ScalaInstance => _, _}
+import scala.util.Try
 
 case class CompileInputs(
     scalaInstance: ScalaInstance,
@@ -653,26 +654,32 @@ object Compiler {
       case None => scalacOptions
       case Some(_) if existsReleaseSetting || sameHome => scalacOptions
       case Some(version) =>
-        try {
-          val numVer = if (version.startsWith("1.8")) 8 else version.takeWhile(_.isDigit).toInt
-          val bloopNumVer = JavaRuntime.version.takeWhile(_.isDigit).toInt
-          if (bloopNumVer > numVer) {
-            scalacOptions ++ List("-release", numVer.toString())
-          } else if (bloopNumVer < numVer) {
-            logger.warn(
-              s"Bloop is running with ${JavaRuntime.version} but your code requires $version to compile, " +
-                "this might cause some compilation issues when using JDK API unsupported by the Bloop's current JVM version"
-            )
-            scalacOptions
-          } else {
-            scalacOptions
+        val options: Option[Array[String]] =
+          for {
+            numVer <- parseJavaVersion(version)
+            bloopNumVer <- parseJavaVersion(JavaRuntime.version)
+            if (bloopNumVer >= 9 && numVer != bloopNumVer)
+          } yield {
+            if (bloopNumVer > numVer) {
+              scalacOptions ++ List("-release", numVer.toString())
+            } else {
+              logger.warn(
+                s"Bloop is running with ${JavaRuntime.version} but your code requires $version to compile, " +
+                  "this might cause some compilation issues when using JDK API unsupported by the Bloop's current JVM version"
+              )
+              scalacOptions
+            }
           }
-        } catch {
-          case NonFatal(_) =>
-            scalacOptions
-        }
+        options.getOrElse(scalacOptions)
     }
   }
+
+  private def parseJavaVersion(version: String): Option[Int] =
+    version.split('-').head.split('.').toList match {
+      case "1" :: minor :: _ => Try(minor.toInt).toOption
+      case single :: _ => Try(single.toInt).toOption
+      case _ => None
+    }
 
   private def getCompilationOptions(
       inputs: CompileInputs,
