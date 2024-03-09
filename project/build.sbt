@@ -19,8 +19,8 @@ updateOptions := updateOptions.value.withLatestSnapshots(false)
 libraryDependencies ++= List(
   // set to jgit 5, because 6 is compatible only with java 11,
   // context https://github.com/scalacenter/bloop/pull/2101
-  "org.eclipse.jgit" % "org.eclipse.jgit" % "5.13.3.202401111512-r",
-  "org.eclipse.jgit" % "org.eclipse.jgit.ssh.jsch" % "5.13.3.202401111512-r",
+  "org.eclipse.jgit" % "org.eclipse.jgit" % "6.9.0.202403050737-r",
+  "org.eclipse.jgit" % "org.eclipse.jgit.ssh.jsch" % "6.9.0.202403050737-r",
   "commons-codec" % "commons-codec" % "1.16.1",
   ("ch.epfl.scala" % "jarjar" % "1.7.2-patched")
     .exclude("org.apache.ant", "ant")
