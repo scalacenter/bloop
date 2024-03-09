@@ -4,6 +4,8 @@ import java.nio.file.Path
 
 import scala.scalanative.build
 import scala.scalanative.util.Scope
+import scala.concurrent.Future
+import scala.concurrent.ExecutionContext
 
 import bloop.config.Config.LinkerMode
 import bloop.config.Config.NativeConfig
@@ -22,8 +24,9 @@ object NativeBridge {
       classpath: Array[Path],
       entry: String,
       target: Path,
-      logger: Logger
-  ): Path = {
+      logger: Logger,
+      ec: ExecutionContext
+  ): Future[Path] = {
     val workdir = project.out.resolve("native")
     if (workdir.isDirectory) Paths.delete(workdir)
     Files.createDirectories(workdir.underlying)
@@ -37,20 +40,21 @@ object NativeBridge {
     }
     val nativeLTO = config.mode match {
       case LinkerMode.Debug => build.LTO.none
-      case LinkerMode.Release if bloop.util.CrossPlatform.isMac => build.LTO.full
+      case LinkerMode.Release if bloop.util.CrossPlatform.isMac => build.LTO.none
       case LinkerMode.Release => build.LTO.thin
     }
 
     val nativeConfig =
       build.Config.empty
-        .withMainClass(entry)
+        .withMainClass(Option(entry))
         .withClassPath(classpath)
-        .withWorkdir(workdir.underlying)
+        .withBaseDir(target.getParent())
         .withLogger(nativeLogger)
         .withCompilerConfig(
           build.NativeConfig.empty
             .withClang(config.clang)
             .withClangPP(config.clangpp)
+            .withBaseName(target.getFileName().toString())
             .withCompileOptions(config.options.compiler)
             .withLinkingOptions(config.options.linker)
             .withGC(build.GC(config.gc))
@@ -62,7 +66,7 @@ object NativeBridge {
             .withTargetTriple(config.targetTriple)
         )
 
-    build.Build.build(nativeConfig, target)(sharedScope)
+    build.Build.build(nativeConfig)(sharedScope, ec)
   }
 
   private[scalanative] def setUpNativeConfig(

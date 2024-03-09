@@ -141,6 +141,7 @@ lazy val frontend: Project = project
       "zincVersion" -> Dependencies.zincVersion,
       "bspVersion" -> Dependencies.bspVersion,
       "nativeBridge04" -> (nativeBridge04Name + "_" + Keys.scalaBinaryVersion.value),
+      "nativeBridge05" -> (nativeBridge05Name + "_" + Keys.scalaBinaryVersion.value),
       "jsBridge06" -> (jsBridge06Name + "_" + Keys.scalaBinaryVersion.value),
       "jsBridge1" -> (jsBridge1Name + "_" + Keys.scalaBinaryVersion.value)
     ),
@@ -417,6 +418,19 @@ lazy val nativeBridge04 = project
     (Test / fork) := true
   )
 
+val nativeBridge05Name = "bloop-native-bridge-0-5"
+lazy val nativeBridge05 = project
+  .dependsOn(frontend % Provided, frontend % "test->test")
+  .in(file("bridges") / "scala-native-0.5")
+  .disablePlugins(ScalafixPlugin, ScriptedPlugin)
+  .settings(
+    name := nativeBridge05Name,
+    testSettings,
+    libraryDependencies += Dependencies.scalaNativeTools05,
+    (Test / javaOptions) ++= jvmOptions,
+    (Test / fork) := true
+  )
+
 val allProjects = Seq(
   backend,
   benchmarks,
@@ -432,6 +446,7 @@ val allProjects = Seq(
   launcher213,
   launcherTest,
   nativeBridge04,
+  nativeBridge05,
   sbtBloop,
   sockets
 )

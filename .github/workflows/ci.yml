@@ -66,8 +66,12 @@ jobs:
           sbt \
               "jsBridge06/publishLocal; \
                jsBridge1/publishLocal; \
-               jsBridge06/test; \
-               jsBridge1/test"
+               nativeBridge04/publishLocal; \
+               nativeBridge05/publishLocal"
+          sbt jsBridge1/test
+          sbt jsBridge06/test
+          sbt nativeBridge05/test
+          sbt nativeBridge04/test
         shell: bash
 
   launcher:

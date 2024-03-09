@@ -731,10 +731,6 @@ object BloopDefaults {
 
     // FORMAT: OFF
     if (pluginLabels.contains(ScalaNativePluginLabel)) {
-      if (isWindows) {
-        // Default on jvm config because native is not supported in Windows yet
-        Def.task(Config.Platform.default)
-      } else {
         Def.task {
           // Add targetTriple to the config when the scala native plugin supports it
           val emptyNative = Config.NativeConfig.empty
@@ -756,7 +752,6 @@ object BloopDefaults {
           val nativeConfig = Config.NativeConfig(nativeVersion, nativeMode, nativeGc, None, clang, clangpp, Nil, options, nativeLinkStubs, false, false, None)
           Config.Platform.Native(nativeConfig, mainClass)
         }
-      }
     } else if (pluginLabels.contains(ScalaJsPluginLabel)) {
       Def.task {
         val scalaJsVersion = libraryDeps
