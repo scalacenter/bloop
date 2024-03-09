@@ -9,10 +9,12 @@ import bloop.DependencyResolution
 import bloop.config.Config
 import bloop.config.Config.NativeConfig
 import bloop.data.Project
+import bloop.engine.ExecutionContext
 import bloop.internal.build.BuildInfo
 import bloop.io.AbsolutePath
 import bloop.logging.Logger
 import bloop.task.Task
+import scala.concurrent.Future
 
 final class ScalaNativeToolchain private (classLoader: ClassLoader) {
 
@@ -35,7 +37,10 @@ final class ScalaNativeToolchain private (classLoader: ClassLoader) {
       logger: Logger
   ): Task[Try[Unit]] = {
     val bridgeClazz = classLoader.loadClass("bloop.scalanative.NativeBridge")
-    val nativeLinkMeth = bridgeClazz.getMethod("nativeLink", paramTypes: _*)
+    val isNative05 = config.version.startsWith("0.5")
+    val nativeLinkMeth =
+      if (isNative05) bridgeClazz.getMethod("nativeLink", paramTypes05: _*)
+      else bridgeClazz.getMethod("nativeLink", paramTypes04: _*)
 
     // Scala Native 0.4.{0,1,2} expect to receive the companion object class' name
     val fullEntry = config.version match {
@@ -44,15 +49,32 @@ final class ScalaNativeToolchain private (classLoader: ClassLoader) {
       case _ =>
         mainClass.stripSuffix("$")
     }
-    val linkage = Task {
-      nativeLinkMeth
-        .invoke(null, config, project, fullClasspath, fullEntry, target.underlying, logger)
-        .asInstanceOf[Unit]
-    }.materialize
-
+    val linkage = if (isNative05) {
+      Task.fromFuture {
+        nativeLinkMeth
+          .invoke(
+            null,
+            config,
+            project,
+            fullClasspath,
+            fullEntry,
+            target.underlying,
+            logger,
+            ExecutionContext.ioScheduler
+          )
+          .asInstanceOf[Future[Unit]]
+      }.materialize
+    } else {
+      Task {
+        nativeLinkMeth
+          .invoke(null, config, project, fullClasspath, fullEntry, target.underlying, logger)
+          .asInstanceOf[Unit]
+      }.materialize
+    }
     linkage.map {
       case s @ scala.util.Success(_) => s
       case f @ scala.util.Failure(t) =>
+        t.printStackTrace()
         t match {
           case it: InvocationTargetException => scala.util.Failure(it.getCause)
           case _ => f
@@ -60,9 +82,12 @@ final class ScalaNativeToolchain private (classLoader: ClassLoader) {
     }
   }
 
-  // format: OFF
-  private val paramTypes = classOf[NativeConfig] :: classOf[Project] :: classOf[Array[Path]] :: classOf[String] :: classOf[Path] :: classOf[Logger] :: Nil
-  // format: ON
+  private val paramTypes04 = classOf[NativeConfig] :: classOf[Project] ::
+    classOf[Array[Path]] :: classOf[String] :: classOf[Path] :: classOf[Logger] :: Nil
+
+  private val paramTypes05 = classOf[NativeConfig] :: classOf[Project] ::
+    classOf[Array[Path]] :: classOf[String] :: classOf[Path] :: classOf[Logger] ::
+    classOf[scala.concurrent.ExecutionContext] :: Nil
 }
 
 object ScalaNativeToolchain extends ToolchainCompanion[ScalaNativeToolchain] {
@@ -73,7 +98,8 @@ object ScalaNativeToolchain extends ToolchainCompanion[ScalaNativeToolchain] {
   override def artifactNameFrom(version: String): String = {
     if (version.length == 3) sys.error("The full Scala Native version must be provided")
     else if (version.startsWith("0.4")) BuildInfo.nativeBridge04
-    else sys.error(s"Expected compatible Scala Native version [0.3, 0.4], $version given")
+    else if (version.startsWith("0.5")) BuildInfo.nativeBridge05
+    else sys.error(s"Expected compatible Scala Native version [0.4, 0.5], $version given")
   }
 
   override def getPlatformData(platform: Platform): Option[PlatformData] = {

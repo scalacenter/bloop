@@ -42,7 +42,11 @@ jobs:
         run: |
           .github/setup-test-projects.sh &&\
           ./mill -i "bridges.scalajs-1[_].publishLocal" &&\
-          ./mill -i "bridges.scalajs-1[_].test"
+          ./mill -i "bridges.scala-native-04[_].publishLocal" &&\
+          ./mill -i "bridges.scala-native-05[_].publishLocal" &&\
+          ./mill -i "bridges.scalajs-1[_].test" &&\
+          ./mill -i "bridges.scala-native-04[_].test" &&\
+          ./mill -i "bridges.scala-native-05[_].test"
         shell: bash
 
   test:
