@@ -33,6 +33,7 @@ object Dependencies {
   val jsoniterVersion = "2.13.3.2"
   val shapelessVersion = "2.3.4"
   val scalaNative04Version = "0.4.17"
+  val scalaNative05Version = "0.5.0-RC1"
   val scalaJs06Version = "0.6.33"
   val scalaJs1Version = "1.15.0"
   val scalaJsEnvsVersion = "1.1.1"
@@ -84,6 +85,7 @@ object Dependencies {
   val scalaDebugAdapter = "ch.epfl.scala" %% "scala-debug-adapter" % debugAdapterVersion
 
   val scalaNativeTools04 = "org.scala-native" %% "tools" % scalaNative04Version % Provided
+  val scalaNativeTools05 = "org.scala-native" %% "tools" % scalaNative05Version % Provided
   val scalaJsTools06 = "org.scala-js" %% "scalajs-tools" % scalaJs06Version % Provided
   val scalaJsSbtTestAdapter06 =
     "org.scala-js" %% "scalajs-sbt-test-adapter" % scalaJs06Version % Provided

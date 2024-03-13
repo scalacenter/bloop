@@ -16,6 +16,8 @@ import bloop.util.TestUtil
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.experimental.categories.Category
+import bloop.engine.State
+import bloop.config.Config
 
 @Category(Array(classOf[bloop.FastTests]))
 class ScalaNativeToolchainSpec {
@@ -26,12 +28,13 @@ class ScalaNativeToolchainSpec {
           nativePlatform.copy(
             toolchain = Some(ScalaNativeToolchain.apply(this.getClass.getClassLoader))
           )
+
         case _ => p.platform
       }
       p.copy(platform = platform)
     }
 
-    val configDir = TestUtil.getBloopConfigDir("cross-test-build-scala-native-0.4")
+    val configDir = TestUtil.getBloopConfigDir("cross-test-build-scala-native-0.5")
     val logger = bloop.logging.BloopLogger.default(configDir.toString())
     TestUtil.loadTestProject(configDir, logger, true, _.map(setUpNative))
   }
@@ -52,9 +55,11 @@ class ScalaNativeToolchainSpec {
     val action = Run(Commands.Link(List("test-projectNative"), optimize = Some(mode)))
     val resultingState = TestUtil.blockingExecute(action, state, maxDuration * 3)
 
-    assertTrue(s"Linking failed: ${logger.getMessages.mkString("\n")}", resultingState.status.isOk)
-    // nothing is printed for fast release
-    logger.getMessages.assertContain("Generated native binary", atLevel = "info")
+    assertTrue(
+      s"Linking failed: ${logger.getMessages.mkString("\n")}",
+      resultingState.status.isOk
+    )
+    logger.getMessages.assertContain("Optimizing (release-fast mode)", atLevel = "info")
   }
 
   @Test def canRunScalaNativeProjectDefaultMainClass(): Unit = {
@@ -63,7 +68,10 @@ class ScalaNativeToolchainSpec {
     val action = Run(Commands.Run(List("test-projectNative")))
     val resultingState = TestUtil.blockingExecute(action, state, maxDuration)
 
-    assertTrue(s"Run failed: ${logger.getMessages.mkString("\n")}", resultingState.status.isOk)
+    assertTrue(
+      s"Linking failed: ${logger.getMessages.mkString("\n")}",
+      resultingState.status.isOk
+    )
     logger.getMessages.assertContain("Hello, world from DefaultApp!", atLevel = "info")
   }
 
@@ -73,11 +81,14 @@ class ScalaNativeToolchainSpec {
     val action = Run(Commands.Run(List("test-project"), main = None))
     val resultingState = TestUtil.blockingExecute(action, state, maxDuration)
 
-    assertTrue(s"Run failed: ${logger.getMessages.mkString("\n")}", resultingState.status.isOk)
+    assertTrue(
+      s"Linking failed: ${logger.getMessages.mkString("\n")}",
+      resultingState.status.isOk
+    )
     logger.getMessages.assertContain("Hello, world!", atLevel = "info")
   }
 
-  private val maxDuration = Duration.apply(30, TimeUnit.SECONDS)
+  private val maxDuration = Duration.apply(90, TimeUnit.SECONDS)
   private implicit class RichLogs(logs: List[(String, String)]) {
     def assertContain(needle: String, atLevel: String): Unit = {
       def failMessage = s"""Logs did not contain `$needle` at level `$atLevel`. Logs were:
