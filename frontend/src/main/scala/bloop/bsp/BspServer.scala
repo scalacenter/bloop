@@ -163,6 +163,8 @@ object BspServer {
       case scala.util.Success(socket: ServerSocket) =>
         listenToConnection(handle, socket).onErrorRecover {
           case t =>
+            System.err.println("Exiting BSP server with:")
+            t.printStackTrace(System.err)
             state.withError(s"Exiting BSP server with ${t.getMessage}", t)
         }
       case scala.util.Failure(t: Throwable) =>
