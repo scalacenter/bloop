@@ -48,6 +48,7 @@ object Dependencies {
     ivy"com.github.plokhotnyuk.jsoniter-scala::jsoniter-scala-core:$jsoniterVersion"
   def jsoniterMacros =
     ivy"com.github.plokhotnyuk.jsoniter-scala::jsoniter-scala-macros:$jsoniterVersion"
+  def jsonrpc4s              = ivy"io.github.alexarchambault.bleep::jsonrpc4s:0.1.1"
   def junit                  = ivy"com.github.sbt:junit-interface:0.13.3"
   def libdaemonjvm           = ivy"io.github.alexarchambault.libdaemon::libdaemon:0.0.11"
   def libraryManagement      = ivy"org.scala-sbt::librarymanagement-ivy:1.9.3"
@@ -158,7 +159,11 @@ class Shared(val crossScalaVersion: String) extends BloopCrossSbtModule with Pub
     emptyZip()
   }
   def ivyDeps = super.ivyDeps() ++ Agg(
-    Dependencies.bsp4s.exclude(("com.github.plokhotnyuk.jsoniter-scala", "*")),
+    Dependencies.bsp4s
+      .exclude(("com.github.plokhotnyuk.jsoniter-scala", "*"))
+      .exclude(("me.vican.jorge", "jsonrpc4s_2.12"))
+      .exclude(("me.vican.jorge", "jsonrpc4s_2.13")),
+    Dependencies.jsonrpc4s,
     Dependencies.coursierInterface,
     Dependencies.jsoniterCore,
     Dependencies.log4j,
