@@ -84,11 +84,9 @@ jobs:
         with:
           jvm: "zulu:17"
       - run: |
-          ./mill -i __.publishLocal &&\
           ./mill -i integration.test.jvm
         if: runner.os != 'Windows'
       - run: |
-          @call ./mill.bat -i __.publishLocal
           @call ./mill.bat -i integration.test.jvm
         shell: cmd
         if: runner.os == 'Windows'
@@ -127,11 +125,9 @@ jobs:
           if-no-files-found: error
           retention-days: 1
       - run: |
-          ./mill -i __.publishLocal &&\
           ./mill -i "integration.test.native"
         if: github.event_name == 'push' && runner.os != 'Windows'
       - run: |
-          ./mill.bat -i __.publishLocal
           ./mill.bat -i integration.test.native
         if: github.event_name == 'push' && runner.os == 'Windows'
         shell: bash
