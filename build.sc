@@ -1,17 +1,19 @@
 import $ivy.`com.lihaoyi::mill-contrib-jmh:$MILL_VERSION`
-import $ivy.`io.chris-kipp::mill-ci-release::0.1.9`
+import $ivy.`de.tototec::de.tobiasroeser.mill.vcs.version::0.4.0`
 import $ivy.`io.github.alexarchambault.mill::mill-native-image::0.1.21`
 import $ivy.`io.github.alexarchambault.mill::mill-native-image-upload:0.1.21`
 
+import de.tobiasroeser.mill.vcs.version._
 import io.github.alexarchambault.millnativeimage.NativeImage
 import io.github.alexarchambault.millnativeimage.upload.Upload
-import io.kipp.mill.ci.release.CiReleaseModule
 import mill._
 import mill.contrib.jmh.JmhModule
 import mill.scalalib._
 import mill.scalalib.publish.PublishInfo
 
 import java.io.File
+
+import scala.concurrent.duration.{Duration, DurationInt}
 
 object Dependencies {
   def scala212 = "2.12.18"
@@ -83,8 +85,138 @@ object Dependencies {
   def graalVmId = s"graalvm-java17:$graalvmVersion"
 }
 
-trait PublishModule extends CiReleaseModule with PublishLocalNoFluff {
-  import io.kipp.mill.ci.release.SonatypeHost
+object internal extends Module {
+  private def computePublishVersion(state: VcsState, simple: Boolean): String =
+    if (state.commitsSinceLastTag > 0)
+      if (simple) {
+        val versionOrEmpty = state.lastTag
+          .filter(_ != "latest")
+          .filter(_ != "nightly")
+          .map(_.stripPrefix("v"))
+          .flatMap { tag =>
+            if (simple) {
+              val idx = tag.lastIndexOf(".")
+              if (idx >= 0) {
+                val (num, rest) = {
+                  val incrPart = tag.drop(idx + 1)
+                  val idx0     = incrPart.indexWhere(!_.isDigit)
+                  assert(idx0 > 0)
+                  (incrPart.take(idx0).toInt, incrPart.drop(idx0))
+                }
+                Some(tag.take(idx + 1) + (num + 1).toString + rest + "-SNAPSHOT")
+              }
+              else
+                None
+            }
+            else {
+              val idx = tag.indexOf("-")
+              if (idx >= 0) Some(tag.take(idx) + "+" + tag.drop(idx + 1) + "-SNAPSHOT")
+              else None
+            }
+          }
+          .getOrElse("0.0.1-SNAPSHOT")
+        Some(versionOrEmpty)
+          .filter(_.nonEmpty)
+          .getOrElse(state.format())
+      }
+      else {
+        val rawVersion = os.proc("git", "describe", "--tags").call().out.text().trim
+          .stripPrefix("v")
+          .replace("latest", "0.0.0")
+          .replace("nightly", "0.0.0")
+        val idx = rawVersion.indexOf("-")
+        if (idx >= 0) rawVersion.take(idx) + "+" + rawVersion.drop(idx + 1) + "-SNAPSHOT"
+        else rawVersion
+      }
+    else {
+      val fromTag = state
+        .lastTag
+        .getOrElse(state.format())
+        .stripPrefix("v")
+      if (fromTag == "0.0.0") "0.0.1-SNAPSHOT"
+      else fromTag
+    }
+
+  def finalPublishVersion = {
+    val isCI = System.getenv("CI") != null
+    if (isCI)
+      T.persistent {
+        val state = VcsVersion.vcsState()
+        computePublishVersion(state, simple = false)
+      }
+    else
+      T {
+        val state = VcsVersion.vcsState()
+        computePublishVersion(state, simple = true)
+      }
+  }
+
+  def publishSonatype(tasks: mill.main.Tasks[PublishModule.PublishData]) =
+    T.command {
+      val timeout     = 10.minutes
+      val credentials = sys.env("SONATYPE_USERNAME") + ":" + sys.env("SONATYPE_PASSWORD")
+      val pgpPassword = sys.env("PGP_PASSWORD")
+      val data        = define.Target.sequence(tasks.value)()
+
+      doPublishSonatype(
+        credentials = credentials,
+        pgpPassword = pgpPassword,
+        data = data,
+        timeout = timeout,
+        log = T.ctx().log
+      )
+    }
+
+  private def doPublishSonatype(
+    credentials: String,
+    pgpPassword: String,
+    data: Seq[PublishModule.PublishData],
+    timeout: Duration,
+    log: mill.api.Logger
+  ): Unit = {
+
+    val artifacts = data.map {
+      case PublishModule.PublishData(a, s) =>
+        (s.map { case (p, f) => (p.path, f) }, a)
+    }
+
+    val isRelease = {
+      val versions = artifacts.map(_._2.version).toSet
+      val set      = versions.map(!_.endsWith("-SNAPSHOT"))
+      assert(
+        set.size == 1,
+        s"Found both snapshot and non-snapshot versions: ${versions.toVector.sorted.mkString(", ")}"
+      )
+      set.head
+    }
+    val publisher = new publish.SonatypePublisher(
+      uri = "https://s01.oss.sonatype.org/service/local",
+      snapshotUri = "https://s01.oss.sonatype.org/content/repositories/snapshots",
+      credentials = credentials,
+      signed = true,
+      gpgArgs = Seq(
+        "--detach-sign",
+        "--batch=true",
+        "--yes",
+        "--pinentry-mode",
+        "loopback",
+        "--passphrase",
+        pgpPassword,
+        "--armor",
+        "--use-agent"
+      ),
+      readTimeout = timeout.toMillis.toInt,
+      connectTimeout = timeout.toMillis.toInt,
+      log = log,
+      awaitTimeout = timeout.toMillis.toInt,
+      stagingRelease = isRelease
+    )
+
+    publisher.publishAll(isRelease, artifacts: _*)
+  }
+}
+
+trait BloopPublish extends PublishModule with PublishLocalNoFluff {
   import mill.scalalib.publish._
   def pomSettings = PomSettings(
     description = artifactName(),
@@ -96,7 +228,8 @@ trait PublishModule extends CiReleaseModule with PublishLocalNoFluff {
       Developer("alexarchambault", "Alex Archambault", "https://github.com/alexarchambault")
     )
   )
-  override def sonatypeHost = Some(SonatypeHost.s01)
+  def publishVersion =
+    internal.finalPublishVersion()
 }
 
 trait BloopCrossSbtModule extends CrossSbtModule {
@@ -150,7 +283,7 @@ trait PublishLocalNoFluff extends mill.scalalib.PublishModule {
 }
 
 object shared extends Cross[Shared](Dependencies.scalaVersions: _*)
-class Shared(val crossScalaVersion: String) extends BloopCrossSbtModule with PublishModule {
+class Shared(val crossScalaVersion: String) extends BloopCrossSbtModule with BloopPublish {
   def artifactName = "bloop-shared"
   def compileIvyDeps = super.compileIvyDeps() ++ Agg(
     Dependencies.jsoniterMacros
@@ -175,7 +308,7 @@ class Shared(val crossScalaVersion: String) extends BloopCrossSbtModule with Pub
 }
 
 object backend extends Cross[Backend](Dependencies.scalaVersions: _*)
-class Backend(val crossScalaVersion: String) extends BloopCrossSbtModule with PublishModule {
+class Backend(val crossScalaVersion: String) extends BloopCrossSbtModule with BloopPublish {
   def artifactName = "bloop-backend"
   def moduleDeps = super.moduleDeps ++ Seq(
     shared()
@@ -231,7 +364,7 @@ def escapePath(path: os.Path): String =
   path.toString.replace("\\", "\\\\")
 
 object frontend extends Cross[Frontend](Dependencies.scalaVersions: _*)
-class Frontend(val crossScalaVersion: String) extends BloopCrossSbtModule with PublishModule {
+class Frontend(val crossScalaVersion: String) extends BloopCrossSbtModule with BloopPublish {
   def artifactName = "bloop-frontend"
   def moduleDeps = super.moduleDeps ++ Seq(
     backend()
@@ -358,7 +491,7 @@ class Frontend(val crossScalaVersion: String) extends BloopCrossSbtModule with P
 object `buildpress-config` extends Cross[BuildpressConfig](Dependencies.scalaVersions: _*)
 class BuildpressConfig(val crossScalaVersion: String)
     extends BloopCrossSbtModule
-    with PublishModule {
+    with BloopPublish {
   def compileIvyDeps = super.compileIvyDeps() ++ Agg(
     Dependencies.jsoniterMacros
   )
@@ -377,7 +510,7 @@ class BuildpressConfig(val crossScalaVersion: String)
 
 object bridges extends Module {
   object `scalajs-1` extends Cross[Scalajs1](Dependencies.scalaVersions: _*)
-  class Scalajs1(val crossScalaVersion: String) extends BloopCrossSbtModule with PublishModule {
+  class Scalajs1(val crossScalaVersion: String) extends BloopCrossSbtModule with BloopPublish {
     def artifactName = "bloop-js-bridge-1"
     def compileModuleDeps = super.compileModuleDeps ++ Seq(
       frontend(),
@@ -408,7 +541,7 @@ object bridges extends Module {
   object `scala-native-04` extends Cross[ScalaNative04](Dependencies.scalaVersions: _*)
   class ScalaNative04(val crossScalaVersion: String)
       extends BloopCrossSbtModule
-      with PublishModule {
+      with BloopPublish {
     def artifactName = "bloop-native-bridge-0-4"
 
     private def updateSources(originalSources: Seq[PathRef]): Seq[PathRef] =
@@ -507,7 +640,7 @@ class Benchmarks(val crossScalaVersion: String) extends BloopCrossSbtModule with
   }
 }
 
-trait BloopCliModule extends ScalaModule with PublishModule {
+trait BloopCliModule extends ScalaModule with BloopPublish {
   def javacOptions = super.javacOptions() ++ Seq(
     "--release",
     "16"
