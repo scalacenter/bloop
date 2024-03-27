@@ -72,6 +72,7 @@ object Dependencies {
   def scalaJsSbtTestAdapter1 = ivy"org.scala-js::scalajs-sbt-test-adapter:$scalaJs1Version"
   def scalaJsLogging1        = ivy"org.scala-js::scalajs-logging:1.1.1"
   def scalaNativeTools04     = ivy"org.scala-native::tools:0.4.17"
+  def scalaNativeTools04     = ivy"org.scala-native::tools:0.5.0-RC2"
   def scalazCore             = ivy"org.scalaz::scalaz-core:7.3.8"
   def snailgun      = ivy"io.github.alexarchambault.scala-cli.snailgun::snailgun-core:0.4.1-sc2"
   def sourcecode    = ivy"com.lihaoyi::sourcecode:0.3.1"
@@ -401,6 +402,7 @@ class Frontend(val crossScalaVersion: String) extends BloopCrossSbtModule with B
          |  def zincVersion = "${Dependencies.zinc.dep.version}"
          |  def snailgunVersion = "0.4.1-sc2"
          |  def nativeBridge04 = "${bridges.`scala-native-04`().artifactId()}"
+         |  def nativeBridge05 = "${bridges.`scala-native-05`().artifactId()}"
          |  def jsBridge1 = "${bridges.`scalajs-1`().artifactId()}"
          |}
          |""".stripMargin
@@ -538,15 +540,16 @@ object bridges extends Module {
     }
   }
 
-  object `scala-native-04` extends Cross[ScalaNative04](Dependencies.scalaVersions: _*)
-  class ScalaNative04(val crossScalaVersion: String)
+  object `scala-native-04` extends Cross[ScalaNative](4, Dependencies.scalaVersions: _*)
+  object `scala-native-05` extends Cross[ScalaNative](5, Dependencies.scalaVersions: _*)
+  class ScalaNative(nativeMajorVersion: Int, val crossScalaVersion: String)
       extends BloopCrossSbtModule
       with BloopPublish {
-    def artifactName = "bloop-native-bridge-0-4"
+    def artifactName = s"bloop-native-bridge-0-$nativeMajorVersion"
 
     private def updateSources(originalSources: Seq[PathRef]): Seq[PathRef] =
-      if (millSourcePath.endsWith(os.rel / "scala-native-04")) {
-        val updatedSourcePath = millSourcePath / os.up / "scala-native-0.4"
+      if (millSourcePath.endsWith(os.rel / s"scala-native-0$nativeMajorVersion")) {
+        val updatedSourcePath = millSourcePath / os.up / s"scala-native-0.$nativeMajorVersion"
         originalSources.map {
           case pathRef if pathRef.path.startsWith(millSourcePath) =>
             PathRef(updatedSourcePath / pathRef.path.relativeTo(millSourcePath))
@@ -563,9 +566,10 @@ object bridges extends Module {
       shared(),
       backend()
     )
-    def compileIvyDeps = super.compileIvyDeps() ++ Agg(
-      Dependencies.scalaNativeTools04
-    )
+    def compileIvyDeps = super.compileIvyDeps() ++ Agg {
+      if (nativeMajorVersion == 4) Dependencies.scalaNativeTools04
+      else Dependencies.scalaNativeTools05
+    }
 
     object test extends Tests {
       def sources = T.sources(updateSources(super.sources()))
