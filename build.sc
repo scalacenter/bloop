@@ -16,26 +16,26 @@ import java.io.File
 import scala.concurrent.duration.{Duration, DurationInt}
 
 object Dependencies {
-  def scala212 = "2.12.18"
-  def scala213 = "2.13.12"
+  def scala212 = "2.12.19"
+  def scala213 = "2.13.13"
 
   def scalaVersions = Seq(scala212, scala213)
 
   def serverScalaVersion = scala212
 
-  def asmVersion         = "9.6"
+  def asmVersion         = "9.7"
   def coursierVersion    = "2.1.0-M6-53-gb4f448130"
   def graalvmVersion     = "22.2.0"
   def jsoniterVersion    = "2.13.3.2"
-  def scalaJs1Version    = "1.14.0"
+  def scalaJs1Version    = "1.16.0"
   def scalaJsEnvsVersion = "1.1.1"
 
   def asm               = ivy"org.ow2.asm:asm:$asmVersion"
   def asmUtil           = ivy"org.ow2.asm:asm-util:$asmVersion"
   def bloopConfig       = ivy"ch.epfl.scala::bloop-config:1.5.5"
-  def brave             = ivy"io.zipkin.brave:brave:5.16.0"
-  def bsp4j             = ivy"ch.epfl.scala:bsp4j:2.1.0-M7"
-  def bsp4s             = ivy"ch.epfl.scala::bsp4s:2.1.0-M7"
+  def brave             = ivy"io.zipkin.brave:brave:5.18.1"
+  def bsp4j             = ivy"ch.epfl.scala:bsp4j:2.1.1"
+  def bsp4s             = ivy"ch.epfl.scala::bsp4s:2.1.1"
   def caseApp           = ivy"com.github.alexarchambault::case-app:2.0.6"
   def caseApp21         = ivy"com.github.alexarchambault::case-app:2.1.0-M15"
   def collectionCompat  = ivy"org.scala-lang.modules::scala-collection-compat:2.9.0"
@@ -54,33 +54,34 @@ object Dependencies {
   def junit                  = ivy"com.github.sbt:junit-interface:0.13.3"
   def libdaemonjvm           = ivy"io.github.alexarchambault.libdaemon::libdaemon:0.0.11"
   def libraryManagement      = ivy"org.scala-sbt::librarymanagement-ivy:1.9.3"
-  def log4j                  = ivy"org.apache.logging.log4j:log4j-core:2.21.1"
-  def logback                = ivy"ch.qos.logback:logback-classic:1.4.6"
+  def log4j                  = ivy"org.apache.logging.log4j:log4j-core:2.23.0"
+  def logback                = ivy"ch.qos.logback:logback-classic:1.4.14"
   def macroParadise          = ivy"org.scalamacros:::paradise:2.1.1"
   def monix                  = ivy"io.monix::monix:3.2.0"
   def munit                  = ivy"org.scalameta::munit:0.7.29"
   def nailgun                = ivy"io.github.alexarchambault.bleep:nailgun-server:1.0.7"
   def osLib                  = ivy"com.lihaoyi::os-lib:0.9.0"
   def pprint                 = ivy"com.lihaoyi::pprint:0.8.1"
-  def sbtTestAgent           = ivy"org.scala-sbt:test-agent:1.9.7"
+  def sbtTestAgent           = ivy"org.scala-sbt:test-agent:1.9.9"
   def sbtTestInterface       = ivy"org.scala-sbt:test-interface:1.0"
-  def scalaDebugAdapter      = ivy"ch.epfl.scala::scala-debug-adapter:3.1.4"
+  def scalaDebugAdapter      = ivy"ch.epfl.scala::scala-debug-adapter:4.0.3"
   def scalaJsLinker1         = ivy"org.scala-js::scalajs-linker:$scalaJs1Version"
   def scalaJsEnvs1           = ivy"org.scala-js::scalajs-js-envs:$scalaJsEnvsVersion"
   def scalaJsEnvNode1        = ivy"org.scala-js::scalajs-env-nodejs:$scalaJsEnvsVersion"
   def scalaJsEnvJsdomNode1   = ivy"org.scala-js::scalajs-env-jsdom-nodejs:1.1.0"
   def scalaJsSbtTestAdapter1 = ivy"org.scala-js::scalajs-sbt-test-adapter:$scalaJs1Version"
   def scalaJsLogging1        = ivy"org.scala-js::scalajs-logging:1.1.1"
-  def scalaNativeTools04     = ivy"org.scala-native::tools:0.4.16"
-  def scalazCore             = ivy"org.scalaz::scalaz-core:7.3.7"
+  def scalaNativeTools04     = ivy"org.scala-native::tools:0.4.17"
+  def scalaNativeTools05     = ivy"org.scala-native::tools:0.5.0-RC2"
+  def scalazCore             = ivy"org.scalaz::scalaz-core:7.3.8"
   def snailgun      = ivy"io.github.alexarchambault.scala-cli.snailgun::snailgun-core:0.4.1-sc2"
   def sourcecode    = ivy"com.lihaoyi::sourcecode:0.3.1"
   def svm           = ivy"org.graalvm.nativeimage:svm:$graalvmVersion"
   def utest         = ivy"com.lihaoyi::utest:0.8.2"
   def xxHashLibrary = ivy"net.jpountz.lz4:lz4:1.3.0"
   def zinc          = ivy"org.scala-sbt::zinc:1.9.5"
-  def zipkinSender  = ivy"io.zipkin.reporter2:zipkin-sender-urlconnection:2.16.4"
-  def zt            = ivy"org.zeroturnaround:zt-zip:1.16"
+  def zipkinSender  = ivy"io.zipkin.reporter2:zipkin-sender-urlconnection:2.17.2"
+  def zt            = ivy"org.zeroturnaround:zt-zip:1.17"
 
   def graalVmId = s"graalvm-java17:$graalvmVersion"
 }
@@ -401,6 +402,7 @@ class Frontend(val crossScalaVersion: String) extends BloopCrossSbtModule with B
          |  def zincVersion = "${Dependencies.zinc.dep.version}"
          |  def snailgunVersion = "0.4.1-sc2"
          |  def nativeBridge04 = "${bridges.`scala-native-04`().artifactId()}"
+         |  def nativeBridge05 = "${bridges.`scala-native-05`().artifactId()}"
          |  def jsBridge1 = "${bridges.`scalajs-1`().artifactId()}"
          |}
          |""".stripMargin
@@ -539,14 +541,19 @@ object bridges extends Module {
   }
 
   object `scala-native-04` extends Cross[ScalaNative04](Dependencies.scalaVersions: _*)
-  class ScalaNative04(val crossScalaVersion: String)
+  object `scala-native-05` extends Cross[ScalaNative05](Dependencies.scalaVersions: _*)
+
+  class ScalaNative04(val crossScalaVersion: String) extends ScalaNative(crossScalaVersion, 4)
+  class ScalaNative05(val crossScalaVersion: String) extends ScalaNative(crossScalaVersion, 5)
+
+  class ScalaNative(val crossScalaVersion: String, nativeMajorVersion: Int)
       extends BloopCrossSbtModule
       with BloopPublish {
-    def artifactName = "bloop-native-bridge-0-4"
+    def artifactName = s"bloop-native-bridge-0-$nativeMajorVersion"
 
     private def updateSources(originalSources: Seq[PathRef]): Seq[PathRef] =
-      if (millSourcePath.endsWith(os.rel / "scala-native-04")) {
-        val updatedSourcePath = millSourcePath / os.up / "scala-native-0.4"
+      if (millSourcePath.endsWith(os.rel / s"scala-native-0$nativeMajorVersion")) {
+        val updatedSourcePath = millSourcePath / os.up / s"scala-native-0.$nativeMajorVersion"
         originalSources.map {
           case pathRef if pathRef.path.startsWith(millSourcePath) =>
             PathRef(updatedSourcePath / pathRef.path.relativeTo(millSourcePath))
@@ -563,9 +570,10 @@ object bridges extends Module {
       shared(),
       backend()
     )
-    def compileIvyDeps = super.compileIvyDeps() ++ Agg(
-      Dependencies.scalaNativeTools04
-    )
+    def compileIvyDeps = super.compileIvyDeps() ++ Agg {
+      if (nativeMajorVersion == 4) Dependencies.scalaNativeTools04
+      else Dependencies.scalaNativeTools05
+    }
 
     object test extends Tests {
       def sources = T.sources(updateSources(super.sources()))

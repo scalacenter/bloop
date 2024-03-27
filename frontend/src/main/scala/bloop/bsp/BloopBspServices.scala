@@ -60,9 +60,9 @@ import bloop.internal.build.BuildInfo
 import bloop.io.AbsolutePath
 import bloop.io.Environment.lineSeparator
 import bloop.io.RelativePath
-import bloop.logging.BloopLogger
 import bloop.logging.BspServerLogger
 import bloop.logging.DebugFilter
+import bloop.logging.Logger
 import bloop.reporter.BspProjectReporter
 import bloop.reporter.ProblemPerPhase
 import bloop.reporter.ReporterConfig
@@ -139,6 +139,7 @@ final class BloopBspServices(
     .requestAsync(endpoints.BuildTarget.scalaMainClasses)(p => schedule(scalaMainClasses(p)))
     .requestAsync(endpoints.BuildTarget.scalaTestClasses)(p => schedule(scalaTestClasses(p)))
     .requestAsync(endpoints.BuildTarget.dependencySources)(p => schedule(dependencySources(p)))
+    .requestAsync(endpoints.BuildTarget.dependencyModules)(p => schedule(dependencyModules(p)))
     .requestAsync(endpoints.DebugSession.start)(p => schedule(startDebugSession(p)))
     .requestAsync(endpoints.BuildTarget.jvmTestEnvironment)(p => schedule(jvmTestEnvironment(p)))
     .requestAsync(endpoints.BuildTarget.jvmRunEnvironment)(p => schedule(jvmRunEnvironment(p)))
@@ -308,7 +309,7 @@ final class BloopBspServices(
               debugProvider = Some(BloopBspServices.DefaultDebugProvider),
               inverseSourcesProvider = Some(true),
               dependencySourcesProvider = Some(true),
-              dependencyModulesProvider = None,
+              dependencyModulesProvider = Some(true),
               resourcesProvider = Some(true),
               outputPathsProvider = None,
               buildTargetChangedProvider = Some(false),
@@ -558,7 +559,7 @@ final class BloopBspServices(
           Tasks.clean(state, projectsToClean, includeDeps = false).materialize.map {
             case Success(state) => (state, Right(bsp.CleanCacheResult(None, cleaned = true)))
             case Failure(exception) =>
-              val t = BloopLogger.prettyPrintException(exception)
+              val t = Logger.prettyPrintException(exception)
               val msg = s"Unexpected error when cleaning build targets!${lineSeparator}$t"
               state -> Right(bsp.CleanCacheResult(Some(msg), cleaned = false))
           }
@@ -602,10 +603,7 @@ final class BloopBspServices(
       params: bsp.DebugSessionParams
   ): BspEndpointResponse[bsp.DebugSessionAddress] = {
 
-    def inferDebuggee(
-        projects: Seq[Project],
-        state: State
-    ): BspResponse[Debuggee] = {
+    def inferDebuggee(projects: Seq[Project], state: State): BspResponse[Debuggee] = {
       def convert[A: JsonValueCodec](
           f: A => Either[String, Debuggee]
       ): Either[Response.Error, Debuggee] = {
@@ -646,7 +644,7 @@ final class BloopBspServices(
             BloopDebuggeeRunner.forTestSuite(projects, testClasses, state, ioScheduler)
           })
         case Some(bsp.DebugSessionParamsDataKind.ScalaAttachRemote) =>
-          Right(BloopDebuggeeRunner.forAttachRemote(state, ioScheduler, projects))
+          Right(BloopDebuggeeRunner.forAttachRemote(projects, state, ioScheduler))
         case dataKind => Left(Response.invalidRequest(s"Unsupported data kind: $dataKind"))
       }
     }
@@ -901,11 +899,12 @@ final class BloopBspServices(
                 }
             case platform @ Platform.Js(config, _, _) =>
               val cmd = Commands.Run(List(project.name))
-              val target = ScalaJsToolchain.linkTargetFrom(project, config)
-              linkMainWithJs(cmd, project, state, mainClass.className, target, platform)
+              val targetDir = ScalaJsToolchain.linkTargetFrom(project, config)
+              linkMainWithJs(cmd, project, state, mainClass.className, targetDir, platform)
                 .flatMap { state =>
+                  val files = targetDir.list.map(_.toString())
                   // We use node to run the program (is this a special case?)
-                  val args = ("node" +: target.syntax +: cmd.args).toArray
+                  val args = ("node" +: files ::: cmd.args).toArray
                   if (!state.status.isOk) Task.now(state)
                   else Tasks.runNativeOrJs(state, cwd, args)
                 }
@@ -1201,6 +1200,58 @@ final class BloopBspServices(
           logger.error(error)
           Task.now((state, Right(bsp.ResourcesResult(Nil))))
         case Right(mappings) => resources(mappings, state)
+      }
+    }
+  }
+
+  def dependencyModules(
+      request: bsp.DependencyModulesParams
+  ): BspEndpointResponse[bsp.DependencyModulesResult] = {
+    def modules(
+        projects: Seq[ProjectMapping],
+        state: State
+    ): BspResult[bsp.DependencyModulesResult] = {
+      val response = bsp.DependencyModulesResult(
+        projects.iterator.map {
+          case (target, project) =>
+            val modules = project.resolution.toList.flatMap { res =>
+              res.modules.map { module =>
+                val mavenDependencyModule = bsp.MavenDependencyModule(
+                  module.organization,
+                  module.name,
+                  module.version,
+                  module.artifacts.map(artifact =>
+                    bsp.MavenDependencyModuleArtifact(
+                      bsp.Uri(AbsolutePath(artifact.path).toBspUri),
+                      artifact.classifier
+                    )
+                  ),
+                  None
+                )
+
+                val encoded = writeToArray(mavenDependencyModule)
+                bsp.DependencyModule(
+                  module.name,
+                  module.version,
+                  Some(bsp.DependencyModuleDataKind.Maven),
+                  Some(RawJson(encoded))
+                )
+              }
+            }.distinct
+            bsp.DependencyModulesItem(target, modules)
+        }.toList
+      )
+
+      Task.now((state, Right(response)))
+    }
+
+    ifInitialized(None) { (state: State, logger: BspServerLogger) =>
+      mapToProjects(request.targets, state) match {
+        case Left(error) =>
+          // Log the mapping error to the user via a log event + an error status code
+          logger.error(error)
+          Task.now((state, Right(bsp.DependencyModulesResult(Nil))))
+        case Right(mappings) => modules(mappings, state)
       }
     }
   }

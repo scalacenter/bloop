@@ -1,6 +1,9 @@
 package bloop.dap
 
+import java.io.Closeable
+
 import scala.collection.mutable
+import scala.concurrent.Future
 
 import ch.epfl.scala.bsp
 import ch.epfl.scala.bsp.ScalaMainClass
@@ -15,29 +18,38 @@ import bloop.engine.Dag
 import bloop.engine.State
 import bloop.engine.tasks.RunMode
 import bloop.engine.tasks.Tasks
+import bloop.io.AbsolutePath
 import bloop.task.Task
 import bloop.testing.DebugLoggingEventHandler
 import bloop.testing.TestInternals
 
+import monix.execution.Ack
 import monix.execution.Scheduler
+import monix.reactive.Observable
 
 abstract class BloopDebuggee(
     initialState: State,
-    ioScheduler: Scheduler,
-    debugeeScalaVersion: Option[String]
-) extends Debuggee {
-
+    classUpdates: Observable[Seq[String]]
+)(implicit ioScheduler: Scheduler)
+    extends Debuggee {
+  protected def scalaVersionOpt: Option[String]
   // The version doesn't matter for project without Scala version (Java only)
-  val scalaVersion = ScalaVersion(debugeeScalaVersion.getOrElse("2.13.8"))
+  override val scalaVersion = ScalaVersion(scalaVersionOpt.getOrElse("2.13.8"))
 
   override def run(listener: DebuggeeListener): CancelableFuture[Unit] = {
     val debugSessionLogger = new DebuggeeLogger(listener, initialState.logger)
 
     val task = start(initialState.copy(logger = debugSessionLogger), listener)
       .map { status =>
-        if (!status.isOk) throw new Exception(s"debugee failed with ${status.name}")
+        if (!status.isOk) throw new Exception(s"debuggee failed with ${status.name}")
       }
-    DapCancellableFuture.runAsync(task, ioScheduler)
+    DapCancellableFuture.runAsync(task)
+  }
+
+  override def observeClassUpdates(onClassUpdate: Seq[String] => Unit): Closeable = {
+    val subscription =
+      classUpdates.subscribe(onClassUpdate.andThen(_ => Future.successful(Ack.Continue)))
+    () => subscription.cancel()
   }
 
   protected def start(state: State, listener: DebuggeeListener): Task[ExitStatus]
@@ -49,11 +61,14 @@ private final class MainClassDebugAdapter(
     val modules: Seq[Module],
     val libraries: Seq[Library],
     val unmanagedEntries: Seq[UnmanagedEntry],
+    val classUpdates: Observable[Seq[String]],
     env: JdkConfig,
     initialState: State,
-    ioScheduler: Scheduler,
-    scalaVersion: Option[String]
-) extends BloopDebuggee(initialState, ioScheduler, scalaVersion) {
+    ioScheduler: Scheduler
+) extends BloopDebuggee(initialState, classUpdates)(ioScheduler) {
+
+  protected def scalaVersionOpt: Option[String] = project.scalaInstance.map(_.version)
+
   val javaRuntime: Option[JavaRuntime] = JavaRuntime(env.javaHome.underlying)
   def name: String = s"${getClass.getSimpleName}(${project.name}, ${mainClass.className})"
   def start(state: State, listener: DebuggeeListener): Task[ExitStatus] = {
@@ -83,10 +98,14 @@ private final class TestSuiteDebugAdapter(
     val libraries: Seq[Library],
     val unmanagedEntries: Seq[UnmanagedEntry],
     val javaRuntime: Option[JavaRuntime],
+    val classUpdates: Observable[Seq[String]],
     initialState: State,
-    ioScheduler: Scheduler,
-    val debugeeScalaVersion: Option[String]
-) extends BloopDebuggee(initialState, ioScheduler, debugeeScalaVersion) {
+    ioScheduler: Scheduler
+) extends BloopDebuggee(initialState, classUpdates)(ioScheduler) {
+
+  protected def scalaVersionOpt: Option[String] =
+    projects.headOption.flatMap(_.scalaInstance.map(_.version))
+
   override def name: String = {
     val projectsStr = projects.map(_.bspUri).mkString("[", ", ", "]")
     val selectedTests = testClasses.suites
@@ -116,14 +135,19 @@ private final class TestSuiteDebugAdapter(
 }
 
 private final class AttachRemoteDebugAdapter(
+    projects: Seq[Project],
     val modules: Seq[Module],
     val libraries: Seq[Library],
     val unmanagedEntries: Seq[UnmanagedEntry],
     val javaRuntime: Option[JavaRuntime],
+    val classUpdates: Observable[Seq[String]],
     initialState: State,
-    ioScheduler: Scheduler,
-    val debugeeScalaVersion: Option[String]
-) extends BloopDebuggee(initialState, ioScheduler, debugeeScalaVersion) {
+    ioScheduler: Scheduler
+) extends BloopDebuggee(initialState, classUpdates)(ioScheduler) {
+
+  protected def scalaVersionOpt: Option[String] =
+    projects.headOption.flatMap(_.scalaInstance.map(_.version))
+
   override def name: String = s"${getClass.getSimpleName}(${initialState.build.origin})"
   override def start(state: State, listener: DebuggeeListener): Task[ExitStatus] = Task(
     ExitStatus.Ok
@@ -131,7 +155,6 @@ private final class AttachRemoteDebugAdapter(
 }
 
 object BloopDebuggeeRunner {
-
   def forMainClass(
       projects: Seq[Project],
       mainClass: ScalaMainClass,
@@ -143,11 +166,8 @@ object BloopDebuggeeRunner {
       case Seq(project) =>
         project.platform match {
           case jvm: Platform.Jvm =>
-            val dag = state.build.getDagFor(project)
-            val modules = getModules(dag, state.client)
-            val libraries = getLibraries(dag)
-            val unmanagedEntries =
-              getUnmanagedEntries(project, dag, state.client, modules ++ libraries)
+            val (modules, libraries, unmanagedEntries, classUpdates) =
+              getEntriesAndClassUpdates(project, state)
             Right(
               new MainClassDebugAdapter(
                 project,
@@ -155,10 +175,10 @@ object BloopDebuggeeRunner {
                 modules,
                 libraries,
                 unmanagedEntries,
-                jvm.config,
+                classUpdates,
+                jvm.runtimeConfig.getOrElse(jvm.config),
                 state,
-                ioScheduler,
-                project.scalaInstance.map(_.version)
+                ioScheduler
               )
             )
           case platform =>
@@ -180,12 +200,10 @@ object BloopDebuggeeRunner {
           s"No projects specified for the test suites: [${testClasses.suites.map(_.className).sorted}]"
         )
       case Seq(project) if project.platform.isInstanceOf[Platform.Jvm] =>
-        val dag = state.build.getDagFor(project)
-        val modules = getModules(dag, state.client)
-        val libraries = getLibraries(dag)
-        val unmanagedEntries = getUnmanagedEntries(project, dag, state.client, modules ++ libraries)
-        val Platform.Jvm(config, _, _, _, _, _) = project.platform
-        val javaRuntime = JavaRuntime(config.javaHome.underlying)
+        val (modules, libraries, unmanagedEntries, classUpdates) =
+          getEntriesAndClassUpdates(project, state)
+        val Platform.Jvm(config, _, _, runtimeConfig, _, _) = project.platform
+        val javaRuntime = JavaRuntime(runtimeConfig.getOrElse(config).javaHome.underlying)
         Right(
           new TestSuiteDebugAdapter(
             projects,
@@ -194,13 +212,13 @@ object BloopDebuggeeRunner {
             libraries,
             unmanagedEntries,
             javaRuntime,
+            classUpdates,
             state,
-            ioScheduler,
-            project.scalaInstance.map(_.version)
+            ioScheduler
           )
         )
 
-      case project :: _ =>
+      case _ =>
         Right(
           new TestSuiteDebugAdapter(
             projects,
@@ -209,9 +227,9 @@ object BloopDebuggeeRunner {
             Seq.empty,
             Seq.empty,
             None,
+            Observable.empty,
             state,
-            ioScheduler,
-            project.scalaInstance.map(_.version)
+            ioScheduler
           )
         )
 
@@ -219,43 +237,57 @@ object BloopDebuggeeRunner {
   }
 
   def forAttachRemote(
+      projects: Seq[Project],
       state: State,
-      ioScheduler: Scheduler,
-      projects: Seq[Project]
+      ioScheduler: Scheduler
   ): Debuggee = {
     projects match {
       case Seq(project) if project.platform.isInstanceOf[Platform.Jvm] =>
-        val dag = state.build.getDagFor(project)
-        val libraries = getLibraries(dag)
-        val modules = getModules(dag, state.client)
-        val unmanagedEntries = getUnmanagedEntries(project, dag, state.client, modules ++ libraries)
-        val Platform.Jvm(config, _, _, _, _, _) = project.platform
-        val javaRuntime = JavaRuntime(config.javaHome.underlying)
+        val (modules, libraries, unmanagedEntries, classUpdates) =
+          getEntriesAndClassUpdates(project, state)
+        val Platform.Jvm(config, _, _, runtimeConfig, _, _) = project.platform
+        val javaRuntime = JavaRuntime(runtimeConfig.getOrElse(config).javaHome.underlying)
         new AttachRemoteDebugAdapter(
+          Seq(project),
           modules,
           libraries,
           unmanagedEntries,
           javaRuntime,
+          classUpdates,
           state,
-          ioScheduler,
-          project.scalaInstance.map(_.version)
+          ioScheduler
         )
       case projects =>
         new AttachRemoteDebugAdapter(
+          projects,
           Seq.empty,
           Seq.empty,
           Seq.empty,
           None,
+          Observable.empty,
           state,
-          ioScheduler,
-          projects.headOption.flatMap(_.scalaInstance).map(_.version)
+          ioScheduler
         )
     }
   }
 
-  private def getLibraries(dag: Dag[Project]): Seq[Library] = {
-    Dag
-      .dfs(dag, mode = Dag.PreOrder)
+  private def getEntriesAndClassUpdates(
+      project: Project,
+      state: State
+  ): (Seq[Module], Seq[Library], Seq[UnmanagedEntry], Observable[Seq[String]]) = {
+    val dag = state.build.getDagFor(project)
+    val projects = Dag.dfs(dag, mode = Dag.PreOrder)
+    val modules = getModules(projects, state.client)
+    val libraries = getLibraries(projects)
+    val fullClasspath = project.fullClasspath(dag, state.client)
+    val unmanagedEntries = getUnmanagedEntries(fullClasspath, modules ++ libraries)
+    val allClassUpdates = projects.map(state.client.getClassesObserverFor(_).observable)
+    val mergedClassUpdates = Observable.fromIterable(allClassUpdates).merge
+    (modules, libraries, unmanagedEntries, mergedClassUpdates)
+  }
+
+  private def getLibraries(projects: Seq[Project]): Seq[Library] = {
+    projects
       .flatMap(_.resolution)
       .flatMap(_.modules)
       .distinct
@@ -272,20 +304,16 @@ object BloopDebuggeeRunner {
   }
 
   private def getUnmanagedEntries(
-      project: Project,
-      dag: Dag[Project],
-      client: ClientInfo,
+      fullClasspath: Seq[AbsolutePath],
       managedEntries: Seq[ManagedEntry]
   ): Seq[UnmanagedEntry] = {
     val managedPaths = managedEntries.map(_.absolutePath).toSet
-    val fullClasspath = project.fullClasspath(dag, client).map(_.underlying).toSeq
     fullClasspath
-      .filter(p => !managedPaths.contains(p))
-      .map(UnmanagedEntry.apply)
+      .collect { case p if !managedPaths.contains(p.underlying) => UnmanagedEntry(p.underlying) }
   }
 
-  private def getModules(dag: Dag[Project], client: ClientInfo): Seq[Module] = {
-    Dag.dfs(dag, mode = Dag.PreOrder).map { project =>
+  private def getModules(projects: Seq[Project], client: ClientInfo): Seq[Module] = {
+    projects.map { project =>
       val sourceBuffer = mutable.Buffer.empty[SourceEntry]
       for (sourcePath <- project.sources) {
         if (sourcePath.isDirectory) {

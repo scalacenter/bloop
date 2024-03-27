@@ -1,33 +1,40 @@
 package bloop.dap
 
+import java.io.Closeable
 import java.net.ConnectException
 import java.net.SocketException
 import java.net.SocketTimeoutException
 import java.util.NoSuchElementException
 import java.util.concurrent.TimeUnit.MILLISECONDS
-import java.util.concurrent.TimeUnit.SECONDS
 
+import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.concurrent.Future
 import scala.concurrent.Promise
 import scala.concurrent.TimeoutException
 import scala.concurrent.duration.Duration
 import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration._
 
+import ch.epfl.scala.bsp
 import ch.epfl.scala.bsp.ScalaMainClass
 import ch.epfl.scala.debugadapter._
 
+import bloop.Cli
 import bloop.ScalaInstance
-import ch.epfl.scala.bsp
+import bloop.cli.CommonOptions
 import bloop.cli.ExitStatus
 import bloop.data.Platform
 import bloop.data.Project
+import bloop.engine.NoPool
 import bloop.engine.State
 import bloop.engine.tasks.RunMode
 import bloop.engine.tasks.Tasks
+import bloop.internal.build
 import bloop.internal.build.BuildTestInfo
 import bloop.io.AbsolutePath
 import bloop.io.Environment.lineSeparator
+import bloop.logging.BspClientLogger
 import bloop.logging.Logger
 import bloop.logging.LoggerAction
 import bloop.logging.LoggerAction.LogInfoMessage
@@ -42,6 +49,8 @@ import bloop.util.TestUtil
 import com.microsoft.java.debug.core.protocol.Requests.SetBreakpointArguments
 import com.microsoft.java.debug.core.protocol.Types
 import com.microsoft.java.debug.core.protocol.Types.SourceBreakpoint
+import coursierapi.Dependency
+import coursierapi.Fetch
 import monix.execution.Ack
 import monix.reactive.Observer
 
@@ -49,11 +58,6 @@ object DebugServerSpec extends DebugBspBaseSuite {
   private val ServerNotListening = new IllegalStateException("Server is not accepting connections")
   private val Success: ExitStatus = ExitStatus.Ok
   private val resolver = new BloopDebugToolsResolver(NoopLogger)
-
-  override def test(name: String)(fun: => Any): Unit =
-    super.test(name) {
-      TestUtil.retry()(fun)
-    }
 
   testTask("cancelling server closes server connection", FiniteDuration(10, SECONDS)) {
     startDebugServer(Task.now(Success)) { server =>
@@ -200,6 +204,81 @@ object DebugServerSpec extends DebugBspBaseSuite {
                 .filterNot(_.contains("JDWP exit error AGENT_ERROR_NO_JNI_ENV"))
                 .mkString(lineSeparator),
               "hello\nworld!"
+            )
+          }
+        }
+      }
+    }
+  }
+
+  testTask(
+    "runs-correct-runtime",
+    FiniteDuration(60, SECONDS)
+  ) {
+    TestUtil.withinWorkspace { workspace =>
+      val runtimeClasspath = Fetch
+        .create()
+        .addDependencies(
+          Dependency.of(
+            "ch.qos.logback",
+            "logback-classic",
+            "1.2.7"
+          ),
+          Dependency.of(
+            "org.scala-lang",
+            "scala-library",
+            build.BuildInfo.scalaVersion
+          )
+        )
+        .fetch()
+        .asScala
+        .map(_.toPath())
+        .toList
+
+      val main =
+        """|/main/scala/Main.scala
+           |object Main {
+           |  def main(args: Array[String]): Unit = {
+           |    println(s">>> hello world! <<<")
+           |    val cn = Class.forName("ch.qos.logback.classic.Logger")
+           |    println(s"$cn")
+           |  }
+           |}
+           |
+           |""".stripMargin
+
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val project =
+        TestProject(workspace, "r", List(main), runtimeClasspath = Some(runtimeClasspath))
+
+      loadBspStateWithTask(workspace, List(project), logger) { state =>
+        val runner = mainRunner(
+          project,
+          state,
+          arguments = Nil,
+          jvmOptions = Nil,
+          environmentVariables = Nil
+        )
+
+        startDebugServer(runner) { server =>
+          for {
+            client <- server.startConnection
+            _ <- client.initialize()
+            _ <- client.launch(noDebug = true)
+            _ <- client.configurationDone()
+            _ <- client.exited
+            _ <- client.terminated
+            _ <- Task.fromFuture(client.closedPromise.future)
+            output <- client.takeCurrentOutput
+          } yield {
+            assert(client.socket.isClosed)
+            assertNoDiff(
+              output.linesIterator
+                .filterNot(_.contains("ERROR: JDWP Unable to get JNI 1.2 environment"))
+                .filterNot(_.contains("JDWP exit error AGENT_ERROR_NO_JNI_ENV"))
+                .mkString(lineSeparator),
+              """|>>> hello world! <<<
+                 |class ch.qos.logback.classic.Logger""".stripMargin
             )
           }
         }
@@ -541,9 +620,9 @@ object DebugServerSpec extends DebugBspBaseSuite {
 
         val attachRemoteProcessRunner =
           BloopDebuggeeRunner.forAttachRemote(
+            Seq(buildProject),
             state.compile(project).toTestState.state,
-            defaultScheduler,
-            Seq(buildProject)
+            defaultScheduler
           )
 
         startDebugServer(attachRemoteProcessRunner) { server =>
@@ -784,9 +863,9 @@ object DebugServerSpec extends DebugBspBaseSuite {
 
         val attachRemoteProcessRunner =
           BloopDebuggeeRunner.forAttachRemote(
+            Seq(buildProject),
             testState.state,
-            defaultScheduler,
-            Seq(buildProject)
+            defaultScheduler
           )
 
         startDebugServer(attachRemoteProcessRunner) { server =>
@@ -887,6 +966,87 @@ object DebugServerSpec extends DebugBspBaseSuite {
           }
         }
       }
+    }
+  }
+
+  testTask("hot code replace", 30.seconds) {
+    val mainSource =
+      """|/Main.scala
+         |object Main {
+         |  def main(args: Array[String]): Unit = {
+         |    val a = new example.A
+         |    a.m()
+         |  }
+         |}
+         |""".stripMargin
+    val originalSource =
+      """|/example/A.scala
+         |package example
+         |class A {
+         |  def m() = {
+         |    println("A")
+         |  }
+         |}
+         |""".stripMargin
+    val modifiedSource =
+      """|/example/A.scala
+         |package example
+         |class A {
+         |  def m() = {
+         |    println("B")
+         |  }
+         |}
+         |""".stripMargin
+    val logger = new RecordingLogger(ansiCodesSupported = false)
+    TestUtil.withinWorkspace { workspace =>
+      val dependency = TestProject(workspace, "a", List(originalSource))
+      val mainProject = TestProject(workspace, "main", List(mainSource), List(dependency))
+      val configDir = TestProject.populateWorkspace(workspace, List(mainProject, dependency))
+
+      def cliCompile(project: TestProject) = {
+        val compileArgs = Array("compile", project.config.name, "--config-dir", configDir.syntax)
+        val compileAction = Cli.parse(compileArgs, CommonOptions.default)
+        Task.eval(Cli.run(compileAction, NoPool)).executeAsync
+      }
+
+      def bspCommand() = createBspCommand(configDir)
+      val state = TestUtil.loadTestProject(configDir.underlying, logger)
+      openBspConnection(state, bspCommand, configDir, new BspClientLogger(logger))
+        .withinSession { state =>
+          val testState = state.compile(mainProject).toTestState
+          val `A.scala` = testState
+            .getProjectFor(dependency)
+            .sources
+            .map(_.resolve("example/A.scala"))
+            .find(_.exists)
+            .get
+
+          val runner = mainRunner(mainProject, state)
+          startDebugServer(runner) { server =>
+            for {
+              client <- server.startConnection
+              _ <- client.initialize()
+              _ <- client.launch(noDebug = false)
+              _ <- client.initialized
+              response <- client.setBreakpoints(breakpointsArgs(`A.scala`, 4))
+              _ = assert(response.breakpoints.forall(_.verified))
+              _ <- client.configurationDone()
+              stopped <- client.stopped
+              _ = writeFile(`A.scala`, modifiedSource)
+              _ <- cliCompile(mainProject) // another client trigger a compilation
+              _ = state.compile(mainProject) // noop
+              _ <- client.redefineClasses()
+              _ <- client.continue(stopped.threadId)
+              _ <- client.exited
+              _ <- client.terminated
+              _ <- Task.fromFuture(client.closedPromise.future)
+              output <- client.takeCurrentOutput
+            } yield {
+              assert(client.socket.isClosed)
+              assertNoDiff(output, "B")
+            }
+          }
+        }
     }
   }
 
@@ -1025,9 +1185,11 @@ object DebugServerSpec extends DebugBspBaseSuite {
       override def javaRuntime: Option[JavaRuntime] = None
       def name: String = "MockRunner"
       def run(listener: DebuggeeListener): CancelableFuture[Unit] = {
-        DapCancellableFuture.runAsync(task.map(_ => ()), defaultScheduler)
+        DapCancellableFuture.runAsync(task.map(_ => ()))(defaultScheduler)
       }
       def scalaVersion: ScalaVersion = ScalaVersion("2.12.17")
+
+      override def observeClassUpdates(onClassUpdate: Seq[String] => Unit): Closeable = () => ()
     }
 
     startDebugServer(
@@ -1040,7 +1202,7 @@ object DebugServerSpec extends DebugBspBaseSuite {
 
   def startDebugServer(
       debuggee: Debuggee,
-      gracePeriod: Duration = Duration(5, SECONDS)
+      gracePeriod: Duration = 5.seconds
   )(f: TestServer => Task[Unit]): Task[Unit] = {
     val logger = new RecordingLogger(ansiCodesSupported = false)
     val dapLogger = new DebugServerLogger(logger)
@@ -1067,7 +1229,7 @@ object DebugServerSpec extends DebugBspBaseSuite {
     override def close(): Unit = {
       cancel()
       val allClientsClosed = clients.map(c => Task.fromFuture(c.closedPromise.future))
-      TestUtil.await(10, SECONDS)(Task.sequence(allClientsClosed)); ()
+      TestUtil.await(10.seconds)(Task.sequence(allClientsClosed)); ()
     }
 
     def startConnection: Task[DebugAdapterConnection] = Task {

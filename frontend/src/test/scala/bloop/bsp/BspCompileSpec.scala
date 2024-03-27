@@ -86,13 +86,7 @@ class BspCompileSpec(
         assertSameExternalClassesDirs(compiledState, secondCompiledState, projects)
         assertNoDiff(
           secondCompiledState.lastDiagnostics(`A`),
-          """#2: task start 2
-            |  -> Msg: Start no-op compilation for a
-            |  -> Data kind: compile-task
-            |#2: task finish 2
-            |  -> errors 0, warnings 0
-            |  -> Msg: Compiled 'a'
-            |  -> Data kind: compile-report""".stripMargin
+          "" // no-op
         )
       }
     }
@@ -586,17 +580,10 @@ class BspCompileSpec(
         assertSameExternalClassesDirs(thirdCompiledState, compiledState, projects)
         assertNoDiff(
           thirdCompiledState.lastDiagnostics(`A`),
-          """#3: task start 3
-            |  -> Msg: Start no-op compilation for a
-            |  -> Data kind: compile-task
-            |#3: a/src/A.scala
+          """#3: a/src/A.scala
             |  -> List()
             |  -> reset = true
-            |#3: task finish 3
-            |  -> errors 0, warnings 0
-            |  -> Msg: Compiled 'a'
-            |  -> Data kind: compile-report
-            """.stripMargin
+            """.stripMargin // no-op so it only gives the compile-report
         )
 
         writeFile(`A`.srcFor("/A.scala"), Sources.`A3.scala`)
@@ -613,7 +600,7 @@ class BspCompileSpec(
         assertSameExternalClassesDirs(fourthCompiledState, compiledState, projects)
         assertNoDiff(
           fourthCompiledState.lastDiagnostics(`A`),
-          """#4: task start 4
+          """#4: task start 3
             |  -> Msg: Compiling a (1 Scala source)
             |  -> Data kind: compile-task
             |#4: a/src/A.scala
@@ -622,7 +609,7 @@ class BspCompileSpec(
             |#4: a/src/A.scala
             |  -> List(Diagnostic(Range(Position(0,0),Position(0,26)),Some(Warning),Some(_),Some(_),Unused import,None,None,Some({"actions":[]})))
             |  -> reset = false
-            |#4: task finish 4
+            |#4: task finish 3
             |  -> errors 1, warnings 1
             |  -> Msg: Compiled 'a'
             |  -> Data kind: compile-report
@@ -636,13 +623,13 @@ class BspCompileSpec(
         assertDifferentExternalClassesDirs(fifthCompiledState, compiledState, projects)
         assertNoDiff(
           fifthCompiledState.lastDiagnostics(`A`),
-          """#5: task start 5
+          """#5: task start 4
             |  -> Msg: Compiling a (1 Scala source)
             |  -> Data kind: compile-task
             |#5: a/src/A.scala
             |  -> List(Diagnostic(Range(Position(0,0),Position(0,26)),Some(Warning),Some(_),Some(_),Unused import,None,None,Some({"actions":[]})))
             |  -> reset = true
-            |#5: task finish 5
+            |#5: task finish 4
             |  -> errors 0, warnings 1
             |  -> Msg: Compiled 'a'
             |  -> Data kind: compile-report
@@ -662,17 +649,17 @@ class BspCompileSpec(
         assertSameExternalClassesDirs(sixthCompiledState, fifthCompiledState, projects)
         assertNoDiff(
           sixthCompiledState.lastDiagnostics(`A`),
-          """#6: task start 6
+          """#6: task start 5
             |  -> Msg: Compiling a (1 Scala source)
             |  -> Data kind: compile-task
             |#6: a/src/A.scala
             |  -> List()
             |  -> reset = true
-            |#6: task finish 6
+            |#6: task finish 5
             |  -> errors 0, warnings 0
             |  -> Msg: Compiled 'a'
             |  -> Data kind: compile-report
-            |#6: task start 6
+            |#6: task start 5
             |  -> Msg: Compiling a (1 Scala source)
             |  -> Data kind: compile-task
             |#6: a/src/A.scala
@@ -681,7 +668,7 @@ class BspCompileSpec(
             |#6: a/src/A.scala
             |  -> List(Diagnostic(Range(Position(1,0),Position(3,1)),Some(Error),Some(_),Some(_),object creation impossible, since value y in trait Base of type Int is not defined,None,None,Some({"actions":[]})))
             |  -> reset = false
-            |#6: task finish 6
+            |#6: task finish 5
             |  -> errors 1, warnings 1
             |  -> Msg: Compiled 'a'
             |  -> Data kind: compile-report
@@ -696,13 +683,13 @@ class BspCompileSpec(
 
         assertNoDiff(
           seventhCompiledState.lastDiagnostics(`A`),
-          """#7: task start 7
+          """#7: task start 6
             |  -> Msg: Compiling a (1 Scala source)
             |  -> Data kind: compile-task
             |#7: a/src/A.scala
             |  -> List(Diagnostic(Range(Position(0,0),Position(0,26)),Some(Warning),Some(_),Some(_),Unused import,None,None,Some({"actions":[]})))
             |  -> reset = true
-            |#7: task finish 7
+            |#7: task finish 6
             |  -> errors 0, warnings 0
             |  -> Msg: Compiled 'a'
             |  -> Data kind: compile-report
@@ -753,18 +740,12 @@ class BspCompileSpec(
         assertSameExternalClassesDirs(compiledState.toTestState, secondCliCompiledState, `A`)
 
         // BSP publishes warnings even if it's a no-op
+        // however it skips the task start/end
         assertNoDiff(
           compiledState.lastDiagnostics(`A`),
-          """#1: task start 1
-            |  -> Msg: Start no-op compilation for a
-            |  -> Data kind: compile-task
-            |#1: a/src/main/scala/App.scala
+          """#1: a/src/main/scala/App.scala
             |  -> List(Diagnostic(Range(Position(2,4),Position(2,4)),Some(Warning),Some(_),Some(_),a pure expression does nothing in statement position,None,None,Some({"actions":[]})))
-            |  -> reset = true
-            |#1: task finish 1
-            |  -> errors 0, warnings 0
-            |  -> Msg: Compiled 'a'
-            |  -> Data kind: compile-report""".stripMargin
+            |  -> reset = true""".stripMargin
         )
       }
     }
@@ -987,16 +968,9 @@ class BspCompileSpec(
 
         assertNoDiff(
           thirdCompiledState.lastDiagnostics(`A`),
-          """#3: task start 3
-            |  -> Msg: Start no-op compilation for a
-            |  -> Data kind: compile-task
-            |#3: a/src/main/scala/Bar.scala
+          """#3: a/src/main/scala/Bar.scala
             |  -> List()
-            |  -> reset = true
-            |#3: task finish 3
-            |  -> errors 0, warnings 0
-            |  -> Msg: Compiled 'a'
-            |  -> Data kind: compile-report""".stripMargin
+            |  -> reset = true""".stripMargin
         )
       }
     }
@@ -1098,14 +1072,7 @@ class BspCompileSpec(
 
         assertNoDiff(
           compiledState.lastDiagnostics(`B`),
-          """|#2: task start 4
-             |  -> Msg: Start no-op compilation for b
-             |  -> Data kind: compile-task
-             |#2: task finish 4
-             |  -> errors 0, warnings 0
-             |  -> Msg: Compiled 'b'
-             |  -> Data kind: compile-report
-             |""".stripMargin
+          "" // no-op
         )
 
         writeFile(`A`.srcFor("/Foo.scala"), Sources.`Foo3.scala`)
@@ -1115,7 +1082,7 @@ class BspCompileSpec(
         assertValidCompilationState(thirdCompiledState, projects)
         assertNoDiff(
           thirdCompiledState.lastDiagnostics(`A`),
-          """|#3: task start 5
+          """|#3: task start 4
              |  -> Msg: Compiling a (1 Scala source)
              |  -> Data kind: compile-task
              |#3: a/src/Foo.scala
@@ -1124,7 +1091,7 @@ class BspCompileSpec(
              |#3: a/src/Foo.scala
              |  -> List(Diagnostic(Range(Position(1,0),Position(1,7)),Some(Error),Some(_),Some(_),Unused import,None,None,Some({"actions":[]})))
              |  -> reset = false
-             |#3: task finish 5
+             |#3: task finish 4
              |  -> errors 2, warnings 0
              |  -> Msg: Compiled 'a'
              |  -> Data kind: compile-report
@@ -1133,13 +1100,13 @@ class BspCompileSpec(
 
         assertNoDiff(
           compiledState.lastDiagnostics(`B`),
-          """|#3: task start 6
+          """|#3: task start 5
              |  -> Msg: Compiling b (1 Scala source)
              |  -> Data kind: compile-task
              |#3: b/src/Buzz.scala
              |  -> List(Diagnostic(Range(Position(0,0),Position(0,7)),Some(Error),Some(_),Some(_),Unused import,None,None,Some({"actions":[]})))
              |  -> reset = true
-             |#3: task finish 6
+             |#3: task finish 5
              |  -> errors 1, warnings 0
              |  -> Msg: Compiled 'b'
              |  -> Data kind: compile-report

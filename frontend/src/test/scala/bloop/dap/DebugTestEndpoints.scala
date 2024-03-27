@@ -4,12 +4,7 @@ import bloop.dap.DebugTestProtocol._
 
 import com.microsoft.java.debug.core.protocol.Events
 import com.microsoft.java.debug.core.protocol.Requests._
-import com.microsoft.java.debug.core.protocol.Responses.ContinueResponseBody
-import com.microsoft.java.debug.core.protocol.Responses.EvaluateResponseBody
-import com.microsoft.java.debug.core.protocol.Responses.ScopesResponseBody
-import com.microsoft.java.debug.core.protocol.Responses.SetBreakpointsResponseBody
-import com.microsoft.java.debug.core.protocol.Responses.StackTraceResponseBody
-import com.microsoft.java.debug.core.protocol.Responses.VariablesResponseBody
+import com.microsoft.java.debug.core.protocol.Responses._
 import com.microsoft.java.debug.core.protocol.Types
 
 private[dap] object DebugTestEndpoints {
@@ -24,6 +19,8 @@ private[dap] object DebugTestEndpoints {
   val Variables = new Request[VariablesArguments, VariablesResponseBody]("variables")
   val Evaluate = new Request[EvaluateArguments, EvaluateResponseBody]("evaluate")
   val Continue = new Request[ContinueArguments, ContinueResponseBody]("continue")
+  val RedefineClasses =
+    new Request[RedefineClassesArguments, RedefineClassesResponse]("redefineClasses")
   val ConfigurationDone = new Request[Unit, Unit]("configurationDone")
 
   val Exited = new Event[Events.ExitedEvent]("exited")

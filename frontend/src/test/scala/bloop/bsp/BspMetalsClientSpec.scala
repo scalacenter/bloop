@@ -11,6 +11,7 @@ import bloop.cli.ExitStatus
 import bloop.data.WorkspaceSettings
 import bloop.engine.ExecutionContext
 import bloop.internal.build.BuildInfo
+import bloop.internal.build.BuildTestInfo
 import bloop.io.AbsolutePath
 import bloop.io.Environment.LineSplitter
 import bloop.io.Environment.lineSeparator
@@ -27,7 +28,7 @@ class BspMetalsClientSpec(
     override val protocol: BspProtocol
 ) extends BspBaseSuite {
   private val testedScalaVersion = BuildInfo.scalaVersion
-  private val semanticdbVersion = "4.8.4"
+  private val semanticdbVersion = "4.9.2"
   private val javaSemanticdbVersion = "0.5.7"
 
   private val semanticdbJar = s"semanticdb-scalac_$testedScalaVersion-$semanticdbVersion.jar"
@@ -170,7 +171,7 @@ class BspMetalsClientSpec(
 
         val scalacOptions = state.scalaOptions(`A`)._2.items.head.options
         val expectedScalacOptions = correctSourceRootOption :: List(
-          s"-Xplugin:path-to-plugin/semanticdb-scalac_2.12.18-$semanticdbVersion.jar",
+          s"-Xplugin:path-to-plugin/semanticdb-scalac_2.12.19-$semanticdbVersion.jar",
           "-Yrangepos",
           "-P:semanticdb:failures:warning",
           "-P:semanticdb:synthetics:on",
@@ -509,9 +510,9 @@ class BspMetalsClientSpec(
   //   TestUtil.withinWorkspace { workspace =>
   //     val logger = new RecordingLogger(ansiCodesSupported = false)
 
-  //     val projectName = "scala-java-processorpath"
-  //     val localScalaVersion = "2.12.18"
-  //     val localSemanticdbJar = s"semanticdb-scalac_$localScalaVersion-$semanticdbVersion.jar"
+ //     val projectName = "scala-java-processorpath"
+ //     val localScalaVersion = BuildInfo.scalaVersion
+ //     val localSemanticdbJar = s"semanticdb-scalac_$localScalaVersion-$semanticdbVersion.jar"
 
   //     val extraParams = BloopExtraBuildParams(
   //       ownsBuildFiles = None,

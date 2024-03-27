@@ -37,6 +37,7 @@ object NativeBridge {
     }
     val nativeLTO = config.mode match {
       case LinkerMode.Debug => build.LTO.none
+      case LinkerMode.Release if bloop.util.CrossPlatform.isMac => build.LTO.full
       case LinkerMode.Release => build.LTO.thin
     }
 

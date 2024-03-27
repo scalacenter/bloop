@@ -19,7 +19,7 @@ object LinkTask {
       project: Project,
       state: State,
       mainClass: String,
-      target: AbsolutePath,
+      targetDirectory: AbsolutePath,
       platform: Platform.Js
   ): Task[State] = {
     import state.logger
@@ -36,10 +36,19 @@ object LinkTask {
             // Pass in the default scheduler used by this task to the linker
             Task.deferAction { s =>
               toolchain
-                .link(config, project, fullClasspath, true, Some(mainClass), target, s, logger)
+                .link(
+                  config,
+                  project,
+                  fullClasspath,
+                  true,
+                  Some(mainClass),
+                  targetDirectory,
+                  s,
+                  logger
+                )
                 .map {
                   case scala.util.Success(_) =>
-                    state.withInfo(s"Generated JavaScript file '${target.syntax}'")
+                    state.withInfo(s"Generated JavaScript file '${targetDirectory.syntax}'")
                   case scala.util.Failure(t) =>
                     val msg = Feedback.failedToLink(project, ScalaJsToolchain.name, t)
                     state.withError(msg, ExitStatus.LinkingError).withTrace(t)

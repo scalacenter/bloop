@@ -14,12 +14,12 @@ import bloop.config.Config.ModuleKindJS
 import bloop.data.Project
 import bloop.logging.DebugFilter
 import bloop.logging.{Logger => BloopLogger}
-import bloop.scalajs.jsenv.JsDomNodeJsEnv
-import bloop.scalajs.jsenv.NodeJSConfig
-import bloop.scalajs.jsenv.NodeJSEnv
 
 import org.scalajs.jsenv.Input
+import org.scalajs.jsenv.jsdomnodejs.JSDOMNodeJSEnv
+import org.scalajs.jsenv.nodejs.NodeJSEnv
 import org.scalajs.linker.PathIRContainer
+import org.scalajs.linker.PathOutputDirectory
 import org.scalajs.linker.PathOutputFile
 import org.scalajs.linker.StandardImpl
 import org.scalajs.linker.interface.{ModuleKind => ScalaJSModuleKind, _}
@@ -27,20 +27,10 @@ import org.scalajs.logging.Level
 import org.scalajs.logging.{Logger => JsLogger}
 import org.scalajs.testing.adapter.TestAdapter
 import org.scalajs.testing.adapter.TestAdapterInitializer
+import java.nio.file.Files
 
 /**
  * Defines operations provided by the Scala.JS 1.x toolchain.
- *
- * The 1.x js bridge needs to inline the implementation of `NodeJSEnv`,
- * `JSDOMNodeJSEnv` and `ComRunner` because there is a bug in the latest
- * Scala.js release that does not run `close` on the underlying process,
- * skipping the destruction of the process running Scala.js tests. Aside
- * from leaking, this is fatal in Windows because the underlying process
- * is alive and keeps open references to the output JS file.
- *
- * We can remove all of the js environments and runners as soon as this
- * issue is fixed upstream. Note that our 0.6.x version handles cancellation
- * correctly.
  */
 object JsBridge {
   private class Logger(logger: BloopLogger)(implicit filter: DebugFilter) extends JsLogger {
@@ -94,13 +84,13 @@ object JsBridge {
       classpath: Array[Path],
       runMain: java.lang.Boolean,
       mainClass: Option[String],
-      target: Path,
+      targetDirectory: Path,
       logger: BloopLogger,
       executionContext: ExecutionContext
   ): Unit = {
     implicit val ec = executionContext
     implicit val logFilter: DebugFilter = DebugFilter.Link
-    val linker = ScalaJSLinker.reuseOrCreate(config, target)
+    val linker = ScalaJSLinker.reuseOrCreate(config, targetDirectory)
 
     val cache = StandardImpl.irFileCache().newCache
     val irContainersPairs = PathIRContainer.fromClasspath(classpath)
@@ -126,11 +116,14 @@ object JsBridge {
         }
     }
 
-    val output = LinkerOutput(PathOutputFile(target))
-
     val resultFuture = for {
       libraryIRs <- libraryIrsFuture
-      _ <- linker.link(libraryIRs, moduleInitializers, output, new Logger(logger))
+      _ <- linker.link(
+        libraryIRs,
+        moduleInitializers,
+        PathOutputDirectory(targetDirectory),
+        new Logger(logger)
+      )
     } yield ()
 
     Await.result(resultFuture, Duration.Inf)
@@ -151,11 +144,12 @@ object JsBridge {
     if (nodeModules.toFile().exists()) {
       logger.debug("Node.js module path: " + nodeModules.toString())
       val fullEnv = Map("NODE_PATH" -> nodeModules.toString()) ++ env
-      val config =
-        NodeJSConfig().withExecutable(nodePath).withCwd(Some(baseDirectory)).withEnv(fullEnv)
       val nodeEnv =
-        if (!jsConfig.jsdom.contains(true)) new NodeJSEnv(logger, config)
-        else new JsDomNodeJsEnv(logger, config)
+        if (!jsConfig.jsdom.contains(true))
+          new NodeJSEnv(
+            NodeJSEnv.Config().withExecutable(nodePath).withEnv(fullEnv)
+          )
+        else new JSDOMNodeJSEnv(JSDOMNodeJSEnv.Config().withExecutable(nodePath).withEnv(fullEnv))
 
       // The order of the scripts mandates the load order in the JavaScript runtime
       val input = jsConfig.kind match {
@@ -169,7 +163,7 @@ object JsBridge {
       val result = adapter.loadFrameworks(frameworkNames).flatMap(_.toList)
       (result, () => adapter.close())
     } else {
-      logger.error(
+      logger.warn(
         s"Cannot discover test frameworks, missing node_modules in test project, expected them at $nodeModules"
       )
       (Nil, () => ())

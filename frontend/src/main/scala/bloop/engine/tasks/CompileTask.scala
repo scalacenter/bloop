@@ -22,7 +22,6 @@ import bloop.engine.tasks.compilation._
 import bloop.io.ParallelOps
 import bloop.io.ParallelOps.CopyMode
 import bloop.io.{Paths => BloopPaths}
-import bloop.logging.BloopLogger
 import bloop.logging.DebugFilter
 import bloop.logging.Logger
 import bloop.logging.LoggerAction
@@ -37,6 +36,7 @@ import bloop.tracing.BraveTracer
 import monix.execution.CancelableFuture
 import monix.reactive.MulticastStrategy
 import monix.reactive.Observable
+
 object CompileTask {
   private implicit val logContext: DebugFilter = DebugFilter.Compilation
   def compile[UseSiteLogger <: Logger](
@@ -98,7 +98,6 @@ object CompileTask {
           compileProjectTracer.terminate()
           Task.now(earlyResultBundle)
         case Right(CompileSourcesAndInstance(sources, instance, _)) =>
-          val externalUserClassesDir = bundle.clientClassesDir
           val readOnlyClassesDir = lastSuccessful.classesDir
           val newClassesDir = compileOut.internalNewClassesDir
           val classpath = bundle.dependenciesData.buildFullCompileClasspathFor(
@@ -173,7 +172,7 @@ object CompileTask {
                 val postCompilationTasks =
                   backgroundTasks
                     .trigger(
-                      externalUserClassesDir,
+                      bundle.clientClassesObserver,
                       reporter.underlying,
                       compileProjectTracer,
                       logger
@@ -247,14 +246,14 @@ object CompileTask {
       val o = state.commonOptions
       val cancel = cancelCompilation
       val logger = ObservedLogger(rawLogger, observer)
-      val dir = state.client.getUniqueClassesDirFor(inputs.project, forceGeneration = true)
+      val clientClassesObserver = state.client.getClassesObserverFor(inputs.project)
       val underlying = createReporter(ReporterInputs(inputs.project, cwd, rawLogger))
       val reporter = new ObservedReporter(logger, underlying)
       val sourceGeneratorCache = state.sourceGeneratorCache
       CompileBundle.computeFrom(
         inputs,
         sourceGeneratorCache,
-        dir,
+        clientClassesObserver,
         reporter,
         last,
         prev,
@@ -292,7 +291,7 @@ object CompileTask {
           } else {
             results.foreach {
               case FinalNormalCompileResult.HasException(project, err) =>
-                val errMsg = err.fold(identity, BloopLogger.prettyPrintException)
+                val errMsg = err.fold(identity, Logger.prettyPrintException)
                 rawLogger.error(s"Unexpected error when compiling ${project.name}: $errMsg")
               case _ => () // Do nothing when the final compilation result is not an actual error
             }

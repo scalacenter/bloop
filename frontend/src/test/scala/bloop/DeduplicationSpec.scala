@@ -109,10 +109,10 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
 
         assertNoDiff(
           firstCompiledState.lastDiagnostics(build.userProject),
-          """#1: task start 2
+          """#1: task start 1
             |  -> Msg: Compiling user (2 Scala sources)
             |  -> Data kind: compile-task
-            |#1: task finish 2
+            |#1: task finish 1
             |  -> errors 0, warnings 0
             |  -> Msg: Compiled 'user'
             |  -> Data kind: compile-report
@@ -151,14 +151,7 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
 
         assertNoDiff(
           firstCompiledState.lastDiagnostics(build.userProject),
-          """#2: task start 4
-            |  -> Msg: Start no-op compilation for user
-            |  -> Data kind: compile-task
-            |#2: task finish 4
-            |  -> errors 0, warnings 0
-            |  -> Msg: Compiled 'user'
-            |  -> Data kind: compile-report
-        """.stripMargin
+          "" // expect None here since it's a no-op which turns into ""
         )
 
         // Same check as before because no-op should not show any more input
@@ -242,10 +235,10 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
 
         assertNoDiff(
           firstCompiledState.lastDiagnostics(build.userProject),
-          """#1: task start 2
+          """#1: task start 1
             |  -> Msg: Compiling user (2 Scala sources)
             |  -> Data kind: compile-task
-            |#1: task finish 2
+            |#1: task finish 1
             |  -> errors 0, warnings 0
             |  -> Msg: Compiled 'user'
             |  -> Data kind: compile-report
@@ -335,10 +328,10 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
 
         assertNoDiff(
           secondCompiledState.lastDiagnostics(build.userProject),
-          """#2: task start 4
+          """#2: task start 2
             |  -> Msg: Compiling user (1 Scala source)
             |  -> Data kind: compile-task
-            |#2: task finish 4
+            |#2: task finish 2
             |  -> errors 0, warnings 0
             |  -> Msg: Compiled 'user'
             |  -> Data kind: compile-report
@@ -426,10 +419,10 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
         // First compilation should not report warning
         assertNoDiff(
           firstCompiledState.lastDiagnostics(build.userProject),
-          """#1: task start 2
+          """#1: task start 1
             |  -> Msg: Compiling user (2 Scala sources)
             |  -> Data kind: compile-task
-            |#1: task finish 2
+            |#1: task finish 1
             |  -> errors 0, warnings 0
             |  -> Msg: Compiled 'user'
             |  -> Data kind: compile-report
@@ -585,13 +578,13 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
         // We reproduce the same streaming side effects during compilation
         assertNoDiff(
           firstCompiledState.lastDiagnostics(`B`),
-          """#1: task start 2
+          """#1: task start 1
             |  -> Msg: Compiling b (1 Scala source)
             |  -> Data kind: compile-task
             |#1: b/src/B.scala
             |  -> List(Diagnostic(Range(Position(2,28),Position(2,28)),Some(Error),Some(_),Some(_),type mismatch;  found   : Int  required: String,None,None,Some({"actions":[]})))
             |  -> reset = true
-            |#1: task finish 2
+            |#1: task finish 1
             |  -> errors 1, warnings 0
             |  -> Msg: Compiled 'b'
             |  -> Data kind: compile-report
@@ -666,13 +659,13 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
 
         assertNoDiff(
           secondBspState.lastDiagnostics(`B`),
-          """#2: task start 4
+          """#2: task start 2
             |  -> Msg: Compiling b (1 Scala source)
             |  -> Data kind: compile-task
             |#2: b/src/B.scala
             |  -> List(Diagnostic(Range(Position(2,28),Position(2,28)),Some(Error),Some(_),Some(_),type mismatch;  found   : Int  required: String,None,None,Some({"actions":[]})))
             |  -> reset = true
-            |#2: task finish 4
+            |#2: task finish 2
             |  -> errors 1, warnings 0
             |  -> Msg: Compiled 'b'
             |  -> Data kind: compile-report
@@ -766,13 +759,13 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
 
         assertNoDiff(
           thirdBspState.lastDiagnostics(`B`),
-          """#3: task start 6
+          """#3: task start 3
             |  -> Msg: Compiling b (1 Scala source)
             |  -> Data kind: compile-task
             |#3: b/src/B.scala
             |  -> List()
             |  -> reset = true
-            |#3: task finish 6
+            |#3: task finish 3
             |  -> errors 0, warnings 0
             |  -> Msg: Compiled 'b'
             |  -> Data kind: compile-report
@@ -923,10 +916,10 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
           assertNoDiff(
             firstCompiledState.lastDiagnostics(`B`),
             s"""
-               |#1: task start 2
+               |#1: task start 1
                |  -> Msg: Compiling b (6 Scala sources)
                |  -> Data kind: compile-task
-               |#1: task finish 2
+               |#1: task finish 1
                |  -> errors 0, warnings 0
                |  -> Msg: Compiled 'b'
                |  -> Data kind: compile-report

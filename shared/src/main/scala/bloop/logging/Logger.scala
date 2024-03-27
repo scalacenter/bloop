@@ -2,6 +2,8 @@ package bloop.logging
 
 import java.util.function.Supplier
 
+import bloop.io.Environment
+
 abstract class Logger extends xsbti.Logger with BaseSbtLogger {
 
   /** The name of the logger */
@@ -31,7 +33,12 @@ abstract class Logger extends xsbti.Logger with BaseSbtLogger {
   override def info(msg: Supplier[String]): Unit = info(msg.get)
   override def trace(exception: Supplier[Throwable]): Unit = trace(exception.get())
 
-  def report(msg: String, t: Throwable): Unit = { error(msg); trace(t) }
+  def error(msg: String, t: Throwable): Unit = {
+    error(
+      msg + Environment.lineSeparator + Logger.prettyPrintException(t)
+    )
+  }
+
   def handleCompilationEvent(): Unit = ()
 
   /** Display a message as a warning to user using `showMessage` in BSP-based loggers and `warn` otherwise. */
@@ -47,4 +54,13 @@ abstract class Logger extends xsbti.Logger with BaseSbtLogger {
 private[logging] trait BaseSbtLogger extends sbt.testing.Logger {
   private[logging] def printDebug(line: String): Unit
   override def debug(msg: String): Unit = printDebug(msg)
+}
+
+object Logger {
+  def prettyPrintException(t: Throwable): String = {
+    val sw = new java.io.StringWriter()
+    val pw = new java.io.PrintWriter(sw)
+    t.printStackTrace(pw)
+    sw.toString()
+  }
 }

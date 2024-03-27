@@ -145,6 +145,7 @@ object Operations {
         val writeOutputToOpt0 =
           if (bloopServerSupportsFileTruncating) Some(s.outputPath)
           else None
+
         (Seq(s"daemon:${s.path}"), "bloop.Bloop", writeOutputToOpt0)
     }
 

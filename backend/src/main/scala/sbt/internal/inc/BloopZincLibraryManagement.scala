@@ -29,6 +29,7 @@ object BloopZincLibraryManagement {
       componentProvider: ComponentProvider,
       secondaryCacheDir: Option[File],
       compilerBridgeSource: ModuleID,
+      classpathOptions: ClasspathOptions,
       logger: _root_.bloop.logging.Logger
   ): AnalyzingCompiler = {
     val compilerBridgeProvider = BloopComponentCompiler.interfaceProvider(
@@ -40,7 +41,7 @@ object BloopZincLibraryManagement {
     new AnalyzingCompiler(
       scalaInstance,
       compilerBridgeProvider,
-      ClasspathOptionsUtil.boot(),
+      classpathOptions,
       _ => (),
       loader
     )

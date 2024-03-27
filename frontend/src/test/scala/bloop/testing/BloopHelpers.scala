@@ -21,6 +21,7 @@ import bloop.io.ParallelOps
 import bloop.io.ParallelOps.CopyMode
 import bloop.io.RelativePath
 import bloop.logging.Logger
+import bloop.logging.NoopLogger
 import bloop.logging.RecordingLogger
 import bloop.task.Task
 import bloop.util.TestProject
@@ -28,7 +29,6 @@ import bloop.util.TestUtil
 
 import monix.execution.CancelableFuture
 import monix.execution.Scheduler
-import bloop.logging.NoopLogger
 
 trait BloopHelpers {
   def loadState(

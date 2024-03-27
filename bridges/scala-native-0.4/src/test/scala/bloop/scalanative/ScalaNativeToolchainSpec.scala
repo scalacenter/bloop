@@ -53,7 +53,8 @@ class ScalaNativeToolchainSpec {
     val resultingState = TestUtil.blockingExecute(action, state, maxDuration * 3)
 
     assertTrue(s"Linking failed: ${logger.getMessages.mkString("\n")}", resultingState.status.isOk)
-    logger.getMessages.assertContain("Optimizing (release-full mode)", atLevel = "info")
+    // nothing is printed for fast release
+    logger.getMessages.assertContain("Generated native binary", atLevel = "info")
   }
 
   @Test def canRunScalaNativeProjectDefaultMainClass(): Unit = {

@@ -295,13 +295,7 @@ final class BspProjectReporter(
   ): Unit = {
     val problemsInPreviousAnalysisPerFile = Reporter.groupProblemsByFile(previousSuccessfulProblems)
 
-    def mockNoOpCompileEventsAndEnd: CompilationEvent.EndCompilation = {
-      // When no-op, we keep reporting the start and the end of compilation for consistency
-      val startMsg = s"Start no-op compilation for ${project.name}"
-      logger.publishCompilationStart(
-        CompilationEvent.StartCompilation(project.name, project.bspUri, startMsg, taskId)
-      )
-
+    def recheckProblems = {
       recentlyReportProblemsPerFile.foreach {
         case (sourceFile, problemsPerFile) if reportAllPreviousProblems =>
           reportAllProblems(sourceFile, problemsPerFile)
@@ -326,30 +320,17 @@ final class BspProjectReporter(
               logger.noDiagnostic(CompilationEvent.NoDiagnostic(project.bspUri, sourceFile))
           }
       }
-
-      val liftedProblems = allProblems.toIterator.map(super.liftFatalWarning(_)).toList
-      CompilationEvent.EndCompilation(
-        project.name,
-        project.bspUri,
-        taskId,
-        liftedProblems,
-        code,
-        isNoOp = true,
-        isLastCycle = true,
-        clientClassesDir,
-        clientAnalysisOut
-      )
     }
 
-    endEvent = Some(
-      if (cycleCount.get == 0) mockNoOpCompileEventsAndEnd
-      else {
-        // Great, let's report the pending end incremental cycle as the last one
-        val inputs =
-          CycleInputs(true, problemsInPreviousAnalysisPerFile, clientClassesDir, clientAnalysisOut)
-        processEndPreviousCycle(inputs, Some(code))
-      }
-    )
+    endEvent = if (cycleCount.get == 0) {
+      recheckProblems
+      None
+    } else {
+      // Great, let's report the pending end incremental cycle as the last one
+      val inputs =
+        CycleInputs(true, problemsInPreviousAnalysisPerFile, clientClassesDir, clientAnalysisOut)
+      Some(processEndPreviousCycle(inputs, Some(code)))
+    }
 
     // Clear the state of files with problems at the end of compilation
     clearedFilesForClient.clear()
