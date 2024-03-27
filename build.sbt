@@ -160,7 +160,7 @@ lazy val frontend: Project = project
       Dependencies.scalaDebugAdapter,
       Dependencies.bloopConfig,
       Dependencies.logback,
-      Dependencies.oslib % Test,
+      Dependencies.oslib % Test
     ),
     // needed for tests and to be automatically updated
     Test / libraryDependencies += Dependencies.semanticdb intransitive (),
