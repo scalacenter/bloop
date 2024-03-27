@@ -72,7 +72,7 @@ object Dependencies {
   def scalaJsSbtTestAdapter1 = ivy"org.scala-js::scalajs-sbt-test-adapter:$scalaJs1Version"
   def scalaJsLogging1        = ivy"org.scala-js::scalajs-logging:1.1.1"
   def scalaNativeTools04     = ivy"org.scala-native::tools:0.4.17"
-  def scalaNativeTools04     = ivy"org.scala-native::tools:0.5.0-RC2"
+  def scalaNativeTools05     = ivy"org.scala-native::tools:0.5.0-RC2"
   def scalazCore             = ivy"org.scalaz::scalaz-core:7.3.8"
   def snailgun      = ivy"io.github.alexarchambault.scala-cli.snailgun::snailgun-core:0.4.1-sc2"
   def sourcecode    = ivy"com.lihaoyi::sourcecode:0.3.1"
@@ -540,9 +540,13 @@ object bridges extends Module {
     }
   }
 
-  object `scala-native-04` extends Cross[ScalaNative](4, Dependencies.scalaVersions: _*)
-  object `scala-native-05` extends Cross[ScalaNative](5, Dependencies.scalaVersions: _*)
-  class ScalaNative(nativeMajorVersion: Int, val crossScalaVersion: String)
+  object `scala-native-04` extends Cross[ScalaNative04](Dependencies.scalaVersions: _*)
+  object `scala-native-05` extends Cross[ScalaNative05](Dependencies.scalaVersions: _*)
+  
+  class ScalaNative04(val crossScalaVersion: String) extends ScalaNative(crossScalaVersion, 4)
+  class ScalaNative05(val crossScalaVersion: String) extends ScalaNative(crossScalaVersion, 5)
+
+  class ScalaNative(val crossScalaVersion: String, nativeMajorVersion: Int)
       extends BloopCrossSbtModule
       with BloopPublish {
     def artifactName = s"bloop-native-bridge-0-$nativeMajorVersion"
