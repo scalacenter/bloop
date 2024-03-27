@@ -118,7 +118,7 @@ jobs:
           .github/scripts/generate-native-image-windows.sh
         shell: bash
         if: runner.os == 'Windows'
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: launchers
           path: artifacts/
@@ -146,7 +146,7 @@ jobs:
       - uses: coursier/setup-action@v1.3.0
         with:
           jvm: "zulu:17"
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: launchers
           path: artifacts/
