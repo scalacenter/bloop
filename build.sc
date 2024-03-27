@@ -64,7 +64,7 @@ object Dependencies {
   def pprint                 = ivy"com.lihaoyi::pprint:0.8.1"
   def sbtTestAgent           = ivy"org.scala-sbt:test-agent:1.9.7"
   def sbtTestInterface       = ivy"org.scala-sbt:test-interface:1.0"
-  def scalaDebugAdapter      = ivy"ch.epfl.scala::scala-debug-adapter:3.1.4"
+  def scalaDebugAdapter      = ivy"ch.epfl.scala::scala-debug-adapter:3.1.5"
   def scalaJsLinker1         = ivy"org.scala-js::scalajs-linker:$scalaJs1Version"
   def scalaJsEnvs1           = ivy"org.scala-js::scalajs-js-envs:$scalaJsEnvsVersion"
   def scalaJsEnvNode1        = ivy"org.scala-js::scalajs-env-nodejs:$scalaJsEnvsVersion"
