@@ -39,12 +39,10 @@ class SnailgunClient(openSocket: () => Socket) extends snailgun.Client {
       catch {
         case t: SocketException =>
           logger.debug("Tracing an ignored socket exception...")
-          logger.trace(t)
-          ()
+          logger.trace(t)()
         case t: SocketExceptionLike =>
           logger.debug("Tracing an ignored socket exception-like...")
-          logger.trace(t)
-          ()
+          logger.trace(t)()
       }
   }
 }

@@ -542,7 +542,7 @@ object bridges extends Module {
 
   object `scala-native-04` extends Cross[ScalaNative04](Dependencies.scalaVersions: _*)
   object `scala-native-05` extends Cross[ScalaNative05](Dependencies.scalaVersions: _*)
-  
+
   class ScalaNative04(val crossScalaVersion: String) extends ScalaNative(crossScalaVersion, 4)
   class ScalaNative05(val crossScalaVersion: String) extends ScalaNative(crossScalaVersion, 5)
 

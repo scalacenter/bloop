@@ -28,7 +28,7 @@ class BspMetalsClientSpec(
     override val protocol: BspProtocol
 ) extends BspBaseSuite {
   private val testedScalaVersion = BuildInfo.scalaVersion
-  private val semanticdbVersion = "4.8.4"
+  private val semanticdbVersion = "4.9.2"
   private val javaSemanticdbVersion = "0.5.7"
 
   private val semanticdbJar = s"semanticdb-scalac_$testedScalaVersion-$semanticdbVersion.jar"

@@ -144,8 +144,7 @@ object Operations {
       case s: BloopRifleConfig.Address.DomainSocket =>
         val writeOutputToOpt0 =
           if (bloopServerSupportsFileTruncating) Some(s.outputPath)
-          else None
-        (Seq(s"daemon:${s.path}"), "bloop.Bloop", writeOutputToOpt0)
+          else None(Seq(s"daemon:${s.path}"), "bloop.Bloop", writeOutputToOpt0)
     }
 
     val extraJavaOpts =
