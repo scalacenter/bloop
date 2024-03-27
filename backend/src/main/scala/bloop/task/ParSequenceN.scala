@@ -47,10 +47,8 @@ private[task] object ParSequenceN {
 
         Task.chooseFirstOf(Task.fromFuture(errorPromise.future), workers).flatMap {
           case Left((err, fb)) =>
-            Task.raiseError {
-              fb.cancel()
-              err
-            }
+            fb.cancel()
+            Task.raiseError(err)
           case Right((fa, _)) =>
             fa.cancel()
             val values = pairs.unzip._1.toVector.map(p => Task.fromFuture(p.future))
