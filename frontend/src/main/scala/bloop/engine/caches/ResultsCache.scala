@@ -4,6 +4,7 @@ import java.nio.file.NoSuchFileException
 import java.nio.file.Path
 import java.util.Optional
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.TimeUnit
 
 import scala.collection.mutable
 import scala.concurrent.Await
@@ -159,7 +160,10 @@ object ResultsCache {
       logger: Logger
   ): ResultsCache = {
     val handle = loadAsync(build, cwd, cleanOrphanedInternalDirs, logger)
-    Await.result(handle.runAsync(ExecutionContext.ioScheduler), Duration.Inf)
+    Await.result(
+      handle.runAsync(ExecutionContext.ioScheduler),
+      Duration.apply(30, TimeUnit.SECONDS)
+    )
   }
 
   def loadAsync(
