@@ -16,7 +16,7 @@ jobs:
         with:
           submodules: true
           fetch-depth: 0
-      - uses: coursier/setup-action@v1.3.0
+      - uses: coursier/setup-action@v1.3.5
         with:
           apps: scalafmt
           jvm: "temurin:17"
