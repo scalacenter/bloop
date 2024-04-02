@@ -276,17 +276,18 @@ final class BspProjectReporter(
   override def reportCancelledCompilation(): Unit = ()
 
   private var endEvent: Option[CompilationEvent.EndCompilation] = None
+  private var wasEndProcessed: Boolean = false
   override def reportEndCompilation(): Unit = {
     endEvent match {
       case Some(end) => logger.publishCompilationEnd(end)
-      case None =>
+      case None if !wasEndProcessed =>
         logger.error(
           "Fatal invariant violated: `reportEndCompilation` was called before `processEndCompilation`"
         )
+      case _ =>
     }
   }
 
-  //
   override def processEndCompilation(
       previousSuccessfulProblems: List[ProblemPerPhase],
       code: bsp.StatusCode,
@@ -321,7 +322,7 @@ final class BspProjectReporter(
           }
       }
     }
-
+    wasEndProcessed = true
     endEvent = if (cycleCount.get == 0) {
       recheckProblems
       None
