@@ -1,6 +1,8 @@
 package bloop.bsp
 
 import java.net.URI
+import java.net.URLDecoder
+import java.nio.charset.StandardCharsets
 import java.nio.file.Path
 
 import scala.util.Try
@@ -21,7 +23,9 @@ object ProjectUris {
           Left(s"URI '${projectUri}' has invalid format. Example: ${ProjectUris.Example}")
         case Right(parsed) =>
           parsed.headOption match {
-            case Some(Array("id", projectName)) => Right(state.build.getProjectFor(projectName))
+            case Some(Array("id", projectName)) =>
+              val name = URLDecoder.decode(projectName, StandardCharsets.UTF_8)
+              Right(state.build.getProjectFor(name))
             case _ =>
               Left(s"URI '${projectUri}' has invalid format. Example: ${ProjectUris.Example}")
           }

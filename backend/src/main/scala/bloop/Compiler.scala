@@ -8,7 +8,7 @@ import java.util.concurrent.Executor
 
 import scala.collection.mutable
 import scala.concurrent.Promise
-import scala.util.control.NonFatal
+import scala.util.Try
 
 import bloop.io.AbsolutePath
 import bloop.io.ParallelOps
@@ -40,7 +40,6 @@ import sbt.util.InterfaceUtil
 import xsbti.T2
 import xsbti.VirtualFileRef
 import xsbti.compile._
-import scala.util.Try
 
 case class CompileInputs(
     scalaInstance: ScalaInstance,
