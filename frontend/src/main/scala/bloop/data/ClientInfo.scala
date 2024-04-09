@@ -11,11 +11,11 @@ import scala.collection.mutable
 import scala.util.control.NonFatal
 import scala.util.matching.Regex
 
+import bloop.ClientClassesObserver
 import bloop.io.AbsolutePath
 import bloop.io.Filenames
 import bloop.io.Paths
 import bloop.util.UUIDUtil
-import bloop.ClientClassesObserver
 
 sealed trait ClientInfo {
 
