@@ -160,6 +160,11 @@ sealed trait Task[+A] { self =>
   def as[B](b: => B): Task[B] =
     self.map(_ => b)
 
+  def void: Task[Unit] =
+    self.map(_ => ())
+
+  @inline def unit(): Task[Unit] = as(())
+
   def timeoutTo[B >: A](duration: FiniteDuration, backup: Task[B]): Task[B] = {
     Task
       .chooseFirstOf(
@@ -168,9 +173,10 @@ sealed trait Task[+A] { self =>
       )
       .flatMap {
         case Left((a, _)) =>
+          // there no need to cancel fb - it's just sleeping
           Task.now(a)
-        case Right((a, _)) =>
-          a.cancel()
+        case Right((fa, _)) =>
+          fa.cancel()
           backup
       }
   }
@@ -483,10 +489,8 @@ object Task {
     }
   }
 
-  def parSequenceN[A](n: Int)(in: Iterable[Task[A]]): Task[List[A]] = {
-    val chunks = in.grouped(n).toList.map(group => Task.parSequence(group))
-    Task.sequence(chunks).map(_.flatten)
-  }
+  def parSequenceN[A](n: Int)(in: Iterable[Task[A]]): Task[Vector[A]] =
+    ParSequenceN.parSequenceN(n)(in)
 
   def fromFuture[A](f: Future[A]): Task[A] =
     Wrap(MonixTask.fromFuture(f), List.empty)

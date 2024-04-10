@@ -73,6 +73,9 @@ object Dependencies {
 
   val utest = "com.lihaoyi" %% "utest" % "0.8.2"
   val pprint = "com.lihaoyi" %% "pprint" % "0.8.1"
+  val oslib = "com.lihaoyi" %% "os-lib" % "0.8.1"
+
+  val scalacheck = "org.scalacheck" %% "scalacheck" % "1.13.4"
   val junit = "com.github.sbt" % "junit-interface" % junitVersion
   val directoryWatcher = "ch.epfl.scala" % "directory-watcher" % directoryWatcherVersion
   val difflib = "com.googlecode.java-diff-utils" % "diffutils" % difflibVersion
