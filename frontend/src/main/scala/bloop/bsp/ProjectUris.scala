@@ -1,8 +1,6 @@
 package bloop.bsp
 
 import java.net.URI
-import java.net.URLDecoder
-import java.nio.charset.StandardCharsets
 import java.nio.file.Path
 
 import scala.util.Try
@@ -14,21 +12,16 @@ import bloop.engine.State
 import bloop.io.AbsolutePath
 
 object ProjectUris {
+  private val queryPrefix = "id="
   def getProjectDagFromUri(projectUri: String, state: State): Either[String, Option[Project]] = {
     if (projectUri.isEmpty) Left("URI cannot be empty.")
     else {
-      val query = Try(new URI(projectUri).getRawQuery().split("&").map(_.split("="))).toEither
-      query match {
-        case Left(_) =>
+      Try(new URI(projectUri).getQuery()).toEither match {
+        case Right(query) if query.startsWith(queryPrefix) =>
+          val projectName = query.stripPrefix(queryPrefix)
+          Right(state.build.getProjectFor(projectName))
+        case _ =>
           Left(s"URI '${projectUri}' has invalid format. Example: ${ProjectUris.Example}")
-        case Right(parsed) =>
-          parsed.headOption match {
-            case Some(Array("id", projectName)) =>
-              val name = URLDecoder.decode(projectName, StandardCharsets.UTF_8)
-              Right(state.build.getProjectFor(name))
-            case _ =>
-              Left(s"URI '${projectUri}' has invalid format. Example: ${ProjectUris.Example}")
-          }
       }
     }
   }
@@ -43,7 +36,7 @@ object ProjectUris {
       existingUri.getHost,
       existingUri.getPort,
       existingUri.getPath,
-      s"id=${id}",
+      s"$queryPrefix${id}",
       existingUri.getFragment
     )
   }
