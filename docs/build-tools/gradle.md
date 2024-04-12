@@ -101,7 +101,7 @@ You can safely ignore such messsages.
 ## Verify installation and export
 
 > Remember that the build server must be running in the background, as suggested by the [Setup
-page](/setup).
+page](/bloop/setup).
 
 Verify your installation by running `bloop projects` in the root of the gradle workspace directory.
 
