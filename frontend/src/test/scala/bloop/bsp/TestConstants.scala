@@ -18,6 +18,7 @@ object TestConstants {
         "dependencySourcesProvider": true,
         "dependencyModulesProvider": true,
         "resourcesProvider": true,
+        "outputPathsProvider":true,
         "buildTargetChangedProvider": false,
         "jvmRunEnvironmentProvider": true,
         "jvmTestEnvironmentProvider": true,
