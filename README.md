@@ -30,5 +30,5 @@ support many different workflows and allow bespoke integrations.
 | ❓Questions? Unsure if bloop is useful for your use case? Ask right away in our [Discord channel](https://discord.gg/KWF9zMhJWS)! |
 
 [discord]: https://discord.gg/KWF9zMhJWS
-[contributing]: https://scalacenter.github.io/bloop/docs/developer-documentation/
+[contributing]: https://scalacenter.github.io/bloop/docs/contributing-guide
 [coc]: https://www.scala-lang.org/conduct/

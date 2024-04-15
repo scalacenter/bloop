@@ -130,6 +130,7 @@ final class BloopBspServices(
     .requestAsync(endpoints.BuildTarget.sources)(p => schedule(sources(p)))
     .requestAsync(endpoints.BuildTarget.inverseSources)(p => schedule(inverseSources(p)))
     .requestAsync(endpoints.BuildTarget.resources)(p => schedule(resources(p)))
+    .requestAsync(endpoints.BuildTarget.outputPaths)(p => schedule(outputPaths(p)))
     .requestAsync(endpoints.BuildTarget.scalacOptions)(p => schedule(scalacOptions(p)))
     .requestAsync(endpoints.BuildTarget.javacOptions)(p => schedule(javacOptions(p)))
     .requestAsync(endpoints.BuildTarget.compile)(p => schedule(compile(p)))
@@ -311,7 +312,7 @@ final class BloopBspServices(
               dependencySourcesProvider = Some(true),
               dependencyModulesProvider = Some(true),
               resourcesProvider = Some(true),
-              outputPathsProvider = None,
+              outputPathsProvider = Some(true),
               buildTargetChangedProvider = Some(false),
               jvmTestEnvironmentProvider = Some(true),
               jvmRunEnvironmentProvider = Some(true),
@@ -1200,6 +1201,39 @@ final class BloopBspServices(
           logger.error(error)
           Task.now((state, Right(bsp.ResourcesResult(Nil))))
         case Right(mappings) => resources(mappings, state)
+      }
+    }
+  }
+
+  def outputPaths(
+      request: bsp.OutputPathsParams
+  ): BspEndpointResponse[bsp.OutputPathsResult] = {
+    def outputPaths(
+        projects: Seq[ProjectMapping],
+        state: State
+    ): BspResult[bsp.OutputPathsResult] = {
+
+      val response = bsp.OutputPathsResult(
+        projects.iterator.map {
+          case (target, project) =>
+            val outputPathItems =
+              List(
+                bsp.OutputPathItem(bsp.Uri(project.out.toBspUri), bsp.OutputPathItemKind.Directory)
+              )
+            bsp.OutputPathsItem(target, outputPathItems)
+        }.toList
+      )
+
+      Task.now((state, Right(response)))
+    }
+
+    ifInitialized(None) { (state: State, logger: BspServerLogger) =>
+      mapToProjects(request.targets, state) match {
+        case Left(error) =>
+          // Log the mapping error to the user via a log event + an error status code
+          logger.error(error)
+          Task.now((state, Right(bsp.OutputPathsResult(Nil))))
+        case Right(mappings) => outputPaths(mappings, state)
       }
     }
   }
