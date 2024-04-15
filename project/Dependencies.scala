@@ -71,7 +71,7 @@ object Dependencies {
   val ztExec = "org.zeroturnaround" % "zt-exec" % ztExecVersion
   val logback = "ch.qos.logback" % "logback-classic" % "1.3.14"
 
-  val utest = "com.lihaoyi" %% "utest" % "0.8.2"
+  val utest = "com.lihaoyi" %% "utest" % "0.8.3"
   val pprint = "com.lihaoyi" %% "pprint" % "0.9.0"
   val junit = "com.github.sbt" % "junit-interface" % junitVersion
   val directoryWatcher = "ch.epfl.scala" % "directory-watcher" % directoryWatcherVersion
