@@ -1,5 +1,5 @@
 addSbtPlugin("org.portable-scala" % "sbt-scala-native-crossproject" % "1.0.0")
-addSbtPlugin("org.scala-native" % "sbt-scala-native" % "0.5.0")
+addSbtPlugin("org.scala-native" % "sbt-scala-native" % "0.5.1")
 
 val pluginVersion = sys.props.getOrElse(
   "bloopVersion",
