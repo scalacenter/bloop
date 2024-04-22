@@ -1032,7 +1032,7 @@ object BloopDefaults {
             val c = Keys.classpathOptions.value
             val java = Config.Java(javacOptions)
             val compileSetup = Config.CompileSetup(compileOrder, c.bootLibrary, c.compiler, c.extra, c.autoBoot, c.filterLibrary)
-            val `scala` = Config.Scala(scalaOrg, scalaName, scalaVersion, scalacOptions, allScalaJars, None, Some(compileSetup))
+            val `scala` = Config.Scala(scalaOrg, scalaName, scalaVersion, scalacOptions, allScalaJars, None, Some(compileSetup), None)
             val resources = Some(bloopResourcesTask.value)
 
             val sbt = None // Written by `postGenerate` instead
