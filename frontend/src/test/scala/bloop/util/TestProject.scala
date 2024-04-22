@@ -160,7 +160,8 @@ abstract class BaseTestProject {
       scalacOptions,
       allJars.map(_.underlying).toList,
       None,
-      Some(setup)
+      Some(setup),
+      None
     )
 
     val javacConfig = Config.Java(javacOptions)
