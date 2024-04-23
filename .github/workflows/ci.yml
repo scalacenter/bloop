@@ -38,6 +38,7 @@ jobs:
       - uses: coursier/setup-action@v1.3.0
         with:
           jvm: "temurin:17"
+          apps: sbt
       - name: Tests
         run: |
           .github/setup-test-projects.sh &&\
@@ -64,6 +65,7 @@ jobs:
       - uses: coursier/setup-action@v1.3.0
         with:
           jvm: "temurin:17"
+          apps: sbt
       - name: Compile and test main projects
         # Only running the tests in 2.12 for now. Many test fixtures need
         # to be updated for 2.13.
