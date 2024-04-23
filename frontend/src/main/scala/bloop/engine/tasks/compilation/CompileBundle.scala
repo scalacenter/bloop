@@ -2,6 +2,7 @@ package bloop.engine.tasks.compilation
 
 import scala.concurrent.Promise
 
+import bloop.ClientClassesObserver
 import bloop.CompileOutPaths
 import bloop.Compiler
 import bloop.ScalaInstance
@@ -23,7 +24,6 @@ import bloop.tracing.BraveTracer
 
 import monix.reactive.Observable
 import sbt.internal.inc.PlainVirtualFileConverter
-import bloop.ClientClassesObserver
 
 sealed trait CompileBundle
 

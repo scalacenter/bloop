@@ -8,7 +8,7 @@ import java.util.concurrent.Executor
 
 import scala.collection.mutable
 import scala.concurrent.Promise
-import scala.util.control.NonFatal
+import scala.util.Try
 
 import bloop.io.AbsolutePath
 import bloop.io.ParallelOps

@@ -516,6 +516,37 @@ class BspProtocolSpec(
     }
   }
 
+  test("outputPaths request works") {
+    TestUtil.withinWorkspace { workspace =>
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      loadBspBuildFromResources("cross-test-build-scalajs-0.6", workspace, logger) { build =>
+        val mainProject = build.projectFor("test-project")
+        val testProject = build.projectFor("test-project-test")
+        val mainJsProject = build.projectFor("test-projectJS")
+        val testJsProject = build.projectFor("test-projectJS-test")
+        val rootMain = build.projectFor("cross-test-build-scalajs-0-6")
+        val rootTest = build.projectFor("cross-test-build-scalajs-0-6-test")
+
+        def checkOutputPaths(project: TestProject): Unit = {
+          val outputPathsResult = build.state.requestOutputPaths(project)
+          assert(outputPathsResult.items.size == 1)
+          val outputPathsItem = outputPathsResult.items.head
+          assert(outputPathsItem.target == project.bspId)
+          val outputPaths = outputPathsItem.outputPaths.map(_.uri.toPath)
+          val expectedOutputPaths = List(project.config.out.toAbsolutePath())
+          assert(outputPaths == expectedOutputPaths)
+        }
+
+        checkOutputPaths(mainProject)
+        checkOutputPaths(testProject)
+        checkOutputPaths(mainJsProject)
+        checkOutputPaths(testJsProject)
+        checkOutputPaths(rootMain)
+        checkOutputPaths(rootTest)
+      }
+    }
+  }
+
   test("dependency modules request works") {
     TestUtil.withinWorkspace { workspace =>
       val logger = new RecordingLogger(ansiCodesSupported = false)
