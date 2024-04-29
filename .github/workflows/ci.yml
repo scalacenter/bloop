@@ -29,7 +29,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macOS-latest]
+        os: [ubuntu-latest, macOS-12]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -50,7 +50,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macOS-latest]
+        os: [ubuntu-latest, windows-latest, macOS-12]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -80,7 +80,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macOS-latest]
+        os: [ubuntu-latest, windows-latest, macOS-12]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -103,7 +103,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macOS-latest]
+        os: [ubuntu-latest, windows-latest, macOS-12]
         jdk: ["22.3.0", "11"]
 
     name: Test ${{ matrix.os }} -- ${{ matrix.jdk }}
@@ -159,11 +159,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-20.04, macOS-latest, windows-latest]
+        os: [ubuntu-20.04, macOS-12, windows-latest]
         include:
           - os: ubuntu-20.04
             artifact: bloop-linux
-          - os: macos-latest
+          - os: macos-12
             artifact: bloop-macos
           - os: windows-latest
             artifact: bloop-windows
