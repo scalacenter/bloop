@@ -111,7 +111,7 @@ private final class BloopNameHashing(
               )
             debug("\nChanges:\n" + newApiChanges)
             val nextInvalidations = invalidateAfterInternalCompilation(
-              current.relations,
+              current,
               newApiChanges,
               recompiledClasses,
               cycleNum >= options.transitiveStep,
