@@ -682,11 +682,10 @@ final class BloopBspServices(
                       val dapLogger = new DebugServerLogger(logger)
                       val resolver = new BloopDebugToolsResolver(logger)
                       val handler =
-                        DebugServer.start(
+                        DebugServer.run(
                           debuggee,
                           resolver,
                           dapLogger,
-                          autoCloseSession = true,
                           gracePeriod = Duration(5, TimeUnit.SECONDS)
                         )(ioScheduler)
                       val listenAndUnsubscribe = Task
