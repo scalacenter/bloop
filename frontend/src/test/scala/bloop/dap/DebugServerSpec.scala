@@ -1209,7 +1209,7 @@ object DebugServerSpec extends DebugBspBaseSuite {
 
     val config = DebugConfig.default.copy(gracePeriod = gracePeriod)
     val server = DebugServer(debuggee, resolver, dapLogger, config = config)(defaultScheduler)
-    Task.fromFuture(server.start()).runAsync(defaultScheduler)
+    Task.fromFuture(server.run()).runAsync(defaultScheduler)
 
     val testServer = new TestServer(server)
     f(testServer)

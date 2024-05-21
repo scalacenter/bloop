@@ -17,7 +17,7 @@ import scala.concurrent.duration.{Duration, DurationInt}
 
 object Dependencies {
   def scala212 = "2.12.19"
-  def scala213 = "2.13.13"
+  def scala213 = "2.13.14"
 
   def scalaVersions = Seq(scala212, scala213)
 
@@ -53,7 +53,7 @@ object Dependencies {
   def jsonrpc4s              = ivy"io.github.alexarchambault.bleep::jsonrpc4s:0.1.1"
   def junit                  = ivy"com.github.sbt:junit-interface:0.13.3"
   def libdaemonjvm           = ivy"io.github.alexarchambault.libdaemon::libdaemon:0.0.11"
-  def libraryManagement      = ivy"org.scala-sbt::librarymanagement-ivy:1.9.3"
+  def libraryManagement      = ivy"org.scala-sbt::librarymanagement-ivy:1.10.0"
   def log4j                  = ivy"org.apache.logging.log4j:log4j-core:2.23.0"
   def logback                = ivy"ch.qos.logback:logback-classic:1.4.14"
   def macroParadise          = ivy"org.scalamacros:::paradise:2.1.1"
@@ -62,9 +62,9 @@ object Dependencies {
   def nailgun                = ivy"io.github.alexarchambault.bleep:nailgun-server:1.0.7"
   def osLib                  = ivy"com.lihaoyi::os-lib:0.9.0"
   def pprint                 = ivy"com.lihaoyi::pprint:0.9.0"
-  def sbtTestAgent           = ivy"org.scala-sbt:test-agent:1.9.9"
+  def sbtTestAgent           = ivy"org.scala-sbt:test-agent:1.10.0"
   def sbtTestInterface       = ivy"org.scala-sbt:test-interface:1.0"
-  def scalaDebugAdapter      = ivy"ch.epfl.scala::scala-debug-adapter:4.0.3"
+  def scalaDebugAdapter      = ivy"ch.epfl.scala::scala-debug-adapter:4.1.1"
   def scalaJsLinker1         = ivy"org.scala-js::scalajs-linker:$scalaJs1Version"
   def scalaJsEnvs1           = ivy"org.scala-js::scalajs-js-envs:$scalaJsEnvsVersion"
   def scalaJsEnvNode1        = ivy"org.scala-js::scalajs-env-nodejs:$scalaJsEnvsVersion"
@@ -79,7 +79,7 @@ object Dependencies {
   def svm           = ivy"org.graalvm.nativeimage:svm:$graalvmVersion"
   def utest         = ivy"com.lihaoyi::utest:0.8.3"
   def xxHashLibrary = ivy"net.jpountz.lz4:lz4:1.3.0"
-  def zinc          = ivy"org.scala-sbt::zinc:1.9.5"
+  def zinc          = ivy"org.scala-sbt::zinc:1.10.0"
   def zipkinSender  = ivy"io.zipkin.reporter2:zipkin-sender-urlconnection:2.17.2"
   def zt            = ivy"org.zeroturnaround:zt-zip:1.17"
 
