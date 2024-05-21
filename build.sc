@@ -53,7 +53,7 @@ object Dependencies {
   def jsonrpc4s              = ivy"io.github.alexarchambault.bleep::jsonrpc4s:0.1.1"
   def junit                  = ivy"com.github.sbt:junit-interface:0.13.3"
   def libdaemonjvm           = ivy"io.github.alexarchambault.libdaemon::libdaemon:0.0.11"
-  def libraryManagement      = ivy"org.scala-sbt::librarymanagement-ivy:1.9.3"
+  def libraryManagement      = ivy"org.scala-sbt::librarymanagement-ivy:1.10.0"
   def log4j                  = ivy"org.apache.logging.log4j:log4j-core:2.23.0"
   def logback                = ivy"ch.qos.logback:logback-classic:1.4.14"
   def macroParadise          = ivy"org.scalamacros:::paradise:2.1.1"
