@@ -33,7 +33,7 @@ public class ForkedAsyncProfiler implements InternalProfiler {
   private static final long DEFAULT_INTERVAL = 1000000;
 
   private final String event;
-  private final Directions directions;
+  private final Direction direction;
   private final Path asyncProfilerDir;
   private final boolean threads;
   private final Boolean simpleName;
@@ -64,7 +64,7 @@ public class ForkedAsyncProfiler implements InternalProfiler {
     OptionSpec<Boolean> threads = parser.accepts("threads", "Profile threads separately").withRequiredArg().ofType(Boolean.class).defaultsTo(false,true);
     OptionSpec<Boolean> verbose = parser.accepts("verbose", "Output the sequence of commands").withRequiredArg().ofType(Boolean.class).defaultsTo(false);
     OptionSpec<String> flameGraphOpts = parser.accepts("flameGraphOpts", "Options passed to FlameGraph.pl").withRequiredArg().withValuesSeparatedBy(',').ofType(String.class);
-    OptionSpec<Directions> flameGraphDirection = parser.accepts("flameGraphDirection", "Directions to generate flamegraphs").withRequiredArg().ofType(Directions.class).defaultsTo(Directions.values());
+    OptionSpec<Direction> flameGraphDirection = parser.accepts("flameGraphDirection", "Direction to generate flamegraphs").withRequiredArg().ofType(Direction.class).defaultsTo(Direction.values());
     OptionSpec<String> flameGraphDir = ProfilerUtils.addFlameGraphDirOption(parser);
     OptionSpec<Boolean> simpleName = parser.accepts("simpleName", "Use simple names in flamegraphs").withRequiredArg().ofType(Boolean.class);
     OptionSpec<Boolean> jfr = parser.accepts("jfr", "Also dump profiles from async-profiler in Java Flight Recorder format").withRequiredArg().ofType(Boolean.class);
@@ -94,9 +94,9 @@ public class ForkedAsyncProfiler implements InternalProfiler {
       this.flameGraphOpts = options.valuesOf(flameGraphOpts);
     }
     if (options.has(flameGraphDirection)) {
-      this.directions = options.valueOf(flameGraphDirection);
+      this.direction = options.valueOf(flameGraphDirection);
     } else {
-      this.directions = Directions.BOTH;
+      this.direction = Direction.BOTH;
     }
     if (options.has(threads)) {
       this.threads = options.valueOf(threads);
@@ -208,10 +208,10 @@ public class ForkedAsyncProfiler implements InternalProfiler {
         profilerCommand(String.format("stop,file=%s,summary", summaryPath));
         generated.add(summaryPath);
         if (flameGraphDir != null) {
-          if (EnumSet.of(Directions.FORWARD, Directions.BOTH).contains(directions)) {
+          if (EnumSet.of(Direction.FORWARD, Direction.BOTH).contains(direction)) {
             flameGraph(collapsedProcessedPath, Collections.emptyList(), "");
           }
-          if (EnumSet.of(Directions.REVERSE, Directions.BOTH).contains(directions)) {
+          if (EnumSet.of(Direction.REVERSE, Direction.BOTH).contains(direction)) {
             flameGraph(collapsedProcessedPath, Arrays.asList("--reverse"), "-reverse");
           }
         }
@@ -283,5 +283,9 @@ public class ForkedAsyncProfiler implements InternalProfiler {
   @Override
   public String getDescription() {
     return "Profiling using async-profiler";
+  }
+
+  public enum Direction {
+    FORWARD, REVERSE, BOTH,
   }
 }

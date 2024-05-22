@@ -14,7 +14,7 @@ import sbt.librarymanagement.MavenRepository
 import sbt.util.Logger
 import sbtbuildinfo.BuildInfoPlugin.{autoImport => BuildInfoKeys}
 import com.geirsson.CiReleasePlugin
-import ohnosequences.sbt.GithubRelease.{keys => GHReleaseKeys}
+import build.GithubRelease.{keys => GHReleaseKeys}
 
 object BuildPlugin extends AutoPlugin {
   import sbt.plugins.JvmPlugin

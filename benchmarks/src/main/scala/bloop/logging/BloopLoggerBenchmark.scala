@@ -3,12 +3,15 @@ package bloop.logging
 import java.io.PrintStream
 
 import org.openjdk.jmh.annotations.Benchmark
+import org.openjdk.jmh.annotations.Scope
+import org.openjdk.jmh.annotations.State
 
 object BloopLoggerBenchmark {
   private val devnull = new PrintStream(_ => ())
   val logger: BloopLogger = BloopLogger.at("benchmark", devnull, devnull, false, DebugFilter.All)
 }
 
+@State(Scope.Benchmark)
 class BloopLoggerBenchmark {
 
   @Benchmark
