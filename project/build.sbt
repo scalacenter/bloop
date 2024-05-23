@@ -1,13 +1,12 @@
 addSbtPlugin("org.portable-scala" % "sbt-scalajs-crossproject" % "1.3.2")
 addSbtPlugin("org.scala-js" % "sbt-scalajs" % "1.16.0")
 addSbtPlugin("com.github.sbt" % "sbt-dynver" % "5.0.1")
-addSbtPlugin("ohnosequences" % "sbt-github-release" % "0.7.0")
 addSbtPlugin("com.scalawilliam.esbeetee" % "sbt-vspp" % "0.4.11")
 addSbtPlugin("org.scalameta" % "sbt-scalafmt" % "2.5.2")
 addSbtPlugin("com.eed3si9n" % "sbt-buildinfo" % "0.12.0")
 // Bumping this will causes issues. The benchmark bridge
 // needs to be updated in order for us to bump to 0.4.x.
-addSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.3.7")
+addSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.7")
 addSbtPlugin("com.github.sbt" % "sbt-git" % "2.0.1")
 addSbtPlugin("com.github.sbt" % "sbt-ci-release" % "1.5.12")
 addSbtPlugin("org.scalameta" % "sbt-mdoc" % "2.5.2")
@@ -22,6 +21,7 @@ libraryDependencies ++= List(
   "org.eclipse.jgit" % "org.eclipse.jgit" % "5.13.3.202401111512-r",
   "org.eclipse.jgit" % "org.eclipse.jgit.ssh.jsch" % "5.13.3.202401111512-r",
   "commons-codec" % "commons-codec" % "1.17.0",
+  "org.kohsuke" % "github-api" % "1.321",
   ("ch.epfl.scala" % "jarjar" % "1.7.2-patched")
     .exclude("org.apache.ant", "ant")
 )
