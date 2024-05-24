@@ -197,7 +197,7 @@ object CompileGraph {
                 case a: ReporterAction.ProcessEndCompilation =>
                   a.code match {
                     case BspStatusCode.Cancelled | BspStatusCode.Error =>
-                      reporter.processEndCompilation(previousSuccessfulProblems, a.code, None, None)
+                      reporter.processEndCompilation(previousProblems, a.code, None, None)
                       reporter.reportEndCompilation()
                     case _ =>
                       /*
@@ -207,7 +207,7 @@ object CompileGraph {
                        * can use `taskFinish` notifications as a signal to process them.
                        */
                       reporter.processEndCompilation(
-                        previousSuccessfulProblems,
+                        previousProblems,
                         a.code,
                         Some(clientClassesObserver.classesDir),
                         Some(bundle.out.analysisOut)
