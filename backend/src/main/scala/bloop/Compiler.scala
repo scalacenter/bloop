@@ -639,7 +639,9 @@ object Compiler {
     def existsReleaseSetting = scalacOptions.exists(opt =>
       opt.startsWith("-release") ||
         opt.startsWith("--release") ||
-        opt.startsWith("-java-output-version")
+        opt.startsWith("-java-output-version") ||
+        opt.startsWith("-Xtarget") ||
+        opt.startsWith("-target")
     )
     def sameHome = javacBin match {
       case Some(bin) => bin.getParent.getParent == JavaRuntime.home
