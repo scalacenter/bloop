@@ -139,7 +139,7 @@ object Interpreter {
         }
 
         if (!bloop.util.CrossPlatform.isWindows)
-          state.logger.info(bloop.util.Console.clearCommand)
+          state.logger.info("\u001b[H\u001b[2J")
 
         // Force the first execution before relying on the file watching task
         fg(state).flatMap(newState => watcher.watch(newState, fg))
