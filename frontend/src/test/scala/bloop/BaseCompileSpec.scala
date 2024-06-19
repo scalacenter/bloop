@@ -1209,7 +1209,7 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
            |     incompatible types: int cannot be converted to java.lang.String
            |     L4: 123
            |                          ^^^
-           |a/src/Service.java: L4 [E1], L6 [E2]
+           |${TestUtil.universalPath("a/src/Service.java")}: L4 [E1], L6 [E2]
            |""".stripMargin
       )
       assertDiagnosticsResult(
