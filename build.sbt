@@ -193,35 +193,33 @@ lazy val frontend: Project = project
     }
   )
 
-lazy val bloopgunSettings = Seq(
-  name := "bloopgun-core",
+lazy val cliSettings = Seq(
+  name := "cli",
+  scalaVersion := Dependencies.Scala213Version,
   (run / fork) := true,
   (Test / fork) := true,
   (Test / parallelExecution) := false,
-  buildInfoPackage := "bloopgun.internal.build",
-  buildInfoKeys := List(Keys.version),
-  buildInfoObject := "BloopgunInfo",
   libraryDependencies ++= List(
-    Dependencies.snailgun,
-    Dependencies.scopt,
-    // Use zt-exec instead of nuprocess because it doesn't require JNA (good for graalvm)
-    Dependencies.ztExec,
-    Dependencies.logback,
-    Dependencies.coursierInterface,
-    Dependencies.coursierInterfaceSubs,
+    Dependencies.caseApp21,
+    Dependencies.oslib,
+    Dependencies.coursier,
+    Dependencies.coursierJvm,
+    Dependencies.dependency,
     Dependencies.jsoniterCore,
+    Dependencies.svm % Provided,
     Dependencies.jsoniterMacros % Provided
   ),
-  (GraalVMNativeImage / mainClass) := Some("bloop.bloopgun.Bloopgun"),
+  (GraalVMNativeImage / mainClass) := Some("bloop.cli.Bloop"),
   graalVMNativeImageOptions ++= {
     val reflectionFile = (Compile / Keys.sourceDirectory).value./("graal")./("reflection.json")
     assert(reflectionFile.exists, s"${reflectionFile.getAbsolutePath()} doesn't exist")
     List(
-      "--enable-http",
-      "--enable-https",
+      "--add-exports=org.graalvm.nativeimage.base/com.oracle.svm.util=ALL-UNNAMED",
+      "--add-exports=org.graalvm.nativeimage.builder/com.oracle.svm.core.jni=ALL-UNNAMED",
+      "--add-exports=org.graalvm.nativeimage.builder/com.oracle.svm.core.jdk=ALL-UNNAMED",
+      "--no-fallback",
       "--enable-url-protocols=http,https",
       "--enable-all-security-services",
-      "--no-fallback",
       s"-H:ReflectionConfigurationFiles=$reflectionFile",
       "-H:+ReportExceptionStackTraces",
       "--initialize-at-build-time=scala.Symbol",
@@ -232,15 +230,6 @@ lazy val bloopgunSettings = Seq(
     )
   }
 )
-
-lazy val bloopgun: Project = project
-  .disablePlugins(ScriptedPlugin, ScalafixPlugin)
-  .enablePlugins(BuildInfoPlugin, GraalVMNativeImagePlugin)
-  .settings(
-    testSuiteSettings,
-    bloopgunSettings,
-    target := (file("bloopgun") / "target" / "bloopgun-2.12").getAbsoluteFile
-  )
 
 lazy val bloopRifle: Project = project
   .in(file("bloop-rifle"))
@@ -265,56 +254,15 @@ lazy val bloopRifle: Project = project
     )
   )
 
-lazy val bloopgun213: Project = project
-  .in(file("bloopgun"))
+lazy val cli: Project = project
+  .in(file("cli"))
   .disablePlugins(ScriptedPlugin, ScalafixPlugin)
   .enablePlugins(BuildInfoPlugin, GraalVMNativeImagePlugin)
   .settings(
     testSuiteSettings,
-    bloopgunSettings,
-    scalaVersion := Dependencies.Scala213Version,
-    target := (file("bloopgun") / "target" / "bloopgun-2.13").getAbsoluteFile
+    cliSettings
   )
-
-lazy val launcherTest = project
-  .in(file("launcher-test"))
-  .dependsOn(launcher, frontend % "test->test")
-  .settings(
-    name := "bloop-launcher-test",
-    (publish / skip) := true,
-    scalafixSettings,
-    testSuiteSettings,
-    (Test / fork) := true,
-    (Test / parallelExecution) := false,
-    libraryDependencies ++= List(
-      Dependencies.coursierInterface
-    )
-  )
-
-lazy val launcher = project
-  .in(file("launcher-core"))
-  .disablePlugins(ScriptedPlugin, ScalafixPlugin)
-  .dependsOn(bloopgun)
-  .settings(
-    name := "bloop-launcher-core",
-    libraryDependencies +=
-      Dependencies.libdaemonjvm,
-    testSuiteSettings,
-    target := (file("launcher-core") / "target" / "launcher-2.12").getAbsoluteFile
-  )
-
-lazy val launcher213 = project
-  .in(file("launcher-core"))
-  .disablePlugins(ScriptedPlugin, ScalafixPlugin)
-  .dependsOn(bloopgun213)
-  .settings(
-    name := "bloop-launcher-core",
-    libraryDependencies +=
-      Dependencies.libdaemonjvm,
-    testSuiteSettings,
-    scalaVersion := Dependencies.Scala213Version,
-    target := (file("launcher-core") / "target" / "launcher-2.13").getAbsoluteFile
-  )
+  .dependsOn(bloopRifle)
 
 lazy val benchmarks = project
   .dependsOn(frontend % "compile->it", BenchmarkBridgeCompilation % "compile->compile")
@@ -363,13 +311,14 @@ lazy val buildpressConfig = (project in file("buildpress-config"))
   )
 
 lazy val buildpress = project
-  .dependsOn(bloopgun, bloopShared, buildpressConfig)
+  .dependsOn(bloopShared, buildpressConfig)
   .settings(
     scalaVersion := Scala212Version,
     scalafixSettings,
     (run / fork) := true,
     libraryDependencies ++= List(
-      Dependencies.caseApp
+      Dependencies.caseApp,
+      Dependencies.ztExec
     )
   )
 
@@ -452,17 +401,14 @@ lazy val nativeBridge05 = project
 val allProjects = Seq(
   backend,
   benchmarks,
-  bloopgun,
-  bloopgun213,
+  bloopRifle,
+  cli,
   bloopShared,
   buildpress,
   buildpressConfig,
   frontend,
   jsBridge06,
   jsBridge1,
-  launcher,
-  launcher213,
-  launcherTest,
   nativeBridge04,
   nativeBridge05,
   sbtBloop

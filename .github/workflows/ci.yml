@@ -74,30 +74,6 @@ jobs:
           sbt nativeBridge04/test
         shell: bash
 
-  launcher:
-    name: Launcher tests
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest, macOS-12]
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: true
-      - uses: graalvm/setup-graalvm@v1
-        with:
-          version: '22.3.0'
-          java-version: '17'
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          components: 'native-image'
-
-      - name: Tests
-        run: |
-          echo $JAVA_HOME
-          sbt "install; launcherTest/test"
-        shell: bash
-
   test:
     runs-on: ${{ matrix.os }}
     strategy:
@@ -156,7 +132,6 @@ jobs:
   publish-binaries:
     name: Publish binaries for ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
-    if: github.event_name == 'push'
     strategy:
       fail-fast: false
       matrix:
@@ -189,23 +164,24 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Publish GraalVM Native artifacts
-        run: sbt "bloopgun213/graalvm-native-image:packageBin"
+        run: sbt "cli/graalvm-native-image:packageBin"
 
       - name: Copy artifacts (windows)
         if: matrix.os == 'windows-latest'
         run: |
           echo $ARTIFACT_NAME
-          ls bloopgun/target/bloopgun-2.13/graalvm-native-image/bloopgun-core.exe
+          ls cli/target/graalvm-native-image/cli.exe
           mkdir -p bloop-artifacts
-          cp bloopgun/target/bloopgun-2.13/graalvm-native-image/bloopgun-core.exe bloop-artifacts/$ARTIFACT_NAME
+          cp cli/target/graalvm-native-image/cli.exe bloop-artifacts/$ARTIFACT_NAME
         shell: bash
 
       - name: Copy artifacts (not windows)
         if: matrix.os != 'windows-latest'
         run: |
+          ls cli/target/graalvm-native-image/cli
           echo $ARTIFACT_NAME
           mkdir -p bloop-artifacts
-          cp bloopgun/target/bloopgun-2.13/graalvm-native-image/bloopgun-core bloop-artifacts/$ARTIFACT_NAME
+          cp cli/target/graalvm-native-image/cli bloop-artifacts/$ARTIFACT_NAME
 
       - uses: actions/upload-artifact@v4
         with:
