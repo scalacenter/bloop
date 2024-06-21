@@ -37,7 +37,7 @@ jobs:
       - uses: graalvm/setup-graalvm@v1
         with:
           version: '22.3.0'
-          java-version: '11'
+          java-version: '17'
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Tests
@@ -58,7 +58,7 @@ jobs:
       - uses: graalvm/setup-graalvm@v1
         with:
           version: '22.3.0'
-          java-version: '11'
+          java-version: '17'
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Tests
@@ -88,7 +88,7 @@ jobs:
       - uses: graalvm/setup-graalvm@v1
         with:
           version: '22.3.0'
-          java-version: '11'
+          java-version: '17'
           github-token: ${{ secrets.GITHUB_TOKEN }}
           components: 'native-image'
 
@@ -104,7 +104,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macOS-12]
-        jdk: ["22.3.0", "11"]
+        jdk: ["22.3.0", "17"]
 
     name: Test ${{ matrix.os }} -- ${{ matrix.jdk }}
     env:
@@ -118,15 +118,15 @@ jobs:
 
       - uses: coursier/setup-action@v1
         with:
-          jvm: 'temurin:11.0.18'
-        if: matrix.jdk == '11'
+          jvm: 'temurin:17'
+        if: matrix.jdk == '17'
       
       - uses: coursier/cache-action@v6
 
       - uses: graalvm/setup-graalvm@v1
         with:
           version: ${{ matrix.jdk }}
-          java-version: '11'
+          java-version: '17'
         if: matrix.jdk == '22.3.0'
 
       - uses: actions/setup-node@v4
@@ -146,6 +146,7 @@ jobs:
               "frontend/test:compile; \
               backend/test; \
               docs/compile; \
+              bloopRifle/test; \
               frontend/testOnly bloop.ScalaVersionsSpec; \
               frontend/testOnly -bloop.ScalaVersionsSpec; \
               frontend/runMain bloop.util.CommandsDocGenerator --test; \

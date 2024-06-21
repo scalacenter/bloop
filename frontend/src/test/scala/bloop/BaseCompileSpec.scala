@@ -1510,7 +1510,7 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
       val actionsOutput = new String(testOut.toByteArray(), StandardCharsets.UTF_8)
       def removeAsciiColorCodes(line: String): String = line.replaceAll("\u001B\\[[;\\d]*m", "")
 
-      val expected = actionsOutput.splitLines
+      val obtained = actionsOutput.splitLines
         .filterNot(_.startsWith("Compiled"))
         .map(removeAsciiColorCodes)
         .map(msg => RecordingLogger.replaceTimingInfo(msg))
@@ -1520,7 +1520,7 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
 
       try {
         assertNoDiff(
-          processOutput(expected),
+          processOutput(obtained),
           s"""Compiling a (1 Scala source)
              |Deduplicating compilation of a from cli client ??? (since ???
              |Compiling a (1 Scala source)
@@ -1530,7 +1530,7 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
       } catch {
         case _: DiffAssertions.TestFailedException =>
           assertNoDiff(
-            processOutput(expected),
+            processOutput(obtained),
             s"""
                |Deduplicating compilation of a from cli client ??? (since ???
                |Compiling a (1 Scala source)

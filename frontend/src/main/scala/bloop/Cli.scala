@@ -21,7 +21,6 @@ import bloop.logging.BloopLogger
 import bloop.logging.DebugFilter
 import bloop.logging.Logger
 import bloop.task.Task
-import bloop.util.CrossPlatform
 import bloop.util.JavaRuntime
 
 import caseapp.core.help.Help
@@ -64,14 +63,13 @@ object Cli {
   }
 
   def nailMain(ngContext: NGContext): Unit = {
-    val server = ngContext.getNGServer
     val env = CommonOptions.PrettyProperties.from(ngContext.getEnv())
     val nailgunOptions = CommonOptions(
       in = ngContext.in,
       out = ngContext.out,
       err = ngContext.err,
-      ngout = server.out,
-      ngerr = server.err,
+      ngout = ngContext.out,
+      ngerr = ngContext.err,
       workingDirectory = ngContext.getWorkingDirectory,
       env = env
     )
@@ -204,7 +202,7 @@ object Cli {
                 Print(aboutAsked, commonOptions, Exit(ExitStatus.Ok))
               case Right(c: Commands.Bsp) =>
                 val newCommand = c.copy(cliOptions = c.cliOptions.copy(common = commonOptions))
-                Validate.bsp(newCommand, CrossPlatform.isWindows)
+                Validate.bsp(newCommand)
               case Right(c: Commands.Compile) =>
                 val newCommand = c.copy(cliOptions = c.cliOptions.copy(common = commonOptions))
                 withNonEmptyProjects(
@@ -505,8 +503,7 @@ object Cli {
       handle.cancel()
       if (!cancel.isDone)
         cancel.complete(false)
-      if (t.getMessage != null)
-        logger.error(t.getMessage)
+      logger.error(s"Caught $t")
       logger.trace(t)
       ExitStatus.UnexpectedError
     }

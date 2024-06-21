@@ -64,6 +64,7 @@ lazy val bloopShared = project
       Dependencies.log4j,
       Dependencies.xxHashLibrary,
       Dependencies.configDirectories,
+      Dependencies.coursierInterface,
       Dependencies.sbtTestInterface,
       Dependencies.sbtTestAgent
     )
@@ -107,20 +108,9 @@ lazy val backend = project
     )
   )
 
-lazy val sockets: Project = project
-  .settings(
-    crossPaths := false,
-    autoScalaLibrary := false,
-    description := "IPC: Unix Domain Socket and Windows Named Pipes for Java",
-    libraryDependencies ++= Seq(Dependencies.jna, Dependencies.jnaPlatform),
-    javacOptions ++= Seq("-source", "1.8", "-target", "1.8"),
-    (Compile / doc / sources) := Nil
-  )
-
 // For the moment, the dependency is fixed
 lazy val frontend: Project = project
   .dependsOn(
-    sockets,
     bloopShared,
     backend,
     backend % "test->test",
@@ -159,7 +149,8 @@ lazy val frontend: Project = project
       Dependencies.caseApp,
       Dependencies.scalaDebugAdapter,
       Dependencies.bloopConfig,
-      Dependencies.logback
+      Dependencies.logback,
+      Dependencies.libdaemonjvm
     ),
     // needed for tests and to be automatically updated
     Test / libraryDependencies += Dependencies.semanticdb intransitive (),
@@ -211,8 +202,8 @@ lazy val bloopgunSettings = Seq(
   buildInfoKeys := List(Keys.version),
   buildInfoObject := "BloopgunInfo",
   libraryDependencies ++= List(
-    // Dependencies.configDirectories,
     Dependencies.snailgun,
+    Dependencies.scopt,
     // Use zt-exec instead of nuprocess because it doesn't require JNA (good for graalvm)
     Dependencies.ztExec,
     Dependencies.logback,
@@ -251,6 +242,29 @@ lazy val bloopgun: Project = project
     target := (file("bloopgun") / "target" / "bloopgun-2.12").getAbsoluteFile
   )
 
+lazy val bloopRifle: Project = project
+  .in(file("bloop-rifle"))
+  .disablePlugins(ScriptedPlugin)
+  .enablePlugins(BuildInfoPlugin)
+  .settings(
+    name := "bloop-rifle",
+    scalaVersion := Dependencies.Scala213Version,
+    libraryDependencies ++= List(
+      Dependencies.bsp4j,
+      Dependencies.scalaCollectionCompat,
+      Dependencies.libdaemonjvm,
+      Dependencies.snailgun,
+      Dependencies.expecty % Test,
+      Dependencies.munit % Test
+    ),
+    buildInfoPackage := "bloop.rifle.internal",
+    buildInfoKeys := List[BuildInfoKey](
+      Keys.version,
+      Keys.scalaVersion,
+      "bspVersion" -> Dependencies.bspVersion
+    )
+  )
+
 lazy val bloopgun213: Project = project
   .in(file("bloopgun"))
   .disablePlugins(ScriptedPlugin, ScalafixPlugin)
@@ -280,9 +294,11 @@ lazy val launcherTest = project
 lazy val launcher = project
   .in(file("launcher-core"))
   .disablePlugins(ScriptedPlugin, ScalafixPlugin)
-  .dependsOn(sockets, bloopgun)
+  .dependsOn(bloopgun)
   .settings(
     name := "bloop-launcher-core",
+    libraryDependencies +=
+      Dependencies.libdaemonjvm,
     testSuiteSettings,
     target := (file("launcher-core") / "target" / "launcher-2.12").getAbsoluteFile
   )
@@ -290,9 +306,11 @@ lazy val launcher = project
 lazy val launcher213 = project
   .in(file("launcher-core"))
   .disablePlugins(ScriptedPlugin, ScalafixPlugin)
-  .dependsOn(sockets, bloopgun213)
+  .dependsOn(bloopgun213)
   .settings(
     name := "bloop-launcher-core",
+    libraryDependencies +=
+      Dependencies.libdaemonjvm,
     testSuiteSettings,
     scalaVersion := Dependencies.Scala213Version,
     target := (file("launcher-core") / "target" / "launcher-2.13").getAbsoluteFile
@@ -447,8 +465,7 @@ val allProjects = Seq(
   launcherTest,
   nativeBridge04,
   nativeBridge05,
-  sbtBloop,
-  sockets
+  sbtBloop
 )
 
 val allProjectReferences = allProjects.map(p => LocalProject(p.id))

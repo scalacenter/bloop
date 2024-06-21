@@ -244,7 +244,7 @@ class BloopgunCli(
     }
 
     import Defaults.env
-    val streams = Streams(in, out, err)
+    val streams = Streams(Option(in), out, err)
     val client = TcpClient(config.userOrDefaultHost, config.userOrDefaultPort)
     val noCancel = new AtomicBoolean(false)
 
