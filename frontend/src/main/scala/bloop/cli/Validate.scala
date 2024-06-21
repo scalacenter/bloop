@@ -21,12 +21,11 @@ object Validate {
   // https://github.com/scalacenter/bloop/issues/196
   private final val DefaultCharset = Charset.defaultCharset()
   private[bloop] def bytesOf(s: String): Int = s.getBytes(DefaultCharset).length
-  private final val PipeName = "^\\Q\\\\.\\pipe\\\\E(.*)".r
-  def bsp(cmd: Commands.Bsp, isWindows: Boolean): Action = {
+  def bsp(cmd: Commands.Bsp): Action = {
     val cliOptions = cmd.cliOptions
     val commonOptions = cliOptions.common
 
-    def validateSocket = cmd.socket.map(_.toAbsolutePath) match {
+    def validateSocket = cmd.socket.map(_.normalize.toAbsolutePath) match {
       case Some(socket) if Files.exists(socket) =>
         cliError(Feedback.existingSocketFile(socket), commonOptions)
       case Some(socket) if !Files.exists(socket.getParent) =>
@@ -37,12 +36,6 @@ object Validate {
         cliError(Feedback.excessiveSocketLength(socket), commonOptions)
       case Some(socket) => Run(Commands.UnixLocalBsp(AbsolutePath(socket), cliOptions))
       case None => cliError(Feedback.MissingSocket, commonOptions)
-    }
-
-    def validatePipeName = cmd.pipeName match {
-      case Some(pipeName @ PipeName(_)) => Run(Commands.WindowsLocalBsp(pipeName, cliOptions))
-      case Some(wrong) => cliError(Feedback.unexpectedPipeFormat(wrong), commonOptions)
-      case None => cliError(Feedback.MissingPipeName, commonOptions)
     }
 
     def validateTcp = {
@@ -62,7 +55,6 @@ object Validate {
     }
 
     cmd.protocol match {
-      case BspProtocol.Local if isWindows => validatePipeName
       case BspProtocol.Local => validateSocket
       case BspProtocol.Tcp => validateTcp
     }

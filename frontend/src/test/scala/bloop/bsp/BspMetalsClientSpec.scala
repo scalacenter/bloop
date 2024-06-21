@@ -33,7 +33,7 @@ class BspMetalsClientSpec(
 ) extends BspBaseSuite {
   private val testedScalaVersion = BuildInfo.scalaVersion
   private val semanticdbVersion = BuildTestInfo.semanticdbVersion
-  private val javaSemanticdbVersion = "0.5.7"
+  private val javaSemanticdbVersion = "0.10.0"
 
   private val semanticdbJar = s"semanticdb-scalac_$testedScalaVersion-$semanticdbVersion.jar"
 
@@ -83,7 +83,17 @@ class BspMetalsClientSpec(
         assertJavacOptions(
           state,
           `A`,
-          """|-Xplugin:semanticdb -sourceroot:$workspace -targetroot:javac-classes-directory
+          """|-J--add-exports
+             |-Jjdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED
+             |-J--add-exports
+             |-Jjdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED
+             |-J--add-exports
+             |-Jjdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED
+             |-J--add-exports
+             |-Jjdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED
+             |-J--add-exports
+             |-Jjdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED
+             |-Xplugin:semanticdb -sourceroot:$workspace -targetroot:javac-classes-directory
              |""".stripMargin
         )
       }
@@ -186,7 +196,7 @@ class BspMetalsClientSpec(
 
   test("should save workspace settings with cached build") {
     TestUtil.withinWorkspace { workspace =>
-      val javaSemanticdbVersion = "0.5.7"
+      val javaSemanticdbVersion = "0.10.0"
       val extraParams = BloopExtraBuildParams(
         ownsBuildFiles = None,
         clientClassesRootDir = None,
@@ -270,7 +280,7 @@ class BspMetalsClientSpec(
         }
       }
 
-      val javaNormalClientsVersion = "0.5.7"
+      val javaNormalClientsVersion = "0.10.0"
       val javaMetalsVersion = "0.1.0"
       val normalClientsVersion = "4.2.0"
       val metalsClientVersion = "4.1.11"
@@ -309,7 +319,7 @@ class BspMetalsClientSpec(
       WorkspaceSettings.writeToFile(
         configDir,
         WorkspaceSettings
-          .fromSemanticdbSettings("0.5.7", semanticdbVersion, List(testedScalaVersion)),
+          .fromSemanticdbSettings("0.10.0", semanticdbVersion, List(testedScalaVersion)),
         logger
       )
       loadBspState(workspace, projects, logger) { state =>
@@ -343,7 +353,7 @@ class BspMetalsClientSpec(
       WorkspaceSettings.writeToFile(
         configDir,
         WorkspaceSettings
-          .fromSemanticdbSettings("0.5.7", semanticdbVersion, List(testedScalaVersion)),
+          .fromSemanticdbSettings("0.10.0", semanticdbVersion, List(testedScalaVersion)),
         logger
       )
       loadBspState(workspace, projects, logger) { state =>
@@ -364,7 +374,7 @@ class BspMetalsClientSpec(
       WorkspaceSettings.writeToFile(
         configDir,
         WorkspaceSettings
-          .fromSemanticdbSettings("0.5.7", semanticdbVersion, List(testedScalaVersion)),
+          .fromSemanticdbSettings("0.10.0", semanticdbVersion, List(testedScalaVersion)),
         logger
       )
       loadBspState(workspace, projects, logger) { state =>
@@ -391,7 +401,7 @@ class BspMetalsClientSpec(
       val logger = new RecordingLogger(ansiCodesSupported = false)
       WorkspaceSettings.writeToFile(
         configDir,
-        WorkspaceSettings.fromSemanticdbSettings("0.5.7", "4.3.0", List()),
+        WorkspaceSettings.fromSemanticdbSettings("0.10.0", "4.3.0", List()),
         logger
       )
       loadBspState(workspace, projects, logger) { state =>
@@ -448,7 +458,7 @@ class BspMetalsClientSpec(
       val logger = new RecordingLogger(ansiCodesSupported = false)
       WorkspaceSettings.writeToFile(
         configDir,
-        WorkspaceSettings.fromSemanticdbSettings("0.5.7", "4.3.0", List()),
+        WorkspaceSettings.fromSemanticdbSettings("0.10.0", "4.3.0", List()),
         logger
       )
       loadBspState(workspace, projects, logger) { state =>
@@ -719,7 +729,7 @@ class BspMetalsClientSpec(
              |""".stripMargin
         )
         val javacOptions = state.javacOptions(project)._2.items.flatMap(_.options)
-        val javaSemanticDBJar = "semanticdb-javac-0.5.7.jar"
+        val javaSemanticDBJar = "semanticdb-javac-0.10.0.jar"
         assert(
           javacOptions(javacOptions.indexOf("-processorpath") + 1).contains(javaSemanticDBJar)
         )
@@ -883,10 +893,9 @@ class BspMetalsClientSpec(
       .replace("$workspace", workspaceDir)
       .splitLines
       .filterNot(_.isEmpty)
-      .sorted
       .mkString(lineSeparator)
     assertNoDiff(
-      javacOptions.sorted.mkString(lineSeparator),
+      javacOptions.mkString(lineSeparator),
       expectedOptions
     )
   }

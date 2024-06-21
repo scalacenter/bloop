@@ -19,33 +19,16 @@ object CliSpec extends BaseSuite {
   val tempDir: Path = Files.createTempDirectory("validate")
   tempDir.toFile.deleteOnExit()
 
-  test("fail at wrong end of pipe name") {
-    checkInvalidPipeName(s"\\\\.\\pie\\test-$uniqueId")
-  }
-
-  test("fail at wrong middle part of pipe name") {
-    checkInvalidPipeName(s"\\,\\pipe\\test-$uniqueId")
-  }
-
-  test("fail at wrong start of pipe name") {
-    checkInvalidPipeName(s"\\.\\pipe\\test-$uniqueId")
-  }
-
-  test("fail at common wrong pipe name") {
-    checkInvalidPipeName("test-pipe-name")
-  }
-
   test("fail at existing socket") {
     val socketPath = tempDir.resolve("test.socket")
     Files.createFile(socketPath)
     val bspCommand = Commands.Bsp(
       protocol = BspProtocol.Local,
-      socket = Some(socketPath),
-      pipeName = None
+      socket = Some(socketPath)
     )
 
     checkIsCliError(
-      Validate.bsp(bspCommand, isWindows = false),
+      Validate.bsp(bspCommand),
       Feedback.existingSocketFile(socketPath)
     )
   }
@@ -55,23 +38,21 @@ object CliSpec extends BaseSuite {
     val socketPath = java.nio.file.Paths.get("test.socket")
     val bspCommand = Commands.Bsp(
       protocol = BspProtocol.Local,
-      socket = Some(socketPath),
-      pipeName = None
+      socket = Some(socketPath)
     )
 
-    checkIsCommand[Commands.UnixLocalBsp](Validate.bsp(bspCommand, isWindows = false))
+    checkIsCommand[Commands.UnixLocalBsp](Validate.bsp(bspCommand))
   }
 
   test("fail at non-existing socket folder") {
     val socketPath = tempDir.resolve("folder").resolve("test.socket")
     val bspCommand = Commands.Bsp(
       protocol = BspProtocol.Local,
-      socket = Some(socketPath),
-      pipeName = None
+      socket = Some(socketPath)
     )
 
     checkIsCliError(
-      Validate.bsp(bspCommand, isWindows = false),
+      Validate.bsp(bspCommand),
       Feedback.missingParentOfSocket(socketPath)
     )
   }
@@ -86,67 +67,40 @@ object CliSpec extends BaseSuite {
     val socketPath = tempDir.resolve(s"$lengthyName")
     val bspCommand = Commands.Bsp(
       protocol = BspProtocol.Local,
-      socket = Some(socketPath),
-      pipeName = None
+      socket = Some(socketPath)
     )
 
     val msg =
       if (bloop.util.CrossPlatform.isMac) Feedback.excessiveSocketLengthInMac(socketPath)
       else Feedback.excessiveSocketLength(socketPath)
-    checkIsCliError(Validate.bsp(bspCommand, isWindows = false), msg)
+    checkIsCliError(Validate.bsp(bspCommand), msg)
   }
 
   test("fail at missing socket") {
     val bspCommand = Commands.Bsp(
       protocol = BspProtocol.Local,
-      socket = None,
-      pipeName = None
+      socket = None
     )
 
     checkIsCliError(
-      Validate.bsp(bspCommand, isWindows = false),
+      Validate.bsp(bspCommand),
       Feedback.MissingSocket
     )
-  }
-
-  test("fail at missing pipe name") {
-    val bspCommand = Commands.Bsp(
-      protocol = BspProtocol.Local,
-      socket = None,
-      pipeName = None
-    )
-
-    checkIsCliError(
-      Validate.bsp(bspCommand, isWindows = true),
-      Feedback.MissingPipeName
-    )
-  }
-
-  test("succeed at correct pipe name") {
-    val pipeName = s"\\\\.\\pipe\\test-$uniqueId"
-    val bspCommand = Commands.Bsp(
-      protocol = BspProtocol.Local,
-      socket = None,
-      pipeName = Some(pipeName)
-    )
-
-    checkIsCommand[Commands.WindowsLocalBsp](Validate.bsp(bspCommand, isWindows = true))
   }
 
   test("succeed at non-existing socket file") {
     val socketPath = tempDir.resolve("alsjkdflkjasdf.socket")
     val bspCommand = Commands.Bsp(
       protocol = BspProtocol.Local,
-      socket = Some(socketPath),
-      pipeName = None
+      socket = Some(socketPath)
     )
 
-    checkIsCommand[Commands.UnixLocalBsp](Validate.bsp(bspCommand, isWindows = false))
+    checkIsCommand[Commands.UnixLocalBsp](Validate.bsp(bspCommand))
   }
 
   test("succeed at default tcp options") {
     val bspCommand = Commands.Bsp(protocol = BspProtocol.Tcp)
-    checkIsCommand[Commands.TcpBsp](Validate.bsp(bspCommand, isWindows = false))
+    checkIsCommand[Commands.TcpBsp](Validate.bsp(bspCommand))
   }
 
   test("succeed at custom tcp options") {
@@ -156,7 +110,7 @@ object CliSpec extends BaseSuite {
       port = 5001
     )
 
-    checkIsCommand[Commands.TcpBsp](Validate.bsp(bspCommand, isWindows = false))
+    checkIsCommand[Commands.TcpBsp](Validate.bsp(bspCommand))
   }
 
   test("fail at non-sensical host address") {
@@ -221,19 +175,6 @@ object CliSpec extends BaseSuite {
     }
   }
 
-  def checkInvalidPipeName(pipeName: String): Unit = {
-    val bspCommand = Commands.Bsp(
-      protocol = BspProtocol.Local,
-      socket = None,
-      pipeName = Some(pipeName)
-    )
-
-    checkIsCliError(
-      Validate.bsp(bspCommand, isWindows = true),
-      Feedback.unexpectedPipeFormat(pipeName)
-    )
-  }
-
   def checkInvalidAddress(hostName: String): Unit = {
     val bspCommand = Commands.Bsp(
       protocol = BspProtocol.Tcp,
@@ -241,7 +182,7 @@ object CliSpec extends BaseSuite {
     )
 
     checkIsCliError(
-      Validate.bsp(bspCommand, isWindows = false),
+      Validate.bsp(bspCommand),
       expected = Feedback.unknownHostName(hostName)
     )
   }
@@ -252,7 +193,7 @@ object CliSpec extends BaseSuite {
       host = hostName
     )
 
-    checkIsCommand[Commands.TcpBsp](Validate.bsp(bspCommand, isWindows = false))
+    checkIsCommand[Commands.TcpBsp](Validate.bsp(bspCommand))
   }
 
   def checkValidPort(portNumber: Int): Unit = {
@@ -261,7 +202,7 @@ object CliSpec extends BaseSuite {
       port = portNumber
     )
 
-    checkIsCommand[Commands.TcpBsp](Validate.bsp(bspCommand, isWindows = false))
+    checkIsCommand[Commands.TcpBsp](Validate.bsp(bspCommand))
   }
 
   def checkOutOfRangePort(portNumber: Int): Unit = {
@@ -271,7 +212,7 @@ object CliSpec extends BaseSuite {
     )
 
     checkIsCliError(
-      Validate.bsp(bspCommand, isWindows = false),
+      Validate.bsp(bspCommand),
       expected = Feedback.outOfRangePort(portNumber)
     )
   }
@@ -283,7 +224,7 @@ object CliSpec extends BaseSuite {
     )
 
     checkIsCliError(
-      Validate.bsp(bspCommand, isWindows = false),
+      Validate.bsp(bspCommand),
       expected = Feedback.reservedPortNumber(portNumber)
     )
   }

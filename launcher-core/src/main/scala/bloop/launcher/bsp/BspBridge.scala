@@ -25,7 +25,9 @@ import bloop.launcher.core.Feedback
 import bloop.launcher.printError
 import bloop.launcher.printQuoted
 import bloop.launcher.println
-import bloop.sockets.UnixDomainSocket
+import java.nio.channels.SocketChannel
+import java.net.UnixDomainSocketAddress
+import java.net.StandardProtocolFamily
 
 final class BspBridge(
     clientIn: InputStream,
@@ -151,8 +153,17 @@ final class BspBridge(
       Try {
         connection match {
           case BspConnection.Tcp(host, port) => new Socket(host, port)
-          case BspConnection.UnixLocal(socketPath) =>
-            new UnixDomainSocket(socketPath.toAbsolutePath.toString)
+          case s: BspConnection.UnixLocal =>
+            val socketPath = s.socketPath
+            var count = 0
+            var socket: SocketChannel = null
+            if (socketPath.toFile.exists()) {
+              val addr = UnixDomainSocketAddress.of(socketPath)
+              socket = SocketChannel.open(StandardProtocolFamily.UNIX)
+              socket.connect(addr)
+              socket.finishConnect()
+            }
+            libdaemonjvm.Util.socketFromChannel(socket)
         }
       }
     }

@@ -52,7 +52,7 @@ object Dependencies {
   val zinc = "org.scala-sbt" %% "zinc" % zincVersion
   val bsp4s = "ch.epfl.scala" %% "bsp4s" % bspVersion
   val bsp4j = "ch.epfl.scala" % "bsp4j" % bspVersion
-  val nailgun = "ch.epfl.scala" % "nailgun-server" % nailgunVersion
+  val nailgun = "io.github.alexarchambault.bleep" % "nailgun-server" % "1.0.7"
   val bloopConfig = "ch.epfl.scala" %% "bloop-config" % bloopConfigVersion
 
   val configDirectories = "dev.dirs" % "directories" % configDirsVersion
@@ -67,11 +67,15 @@ object Dependencies {
   val sourcecode = "com.lihaoyi" %% "sourcecode" % sourcecodeVersion
   val sbtTestInterface = "org.scala-sbt" % "test-interface" % sbtTestInterfaceVersion
   val sbtTestAgent = "org.scala-sbt" % "test-agent" % sbtTestAgentVersion
-  val snailgun = ("me.vican.jorge" %% "snailgun-cli" % snailgunVersion)
+  val snailgun = "io.github.alexarchambault.scala-cli.snailgun" %% "snailgun-core" % "0.4.1-sc2"
   val ztExec = "org.zeroturnaround" % "zt-exec" % ztExecVersion
   val logback = "ch.qos.logback" % "logback-classic" % "1.3.14"
+  val libdaemonjvm = "io.github.alexarchambault.libdaemon" %% "libdaemon" % "0.0.11"
+  val scopt = "com.github.scopt" % "scopt_2.12" % "4.0.0-RC2"
 
   val utest = "com.lihaoyi" %% "utest" % "0.8.3"
+  def munit = "org.scalameta" %% "munit" % "0.7.29"
+  def expecty = "com.eed3si9n.expecty" %% "expecty" % "0.15.4"
   val pprint = "com.lihaoyi" %% "pprint" % "0.9.0"
   val junit = "com.github.sbt" % "junit-interface" % junitVersion
   val directoryWatcher = "ch.epfl.scala" % "directory-watcher" % directoryWatcherVersion

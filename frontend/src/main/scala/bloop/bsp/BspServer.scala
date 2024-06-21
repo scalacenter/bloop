@@ -85,8 +85,6 @@ object BspServer {
       val server =
         new BloopLanguageServer(Observable.never, client, provider.services, ioScheduler, bspLogger)
 
-      def error(msg: String): Unit = provider.stateAfterExecution.logger.error(msg)
-
       val inputExit = CancelablePromise[Unit]()
       val mesages =
         LowLevelMessage
@@ -124,8 +122,10 @@ object BspServer {
               case None => clients0
             }
           }
-          if (cancelled) error(s"BSP server cancelled, closing socket...")
-          else error(s"BSP server stopped")
+          bspLogger.info {
+            if (cancelled) "BSP server cancelled, closing socket..."
+            else "BSP server stopped"
+          }
           server.cancelAllRequests()
           ioScheduler.scheduleOnce(
             100,
@@ -144,13 +144,15 @@ object BspServer {
 
       process
         .doOnCancel(Task(stopListeting(cancelled = true)))
-        .doOnFinish(_ => Task(stopListeting(cancelled = false)))
+        .doOnFinish { errOpt =>
+          for (err <- errOpt)
+            err.printStackTrace(System.err)
+          Task(stopListeting(cancelled = false))
+        }
         .map(_ => provider.stateAfterExecution)
     }
 
     val handle = cmd match {
-      case Commands.WindowsLocalBsp(pipeName, _) =>
-        ServerHandle.WindowsLocal(pipeName)
       case Commands.UnixLocalBsp(socketFile, _) =>
         ServerHandle.UnixLocal(socketFile)
       case Commands.TcpBsp(address, portNumber, _) =>
@@ -161,6 +163,8 @@ object BspServer {
       case scala.util.Success(socket: ServerSocket) =>
         listenToConnection(handle, socket).onErrorRecover {
           case t =>
+            System.err.println("Exiting BSP server with:")
+            t.printStackTrace(System.err)
             state.withError(s"Exiting BSP server with ${t.getMessage}", t)
         }
       case scala.util.Failure(t: Throwable) =>

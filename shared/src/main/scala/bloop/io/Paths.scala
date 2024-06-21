@@ -12,23 +12,46 @@ import java.nio.file.Path
 import java.nio.file.SimpleFileVisitor
 import java.nio.file.attribute.BasicFileAttributes
 import java.nio.file.attribute.FileTime
+import java.nio.file.attribute.PosixFilePermissions
 import java.nio.file.{Paths => NioPaths}
 import java.time.temporal.ChronoUnit
 import java.util
 
 import scala.collection.mutable
-
-import dev.dirs.ProjectDirectories
+import scala.util.Properties
 
 object Paths {
-  private val projectDirectories = ProjectDirectories.from("", "", "bloop")
   private def createDirFor(filepath: String): AbsolutePath =
     AbsolutePath(Files.createDirectories(NioPaths.get(filepath)))
 
-  final val bloopCacheDir: AbsolutePath = createDirFor(projectDirectories.cacheDir)
-  final val bloopDataDir: AbsolutePath = createDirFor(projectDirectories.dataDir)
-  final val bloopLogsDir: AbsolutePath = createDirFor(bloopDataDir.resolve("logs").syntax)
-  final val bloopConfigDir: AbsolutePath = createDirFor(projectDirectories.configDir)
+  private lazy val bloopCacheDir: AbsolutePath = createDirFor(
+    bloop.io.internal.ProjDirHelper.cacheDir()
+  )
+  private lazy val bloopDataDir: AbsolutePath = createDirFor(
+    bloop.io.internal.ProjDirHelper.dataDir()
+  )
+
+  lazy val daemonDir: AbsolutePath = {
+    def defaultDir = {
+      val baseDir =
+        if (Properties.isMac) bloopCacheDir.underlying
+        else bloopDataDir.underlying
+      baseDir.resolve("daemon")
+    }
+    val dir = Option(System.getenv("BLOOP_DAEMON_DIR")).filter(_.trim.nonEmpty) match {
+      case Some(dirStr) => java.nio.file.Paths.get(dirStr)
+      case None => defaultDir
+    }
+    if (!Files.exists(dir)) {
+      Files.createDirectories(dir)
+      if (!Properties.isWin)
+        Files.setPosixFilePermissions(
+          dir,
+          PosixFilePermissions.fromString("rwx------")
+        )
+    }
+    AbsolutePath(dir)
+  }
 
   def getCacheDirectory(dirName: String): AbsolutePath = {
     val dir = bloopCacheDir.resolve(dirName)
@@ -128,7 +151,8 @@ object Paths {
         if (matcher.matches(file)) {
           out += AttributedPath.of(
             AbsolutePath(file),
-            attributes.lastModifiedTime(),
+            // Truncate to milliseconds, to workaround precision discrepancy issues in the tests
+            FileTime.fromMillis(attributes.lastModifiedTime().toMillis),
             attributes.size()
           )
         }
