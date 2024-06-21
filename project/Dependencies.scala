@@ -11,10 +11,6 @@ object Dependencies {
 
   val SbtVersion = "1.3.3"
 
-  val nailgunVersion = "ee3c4343"
-  // Used to download the python client instead of resolving
-  val nailgunCommit = "a2520c1e"
-
   // Keep in sync in BloopComponentCompiler
   val zincVersion = "1.10.0"
 
@@ -24,6 +20,7 @@ object Dependencies {
   val lmVersion = "1.10.0"
   val configDirsVersion = "26"
   val caseAppVersion = "2.0.6"
+  val coursierVersion = "2.1.0-M6-53-gb4f448130"
   val sourcecodeVersion = "0.4.2"
   val sbtTestInterfaceVersion = "1.0"
   val sbtTestAgentVersion = "1.10.0"
@@ -44,7 +41,6 @@ object Dependencies {
   val zipkinSenderVersion = "2.17.2"
   val jnaVersion = "5.14.0"
   val asmVersion = "9.7"
-  val snailgunVersion = "0.4.0"
   val ztExecVersion = "1.12"
   val debugAdapterVersion = "4.1.1"
   val bloopConfigVersion = "2.0.2"
@@ -61,9 +57,14 @@ object Dependencies {
   val scalazCore = "org.scalaz" %% "scalaz-core" % scalazVersion
   val coursierInterface = "io.get-coursier" % "interface" % "1.0.19"
   val coursierInterfaceSubs = "io.get-coursier" % "interface-svm-subs" % "1.0.19"
+  val svm = "org.graalvm.nativeimage" % "svm" % "22.3.0"
+  val coursier = "io.get-coursier" %% "coursier" % coursierVersion
+  val coursierJvm = "io.get-coursier" %% "coursier-jvm" % coursierVersion
+  val dependency = "io.get-coursier" %% "dependency" % "0.2.2"
   val scalaCollectionCompat = "org.scala-lang.modules" %% "scala-collection-compat" % "2.11.0"
   val shapeless = "com.chuusai" %% "shapeless" % shapelessVersion
   val caseApp = "com.github.alexarchambault" %% "case-app" % caseAppVersion
+  val caseApp21 = "com.github.alexarchambault" %% "case-app" % "2.1.0-M15"
   val sourcecode = "com.lihaoyi" %% "sourcecode" % sourcecodeVersion
   val sbtTestInterface = "org.scala-sbt" % "test-interface" % sbtTestInterfaceVersion
   val sbtTestAgent = "org.scala-sbt" % "test-agent" % sbtTestAgentVersion
@@ -77,6 +78,7 @@ object Dependencies {
   def munit = "org.scalameta" %% "munit" % "0.7.29"
   def expecty = "com.eed3si9n.expecty" %% "expecty" % "0.15.4"
   val pprint = "com.lihaoyi" %% "pprint" % "0.9.0"
+  val oslib = "com.lihaoyi" %% "os-lib" % "0.9.0"
   val junit = "com.github.sbt" % "junit-interface" % junitVersion
   val directoryWatcher = "ch.epfl.scala" % "directory-watcher" % directoryWatcherVersion
   val difflib = "com.googlecode.java-diff-utils" % "diffutils" % difflibVersion
