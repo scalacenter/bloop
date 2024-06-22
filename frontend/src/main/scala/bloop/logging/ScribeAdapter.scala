@@ -16,6 +16,7 @@ trait ScribeAdapter extends scribe.LoggerSupport { self: Logger =>
           case Some(t) => trace(t)
           case None => debug(msg)(DebugFilter.Bsp)
         }
+      case _ =>
     }
   }
 }
