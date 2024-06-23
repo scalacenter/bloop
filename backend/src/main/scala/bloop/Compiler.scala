@@ -402,15 +402,19 @@ object Compiler {
               val clientClassesDir = clientClassesObserver.classesDir
               clientLogger.debug(s"Triggering background tasks for $clientClassesDir")
               val firstTask = Task { BloopPaths.delete(AbsolutePath(newClassesDir)) }
-              val secondTask = updateExternalClassesDirWithReadOnly(
-                clientClassesDir,
-                clientTracer,
-                clientLogger,
-                compileInputs,
+              val config =
+                ParallelOps.CopyConfiguration(
+                  parallelUnits = 5,
+                  CopyMode.ReplaceIfMetadataMismatch,
+                  denylist = Set.empty,
+                  denyDirs = Set.empty
+                )
+              val secondTask = ParallelOps.copyDirectories(config)(
                 compileProducts.newClassesDir,
-                readOnlyCopyDenylist = mutable.HashSet.empty,
-                allInvalidatedClassFilesForProject,
-                allInvalidatedExtraCompileProducts
+                clientClassesDir.underlying,
+                compileInputs.ioScheduler,
+                enableCancellation = false,
+                compileInputs.logger
               )
               Task
                 .gatherUnordered(List(firstTask, secondTask))
@@ -716,8 +720,11 @@ object Compiler {
           allInvalidatedExtraCompileProducts.iterator.map(_.toPath).toSet
         val invalidatedInThisProject = invalidatedClassFiles ++ invalidatedExtraProducts
         val denyList = invalidatedInThisProject ++ readOnlyCopyDenylist.iterator
+        // Let's not copy outdated betasty from readOnly, since we do not have a mechanism
+        // for tracking that otherwise
+        val denyDir = Set(readOnlyClassesDir.resolve("META-INF/best-effort"))
         val config =
-          ParallelOps.CopyConfiguration(5, CopyMode.ReplaceIfMetadataMismatch, denyList)
+          ParallelOps.CopyConfiguration(5, CopyMode.ReplaceIfMetadataMismatch, denyList, denyDir)
         val lastCopy = ParallelOps.copyDirectories(config)(
           readOnlyClassesDir,
           clientClassesDir.underlying,
@@ -934,6 +941,8 @@ object Compiler {
                   syntax.replace(readOnlyClassesDirPath, clientClassesDirPath)
                 )
                 if (rebasedFile.exists) {
+                  // In practice this deletes previous successful compilation artifacts
+                  // (like '.tasty' and ".class"), which we do not need in clientDir
                   Files.delete(rebasedFile.underlying)
                 }
               }

@@ -44,7 +44,8 @@ object ParallelOps {
   case class CopyConfiguration private (
       parallelUnits: Int,
       mode: CopyMode,
-      denylist: Set[Path]
+      denylist: Set[Path],
+      denyDirs: Set[Path]
   )
 
   case class FileWalk(visited: List[Path], target: List[Path])
@@ -87,7 +88,11 @@ object ParallelOps {
       def visitFile(file: Path, attributes: BasicFileAttributes): FileVisitResult = {
         if (isCancelled.get) FileVisitResult.TERMINATE
         else {
-          if (attributes.isDirectory || configuration.denylist.contains(file)) ()
+          if (
+            attributes.isDirectory || configuration.denylist.contains(
+              file
+            ) || configuration.denyDirs.find(file.startsWith(_)).isDefined
+          ) ()
           else {
             val rebasedFile = currentTargetDirectory.resolve(file.getFileName)
             if (configuration.denylist.contains(rebasedFile)) ()

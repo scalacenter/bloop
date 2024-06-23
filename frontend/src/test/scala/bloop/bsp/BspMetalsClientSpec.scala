@@ -23,6 +23,7 @@ import bloop.task.Task
 import bloop.util.TestProject
 import bloop.util.TestUtil
 import bloop.Compiler
+import java.nio.file.Files
 
 object LocalBspMetalsClientSpec extends BspMetalsClientSpec(BspProtocol.Local)
 object TcpBspMetalsClientSpec extends BspMetalsClientSpec(BspProtocol.Tcp)
@@ -607,6 +608,74 @@ class BspMetalsClientSpec(
     }
   }
 
+  test("best-effort: correctly manage betasty files when compiling correct and failing projects") {
+    val initFile =
+      """/ErrorFile.scala
+        |object A
+        |object B
+        |""".stripMargin
+    val updatedFile1WithError =
+      """|object A
+         |//object B
+         |error
+         |object C
+         |""".stripMargin
+    val updatedFile2WithoutError =
+      """|//object A
+         |object B
+         |//error
+         |object C
+         |""".stripMargin
+    val updatedFile3WithError =
+      """|//object A
+         |object B
+         |error
+         |//object C
+         |""".stripMargin
+
+    TestUtil.withinWorkspace { workspace =>
+      val `A` = TestProject(
+        workspace,
+        "A",
+        List(initFile),
+        scalaVersion = Some(bestEffortScalaVersion)
+      )
+      def updateProject(content: String) =
+        Files.write(`A`.config.sources.head.resolve("ErrorFile.scala"), content.getBytes())
+      val projects = List(`A`)
+      TestProject.populateWorkspace(workspace, projects)
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val extraParams = BloopExtraBuildParams(
+        ownsBuildFiles = None,
+        clientClassesRootDir = None,
+        semanticdbVersion = Some(semanticdbVersion),
+        supportedScalaVersions = Some(List(bestEffortScalaVersion)),
+        javaSemanticdbVersion = None,
+        enableBestEffortMode = Some(true)
+      )
+      loadBspState(workspace, projects, logger, "Metals", bloopExtraParams = extraParams) { state =>
+        val compiledState = state.compile(`A`, arguments = Some(List("--best-effort"))).toTestState
+        assertBetastyFile("A.betasty", compiledState, "A")
+        assertBetastyFile("B.betasty", compiledState, "A")
+        updateProject(updatedFile1WithError)
+        val compiledState2 = state.compile(`A`, arguments = Some(List("--best-effort"))).toTestState
+        assertBetastyFile("A.betasty", compiledState2, "A")
+        assertNoBetastyFile("B.betasty", compiledState2, "A")
+        assertBetastyFile("C.betasty", compiledState2, "A")
+        updateProject(updatedFile2WithoutError)
+        val compiledState3 = state.compile(`A`, arguments = Some(List("--best-effort"))).toTestState
+        assertNoBetastyFile("A.betasty", compiledState3, "A")
+        assertBetastyFile("B.betasty", compiledState3, "A")
+        assertBetastyFile("C.betasty", compiledState3, "A")
+        updateProject(updatedFile3WithError)
+        val compiledState4 = state.compile(`A`, arguments = Some(List("--best-effort"))).toTestState
+        assertNoBetastyFile("A.betasty", compiledState4, "A")
+        assertBetastyFile("B.betasty", compiledState4, "A")
+        assertNoBetastyFile("C.betasty", compiledState4, "A")
+      }
+    }
+  }
+
   test("compile is successful with semanticDB and javac processorpath") {
     TestUtil.withinWorkspace { workspace =>
       val logger = new RecordingLogger(ansiCodesSupported = false)
@@ -731,6 +800,17 @@ class BspMetalsClientSpec(
     val classesDir = state.client.getUniqueClassesDirFor(project, forceGeneration = true)
     val beTastyFile = classesDir.resolve(s"META-INF/best-effort/$expectedBetastyRelativePath")
     assertIsFile(beTastyFile)
+  }
+
+  private def assertNoBetastyFile(
+      expectedBetastyRelativePath: String,
+      state: TestState,
+      projectName: String
+  ): Unit = {
+    val project = state.build.getProjectFor(projectName).get
+    val classesDir = state.client.getUniqueClassesDirFor(project, forceGeneration = true)
+    val beTastyFile = classesDir.resolve(s"META-INF/best-effort/$expectedBetastyRelativePath")
+    assertNotFile(beTastyFile)
   }
 
   private def assertSemanticdbFileFor(

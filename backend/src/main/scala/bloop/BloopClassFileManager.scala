@@ -41,7 +41,7 @@ final class BloopClassFileManager(
   private[this] val generatedFiles = new mutable.HashSet[File]
 
   // Supported compile products by the class file manager
-  private[this] val supportedCompileProducts = List(".sjsir", ".nir", ".tasty")
+  private[this] val supportedCompileProducts = List(".sjsir", ".nir", ".tasty", ".betasty")
   // Files backed up during compilation
   private[this] val movedFiles = new mutable.HashMap[File, File]
 
@@ -215,7 +215,8 @@ final class BloopClassFileManager(
             clientTracer: BraveTracer
         ) => {
           clientTracer.traceTaskVerbose("copy new products to external classes dir") { _ =>
-            val config = ParallelOps.CopyConfiguration(5, CopyMode.ReplaceExisting, Set.empty)
+            val config =
+              ParallelOps.CopyConfiguration(5, CopyMode.ReplaceExisting, Set.empty, Set.empty)
             val clientExternalBestEffortDir =
               clientExternalClassesDir.underlying.resolve("META-INF/best-effort")
 
@@ -291,7 +292,8 @@ final class BloopClassFileManager(
             else
               clientTracer.traceTask("populate empty classes dir") { _ =>
                 // Prepopulate external classes dir even though compilation failed
-                val config = ParallelOps.CopyConfiguration(1, CopyMode.NoReplace, Set.empty)
+                val config =
+                  ParallelOps.CopyConfiguration(1, CopyMode.NoReplace, Set.empty, Set.empty)
                 ParallelOps
                   .copyDirectories(config)(
                     Paths.get(readOnlyClassesDirPath),
