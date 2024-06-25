@@ -9,7 +9,7 @@ addSbtPlugin("com.eed3si9n" % "sbt-buildinfo" % "0.12.0")
 addSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.7")
 addSbtPlugin("com.github.sbt" % "sbt-git" % "2.0.1")
 addSbtPlugin("com.github.sbt" % "sbt-ci-release" % "1.5.12")
-addSbtPlugin("org.scalameta" % "sbt-mdoc" % "2.5.2")
+addSbtPlugin("org.scalameta" % "sbt-mdoc" % "2.5.3")
 addSbtPlugin("org.scala-debugger" % "sbt-jdi-tools" % "1.1.1")
 addSbtPlugin("com.github.sbt" % "sbt-native-packager" % "1.10.0")
 addSbtPlugin("ch.epfl.scala" % "sbt-scalafix" % "0.12.1")
@@ -21,7 +21,7 @@ libraryDependencies ++= List(
   "org.eclipse.jgit" % "org.eclipse.jgit" % "5.13.3.202401111512-r",
   "org.eclipse.jgit" % "org.eclipse.jgit.ssh.jsch" % "5.13.3.202401111512-r",
   "commons-codec" % "commons-codec" % "1.17.0",
-  "org.kohsuke" % "github-api" % "1.321",
+  "org.kohsuke" % "github-api" % "1.322",
   ("ch.epfl.scala" % "jarjar" % "1.7.2-patched")
     .exclude("org.apache.ant", "ant")
 )

@@ -75,11 +75,15 @@ abstract class Reporter(
   }
 
   protected def liftFatalWarning(problem: Problem): Problem = {
-    val isFatalWarning = hasFatalWarningsEnabled && problem.severity == Severity.Warn
+    lazy val sourceFile = InterfaceUtil.toOption(problem.position.sourceFile())
+    // Only fatal warnings within scala source files are
+    // promoted to errors
+    val isFatalWarning =
+      hasFatalWarningsEnabled && problem.severity == Severity.Warn &&
+        sourceFile.exists(_.getCanonicalPath().split('.').last == "scala")
     if (!isFatalWarning) problem
     else {
-      InterfaceUtil
-        .toOption(problem.position.sourceFile())
+      sourceFile
         .foreach(f => sourceFilesWithFatalWarnings.put(f, true))
 
       problem.copy(severity = Severity.Error)

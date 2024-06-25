@@ -34,7 +34,7 @@ final class BloopClasspathEntryLookup(
     val file = path.toFile()
     if (!file.exists) FalseDefinesClass
     else {
-      classpathHashes.find(fh => fh.file() == file) match {
+      classpathHashes.find(fh => fh.file() == path) match {
         case None => FalseDefinesClass
         case Some(entryHash) =>
           def computeDefinesClassForJar = {

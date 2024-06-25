@@ -130,7 +130,7 @@ final class BspProjectReporter(
    *   2. There is no way to know if an incremental cycle will be the last one in
    *      `reportEndIncrementalCycle`. We work around this limitation with this approach, so that
    *      when the thunk is run from `reportStartIncrementalCycle` we know a new cycle is coming
-   *      and when it's run from `reportEndIncrementalCompilation` we know it's the last cycle.
+   *      and when it's run from `reportEndIncrementalCycle` we know it's the last cycle.
    */
   private def processEndPreviousCycle(
       inputs: CycleInputs,

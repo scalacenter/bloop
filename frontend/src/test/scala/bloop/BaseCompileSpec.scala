@@ -1163,6 +1163,64 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
     }
   }
 
+  test("scalac -Xfatal-warnings should not set java fatal warnings as errors") {
+    TestUtil.withinWorkspace { workspace =>
+      object Sources {
+        val `Main.scala` =
+          """/Main.scala
+            |object Main extends App {
+            |  println("Hello, World!")
+            |}
+            """.stripMargin
+        val `Service.java` =
+          """/Service.java
+            |package com.example;
+            |import java.util.List;
+            |public class Service {
+            |    String aaa = 123;
+            |    public void create(List<Object> args) {
+            |        var second = (java.util.Optional<String>) args.get(2);
+            |        System.out.println(second);
+            |    }
+            |}
+            """.stripMargin
+      }
+
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val sources = List(Sources.`Main.scala`, Sources.`Service.java`)
+      val scalacOptions = List("-Xfatal-warnings")
+      val javacOptions = List("-Xlint:unchecked")
+      val `A` = TestProject(
+        workspace,
+        "a",
+        sources,
+        scalacOptions = scalacOptions,
+        javacOptions = javacOptions
+      )
+      val projects = List(`A`)
+      val state = loadState(workspace, projects, logger)
+      val compiledState = state.compile(`A`)
+      assertExitStatus(compiledState, ExitStatus.CompilationError)
+
+      val targetService = TestUtil.universalPath("a/src/Service.java")
+      assertNoDiff(
+        logger.renderErrors(exceptContaining = "Failed to compile"),
+        s"""[E1] ${targetService}:4
+           |     incompatible types: int cannot be converted to java.lang.String
+           |     L4: 123
+           |                          ^^^
+           |${TestUtil.universalPath("a/src/Service.java")}: L4 [E1], L6 [E2]
+           |""".stripMargin
+      )
+      assertDiagnosticsResult(
+        compiledState.getLastResultFor(`A`),
+        errors = 1,
+        warnings = 1,
+        expectFatalWarnings = false
+      )
+    }
+  }
+
   test("detect Scala syntactic errors") {
     TestUtil.withinWorkspace { workspace =>
       val sources = List(
