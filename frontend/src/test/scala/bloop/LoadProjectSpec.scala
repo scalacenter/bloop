@@ -15,7 +15,7 @@ class LoadProjectSpec extends BloopHelpers {
   @Test def LoadJavaProject(): Unit = {
     // Make sure that when no scala setup is configured the project load succeeds (and no scala instance is defined)
     val logger = new RecordingLogger()
-    val config0 = Config.File.dummyForTests
+    val config0 = Config.File.dummyForTests("JVM")
     val project = config0.project
     val configWithNoScala = config0.copy(config0.version, project.copy(scala = None))
     val origin = TestUtil.syntheticOriginFor(AbsolutePath.completelyUnsafe(""))
@@ -25,7 +25,7 @@ class LoadProjectSpec extends BloopHelpers {
 
   @Test def CustomWorkingDirectory(): Unit = {
     val logger = new RecordingLogger()
-    val dummyForTest = Config.File.dummyForTests
+    val dummyForTest = Config.File.dummyForTests("JVM")
     val origin = TestUtil.syntheticOriginFor(AbsolutePath.completelyUnsafe(""))
     val project = Project.fromConfig(dummyForTest, origin, logger)
     assert(
