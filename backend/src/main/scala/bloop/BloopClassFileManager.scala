@@ -40,8 +40,6 @@ final class BloopClassFileManager(
   private[this] val weakClassFileInvalidations = new mutable.HashSet[Path]()
   private[this] val generatedFiles = new mutable.HashSet[File]
 
-  // Supported compile products by the class file manager
-  private[this] val supportedCompileProducts = List(".sjsir", ".nir", ".tasty", ".betasty")
   // Files backed up during compilation
   private[this] val movedFiles = new mutable.HashMap[File, File]
 
@@ -140,7 +138,7 @@ final class BloopClassFileManager(
 
     val invalidatedExtraCompileProducts = classes.flatMap { classFile =>
       val prefixClassName = classFile.getName().stripSuffix(".class")
-      supportedCompileProducts.flatMap { supportedProductSuffix =>
+      BloopClassFileManager.supportedCompileProducts.flatMap { supportedProductSuffix =>
         val productName = prefixClassName + supportedProductSuffix
         val productAssociatedToClassFile = new File(classFile.getParentFile, productName)
         if (!productAssociatedToClassFile.exists()) Nil
@@ -186,7 +184,7 @@ final class BloopClassFileManager(
           .stripSuffix(".class") + supportedProductSuffix
         new File(classFile.getParentFile, productName)
       }
-      supportedCompileProducts.foreach { supportedProductSuffix =>
+      BloopClassFileManager.supportedCompileProducts.foreach { supportedProductSuffix =>
         val generatedProductName = productFile(generatedClassFile, supportedProductSuffix)
         val rebasedProductName = productFile(rebasedClassFile, supportedProductSuffix)
 
@@ -318,6 +316,9 @@ final class BloopClassFileManager(
 }
 
 object BloopClassFileManager {
+  // Supported compile products by the class file manager
+  val supportedCompileProducts = List(".sjsir", ".nir", ".tasty", ".betasty")
+
   def link(link: Path, target: Path): Try[Unit] = {
     Try {
       // Make sure parent directory for link exists

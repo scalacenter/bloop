@@ -657,21 +657,25 @@ class BspMetalsClientSpec(
         val compiledState = state.compile(`A`, arguments = Some(List("--best-effort"))).toTestState
         assertBetastyFile("A.betasty", compiledState, "A")
         assertBetastyFile("B.betasty", compiledState, "A")
+        assertCompilationFile("A.class", compiledState, "A")
         updateProject(updatedFile1WithError)
         val compiledState2 = state.compile(`A`, arguments = Some(List("--best-effort"))).toTestState
         assertBetastyFile("A.betasty", compiledState2, "A")
         assertNoBetastyFile("B.betasty", compiledState2, "A")
         assertBetastyFile("C.betasty", compiledState2, "A")
+        assertNoCompilationFile("A.class", compiledState, "A")
         updateProject(updatedFile2WithoutError)
         val compiledState3 = state.compile(`A`, arguments = Some(List("--best-effort"))).toTestState
         assertNoBetastyFile("A.betasty", compiledState3, "A")
         assertBetastyFile("B.betasty", compiledState3, "A")
         assertBetastyFile("C.betasty", compiledState3, "A")
+        assertCompilationFile("B.class", compiledState, "A")
         updateProject(updatedFile3WithError)
         val compiledState4 = state.compile(`A`, arguments = Some(List("--best-effort"))).toTestState
         assertNoBetastyFile("A.betasty", compiledState4, "A")
         assertBetastyFile("B.betasty", compiledState4, "A")
         assertNoBetastyFile("C.betasty", compiledState4, "A")
+        assertNoCompilationFile("B.class", compiledState, "A")
       }
     }
   }
@@ -791,15 +795,36 @@ class BspMetalsClientSpec(
     classesDir.resolve(s"META-INF/semanticdb/$projectName/src/$sourcePath.semanticdb")
   }
 
-  private def assertBetastyFile(
-      expectedBetastyRelativePath: String,
+  private def assertCompilationFile(
+      expectedFilePath: String,
       state: TestState,
       projectName: String
   ): Unit = {
     val project = state.build.getProjectFor(projectName).get
     val classesDir = state.client.getUniqueClassesDirFor(project, forceGeneration = true)
-    val beTastyFile = classesDir.resolve(s"META-INF/best-effort/$expectedBetastyRelativePath")
-    assertIsFile(beTastyFile)
+    assertIsFile(classesDir.resolve(expectedFilePath))
+  }
+
+  private def assertNoCompilationFile(
+      expectedFilePath: String,
+      state: TestState,
+      projectName: String
+  ): Unit = {
+    val project = state.build.getProjectFor(projectName).get
+    val classesDir = state.client.getUniqueClassesDirFor(project, forceGeneration = true)
+    assertNotFile(classesDir.resolve(expectedFilePath))
+  }
+
+  private def assertBetastyFile(
+      expectedBetastyRelativePath: String,
+      state: TestState,
+      projectName: String
+  ): Unit = {
+    assertCompilationFile(
+      s"META-INF/best-effort/$expectedBetastyRelativePath",
+      state,
+      projectName
+    )
   }
 
   private def assertNoBetastyFile(
@@ -807,10 +832,11 @@ class BspMetalsClientSpec(
       state: TestState,
       projectName: String
   ): Unit = {
-    val project = state.build.getProjectFor(projectName).get
-    val classesDir = state.client.getUniqueClassesDirFor(project, forceGeneration = true)
-    val beTastyFile = classesDir.resolve(s"META-INF/best-effort/$expectedBetastyRelativePath")
-    assertNotFile(beTastyFile)
+    assertNoCompilationFile(
+      s"META-INF/best-effort/$expectedBetastyRelativePath",
+      state,
+      projectName
+    )
   }
 
   private def assertSemanticdbFileFor(

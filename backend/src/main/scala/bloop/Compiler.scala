@@ -376,10 +376,10 @@ object Compiler {
             t,
             elapsed,
             _,
-            bestEffortProducts @ Some(BestEffortProducts(compileProducts, previousHash))
+            bestEffortProducts @ Some(BestEffortProducts(previousCompilationResults, previousHash))
           ) if isBestEffortMode =>
         val newHash = BestEffortUtils.hashResult(
-          compileProducts.newClassesDir,
+          previousCompilationResults.newClassesDir,
           compileInputs.sources,
           compileInputs.classpath
         )
@@ -401,7 +401,18 @@ object Compiler {
             ): Task[Unit] = Task.defer {
               val clientClassesDir = clientClassesObserver.classesDir
               clientLogger.debug(s"Triggering background tasks for $clientClassesDir")
+
+              // First, we delete newClassesDir, as it was created to store
+              // new compilation artifacts coming from scalac, which we will not
+              // have in this case and it's going to remain empty.
               val firstTask = Task { BloopPaths.delete(AbsolutePath(newClassesDir)) }
+
+              // Then we copy previous best effort artifacts to a clientDir from the
+              // cached compilation result.
+              // This is useful if e.g. the client restarted after the last compilation
+              // and was assigned a new, empty directory. Since best-effort currently does
+              // not support incremental compilation, all necessary betasty files will come
+              // from a single previous compilation run, so that is all we need to copy.
               val config =
                 ParallelOps.CopyConfiguration(
                   parallelUnits = 5,
@@ -410,7 +421,7 @@ object Compiler {
                   denyDirs = Set.empty
                 )
               val secondTask = ParallelOps.copyDirectories(config)(
-                compileProducts.newClassesDir,
+                previousCompilationResults.newClassesDir,
                 clientClassesDir.underlying,
                 compileInputs.ioScheduler,
                 enableCancellation = false,
@@ -878,7 +889,6 @@ object Compiler {
   ): Result = {
     val uniqueInputs = compileInputs.uniqueInputs
     val readOnlyClassesDir = compileOut.internalReadOnlyClassesDir.underlying
-    val readOnlyClassesDirPath = readOnlyClassesDir.toString
     val newClassesDir = compileOut.internalNewClassesDir.underlying
 
     reporter.processEndCompilation(
@@ -903,10 +913,6 @@ object Compiler {
       Map.empty
     )
 
-    // Delete all those class files that were invalidated in the external classes dir
-    val allInvalidated =
-      allInvalidatedClassFilesForProject ++ allInvalidatedExtraCompileProducts
-
     val backgroundTasksExecution = new CompileBackgroundTasks {
       def trigger(
           clientClassesObserver: ClientClassesObserver,
@@ -915,7 +921,6 @@ object Compiler {
           clientLogger: Logger
       ): Task[Unit] = {
         val clientClassesDir = clientClassesObserver.classesDir
-        val clientClassesDirPath = clientClassesDir.toString
         val successBackgroundTasks =
           backgroundTasksWhenNewSuccessfulAnalysis
             .map(f => f(clientClassesDir, clientReporter, clientTracer))
@@ -933,20 +938,14 @@ object Compiler {
           )
 
           val secondTask = Task {
-            allInvalidated.foreach { f =>
-              val path = AbsolutePath(f.toPath)
-              val syntax = path.syntax
-              if (syntax.startsWith(readOnlyClassesDirPath)) {
-                val rebasedFile = AbsolutePath(
-                  syntax.replace(readOnlyClassesDirPath, clientClassesDirPath)
-                )
-                if (rebasedFile.exists) {
-                  // In practice this deletes previous successful compilation artifacts
-                  // (like '.tasty' and ".class"), which we do not need in clientDir
-                  Files.delete(rebasedFile.underlying)
-                }
-              }
-            }
+            // Delete everything outside of betasty and semanticdb
+            val deletedCompileProducts =
+              BloopClassFileManager.supportedCompileProducts.filter(_ != ".betasty") :+ ".class"
+            Files
+              .walk(clientClassesDir.underlying)
+              .filter(path => Files.isRegularFile(path))
+              .filter(path => deletedCompileProducts.exists(path.toString.endsWith(_)))
+              .forEach(Files.delete(_))
           }
           Task
             .gatherUnordered(List(firstTask, secondTask))
