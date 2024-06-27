@@ -47,6 +47,8 @@ import com.github.plokhotnyuk.jsoniter_scala.macros.JsonCodecMaker
  * server before loading the state and presentings projects to the client.
  * @param traceSettings are the settings provided by the user that customize how
  * the bloop server should behave.
+ * @param enableBestEffortMode signifies whether the best-effort compilation mode
+ * is used
  */
 case class WorkspaceSettings(
     // Managed by bloop or build tool
@@ -55,7 +57,8 @@ case class WorkspaceSettings(
     supportedScalaVersions: Option[List[String]],
     // Managed by the user
     refreshProjectsCommand: Option[List[String]],
-    traceSettings: Option[TraceSettings]
+    traceSettings: Option[TraceSettings],
+    enableBestEffortMode: Option[Boolean]
 ) {
   def withSemanticdbSettings: Option[(WorkspaceSettings, SemanticdbSettings)] =
     if (semanticDBVersion.nonEmpty || javaSemanticDBVersion.nonEmpty) {
@@ -85,6 +88,7 @@ object WorkspaceSettings {
       Some(javaSemanticDBVersion),
       Some(scalaSemanticDBVersion),
       Some(supportedScalaVersions),
+      None,
       None,
       None
     )

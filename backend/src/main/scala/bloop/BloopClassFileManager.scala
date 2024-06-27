@@ -40,8 +40,6 @@ final class BloopClassFileManager(
   private[this] val weakClassFileInvalidations = new mutable.HashSet[Path]()
   private[this] val generatedFiles = new mutable.HashSet[File]
 
-  // Supported compile products by the class file manager
-  private[this] val supportedCompileProducts = List(".sjsir", ".nir", ".tasty")
   // Files backed up during compilation
   private[this] val movedFiles = new mutable.HashMap[File, File]
 
@@ -140,7 +138,7 @@ final class BloopClassFileManager(
 
     val invalidatedExtraCompileProducts = classes.flatMap { classFile =>
       val prefixClassName = classFile.getName().stripSuffix(".class")
-      supportedCompileProducts.flatMap { supportedProductSuffix =>
+      BloopClassFileManager.supportedCompileProducts.flatMap { supportedProductSuffix =>
         val productName = prefixClassName + supportedProductSuffix
         val productAssociatedToClassFile = new File(classFile.getParentFile, productName)
         if (!productAssociatedToClassFile.exists()) Nil
@@ -186,7 +184,7 @@ final class BloopClassFileManager(
           .stripSuffix(".class") + supportedProductSuffix
         new File(classFile.getParentFile, productName)
       }
-      supportedCompileProducts.foreach { supportedProductSuffix =>
+      BloopClassFileManager.supportedCompileProducts.foreach { supportedProductSuffix =>
         val generatedProductName = productFile(generatedClassFile, supportedProductSuffix)
         val rebasedProductName = productFile(rebasedClassFile, supportedProductSuffix)
 
@@ -215,20 +213,38 @@ final class BloopClassFileManager(
             clientTracer: BraveTracer
         ) => {
           clientTracer.traceTaskVerbose("copy new products to external classes dir") { _ =>
-            val config = ParallelOps.CopyConfiguration(5, CopyMode.ReplaceExisting, Set.empty)
-            ParallelOps
-              .copyDirectories(config)(
-                newClassesDir,
-                clientExternalClassesDir.underlying,
-                inputs.ioScheduler,
-                enableCancellation = false,
-                inputs.logger
-              )
-              .map { walked =>
-                readOnlyCopyDenylist.++=(walked.target)
+            val config =
+              ParallelOps.CopyConfiguration(5, CopyMode.ReplaceExisting, Set.empty, Set.empty)
+            val clientExternalBestEffortDir =
+              clientExternalClassesDir.underlying.resolve("META-INF/best-effort")
+
+            // Deletes all previous best-effort artifacts to get rid of all of the outdated ones.
+            // Since best effort compilation is not affected by incremental compilation,
+            // all relevant files are always produced by the compiler. Because of this,
+            // we can always delete all previous files and copy newly created ones
+            // without losing anything in the process.
+            val deleteClientExternalBestEffortDir =
+              Task {
+                if (Files.exists(clientExternalBestEffortDir)) {
+                  BloopPaths.delete(AbsolutePath(clientExternalBestEffortDir))
+                }
                 ()
-              }
-              .flatMap(_ => deleteAfterCompilation)
+              }.memoize
+
+            deleteClientExternalBestEffortDir *>
+              ParallelOps
+                .copyDirectories(config)(
+                  newClassesDir,
+                  clientExternalClassesDir.underlying,
+                  inputs.ioScheduler,
+                  enableCancellation = false,
+                  inputs.logger
+                )
+                .map { walked =>
+                  readOnlyCopyDenylist.++=(walked.target)
+                  ()
+                }
+                .flatMap(_ => deleteAfterCompilation)
           }
         }
       )
@@ -274,7 +290,8 @@ final class BloopClassFileManager(
             else
               clientTracer.traceTask("populate empty classes dir") { _ =>
                 // Prepopulate external classes dir even though compilation failed
-                val config = ParallelOps.CopyConfiguration(1, CopyMode.NoReplace, Set.empty)
+                val config =
+                  ParallelOps.CopyConfiguration(1, CopyMode.NoReplace, Set.empty, Set.empty)
                 ParallelOps
                   .copyDirectories(config)(
                     Paths.get(readOnlyClassesDirPath),
@@ -299,6 +316,9 @@ final class BloopClassFileManager(
 }
 
 object BloopClassFileManager {
+  // Supported compile products by the class file manager
+  val supportedCompileProducts = List(".sjsir", ".nir", ".tasty", ".betasty")
+
   def link(link: Path, target: Path): Try[Unit] = {
     Try {
       // Make sure parent directory for link exists

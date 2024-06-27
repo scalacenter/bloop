@@ -28,6 +28,7 @@ import bloop.util.JavaRuntime
 import scalaz.Cord
 import xsbti.compile.ClasspathOptions
 import xsbti.compile.CompileOrder
+import scala.util.Success
 
 final case class Project(
     name: String,
@@ -39,6 +40,7 @@ final case class Project(
     resources: List[AbsolutePath],
     compileSetup: Config.CompileSetup,
     genericClassesDir: AbsolutePath,
+    isBestEffort: Boolean,
     scalacOptions: List[String],
     javacOptions: List[String],
     sources: List[AbsolutePath],
@@ -360,6 +362,7 @@ object Project {
       compileResources,
       setup,
       AbsolutePath(project.classesDir),
+      isBestEffort = false,
       scala.map(_.options).getOrElse(Nil),
       project.java.map(_.options).getOrElse(Nil),
       project.sources.map(AbsolutePath.apply),
@@ -418,6 +421,7 @@ object Project {
       configDir: AbsolutePath,
       scalaSemanticDBPlugin: Option[AbsolutePath],
       javaSemanticDBPlugin: Option[AbsolutePath],
+      enableBestEffortMode: Option[Boolean],
       logger: Logger
   ): Project = {
     val workspaceDir = project.workspaceDirectory.getOrElse(configDir.getParent)
@@ -427,6 +431,30 @@ object Project {
       version.startsWith("3.") &&
       version != "3.0.0-M1"
       version != "3.0.0-M2"
+    }
+
+    def canEnableBestEffortFlag(version: String): Boolean = {
+      val split = version.split('.')
+      if (split.length == 3) {
+        val major = split(0)
+        val minor = split(1)
+        (Try(major.toInt), Try(minor.toInt)) match {
+          case (Success(majorVer), Success(minorVer)) => majorVer >= 3 && minorVer >= 5
+          case _ => false
+        }
+      } else false
+    }
+
+    def enableBestEffortFlag(options: List[String]): List[String] = {
+      val bestEffortOpt = "-Ybest-effort"
+      val withBETastyOpt = "-Ywith-best-effort-tasty"
+      val optsWithBestEffort =
+        if (options.contains(bestEffortOpt)) options
+        else options :+ bestEffortOpt
+      val optsWithBETasty =
+        if (optsWithBestEffort.contains(withBETastyOpt)) optsWithBestEffort
+        else optsWithBestEffort :+ withBETastyOpt
+      optsWithBETasty
     }
 
     def enableScalaSemanticdb(options: List[String], pluginPath: AbsolutePath): List[String] = {
@@ -535,18 +563,35 @@ object Project {
         val scalacOptionsWithSemanticDB = enableScalaSemanticdb(rangedScalacOptions, pluginPath)
         projectWithRangePositions.copy(scalacOptions = scalacOptionsWithSemanticDB)
     }
-    javaSemanticDBPlugin match {
-      case None =>
-        scalaProjectWithRangePositions
-      case Some(pluginPath) =>
-        val javacOptionsWithSemanticDB = enableJavaSemanticdbOptions(javacOptions, pluginPath)
-        val classpathWithSemanticDB =
-          enableJavaSemanticdbClasspath(pluginPath, scalaProjectWithRangePositions.rawClasspath)
-        scalaProjectWithRangePositions.copy(
-          javacOptions = javacOptionsWithSemanticDB,
-          rawClasspath = classpathWithSemanticDB
+
+    val withEnabledJavaSemanticDb =
+      javaSemanticDBPlugin match {
+        case None =>
+          scalaProjectWithRangePositions
+        case Some(pluginPath) =>
+          val javacOptionsWithSemanticDB = enableJavaSemanticdbOptions(javacOptions, pluginPath)
+          val classpathWithSemanticDB =
+            enableJavaSemanticdbClasspath(pluginPath, scalaProjectWithRangePositions.rawClasspath)
+          scalaProjectWithRangePositions.copy(
+            javacOptions = javacOptionsWithSemanticDB,
+            rawClasspath = classpathWithSemanticDB
+          )
+      }
+
+    val withEnabledBestEffortCompilation =
+      if (
+        enableBestEffortMode.getOrElse(false) &&
+        project.scalaInstance.exists(i => canEnableBestEffortFlag(i.version))
+      ) {
+        val options = enableBestEffortFlag(withEnabledJavaSemanticDb.scalacOptions)
+
+        project.copy(
+          isBestEffort = true,
+          scalacOptions = options
         )
-    }
+      } else withEnabledJavaSemanticDb
+
+    withEnabledBestEffortCompilation
   }
 
   def hasScalaSemanticDBEnabledInCompilerOptions(options: List[String]): Boolean = {
