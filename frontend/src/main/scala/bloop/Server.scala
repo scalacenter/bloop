@@ -93,6 +93,12 @@ object Server {
             startServer(Right(lockFiles.socketPaths))
           }
           res match {
+            case Left(_: LockError.ZombieFound) =>
+              System.err.println(s"Found zombie process, removing files in $lockFilesDir")
+              Files.delete(lockFiles.pidFile)
+              Files.delete(lockFiles.lockFile)
+              Files.delete(lockFiles.socketPaths.path)
+              loop(remainingAttempts - 1)
             case Left(err: LockError.RecoverableError) =>
               if (remainingAttempts > 0) {
                 System.err.println(s"Caught $err, trying again in $period")
@@ -102,9 +108,6 @@ object Server {
                 throw new Exception(err)
             case Left(_: LockError.AlreadyRunning) =>
               sys.exit(222) // Special exit code if a server is already running
-            case Left(_: LockError.ZombieFound) =>
-              Files.delete(lockFiles.pidFile)
-              loop(remainingAttempts - 1)
             case Left(err: LockError.FatalError) =>
               throw new Exception(err)
             case Right(()) =>
