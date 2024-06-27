@@ -83,7 +83,7 @@ trait BloopHelpers {
     val baseDir = sourceConfigDir.getParent
     val relativeConfigDir = RelativePath(sourceConfigDir.getFileName)
 
-    val config = ParallelOps.CopyConfiguration(5, CopyMode.ReplaceExisting, Set.empty)
+    val config = ParallelOps.CopyConfiguration(5, CopyMode.ReplaceExisting, Set.empty, Set.empty)
     val copyToNewWorkspace = ParallelOps.copyDirectories(config)(
       baseDir,
       workspace.underlying,
@@ -302,7 +302,8 @@ trait BloopHelpers {
             }
 
             val backupDir = ParallelOps.copyDirectories(
-              ParallelOps.CopyConfiguration(2, ParallelOps.CopyMode.ReplaceExisting, Set.empty)
+              ParallelOps
+                .CopyConfiguration(2, ParallelOps.CopyMode.ReplaceExisting, Set.empty, Set.empty)
             )(
               classesDir,
               newClassesDir,

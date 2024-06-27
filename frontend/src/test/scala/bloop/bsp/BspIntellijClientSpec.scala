@@ -59,7 +59,8 @@ class BspIntellijClientSpec(
         None,
         None,
         refreshProjectsCommand = Some(refreshProjectsCommand),
-        Some(TraceSettings.fromProperties(TraceProperties.default))
+        Some(TraceSettings.fromProperties(TraceProperties.default)),
+        None
       )
 
       WorkspaceSettings.writeToFile(configDir, workspaceSettings, logger)

@@ -144,15 +144,16 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
     def compileTask(
         project: TestProject,
         originId: Option[String],
-        clearDiagnostics: Boolean = true
+        clearDiagnostics: Boolean = true,
+        arguments: Option[List[String]] = None
     ): Task[ManagedBspTestState] = {
       runAfterTargets(project) { target =>
         // Handle internal state before sending compile request
         if (clearDiagnostics) diagnostics.clear()
         currentCompileIteration.increment(1)
 
-        rpcRequest(BuildTarget.compile, bsp.CompileParams(List(target), originId, None)).flatMap {
-          r =>
+        rpcRequest(BuildTarget.compile, bsp.CompileParams(List(target), originId, arguments))
+          .flatMap { r =>
             // `headL` returns latest saved state from bsp because source is behavior subject
             Task
               .liftMonixTaskUncancellable(
@@ -168,7 +169,7 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
                   serverStates
                 )
               }
-        }
+          }
       }
     }
 
@@ -192,11 +193,12 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
         project: TestProject,
         originId: Option[String] = None,
         clearDiagnostics: Boolean = true,
-        timeout: Long = 30
+        timeout: Long = 30,
+        arguments: Option[List[String]] = None
     ): ManagedBspTestState = {
       // Use a default timeout of 30 seconds for every operation
       TestUtil.await(FiniteDuration(timeout, "s")) {
-        compileTask(project, originId, clearDiagnostics)
+        compileTask(project, originId, clearDiagnostics, arguments)
       }
     }
 

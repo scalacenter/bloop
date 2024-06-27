@@ -12,7 +12,8 @@ object BloopBspDefinitions {
       clientClassesRootDir: Option[Uri],
       semanticdbVersion: Option[String],
       supportedScalaVersions: Option[List[String]],
-      javaSemanticdbVersion: Option[String]
+      javaSemanticdbVersion: Option[String],
+      enableBestEffortMode: Option[Boolean]
   )
 
   object BloopExtraBuildParams {
@@ -21,7 +22,8 @@ object BloopBspDefinitions {
       clientClassesRootDir = None,
       semanticdbVersion = None,
       supportedScalaVersions = None,
-      javaSemanticdbVersion = None
+      javaSemanticdbVersion = None,
+      enableBestEffortMode = None
     )
 
     implicit val codec: JsonValueCodec[BloopExtraBuildParams] =
