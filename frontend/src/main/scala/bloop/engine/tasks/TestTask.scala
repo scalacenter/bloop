@@ -306,6 +306,7 @@ object TestTask {
         val fqn = taskDef.fullyQualifiedName()
         !excluded(fqn) && testFilter(fqn)
     }
+
     if (logger.isVerbose) {
       val allNames = ungroupedTests.map(_.taskDef.fullyQualifiedName).mkString(", ")
       val includedNames = includedTests.map(_.taskDef.fullyQualifiedName).mkString(", ")
@@ -321,21 +322,33 @@ object TestTask {
     // usually it is a Array(new SuiteSelector). However, if only subset of test are supposed to
     // be run, then it can be altered to Array[TestSelector]
     val selectedTests = testClasses.suites.map(entry => (entry.className, entry.tests)).toMap
-    includedTests.groupBy(_.framework).mapValues { taskDefs =>
-      taskDefs.map {
-        case TaskDefWithFramework(taskDef, _) =>
-          selectedTests.get(taskDef.fullyQualifiedName()).getOrElse(Nil) match {
-            case Nil => taskDef
-            case selectedTests =>
-              new TaskDef(
-                taskDef.fullyQualifiedName(),
-                taskDef.fingerprint(),
-                false,
-                selectedTests.map(test => new TestSelector(test)).toList.toArray
-              )
-          }
+
+    val testsToRun =
+      if (testClasses.suites.nonEmpty) {
+        includedTests
+          .filter(t => testClasses.suites.map(_.className).contains(t.taskDef.fullyQualifiedName))
+      } else {
+        includedTests
       }
-    }
+
+    testsToRun
+      .groupBy(_.framework)
+      .mapValues { taskDefs =>
+        taskDefs.map {
+          case TaskDefWithFramework(taskDef, _) =>
+            selectedTests.get(taskDef.fullyQualifiedName()) match {
+              case None =>
+                taskDef
+              case Some(value) =>
+                new TaskDef(
+                  taskDef.fullyQualifiedName(),
+                  taskDef.fingerprint(),
+                  false,
+                  value.map(test => new TestSelector(test)).toList.toArray
+                )
+            }
+        }
+      }
   }
 
   private[bloop] def discoverTests(
