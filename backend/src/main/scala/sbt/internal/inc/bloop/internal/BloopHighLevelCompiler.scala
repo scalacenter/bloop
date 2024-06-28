@@ -1,6 +1,8 @@
 // scalafmt: { maxColumn = 250 }
 package sbt.internal.inc.bloop.internal
 
+import java.io.ByteArrayOutputStream
+import java.io.PrintStream
 import java.nio.file.Files
 import java.util.Optional
 
@@ -120,6 +122,9 @@ final class BloopHighLevelCompiler(
             throw new CompileFailed(new Array(0), s"Expected Scala library jar in Scala instance containing ${scalac.scalaInstance.allJars().mkString(", ")}", new Array(0))
           }
           try {
+            val out = System.out
+            val baos = new ByteArrayOutputStream();
+            System.setOut(new PrintStream(baos));
             scalac.compile(
               sources.toArray,
               classpath.toArray,
@@ -132,6 +137,8 @@ final class BloopHighLevelCompiler(
               config.progress.toOptional,
               logger
             )
+            System.setOut(out)
+            logger.info(baos.toString)
           } catch {
             case t: StackOverflowError =>
               val msg = "Encountered a StackOverflowError coming from the compiler. You might need to restart your Bloop build server"

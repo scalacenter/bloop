@@ -63,6 +63,38 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
       }
     }
   }
+  test("compile-with-Vprint:typer") {
+    TestUtil.withinWorkspace { workspace =>
+      val sources = List(
+        """/main/scala/Foo.scala
+          |class Foo
+          """.stripMargin
+      )
+
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val `A` = TestProject(workspace, "a", sources, scalacOptions = List("-Vprint:typer"))
+      val projects = List(`A`)
+      val state = loadState(workspace, projects, logger)
+      val compiledState = state.compile(`A`)
+      assertExitStatus(compiledState, ExitStatus.Ok)
+      assertValidCompilationState(compiledState, projects)
+
+      assertNoDiff(
+        logger.infos.filterNot(_.contains("Compiled")).mkString("\n").trim(),
+        """|Compiling a (1 Scala source)
+           |[[syntax trees at end of                     typer]] // Foo.scala
+           |package <empty> {
+           |  class Foo extends scala.AnyRef {
+           |    def <init>(): Foo = {
+           |      Foo.super.<init>();
+           |      ()
+           |    }
+           |  }
+           |}
+           |""".stripMargin
+      )
+    }
+  }
 
   test("compile a project, delete an analysis and then write it back during a no-op compilation") {
     TestUtil.withinWorkspace { workspace =>
