@@ -16,6 +16,7 @@ class RecordingLogger(
   private[this] val messages = new ConcurrentLinkedQueue[(String, String)]
 
   redirectOutputToLogs(System.out)
+
   def clear(): Unit = messages.clear()
 
   def debugs: List[String] = getMessagesAt(Some("debug"))
