@@ -1,10 +1,19 @@
 package bloop.logging
 
+import java.io.ByteArrayOutputStream
+import java.io.PrintStream
 import java.util.function.Supplier
 
 import bloop.io.Environment
 
 abstract class Logger extends xsbti.Logger with BaseSbtLogger {
+
+  // Duplicate the standard output so that we get printlns from the compiler
+  protected def redirectOutputToLogs(out: PrintStream) = {
+    val baos = new ByteArrayOutputStream()
+    val duplicating = new DuplicatingOutputStream(out, baos, this)
+    System.setOut(new PrintStream(duplicating));
+  }
 
   /** The name of the logger */
   def name: String
