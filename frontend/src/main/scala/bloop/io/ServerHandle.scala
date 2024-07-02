@@ -3,9 +3,9 @@ package bloop.io
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.ServerSocket
-
-import bloop.sockets.UnixDomainServerSocket
-import bloop.sockets.Win32NamedPipeServerSocket
+import java.net.StandardProtocolFamily
+import java.net.UnixDomainSocketAddress
+import java.nio.channels.ServerSocketChannel
 
 sealed trait ServerHandle {
   def uri: String
@@ -13,15 +13,13 @@ sealed trait ServerHandle {
 }
 
 object ServerHandle {
-  final case class WindowsLocal(pipeName: String) extends ServerHandle {
-    val server: ServerSocket = new Win32NamedPipeServerSocket(pipeName)
-    // pipeName should already look like "\\.\pipe\…", no need to add a prefix or anything
-    def uri: String = pipeName
-    override def toString: String = s"pipe $pipeName"
-  }
-
   final case class UnixLocal(socketFile: AbsolutePath) extends ServerHandle {
-    val server: ServerSocket = new UnixDomainServerSocket(socketFile.syntax)
+    val server: ServerSocket = {
+      val addr = UnixDomainSocketAddress.of(socketFile.syntax)
+      val s = ServerSocketChannel.open(StandardProtocolFamily.UNIX)
+      s.bind(addr)
+      libdaemonjvm.Util.serverSocketFromChannel(s)
+    }
     def uri: String = s"local://${socketFile.syntax}"
     override def toString: String = s"local://${socketFile.syntax}"
   }
