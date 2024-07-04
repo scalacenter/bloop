@@ -44,10 +44,11 @@ object Default extends Command[DefaultOptions] {
         logger.message("Bloop server is running.")
       case Seq(cmd, args @ _*) =>
         val assumeTty = System.console() != null
+        val cwd = os.pwd.wrapped
         val retCode = Operations.run(
           command = cmd,
           args = args.toArray,
-          workingDir = bloopRifleConfig.workingDir.toPath,
+          workingDir = cwd,
           address = bloopRifleConfig.address,
           inOpt = Some(System.in),
           out = System.out,

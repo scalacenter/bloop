@@ -250,7 +250,8 @@ lazy val bloopRifle: Project = project
     buildInfoPackage := "bloop.rifle.internal",
     buildInfoKeys := List[BuildInfoKey](
       Keys.version,
-      Keys.scalaVersion,
+      // Scala version used by the server itself
+      "scalaVersion" -> Dependencies.Scala212Version,
       "bspVersion" -> Dependencies.bspVersion
     )
   )

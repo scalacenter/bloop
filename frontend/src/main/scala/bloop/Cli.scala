@@ -86,6 +86,8 @@ object Cli {
         printErrorAndExit(helpAsked, nailgunOptions)
       else parse(args, nailgunOptions)
     }
+    println(nailgunOptions.workingDirectory)
+    println(nailgunOptions.workingPath)
 
     try {
       val exitStatus = run(cmd, NailgunPool(ngContext))

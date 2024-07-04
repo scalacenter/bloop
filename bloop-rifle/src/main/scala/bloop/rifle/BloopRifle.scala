@@ -49,7 +49,7 @@ object BloopRifle {
   ): Future[Unit] =
     config.classPath(version) match {
       case Left(ex) => Future.failed(new Exception("Error getting Bloop class path", ex))
-      case Right((cp, isScalaCliBloop)) =>
+      case Right(cp) =>
         logger.info("Starting compilation server")
         logger.debug(
           s"Starting Bloop $version at ${config.address.render} using JVM $bloopJava"
@@ -63,15 +63,14 @@ object BloopRifle {
             }
         }
         val bloopServerSupportsFileTruncating =
-          isScalaCliBloop && {
-            version.takeWhile(c => c.isDigit || c == '.').split('.') match {
-              case Array(IntValue(maj), IntValue(min), IntValue(patch), _ @_*) =>
-                import scala.math.Ordering.Implicits._
-                Seq(maj, min, patch) >= Seq(1, 4, 20)
-              case _ =>
-                false
-            }
+          version.takeWhile(c => c.isDigit || c == '.').split('.') match {
+            case Array(IntValue(maj), IntValue(min), IntValue(patch), _ @_*) =>
+              import scala.math.Ordering.Implicits._
+              Seq(maj, min, patch) >= Seq(1, 4, 20)
+            case _ =>
+              false
           }
+
         Operations.startServer(
           config.address,
           bloopJava,

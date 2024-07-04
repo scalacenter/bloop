@@ -152,7 +152,7 @@ object BspServer {
         .map(_ => provider.stateAfterExecution)
     }
 
-    val handle = cmd match {
+    val handle: ServerHandle = cmd match {
       case Commands.UnixLocalBsp(socketFile, _) =>
         ServerHandle.UnixLocal(socketFile)
       case Commands.TcpBsp(address, portNumber, _) =>

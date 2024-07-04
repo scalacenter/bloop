@@ -41,7 +41,7 @@ object Start extends Command[StartOptions] {
         threads.startServerChecks,
         logger.bloopRifleLogger,
         BuildInfo.version,
-        ??? // bloopRifleConfig.javaPath
+        bloopRifleConfig.javaPath
       )
       Await.result(f, Duration.Inf)
       logger.message("Bloop server started.")

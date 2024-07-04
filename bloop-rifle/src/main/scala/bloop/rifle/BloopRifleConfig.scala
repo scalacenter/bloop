@@ -12,7 +12,7 @@ final case class BloopRifleConfig(
     address: BloopRifleConfig.Address,
     javaPath: String,
     javaOpts: Seq[String],
-    classPath: String => Either[Throwable, (Seq[File], Boolean)],
+    classPath: String => Either[Throwable, Seq[File]],
     workingDir: File,
     bspSocketOrPort: Option[() => BspConnectionAddress],
     bspStdin: Option[InputStream],
@@ -92,9 +92,9 @@ object BloopRifleConfig {
       .getOrElse(hardCodedDefaultJavaOpts)
   }
 
-  def scalaCliBloopOrg = "ch.epfl.scala"
+  def bloopOrg = "ch.epfl.scala"
   def hardCodedDefaultModule: String =
-    s"$scalaCliBloopOrg:bloop-frontend_2.12"
+    s"$bloopOrg:bloop-frontend_2.12"
   def hardCodedDefaultVersion: String =
     BuildInfo.version
   def hardCodedDefaultScalaVersion: String =
@@ -128,7 +128,7 @@ object BloopRifleConfig {
 
   def default(
       address: Address,
-      bloopClassPath: String => Either[Throwable, (Seq[File], Boolean)],
+      bloopClassPath: String => Either[Throwable, Seq[File]],
       workingDir: File
   ): BloopRifleConfig =
     BloopRifleConfig(

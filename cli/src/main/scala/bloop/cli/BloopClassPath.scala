@@ -17,7 +17,7 @@ object BloopClassPath {
       logger: Logger,
       cache: FileCache[Task],
       bloopVersion: String
-  ): Either[Throwable, (Seq[File], Boolean)] = {
+  ): Either[Throwable, Seq[File]] = {
 
     val moduleStr = BloopRifleConfig.defaultModule
 
@@ -32,12 +32,11 @@ object BloopClassPath {
       params = ScalaParameters(sv, sbv)
       cp <- Artifacts.artifacts(
         Seq(dep),
-        Nil,
+        Seq("sonatype:snapshots"),
         Some(params),
         logger,
         cache.withMessage(s"Downloading compilation server ${dep.version}")
       )
-      isScalaCliBloop = moduleStr.startsWith(BloopRifleConfig.scalaCliBloopOrg + ":")
-    } yield (cp.map(_._2.toIO), isScalaCliBloop)
+    } yield cp.map(_._2.toIO)
   }
 }

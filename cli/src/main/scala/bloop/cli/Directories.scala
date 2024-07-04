@@ -37,7 +37,7 @@ object Directories {
       else
         GetWinDirs.powerShellBased
 
-    OsLocations(ProjectDirectories.from(null, null, "ScalaCli", getWinDirs))
+    OsLocations(ProjectDirectories.from(null, null, "bloop", getWinDirs))
   }
 
   def under(dir: os.Path): Directories =
