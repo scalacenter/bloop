@@ -436,7 +436,7 @@ final class BloopBspServices(
     }
 
     val isPipeline = compileArgs.exists(_ == "--pipeline")
-    val isBestEffort = compileArgs.exists(_ == "--best-effort")
+    val bestEffortAllowed = compileArgs.exists(_ == "--best-effort")
     def compile(projects: List[Project]): Task[State] = {
       val config = ReporterConfig.defaultFormat.copy(reverseOrder = false)
 
@@ -486,7 +486,7 @@ final class BloopBspServices(
         dag,
         createReporter,
         isPipeline,
-        isBestEffort,
+        bestEffortAllowed,
         cancelCompilation,
         store,
         logger

@@ -173,7 +173,7 @@ object Interpreter {
         dag,
         createReporter,
         cmd.pipeline,
-        bestEffort = false,
+        bestEffortAllowed = false,
         Promise[Unit](),
         CompileClientStore.NoStore,
         state.logger

@@ -47,7 +47,7 @@ object CompileTask {
       dag: Dag[Project],
       createReporter: ReporterInputs[UseSiteLogger] => Reporter,
       pipeline: Boolean,
-      bestEffort: Boolean,
+      bestEffortAllowed: Boolean,
       cancelCompilation: Promise[Unit],
       store: CompileClientStore,
       rawLogger: UseSiteLogger
@@ -276,73 +276,74 @@ object CompileTask {
     }
 
     val client = state.client
-    CompileGraph.traverse(dag, client, store, bestEffort, setup(_), compile).flatMap { pdag =>
-      val partialResults = Dag.dfs(pdag, mode = Dag.PreOrder)
-      val finalResults = partialResults.map(r => PartialCompileResult.toFinalResult(r))
-      Task.gatherUnordered(finalResults).map(_.flatten).flatMap { results =>
-        val cleanUpTasksToRunInBackground =
-          markUnusedClassesDirAndCollectCleanUpTasks(results, state, rawLogger)
+    CompileGraph.traverse(dag, client, store, bestEffortAllowed, setup(_), compile).flatMap {
+      pdag =>
+        val partialResults = Dag.dfs(pdag, mode = Dag.PreOrder)
+        val finalResults = partialResults.map(r => PartialCompileResult.toFinalResult(r))
+        Task.gatherUnordered(finalResults).map(_.flatten).flatMap { results =>
+          val cleanUpTasksToRunInBackground =
+            markUnusedClassesDirAndCollectCleanUpTasks(results, state, rawLogger)
 
-        val failures = results.flatMap {
-          case FinalNormalCompileResult(p, results) =>
-            results.fromCompiler match {
-              case Compiler.Result.NotOk(_) => List(p)
-              // Consider success with reported fatal warnings as error to simulate -Xfatal-warnings
-              case s: Compiler.Result.Success if s.reportedFatalWarnings => List(p)
-              case _ => Nil
-            }
-          case _ => Nil
-        }
-
-        val newState: State = {
-          val stateWithResults = state.copy(results = state.results.addFinalResults(results))
-          if (failures.isEmpty) {
-            stateWithResults.copy(status = ExitStatus.Ok)
-          } else {
-            results.foreach {
-              case FinalNormalCompileResult.HasException(project, err) =>
-                val errMsg = err.fold(identity, Logger.prettyPrintException)
-                rawLogger.error(s"Unexpected error when compiling ${project.name}: $errMsg")
-              case _ => () // Do nothing when the final compilation result is not an actual error
-            }
-
-            client match {
-              case _: ClientInfo.CliClientInfo =>
-                // Reverse list of failed projects to get ~correct order of failure
-                val projectsFailedToCompile = failures.map(p => s"'${p.name}'").reverse
-                val failureMessage =
-                  if (failures.size <= 2) projectsFailedToCompile.mkString(",")
-                  else {
-                    s"${projectsFailedToCompile.take(2).mkString(", ")} and ${projectsFailedToCompile.size - 2} more projects"
-                  }
-
-                rawLogger.error("Failed to compile " + failureMessage)
-              case _: ClientInfo.BspClientInfo => () // Don't report if bsp client
-            }
-
-            stateWithResults.copy(status = ExitStatus.CompilationError)
-          }
-        }
-
-        // Schedule to run clean-up tasks in the background
-        runIOTasksInParallel(cleanUpTasksToRunInBackground)
-
-        val runningTasksRequiredForCorrectness = Task.sequence {
-          results.flatMap {
-            case FinalNormalCompileResult(_, result) =>
-              val tasksAtEndOfBuildCompilation =
-                Task.fromFuture(result.runningBackgroundTasks)
-              List(tasksAtEndOfBuildCompilation)
+          val failures = results.flatMap {
+            case FinalNormalCompileResult(p, results) =>
+              results.fromCompiler match {
+                case Compiler.Result.NotOk(_) => List(p)
+                // Consider success with reported fatal warnings as error to simulate -Xfatal-warnings
+                case s: Compiler.Result.Success if s.reportedFatalWarnings => List(p)
+                case _ => Nil
+              }
             case _ => Nil
           }
-        }
 
-        // Block on all background task that are running and are required for correctness
-        runningTasksRequiredForCorrectness
-          .executeOn(ExecutionContext.ioScheduler)
-          .map(_ => newState)
-          .doOnFinish(_ => Task(rootTracer.terminate()))
-      }
+          val newState: State = {
+            val stateWithResults = state.copy(results = state.results.addFinalResults(results))
+            if (failures.isEmpty) {
+              stateWithResults.copy(status = ExitStatus.Ok)
+            } else {
+              results.foreach {
+                case FinalNormalCompileResult.HasException(project, err) =>
+                  val errMsg = err.fold(identity, Logger.prettyPrintException)
+                  rawLogger.error(s"Unexpected error when compiling ${project.name}: $errMsg")
+                case _ => () // Do nothing when the final compilation result is not an actual error
+              }
+
+              client match {
+                case _: ClientInfo.CliClientInfo =>
+                  // Reverse list of failed projects to get ~correct order of failure
+                  val projectsFailedToCompile = failures.map(p => s"'${p.name}'").reverse
+                  val failureMessage =
+                    if (failures.size <= 2) projectsFailedToCompile.mkString(",")
+                    else {
+                      s"${projectsFailedToCompile.take(2).mkString(", ")} and ${projectsFailedToCompile.size - 2} more projects"
+                    }
+
+                  rawLogger.error("Failed to compile " + failureMessage)
+                case _: ClientInfo.BspClientInfo => () // Don't report if bsp client
+              }
+
+              stateWithResults.copy(status = ExitStatus.CompilationError)
+            }
+          }
+
+          // Schedule to run clean-up tasks in the background
+          runIOTasksInParallel(cleanUpTasksToRunInBackground)
+
+          val runningTasksRequiredForCorrectness = Task.sequence {
+            results.flatMap {
+              case FinalNormalCompileResult(_, result) =>
+                val tasksAtEndOfBuildCompilation =
+                  Task.fromFuture(result.runningBackgroundTasks)
+                List(tasksAtEndOfBuildCompilation)
+              case _ => Nil
+            }
+          }
+
+          // Block on all background task that are running and are required for correctness
+          runningTasksRequiredForCorrectness
+            .executeOn(ExecutionContext.ioScheduler)
+            .map(_ => newState)
+            .doOnFinish(_ => Task(rootTracer.terminate()))
+        }
     }
   }
 

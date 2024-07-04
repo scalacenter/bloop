@@ -363,7 +363,7 @@ object CompileGraph {
       dag: Dag[Project],
       client: ClientInfo,
       store: CompileClientStore,
-      bestEffort: Boolean,
+      bestEffortAllowed: Boolean,
       computeBundle: BundleInputs => Task[CompileBundle],
       compile: (Inputs, Boolean, Boolean) => Task[ResultBundle]
   ): CompileTraversal = {
@@ -393,7 +393,7 @@ object CompileGraph {
             case Leaf(project) =>
               val bundleInputs = BundleInputs(project, dag, Map.empty)
               setupAndDeduplicate(client, bundleInputs, computeBundle) { bundle =>
-                compile(Inputs(bundle, Map.empty), bestEffort, isBestEffortDep).map { results =>
+                compile(Inputs(bundle, Map.empty), bestEffortAllowed && project.isBestEffort, isBestEffortDep).map { results =>
                   results.fromCompiler match {
                     case Compiler.Result.Ok(_) => Leaf(partialSuccess(bundle, results))
                     case _ => Leaf(toPartialFailure(bundle, results))
@@ -428,8 +428,8 @@ object CompileGraph {
                     case (_, ResultBundle(f: Compiler.Result.Failed, _, _, _)) => f.bestEffortProducts.isEmpty
                     case _ => false
                   }
-                  val continue = bestEffort && depsSupportBestEffort && successfulBestEffort || failed.isEmpty
-                  val dependsOnBestEffort = failed.nonEmpty && bestEffort && depsSupportBestEffort || isBestEffortDep
+                  val continue = bestEffortAllowed && depsSupportBestEffort && successfulBestEffort || failed.isEmpty
+                  val dependsOnBestEffort = failed.nonEmpty && bestEffortAllowed && depsSupportBestEffort || isBestEffortDep
 
                   if (!continue) {
                     // Register the name of the projects we're blocked on (intransitively)
@@ -459,7 +459,7 @@ object CompileGraph {
                     val bundleInputs = BundleInputs(project, dag, dependentProducts.toMap)
                     setupAndDeduplicate(client, bundleInputs, computeBundle) { bundle =>
                       val inputs = Inputs(bundle, resultsMap)
-                      compile(inputs, bestEffort, dependsOnBestEffort).map { results =>
+                      compile(inputs, bestEffortAllowed && project.isBestEffort, dependsOnBestEffort).map { results =>
                         results.fromCompiler match {
                           case Compiler.Result.Ok(_) if failed.isEmpty =>
                             Parent(partialSuccess(bundle, results), dagResults)
