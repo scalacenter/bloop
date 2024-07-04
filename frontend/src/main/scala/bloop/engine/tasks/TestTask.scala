@@ -337,7 +337,7 @@ object TestTask {
         taskDefs.map {
           case TaskDefWithFramework(taskDef, _) =>
             selectedTests.get(taskDef.fullyQualifiedName()) match {
-              case None =>
+              case None | Some(Nil) =>
                 taskDef
               case Some(value) =>
                 new TaskDef(
