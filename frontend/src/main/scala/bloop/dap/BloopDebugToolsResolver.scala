@@ -1,6 +1,7 @@
 package bloop.dap
 
 import java.net.URLClassLoader
+import java.nio.file.Path
 
 import scala.collection.mutable
 import scala.util.Success
@@ -34,13 +35,13 @@ class BloopDebugToolsResolver(logger: Logger) extends DebugToolsResolver {
     }
   }
 
-  override def resolveDecoder(scalaVersion: ScalaVersion): Try[ClassLoader] = {
+  override def resolveDecoder(scalaVersion: ScalaVersion): Try[Seq[Path]] = {
     getOrTryUpdate(decoderCache, scalaVersion) {
       val decoderModule = s"${BuildInfo.decoderName}_${scalaVersion.binaryVersion}"
       val artifact = Artifact(BuildInfo.organization, decoderModule, BuildInfo.version)
       DependencyResolution
         .resolveWithErrors(List(artifact), logger)
-        .map(jars => toClassLoader(jars, true))
+        .map(_.map(_.underlying).toSeq)
         .toTry
     }
   }
@@ -50,10 +51,10 @@ class BloopDebugToolsResolver(logger: Logger) extends DebugToolsResolver {
     new URLClassLoader(jars.map(_.underlying.toUri.toURL), null)
   }
 
-  private def getOrTryUpdate(
-      cache: mutable.Map[ScalaVersion, ClassLoader],
+  private def getOrTryUpdate[T](
+      cache: mutable.Map[ScalaVersion, T],
       scalaVersion: ScalaVersion
-  )(resolve: => Try[ClassLoader]): Try[ClassLoader] = {
+  )(resolve: => Try[T]): Try[T] = {
     if (cache.contains(scalaVersion)) Success(cache(scalaVersion))
     else
       resolve.map { classLoader =>
@@ -65,5 +66,5 @@ class BloopDebugToolsResolver(logger: Logger) extends DebugToolsResolver {
 
 object BloopDebugToolsResolver {
   private val expressionCompilerCache: mutable.Map[ScalaVersion, ClassLoader] = mutable.Map.empty
-  private val decoderCache: mutable.Map[ScalaVersion, ClassLoader] = mutable.Map.empty
+  private val decoderCache: mutable.Map[ScalaVersion, Seq[Path]] = mutable.Map.empty
 }
