@@ -845,13 +845,13 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
         val supportsLocalCompilation =
           javax.tools.ToolProvider.getSystemJavaCompiler() != null
         if (supportsLocalCompilation) {
-          s"""|[E2] ${targetFoo}:3
+          s"""|[E2] ${targetFoo}:3:19
               |     cannot find symbol
               |       symbol:   class Bar
               |       location: class Foo
               |     L3: Bar
               |                           ^^^
-              |[E1] ${targetFoo}:3
+              |[E1] ${targetFoo}:3:5
               |     cannot find symbol
               |       symbol:   class Bar
               |       location: class Foo
@@ -1100,7 +1100,7 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
 
       val targetB = TestUtil.universalPath("a/src/B.java")
       val cannotFindSymbolError: String = {
-        s"""[E1] ${targetB}:1
+        s"""[E1] ${targetB}:1:24
            |     cannot find symbol
            |       symbol: class A
            |     L1: A
@@ -1205,7 +1205,7 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
       val targetService = TestUtil.universalPath("a/src/Service.java")
       assertNoDiff(
         logger.renderErrors(exceptContaining = "Failed to compile"),
-        s"""[E1] ${targetService}:4
+        s"""[E1] ${targetService}:4:18
            |     incompatible types: int cannot be converted to java.lang.String
            |     L4: 123
            |                          ^^^
