@@ -1,19 +1,18 @@
 package buildpress
 
 import java.io.IOException
-import java.io.InputStream
 import java.io.PrintStream
 import java.net.URI
 import java.net.URISyntaxException
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.Path
+import java.util.concurrent.TimeUnit
 
 import scala.collection.mutable
+import scala.util.Try
 import scala.util.control.NonFatal
 
-import bloop.bloopgun.core.Shell
-import bloop.bloopgun.core.Shell.StatusCommand
 import bloop.io.AbsolutePath
 import bloop.io.Environment.LineSplitter
 import bloop.io.Environment.lineSeparator
@@ -25,13 +24,12 @@ import buildpress.io.SbtProjectHasher
 import buildpress.util.Traverse._
 import caseapp.core.help.Help
 import caseapp.core.help.WithHelp
+import org.zeroturnaround.exec.ProcessExecutor
+import org.zeroturnaround.exec.stream.LogOutputStream
 
 abstract class Buildpress(
-    in: InputStream,
     out: PrintStream,
     err: PrintStream,
-    shell: Shell,
-    explicitBuildpressHome: Option[AbsolutePath],
     implicit val cwd: AbsolutePath
 ) {
   type EitherErrorOr[T] = Either[BuildpressError, T]
@@ -267,7 +265,6 @@ abstract class Buildpress(
 
     def cloneRepository(
         cloneTargetDir: AbsolutePath,
-        localPath: String,
         sha: String
     ): EitherErrorOr[AbsolutePath] = {
       val clonePath: Path = cloneTargetDir.underlying
@@ -281,12 +278,11 @@ abstract class Buildpress(
       for {
         _ <- wrapCommandExecution(
           s"Cloning $cloneUri...",
-          shell.runCommand(
+          runCommand(
             cloneCmd,
             cwd.underlying,
             Some(4 * 60L),
-            userOutput = Some(out),
-            shouldDeriveCommandForPlatform = false
+            userOutput = Some(out)
           ),
           err => s"Failed to clone $cloneUri in $clonePath: $err",
           s"Cloned $cloneUri"
@@ -296,12 +292,11 @@ abstract class Buildpress(
           if (!ignoredSubmodules(repo.id))
             wrapCommandExecution(
               s"Cloning submodules of $cloneUri...",
-              shell.runCommand(
+              runCommand(
                 cloneSubmoduleCmd,
                 clonePath,
                 Some(60L),
-                userOutput = Some(out),
-                shouldDeriveCommandForPlatform = false
+                userOutput = Some(out)
               ),
               err => s"Failed to clone submodules of $cloneUri: $err",
               s"Cloned submodules of $cloneUri"
@@ -310,12 +305,11 @@ abstract class Buildpress(
 
         _ <- wrapCommandExecution(
           s"Checking out $clonePath",
-          shell.runCommand(
+          runCommand(
             checkoutCmd,
             clonePath,
             Some(30L),
-            userOutput = Some(out),
-            shouldDeriveCommandForPlatform = false
+            userOutput = Some(out)
           ),
           err => s"Failed to checkout $sha in $cloneTargetDir: $err",
           s"Checked out $clonePath"
@@ -350,7 +344,7 @@ abstract class Buildpress(
       } else {
         for {
           _ <- deleteCloneDir
-          _ <- cloneRepository(cloneTargetDir, localPath, sha)
+          _ <- cloneRepository(cloneTargetDir, sha)
         } yield cloneTargetDir
       }
     }
@@ -366,7 +360,7 @@ abstract class Buildpress(
         val cloneTargetDir = cacheDir.resolve(repo.id)
         val localPath: String = cloneTargetDir.syntax
 
-        if (!cloneTargetDir.exists) cloneRepository(cloneTargetDir, localPath, sha)
+        if (!cloneTargetDir.exists) cloneRepository(cloneTargetDir, sha)
         else {
           cachedRepos.getById(repo) match {
             case Some(clonedRepo) =>
@@ -375,7 +369,7 @@ abstract class Buildpress(
               val headCommand = List("git", "rev-parse", "HEAD")
               val headReference = wrapCommandExecution(
                 s"Obtaining HEAD git reference...",
-                shell.runCommand(
+                runCommand(
                   headCommand,
                   cloneTargetDir.underlying,
                   Some(5L),
@@ -419,14 +413,13 @@ abstract class Buildpress(
               val msg = s"Missing comma between repo id and repo URI at $position"
               List(Left(BuildpressError.ParseFailure(error(msg), None)))
             case Array(untrimmedRepoId, untrimmedUri) =>
-              val repoId = untrimmedRepoId.trim
               try List(Right(Repository(untrimmedRepoId, new URI(untrimmedUri.trim))))
               catch {
                 case t: URISyntaxException =>
                   val msg = s"Expected URI syntax at $position, obtained '$untrimmedUri'"
                   List(Left(BuildpressError.ParseFailure(error(msg), Some(t))))
               }
-            case elements =>
+            case _ =>
               val msg = s"Expected buildpress line format 'id,uri' at $position, obtained '$line'"
               List(Left(BuildpressError.ParseFailure(error(msg), None)))
           }
@@ -515,15 +508,14 @@ abstract class Buildpress(
       )
 
       val timeout = Some(15 * 60L) // Maximum wait is 15 minutes
-      shell.runCommand(
+      runCommand(
         cmd,
         baseDir.underlying,
         timeout,
-        userOutput = Some(out),
-        shouldDeriveCommandForPlatform = false
+        userOutput = Some(out)
       ) match {
         case status if status.isOk => Right(())
-        case failed =>
+        case _ =>
           val msg = s"Unexpected failure when running `${cmd.mkString(" ")}` in $baseDir"
           Left(BuildpressError.BuildImportFailure(error(msg), None))
       }
@@ -543,6 +535,68 @@ abstract class Buildpress(
         out.println(success(s"Exported ${buildTool.baseDir}"))
         true
       }
+    }
+  }
+
+  def runCommand(
+      cmd: List[String],
+      cwd: Path,
+      timeoutInSeconds: Option[Long],
+      msgsBuffer: Option[mutable.ListBuffer[String]] = None,
+      userOutput: Option[PrintStream] = None
+  ): StatusCommand = {
+    assert(cmd.nonEmpty)
+    val outBuilder = StringBuilder.newBuilder
+    val executor = new ProcessExecutor(cmd: _*)
+
+    val newEnv = executor.getEnvironment()
+    newEnv.putAll(System.getenv())
+    addAdditionalEnvironmentVariables(newEnv)
+
+    executor
+      .directory(cwd.toFile)
+      .destroyOnExit()
+      .redirectErrorStream(true)
+      .redirectOutput(new LogOutputStream() {
+        override def processLine(line: String): Unit = {
+          outBuilder.++=(line).++=(System.lineSeparator())
+          userOutput.foreach(out => out.println(line))
+          msgsBuffer.foreach(b => b += line)
+        }
+      })
+
+    timeoutInSeconds.foreach { seconds =>
+      executor.timeout(seconds, TimeUnit.SECONDS)
+    }
+
+    val code = Try(executor.execute().getExitValue()).getOrElse(1)
+    StatusCommand(code, outBuilder.toString)
+  }
+
+  case class StatusCommand(code: Int, output: String) {
+    def isOk: Boolean = code == 0
+
+    // assuming if it's ok, we don't need exit code
+    def toEither: Either[(Int, String), String] =
+      if (isOk) {
+        Right(output)
+      } else {
+        Left(code -> output)
+      }
+  }
+
+  // Add coursier cache and ivy home system properties if set and not available in env
+  protected def addAdditionalEnvironmentVariables(env: java.util.Map[String, String]): Unit = {
+    Option(System.getProperty("coursier.cache")).foreach { cache =>
+      val coursierKey = "COURSIER_CACHE"
+      if (env.containsKey(coursierKey)) ()
+      else env.put(coursierKey, cache)
+    }
+
+    Option(System.getProperty("ivy.home")).foreach { ivyHome =>
+      val ivyHomeKey = "IVY_HOME"
+      if (env.containsKey(ivyHomeKey)) ()
+      else env.put(ivyHomeKey, ivyHome)
     }
   }
 }

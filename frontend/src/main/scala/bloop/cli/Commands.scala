@@ -26,7 +26,6 @@ object Commands {
   sealed trait ValidatedCommand extends Command
 
   sealed trait ValidatedBsp extends ValidatedCommand
-  case class WindowsLocalBsp(pipeName: String, cliOptions: CliOptions) extends ValidatedBsp
   case class UnixLocalBsp(socket: AbsolutePath, cliOptions: CliOptions) extends ValidatedBsp
   case class TcpBsp(host: InetAddress, port: Int, cliOptions: CliOptions) extends ValidatedBsp
 
