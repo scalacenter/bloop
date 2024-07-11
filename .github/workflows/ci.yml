@@ -218,7 +218,7 @@ jobs:
           fetch-depth: 0
       - uses: coursier/setup-action@v1
         with:
-          jvm: 'temurin:8'
+          jvm: 'temurin:17'
       - uses: actions/setup-node@v4
         with:
           node-version: "16"
