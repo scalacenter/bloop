@@ -75,7 +75,7 @@ object Dependencies {
   val scopt = "com.github.scopt" % "scopt_2.12" % "4.0.0-RC2"
 
   val utest = "com.lihaoyi" %% "utest" % "0.8.3"
-  def munit = "org.scalameta" %% "munit" % "0.7.29"
+  def munit = "org.scalameta" %% "munit" % "1.0.0"
   def expecty = "com.eed3si9n.expecty" %% "expecty" % "0.16.0"
   val pprint = "com.lihaoyi" %% "pprint" % "0.9.0"
   val oslib = "com.lihaoyi" %% "os-lib" % "0.9.3"
