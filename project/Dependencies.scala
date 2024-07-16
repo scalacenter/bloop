@@ -57,7 +57,7 @@ object Dependencies {
   val scalazCore = "org.scalaz" %% "scalaz-core" % scalazVersion
   val coursierInterface = "io.get-coursier" % "interface" % "1.0.19"
   val coursierInterfaceSubs = "io.get-coursier" % "interface-svm-subs" % "1.0.19"
-  val svm = "org.graalvm.nativeimage" % "svm" % "22.3.5"
+  val svm = "org.graalvm.nativeimage" % "svm" % "24.0.1"
   val coursier = "io.get-coursier" %% "coursier" % coursierVersion
   val coursierJvm = "io.get-coursier" %% "coursier-jvm" % coursierVersion
   val dependency = "io.get-coursier" %% "dependency" % "0.2.3"
