@@ -140,13 +140,13 @@ object Operations {
 
     val (addressArgs, mainClass, writeOutputToOpt) = address match {
       case BloopRifleConfig.Address.Tcp(host, port) =>
-        (Seq(host, port.toString), "bloop.Server", None)
+        (Seq(host, port.toString), "bloop.BloopServer", None)
       case s: BloopRifleConfig.Address.DomainSocket =>
         val writeOutputToOpt0 =
           if (bloopServerSupportsFileTruncating) Some(s.outputPath)
           else None
 
-        (Seq(s"daemon:${s.path}"), "bloop.Server", writeOutputToOpt0)
+        (Seq(s"daemon:${s.path}"), "bloop.BloopServer", writeOutputToOpt0)
     }
 
     val extraJavaOpts =

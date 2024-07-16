@@ -33,9 +33,9 @@ import libdaemonjvm.server._
 import org.slf4j
 import sun.misc.Signal
 
-sealed abstract class Server
+sealed abstract class BloopServer
 
-object Server {
+object BloopServer {
   private def ensureSafeDirectoryExists(dir: Path): Unit =
     if (!Files.exists(dir)) {
       Files.createDirectories(dir)
@@ -46,7 +46,7 @@ object Server {
     }
   private val defaultPort: Int = 8212 // 8100 + 'p'
   def main(args: Array[String]): Unit = {
-    def toPortNumber(userPort: String) = Try(userPort.toInt).getOrElse(Server.defaultPort)
+    def toPortNumber(userPort: String) = Try(userPort.toInt).getOrElse(BloopServer.defaultPort)
     val lockFilesDirOrHostPort = args match {
       case Array() =>
         val dir = bloop.io.Paths.daemonDir.underlying
@@ -285,14 +285,14 @@ object Server {
       new Alias(
         "exit",
         "Kill the bloop server.",
-        classOf[Server]
+        classOf[BloopServer]
       )
     )
     aliasManager.addAlias(
       new Alias(
         "ng-stop",
         "Kill the bloop server.",
-        classOf[Server]
+        classOf[BloopServer]
       )
     )
 
