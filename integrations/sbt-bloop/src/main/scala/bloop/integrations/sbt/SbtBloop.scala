@@ -788,14 +788,14 @@ object BloopDefaults {
         lazy val javaRuntimeHome = (Runtime / Keys.javaHome).value.map(_.toPath())
         lazy val javaRuntimeOptions = (Runtime / Keys.javaOptions).value
         val config = Config.JvmConfig(Some(javaHome.toPath), (extraJavaOptions ++ javaOptions).toList)
-        lazy val configRuntime = 
+        lazy val configRuntime =
           Config.JvmConfig(javaRuntimeHome.orElse(Some(javaHome.toPath)), (extraJavaOptions ++ javaRuntimeOptions).toList)
         /* Runtime config is only used for run task, which is in Compile scope normally.
          * Test classpath already contains runtime config, so it's not needed to set separate classpath for test scope.
          */
         if (configuration == Compile)
           Config.Platform.Jvm(config, mainClass, Some(configRuntime),  Some(runtimeClasspath), None)
-        else 
+        else
           Config.Platform.Jvm(config, mainClass, None,  None, None)
       }
     }
