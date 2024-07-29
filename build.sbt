@@ -134,7 +134,8 @@ lazy val frontend: Project = project
       "nativeBridge04" -> (nativeBridge04Name + "_" + Keys.scalaBinaryVersion.value),
       "nativeBridge05" -> (nativeBridge05Name + "_" + Keys.scalaBinaryVersion.value),
       "jsBridge06" -> (jsBridge06Name + "_" + Keys.scalaBinaryVersion.value),
-      "jsBridge1" -> (jsBridge1Name + "_" + Keys.scalaBinaryVersion.value)
+      "jsBridge1" -> (jsBridge1Name + "_" + Keys.scalaBinaryVersion.value),
+      "lastSupportedSemanticdb" -> build.SemanticDbSupport.last
     ),
     (run / javaOptions) ++= jvmOptions,
     (Test / javaOptions) ++= jvmOptions,

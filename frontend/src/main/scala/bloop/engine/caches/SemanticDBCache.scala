@@ -21,6 +21,7 @@ import bloop.logging.Logger
 import sbt.internal.inc.BloopComponentCompiler
 import sbt.internal.inc.BloopComponentManager
 import sbt.internal.inc.IfMissing
+import bloop.internal.build.BuildInfo
 
 object SemanticDBCache {
   // to avoid resolving the same fallback semanticdb version multiple times
@@ -91,7 +92,9 @@ object SemanticDBCache {
         case _: Throwable => None
       }
 
-    Option(supportedFallbackSemanticdbVersions.get(scalaVersion)).orElse(version) match {
+    Option(supportedFallbackSemanticdbVersions.get(scalaVersion))
+      .orElse(version)
+      .orElse(BuildInfo.lastSupportedSemanticdb.get(scalaVersion)) match {
       case None =>
         Left(s"After retry no existing semanticdb version found for scala version $scalaVersion")
       case Some(semanticdbVersion) =>
