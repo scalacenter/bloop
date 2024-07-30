@@ -58,3 +58,7 @@ if __name__ == "__main__":
         args = sys.argv[2:]
         main(output_directory, args)
 
+
+def random():
+    return 123
+

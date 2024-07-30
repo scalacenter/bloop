@@ -20,6 +20,7 @@ final case class SourceGenerator(
     cwd: AbsolutePath,
     sourcesGlobs: List[SourcesGlobs],
     outputDirectory: AbsolutePath,
+    unmangedInputs: List[AbsolutePath],
     command: List[String]
 ) {
 
@@ -40,12 +41,12 @@ final case class SourceGenerator(
     needsUpdate(previous).flatMap {
       case SourceGenerator.NoChanges =>
         Task.now(previous)
-      case SourceGenerator.InputChanges(newInputs) =>
+      case SourceGenerator.InputChanges(newInputs, newUnmanagedInputs) =>
         logger.debug("Changes detected to inputs of source generator")(DebugFilter.Compilation)
-        run(newInputs, logger, opts)
-      case SourceGenerator.OutputChanges(inputs) =>
+        run(newInputs, newUnmanagedInputs, logger, opts)
+      case SourceGenerator.OutputChanges(inputs, unmanagedInputs) =>
         logger.debug("Changes detected to outputs of source generator")(DebugFilter.Compilation)
-        run(inputs, logger, opts)
+        run(inputs, unmanagedInputs, logger, opts)
     }
 
   /**
@@ -61,6 +62,7 @@ final case class SourceGenerator(
 
   private def run(
       inputs: Map[AbsolutePath, Int],
+      unmangedInputs: Map[AbsolutePath, Int],
       logger: Logger,
       opts: CommonOptions
   ): Task[SourceGenerator.Run] = {
@@ -71,7 +73,7 @@ final case class SourceGenerator(
 
     Forker.run(cwd, cmd, logger, opts).flatMap {
       case 0 =>
-        hashOutputs.map(SourceGenerator.PreviousRun(inputs, _))
+        hashOutputs.map { SourceGenerator.PreviousRun(inputs, _, unmangedInputs) }
       case exitCode =>
         Task.raiseError(new SourceGenerator.SourceGeneratorException(exitCode))
     }
@@ -80,22 +82,33 @@ final case class SourceGenerator(
   private def needsUpdate(previous: SourceGenerator.Run): Task[SourceGenerator.Changes] = {
     previous match {
       case SourceGenerator.NoRun =>
-        hashInputs.map(SourceGenerator.InputChanges(_))
-      case SourceGenerator.PreviousRun(inputs, outputs) =>
-        hashInputs.flatMap { newInputs =>
-          if (newInputs != inputs) Task.now(SourceGenerator.InputChanges(newInputs))
-          else {
-            hashOutputs.map { newOutputs =>
-              if (newOutputs != outputs) SourceGenerator.OutputChanges(newInputs)
-              else SourceGenerator.NoChanges
+        Task.zip2(hashInputs, hashUnamanagedInputs).map {
+          case (inputs, unmanagedInputs) =>
+            SourceGenerator.InputChanges(inputs, unmanagedInputs)
+        }
+      case SourceGenerator.PreviousRun(inputs, outputs, unmanagedInputs) =>
+        Task.zip2(hashInputs, hashUnamanagedInputs).flatMap {
+          case (newInputs, newUnmanagedInputs) =>
+            if (newInputs != inputs || newUnmanagedInputs != unmanagedInputs)
+              Task.now(SourceGenerator.InputChanges(newInputs, newUnmanagedInputs))
+            else {
+              hashOutputs.map { newOutputs =>
+                if (newOutputs != outputs)
+                  SourceGenerator.OutputChanges(newInputs, newUnmanagedInputs)
+                else
+                  SourceGenerator.NoChanges
+              }
             }
-          }
         }
     }
   }
 
   private def hashInputs: Task[Map[AbsolutePath, Int]] = {
     for (inputs <- getSources) yield hashFiles(inputs)
+  }
+
+  private def hashUnamanagedInputs: Task[Map[AbsolutePath, Int]] = Task {
+    hashFiles(unmangedInputs)
   }
 
   private def hashOutputs: Task[Map[AbsolutePath, Int]] = Task {
@@ -111,13 +124,22 @@ object SourceGenerator {
 
   sealed trait Run
   case object NoRun extends Run
-  case class PreviousRun(knownInputs: Map[AbsolutePath, Int], knownOutputs: Map[AbsolutePath, Int])
-      extends Run
+  case class PreviousRun(
+      knownInputs: Map[AbsolutePath, Int],
+      knownOutputs: Map[AbsolutePath, Int],
+      knownUnmanagedInputs: Map[AbsolutePath, Int]
+  ) extends Run
 
   private sealed trait Changes
   private case object NoChanges extends Changes
-  private case class InputChanges(newInputs: Map[AbsolutePath, Int]) extends Changes
-  private case class OutputChanges(inputs: Map[AbsolutePath, Int]) extends Changes
+  private case class InputChanges(
+      newInputs: Map[AbsolutePath, Int],
+      unamanagedInputs: Map[AbsolutePath, Int]
+  ) extends Changes
+  private case class OutputChanges(
+      inputs: Map[AbsolutePath, Int],
+      unamanagedInputs: Map[AbsolutePath, Int]
+  ) extends Changes
 
   def fromConfig(cwd: AbsolutePath, generator: Config.SourceGenerator): SourceGenerator = {
     val sourcesGlobs = generator.sourcesGlobs.map {
@@ -136,6 +158,7 @@ object SourceGenerator {
       cwd,
       sourcesGlobs,
       AbsolutePath(generator.outputDirectory),
+      generator.unmanagedInputs.map(AbsolutePath.apply),
       generator.command
     )
   }
