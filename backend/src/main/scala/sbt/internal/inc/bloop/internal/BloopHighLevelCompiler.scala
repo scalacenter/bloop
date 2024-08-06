@@ -129,12 +129,12 @@ final class BloopHighLevelCompiler(
           if (scalac.scalaInstance.libraryJars().isEmpty) {
             throw new CompileFailed(new Array(0), s"Expected Scala library jar in Scala instance containing ${scalac.scalaInstance.allJars().mkString(", ")}", new Array(0))
           }
-          try {
-            val baos = new ByteArrayOutputStream()
-            withTee {
-              _.addListener(baos)
-            }
+          val baos = new ByteArrayOutputStream()
+          withTee {
+            _.addListener(baos)
+          }
 
+          try {
             scalac.compile(
               sources.toArray,
               classpath.toArray,
@@ -147,13 +147,6 @@ final class BloopHighLevelCompiler(
               config.progress.toOptional,
               logger
             )
-
-            withTee { tee =>
-              val result = baos.toString()
-              if (result.nonEmpty)
-                logger.info(baos.toString)
-              tee.removeListener(baos)
-            }
           } catch {
             case t: StackOverflowError =>
               val msg = "Encountered a StackOverflowError coming from the compiler. You might need to restart your Bloop build server"
@@ -172,6 +165,13 @@ final class BloopHighLevelCompiler(
                   throw new InterfaceCompileCancelled(Array(), "Caught NPE when compilation was cancelled!")
                 case t => throw t
               }
+          } finally {
+            withTee { tee =>
+              val result = baos.toString()
+              if (result.nonEmpty)
+                logger.info(baos.toString)
+              tee.removeListener(baos)
+            }
           }
         }
 
