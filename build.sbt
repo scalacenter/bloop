@@ -196,7 +196,7 @@ lazy val frontend: Project = project
   )
 
 lazy val cliSettings = Seq(
-  name := "cli",
+  name := "bloop-cli",
   scalaVersion := Dependencies.Scala213Version,
   (run / fork) := true,
   (Test / fork) := true,
