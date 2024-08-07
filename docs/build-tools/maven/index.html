@@ -73,17 +73,17 @@ own repo at
 <p>The Bloop plugin for Maven doesn't need to be installed, you can run
 <code>bloopInstall</code>, the task to export your Maven builds to bloop, with the
 following command.</p>
-<pre><code class="hljs css language-bash">$ mvn ch.epfl.scala:bloop-maven-plugin:2.0.0:bloopInstall
+<pre><code class="hljs css language-bash">$ mvn ch.epfl.scala:bloop-maven-plugin:2.0.1:bloopInstall
 </code></pre>
 <p>In some cases, when you are using generated sources in you project
 you might need to run:</p>
-<pre><code class="hljs css language-bash">$ mvn generate-sources ch.epfl.scala:bloop-maven-plugin:2.0.0:bloopInstall
+<pre><code class="hljs css language-bash">$ mvn generate-sources ch.epfl.scala:bloop-maven-plugin:2.0.1:bloopInstall
 </code></pre>
 <p><strong>Note</strong>: if you've used this command before you'll have noticed the artifact
 name has changed. In the past you would have used <code>maven-bloop_2.13</code>, however as
 of the 2.x series the artifact name has changed to <code>bloop-maven-plugin</code>.</p>
 <p>To build with a single Scala project <code>foo</code> generates two configuration files:</p>
-<pre><code class="hljs css language-bash">$ mvn ch.epfl.scala:bloop-maven-plugin:2.0.0:bloopInstall
+<pre><code class="hljs css language-bash">$ mvn ch.epfl.scala:bloop-maven-plugin:2.0.1:bloopInstall
 (...)
 Generated <span class="hljs-string">'/disk/foo/.bloop/foo.json'</span>.
 Generated <span class="hljs-string">'/disk/foo/.bloop/foo-test.json'</span>.
