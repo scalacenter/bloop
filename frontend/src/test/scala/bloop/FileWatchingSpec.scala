@@ -10,7 +10,6 @@ import bloop.config.Config
 import bloop.data.Project
 import bloop.engine.Dag
 import bloop.engine.ExecutionContext
-import bloop.internal.build.BuildTestInfo
 import bloop.io.AbsolutePath
 import bloop.io.Environment.lineSeparator
 import bloop.logging.DebugFilter
@@ -18,7 +17,6 @@ import bloop.logging.PublisherLogger
 import bloop.logging.RecordingLogger
 import bloop.task.Task
 import bloop.testing.BaseSuite
-import bloop.util.CrossPlatform
 import bloop.util.TestProject
 import bloop.util.TestUtil
 
@@ -26,9 +24,7 @@ import monix.reactive.MulticastStrategy
 import monix.reactive.Observable
 
 object FileWatchingSpec extends BaseSuite {
-  private val generator: List[String] =
-    if (CrossPlatform.isWindows) List("python", BuildTestInfo.sampleSourceGenerator.getAbsolutePath)
-    else List(BuildTestInfo.sampleSourceGenerator.getAbsolutePath)
+  private val generator: List[String] = TestUtil.generator
 
   System.setProperty("file-watcher-batch-window-ms", "100")
 

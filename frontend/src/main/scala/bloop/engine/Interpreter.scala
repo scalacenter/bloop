@@ -120,7 +120,9 @@ object Interpreter {
     val projectsSourcesAndDirs = reachable.map { project =>
       for {
         unmanaged <- project.allUnmanagedSourceFilesAndDirectories
-        generatorSourceDirs = project.sourceGenerators.flatMap(_.sourcesGlobs.map(_.directory))
+        generatorSourceDirs = project.sourceGenerators.flatMap(gen =>
+          gen.sourcesGlobs.map(_.directory) ++ gen.unmangedInputs
+        )
       } yield unmanaged ++ generatorSourceDirs
     }
     val groupTasks =

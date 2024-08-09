@@ -26,7 +26,7 @@ final class SourceGeneratorCache private (
       )
       .map {
         case SourceGenerator.NoRun => Nil
-        case SourceGenerator.PreviousRun(_, outputs) => outputs.keys.toList.sortBy(_.syntax)
+        case SourceGenerator.PreviousRun(_, outputs, _) => outputs.keys.toList.sortBy(_.syntax)
       }
   }
 }
