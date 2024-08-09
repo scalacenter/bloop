@@ -1,6 +1,7 @@
 // scalafmt: { maxColumn = 250 }
 package sbt.internal.inc.bloop.internal
 
+import java.io.ByteArrayOutputStream
 import java.nio.file.Files
 import java.util.Optional
 
@@ -8,6 +9,7 @@ import scala.concurrent.Promise
 import scala.util.control.NonFatal
 
 import bloop.logging.ObservedLogger
+import bloop.logging.TeeOutputStream
 import bloop.reporter.ZincReporter
 import bloop.task.Task
 import bloop.tracing.BraveTracer
@@ -107,6 +109,14 @@ final class BloopHighLevelCompiler(
           }
         }
 
+        def withTee(block: TeeOutputStream => Unit) = {
+          System.out match {
+            case tee: TeeOutputStream =>
+              block(tee)
+            case _ =>
+          }
+
+        }
         def compileSources(
             sources: Seq[VirtualFile],
             scalacOptions: Array[String],
@@ -119,6 +129,11 @@ final class BloopHighLevelCompiler(
           if (scalac.scalaInstance.libraryJars().isEmpty) {
             throw new CompileFailed(new Array(0), s"Expected Scala library jar in Scala instance containing ${scalac.scalaInstance.allJars().mkString(", ")}", new Array(0))
           }
+          val baos = new ByteArrayOutputStream()
+          withTee {
+            _.addListener(baos)
+          }
+
           try {
             scalac.compile(
               sources.toArray,
@@ -150,6 +165,13 @@ final class BloopHighLevelCompiler(
                   throw new InterfaceCompileCancelled(Array(), "Caught NPE when compilation was cancelled!")
                 case t => throw t
               }
+          } finally {
+            withTee { tee =>
+              val result = baos.toString()
+              if (result.nonEmpty)
+                logger.info(baos.toString)
+              tee.removeListener(baos)
+            }
           }
         }
 

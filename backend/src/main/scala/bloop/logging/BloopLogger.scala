@@ -29,6 +29,9 @@ final class BloopLogger(
     val debugFilter: DebugFilter,
     originId: Option[String]
 ) extends Logger {
+
+  redirectOutputToLogs(System.out)
+
   override def ansiCodesSupported() = true
   override def debug(msg: String)(implicit ctx: DebugFilter): Unit =
     if (isVerbose && debugFilter.isEnabledFor(ctx)) print(msg, printDebug)
