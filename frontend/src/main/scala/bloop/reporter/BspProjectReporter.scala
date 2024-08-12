@@ -88,8 +88,13 @@ final class BspProjectReporter(
   }
 
   private var recentlyReportProblemsPerFile: Map[File, List[ProblemPerPhase]] = Map.empty
+  private var wasPreviousSuccessful: Boolean = false
 
-  override def reportStartCompilation(recentProblems: List[ProblemPerPhase]): Unit = {
+  override def reportStartCompilation(
+      recentProblems: List[ProblemPerPhase],
+      wasPreviousSuccessful: Boolean
+  ): Unit = {
+    this.wasPreviousSuccessful = wasPreviousSuccessful
     recentlyReportProblemsPerFile = Reporter.groupProblemsByFile(recentProblems)
   }
 
@@ -296,7 +301,7 @@ final class BspProjectReporter(
   ): Unit = {
     val problemsInPreviousAnalysisPerFile = Reporter.groupProblemsByFile(previousSuccessfulProblems)
 
-    def recheckProblems = {
+    def mockNoOpCompileEventsAndEnd: Option[CompilationEvent.EndCompilation] = {
       recentlyReportProblemsPerFile.foreach {
         case (sourceFile, problemsPerFile) if reportAllPreviousProblems =>
           reportAllProblems(sourceFile, problemsPerFile)
@@ -321,17 +326,43 @@ final class BspProjectReporter(
               logger.noDiagnostic(CompilationEvent.NoDiagnostic(project.bspUri, sourceFile))
           }
       }
+      if (wasPreviousSuccessful) None
+      else {
+        // When no-op after unsuccessful report the start and the end of compilation
+        val startMsg = s"Start no-op compilation for ${project.name}"
+        logger.publishCompilationStart(
+          CompilationEvent.StartCompilation(
+            project.name,
+            project.bspUri,
+            startMsg,
+            taskId
+          )
+        )
+        val liftedProblems = allProblems.toIterator.map(super.liftFatalWarning(_)).toList
+        Some(
+          CompilationEvent.EndCompilation(
+            project.name,
+            project.bspUri,
+            taskId,
+            liftedProblems,
+            code,
+            isNoOp = true,
+            isLastCycle = true,
+            clientClassesDir,
+            clientAnalysisOut
+          )
+        )
+      }
     }
     wasEndProcessed = true
-    endEvent = if (cycleCount.get == 0) {
-      recheckProblems
-      None
-    } else {
-      // Great, let's report the pending end incremental cycle as the last one
-      val inputs =
-        CycleInputs(true, problemsInPreviousAnalysisPerFile, clientClassesDir, clientAnalysisOut)
-      Some(processEndPreviousCycle(inputs, Some(code)))
-    }
+    endEvent =
+      if (cycleCount.get == 0) mockNoOpCompileEventsAndEnd
+      else {
+        // Great, let's report the pending end incremental cycle as the last one
+        val inputs =
+          CycleInputs(true, problemsInPreviousAnalysisPerFile, clientClassesDir, clientAnalysisOut)
+        Some(processEndPreviousCycle(inputs, Some(code)))
+      }
 
     // Clear the state of files with problems at the end of compilation
     clearedFilesForClient.clear()

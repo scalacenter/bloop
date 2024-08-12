@@ -10,6 +10,8 @@ import scala.collection.mutable
 import scala.concurrent.Promise
 import scala.util.Try
 
+import bloop.Compiler.Result.Failed
+import bloop.Compiler.Result.Ok
 import bloop.io.AbsolutePath
 import bloop.io.ParallelOps
 import bloop.io.ParallelOps.CopyMode
@@ -20,9 +22,12 @@ import bloop.logging.ObservedLogger
 import bloop.reporter.ProblemPerPhase
 import bloop.reporter.Reporter
 import bloop.reporter.ZincReporter
+import bloop.rtexport.RtJarCache
 import bloop.task.Task
 import bloop.tracing.BraveTracer
 import bloop.util.AnalysisUtils
+import bloop.util.BestEffortUtils
+import bloop.util.BestEffortUtils.BestEffortProducts
 import bloop.util.CacheHashCode
 import bloop.util.JavaRuntime
 import bloop.util.UUIDUtil
@@ -40,11 +45,6 @@ import sbt.util.InterfaceUtil
 import xsbti.T2
 import xsbti.VirtualFileRef
 import xsbti.compile._
-
-import bloop.Compiler.Result.Failed
-import bloop.util.BestEffortUtils
-import bloop.util.BestEffortUtils.BestEffortProducts
-import bloop.rtexport.RtJarCache
 
 case class CompileInputs(
     scalaInstance: ScalaInstance,
@@ -366,7 +366,13 @@ object Compiler {
     }
 
     val uniqueInputs = compileInputs.uniqueInputs
-    reporter.reportStartCompilation(previousProblems)
+    val wasPreviousSuccessful =
+      compileInputs.previousCompilerResult match {
+        case Ok(_) => true
+        case _ => false
+      }
+
+    reporter.reportStartCompilation(previousProblems, wasPreviousSuccessful)
     val fileManager = newFileManager
 
     // Manually skip redundant best-effort compilations. This is necessary because compiler

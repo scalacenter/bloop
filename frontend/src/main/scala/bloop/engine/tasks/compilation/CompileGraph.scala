@@ -149,6 +149,10 @@ object CompileGraph {
         val analysis = runningCompilation.usedLastSuccessful.previous.analysis().toOption
         val previousSuccessfulProblems =
           Compiler.previousProblemsFromSuccessfulCompilation(analysis)
+        val wasPreviousSuccessful = bundle.latestResult match {
+          case Compiler.Result.Ok(_) => true
+          case _ => false
+        }
         val previousProblems =
           Compiler.previousProblemsFromResult(bundle.latestResult, previousSuccessfulProblems)
 
@@ -166,7 +170,7 @@ object CompileGraph {
                 case ReporterAction.EnableFatalWarnings =>
                   reporter.enableFatalWarnings()
                 case ReporterAction.ReportStartCompilation =>
-                  reporter.reportStartCompilation(previousProblems)
+                  reporter.reportStartCompilation(previousProblems, wasPreviousSuccessful)
                 case a: ReporterAction.ReportStartIncrementalCycle =>
                   reporter.reportStartIncrementalCycle(a.sources, a.outputDirs)
                 case a: ReporterAction.ReportProblem => reporter.log(a.problem)

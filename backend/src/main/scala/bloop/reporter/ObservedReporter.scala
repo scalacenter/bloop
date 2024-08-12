@@ -52,8 +52,11 @@ final class ObservedReporter(
     registerAction(ReporterAction.ReportCancelledCompilation)
   }
 
-  override def reportStartCompilation(previousProblems: List[ProblemPerPhase]): Unit = {
-    underlying.reportStartCompilation(previousProblems)
+  override def reportStartCompilation(
+      previousProblems: List[ProblemPerPhase],
+      wasPreviousSuccessful: Boolean
+  ): Unit = {
+    underlying.reportStartCompilation(previousProblems, wasPreviousSuccessful)
     registerAction(ReporterAction.ReportStartCompilation)
   }
 

@@ -74,7 +74,10 @@ final class LogReporter(
     logger.info(s"Compiled ${project.name} (${durationMs}ms)")
   }
 
-  override def reportStartCompilation(previousProblems: List[ProblemPerPhase]): Unit = ()
+  override def reportStartCompilation(
+      previousProblems: List[ProblemPerPhase],
+      wasPreviousSuccessful: Boolean
+  ): Unit = ()
 
   override def reportEndCompilation(): Unit = ()
 

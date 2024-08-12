@@ -239,7 +239,10 @@ trait ZincReporter extends xsbti.Reporter with ConfigurableReporter {
   def reportCancelledCompilation(): Unit
 
   /** A function called *always* at the very beginning of compilation. */
-  def reportStartCompilation(previousProblems: List[ProblemPerPhase]): Unit
+  def reportStartCompilation(
+      previousProblems: List[ProblemPerPhase],
+      wasPreviousSuccessful: Boolean
+  ): Unit
 
   /**
    * A function called at the very end of compilation that processes the end of
