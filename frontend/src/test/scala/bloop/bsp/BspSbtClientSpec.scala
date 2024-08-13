@@ -283,7 +283,14 @@ class BspSbtClientSpec(
           thirdCompiledState.lastDiagnostics(`A`),
           """#3: a/src/main/scala/Foo.scala
             |  -> List()
-            |  -> reset = true""".stripMargin
+            |  -> reset = true
+            |#3: task start 3
+            |  -> Msg: Start no-op compilation for a
+            |  -> Data kind: compile-task
+            |#3: task finish 3
+            |  -> errors 0, warnings 0
+            |  -> Msg: Compiled 'a'
+            |  -> Data kind: compile-report""".stripMargin
         )
       }
     }
