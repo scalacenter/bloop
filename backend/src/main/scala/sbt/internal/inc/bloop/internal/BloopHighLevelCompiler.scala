@@ -119,6 +119,7 @@ final class BloopHighLevelCompiler(
           if (scalac.scalaInstance.libraryJars().isEmpty) {
             throw new CompileFailed(new Array(0), s"Expected Scala library jar in Scala instance containing ${scalac.scalaInstance.allJars().mkString(", ")}", new Array(0))
           }
+          println(classpath)
           try {
             scalac.compile(
               sources.toArray,
