@@ -8,9 +8,7 @@ import ch.epfl.scala.bsp.Uri
 import bloop.bsp.BspBaseSuite
 import bloop.cli.BspProtocol
 import bloop.config.Config
-import bloop.internal.build.BuildTestInfo
 import bloop.logging.RecordingLogger
-import bloop.util.CrossPlatform
 import bloop.util.TestProject
 import bloop.util.TestUtil
 
@@ -18,9 +16,8 @@ object TcpBspSourceGeneratorSpec extends BspSourceGeneratorSpec(BspProtocol.Tcp)
 object LocalBspSourceGeneratorSpec extends BspSourceGeneratorSpec(BspProtocol.Local)
 
 abstract class BspSourceGeneratorSpec(override val protocol: BspProtocol) extends BspBaseSuite {
-  private val generator =
-    if (CrossPlatform.isWindows) List("python", BuildTestInfo.sampleSourceGenerator.getAbsolutePath)
-    else List(BuildTestInfo.sampleSourceGenerator.getAbsolutePath)
+
+  private val generator = TestUtil.generator
 
   test("sources request works") {
     TestUtil.withinWorkspace { workspace =>
@@ -53,6 +50,7 @@ abstract class BspSourceGeneratorSpec(override val protocol: BspProtocol) extend
         )
         assertEquals(obtained, expected :: Nil)
       }
+
     }
   }
 

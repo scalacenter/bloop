@@ -90,9 +90,6 @@ final case class Project(
     customWorkingDirectory.orElse(workspaceDirectory).getOrElse(baseDirectory)
   }
 
-  def allGeneratorInputs: Task[List[AbsolutePath]] =
-    Task.sequence(sourceGenerators.map(_.getSources)).map(_.flatten)
-
   /** Returns concatenated list of "sources" and expanded "sourcesGlobs". */
   def allUnmanagedSourceFilesAndDirectories: Task[List[AbsolutePath]] = Task {
     val buf = mutable.ListBuffer.empty[AbsolutePath]

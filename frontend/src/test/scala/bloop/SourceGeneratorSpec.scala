@@ -1,8 +1,5 @@
 package bloop
 
-import scala.sys.process
-import scala.util.control.NonFatal
-
 import bloop.Compiler.Result.Success
 import bloop.cli.ExitStatus
 import bloop.config.Config
@@ -14,21 +11,9 @@ import bloop.util.TestUtil
 
 object SourceGeneratorSpec extends bloop.testing.BaseSuite {
 
-  lazy val hasPython3 = hasPythonNamed("python3")
-  lazy val hasPython2 = hasPythonNamed("python")
+  val generator = TestUtil.generator
 
-  private val generator: List[String] =
-    if (hasPython3) List("python3", BuildTestInfo.sampleSourceGenerator.getAbsolutePath)
-    else if (hasPython2) List("python", BuildTestInfo.sampleSourceGenerator.getAbsolutePath)
-    else Nil
-
-  private def hasPythonNamed(executable: String) = try {
-    process.Process(Seq(executable, "--version")).! == 0
-  } catch {
-    case NonFatal(_) => false
-  }
-
-  lazy val hasPython = hasPython2 || hasPython3
+  lazy val hasPython = generator.nonEmpty
 
   def testOnlyWithPython(name: String)(fun: => Any): Unit = {
     if (hasPython) test(name)(fun)
@@ -205,6 +190,32 @@ object SourceGeneratorSpec extends bloop.testing.BaseSuite {
     }
   }
 
+  testOnlyWithPython("source generator is re-run when generator file is modified") {
+    singleProjectWithSourceGenerator("glob:*.in" :: Nil) { (workspace, project, state) =>
+      writeFile(workspace.resolve("hello.in"), "hello")
+      writeFile(project.srcFor("test.scala", exists = false), assertNInputs(n = 1))
+      val compiledState1 = state.compile(project)
+      val origHash = sourceHashFor("NameLengths_1.scala", project, compiledState1)
+      assertExitStatus(compiledState1, ExitStatus.Ok)
+
+      val generatorFile = AbsolutePath(BuildTestInfo.sampleSourceGenerator.toPath())
+      writeFile(
+        generatorFile,
+        readFile(generatorFile) +
+          """|
+             |def random():
+             |    return 123
+             |
+             |""".stripMargin
+      )
+      val compiledState2 = compiledState1.compile(project)
+      assertExitStatus(compiledState2, ExitStatus.Ok)
+
+      val newHash = sourceHashFor("NameLengths_1.scala", project, compiledState2)
+      assertNotEquals(origHash, newHash)
+    }
+  }
+
   testOnlyWithPython("source generator is re-run when an output file is deleted") {
     singleProjectWithSourceGenerator("glob:*.in" :: Nil) { (workspace, project, state) =>
       val generatorOutput = project.config.sourceGenerators
@@ -257,7 +268,8 @@ object SourceGeneratorSpec extends bloop.testing.BaseSuite {
     val sourceGenerator = Config.SourceGenerator(
       sourcesGlobs = List(Config.SourcesGlobs(workspace.underlying, None, includeGlobs, Nil)),
       outputDirectory = workspace.underlying.resolve("source-generator-output"),
-      command = generator
+      command = generator,
+      unmanagedInputs = List(BuildTestInfo.sampleSourceGenerator.toPath())
     )
     val `A` = TestProject(workspace, "a", Nil, sourceGenerators = sourceGenerator :: Nil)
     val projects = List(`A`)

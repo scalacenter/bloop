@@ -54,6 +54,7 @@ import _root_.monix.execution.Scheduler
 import org.junit.Assert
 import sbt.internal.inc.BloopComponentCompiler
 import xsbti.ComponentProvider
+import bloop.internal.build.BuildTestInfo
 
 object TestUtil {
   def projectDir(base: Path, name: String): Path = base.resolve(name)
@@ -639,4 +640,18 @@ object TestUtil {
     stacktraces.foreach(threadInfo => sb.append(threadInfo.toString()).append("\n"))
     sb.result()
   }
+
+  private def hasPythonNamed(executable: String) = try {
+    scala.sys.process.Process(Seq(executable, "--version")).! == 0
+  } catch {
+    case NonFatal(_) => false
+  }
+
+  private lazy val hasPython3 = hasPythonNamed("python3")
+  private lazy val hasPython2 = hasPythonNamed("python")
+
+  lazy val generator: List[String] =
+    if (hasPython3) List("python3", BuildTestInfo.sampleSourceGenerator.getAbsolutePath)
+    else if (hasPython2) List("python", BuildTestInfo.sampleSourceGenerator.getAbsolutePath)
+    else Nil
 }
