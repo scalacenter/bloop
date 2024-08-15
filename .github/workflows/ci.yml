@@ -171,7 +171,7 @@ jobs:
         if: matrix.os == 'windows-latest'
         run: |
           echo $ARTIFACT_NAME
-          ls cli/target/graalvm-native-image/bloop-ccli.exe
+          ls cli/target/graalvm-native-image/bloop-cli.exe
           mkdir -p bloop-artifacts
           cp cli/target/graalvm-native-image/bloop-cli.exe bloop-artifacts/$ARTIFACT_NAME
         shell: bash
