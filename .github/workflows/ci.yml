@@ -171,18 +171,18 @@ jobs:
         if: matrix.os == 'windows-latest'
         run: |
           echo $ARTIFACT_NAME
-          ls cli/target/graalvm-native-image/cli.exe
+          ls cli/target/graalvm-native-image/bloop-ccli.exe
           mkdir -p bloop-artifacts
-          cp cli/target/graalvm-native-image/cli.exe bloop-artifacts/$ARTIFACT_NAME
+          cp cli/target/graalvm-native-image/bloop-cli.exe bloop-artifacts/$ARTIFACT_NAME
         shell: bash
 
       - name: Copy artifacts (not windows)
         if: matrix.os != 'windows-latest'
         run: |
-          ls cli/target/graalvm-native-image/cli
+          ls cli/target/graalvm-native-image/bloop-cli
           echo $ARTIFACT_NAME
           mkdir -p bloop-artifacts
-          cp cli/target/graalvm-native-image/cli bloop-artifacts/$ARTIFACT_NAME
+          cp cli/target/graalvm-native-image/bloop-cli bloop-artifacts/$ARTIFACT_NAME
 
       - uses: actions/upload-artifact@v4
         with:
