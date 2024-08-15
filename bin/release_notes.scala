@@ -1,17 +1,19 @@
-import $ivy.`org.kohsuke:github-api:1.114`
+//> using dep org.kohsuke:github-api:1.114
+//> using toolkit default
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 
 import org.kohsuke.github.GitHubBuilder
 
-val defaultToken = sys.env.get("GITHUB_TOKEN")
+val defaultToken =
+  sys.env.get("GITHUB_TOKEN").getOrElse(throw new RuntimeException("GITHUB_TOKEN not set"))
 
 @main
 def main(
     firstTag: String,
     lastTag: String,
-    githubToken: Seq[String] = defaultToken.toSeq
+    githubToken: String = defaultToken
 ) = {
 
   val command = List(
@@ -46,14 +48,10 @@ def main(
   outputBuilder.append("\n")
   outputBuilder.append("\n")
 
-  val token = githubToken.headOption.getOrElse {
-    throw new Exception("No github API token was specified")
-  }
-
   val output = os.proc(command).call().out.trim()
 
   val gh = new GitHubBuilder()
-    .withOAuthToken(token)
+    .withOAuthToken(githubToken)
     .build()
 
   val changesList = new StringBuilder()
