@@ -40,12 +40,14 @@ object OsLibc {
       if (foundMusl)
         Some(true)
       else {
-        val inLib = os.list(os.Path("/lib")).map(_.last)
+        val libPath = Seq(os.root / "lib").filter(os.exists)
+        val inLib = libPath.flatMap(os.list(_)).map(_.last)
         if (inLib.exists(_.contains("-linux-gnu"))) Some(false)
         else if (inLib.exists(name => name.contains("libc.musl-") || name.contains("ld-musl-")))
           Some(true)
         else {
-          val inUsrSbin = os.list(os.Path("/usr/sbin")).map(_.last)
+          val sbinPath = Seq(os.root / "usr" / "sbin").filter(os.exists)
+          val inUsrSbin = sbinPath.flatMap(os.list(_)).map(_.last)
           if (inUsrSbin.exists(_.contains("glibc"))) Some(false)
           else None
         }
