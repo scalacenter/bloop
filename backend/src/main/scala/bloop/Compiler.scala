@@ -500,6 +500,19 @@ object Compiler {
             Task(persist(out, analysis, result.setup, tracer, logger)).memoize
           }
 
+          // betasty files are always produced with -Ybest-effort, even when
+          // the compilation is successful.
+          // We might want to change this in the commpiler itself...
+          // Alternatively, whether downstream projects use betasty can be
+          // controlled with -Ywith-best-effort-tasty
+          val deleteBestEffortDir =
+            if (isBestEffortMode)
+              Task(
+                BloopPaths
+                  .delete(compileOut.internalReadOnlyClassesDir.resolve("META-INF/best-effort"))
+              )
+            else Task {}
+
           val isNoOp = previousAnalysis.contains(analysis)
           if (isNoOp) {
             // If no-op, return previous result with updated classpath hashes
@@ -564,6 +577,7 @@ object Compiler {
                 Task
                   .gatherUnordered(
                     List(
+                      deleteBestEffortDir,
                       deleteNewClassesDir,
                       updateClientState,
                       writeAnalysisIfMissing,
@@ -658,7 +672,7 @@ object Compiler {
                     )
                   }.flatMap(clientClassesObserver.nextAnalysis)
                   Task
-                    .gatherUnordered(List(firstTask, secondTask))
+                    .gatherUnordered(List(deleteBestEffortDir, firstTask, secondTask))
                     .flatMap(_ => publishClientAnalysis)
                 }
 
