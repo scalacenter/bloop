@@ -8,6 +8,7 @@
   "launcherType": "graalvm-native-image",
   "prebuilt": "$PREBUILT",
   "dependencies": [
-    "ch.epfl.scala:bloop-cli_2.13:$VERSION"
-  ]
+    "ch.epfl.scala::bloop-cli:$VERSION"
+  ],
+  "mainClass": "bloop.cli.Bloop"
 }

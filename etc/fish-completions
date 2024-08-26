@@ -15,11 +15,11 @@ function _boolean
 end
 
 function _reporters
-    bloop autocomplete --format fish --mode reporters
+    bloop autocomplete --format fish --mode reporters 2> /dev/null
 end
 
 function _protocols
-    bloop autocomplete --format fish --mode protocols
+    bloop autocomplete --format fish --mode protocols 2> /dev/null
 end
 
 function _testsfqcn
@@ -27,7 +27,7 @@ function _testsfqcn
     set -e cmd[1]
     set -l project $cmd[2]
     if test -n "$project"
-        bloop autocomplete --format fish --mode testsfqcn --project $project
+        bloop autocomplete --format fish --mode testsfqcn --project $project 2> /dev/null
     end
 end
 
@@ -35,7 +35,7 @@ function _mainsfqcn
     set -l cmd (commandline -poc)
     set -e cmd[1]
     set -l project $cmd[2]
-    bloop autocomplete --format fish --mode mainsfqcn --project $project
+    bloop autocomplete --format fish --mode mainsfqcn --project $project 2> /dev/null
 end
 
 function __assert_args_count -a count
@@ -73,7 +73,7 @@ function __fish_seen_subcommand_from_project_commands
 end
 
 function _flags_for_command -a cmd
-    bloop autocomplete --format fish --mode flags --command $cmd
+    bloop autocomplete --format fish --mode flags --command $cmd 2> /dev/null
 end
 
 function _is_project_command -a cmd
