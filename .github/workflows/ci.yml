@@ -50,11 +50,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macOS-12]
+        os: [ubuntu-latest, windows-latest, macOS-12, macOS-14]
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: true
+      - uses: coursier/setup-action@v1
+        with:
+          apps: 'sbt'
       - uses: graalvm/setup-graalvm@v1
         with:
           version: '22.3.0'
@@ -79,7 +82,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macOS-12]
+        os: [ubuntu-latest, windows-latest, macOS-12, macOS-14]
         jdk: ["22.3.0", "17"]
 
     name: Test ${{ matrix.os }} -- ${{ matrix.jdk }}
@@ -95,7 +98,13 @@ jobs:
       - uses: coursier/setup-action@v1
         with:
           jvm: 'temurin:17'
+          apps: 'sbt'
         if: matrix.jdk == '17'
+
+      - uses: coursier/setup-action@v1
+        with:
+          apps: 'sbt'
+        if: matrix.os == 'macOS-14' && matrix.os == 'macOS-14'
       
       - uses: coursier/cache-action@v6
 
@@ -136,12 +145,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-20.04, macOS-12, windows-latest]
+        os: [ubuntu-20.04, macOS-12, macOS-14, windows-latest]
         include:
           - os: ubuntu-20.04
             artifact: bloop-linux
           - os: macos-12
             artifact: bloop-macos
+          - os: macos-14
+            artifact: bloop-macos-m1
           - os: windows-latest
             artifact: bloop-windows
     env:
@@ -163,6 +174,10 @@ jobs:
           components: 'native-image'
           native-image-job-reports: 'true'
           github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: coursier/setup-action@v1
+        with:
+          apps: 'sbt'
 
       - name: Publish GraalVM Native artifacts
         run: sbt "cli/graalvm-native-image:packageBin"

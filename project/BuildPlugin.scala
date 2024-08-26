@@ -109,12 +109,17 @@ object BuildKeys {
         baseDir / "bloop-artifacts" / "bloop-linux" / "bloop-linux"
       val originBloopMacosBinary =
         baseDir / "bloop-artifacts" / "bloop-macos" / "bloop-macos"
+      val originBloopMacosM1Binary =
+        baseDir / "bloop-artifacts" / "bloop-macos-m1" / "bloop-macos-m1"
       val targetBloopLinuxBinary = releaseTargetDir / "bloop-x86_64-pc-linux"
       val targetBloopWindowsBinary = releaseTargetDir / "bloop-x86_64-pc-win32.exe"
       val targetBloopMacosBinary = releaseTargetDir / "bloop-x86_64-apple-darwin"
+      val targetBloopMacosM1Binary = releaseTargetDir / "bloop-aarch64-apple-darwin"
+
       IO.copyFile(originBloopWindowsBinary, targetBloopWindowsBinary)
       IO.copyFile(originBloopLinuxBinary, targetBloopLinuxBinary)
       IO.copyFile(originBloopMacosBinary, targetBloopMacosBinary)
+      IO.copyFile(originBloopMacosM1Binary, targetBloopMacosM1Binary)
 
       val originBashCompletions = baseDir / "etc" / "bash-completions"
       val originZshCompletions = baseDir / "etc" / "zsh-completions"
@@ -134,7 +139,8 @@ object BuildKeys {
         targetFishCompletions,
         targetBloopLinuxBinary,
         targetBloopMacosBinary,
-        targetBloopWindowsBinary
+        targetBloopWindowsBinary,
+        targetBloopMacosM1Binary
       )
     },
     createLocalHomebrewFormula := ReleaseUtils.createLocalHomebrewFormula.value,
