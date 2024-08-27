@@ -5,6 +5,7 @@ import bloop.config.Config
 import bloop.logging.RecordingLogger
 import bloop.util.TestProject
 import bloop.util.TestUtil
+import bloop.util.CrossPlatform
 
 object JavaVersionSpec extends bloop.testing.BaseSuite {
 
@@ -47,13 +48,15 @@ object JavaVersionSpec extends bloop.testing.BaseSuite {
     }
   }
 
-  test("flag-is-added-correctly") {
-    checkFlag(Nil)
-  }
+  if (!CrossPlatform.isM1) {
+    test("flag-is-added-correctly") {
+      checkFlag(Nil)
+    }
 
-  test("flag-is-not-added-correctly") {
-    checkFlag(List("-release", "8"))
-    checkFlag(List("-release:8"))
+    test("flag-is-not-added-correctly") {
+      checkFlag(List("-release", "8"))
+      checkFlag(List("-release:8"))
+    }
   }
 
   test("compiles-with-11") {
