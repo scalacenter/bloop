@@ -39,6 +39,11 @@ import bloop.util.BestEffortUtils.BestEffortProducts
 import monix.execution.CancelableFuture
 import monix.reactive.MulticastStrategy
 import monix.reactive.Observable
+import sbt.internal.inc.BloopComponentCompiler
+import xsbti.compile.PreviousResult
+import java.util.Optional
+import xsbti.compile.MiniSetup
+import xsbti.compile.CompileAnalysis
 
 object CompileTask {
   private implicit val logContext: DebugFilter = DebugFilter.Compilation
@@ -171,9 +176,72 @@ object CompileTask {
 
           // Block on the task associated with this result that sets up the read-only classes dir
           waitOnReadClassesDir.flatMap { _ =>
+            def getAllSourceInputs(project: Project): List[AbsolutePath] = {
+              import java.nio.file.Files
+              import scala.collection.JavaConverters._
+
+              val uniqueSourceDirs = project.sources
+
+              val sourceExts = Seq(".scala", ".java")
+              val unmanagedSources: mutable.Set[AbsolutePath] = mutable.Set()
+
+              uniqueSourceDirs.map(_.underlying).foreach { file =>
+                if (!Files.exists(file)) ()
+                else if (
+                  Files.isRegularFile(file) && sourceExts.exists(ext => file.toString.endsWith(ext))
+                ) {
+                  unmanagedSources.add(AbsolutePath(file))
+                } else if (Files.isDirectory(file)) {
+                  Files.walk(file).iterator().asScala.foreach { file =>
+                    if (
+                      Files.isRegularFile(file) && sourceExts
+                        .exists(ext => file.toString.endsWith(ext))
+                    ) {
+                      unmanagedSources.add(AbsolutePath(file))
+                    }
+                  }
+                }
+              }
+
+              project.sourcesGlobs.foreach { glob =>
+                Files.walk(glob.directory.underlying).iterator().asScala.foreach { file =>
+                  if (
+                    Files.isRegularFile(file) && sourceExts
+                      .exists(ext => file.toString.endsWith(ext)) && glob.matches(file)
+                  ) {
+                    unmanagedSources.add(AbsolutePath(file))
+                  }
+                }
+              }
+
+              unmanagedSources.toList
+            }
+
             // Only when the task is finished, we kickstart the compilation
-            def compile(inputs: CompileInputs) =
-              Compiler.compile(inputs, isBestEffort, isBestEffortDep)
+            def compile(inputs: CompileInputs) = {
+              val firstResult = Compiler.compile(inputs, isBestEffort, isBestEffortDep, true)
+              firstResult.flatMap {
+                case result @ Compiler.Result.Failed(
+                      _,
+                      _,
+                      _,
+                      _,
+                      Some(BestEffortProducts(_, _, recompile))
+                    ) if recompile =>
+                  // we restart the compilation, starting from scratch (without any previous artifacts)
+                  inputs.reporter.reset()
+                  val foundSrcs = getAllSourceInputs(project)
+                  val emptyResult =
+                    PreviousResult.of(Optional.empty[CompileAnalysis], Optional.empty[MiniSetup])
+                  val newInputs = inputs.copy(
+                    sources = foundSrcs.toArray,
+                    previousCompilerResult = result,
+                    previousResult = emptyResult
+                  )
+                  Compiler.compile(newInputs, isBestEffort, isBestEffortDep, false)
+                case result => Task(result)
+              }
+            }
             inputs.flatMap(inputs => compile(inputs)).map { result =>
               def runPostCompilationTasks(
                   backgroundTasks: CompileBackgroundTasks
@@ -467,10 +535,10 @@ object CompileTask {
           logger.debug(s"Scheduling to delete ${previousClassesDir} superseded by $newClassesDir")
           Some(previousClassesDir)
         }
-      case Failed(_, _, _, _, Some(BestEffortProducts(products, _))) =>
+      case Failed(_, _, _, _, Some(BestEffortProducts(products, _, _))) =>
         val newClassesDir = products.newClassesDir
         previousResult match {
-          case Some(Failed(_, _, _, _, Some(BestEffortProducts(previousProducts, _)))) =>
+          case Some(Failed(_, _, _, _, Some(BestEffortProducts(previousProducts, _, _)))) =>
             val previousClassesDir = previousProducts.newClassesDir
             if (previousClassesDir != newClassesDir) {
               logger.debug(
