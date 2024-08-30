@@ -453,7 +453,7 @@ object CompileGraph {
                           .+=(newProducts.readOnlyClassesDir.toFile -> newResult)
                       case (p, ResultBundle(f: Compiler.Result.Failed, _, _, _)) =>
                         f.bestEffortProducts.foreach {
-                          case BestEffortProducts(products, _) =>
+                          case BestEffortProducts(products, _, _) =>
                             dependentProducts += (p -> Right(products))
                         }
                       case _ => ()
