@@ -46,6 +46,7 @@ import xsbti.T2
 import xsbti.VirtualFileRef
 import xsbti.compile._
 
+
 case class CompileInputs(
     scalaInstance: ScalaInstance,
     compilerCache: CompilerCache,
@@ -249,7 +250,8 @@ object Compiler {
   def compile(
       compileInputs: CompileInputs,
       isBestEffortMode: Boolean,
-      isBestEffortDep: Boolean
+      isBestEffortDep: Boolean,
+      firstCompilation: Boolean
   ): Task[Result] = {
     val logger = compileInputs.logger
     val tracer = compileInputs.tracer
@@ -288,6 +290,11 @@ object Compiler {
         backgroundTasksWhenNewSuccessfulAnalysis,
         backgroundTasksForFailedCompilation
       )
+    }
+
+    val previousWasBestEffort = compileInputs.previousCompilerResult match {
+      case Failed(_, _, _, _, Some(BestEffortProducts(_, _, _))) => true
+      case _ => !firstCompilation
     }
 
     val isFatalWarningsEnabled: Boolean =
@@ -383,7 +390,9 @@ object Compiler {
             t,
             elapsed,
             _,
-            bestEffortProducts @ Some(BestEffortProducts(previousCompilationResults, previousHash))
+            bestEffortProducts @ Some(
+              BestEffortProducts(previousCompilationResults, previousHash, _)
+            )
           ) if isBestEffortMode =>
         val newHash = BestEffortUtils.hashResult(
           previousCompilationResults.newClassesDir,
@@ -474,7 +483,8 @@ object Compiler {
             allInvalidatedClassFilesForProject,
             allInvalidatedExtraCompileProducts,
             previousSuccessfulProblems,
-            None
+            errorCause = None,
+            previousWasBestEffort
           )
         case Success(result) =>
           // Report end of compilation only after we have reported all warnings from previous runs
@@ -500,16 +510,14 @@ object Compiler {
             Task(persist(out, analysis, result.setup, tracer, logger)).memoize
           }
 
-          // betasty files are always produced with -Ybest-effort, even when
+          // .betasty files are always produced with -Ybest-effort, even when
           // the compilation is successful.
-          // We might want to change this in the commpiler itself...
-          // Alternatively, whether downstream projects use betasty can be
-          // controlled with -Ywith-best-effort-tasty
-          val deleteBestEffortDir =
+          // We might want to change this in the compiler itself...
+          def deleteBestEffortDir() =
             if (isBestEffortMode)
               Task(
                 BloopPaths
-                  .delete(compileOut.internalReadOnlyClassesDir.resolve("META-INF/best-effort"))
+                  .delete(compileOut.internalNewClassesDir.resolve("META-INF/best-effort"))
               )
             else Task {}
 
@@ -574,7 +582,8 @@ object Compiler {
                   )
                 }
                   .flatMap(clientClassesObserver.nextAnalysis)
-                Task
+
+                deleteBestEffortDir() *> Task
                   .gatherUnordered(
                     List(
                       deleteBestEffortDir,
@@ -630,11 +639,13 @@ object Compiler {
               ): Task[Unit] = {
                 val clientClassesDir = clientClassesObserver.classesDir
                 val successBackgroundTasks =
-                  backgroundTasksWhenNewSuccessfulAnalysis
-                    .map(f => f(clientClassesDir, clientReporter, clientTracer))
+                  deleteBestEffortDir() *> Task.gatherUnordered(
+                    backgroundTasksWhenNewSuccessfulAnalysis
+                      .map(f => f(clientClassesDir, clientReporter, clientTracer))
+                  )
                 val persistTask =
                   persistAnalysis(analysisForFutureCompilationRuns, compileOut.analysisOut)
-                val initialTasks = persistTask :: successBackgroundTasks.toList
+                val initialTasks = List(persistTask, successBackgroundTasks)
                 val allClientSyncTasks = Task.gatherUnordered(initialTasks).flatMap { _ =>
                   // Only start these tasks after the previous IO tasks in the external dir are done
                   val firstTask = updateExternalClassesDirWithReadOnly(
@@ -672,7 +683,7 @@ object Compiler {
                     )
                   }.flatMap(clientClassesObserver.nextAnalysis)
                   Task
-                    .gatherUnordered(List(deleteBestEffortDir, firstTask, secondTask))
+                    .gatherUnordered(List(firstTask, secondTask))
                     .flatMap(_ => publishClientAnalysis)
                 }
 
@@ -713,7 +724,8 @@ object Compiler {
             allInvalidatedClassFilesForProject,
             allInvalidatedExtraCompileProducts,
             previousSuccessfulProblems,
-            Some(cause)
+            errorCause = Some(cause),
+            previousWasBestEffort
           )
 
         case Failure(_: xsbti.CompileCancelled) => handleCancellation
@@ -938,7 +950,8 @@ object Compiler {
       allInvalidatedClassFilesForProject: mutable.HashSet[File],
       allInvalidatedExtraCompileProducts: mutable.HashSet[File],
       previousSuccessfulProblems: List[ProblemPerPhase],
-      errorCause: Option[xsbti.CompileFailed]
+      errorCause: Option[xsbti.CompileFailed],
+      previousWasBestEffort: Boolean
   ): Result = {
     val uniqueInputs = compileInputs.uniqueInputs
     val readOnlyClassesDir = compileOut.internalReadOnlyClassesDir.underlying
@@ -978,49 +991,52 @@ object Compiler {
           backgroundTasksWhenNewSuccessfulAnalysis
             .map(f => f(clientClassesDir, clientReporter, clientTracer))
         val allClientSyncTasks = Task.gatherUnordered(successBackgroundTasks.toList).flatMap { _ =>
-          // Only start these tasks after the previous IO tasks in the external dir are done
-          val firstTask = updateExternalClassesDirWithReadOnly(
-            clientClassesDir,
-            clientTracer,
-            clientLogger,
-            compileInputs,
-            readOnlyClassesDir,
-            readOnlyCopyDenylist = mutable.HashSet.empty,
-            allInvalidatedClassFilesForProject,
-            allInvalidatedExtraCompileProducts
-          )
-
-          val secondTask = Task {
+          // Only start this task after the previous IO tasks in the external dir are done
+          Task {
             // Delete everything outside of betasty and semanticdb
             val deletedCompileProducts =
               BloopClassFileManager.supportedCompileProducts.filter(_ != ".betasty") :+ ".class"
             Files
               .walk(clientClassesDir.underlying)
-              .filter(path => Files.isRegularFile(path))
+              .filter(path => if (Files.exists(path)) Files.isRegularFile(path) else false)
               .filter(path => deletedCompileProducts.exists(path.toString.endsWith(_)))
-              .forEach(Files.delete(_))
-          }
-          Task
-            .gatherUnordered(List(firstTask, secondTask))
-            .map(_ => ())
+              .forEach(path => if (Files.exists(path)) Files.delete(path))
+          }.map(_ => ())
         }
 
         allClientSyncTasks.doOnFinish(_ => Task(clientReporter.reportEndCompilation()))
       }
     }
 
-    val newHash = BestEffortUtils.hashResult(
-      products.newClassesDir,
-      compileInputs.sources,
-      compileInputs.classpath
-    )
+    val recompile =
+      if (
+        !previousWasBestEffort && !(compileOut.internalReadOnlyClassesDir.exists && BloopPaths
+          .list(compileOut.internalReadOnlyClassesDir)
+          .length == 0)
+      ) {
+        if (compileOut.analysisOut.exists) BloopPaths.delete(compileOut.analysisOut)
+        BloopPaths.delete(compileOut.internalReadOnlyClassesDir)
+        Files.createDirectories(Paths.get(compileOut.internalReadOnlyClassesDir.toString))
+        BloopPaths.delete(compileOut.internalNewClassesDir)
+        Files.createDirectories(Paths.get(compileOut.internalNewClassesDir.toString))
+        true
+      } else false
+
+    val newHash =
+      if (previousWasBestEffort)
+        BestEffortUtils.hashResult(
+          products.newClassesDir,
+          compileInputs.sources,
+          compileInputs.classpath
+        )
+      else ""
     val failedProblems = findFailedProblems(reporter, errorCause)
     Result.Failed(
       failedProblems,
       None,
       elapsed(),
       backgroundTasksExecution,
-      Some(BestEffortProducts(products, newHash))
+      Some(BestEffortProducts(products, newHash, recompile))
     )
   }
 
