@@ -44,7 +44,7 @@ object Dependencies {
   val ztExecVersion = "1.12"
   val debugAdapterVersion = "4.2.0"
   val bloopConfigVersion = "2.0.3"
-  val semanticdbVersion = "4.8.15"
+  val semanticdbVersion = "4.9.9"
   val zinc = "org.scala-sbt" %% "zinc" % zincVersion
   val bsp4s = "ch.epfl.scala" %% "bsp4s" % bspVersion
   val bsp4j = "ch.epfl.scala" % "bsp4j" % bspVersion
