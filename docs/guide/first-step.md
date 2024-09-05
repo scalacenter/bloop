@@ -1,7 +1,7 @@
 Bloop is a JVM-based build server that applications such as IDEs (e.g.
 [Metals](https://scalameta.org/metals)) or build tools (e.g.
 [seed](https://github.com/tindzk/seed)) can depend on. Typically, these
-applications use the [Bloop Launcher](docs/launcher-reference) to run bloop
+applications use the [Bloop Launcher](docs/bloop-rifle) to run bloop
 in the background of your machine. This means, you might be already using
 Bloop without knowing it.
 
