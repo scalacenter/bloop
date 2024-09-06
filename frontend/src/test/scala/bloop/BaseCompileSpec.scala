@@ -1941,7 +1941,7 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
       )
 
       val logger = new RecordingLogger(ansiCodesSupported = false)
-      val `A` = TestProject(workspace, "a", sources)
+      val `A` = TestProject(workspace, "a", sources, scalacOptions = List("-release", "8"))
       val projects = List(`A`)
       val state = loadState(workspace, projects, logger)
       val compiledState = state.compile(`A`)

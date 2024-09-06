@@ -44,6 +44,7 @@ import xsbti.compile._
 import bloop.Compiler.Result.Failed
 import bloop.util.BestEffortUtils
 import bloop.util.BestEffortUtils.BestEffortProducts
+import bloop.rtexport.RtJarCache
 
 case class CompileInputs(
     scalaInstance: ScalaInstance,
@@ -843,7 +844,6 @@ object Compiler {
   ): CompileOptions = {
     // Sources are all files
     val sources = inputs.sources.map(path => converter.toVirtualFile(path.underlying))
-    val classpath = inputs.classpath.map(path => converter.toVirtualFile(path.underlying))
 
     val scalacOptions = adjustScalacReleaseOptions(
       scalacOptions = inputs.scalacOptions,
@@ -858,11 +858,19 @@ object Compiler {
     if (areFatalWarningsEnabled)
       inputs.reporter.enableFatalWarnings()
 
+    val needsRtJar = scalacOptions.sliding(2).exists {
+      case Array("-release", "8") => true
+      case _ => false
+    }
+    val updatedClasspath =
+      if (needsRtJar) inputs.classpath ++ RtJarCache.create(JavaRuntime.version, logger)
+      else inputs.classpath
+    val classpathVirtual = updatedClasspath.map(path => converter.toVirtualFile(path.underlying))
     CompileOptions
       .create()
       .withClassesDirectory(newClassesDir)
       .withSources(sources)
-      .withClasspath(classpath)
+      .withClasspath(classpathVirtual)
       .withScalacOptions(optionsWithoutFatalWarnings)
       .withJavacOptions(inputs.javacOptions)
       .withOrder(inputs.compileOrder)
