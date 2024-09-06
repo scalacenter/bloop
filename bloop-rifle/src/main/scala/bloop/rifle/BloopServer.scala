@@ -100,7 +100,7 @@ object BloopServer {
       }
     val bloopVersionIsOk = bloopInfo.exists(_.bloopVersion == expectedBloopVersion)
     val bloopJvmIsOk = bloopInfo.exists(_.jvmVersion == expectedBloopJvmRelease)
-    val isOk = bloopVersionIsOk && bloopJvmIsOk
+    val isOk = bloopVersionIsOk && bloopJvmIsOk && bloopInfo.isRight
 
     if (!isOk) {
       logger.debug(s"Bloop daemon status: ${bloopInfo.fold(_.message, _.message)}")
