@@ -57,6 +57,10 @@ final class BloopClassFileManager(
     allInvalidatedClassFilesForProject
   }
 
+  def deleteTemporaryFiles(): Unit = {
+    BloopPaths.delete(AbsolutePath(backupDir))
+  }
+
   private[this] val invalidatedClassFilesInDependentProjects: Set[File] = {
     inputs.invalidatedClassFilesInDependentProjects --
       inputs.generatedClassFilePathsInDependentProjects.valuesIterator
