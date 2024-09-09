@@ -1962,4 +1962,23 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
 
     }
   }
+
+  test("unsafe") {
+    TestUtil.withinWorkspace { workspace =>
+      val sources = List(
+        """/main/scala/Foo.scala
+          |import sun.misc.Unsafe
+          |class Foo
+          """.stripMargin
+      )
+
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val `A` = TestProject(workspace, "a", sources, scalacOptions = List("-release", "8"))
+      val projects = List(`A`)
+      val state = loadState(workspace, projects, logger)
+      val compiledState = state.compile(`A`)
+      assertExitStatus(compiledState, ExitStatus.Ok)
+      assertValidCompilationState(compiledState, projects)
+    }
+  }
 }
