@@ -9,7 +9,7 @@ goal of Bloop rifle is to relieve clients of the burden of installing and
 managing the lifetime of background build servers.
 
 Bloop rifle implements the [Build Server Discovery protocol][server-discovery]
-which allows clients to establish a bsp connection and communicate with the
+which allows clients to establish a BSP connection and communicate with the
 server via stdin and stdout.
 
 For an example of using Bloop rifle, see the
@@ -20,9 +20,9 @@ For an example of using Bloop rifle, see the
 
 Using Bloop rifle directly is more complex than using the CLI.
 
-1. Clients that want to start Bloop need to use BloopRifleConfig, which has some
+1. Clients that want to start Bloop need to use `BloopRifleConfig`, which has some
    default values, but it needs a way to download Bloop binaries provided via
-   classPath option.
+   classpath options.
 
 ```scala
 final case class BloopRifleConfig(
@@ -55,14 +55,14 @@ At a minimum users need 3 arguments:
   ): BloopRifleConfig =
 ```
 
-- address - it's the address of the server, either tcp or via a domain socket
+- `address| - the address of the server, either TCP or via a domain socket
   path
-- bloopClassPath - it's a function that takes a string and returns a sequence of
+- `bloopClassPath` - a function that takes a string and returns a sequence of
   files, needed to download bloop binaries
-- workingDir - it's the working directory of the server
+- `workingDir` - the working directory of the server
 
-2. With config available users can use BloopRifle.check to check if Bloop is
-   running or BloopRifle.start to start the server.
+2. With config available users can use `BloopRifle.check` to check if Bloop is
+   running or `BloopRifle.start` to start the server.
 3. Lastly, `BloopRifle.bsp` can be used to establish a connection to the server.
    It will return a `BspConnection` class, which will have a `openSocket` method
    available.
@@ -73,13 +73,13 @@ At a minimum users need 3 arguments:
 I am going to be replaced by the docs infrastructure.
 ```
 
-Bloop Rifle is independent from bloop but it's released with the same cadence
-than the bloop build server. Therefore, you can expect a build server version to
+Bloop Rifle is independent from Bloop but it's released with the same cadence
+than the Bloop build server. Therefore, you can expect a build server version to
 have an accompanying rifle version.
 
 ### Open a BSP connection
 
-To open a bsp a bsp connection with Bloop's build server you need to follow the
+To open a BSP connection with Bloop's build server you need to follow the
 [Build Server Discovery protocol][server-discovery]. BSP allow clients to
 connect to a BSP server in a build-tool-independent way through BSP connection
 files, a JSON file with build server metadata and an `argv` field that, if

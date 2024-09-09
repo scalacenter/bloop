@@ -78,7 +78,7 @@ export BLOOP_JAVA_OPTS="-Xmx16G -XX:+UseZGC -Xss4m"
 
 ### Custom Java home
 
-By default Bloop cli will try to find JDK 17 and up on your system, if it's not
+By default Bloop CLI will try to find JDK 17 and up on your system, if it's not
 possible it will download a JDK 17 from the internet. If you want to use a
 different JDK, please make sure that JAVA_HOME is set correctly or use
 `--java-home` option.
@@ -96,7 +96,7 @@ binary.
 Depending on your operating system, there exist several solutions that allow you
 to start, stop, restart and inspect the status of the build server at any time.
 
-Both the bloop CLI and the bloop rifle, the tool used by build clients to
+Both the Bloop CLI and the Bloop Rifle, the tool used by build clients to
 connect to Bloop via BSP, will start the server if it's not running and connect
 to it.
 
