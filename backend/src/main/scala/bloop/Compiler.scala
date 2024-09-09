@@ -275,7 +275,7 @@ object Compiler {
     val backgroundTasksForFailedCompilation =
       new mutable.ListBuffer[CompileBackgroundTasks.Sig]()
 
-    def newFileManager: ClassFileManager = {
+    def newFileManager: BloopClassFileManager = {
       new BloopClassFileManager(
         Files.createTempDirectory("bloop"),
         compileInputs,
@@ -544,6 +544,7 @@ object Compiler {
                 }
 
                 val deleteNewClassesDir = Task(BloopPaths.delete(AbsolutePath(newClassesDir)))
+                val cleanUpTemporaryFiles = Task(fileManager.deleteTemporaryFiles())
                 val publishClientAnalysis = Task {
                   rebaseAnalysisClassFiles(
                     analysis,
@@ -555,7 +556,12 @@ object Compiler {
                   .flatMap(clientClassesObserver.nextAnalysis)
                 Task
                   .gatherUnordered(
-                    List(deleteNewClassesDir, updateClientState, writeAnalysisIfMissing)
+                    List(
+                      deleteNewClassesDir,
+                      updateClientState,
+                      writeAnalysisIfMissing,
+                      cleanUpTemporaryFiles
+                    )
                   )
                   .flatMap(_ => publishClientAnalysis)
                   .onErrorHandleWith(err => {
@@ -565,7 +571,6 @@ object Compiler {
                   .doOnFinish(_ => Task(clientReporter.reportEndCompilation()))
               }
             }
-
             Result.Success(
               compileInputs.uniqueInputs,
               compileInputs.reporter,
