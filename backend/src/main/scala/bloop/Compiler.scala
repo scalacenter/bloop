@@ -1,6 +1,8 @@
 package bloop
 
 import java.io.File
+import java.io.PrintWriter
+import java.io.StringWriter
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.Optional
@@ -742,9 +744,13 @@ object Compiler {
               Result.Failed(failedProblems, None, elapsed, backgroundTasks, None)
             case t: Throwable =>
               t.printStackTrace()
+              val sw = new StringWriter()
+              t.printStackTrace(new PrintWriter(sw))
+              logger.info(sw.toString())
               val backgroundTasks =
                 toBackgroundTasks(backgroundTasksForFailedCompilation.toList)
-              Result.Failed(Nil, Some(t), elapsed, backgroundTasks, None)
+              val failedProblems = findFailedProblems(reporter, None)
+              Result.Failed(failedProblems, Some(t), elapsed, backgroundTasks, None)
           }
       }
   }
