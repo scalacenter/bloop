@@ -46,6 +46,8 @@ import bloop.util.BestEffortUtils
 import bloop.util.BestEffortUtils.BestEffortProducts
 import bloop.rtexport.RtJarCache
 import java.nio.file.Paths
+import java.io.PrintWriter
+import java.io.StringWriter
 
 case class CompileInputs(
     scalaInstance: ScalaInstance,
@@ -736,9 +738,13 @@ object Compiler {
               Result.Failed(failedProblems, None, elapsed, backgroundTasks, None)
             case t: Throwable =>
               t.printStackTrace()
+              val sw = new StringWriter()
+              t.printStackTrace(new PrintWriter(sw))
+              logger.info(sw.toString())
               val backgroundTasks =
                 toBackgroundTasks(backgroundTasksForFailedCompilation.toList)
-              Result.Failed(Nil, Some(t), elapsed, backgroundTasks, None)
+              val failedProblems = findFailedProblems(reporter, None)
+              Result.Failed(failedProblems, Some(t), elapsed, backgroundTasks, None)
           }
       }
   }
