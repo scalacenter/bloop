@@ -10,7 +10,11 @@ import bloop.io.AbsolutePath
 
 object BestEffortUtils {
 
-  case class BestEffortProducts(compileProducts: bloop.CompileProducts, hash: String)
+  case class BestEffortProducts(
+      compileProducts: bloop.CompileProducts,
+      hash: String,
+      recompile: Boolean
+  )
 
   /* Hashes results of a projects compilation, to mimic how it would have been handled in zinc.
    * Returns SHA-1 of a project.
