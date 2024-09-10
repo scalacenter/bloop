@@ -28,12 +28,6 @@ Learn how to get set up by following the instructions below.
 
 ## Install the plugin
 
-Here is a list of the latest Bloop stable and development versions.
-
-```scala mdoc:releases
-I am going to be replaced by the docs infrastructure.
-```
-
 Add bloop to your `build.gradle` with:
 
 ```gradle

@@ -32,7 +32,7 @@ class ReleasesModifier extends StringModifier {
 }
 
 class LauncherReleasesModifier extends StringModifier {
-  override val name: String = "launcher-releases"
+  override val name: String = "rifle-releases"
   override def process(info: String, code: Input, reporter: Reporter): String = {
     val xml = {
       try {
@@ -44,8 +44,8 @@ class LauncherReleasesModifier extends StringModifier {
           </thead>
           <tbody>
             <tr>
-              <td>{Sonatype.releaseLauncher.version}</td>
-              <td>{Sonatype.releaseLauncher.date}</td>
+              <td>{Sonatype.releaseRifle.version}</td>
+              <td>{Sonatype.releaseRifle.date}</td>
               <td><code>-r sonatype:releases</code></td>
             </tr>
             <tr>

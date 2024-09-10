@@ -48,10 +48,8 @@ tooling infrastructure.
 1. `buildpress` is an application that given a list of `(project-name, vcs-uri)` will export a build to bloop.
 1. `docs` and `docs-gen` define our docs infrastructure.
 1. `benchmark-bridge` and `benchmarks` define our compiler benchmark infrastructure.
-1. `launcher` is an application to spawn a bloop server and establish a
+1. `bloop-rifle` is a module to start a bloop server and establish a
 bsp/cli connection to it.
-1. `nailgun` is a git submodule of `scalacenter/nailgun`, a fork of `facebook/nailgun`.
-1. `sockets` is a library to use Unix Domain sockets and Named Pipes in Windows.
 1. `website` contains the [Docusaurus](https://docusaurus.io/) code of our website.
 
 ## Set the repository up
@@ -111,7 +109,7 @@ them to your project. For example, to depend on the latest SNAPSHOT of bloop
 launcher in sbt, add the following to your project:
 
 ```scala
-libraryDependencies += "ch.epfl.scala" % "bloop-launcher" % "$VERSION"
+libraryDependencies += "ch.epfl.scala" % "bloop-rifle" % "$VERSION"
 ```
 
 ### Install a SNAPSHOT release in your machine
@@ -184,11 +182,13 @@ local installation by comparing the SNAPSHOT version you wanted to install
 with the version of the running server.
 
 ```bash
-➜ bloop about
-bloop v1.2.5+264-3441652d
+➜ bloop v2.0.0
 
-Running on Scala v2.12.8 and Zinc v1.2.1+110-85b9a03c
-Maintained by the Scala Center (Martin Duhem, Jorge Vicente Cantero)
+Using Scala v2.12.19 and Zinc v1.10.1
+Running on Java JDK v21 (/usr/lib/jvm/openjdk21)
+  -> Supports debugging user code, Java Debug Interface (JDI) is available.
+Maintained by the Scala Center and the community.
+
 ```
 
 Note the bloop version number in the first line of the above logs.
