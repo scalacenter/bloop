@@ -301,14 +301,31 @@ final class BspProjectReporter(
   ): Unit = {
     val problemsInPreviousAnalysisPerFile = Reporter.groupProblemsByFile(previousSuccessfulProblems)
 
+    /**
+     * We need to report all problems if a BSP client just connected to the server and never compiled.
+     * `reportAllPreviousProblems` will be set to true in that case.
+     *
+     * However, if previously we had an error, which was reverted and got back to the state before the
+     * error, we will get a successfull noop compilation, which will not produce any problems.
+     *
+     * In this case we don't want to republish everything again, since diagnostics will contain the
+     * error which was reverted.
+     *
+     * Connected to https://github.com/VirtusLab/scala-cli/issues/2226 where CLI always connected anew.
+     */
+    def shouldPublishAllProblems =
+      reportAllPreviousProblems && !wasPreviousSuccessful && code != bsp.StatusCode.Ok
     def mockNoOpCompileEventsAndEnd: Option[CompilationEvent.EndCompilation] = {
       recentlyReportProblemsPerFile.foreach {
-        case (sourceFile, problemsPerFile) if reportAllPreviousProblems =>
+        case (sourceFile, problemsPerFile) if shouldPublishAllProblems =>
           reportAllProblems(sourceFile, problemsPerFile)
         case (sourceFile, problemsPerFile) =>
           problemsInPreviousAnalysisPerFile.get(sourceFile) match {
             case Some(problemsInPreviousAnalysis) =>
-              if (problemsInPreviousAnalysis.map(_.problem) == problemsPerFile.map(_.problem)) {
+              if (
+                problemsInPreviousAnalysis
+                  .map(_.problem) == problemsPerFile.map(_.problem) && !reportAllPreviousProblems
+              ) {
                 // If problems are the same, diagnostics in the editor are up-to-date, do nothing
                 ()
               } else {
@@ -322,8 +339,10 @@ final class BspProjectReporter(
                 }
               }
 
-            case None =>
+            // there is nothing to clear if we need to rereport all problems
+            case None if !reportAllPreviousProblems =>
               logger.noDiagnostic(CompilationEvent.NoDiagnostic(project.bspUri, sourceFile))
+            case _ =>
           }
       }
       if (wasPreviousSuccessful) None

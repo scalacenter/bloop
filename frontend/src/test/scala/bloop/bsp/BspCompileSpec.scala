@@ -748,6 +748,65 @@ class BspCompileSpec(
     }
   }
 
+  test("no-op compile and not publish diagnostics from a previous failed CLI compilation") {
+    TestUtil.withinWorkspace { workspace =>
+      object Sources {
+        val `App.scala` =
+          """/main/scala/App.scala
+            |object App {
+            |  val a: String = ""
+            |}
+          """.stripMargin
+      }
+
+      val bspLogger = new RecordingLogger(ansiCodesSupported = false)
+      val `A` = TestProject(workspace, "a", List(Sources.`App.scala`))
+      val projects = List(`A`)
+
+      // compile successfully in a separate bsp connection and then break
+      loadBspState(workspace, projects, bspLogger) { state =>
+        val compiledState = state.compile(`A`)
+        assertExitStatus(compiledState, ExitStatus.Ok)
+        assertValidCompilationState(compiledState, projects)
+
+        writeFile(
+          `A`.srcFor("/main/scala/App.scala"),
+          """|object App {
+             |  val a: String = 1
+             |}
+          """.stripMargin
+        )
+        val secondCliCompiledState = compiledState.compile(`A`)
+        assertExitStatus(secondCliCompiledState, ExitStatus.CompilationError)
+        assertValidCompilationState(secondCliCompiledState, projects)
+      }
+
+      // connecting and compiling should not get any previous and no longer valid diagnostics
+      loadBspState(workspace, projects, bspLogger) { state =>
+        // Remove the error and get back to the previous state
+        writeFile(
+          `A`.srcFor("/main/scala/App.scala"),
+          Sources.`App.scala`
+        )
+        val compiledState = state.compile(`A`)
+        assertExitStatus(compiledState, ExitStatus.Ok)
+        assertValidCompilationState(compiledState, projects)
+
+        assertNoDiff(
+          compiledState.lastDiagnostics(`A`),
+          """|#1: task start 1
+             |  -> Msg: Start no-op compilation for a
+             |  -> Data kind: compile-task
+             |#1: task finish 1
+             |  -> errors 0, warnings 0
+             |  -> Msg: Compiled 'a'
+             |  -> Data kind: compile-report
+             |""".stripMargin
+        )
+      }
+    }
+  }
+
   test("compile incrementally and publish warnings from a previous CLI compilation") {
     TestUtil.withinWorkspace { workspace =>
       object Sources {
