@@ -55,7 +55,7 @@ object Dependencies {
   val libraryManagement = "org.scala-sbt" %% "librarymanagement-ivy" % lmVersion
   val log4j = "org.apache.logging.log4j" % "log4j-core" % "2.23.0"
   val scalazCore = "org.scalaz" %% "scalaz-core" % scalazVersion
-  val coursierInterface = "io.get-coursier" % "interface" % "1.0.20"
+  val coursierInterface = "io.get-coursier" % "interface" % "1.0.21"
   val coursierInterfaceSubs = "io.get-coursier" % "interface-svm-subs" % "1.0.19"
   val svm = "org.graalvm.nativeimage" % "svm" % "24.0.2"
   val coursier = "io.get-coursier" %% "coursier" % coursierVersion
