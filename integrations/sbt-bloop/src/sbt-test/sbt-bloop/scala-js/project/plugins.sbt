@@ -1,2 +1,2 @@
 addSbtPlugin("ch.epfl.scala" % "sbt-bloop" % sys.props.apply("plugin.version"))
-addSbtPlugin("org.scala-js" % "sbt-scalajs" % "0.6.28")
+addSbtPlugin("org.scala-js" % "sbt-scalajs" % "1.5.1")

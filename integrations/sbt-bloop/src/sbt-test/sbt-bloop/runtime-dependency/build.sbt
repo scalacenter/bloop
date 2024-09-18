@@ -1,27 +1,29 @@
 import bloop.integrations.sbt.BloopDefaults
 
-name := "runtime-dependency"
-
-libraryDependencies +=
-  "ch.qos.logback" % "logback-classic" % "1.2.7" % Runtime
+val runtimeDependency = project
+  .in(file("."))
+  .settings(
+    libraryDependencies += "ch.qos.logback" % "logback-classic" % "1.2.7" % Runtime
+  )
 
 val bloopConfigFile = settingKey[File]("Config file to test")
 ThisBuild / bloopConfigFile := {
   val bloopDir = Keys.baseDirectory.value./(".bloop")
-  val config = bloopDir./("runtime-dependency.json")
+  val config = bloopDir./("runtimeDependency.json")
   config
 }
 
 val bloopTestConfigFile = settingKey[File]("Test config file to test")
 ThisBuild / bloopTestConfigFile := {
   val bloopDir = Keys.baseDirectory.value./(".bloop")
-  val config = bloopDir./("runtime-dependency-test.json")
+  val config = bloopDir./("runtimeDependency-test.json")
   config
 }
 
 val checkBloopFiles = taskKey[Unit]("Check bloop file contents")
 ThisBuild / checkBloopFiles := {
   val configContents = BloopDefaults.unsafeParseConfig(bloopConfigFile.value.toPath)
+
   assert(configContents.project.platform.isDefined)
   val platformJvm =
     configContents.project.platform.get.asInstanceOf[bloop.config.Config.Platform.Jvm]
@@ -29,10 +31,10 @@ ThisBuild / checkBloopFiles := {
   val expectedRuntimeClasspath = Some(
     List(
       "classes",
-      "logback-core-1.2.7.jar",
       "scala-library.jar",
-      "slf4j-api-1.7.32.jar",
-      "logback-classic-1.2.7.jar"
+      "logback-classic-1.2.7.jar",
+      "logback-core-1.2.7.jar",
+      "slf4j-api-1.7.32.jar"
     )
   )
   assert(obtainedRuntimeClasspath == expectedRuntimeClasspath)
@@ -46,14 +48,13 @@ ThisBuild / checkBloopFiles := {
   assert(testPlatformJvm.classpath.isEmpty)
 
   val obtainedTestClasspath = configTestContents.project.classpath.map(_.getFileName.toString)
-  println(obtainedTestClasspath)
   val expectedTestClasspath =
     List(
       "classes",
-      "logback-core-1.2.7.jar",
       "scala-library.jar",
-      "slf4j-api-1.7.32.jar",
-      "logback-classic-1.2.7.jar"
+      "logback-classic-1.2.7.jar",
+      "logback-core-1.2.7.jar",
+      "slf4j-api-1.7.32.jar"
     )
 
   assert(obtainedTestClasspath == expectedTestClasspath)
