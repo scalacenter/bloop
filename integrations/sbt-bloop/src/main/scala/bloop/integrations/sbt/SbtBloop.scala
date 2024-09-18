@@ -220,7 +220,9 @@ object BloopDefaults {
       BloopKeys.bloopProductDirectories := List(BloopKeys.bloopClassDirectory.value),
       BloopKeys.bloopClassDirectory := generateBloopProductDirectories.value,
       BloopKeys.bloopInternalClasspath := bloopInternalDependencyClasspath.value,
-      BloopKeys.bloopGenerate := bloopGenerate.value,
+      BloopKeys.bloopGenerate := {
+        if (Keys.bspEnabled.value) bloopGenerate.value else Value(None)
+      },
       BloopKeys.bloopPostGenerate := bloopPostGenerate.value,
       BloopKeys.bloopMainClass := None,
       BloopKeys.bloopMainClass in Keys.run := BloopKeys.bloopMainClass.value
