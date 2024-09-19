@@ -49,16 +49,17 @@ checkBloopFiles in ThisBuild := {
     config.project.platform.get.asInstanceOf[bloop.config.Config.Platform.Jvm].config.options
   }
 
+  val userDir = sys.props.get("user.dir").getOrElse("working-dir")
   assert(
     readJvmOptions(fooConfig)
-      .exists(opt => opt.startsWith("-Duser.dir") && opt.endsWith("working-dir")),
-    "foo working directory ends with working-dir"
+      .exists(opt => opt.startsWith("-Duser.dir") && opt.endsWith(userDir)),
+    s"foo working directory ends with $userDir"
   )
 
   assert(
     readJvmOptions(fooTestConfig)
-      .exists(opt => opt.startsWith("-Duser.dir") && opt.endsWith("working-dir")),
-    "foo test working directory ends with working-dir"
+      .exists(opt => opt.startsWith("-Duser.dir") && opt.endsWith(userDir)),
+    s"foo test working directory ends with $userDir"
   )
 
   assert(
@@ -75,13 +76,13 @@ checkBloopFiles in ThisBuild := {
 
   assert(
     readJvmOptions(bazConfig)
-      .exists(opt => opt.startsWith("-Duser.dir") && opt.endsWith("working-dir")),
-    "baz working directory ends with working-dir"
+      .exists(opt => opt.startsWith("-Duser.dir") && opt.endsWith(userDir)),
+    s"baz working directory ends with $userDir"
   )
 
   assert(
     readJvmOptions(bazTestConfig)
-      .exists(opt => opt.startsWith("-Duser.dir") && opt.endsWith("working-dir")),
-    "baz test working directory ends with working-dir"
+      .exists(opt => opt.startsWith("-Duser.dir") && opt.endsWith(userDir)),
+    s"baz test working directory ends with $userDir"
   )
 }

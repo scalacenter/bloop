@@ -1,18 +1,19 @@
 import bloop.integrations.sbt.BloopDefaults
 
-name := "non-compiling"
+val nonCompiling = project
+  .in(file("."))
 
 val bloopConfigFile = settingKey[File]("Config file to test")
 ThisBuild / bloopConfigFile := {
   val bloopDir = Keys.baseDirectory.value./(".bloop")
-  val config = bloopDir./("non-compiling.json")
+  val config = bloopDir./("nonCompiling.json")
   config
 }
 
 val bloopTestConfigFile = settingKey[File]("Test config file to test")
 ThisBuild / bloopTestConfigFile := {
   val bloopDir = Keys.baseDirectory.value./(".bloop")
-  val config = bloopDir./("non-compiling-test.json")
+  val config = bloopDir./("nonCompiling-test.json")
   config
 }
 
