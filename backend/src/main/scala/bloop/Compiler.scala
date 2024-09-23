@@ -1,8 +1,11 @@
 package bloop
 
 import java.io.File
+import java.io.PrintWriter
+import java.io.StringWriter
 import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.Paths
 import java.util.Optional
 import java.util.concurrent.Executor
 
@@ -10,6 +13,7 @@ import scala.collection.mutable
 import scala.concurrent.Promise
 import scala.util.Try
 
+import bloop.Compiler.Result.Failed
 import bloop.io.AbsolutePath
 import bloop.io.ParallelOps
 import bloop.io.ParallelOps.CopyMode
@@ -20,9 +24,12 @@ import bloop.logging.ObservedLogger
 import bloop.reporter.ProblemPerPhase
 import bloop.reporter.Reporter
 import bloop.reporter.ZincReporter
+import bloop.rtexport.RtJarCache
 import bloop.task.Task
 import bloop.tracing.BraveTracer
 import bloop.util.AnalysisUtils
+import bloop.util.BestEffortUtils
+import bloop.util.BestEffortUtils.BestEffortProducts
 import bloop.util.CacheHashCode
 import bloop.util.JavaRuntime
 import bloop.util.UUIDUtil
@@ -40,14 +47,6 @@ import sbt.util.InterfaceUtil
 import xsbti.T2
 import xsbti.VirtualFileRef
 import xsbti.compile._
-
-import bloop.Compiler.Result.Failed
-import bloop.util.BestEffortUtils
-import bloop.util.BestEffortUtils.BestEffortProducts
-import bloop.rtexport.RtJarCache
-import java.nio.file.Paths
-import java.io.PrintWriter
-import java.io.StringWriter
 
 case class CompileInputs(
     scalaInstance: ScalaInstance,
