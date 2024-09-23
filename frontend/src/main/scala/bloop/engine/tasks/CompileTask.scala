@@ -1,5 +1,7 @@
 package bloop.engine.tasks
 
+import java.util.Optional
+
 import scala.collection.mutable
 import scala.concurrent.Promise
 
@@ -8,8 +10,8 @@ import bloop.CompileInputs
 import bloop.CompileOutPaths
 import bloop.CompileProducts
 import bloop.Compiler
-import bloop.Compiler.Result.Success
 import bloop.Compiler.Result.Failed
+import bloop.Compiler.Result.Success
 import bloop.cli.ExitStatus
 import bloop.data.Project
 import bloop.data.WorkspaceSettings
@@ -20,10 +22,10 @@ import bloop.engine.State
 import bloop.engine.caches.LastSuccessfulResult
 import bloop.engine.tasks.compilation.FinalCompileResult
 import bloop.engine.tasks.compilation._
+import bloop.io.AbsolutePath
 import bloop.io.ParallelOps
 import bloop.io.ParallelOps.CopyMode
 import bloop.io.{Paths => BloopPaths}
-import bloop.io.AbsolutePath
 import bloop.logging.DebugFilter
 import bloop.logging.Logger
 import bloop.logging.LoggerAction
@@ -39,11 +41,9 @@ import bloop.util.BestEffortUtils.BestEffortProducts
 import monix.execution.CancelableFuture
 import monix.reactive.MulticastStrategy
 import monix.reactive.Observable
-import sbt.internal.inc.BloopComponentCompiler
-import xsbti.compile.PreviousResult
-import java.util.Optional
-import xsbti.compile.MiniSetup
 import xsbti.compile.CompileAnalysis
+import xsbti.compile.MiniSetup
+import xsbti.compile.PreviousResult
 
 object CompileTask {
   private implicit val logContext: DebugFilter = DebugFilter.Compilation
