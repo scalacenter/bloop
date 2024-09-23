@@ -1,11 +1,12 @@
 package bloop.util
 
-import java.security.MessageDigest
-
 import java.math.BigInteger
 import java.nio.file.Files
-import scala.collection.JavaConverters._
 import java.nio.file.Path
+import java.security.MessageDigest
+
+import scala.collection.JavaConverters._
+
 import bloop.io.AbsolutePath
 
 object BestEffortUtils {
