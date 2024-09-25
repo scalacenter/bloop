@@ -874,8 +874,17 @@ object Compiler {
       case _ => false
     }
     val updatedClasspath =
-      if (needsRtJar) inputs.classpath ++ RtJarCache.create(JavaRuntime.version, logger)
-      else inputs.classpath
+      if (needsRtJar) {
+        val possibleRtJar = inputs.javacBin
+          .map { binary =>
+            binary.getParent.resolve("../jre/lib/rt.jar")
+          }
+          .filter(_.exists)
+        possibleRtJar match {
+          case Some(rtJar) => inputs.classpath :+ rtJar
+          case None => inputs.classpath ++ RtJarCache.create(JavaRuntime.version, logger)
+        }
+      } else inputs.classpath
     val classpathVirtual = updatedClasspath.map(path => converter.toVirtualFile(path.underlying))
     CompileOptions
       .create()
