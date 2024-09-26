@@ -6,7 +6,7 @@ lazy val `test-project` =
     .withoutSuffixFor(JVMPlatform)
     .settings(
       name := "test-project",
-      scalaVersion := "2.13.14",
+      scalaVersion := "2.13.15",
       mainClass in (Compile, run) := Some("hello.App")
     )
 
