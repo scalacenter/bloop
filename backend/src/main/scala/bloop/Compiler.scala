@@ -873,18 +873,19 @@ object Compiler {
       case Array("-release", "8") => true
       case _ => false
     }
-    val updatedClasspath =
-      if (needsRtJar) {
-        val possibleRtJar = inputs.javacBin
-          .map { binary =>
-            binary.getParent.resolve("../jre/lib/rt.jar")
+    val possibleRtJar =
+      if (needsRtJar)
+        inputs.javacBin
+          .flatMap { binary =>
+            Try {
+              val javaHome = binary.getParent.getParent
+              javaHome.resolve("jre/lib/rt.jar")
+            }.toOption
           }
           .filter(_.exists)
-        possibleRtJar match {
-          case Some(rtJar) => inputs.classpath :+ rtJar
-          case None => inputs.classpath ++ RtJarCache.create(JavaRuntime.version, logger)
-        }
-      } else inputs.classpath
+          .orElse(RtJarCache.create(JavaRuntime.version, logger))
+      else None
+    val updatedClasspath = inputs.classpath ++ possibleRtJar
     val classpathVirtual = updatedClasspath.map(path => converter.toVirtualFile(path.underlying))
     CompileOptions
       .create()
