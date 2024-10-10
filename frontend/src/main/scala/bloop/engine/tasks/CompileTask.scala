@@ -176,47 +176,6 @@ object CompileTask {
 
           // Block on the task associated with this result that sets up the read-only classes dir
           waitOnReadClassesDir.flatMap { _ =>
-            def getAllSourceInputs(project: Project): List[AbsolutePath] = {
-              import java.nio.file.Files
-              import scala.collection.JavaConverters._
-
-              val uniqueSourceDirs = project.sources
-
-              val sourceExts = Seq(".scala", ".java")
-              val unmanagedSources: mutable.Set[AbsolutePath] = mutable.Set()
-
-              uniqueSourceDirs.map(_.underlying).foreach { file =>
-                if (!Files.exists(file)) ()
-                else if (
-                  Files.isRegularFile(file) && sourceExts.exists(ext => file.toString.endsWith(ext))
-                ) {
-                  unmanagedSources.add(AbsolutePath(file))
-                } else if (Files.isDirectory(file)) {
-                  Files.walk(file).iterator().asScala.foreach { file =>
-                    if (
-                      Files.isRegularFile(file) && sourceExts
-                        .exists(ext => file.toString.endsWith(ext))
-                    ) {
-                      unmanagedSources.add(AbsolutePath(file))
-                    }
-                  }
-                }
-              }
-
-              project.sourcesGlobs.foreach { glob =>
-                Files.walk(glob.directory.underlying).iterator().asScala.foreach { file =>
-                  if (
-                    Files.isRegularFile(file) && sourceExts
-                      .exists(ext => file.toString.endsWith(ext)) && glob.matches(file)
-                  ) {
-                    unmanagedSources.add(AbsolutePath(file))
-                  }
-                }
-              }
-
-              unmanagedSources.toList
-            }
-
             // Only when the task is finished, we kickstart the compilation
             def compile(inputs: CompileInputs) = {
               val firstResult = Compiler.compile(inputs, isBestEffort, isBestEffortDep, true)
@@ -230,11 +189,10 @@ object CompileTask {
                     ) if recompile =>
                   // we restart the compilation, starting from scratch (without any previous artifacts)
                   inputs.reporter.reset()
-                  val foundSrcs = getAllSourceInputs(project)
                   val emptyResult =
                     PreviousResult.of(Optional.empty[CompileAnalysis], Optional.empty[MiniSetup])
                   val newInputs = inputs.copy(
-                    sources = foundSrcs.toArray,
+                    sources = inputs.sources,
                     previousCompilerResult = result,
                     previousResult = emptyResult
                   )
@@ -535,29 +493,47 @@ object CompileTask {
           logger.debug(s"Scheduling to delete ${previousClassesDir} superseded by $newClassesDir")
           Some(previousClassesDir)
         }
-      case Failed(_, _, _, _, Some(BestEffortProducts(products, _, _))) =>
-        val newClassesDir = products.newClassesDir
-        previousResult match {
-          case Some(Failed(_, _, _, _, Some(BestEffortProducts(previousProducts, _, _)))) =>
-            val previousClassesDir = previousProducts.newClassesDir
-            if (previousClassesDir != newClassesDir) {
-              logger.debug(
-                s"Scheduling to delete ${previousClassesDir} superseded by $newClassesDir"
-              )
-              Some(AbsolutePath(previousClassesDir))
-            } else None
+      case _ => None
+    }
+
+    val previousBestEffortToDelete = previousResult match {
+      case Some(Failed(_, _, _, _, Some(BestEffortProducts(previousProducts, _, _)))) =>
+        val newClassesDirOpt = compilerResult match {
+          case Success(_, _, products, _, _, _, _) => Some(products.newClassesDir)
+          case Failed(_, _, _, _, Some(BestEffortProducts(products, _, _))) =>
+            Some(products.newClassesDir)
           case _ => None
+        }
+        val previousClassesDir = previousProducts.newClassesDir
+
+        newClassesDirOpt.flatMap { newClassesDir =>
+          if (previousClassesDir != newClassesDir) {
+            logger.debug(
+              s"Scheduling to delete ${previousClassesDir} superseded by $newClassesDir"
+            )
+            Some(AbsolutePath(previousClassesDir))
+          } else None
         }
       case _ => None
     }
 
-    previousReadOnlyToDelete match {
-      case None => Task.unit
-      case Some(classesDir) =>
-        Task.eval {
-          logger.debug(s"Deleting contents of orphan dir $classesDir")
-          BloopPaths.delete(classesDir)
-        }.asyncBoundary
-    }
+    def deleteOrphanDir(orphanDir: Option[AbsolutePath]): Task[Unit] =
+      orphanDir match {
+        case None => Task.unit
+        case Some(classesDir) =>
+          Task.eval {
+            logger.debug(s"Deleting contents of orphan dir $classesDir")
+            BloopPaths.delete(classesDir)
+          }.asyncBoundary
+      }
+
+    Task
+      .gatherUnordered(
+        List(
+          deleteOrphanDir(previousReadOnlyToDelete),
+          deleteOrphanDir(previousBestEffortToDelete)
+        )
+      )
+      .map(_ => ())
   }
 }
