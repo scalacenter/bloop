@@ -242,3 +242,28 @@ indices.
   - Push the new tag and wait for the release
 - Announce the release after the release notes are published in the most recent
   release.
+
+
+# Best effort compilation pipeline
+
+As of writing this part of the doc this is an experimental set of settings implemented
+in the Scala 3 compiler (starting with 3.5.x). They allow the compiler to return artifacts
+even when the compilation fails (returning `.betasty` files instead of `.class` and `.tasty`).
+It also at this point does not support incremental compilation. This all requires special
+handling from the build tool, mostly located in `Compiler.scala`, `CompileTask.scala`
+and `CompileGraph.scala`:
+- We save best effort artifacts separately, and allow dependent projects to compile using 
+that, even when the compilation has failed. If the project compiles we discard the best effort
+artifacts.
+- First, we try compiling partially (only the modified files), expecting regular successful compilation
+- If that at some point fails, we discard the immediate results and recompile the whole module
+expecting .betasty files. We do not ever move them to a readOnly directory. That readOnly directory
+is also not used in dependent compilations.
+- We do not try to recompile if we know we are compiling the whole module to begin with (e.g. because we
+are depending on .betasty from different project, or because this is the first compilation and we
+do not have any previous incremental compilation analysis).
+- If we try to recompile a module that we previously compiled for .betasty, we once again, try to
+recompile it 2 times - once incrementally expecting success (recompiling all files changed since
+the last successful compilation, as dictated by the incremental compilation analysis) and then
+recompile all - this works out to be faster than discarding the last successful result and jumping
+between full successful recompilation and full best effort recompilation.
