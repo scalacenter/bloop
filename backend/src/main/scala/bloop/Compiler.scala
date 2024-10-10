@@ -800,7 +800,8 @@ object Compiler {
   private def adjustScalacReleaseOptions(
       scalacOptions: Array[String],
       javacBin: Option[AbsolutePath],
-      logger: Logger
+      logger: Logger,
+      scalaVersion: String
   ): Array[String] = {
     def existsReleaseSetting = scalacOptions.exists(opt =>
       opt.startsWith("-release") ||
@@ -813,7 +814,15 @@ object Compiler {
       case Some(bin) => bin.getParent.getParent == JavaRuntime.home
       case None => false
     }
-
+    def releaseFlagForVersion(targetJvmVersion: Int): List[String] = {
+      // 2.11 does not support release flag
+      if (scalaVersion.startsWith("2.11")) Nil
+      /* At the moment, Scala does not support release flag for JDK 17
+       * This should not be an issue though since users can easily switch to JDK 17 for Bloop
+       */
+      else if (targetJvmVersion > 17) Nil
+      else List("-release", targetJvmVersion.toString())
+    }
     javacBin.flatMap(binary =>
       // <JAVA_HOME>/bin/java
       JavaRuntime.getJavaVersionFromJavaHome(binary.getParent.getParent)
@@ -828,7 +837,7 @@ object Compiler {
             if (bloopNumVer >= 9 && numVer != bloopNumVer)
           } yield {
             if (bloopNumVer > numVer) {
-              scalacOptions ++ List("-release", numVer.toString())
+              scalacOptions ++ releaseFlagForVersion(numVer)
             } else {
               logger.warn(
                 s"Bloop is running with ${JavaRuntime.version} but your code requires $version to compile, " +
@@ -859,7 +868,8 @@ object Compiler {
     val scalacOptions = adjustScalacReleaseOptions(
       scalacOptions = inputs.scalacOptions,
       javacBin = inputs.javacBin,
-      logger = logger
+      logger = logger,
+      inputs.scalaInstance.version
     )
 
     val optionsWithoutFatalWarnings = scalacOptions.filter(_ != "-Xfatal-warnings")

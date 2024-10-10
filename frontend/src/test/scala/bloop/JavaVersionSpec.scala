@@ -11,7 +11,12 @@ object JavaVersionSpec extends bloop.testing.BaseSuite {
 
   private val jvmManager = coursierapi.JvmManager.create()
 
-  def checkFlag(scalacOpts: List[String], jdkVersion: String = "8", shouldFail: Boolean = false) = {
+  def checkFlag(
+      scalacOpts: List[String],
+      jdkVersion: String = "8",
+      shouldFail: Boolean = false,
+      scalaVersion: Option[String] = None
+  ) = {
     val javaHome = jvmManager.get(jdkVersion).toPath()
     val jvmConfig = Some(Config.JvmConfig(Some(javaHome), Nil))
     TestUtil.withinWorkspace { workspace =>
@@ -25,7 +30,14 @@ object JavaVersionSpec extends bloop.testing.BaseSuite {
 
       val logger = new RecordingLogger(ansiCodesSupported = false)
       val `A` =
-        TestProject(workspace, "a", sources, jvmConfig = jvmConfig, scalacOptions = scalacOpts)
+        TestProject(
+          workspace,
+          "a",
+          sources,
+          jvmConfig = jvmConfig,
+          scalacOptions = scalacOpts,
+          scalaVersion = scalaVersion
+        )
       val projects = List(`A`)
       val state = loadState(workspace, projects, logger)
       val compiledState = state.compile(`A`)
@@ -56,6 +68,8 @@ object JavaVersionSpec extends bloop.testing.BaseSuite {
     test("flag-is-not-added-correctly") {
       checkFlag(List("-release", "8"))
       checkFlag(List("-release:8"))
+      // no release flag available in 2.11
+      checkFlag(Nil, jdkVersion = "11", scalaVersion = Some("2.11.12"))
     }
   }
 
