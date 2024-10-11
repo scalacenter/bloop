@@ -58,6 +58,7 @@ jobs:
       - uses: coursier/setup-action@v1
         with:
           apps: 'sbt'
+      - uses: coursier/cache-action@v6
       - uses: graalvm/setup-graalvm@v1
         with:
           version: '22.3.0'
