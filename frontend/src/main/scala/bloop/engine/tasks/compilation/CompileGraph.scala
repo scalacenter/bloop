@@ -27,9 +27,9 @@ import bloop.logging.DebugFilter
 import bloop.logging.LoggerAction
 import bloop.reporter.ReporterAction
 import bloop.task.Task
+import bloop.util.BestEffortUtils.BestEffortProducts
 import bloop.util.JavaCompat.EnrichOptional
 import bloop.util.SystemProperties
-import bloop.util.BestEffortUtils.BestEffortProducts
 
 import xsbti.compile.PreviousResult
 
@@ -453,7 +453,7 @@ object CompileGraph {
                           .+=(newProducts.readOnlyClassesDir.toFile -> newResult)
                       case (p, ResultBundle(f: Compiler.Result.Failed, _, _, _)) =>
                         f.bestEffortProducts.foreach {
-                          case BestEffortProducts(products, _) =>
+                          case BestEffortProducts(products, _, _) =>
                             dependentProducts += (p -> Right(products))
                         }
                       case _ => ()
