@@ -40,6 +40,7 @@ import xsbti.compile.ClassFileManager
 import xsbti.compile.IncOptions
 import xsbti.compile.Output
 import xsbti.compile.analysis.ReadStamps
+import xsbti.compile.analysis.ReadSourceInfos
 
 /**
  * This class provides a thread-safe implementation of `xsbti.AnalysisCallback` which is required to compile with the
@@ -110,6 +111,14 @@ final class ConcurrentAnalysisCallback(
   private def add[A, B](map: TrieMap[A, ConcurrentSet[B]], a: A, b: B): Unit = {
     map.getOrElseUpdate(a, ConcurrentHashMap.newKeySet[B]()).add(b)
     ()
+  }
+
+  override def toVirtualFile(path: Path): VirtualFile = {
+    converter.toVirtualFile(path)
+  }
+
+  override def getSourceInfos(): ReadSourceInfos = {
+    get.readSourceInfos()
   }
 
   def startSource(source: VirtualFile): Unit = {
