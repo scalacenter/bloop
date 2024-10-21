@@ -39,9 +39,10 @@ import xsbti.api.SafeLazyProxy
 import xsbti.compile.ClassFileManager
 import xsbti.compile.IncOptions
 import xsbti.compile.Output
+import xsbti.compile.analysis.ReadSourceInfos
 import xsbti.compile.analysis.ReadStamps
 
-trait IBloopAnalysisCallback extends xsbti.AnalysisCallback2 {
+trait IBloopAnalysisCallback extends xsbti.AnalysisCallback3 {
   def get: Analysis
 }
 
@@ -101,6 +102,14 @@ final class BloopAnalysisCallback(
   private def add[A, B](map: mutable.HashMap[A, mutable.HashSet[B]], a: A, b: B): Unit = {
     map.getOrElseUpdate(a, new mutable.HashSet[B]()).+=(b)
     ()
+  }
+
+  override def toVirtualFile(path: Path): VirtualFile = {
+    converter.toVirtualFile(path)
+  }
+
+  override def getSourceInfos(): ReadSourceInfos = {
+    get.readSourceInfos()
   }
 
   def startSource(source: VirtualFile): Unit = {
