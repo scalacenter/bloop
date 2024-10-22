@@ -48,6 +48,8 @@ object Dependencies {
   val zinc = "org.scala-sbt" %% "zinc" % zincVersion
   val bsp4s = "ch.epfl.scala" %% "bsp4s" % bspVersion
   val bsp4j = "ch.epfl.scala" % "bsp4j" % bspVersion
+  val jsonrpc4s = "io.github.alexarchambault.bleep" %% "jsonrpc4s" % "0.1.1"
+
   val nailgun = "io.github.alexarchambault.bleep" % "nailgun-server" % "1.0.7"
   val bloopConfig = "ch.epfl.scala" %% "bloop-config" % bloopConfigVersion
 
