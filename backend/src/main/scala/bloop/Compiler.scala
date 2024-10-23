@@ -1016,12 +1016,9 @@ object Compiler {
               BloopClassFileManager.supportedCompileProducts.filter(_ != ".betasty") :+ ".class"
             Files
               .walk(clientClassesDir.underlying)
-              .filter(path =>
-                Files.isRegularFile(path) && deletedCompileProducts.exists(
-                  path.toString.endsWith(_)
-                )
-              )
-              .forEach(path => if (Files.exists(path)) Files.delete(path))
+              .filter(path => Files.isRegularFile(path))
+              .filter(path => deletedCompileProducts.exists(path.toString.endsWith(_)))
+              .forEach(Files.delete(_))
           }.map(_ => ())
         }
 

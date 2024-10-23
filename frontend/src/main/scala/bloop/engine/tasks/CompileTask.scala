@@ -178,7 +178,8 @@ object CompileTask {
           waitOnReadClassesDir.flatMap { _ =>
             // Only when the task is finished, we kickstart the compilation
             def compile(inputs: CompileInputs) = {
-              val firstResult = Compiler.compile(inputs, isBestEffort, isBestEffortDep, true)
+              val firstResult =
+                Compiler.compile(inputs, isBestEffort, isBestEffortDep, firstCompilation = true)
               firstResult.flatMap {
                 case result @ Compiler.Result.Failed(
                       _,
@@ -196,7 +197,12 @@ object CompileTask {
                     previousCompilerResult = result,
                     previousResult = emptyResult
                   )
-                  Compiler.compile(newInputs, isBestEffort, isBestEffortDep, false)
+                  Compiler.compile(
+                    newInputs,
+                    isBestEffort,
+                    isBestEffortDep,
+                    firstCompilation = false
+                  )
                 case result => Task(result)
               }
             }

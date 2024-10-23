@@ -389,7 +389,7 @@ object CompileGraph {
       PartialFailure(bundle.project, FailedOrCancelledPromise, Task.now(results))
     }
 
-    def loop(dag: Dag[Project], isBestEffortDep: Boolean): CompileTraversal = {
+    def loop(dag: Dag[Project]): CompileTraversal = {
       tasks.get(dag) match {
         case Some(task) => task
         case None =>
@@ -397,6 +397,7 @@ object CompileGraph {
             case Leaf(project) =>
               val bundleInputs = BundleInputs(project, dag, Map.empty)
               setupAndDeduplicate(client, bundleInputs, computeBundle) { bundle =>
+                val isBestEffortDep = false
                 compile(Inputs(bundle, Map.empty), bestEffortAllowed && project.isBestEffort, isBestEffortDep).map { results =>
                   results.fromCompiler match {
                     case Compiler.Result.Ok(_) => Leaf(partialSuccess(bundle, results))
@@ -406,13 +407,13 @@ object CompileGraph {
               }
 
             case Aggregate(dags) =>
-              val downstream = dags.map(loop(_, isBestEffortDep = false))
+              val downstream = dags.map(loop(_))
               Task.gatherUnordered(downstream).flatMap { dagResults =>
                 Task.now(Parent(PartialEmpty, dagResults))
               }
 
             case Parent(project, dependencies) =>
-              val downstream = dependencies.map(loop(_, isBestEffortDep = false))
+              val downstream = dependencies.map(loop(_))
               Task.gatherUnordered(downstream).flatMap { dagResults =>
                 val depsSupportBestEffort =
                   dependencies.map(Dag.dfs(_, mode = Dag.PreOrder)).flatten.forall(_.isBestEffort)
@@ -433,7 +434,7 @@ object CompileGraph {
                     case _ => false
                   }
                   val continue = bestEffortAllowed && depsSupportBestEffort && successfulBestEffort || failed.isEmpty
-                  val dependsOnBestEffort = failed.nonEmpty && bestEffortAllowed && depsSupportBestEffort || isBestEffortDep
+                  val dependsOnBestEffort = failed.nonEmpty && bestEffortAllowed && depsSupportBestEffort
 
                   if (!continue) {
                     // Register the name of the projects we're blocked on (intransitively)
@@ -479,7 +480,7 @@ object CompileGraph {
       }
     }
 
-    loop(dag, isBestEffortDep = false)
+    loop(dag)
   }
 
   private def errorToString(err: Throwable): String = {
