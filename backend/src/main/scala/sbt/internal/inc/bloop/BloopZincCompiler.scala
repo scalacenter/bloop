@@ -58,7 +58,8 @@ object BloopZincCompiler {
       manager: ClassFileManager,
       cancelPromise: Promise[Unit],
       tracer: BraveTracer,
-      classpathOptions: ClasspathOptions
+      classpathOptions: ClasspathOptions,
+      withPreviousResult: Boolean
   ): Task[CompileResult] = {
     val config = in.options()
     val setup = in.setup()
@@ -81,8 +82,8 @@ object BloopZincCompiler {
         scalacOptions,
         javacOptions,
         classpathOptions,
-        in.previousResult.analysis.toOption,
-        in.previousResult.setup.toOption,
+        if (withPreviousResult) in.previousResult.analysis.toOption else None,
+        if (withPreviousResult) in.previousResult.setup.toOption else None,
         perClasspathEntryLookup,
         reporter,
         order,
