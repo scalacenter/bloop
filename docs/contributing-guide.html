@@ -250,6 +250,30 @@ delayed and if we push too early not all the neccessary steps will succeed.</li>
 <li><p>Announce the release after the release notes are published in the most recent
 release.</p></li>
 </ul>
+<h1><a class="anchor" aria-hidden="true" id="best-effort-compilation-pipeline"></a><a href="#best-effort-compilation-pipeline" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Best effort compilation pipeline</h1>
+<p>As of writing this part of the doc this is an experimental set of settings implemented
+in the Scala 3 compiler (starting with 3.5.x). They allow the compiler to return artifacts
+even when the compilation fails (returning <code>.betasty</code> files instead of <code>.class</code> and <code>.tasty</code>).
+It also at this point does not support incremental compilation. This all requires special
+handling from the build tool, mostly located in <code>Compiler.scala</code>, <code>CompileTask.scala</code>
+and <code>CompileGraph.scala</code>:</p>
+<ul>
+<li>We save best effort artifacts separately, and allow dependent projects to compile using
+that, even when the compilation has failed. If the project compiles we discard the best effort
+artifacts.</li>
+<li>First, we try compiling partially (only the modified files), expecting regular successful compilation</li>
+<li>If that at some point fails, we discard the immediate results and recompile the whole module
+expecting .betasty files. We do not ever move them to a readOnly directory. That readOnly directory
+is also not used in dependent compilations.</li>
+<li>We do not try to recompile if we know we are compiling the whole module to begin with (e.g. because we
+are depending on .betasty from different project, or because this is the first compilation and we
+do not have any previous incremental compilation analysis).</li>
+<li>If we try to recompile a module that we previously compiled for .betasty, we once again, try to
+recompile it 2 times - once incrementally expecting success (recompiling all files changed since
+the last successful compilation, as dictated by the incremental compilation analysis) and then
+recompile all - this works out to be faster than discarding the last successful result and jumping
+between full successful recompilation and full best effort recompilation.</li>
+</ul>
 </span></div></article></div><div class="docs-prevnext"><a class="docs-prev button" href="/bloop/docs/configuration-format"><span class="arrow-prev">← </span><span>JSON Configuration</span></a></div></div></div><nav class="onPageNav"><ul class="toc-headings"><li><a href="#requirements">Requirements</a></li><li><a href="#ensure-youre-in-the-right-repo">Ensure you're in the right repo</a></li><li><a href="#project-structure">Project structure</a></li><li><a href="#set-the-repository-up">Set the repository up</a></li><li><a href="#learn-the-developer-workflow">Learn the developer workflow</a><ul class="toc-headings"><li><a href="#common-commands">Common commands</a></li><li><a href="#write-commit-messages">Write commit messages</a></li></ul></li><li><a href="#install-a-snapshot-release">Install a SNAPSHOT release</a><ul class="toc-headings"><li><a href="#depend-on-snapshot-releases">Depend on SNAPSHOT releases</a></li><li><a href="#install-a-snapshot-release-in-your-machine">Install a SNAPSHOT release in your machine</a></li><li><a href="#verify-the-installation-of-a-snapshot-release">Verify the installation of a SNAPSHOT release</a></li></ul></li><li><a href="#updating-documentation">Updating documentation</a><ul class="toc-headings"><li><a href="#prerequisites">Prerequisites</a></li><li><a href="#running">Running</a></li></ul></li><li><a href="#releasing">Releasing</a></li></ul></nav></div><footer class="nav-footer" id="footer" style="background-color:rgb(17, 42, 68)"><section class="sitemap"><a href="/bloop/" class="nav-home"><img src="/bloop/img/impure-logo-bloop.svg" alt="Bloop" height="60"/></a><a href="/bloop/" class="nav-home"><img src="/bloop/img/frontpage/scala.png" alt="Bloop" height="60"/></a><div><h5>Overview</h5><a href="/bloop/docs/what-is-bloop">What is Bloop</a><a href="/bloop/docs/integration">Integrate with Bloop</a><a href="/bloop/docs/build-tools/overview">Build Tools</a><a href=" /bloop/docs/contributing-guide">Contributing</a></div><div><h5>Build Tools</h5><a href="/bloop/docs/build-tools/sbt">sbt</a><a href="/bloop/docs/build-tools/gradle">Gradle</a><a href="/bloop/docs/build-tools/maven">Maven</a><a href="/bloop/docs/build-tools/mill">Mill</a></div><div><h5>Social</h5><a href="https://github.com/scalacenter/bloop" target="_blank"><img src="https://img.shields.io/github/stars/scalacenter/bloop.svg?color=%23087e8b&amp;label=stars&amp;logo=github&amp;style=social"/></a><a href="https://discord.gg/KWF9zMhJWS" target="_blank"><img src="https://img.shields.io/discord/632642981228314653?logo=discord&amp;style=social"/></a></div></section><section class="copyright">Copyright © 2024 Bloop</section><section class="copyright">Credits to @freepik for svg icons</section><section class="copyright">Credits to Bazel, Babel and Metals for inspiring Bloop&#x27;s website design</section></footer></div><script type="text/javascript" src="https://cdn.jsdelivr.net/docsearch.js/1/docsearch.min.js"></script><script>
                 document.addEventListener('keyup', function(e) {
                   if (e.target !== document.body) {
