@@ -1,8 +1,10 @@
 package bloop.integrations.sbt
 
+import java.io.File
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.Paths
 import java.nio.file.StandardCopyOption
 import java.util.concurrent.ConcurrentHashMap
 
@@ -990,9 +992,31 @@ object BloopDefaults {
               Config.Test(frameworks, options)
             }
 
+            val pluginOpt = "-Xplugin:"
+
+            def makePluginPathAbsolute(opt: String) = {
+              if (opt.startsWith(pluginOpt)) {
+                val pluginPath = opt.stripPrefix(pluginOpt)
+                if (Paths.get(pluginPath).isAbsolute()) opt
+                else {
+                  val absolutePluginPath = cwd + File.separator + pluginPath
+                  if (Paths.get(absolutePluginPath).toFile().exists())
+                    pluginOpt + absolutePluginPath
+                  else opt
+                }
+              } else {
+                opt
+              }
+            }
             val javacOptions = Keys.javacOptions.in(Keys.compile).in(configuration).value.toList
             val scalacOptions = {
-              val options = Keys.scalacOptions.in(Keys.compile).in(configuration).value.toList
+              val options = Keys.scalacOptions
+                .in(Keys.compile)
+                .in(configuration)
+                .value
+                .toList
+                .map(makePluginPathAbsolute)
+
               val internalClasspath = BloopKeys.bloopInternalClasspath.value
               replaceScalacOptionsPaths(options, internalClasspath, logger)
             }
