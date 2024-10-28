@@ -117,7 +117,13 @@ object BloopComponentCompiler {
     private def compiledBridge(bridgeSources: ModuleID, scalaInstance: ScalaInstance): File = {
       val raw = new RawCompiler(scalaInstance, ClasspathOptionsUtil.auto, logger)
       val bridgeJarsOpt = scalaInstance match {
-        case b: _root_.bloop.ScalaInstance => b.bridgeJarsOpt
+        case b: _root_.bloop.ScalaInstance =>
+          b.bridgeJarsOpt.foreach { jars =>
+            logger.debug(s"Using user defined bridge jars for Scala ${jars.mkString(",")}")(
+              DebugFilter.Compilation
+            )
+          }
+          b.bridgeJarsOpt
         case _ => None
       }
       val zinc = new BloopComponentCompiler(raw, manager, bridgeSources, bridgeJarsOpt, logger)
