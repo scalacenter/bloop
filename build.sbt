@@ -68,6 +68,7 @@ lazy val bloopShared = project
       ),
       Dependencies.jsonrpc4s,
       Dependencies.zinc,
+      Dependencies.jna,
       Dependencies.log4j,
       Dependencies.xxHashLibrary,
       Dependencies.configDirectories,
