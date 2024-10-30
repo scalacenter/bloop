@@ -530,16 +530,25 @@ object CompileTask {
           Task.eval {
             logger.debug(s"Deleting contents of orphan dir $classesDir")
             BloopPaths.delete(classesDir)
-          }.asyncBoundary
+          }
       }
 
-    Task
-      .gatherUnordered(
-        List(
-          deleteOrphanDir(previousReadOnlyToDelete),
-          deleteOrphanDir(previousBestEffortToDelete)
-        )
-      )
-      .map(_ => ())
+    // Task
+    //   .gatherUnordered(
+    //     List(
+    //       deleteOrphanDir(previousReadOnlyToDelete),
+    //       deleteOrphanDir(previousBestEffortToDelete)
+    //     )
+    //   )
+    //   .map(_ => ())
+    //   .asyncBoundary
+    previousReadOnlyToDelete match {
+      case None => Task.unit
+      case Some(classesDir) =>
+        Task.eval {
+          logger.debug(s"Deleting contents of orphan dir $classesDir")
+          BloopPaths.delete(classesDir)
+        }.asyncBoundary
+    }
   }
 }
