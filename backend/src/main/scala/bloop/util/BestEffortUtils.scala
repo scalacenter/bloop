@@ -1,21 +1,16 @@
 package bloop.util
 
-import java.math.BigInteger
-import java.nio.file.Files
-import java.nio.file.Path
 import java.security.MessageDigest
 
+import java.math.BigInteger
+import java.nio.file.Files
 import scala.collection.JavaConverters._
-
+import java.nio.file.Path
 import bloop.io.AbsolutePath
 
 object BestEffortUtils {
 
-  case class BestEffortProducts(
-      compileProducts: bloop.CompileProducts,
-      hash: String,
-      recompile: Boolean
-  )
+  case class BestEffortProducts(compileProducts: bloop.CompileProducts, hash: String)
 
   /* Hashes results of a projects compilation, to mimic how it would have been handled in zinc.
    * Returns SHA-1 of a project.

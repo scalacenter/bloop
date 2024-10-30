@@ -665,9 +665,8 @@ class BspMetalsClientSpec(
       )
       loadBspState(workspace, projects, logger, "Metals", bloopExtraParams = extraParams) { state =>
         val compiledState = state.compile(`A`, arguments = Some(List("--best-effort"))).toTestState
-        // we remove betasty from successful compilations
-        assertNoBetastyFile("A.betasty", compiledState, "A")
-        assertNoBetastyFile("B.betasty", compiledState, "A")
+        assertBetastyFile("A.betasty", compiledState, "A")
+        assertBetastyFile("B.betasty", compiledState, "A")
         assertCompilationFile("A.class", compiledState, "A")
         updateProject(updatedFile1WithError)
         val compiledState2 = state.compile(`A`, arguments = Some(List("--best-effort"))).toTestState
@@ -678,8 +677,8 @@ class BspMetalsClientSpec(
         updateProject(updatedFile2WithoutError)
         val compiledState3 = state.compile(`A`, arguments = Some(List("--best-effort"))).toTestState
         assertNoBetastyFile("A.betasty", compiledState3, "A")
-        assertNoBetastyFile("B.betasty", compiledState3, "A")
-        assertNoBetastyFile("C.betasty", compiledState3, "A")
+        assertBetastyFile("B.betasty", compiledState3, "A")
+        assertBetastyFile("C.betasty", compiledState3, "A")
         assertCompilationFile("B.class", compiledState, "A")
         updateProject(updatedFile3WithError)
         val compiledState4 = state.compile(`A`, arguments = Some(List("--best-effort"))).toTestState
