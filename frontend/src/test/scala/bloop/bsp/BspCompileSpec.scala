@@ -172,7 +172,7 @@ class BspCompileSpec(
     }
   }
 
-  testMac(
+  testNonWindows(
     "create orphan client classes directory and make sure loading a BSP session cleans it up"
   ) {
     TestUtil.withinWorkspace { workspace =>
