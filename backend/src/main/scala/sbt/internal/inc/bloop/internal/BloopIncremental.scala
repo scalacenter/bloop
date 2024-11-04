@@ -115,6 +115,7 @@ object BloopIncremental {
       val doCompile = (srcs: Set[VirtualFile], changes: DependencyChanges) => {
         for {
           callback <- Task.now(callbackBuilder())
+          _ = incremental.log.debug(s"Compiling $srcs")
           _ <- compile(srcs, changes, callback, manager)
         } yield callback.get
       }

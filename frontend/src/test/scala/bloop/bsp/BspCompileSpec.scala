@@ -349,6 +349,81 @@ class BspCompileSpec(
     }
   }
 
+  test("compile incrementally renamed file") {
+    TestUtil.withinWorkspace { workspace =>
+      def path(suffix: String) = s"/main/scala/scala/meta/internal/metals/Foo$suffix.scala"
+      object Sources {
+        val `Foo0.scala` =
+          s"""${path("0")}
+             |package scala.meta.internal.metals
+             |
+             |final class Foo0(conn: () => String) {
+             |  def foo(s: String): String = s
+             |}
+          """.stripMargin
+      }
+
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val `A` = TestProject(workspace, "a", List(Sources.`Foo0.scala`))
+      val projects = List(`A`)
+      val fooFilePath = `A`.srcFor(path("0"))
+      writeFile(fooFilePath, Sources.`Foo0.scala`)
+
+      def assertCorrectArtifacts(compiledState: ManagedBspTestState, suffix: String): Unit = {
+
+        val buildProject = compiledState.toTestState.getProjectFor(`A`)
+        val externalClassesDirA =
+          compiledState.client.getUniqueClassesDirFor(buildProject, forceGeneration = true)
+
+        val classFilesAfterSuccess = takeDirectorySnapshot(externalClassesDirA)
+        assertEquals(
+          classFilesAfterSuccess.map { classfile =>
+            val pathString = classfile.path.toString()
+            // drop drive letter and replace backslashes with forward slashes
+            if (isWindows) pathString.drop(2).replace("\\", "/") else pathString
+          },
+          List(s"/scala/meta/internal/metals/Foo$suffix.class")
+        )
+      }
+
+      loadBspState(workspace, projects, logger) { state =>
+        val firstCompiledState = state.compile(`A`)
+        assertExitStatus(firstCompiledState, ExitStatus.Ok)
+        assertValidCompilationState(firstCompiledState, projects)
+        assertCorrectArtifacts(firstCompiledState, "0")
+
+        // try to rename 10 times the same file
+        // VS Code will first change the file, then rename it
+        val last = (1 to 10).foldLeft(firstCompiledState) { (state, num) =>
+          val previousFile = `A`.srcFor(path(s"${num - 1}"))
+          val newContents = Sources.`Foo0.scala`.replace(s"Foo0", s"Foo$num")
+          // rename class
+          writeFile(
+            previousFile,
+            newContents
+          )
+          val compiledStateChangedFile = state.compile(`A`)
+          assertExitStatus(compiledStateChangedFile, ExitStatus.Ok)
+          assertValidCompilationState(compiledStateChangedFile, projects)
+          assertCorrectArtifacts(compiledStateChangedFile, s"$num")
+
+          // rename file
+          val newFile = fooFilePath.getParent.resolve(s"Foo$num.scala")
+          Files.move(previousFile.underlying, newFile.underlying)
+
+          val compiledStateRenameFile = compiledStateChangedFile.compile(`A`)
+          assertExitStatus(compiledStateRenameFile, ExitStatus.Ok)
+          assertValidCompilationState(compiledStateRenameFile, projects)
+
+          assertCorrectArtifacts(compiledStateRenameFile, s"$num")
+          compiledStateRenameFile
+        }
+
+        assertValidCompilationState(last, projects)
+      }
+    }
+  }
+
   /**
    * Checks several variants regarding the previous execution of post
    * compilation tasks when the compile result is a success and when it is a

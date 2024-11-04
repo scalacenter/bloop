@@ -90,59 +90,66 @@ private final class BloopNameHashing(
           case ref: VirtualFileRef => PlainVirtualFileConverter.converter.toVirtualFile(ref)
         }
 
-      recompileClasses(invalidatedSources, binaryChanges, previous, compileTask, manager).flatMap {
-        current =>
-          // Return immediate analysis as all sources have been recompiled
-          if (invalidatedSources == allSources) Task.now(current)
-          else {
-            val recompiledClasses: Set[String] = {
-              // Represents classes detected as changed externally and internally (by a previous cycle)
-              classesToRecompile ++
-                // Maps the changed sources by the user to class names we can count as invalidated
-                initialChangedSources.flatMap(previous.relations.classNames) ++
-                initialChangedSources.flatMap(current.relations.classNames)
-            }
-
-            val newApiChanges =
-              detectAPIChanges(
-                recompiledClasses,
-                previous.apis.internalAPI,
-                current.apis.internalAPI
-              )
-            debug("\nChanges:\n" + newApiChanges)
-            val nextInvalidations = invalidateAfterInternalCompilation(
-              current,
-              newApiChanges,
-              recompiledClasses,
-              cycleNum >= options.transitiveStep,
-              IncrementalCommon.comesFromScalaSource(previous.relations, Some(current.relations))
-            )
-
-            val continue = lookup.shouldDoIncrementalCompilation(nextInvalidations, current)
-
-            profiler.registerCycle(
-              invalidatedClasses,
-              invalidatedByPackageObjects,
-              initialChangedSources,
-              invalidatedSources,
-              recompiledClasses,
-              newApiChanges,
-              nextInvalidations,
-              continue
-            )
-
-            entrypoint(
-              if (continue) nextInvalidations else Set.empty,
-              Set.empty,
-              allSources,
-              IncrementalCommon.emptyChanges,
-              lookup,
-              current,
-              compileTask,
-              manager,
-              cycleNum + 1
-            )
+      recompileClasses(
+        invalidatedSources.filter(allSources),
+        invalidatedSources,
+        binaryChanges,
+        previous,
+        compileTask,
+        manager
+      ).flatMap { current =>
+        // Return immediate analysis as all sources have been recompiled
+        if (invalidatedSources == allSources) Task.now(current)
+        else {
+          val recompiledClasses: Set[String] = {
+            // Represents classes detected as changed externally and internally (by a previous cycle)
+            classesToRecompile ++
+              // Maps the changed sources by the user to class names we can count as invalidated
+              initialChangedSources.flatMap(previous.relations.classNames) ++
+              initialChangedSources.flatMap(current.relations.classNames)
           }
+
+          val newApiChanges =
+            detectAPIChanges(
+              recompiledClasses,
+              previous.apis.internalAPI,
+              current.apis.internalAPI
+            )
+          debug("\nChanges:\n" + newApiChanges)
+          val nextInvalidations = invalidateAfterInternalCompilation(
+            current,
+            newApiChanges,
+            recompiledClasses,
+            cycleNum >= options.transitiveStep,
+            IncrementalCommon.comesFromScalaSource(previous.relations, Some(current.relations))
+          )
+          debug(s"Next invalidations: $nextInvalidations")
+
+          val continue = lookup.shouldDoIncrementalCompilation(nextInvalidations, current)
+
+          profiler.registerCycle(
+            invalidatedClasses,
+            invalidatedByPackageObjects,
+            initialChangedSources,
+            invalidatedSources,
+            recompiledClasses,
+            newApiChanges,
+            nextInvalidations,
+            continue
+          )
+
+          entrypoint(
+            if (continue) nextInvalidations else Set.empty,
+            Set.empty,
+            allSources,
+            IncrementalCommon.emptyChanges,
+            lookup,
+            current,
+            compileTask,
+            manager,
+            cycleNum + 1
+          )
+        }
       }
     }
   }
@@ -231,7 +238,8 @@ private final class BloopNameHashing(
   }
 
   def recompileClasses(
-      sources: Set[VirtualFile],
+      currentInvalidatedSources: Set[VirtualFile],
+      invalidatedSources: Set[VirtualFile],
       binaryChanges: DependencyChanges,
       previous: Analysis,
       compileTask: (Set[VirtualFile], DependencyChanges) => Task[Analysis],
@@ -239,13 +247,13 @@ private final class BloopNameHashing(
   ): Task[Analysis] = {
     val pruned =
       IncrementalCommon.pruneClassFilesOfInvalidations(
-        sources,
+        invalidatedSources,
         previous,
         classfileManager,
         PlainVirtualFileConverter.converter
       )
     debug("********* Pruned: \n" + pruned.relations + "\n*********")
-    compileTask(sources, binaryChanges).map { fresh =>
+    compileTask(currentInvalidatedSources, binaryChanges).map { fresh =>
       debug("********* Fresh: \n" + fresh.relations + "\n*********")
 
       /* This is required for both scala compilation and forked java compilation, despite
