@@ -141,7 +141,7 @@ jobs:
         include:
           - os: ubuntu-20.04
             artifact: bloop-linux
-          - os: macos-12
+          - os: macOS-13
             artifact: bloop-macos
           - os: macos-14
             artifact: bloop-macos-m1
