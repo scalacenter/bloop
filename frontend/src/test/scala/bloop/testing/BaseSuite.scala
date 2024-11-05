@@ -34,6 +34,7 @@ import utest.ufansi.Str
 abstract class BaseSuite extends TestSuite with BloopHelpers {
   val pprint = _root_.pprint.PPrinter.BlackWhite
   def isWindows: Boolean = bloop.util.CrossPlatform.isWindows
+  def isMac: Boolean = bloop.util.CrossPlatform.isMac
   def isAppveyor: Boolean = "True" == System.getenv("APPVEYOR")
   def beforeAll(): Unit = ()
   def afterAll(): Unit = ()
