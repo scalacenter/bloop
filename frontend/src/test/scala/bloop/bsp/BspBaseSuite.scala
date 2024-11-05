@@ -620,6 +620,14 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
     }
   }
 
+  def testMac(name: String)(fun: => Any): Unit = {
+    if (isMac) {
+      super.test(name)(fun)
+    } else {
+      super.ignore(name, "DISABLED")(fun)
+    }
+  }
+
   private final lazy val tempDir = Files.createTempDirectory("temp-sockets")
   tempDir.toFile.deleteOnExit()
 
