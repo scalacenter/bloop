@@ -491,8 +491,7 @@ object DebugServerSpec extends DebugBspBaseSuite {
   }
 
   testTask(
-    "does not accept a connection unless the previous session requests a restart",
-    FiniteDuration(5, SECONDS)
+    "does not accept a connection unless the previous session requests a restart"
   ) {
     startDebugServer(Task.now(Success)) { server =>
       for {
