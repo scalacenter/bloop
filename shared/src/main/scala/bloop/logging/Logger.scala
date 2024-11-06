@@ -9,7 +9,10 @@ abstract class Logger extends xsbti.Logger with BaseSbtLogger {
 
   // Duplicate the standard output so that we get printlns from the compiler
   protected def redirectOutputToLogs(out: PrintStream) = {
-    System.setOut(new TeeOutputStream(out))
+    val baos = new FlushingOutputStream(info)
+    val tee = new TeeOutputStream(out)
+    tee.addListener(baos)
+    System.setOut(tee)
   }
 
   /** The name of the logger */

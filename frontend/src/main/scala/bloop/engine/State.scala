@@ -67,7 +67,7 @@ object State {
     val opts = CommonOptions.default
     val cwd = opts.workingPath
     val clientInfo = ClientInfo.CliClientInfo(useStableCliDirs = true, () => true)
-    val results = ResultsCache.load(build, cwd, cleanOrphanedInternalDirs = false, logger)
+    val results = ResultsCache.load(build, cwd, cleanOrphanedInternalDirs = true, logger)
     State(
       build,
       results,

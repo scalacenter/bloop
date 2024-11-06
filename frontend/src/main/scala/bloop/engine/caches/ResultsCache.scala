@@ -208,6 +208,9 @@ object ResultsCache {
                     fileName.startsWith(genericClassesName) &&
                       path != analysisClassesDir.underlying
                   if (isOrphan) {
+                    logger.debug(
+                      s"Discovered orphan directory $path"
+                    )(DebugFilter.All)
                     orphanInternalDirs.+=(path)
                   }
                 }

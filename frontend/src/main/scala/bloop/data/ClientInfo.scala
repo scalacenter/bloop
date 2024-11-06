@@ -292,7 +292,7 @@ object ClientInfo {
                   val dirName = clientDir.underlying.getFileName().toString
                   val attrs =
                     Files.readAttributes(clientDir.underlying, classOf[BasicFileAttributes])
-                  val isOldDir = attrs.creationTime.toInstant.isBefore(deletionThresholdInstant)
+                  val isOldDir = attrs.lastModifiedTime.toInstant.isBefore(deletionThresholdInstant)
                   val isAllowed = CliClientInfo.isStableDirName(dirName) ||
                     connectedBspClientIds.exists(clientId => dirName.endsWith(s"-$clientId"))
 
