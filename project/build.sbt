@@ -3,7 +3,7 @@ addSbtPlugin("org.scala-js" % "sbt-scalajs" % "1.17.0")
 addSbtPlugin("com.github.sbt" % "sbt-dynver" % "5.1.0")
 addSbtPlugin("com.scalawilliam.esbeetee" % "sbt-vspp" % "0.4.11")
 addSbtPlugin("org.scalameta" % "sbt-scalafmt" % "2.5.2")
-addSbtPlugin("com.eed3si9n" % "sbt-buildinfo" % "0.13.0")
+addSbtPlugin("com.eed3si9n" % "sbt-buildinfo" % "0.13.1")
 // Bumping this will causes issues. The benchmark bridge
 // needs to be updated in order for us to bump to 0.4.x.
 addSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.7")
