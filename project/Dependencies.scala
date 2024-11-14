@@ -78,7 +78,7 @@ object Dependencies {
 
   val utest = "com.lihaoyi" %% "utest" % "0.8.4"
   def munit = "org.scalameta" %% "munit" % "1.0.2"
-  def expecty = "com.eed3si9n.expecty" %% "expecty" % "0.16.0"
+  def expecty = "com.eed3si9n.expecty" %% "expecty" % "0.17.0"
   val pprint = "com.lihaoyi" %% "pprint" % "0.9.0"
   val oslib = "com.lihaoyi" %% "os-lib" % "0.11.3"
   val junit = "com.github.sbt" % "junit-interface" % junitVersion
