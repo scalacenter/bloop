@@ -123,6 +123,7 @@ jobs:
               "frontend/test:compile; \
               backend/test; \
               docs/compile; \
+              cli/compile; \
               bloopRifle/test; \
               frontend/testOnly bloop.ScalaVersionsSpec; \
               frontend/testOnly -bloop.ScalaVersionsSpec; \

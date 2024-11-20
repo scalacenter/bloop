@@ -26,6 +26,14 @@ object CoursierUtils {
       }
   }
 
+  implicit class AnyDependencyOps(private val dep: dependency.AnyDependency) extends AnyVal {
+    def getUserParam(key: String) = {
+      dep.userParams.collectFirst {
+        case (`key`, value) => value
+      }.flatten
+    }
+  }
+
   implicit class DependencyOps(private val dep: dependency.Dependency) extends AnyVal {
     def toCs: coursier.Dependency = {
       val mod = dep.module.toCs
@@ -36,13 +44,14 @@ object CoursierUtils {
             (coursier.Organization(mod.organization), coursier.ModuleName(mod.name))
           }
         }
-      for (clOpt <- dep.userParams.get("classifier"); cl <- clOpt)
+
+      for (cl <- dep.getUserParam("classifier"))
         dep0 = dep0.withPublication(dep0.publication.withClassifier(coursier.core.Classifier(cl)))
-      for (tpeOpt <- dep.userParams.get("type"); tpe <- tpeOpt)
+      for (tpe <- dep.getUserParam("type"))
         dep0 = dep0.withPublication(dep0.publication.withType(coursier.core.Type(tpe)))
-      for (extOpt <- dep.userParams.get("ext"); ext <- extOpt)
+      for (ext <- dep.getUserParam("ext"))
         dep0 = dep0.withPublication(dep0.publication.withExt(coursier.core.Extension(ext)))
-      for (_ <- dep.userParams.get("intransitive"))
+      for (_ <- dep.getUserParam("intransitive"))
         dep0 = dep0.withTransitive(false)
       dep0
     }
