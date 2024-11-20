@@ -53,7 +53,7 @@ object Artifacts {
     val maybeCoursierDependencies = {
       val seq = dependencies
         .map { dep =>
-          val maybeUrl = dep.userParams.get("url").flatten
+          val maybeUrl = dep.getUserParam("url")
           if (maybeUrl.nonEmpty)
             sys.error("unsupported")
           dep
