@@ -36,6 +36,89 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
   protected def extraCompilationMessageOutput: String = ""
   protected def processOutput(output: String) = output
 
+  def checkCompiles(
+      name: String,
+      expectedStatus: ExitStatus,
+      scalaVersion: String,
+      code: String,
+      expectedException: Option[String] = None
+  ) = {
+
+    test(name) {
+      TestUtil.withinWorkspace { workspace =>
+        val sources = List(
+          s"""/main/scala/Foo.scala
+             |$code
+          """.stripMargin
+        )
+
+        val logger = new RecordingLogger(ansiCodesSupported = false)
+        val `A` = TestProject(workspace, "a", sources, scalaVersion = Some(scalaVersion))
+        val projects = List(`A`)
+        val state = loadState(workspace, projects, logger)
+        try {
+          val compiledState = state.compile(`A`)
+          assertExitStatus(compiledState, expectedStatus)
+          if (expectedStatus == ExitStatus.Ok)
+            assertValidCompilationState(compiledState, projects)
+        } catch {
+          case NonFatal(e) =>
+            expectedException match {
+              case None => fail(s"Unexpected exception: ${e.getMessage()}")
+              case Some(value) => assertNoDiff(e.toString, value)
+            }
+        }
+      }
+    }
+  }
+
+  // https://github.com/scala/scala3/issues/22026
+  checkCompiles(
+    "scala3-i22026",
+    ExitStatus.UnexpectedError,
+    "3.5.2",
+    """|trait TypeBound {
+       |
+       |  type Min
+       |  type Max >: Min
+       |}
+       |
+       |object TypeBound {
+       |
+       |  type Pinpoint = TypeBound { type Max = Min }
+       |}
+       |
+       |object HasPoly1 {
+       |
+       |  trait Poly1[B <: TypeBound] {
+       |
+       |    type Refined[Sub <: B]
+       |
+       |    def refine[Sub <: B](sub: Sub): Refined[Sub]
+       |  }
+       |
+       |  object Poly1 {
+       |
+       |    type Concrete = Poly1[? <: TypeBound.Pinpoint] // can only refine using a concrete type, not a type bound
+       |
+       |    case class Example1() extends Poly1[TypeBound.Pinpoint] {
+       |
+       |      case class Refined[Sub <: TypeBound.Pinpoint](sub: Sub) {
+       |
+       |        final val fn: sub.Max => Seq[sub.Max] = { v =>
+       |          Seq(v)
+       |        }
+       |      }
+       |
+       |      def refine[Sub <: TypeBound.Pinpoint](sub: Sub): Refined[Sub] = Refined[Sub](sub)
+       |    }
+       |  }
+       |}""".stripMargin,
+    expectedException = Some(
+      "Encountered a error while persisting zinc analysis. Please report an issue in sbt/zinc repository."
+    )
+  )
+
   test("compile a project twice with no input changes produces a no-op") {
     TestUtil.withinWorkspace { workspace =>
       val sources = List(

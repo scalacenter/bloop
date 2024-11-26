@@ -36,6 +36,7 @@ import bloop.util.UUIDUtil
 
 import monix.execution.Scheduler
 import sbt.internal.inc.Analysis
+import sbt.internal.inc.CompileFailed
 import sbt.internal.inc.ConcreteAnalysisContents
 import sbt.internal.inc.FileAnalysisStore
 import sbt.internal.inc.FreshCompilerCache
@@ -1200,7 +1201,7 @@ object Compiler {
       setup: MiniSetup,
       tracer: BraveTracer,
       logger: Logger
-  ): Unit = {
+  ): Unit = try {
     val label = s"Writing analysis to ${storeFile.syntax}..."
     tracer.trace(label) { _ =>
       if (analysis == Analysis.Empty || analysis.equals(Analysis.empty)) {
@@ -1211,6 +1212,12 @@ object Compiler {
         logger.debug(s"Wrote analysis to ${storeFile.syntax}...")
       }
     }
+  } catch {
+    case t @ (_: StackOverflowError | _: NoClassDefFoundError) =>
+      val msg =
+        "Encountered a error while persisting zinc analysis. Please report an issue in sbt/zinc repository."
+      logger.error(s"${msg}:\n${t.getStackTrace().mkString("\n")}")
+      throw new CompileFailed(new Array(0), msg, new Array(0), None, t)
   }
 
   // Deletes all previous best-effort artifacts to get rid of all of the outdated ones.
