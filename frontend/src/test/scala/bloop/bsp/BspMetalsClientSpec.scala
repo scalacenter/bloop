@@ -691,6 +691,60 @@ class BspMetalsClientSpec(
     }
   }
 
+  test(
+    "best-effort: do not use previous successful compilation artifacts on best effort compilations"
+  ) {
+    val initFile =
+      """/Source.scala
+        |object A {
+        |  def usesB: B = ???
+        |}
+        |trait B
+        |""".stripMargin
+    val updatedFile =
+      """/Source.scala
+        |object A {
+        |  def usesB: B = ???
+        |}
+        |""".stripMargin
+    TestUtil.withinWorkspace { workspace =>
+      val `A` = TestProject(
+        workspace,
+        "A",
+        List(initFile),
+        scalaVersion = Some(bestEffortScalaVersion)
+      )
+      def updateProject(content: String) =
+        Files.write(`A`.config.sources.head.resolve("Source.scala"), content.getBytes())
+      val projects = List(`A`)
+      TestProject.populateWorkspace(workspace, projects)
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val extraParams = BloopExtraBuildParams(
+        ownsBuildFiles = None,
+        clientClassesRootDir = None,
+        semanticdbVersion = Some(semanticdbVersion),
+        supportedScalaVersions = Some(List(bestEffortScalaVersion)),
+        javaSemanticdbVersion = None,
+        enableBestEffortMode = Some(true)
+      )
+      loadBspState(workspace, projects, logger, "Metals", bloopExtraParams = extraParams) { state =>
+        val compiledState = state.compile(`A`, arguments = Some(List("--best-effort"))).toTestState
+        assert(compiledState.status == ExitStatus.Ok)
+        updateProject(updatedFile)
+        val compiledState2 = state.compile(`A`, arguments = Some(List("--best-effort"))).toTestState
+        val compilationResult =
+          compiledState2.results.latestResult(compiledState2.build.getProjectFor("A").get)
+        assert(compiledState2.status == ExitStatus.CompilationError)
+        compilationResult match {
+          case Compiler.Result.Failed(problems, _, _, _, _) =>
+            assert(problems.exists(_.problem.message.contains("Not found: type B")))
+          case _ =>
+            assert(false)
+        }
+      }
+    }
+  }
+
   test("compile is successful with semanticDB and javac processorpath") {
     TestUtil.withinWorkspace { workspace =>
       val logger = new RecordingLogger(ansiCodesSupported = false)

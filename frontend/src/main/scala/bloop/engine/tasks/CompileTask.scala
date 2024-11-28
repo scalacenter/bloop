@@ -192,8 +192,11 @@ object CompileTask {
                   inputs.reporter.reset()
                   val emptyResult =
                     PreviousResult.of(Optional.empty[CompileAnalysis], Optional.empty[MiniSetup])
+                  val nonIncrementalClasspath =
+                    inputs.classpath.filter(_ != inputs.out.internalReadOnlyClassesDir)
                   val newInputs = inputs.copy(
                     sources = inputs.sources,
+                    classpath = nonIncrementalClasspath,
                     previousCompilerResult = result,
                     previousResult = emptyResult
                   )

@@ -397,7 +397,8 @@ object Compiler {
         val newHash = BestEffortUtils.hashResult(
           previousCompilationResults.newClassesDir,
           compileInputs.sources,
-          compileInputs.classpath
+          compileInputs.classpath,
+          List(compileOut.internalReadOnlyClassesDir, compileOut.internalNewClassesDir)
         )
 
         if (newHash == previousHash) {
@@ -1036,7 +1037,8 @@ object Compiler {
         BestEffortUtils.hashResult(
           products.newClassesDir,
           compileInputs.sources,
-          compileInputs.classpath
+          compileInputs.classpath,
+          List(compileOut.internalReadOnlyClassesDir, compileOut.internalNewClassesDir)
         )
       else ""
     val failedProblems = findFailedProblems(reporter, errorCause)
