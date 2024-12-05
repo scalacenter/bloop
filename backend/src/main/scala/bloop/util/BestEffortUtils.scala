@@ -28,7 +28,8 @@ object BestEffortUtils {
   def hashResult(
       outputDir: Path,
       sources: Array[AbsolutePath],
-      classpath: Array[AbsolutePath]
+      classpath: Array[AbsolutePath],
+      ignoredClasspathDirectories: List[AbsolutePath]
   ): String = {
     val md = MessageDigest.getInstance("SHA-1")
 
@@ -49,18 +50,19 @@ object BestEffortUtils {
         md.update(Files.readAllBytes(underlying))
       }
     }
-
     md.update("<classpath>".getBytes())
     classpath.map(_.underlying).foreach { classpathFile =>
-      if (!Files.exists(classpathFile)) ()
+      if (
+        !Files.exists(classpathFile)
+        || ignoredClasspathDirectories.exists(_.underlying == classpathFile)
+        || outputDir == classpathFile
+      ) ()
       else if (Files.isRegularFile(classpathFile)) {
         md.update(Files.readAllBytes(classpathFile))
       } else if (Files.isDirectory(classpathFile)) {
-        if (outputDir != classpathFile) {
-          Files.walk(classpathFile).iterator().asScala.foreach { file =>
-            if (Files.isRegularFile(file)) {
-              md.update(Files.readAllBytes(file))
-            }
+        Files.walk(classpathFile).iterator().asScala.foreach { file =>
+          if (Files.isRegularFile(file)) {
+            md.update(Files.readAllBytes(file))
           }
         }
       }
