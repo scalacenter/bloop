@@ -1010,11 +1010,21 @@ object BloopDefaults {
             }
             val javacOptions = Keys.javacOptions.in(Keys.compile).in(configuration).value.toList
             val scalacOptions = {
-              val options = Keys.scalacOptions
+
+              // Drop pipelining options which need to be handled separately in Bloop
+              val (filteredOptions, _) = Keys.scalacOptions
                 .in(Keys.compile)
                 .in(configuration)
                 .value
                 .toList
+                .foldLeft((List.empty[String], /*drop next*/ false)) {
+                  case ((acc, dropNext), opt) if dropNext => (acc, false)
+                  case ((acc, dropNext), opt) if opt == "-Ypickle-write" => (acc, true)
+                  case ((acc, dropNext), opt) if opt.startsWith("-Ypickle") => (acc, false)
+                  case ((acc, _), opt) => (acc :+ opt, false)
+                }
+
+              val options = filteredOptions
                 .map(makePluginPathAbsolute)
 
               val internalClasspath = BloopKeys.bloopInternalClasspath.value
