@@ -394,11 +394,19 @@ object Compiler {
               BestEffortProducts(previousCompilationResults, previousHash, _)
             )
           ) if isBestEffortMode =>
+        // We filter out certain directories from classpath, as:
+        // * we do not want to hash readOnlyClassesDir, as that contains classfiles unrelated to
+        // best effort compilation
+        // * newClassesDir on the classpath of the previous successful best effort compilation
+        // is also different from newClassesDir of the current compilation.
         val newHash = BestEffortUtils.hashResult(
           previousCompilationResults.newClassesDir,
           compileInputs.sources,
           compileInputs.classpath,
-          List(compileOut.internalReadOnlyClassesDir, compileOut.internalNewClassesDir)
+          ignoredClasspathDirectories = List(
+            compileOut.internalReadOnlyClassesDir,
+            compileOut.internalNewClassesDir
+          )
         )
 
         if (newHash == previousHash) {
