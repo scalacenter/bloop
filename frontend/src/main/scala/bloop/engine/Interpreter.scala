@@ -34,6 +34,9 @@ import bloop.reporter.ReporterInputs
 import bloop.task.Task
 import bloop.testing.LoggingEventHandler
 import bloop.testing.TestInternals
+import bloop.data.Platform.Js
+import bloop.data.Platform.Jvm
+import bloop.data.Platform.Native
 
 object Interpreter {
   // This is stack-safe because of Monix's trampolined execution
@@ -516,7 +519,14 @@ object Interpreter {
     def doLink(project: Project)(state: State): Task[State] = {
       compileAnd(cmd, state, List(project), cmd.cliOptions.noColor, "`link`") { state =>
         getMainClass(state, project, cmd.main) match {
-          case Left(state) => Task.now(state)
+          case Left(state) =>
+            project.platform match {
+              case platform @ Platform.Js(config, _, _) =>
+                val targetDirectory = ScalaJsToolchain.linkTargetFrom(project, config)
+                LinkTask.linkJS(cmd, project, state, None, targetDirectory, platform)
+              case _ => Task.now(state)
+            }
+
           case Right(mainClass) =>
             project.platform match {
               case platform @ Platform.Native(config, _, _) =>
@@ -525,7 +535,7 @@ object Interpreter {
 
               case platform @ Platform.Js(config, _, _) =>
                 val targetDirectory = ScalaJsToolchain.linkTargetFrom(project, config)
-                LinkTask.linkMainWithJs(cmd, project, state, mainClass, targetDirectory, platform)
+                LinkTask.linkJS(cmd, project, state, Some(mainClass), targetDirectory, platform)
 
               case _: Platform.Jvm =>
                 val msg = Feedback.noLinkFor(project)
@@ -570,7 +580,7 @@ object Interpreter {
               case platform @ Platform.Js(config, _, _) =>
                 val targetDirectory = ScalaJsToolchain.linkTargetFrom(project, config)
                 LinkTask
-                  .linkMainWithJs(cmd, project, state, mainClass, targetDirectory, platform)
+                  .linkJS(cmd, project, state, Some(mainClass), targetDirectory, platform)
                   .flatMap { state =>
                     // We use node to run the program (is this a special case?)
                     val files = targetDirectory.list.map(_.toString())

@@ -83,6 +83,9 @@ import monix.execution.Scheduler
 import monix.execution.atomic.AtomicBoolean
 import monix.execution.atomic.AtomicInt
 import monix.reactive.subjects.BehaviorSubject
+import bloop.data.Platform.Js
+import bloop.data.Platform.Jvm
+import bloop.data.Platform.Native
 
 final class BloopBspServices(
     callSiteState: State,
@@ -421,6 +424,48 @@ final class BloopBspServices(
     Task.eval { originToCompileStores.remove(params.originId); () }.executeAsync
   }
 
+  def linkProjects(
+      userProjects: ProjectMapping,
+      state: State,
+      compileArgs: List[String],
+      originId: Option[String],
+      logger: BspServerLogger
+  ): BspResult[bsp.CompileResult] = {
+    import bloop.engine.tasks.LinkTask.{linkJS, linkMainWithNative}
+    userProjects._2.platform match {
+      case platform @ Js(config, _, _) =>
+        val cmd = Commands.Link(List(userProjects._2.name))
+        val targetDir = ScalaJsToolchain.linkTargetFrom(userProjects._2, config)
+        linkJS(cmd, userProjects._2, state, None, targetDir, platform).map { state =>
+          val result = if (state.status == ExitStatus.LinkingError) {
+            Right(bsp.CompileResult(originId, bsp.StatusCode.Error, None, None))
+          } else {
+            Right(bsp.CompileResult(originId, bsp.StatusCode.Ok, None, None))
+          }
+          (state, result)
+        }
+      case Jvm(_, _, _, _, _, _) =>
+        compileProjects(userProjects :: Nil, state, compileArgs, originId, logger)
+      case platform @ Native(config, _, userMainClass) =>
+        userMainClass match {
+          case None =>
+            logger.error("No main class defined in project")
+            Task.now((state, Right(bsp.CompileResult(originId, bsp.StatusCode.Error, None, None))))
+          case Some(value) =>
+            val cmd = Commands.Link(List(userProjects._2.name))
+            val target = ScalaNativeToolchain.linkTargetFrom(userProjects._2, config)
+            linkMainWithNative(cmd, userProjects._2, state, value, target, platform).map { state =>
+              val result = if (state.status == ExitStatus.LinkingError) {
+                Right(bsp.CompileResult(originId, bsp.StatusCode.Error, None, None))
+              } else {
+                Right(bsp.CompileResult(originId, bsp.StatusCode.Ok, None, None))
+              }
+              (state, result)
+            }
+        }
+    }
+  }
+
   def compileProjects(
       userProjects: Seq[ProjectMapping],
       state: State,
@@ -547,8 +592,17 @@ final class BloopBspServices(
         case Right(mappings) =>
           val compileArgs = params.arguments.getOrElse(Nil)
           val isVerbose = compileArgs.exists(_ == "--verbose")
+          val isLink = compileArgs.exists(_ == "--link")
           val logger = if (isVerbose) logger0.asBspServerVerbose else logger0
-          compileProjects(mappings, state, compileArgs, params.originId, logger)
+          (isLink, mappings.size) match {
+            case (false, _) =>
+              compileProjects(mappings, state, compileArgs, params.originId, logger)
+            case (true, 1) =>
+              linkProjects(mappings.head, state, compileArgs, params.originId, logger)
+            case (true, _) =>
+              logger0.error("Can only link one project")
+              Task.now((state, Right(bsp.CompileResult(None, bsp.StatusCode.Error, None, None))))
+          }
       }
     }
   }
@@ -910,7 +964,7 @@ final class BloopBspServices(
         project: Project,
         state: State
     ): Task[State] = {
-      import bloop.engine.tasks.LinkTask.{linkMainWithJs, linkMainWithNative}
+      import bloop.engine.tasks.LinkTask.{linkJS, linkMainWithNative}
       val cwd = state.commonOptions.workingPath
 
       parseMainClass(project, state) match {
@@ -945,7 +999,7 @@ final class BloopBspServices(
             case platform @ Platform.Js(config, _, _) =>
               val cmd = Commands.Run(List(project.name))
               val targetDir = ScalaJsToolchain.linkTargetFrom(project, config)
-              linkMainWithJs(cmd, project, state, mainClass.className, targetDir, platform)
+              linkJS(cmd, project, state, Some(mainClass.className), targetDir, platform)
                 .flatMap { state =>
                   val files = targetDir.list.map(_.toString())
                   // We use node to run the program (is this a special case?)
