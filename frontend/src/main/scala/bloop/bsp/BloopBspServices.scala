@@ -630,13 +630,9 @@ final class BloopBspServices(
           val isVerbose = compileArgs.exists(_ == "--verbose")
           val isLink = compileArgs.exists(_ == "--link")
           val logger = if (isVerbose) logger0.asBspServerVerbose else logger0
-          (isLink, mappings) match {
-            case (false, _) =>
-              compileProjects(mappings, state, compileArgs, params.originId, logger)
-            case (true, projects) =>
-              linkProjects(projects, state, compileArgs, params.originId, logger)
-          }
-      }
+          if (isLink) linkProjects(mappings, state, compileArgs, params.originId, logger)
+          else compileProjects(mappings, state, compileArgs, params.originId, logger)
+        }
     }
   }
 
