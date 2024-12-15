@@ -223,7 +223,7 @@ object TestTask {
             // Pass in the default scheduler used by this task to the linker
             Task.deferAction { s =>
               toolchain
-                .link(config, project, fullClasspath, false, userMainClass, target, s, logger)
+                .link(config, project, fullClasspath, true, userMainClass, target, s, logger)
                 .map {
                   case Success(_) =>
                     logger.info(s"Generated JavaScript file '${target.syntax}'")

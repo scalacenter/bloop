@@ -85,7 +85,7 @@ object JsBridge {
       (config.kind, scalaJSModuleKindSplitStyle) match {
         case (ModuleKindJS.ESModule, Some(value)) =>
           StandardImpl.clearableLinker(
-            linkerConfig.withModuleSplitStyle(value)
+            linkerConfig.withModuleSplitStyle(value).withMinify(isFullLinkJS)
           )
         case (_, _) => StandardImpl.clearableLinker(linkerConfig)
       }
@@ -96,7 +96,7 @@ object JsBridge {
       config: JsConfig,
       project: Project,
       classpath: Array[Path],
-      runMain: java.lang.Boolean,
+      isTest: java.lang.Boolean,
       mainClass: Option[String],
       targetDirectory: Path,
       logger: BloopLogger,
@@ -105,28 +105,25 @@ object JsBridge {
     implicit val ec = executionContext
     implicit val logFilter: DebugFilter = DebugFilter.Link
     val linker = ScalaJSLinker.reuseOrCreate(config, targetDirectory)
-
     val cache = StandardImpl.irFileCache().newCache
     val irContainersPairs = PathIRContainer.fromClasspath(classpath)
     val libraryIrsFuture = irContainersPairs.flatMap(pair => cache.cached(pair._1))
 
     val moduleInitializers = mainClass match {
-      case Some(mainClass) if runMain =>
+      case Some(mainClass) =>
         logger.debug(s"Setting up main module initializers for $project")
         List(ModuleInitializer.mainMethodWithArgs(mainClass, "main"))
       case _ =>
-        if (runMain) {
+        if (!isTest) {
           logger.debug(s"Setting up no module initializers, commonjs module detected $project")
-          Nil // If run is disabled, it's a commonjs module and we link with exports
+          Nil
         } else {
           // There is no main class, install the test module initializers
           logger.debug(s"Setting up test module initializers for $project")
-          List(
             ModuleInitializer.mainMethod(
               TestAdapterInitializer.ModuleClassName,
               TestAdapterInitializer.MainMethodName
-            )
-          )
+            ) :: Nil
         }
     }
 

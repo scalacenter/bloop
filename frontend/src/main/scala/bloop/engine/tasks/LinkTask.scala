@@ -19,6 +19,7 @@ object LinkTask {
       cmd: LinkingCommand,
       project: Project,
       state: State,
+      isTest: Boolean,
       mainClass: Option[String],
       targetDirectory: AbsolutePath,
       platform: Platform.Js
@@ -41,7 +42,7 @@ object LinkTask {
                   config,
                   project,
                   fullClasspath,
-                  true,
+                  isTest,
                   mainClass,
                   targetDirectory,
                   s,

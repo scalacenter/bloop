@@ -50,7 +50,7 @@ final class ScalaJsToolchain private (bridgeClassLoader: ClassLoader) {
       config: JsConfig,
       project: Project,
       fullClasspath: Array[Path],
-      runMain: java.lang.Boolean,
+      isTest: java.lang.Boolean,
       mainClass: Option[String],
       targetDir: AbsolutePath,
       scheduler: Scheduler,
@@ -61,7 +61,7 @@ final class ScalaJsToolchain private (bridgeClassLoader: ClassLoader) {
     val target = targetDir.underlying
     val linkage = Task(
       method
-        .invoke(null, config, project, fullClasspath, runMain, mainClass, target, logger, scheduler)
+        .invoke(null, config, project, fullClasspath, isTest, mainClass, target, logger, scheduler)
         .asInstanceOf[Unit]
     ).materialize
     linkage.map {
