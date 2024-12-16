@@ -61,7 +61,7 @@ object JsBridge {
       config: JsConfig,
       project: Project,
       classpath: Array[Path],
-      runMain: java.lang.Boolean,
+      isTest: java.lang.Boolean,
       mainClass: Option[String],
       target: Path,
       logger: BloopLogger,
@@ -87,8 +87,11 @@ object JsBridge {
     val jarFiles = classpath.filter(isJarFile).map(toIrJar)
     val scalajsIRFiles = jarFiles.flatMap(_.jar.sjsirFiles)
     val initializers =
-      if (!runMain) Nil
-      else mainClass.map(cls => ModuleInitializer.mainMethodWithArgs(cls, "main")).toList
+      mainClass match {
+        case Some(value) => ModuleInitializer.mainMethodWithArgs(value, "main") :: Nil
+        case None => Nil // TODO check for isTest and setup tests
+      }
+
     val jsConfig = StandardLinker
       .Config()
       .withOptimizer(enableOptimizer)
