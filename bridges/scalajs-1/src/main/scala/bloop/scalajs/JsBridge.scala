@@ -81,11 +81,12 @@ object JsBridge {
         .withSemantics(semantics)
         .withModuleKind(scalaJSModuleKind)
         .withSourceMap(config.emitSourceMaps)
+        .withMinify(isFullLinkJS)
 
       (config.kind, scalaJSModuleKindSplitStyle) match {
         case (ModuleKindJS.ESModule, Some(value)) =>
           StandardImpl.clearableLinker(
-            linkerConfig.withModuleSplitStyle(value).withMinify(isFullLinkJS)
+            linkerConfig.withModuleSplitStyle(value)
           )
         case (_, _) => StandardImpl.clearableLinker(linkerConfig)
       }
@@ -120,10 +121,10 @@ object JsBridge {
         } else {
           // There is no main class, install the test module initializers
           logger.debug(s"Setting up test module initializers for $project")
-            ModuleInitializer.mainMethod(
-              TestAdapterInitializer.ModuleClassName,
-              TestAdapterInitializer.MainMethodName
-            ) :: Nil
+          ModuleInitializer.mainMethod(
+            TestAdapterInitializer.ModuleClassName,
+            TestAdapterInitializer.MainMethodName
+          ) :: Nil
         }
     }
 

@@ -632,7 +632,7 @@ final class BloopBspServices(
           val logger = if (isVerbose) logger0.asBspServerVerbose else logger0
           if (isLink) linkProjects(mappings, state, compileArgs, params.originId, logger)
           else compileProjects(mappings, state, compileArgs, params.originId, logger)
-        }
+      }
     }
   }
 
