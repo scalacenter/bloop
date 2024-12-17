@@ -184,6 +184,7 @@ lazy val frontend: Project = project
       // Before we export all test resources we ensure the current version of the sbt-bloop
       // plugin is published
       (sbtBloop / Keys.publishLocal).value
+      (jsBridge1 / Keys.publishLocal).value
       val additionalResources =
         BuildDefaults.exportProjectsInTestResources(dir, log.log, enableCache = true, version.value)
       main ++ additionalResources
@@ -366,7 +367,7 @@ lazy val jsBridge06 = project
 
 val jsBridge1Name = "bloop-js-bridge-1"
 lazy val jsBridge1 = project
-  .dependsOn(frontend % Provided, frontend % "test->test")
+  .dependsOn(bloopShared % Provided /* frontend % "test->test" */ )
   .in(file("bridges") / "scalajs-1")
   .disablePlugins(ScriptedPlugin, ScalafixPlugin)
   .settings(
@@ -375,6 +376,25 @@ lazy val jsBridge1 = project
     libraryDependencies ++= List(
       Dependencies.scalaJsLinker1,
       Dependencies.scalaJsLogging1,
+      Dependencies.bloopConfig,
+      Dependencies.scalaJsEnvs1,
+      Dependencies.scalaJsEnvNode1,
+      Dependencies.scalaJsEnvJsdomNode1,
+      Dependencies.scalaJsSbtTestAdapter1
+    )
+  )
+
+lazy val jsBridge1Test = project
+  .dependsOn(bloopShared % Provided, frontend % "test->test")
+  .in(file("bridges") / "scalajs-1-test")
+  .disablePlugins(ScriptedPlugin, ScalafixPlugin)
+  .settings(
+    name := s"$jsBridge1Name-test",
+    testSettings,
+    libraryDependencies ++= List(
+      Dependencies.scalaJsLinker1,
+      Dependencies.scalaJsLogging1,
+      Dependencies.bloopConfig,
       Dependencies.scalaJsEnvs1,
       Dependencies.scalaJsEnvNode1,
       Dependencies.scalaJsEnvJsdomNode1,

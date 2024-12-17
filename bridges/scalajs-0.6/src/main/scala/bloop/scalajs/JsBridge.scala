@@ -9,7 +9,6 @@ import scala.concurrent.ExecutionContext
 import bloop.config.Config.JsConfig
 import bloop.config.Config.LinkerMode
 import bloop.config.Config.ModuleKindJS
-import bloop.data.Project
 import bloop.logging.DebugFilter
 import bloop.logging.{Logger => BloopLogger}
 
@@ -59,7 +58,7 @@ object JsBridge {
 
   def link(
       config: JsConfig,
-      project: Project,
+      projectName: String,
       classpath: Array[Path],
       isTest: java.lang.Boolean,
       mainClass: Option[String],
@@ -102,7 +101,7 @@ object JsBridge {
 
     val targetFile = target.toFile()
     val output =
-      if (targetFile.isDirectory()) target.resolve(s"${project.name}.js").toFile else targetFile
+      if (targetFile.isDirectory()) target.resolve(s"${projectName}.js").toFile else targetFile
 
     StandardLinker(jsConfig).link(
       irFiles = classpathIrFiles ++ scalajsIRFiles,

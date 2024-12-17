@@ -11,7 +11,6 @@ import scala.ref.SoftReference
 import bloop.config.Config.JsConfig
 import bloop.config.Config.LinkerMode
 import bloop.config.Config.ModuleKindJS
-import bloop.data.Project
 import bloop.logging.DebugFilter
 import bloop.logging.{Logger => BloopLogger}
 
@@ -95,7 +94,7 @@ object JsBridge {
 
   def link(
       config: JsConfig,
-      project: Project,
+      projectName: String,
       classpath: Array[Path],
       isTest: java.lang.Boolean,
       mainClass: Option[String],
@@ -103,6 +102,7 @@ object JsBridge {
       logger: BloopLogger,
       executionContext: ExecutionContext
   ): Unit = {
+    logger.error(config.toString)
     implicit val ec = executionContext
     implicit val logFilter: DebugFilter = DebugFilter.Link
     val linker = ScalaJSLinker.reuseOrCreate(config, targetDirectory)
@@ -112,15 +112,15 @@ object JsBridge {
 
     val moduleInitializers = mainClass match {
       case Some(mainClass) =>
-        logger.debug(s"Setting up main module initializers for $project")
+        logger.debug(s"Setting up main module initializers for $projectName")
         List(ModuleInitializer.mainMethodWithArgs(mainClass, "main"))
       case _ =>
         if (!isTest) {
-          logger.debug(s"Setting up no module initializers, commonjs module detected $project")
+          logger.debug(s"Setting up no module initializers, commonjs module detected $projectName")
           Nil
         } else {
           // There is no main class, install the test module initializers
-          logger.debug(s"Setting up test module initializers for $project")
+          logger.debug(s"Setting up test module initializers for $projectName")
           ModuleInitializer.mainMethod(
             TestAdapterInitializer.ModuleClassName,
             TestAdapterInitializer.MainMethodName
