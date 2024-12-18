@@ -431,7 +431,7 @@ final class BloopBspServices(
       originId: Option[String],
       logger: BspServerLogger
   ): BspResult[bsp.CompileResult] = {
-    import bloop.engine.tasks.LinkTask.{linkJS, linkMainWithNative}
+    import bloop.engine.tasks.LinkTask.{linkJS, linkNative}
 
     def doLink(
         project: Project,
@@ -451,23 +451,15 @@ final class BloopBspServices(
           }
         case Jvm(_, _, _, _, _, _) => ???
         case platform @ Native(config, _, userMainClass) =>
-          userMainClass match {
-            case None =>
-              logger.error("No main class defined in project")
-              Task.now(
-                (newState, Right(bsp.CompileResult(originId, bsp.StatusCode.Error, None, None)))
-              )
-            case Some(value) =>
-              val cmd = Commands.Link(List(project.name))
-              val target = ScalaNativeToolchain.linkTargetFrom(project, config)
-              linkMainWithNative(cmd, project, newState, value, target, platform).map { linkState =>
-                val result = if (linkState.status == ExitStatus.LinkingError) {
-                  Right(bsp.CompileResult(originId, bsp.StatusCode.Error, None, None))
-                } else {
-                  Right(bsp.CompileResult(originId, bsp.StatusCode.Ok, None, None))
-                }
-                (linkState, result)
-              }
+          val cmd = Commands.Link(List(project.name))
+          val target = ScalaNativeToolchain.linkTargetFrom(project, config)
+          linkNative(cmd, project, newState, userMainClass, target, platform).map { linkState =>
+            val result = if (linkState.status == ExitStatus.LinkingError) {
+              Right(bsp.CompileResult(originId, bsp.StatusCode.Error, None, None))
+            } else {
+              Right(bsp.CompileResult(originId, bsp.StatusCode.Ok, None, None))
+            }
+            (linkState, result)
           }
       }
 
@@ -993,7 +985,7 @@ final class BloopBspServices(
         project: Project,
         state: State
     ): Task[State] = {
-      import bloop.engine.tasks.LinkTask.{linkJS, linkMainWithNative}
+      import bloop.engine.tasks.LinkTask.{linkJS, linkNative}
       val cwd = state.commonOptions.workingPath
 
       parseMainClass(project, state) match {
@@ -1019,7 +1011,7 @@ final class BloopBspServices(
             case platform @ Platform.Native(config, _, _) =>
               val cmd = Commands.Run(List(project.name))
               val target = ScalaNativeToolchain.linkTargetFrom(project, config)
-              linkMainWithNative(cmd, project, state, mainClass.className, target, platform)
+              linkNative(cmd, project, state, Some(mainClass.className), target, platform)
                 .flatMap { state =>
                   val args = (target.syntax +: cmd.args).toArray
                   if (!state.status.isOk) Task.now(state)

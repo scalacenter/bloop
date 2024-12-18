@@ -64,11 +64,11 @@ object LinkTask {
     }
   }
 
-  def linkMainWithNative(
+  def linkNative(
       cmd: LinkingCommand,
       project: Project,
       state: State,
-      mainClass: String,
+      mainClass: Option[String],
       target: AbsolutePath,
       platform: Platform.Native
   ): Task[State] = {

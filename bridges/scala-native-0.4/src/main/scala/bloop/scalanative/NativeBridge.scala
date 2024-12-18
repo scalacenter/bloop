@@ -7,10 +7,14 @@ import scala.scalanative.util.Scope
 
 import bloop.config.Config.LinkerMode
 import bloop.config.Config.NativeConfig
+import bloop.config.Config.NativeBuildTarget
+import scala.scalanative.build.BuildTarget
 import bloop.data.Project
 import bloop.io.Paths
 import bloop.logging.DebugFilter
 import bloop.logging.Logger
+
+class NativeLinkerException(msg: String) extends RuntimeException(msg)
 
 object NativeBridge {
   private implicit val ctx: DebugFilter = DebugFilter.Link
@@ -20,7 +24,7 @@ object NativeBridge {
       config0: NativeConfig,
       project: Project,
       classpath: Array[Path],
-      entry: String,
+      entry: Option[String],
       target: Path,
       logger: Logger
   ): Path = {
@@ -41,9 +45,16 @@ object NativeBridge {
       case LinkerMode.Release => build.LTO.thin
     }
 
+    val buildTarget = config.buildTarget
+      .map(_ match {
+        case NativeBuildTarget.Application => BuildTarget.application
+        case NativeBuildTarget.LibraryDynamic => BuildTarget.libraryDynamic
+        case NativeBuildTarget.LibraryStatic => BuildTarget.libraryStatic
+      })
+      .getOrElse(BuildTarget.application)
+
     val nativeConfig =
       build.Config.empty
-        .withMainClass(entry)
         .withClassPath(classpath)
         .withWorkdir(workdir.underlying)
         .withLogger(nativeLogger)
@@ -55,6 +66,7 @@ object NativeBridge {
             .withLinkingOptions(config.options.linker)
             .withGC(build.GC(config.gc))
             .withMode(nativeMode)
+            .withBuildTarget(buildTarget)
             .withLTO(nativeLTO)
             .withLinkStubs(config.linkStubs)
             .withCheck(config.check)
@@ -62,7 +74,14 @@ object NativeBridge {
             .withTargetTriple(config.targetTriple)
         )
 
-    build.Build.build(nativeConfig, target)(sharedScope)
+    if (buildTarget == BuildTarget.application) {
+      entry match {
+        case None =>
+          throw new NativeLinkerException("Missing main class when linking native application")
+        case Some(mainClass) =>
+          build.Build.build(nativeConfig.withMainClass(mainClass), target)(sharedScope)
+      }
+    } else build.Build.build(nativeConfig, target)(sharedScope)
   }
 
   private[scalanative] def setUpNativeConfig(

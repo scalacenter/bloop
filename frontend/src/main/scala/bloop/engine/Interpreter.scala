@@ -521,14 +521,16 @@ object Interpreter {
               case platform @ Platform.Js(config, _, _) =>
                 val targetDirectory = ScalaJsToolchain.linkTargetFrom(project, config)
                 LinkTask.linkJS(cmd, project, state, false, None, targetDirectory, platform)
-              case _ => Task.now(state)
+              case platform @ Platform.Native(config, _, _) =>
+                val target = ScalaNativeToolchain.linkTargetFrom(project, config)
+                LinkTask.linkNative(cmd, project, state, None, target, platform)
             }
 
           case Right(mainClass) =>
             project.platform match {
               case platform @ Platform.Native(config, _, _) =>
                 val target = ScalaNativeToolchain.linkTargetFrom(project, config)
-                LinkTask.linkMainWithNative(cmd, project, state, mainClass, target, platform)
+                LinkTask.linkNative(cmd, project, state, Some(mainClass), target, platform)
 
               case platform @ Platform.Js(config, _, _) =>
                 val targetDirectory = ScalaJsToolchain.linkTargetFrom(project, config)
@@ -576,7 +578,7 @@ object Interpreter {
               case platform @ Platform.Native(config, _, _) =>
                 val target = ScalaNativeToolchain.linkTargetFrom(project, config)
                 LinkTask
-                  .linkMainWithNative(cmd, project, state, mainClass, target, platform)
+                  .linkNative(cmd, project, state, Some(mainClass), target, platform)
                   .flatMap { state =>
                     val args = (target.syntax +: cmd.args).toArray
                     if (!state.status.isOk) Task.now(state)

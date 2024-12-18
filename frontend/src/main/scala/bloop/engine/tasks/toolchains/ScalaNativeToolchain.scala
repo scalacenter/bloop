@@ -32,7 +32,7 @@ final class ScalaNativeToolchain private (classLoader: ClassLoader) {
       config: NativeConfig,
       project: Project,
       fullClasspath: Array[Path],
-      mainClass: String,
+      mainClass: Option[String],
       target: AbsolutePath,
       logger: Logger
   ): Task[Try[Unit]] = {
@@ -43,12 +43,15 @@ final class ScalaNativeToolchain private (classLoader: ClassLoader) {
       else bridgeClazz.getMethod("nativeLink", paramTypes04: _*)
 
     // Scala Native 0.4.{0,1,2} expect to receive the companion object class' name
-    val fullEntry = config.version match {
-      case "0.4.0" | "0.4.1" | "0.4.2" =>
-        if (mainClass.endsWith("$")) mainClass else mainClass + "$"
-      case _ =>
-        mainClass.stripSuffix("$")
+    val fullEntry = mainClass.map { cls =>
+      config.version match {
+        case "0.4.0" | "0.4.1" | "0.4.2" =>
+          if (cls.endsWith("$")) cls else cls + "$"
+        case _ =>
+          cls.stripSuffix("$")
+      }
     }
+
     val linkage = if (isNative05) {
       Task.fromFuture {
         nativeLinkMeth
@@ -83,10 +86,10 @@ final class ScalaNativeToolchain private (classLoader: ClassLoader) {
   }
 
   private val paramTypes04 = classOf[NativeConfig] :: classOf[Project] ::
-    classOf[Array[Path]] :: classOf[String] :: classOf[Path] :: classOf[Logger] :: Nil
+    classOf[Array[Path]] :: classOf[Option[String]] :: classOf[Path] :: classOf[Logger] :: Nil
 
   private val paramTypes05 = classOf[NativeConfig] :: classOf[Project] ::
-    classOf[Array[Path]] :: classOf[String] :: classOf[Path] :: classOf[Logger] ::
+    classOf[Array[Path]] :: classOf[Option[String]] :: classOf[Path] :: classOf[Logger] ::
     classOf[scala.concurrent.ExecutionContext] :: Nil
 }
 
