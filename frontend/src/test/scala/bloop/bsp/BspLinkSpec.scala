@@ -13,7 +13,24 @@ class BspLinkSpec(
     override val protocol: BspProtocol
 ) extends BspBaseSuite {
 
-  test("can link scala-native cross project") {
+  test("can link scala-native-04 cross project") {
+    TestUtil.withinWorkspace { workspace =>
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      loadBspBuildFromResources(s"cross-test-build-scala-native-0.4", workspace, logger) { build =>
+        val project: TestProject = build.projectFor("test-projectNative")
+        val compiledState =
+          build.state.compile(project, arguments = Some(List("--link")))
+        assertEquals(compiledState.status, ExitStatus.Ok)
+        assert(
+          logger
+            .getMessagesAt(level = Some("info"))
+            .find(_.contains("Generated native binary"))
+            .size == 1
+        )
+      }
+    }
+  }
+  test("can link scala-native-05 cross project") {
     TestUtil.withinWorkspace { workspace =>
       val logger = new RecordingLogger(ansiCodesSupported = false)
       loadBspBuildFromResources(s"cross-test-build-scala-native-0.5", workspace, logger) { build =>
