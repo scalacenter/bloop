@@ -249,6 +249,8 @@ object Compiler {
     }
   }
 
+  private def isFatalWarningOpt(opt: String) = opt == "-Xfatal-warnings" || opt == "-Werror"
+
   def compile(
       compileInputs: CompileInputs,
       isBestEffortMode: Boolean,
@@ -295,7 +297,7 @@ object Compiler {
     }
 
     val isFatalWarningsEnabled: Boolean =
-      compileInputs.scalacOptions.exists(_ == "-Xfatal-warnings")
+      compileInputs.scalacOptions.exists(isFatalWarningOpt)
     def getInputs(compilers: Compilers): Inputs = {
       val options = getCompilationOptions(compileInputs, logger, newClassesDir)
       val setup = getSetup(compileInputs)
@@ -925,7 +927,7 @@ object Compiler {
       inputs.scalaInstance.version
     )
 
-    val optionsWithoutFatalWarnings = scalacOptions.filter(_ != "-Xfatal-warnings")
+    val optionsWithoutFatalWarnings = scalacOptions.filterNot(isFatalWarningOpt)
     val areFatalWarningsEnabled = scalacOptions.length != optionsWithoutFatalWarnings.length
 
     // Enable fatal warnings in the reporter if they are enabled in the build
