@@ -385,15 +385,6 @@ lazy val jsBridge1 = project
     )
   )
 
-lazy val jsBridge1Test = project
-  .dependsOn(jsBridge1 % "test->test", frontend % "test->test")
-  .in(file("bridges") / "scalajs-1-test")
-  .disablePlugins(ScriptedPlugin, ScalafixPlugin)
-  .settings(
-    name := s"$jsBridge1Name-test",
-    testSettings
-  )
-
 val nativeBridge04Name = "bloop-native-bridge-0-4"
 lazy val nativeBridge04 = project
   .dependsOn(bloopShared % Provided)
