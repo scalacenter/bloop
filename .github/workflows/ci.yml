@@ -45,38 +45,6 @@ jobs:
         run: sbt "sbtBloop/publishLocal; sbtBloop/scripted"
         shell: bash
 
-  bridges:
-    name: Test platform bridges
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest, macOS-13, macOS-14]
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: true
-      - uses: sbt/setup-sbt@v1
-      - uses: coursier/cache-action@v6
-      - uses: graalvm/setup-graalvm@v1
-        with:
-          version: '22.3.0'
-          java-version: '17'
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Tests
-        run: |
-          sbt \
-              "jsBridge06/publishLocal; \
-               jsBridge1/publishLocal; \
-               nativeBridge04/publishLocal; \
-               nativeBridge05/publishLocal"
-          sbt jsBridge1/test
-          sbt jsBridge06/test
-          sbt nativeBridge05/test
-          sbt nativeBridge04/test
-        shell: bash
-
   test:
     runs-on: ${{ matrix.os }}
     strategy:
