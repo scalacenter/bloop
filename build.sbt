@@ -186,6 +186,7 @@ lazy val frontend: Project = project
       (sbtBloop / Keys.publishLocal).value
       (jsBridge1 / Keys.publishLocal).value
       (nativeBridge05 / Keys.publishLocal).value
+      (nativeBridge04 / Keys.publishLocal).value
       val additionalResources =
         BuildDefaults.exportProjectsInTestResources(dir, log.log, enableCache = true, version.value)
       main ++ additionalResources
@@ -418,18 +419,6 @@ lazy val nativeBridge05 = project
     name := nativeBridge05Name,
     testSettings,
     libraryDependencies ++= List(Dependencies.scalaNativeTools05, Dependencies.bloopConfig),
-    (Test / javaOptions) ++= jvmOptions,
-    (Test / fork) := true
-  )
-
-lazy val nativeBridge05Test = project
-  .dependsOn(bloopShared % Provided)
-  .dependsOn(nativeBridge05 % Provided, frontend % "test->test")
-  .in(file("bridges") / "scala-native-0.5-test")
-  .disablePlugins(ScalafixPlugin, ScriptedPlugin)
-  .settings(
-    name := s"$nativeBridge05Name-test",
-    testSettings,
     (Test / javaOptions) ++= jvmOptions,
     (Test / fork) := true
   )

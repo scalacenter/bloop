@@ -72,7 +72,7 @@ final class ScalaNativeToolchain private (classLoader: ClassLoader) {
     } else {
       Task {
         nativeLinkMeth
-          .invoke(null, config, project, fullClasspath, fullEntry, target.underlying, logger)
+          .invoke(null, config, workdir, fullClasspath, fullEntry, target.underlying, logger)
           .asInstanceOf[Unit]
       }.materialize
     }
