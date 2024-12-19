@@ -516,16 +516,34 @@ object Interpreter {
     def doLink(project: Project)(state: State): Task[State] = {
       compileAnd(cmd, state, List(project), cmd.cliOptions.noColor, "`link`") { state =>
         getMainClass(state, project, cmd.main) match {
-          case Left(state) => Task.now(state)
+          case Left(state) =>
+            project.platform match {
+              case platform @ Platform.Js(config, _, _) =>
+                val targetDirectory = ScalaJsToolchain.linkTargetFrom(project, config)
+                LinkTask.linkJS(cmd, project, state, false, None, targetDirectory, platform)
+              case platform @ Platform.Native(config, _, _) =>
+                val target = ScalaNativeToolchain.linkTargetFrom(project, config)
+                LinkTask.linkNative(cmd, project, state, None, target, platform)
+              case _ => Task.now(state)
+            }
+
           case Right(mainClass) =>
             project.platform match {
               case platform @ Platform.Native(config, _, _) =>
                 val target = ScalaNativeToolchain.linkTargetFrom(project, config)
-                LinkTask.linkMainWithNative(cmd, project, state, mainClass, target, platform)
+                LinkTask.linkNative(cmd, project, state, Some(mainClass), target, platform)
 
               case platform @ Platform.Js(config, _, _) =>
                 val targetDirectory = ScalaJsToolchain.linkTargetFrom(project, config)
-                LinkTask.linkMainWithJs(cmd, project, state, mainClass, targetDirectory, platform)
+                LinkTask.linkJS(
+                  cmd,
+                  project,
+                  state,
+                  false,
+                  Some(mainClass),
+                  targetDirectory,
+                  platform
+                )
 
               case _: Platform.Jvm =>
                 val msg = Feedback.noLinkFor(project)
@@ -561,7 +579,7 @@ object Interpreter {
               case platform @ Platform.Native(config, _, _) =>
                 val target = ScalaNativeToolchain.linkTargetFrom(project, config)
                 LinkTask
-                  .linkMainWithNative(cmd, project, state, mainClass, target, platform)
+                  .linkNative(cmd, project, state, Some(mainClass), target, platform)
                   .flatMap { state =>
                     val args = (target.syntax +: cmd.args).toArray
                     if (!state.status.isOk) Task.now(state)
@@ -570,7 +588,15 @@ object Interpreter {
               case platform @ Platform.Js(config, _, _) =>
                 val targetDirectory = ScalaJsToolchain.linkTargetFrom(project, config)
                 LinkTask
-                  .linkMainWithJs(cmd, project, state, mainClass, targetDirectory, platform)
+                  .linkJS(
+                    cmd,
+                    project,
+                    state,
+                    false,
+                    Some(mainClass),
+                    targetDirectory,
+                    platform
+                  )
                   .flatMap { state =>
                     // We use node to run the program (is this a special case?)
                     val files = targetDirectory.list.map(_.toString())

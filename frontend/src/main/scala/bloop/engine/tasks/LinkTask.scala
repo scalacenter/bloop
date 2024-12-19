@@ -14,11 +14,13 @@ import bloop.io.AbsolutePath
 import bloop.task.Task
 
 object LinkTask {
-  def linkMainWithJs(
+
+  def linkJS(
       cmd: LinkingCommand,
       project: Project,
       state: State,
-      mainClass: String,
+      isTest: Boolean,
+      mainClass: Option[String],
       targetDirectory: AbsolutePath,
       platform: Platform.Js
   ): Task[State] = {
@@ -40,8 +42,8 @@ object LinkTask {
                   config,
                   project,
                   fullClasspath,
-                  true,
-                  Some(mainClass),
+                  isTest,
+                  mainClass,
                   targetDirectory,
                   s,
                   logger
@@ -62,11 +64,11 @@ object LinkTask {
     }
   }
 
-  def linkMainWithNative(
+  def linkNative(
       cmd: LinkingCommand,
       project: Project,
       state: State,
-      mainClass: String,
+      mainClass: Option[String],
       target: AbsolutePath,
       platform: Platform.Native
   ): Task[State] = {
