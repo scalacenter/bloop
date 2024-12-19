@@ -436,7 +436,7 @@ final class BloopBspServices(
     def doLink(
         project: Project,
         newState: State
-    ) =
+    ): Task[(State, Right[Nothing, CompileResult])] =
       project.platform match {
         case platform @ Js(config, _, _) =>
           val cmd = Commands.Link(List(project.name))
@@ -449,7 +449,9 @@ final class BloopBspServices(
             }
             (linkState, result)
           }
-        case Jvm(_, _, _, _, _, _) => ???
+        case Jvm(_, _, _, _, _, _) =>
+          // We can just NoOp here as we have already run the compile step before doLink
+          Task.now((newState, Right(bsp.CompileResult(originId, bsp.StatusCode.Ok, None, None))))
         case platform @ Native(config, _, userMainClass) =>
           val cmd = Commands.Link(List(project.name))
           val target = ScalaNativeToolchain.linkTargetFrom(project, config)
@@ -470,17 +472,14 @@ final class BloopBspServices(
 
         linkExecution.materialize.map {
           case Success(linkRunsSeq) =>
-            linkRunsSeq
-              .map(_._2)
-              .foldLeft(Option.empty[CompileResult])((_, res) => // TODO propogate stuff better here
-                res match {
-                  case Left(_) => None
-                  case Right(value) => Some(value)
-                }
-              ) match {
-              case None =>
-                (newState, Right(bsp.CompileResult(originId, bsp.StatusCode.Error, None, None)))
-              case Some(result) => (newState, Right(result))
+            val errors = linkRunsSeq.collect { case (_, Left(err)) => err }
+            if (errors.nonEmpty) {
+              logger.error(
+                s"Encountered errors when liking\n${errors.map(_.getMessage()).mkString("\n")}"
+              )
+              (newState, Right(bsp.CompileResult(originId, bsp.StatusCode.Error, None, None)))
+            } else {
+              linkRunsSeq.last
             }
           case Failure(e) =>
             val errorMessage =
@@ -488,6 +487,8 @@ final class BloopBspServices(
             (newState, Left(errorMessage))
         }
 
+      case (newState, Right(CompileResult(_, errorCode, _, _))) =>
+        Task.now((newState, Right(bsp.CompileResult(originId, errorCode, None, None))))
       case (newState, Left(error)) =>
         Task.now((newState, Left(error)))
     }

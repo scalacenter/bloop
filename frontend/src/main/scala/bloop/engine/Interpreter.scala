@@ -524,6 +524,7 @@ object Interpreter {
               case platform @ Platform.Native(config, _, _) =>
                 val target = ScalaNativeToolchain.linkTargetFrom(project, config)
                 LinkTask.linkNative(cmd, project, state, None, target, platform)
+              case _ => Task.now(state)
             }
 
           case Right(mainClass) =>
