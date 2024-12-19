@@ -52,13 +52,15 @@ final class ScalaNativeToolchain private (classLoader: ClassLoader) {
       }
     }
 
+    val workdir = project.out.resolve("native").underlying
+
     val linkage = if (isNative05) {
       Task.fromFuture {
         nativeLinkMeth
           .invoke(
             null,
             config,
-            project,
+            workdir,
             fullClasspath,
             fullEntry,
             target.underlying,
@@ -85,10 +87,10 @@ final class ScalaNativeToolchain private (classLoader: ClassLoader) {
     }
   }
 
-  private val paramTypes04 = classOf[NativeConfig] :: classOf[Project] ::
+  private val paramTypes04 = classOf[NativeConfig] :: classOf[Path] ::
     classOf[Array[Path]] :: classOf[Option[String]] :: classOf[Path] :: classOf[Logger] :: Nil
 
-  private val paramTypes05 = classOf[NativeConfig] :: classOf[Project] ::
+  private val paramTypes05 = classOf[NativeConfig] :: classOf[Path] ::
     classOf[Array[Path]] :: classOf[Option[String]] :: classOf[Path] :: classOf[Logger] ::
     classOf[scala.concurrent.ExecutionContext] :: Nil
 }

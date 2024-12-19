@@ -10,8 +10,8 @@ import scala.concurrent.ExecutionContext
 import bloop.config.Config.NativeBuildTarget
 import bloop.config.Config.LinkerMode
 import bloop.config.Config.NativeConfig
-import bloop.data.Project
 import bloop.io.Paths
+import bloop.io.AbsolutePath
 import bloop.logging.DebugFilter
 import bloop.logging.Logger
 
@@ -23,20 +23,20 @@ object NativeBridge {
 
   def nativeLink(
       config0: NativeConfig,
-      project: Project,
+      workdir: Path,
       classpath: Array[Path],
       entry: Option[String],
       target: Path,
       logger: Logger,
       ec: ExecutionContext
   ): Future[Path] = {
-    val workdir = project.out.resolve("native")
-    if (workdir.isDirectory) Paths.delete(workdir)
-    Files.createDirectories(workdir.underlying)
+    val absWorkdir = AbsolutePath(workdir)
+    if (absWorkdir.isDirectory) Paths.delete(absWorkdir)
+    Files.createDirectories(workdir)
 
     val nativeLogger =
       build.Logger(logger.trace _, logger.debug _, logger.info _, logger.warn _, logger.error _)
-    val config = setUpNativeConfig(project, classpath, config0)
+    val config = setUpNativeConfig(classpath, config0)
     val nativeMode = config.mode match {
       case LinkerMode.Debug => build.Mode.debug
       case LinkerMode.Release => build.Mode.releaseFast
@@ -91,7 +91,6 @@ object NativeBridge {
   }
 
   private[scalanative] def setUpNativeConfig(
-      project: Project,
       classpath: Array[Path],
       config: NativeConfig
   ): NativeConfig = {
