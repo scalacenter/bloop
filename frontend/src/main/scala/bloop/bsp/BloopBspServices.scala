@@ -433,6 +433,17 @@ final class BloopBspServices(
   ): BspResult[bsp.CompileResult] = {
     import bloop.engine.tasks.LinkTask.{linkJS, linkNative}
 
+    val isRelease = compileArgs.exists(_ == "--release")
+    val isDebug = compileArgs.exists(_ == "--debug")
+
+    val overrideLinkerMode = if (isRelease && isDebug) {
+      None
+    } else if (isRelease) {
+      Some(Config.LinkerMode.Release)
+    } else {
+      Some(Config.LinkerMode.Debug)
+    }
+
     def doLink(
         project: Project,
         newState: State
@@ -441,13 +452,14 @@ final class BloopBspServices(
         case platform @ Js(config, _, _) =>
           val cmd = Commands.Link(List(project.name))
           val targetDir = ScalaJsToolchain.linkTargetFrom(project, config)
-          linkJS(cmd, project, newState, false, None, targetDir, platform).map { linkState =>
-            val result = if (linkState.status == ExitStatus.LinkingError) {
-              Right(bsp.CompileResult(originId, bsp.StatusCode.Error, None, None))
-            } else {
-              Right(bsp.CompileResult(originId, bsp.StatusCode.Ok, None, None))
-            }
-            (linkState, result)
+          linkJS(cmd, project, newState, false, None, targetDir, platform, overrideLinkerMode).map {
+            linkState =>
+              val result = if (linkState.status == ExitStatus.LinkingError) {
+                Right(bsp.CompileResult(originId, bsp.StatusCode.Error, None, None))
+              } else {
+                Right(bsp.CompileResult(originId, bsp.StatusCode.Ok, None, None))
+              }
+              (linkState, result)
           }
         case Jvm(_, _, _, _, _, _) =>
           // We can just NoOp here as we have already run the compile step before doLink
@@ -455,14 +467,15 @@ final class BloopBspServices(
         case platform @ Native(config, _, userMainClass) =>
           val cmd = Commands.Link(List(project.name))
           val target = ScalaNativeToolchain.linkTargetFrom(project, config)
-          linkNative(cmd, project, newState, userMainClass, target, platform).map { linkState =>
-            val result = if (linkState.status == ExitStatus.LinkingError) {
-              Right(bsp.CompileResult(originId, bsp.StatusCode.Error, None, None))
-            } else {
-              Right(bsp.CompileResult(originId, bsp.StatusCode.Ok, None, None))
+          linkNative(cmd, project, newState, userMainClass, target, platform, overrideLinkerMode)
+            .map { linkState =>
+              val result = if (linkState.status == ExitStatus.LinkingError) {
+                Right(bsp.CompileResult(originId, bsp.StatusCode.Error, None, None))
+              } else {
+                Right(bsp.CompileResult(originId, bsp.StatusCode.Ok, None, None))
+              }
+              (linkState, result)
             }
-            (linkState, result)
-          }
       }
 
     compileProjects(userProjects, state, compileArgs, originId, logger).flatMap {
@@ -1012,7 +1025,7 @@ final class BloopBspServices(
             case platform @ Platform.Native(config, _, _) =>
               val cmd = Commands.Run(List(project.name))
               val target = ScalaNativeToolchain.linkTargetFrom(project, config)
-              linkNative(cmd, project, state, Some(mainClass.className), target, platform)
+              linkNative(cmd, project, state, Some(mainClass.className), target, platform, None)
                 .flatMap { state =>
                   val args = (target.syntax +: cmd.args).toArray
                   if (!state.status.isOk) Task.now(state)
@@ -1021,7 +1034,16 @@ final class BloopBspServices(
             case platform @ Platform.Js(config, _, _) =>
               val cmd = Commands.Run(List(project.name))
               val targetDir = ScalaJsToolchain.linkTargetFrom(project, config)
-              linkJS(cmd, project, state, false, Some(mainClass.className), targetDir, platform)
+              linkJS(
+                cmd,
+                project,
+                state,
+                false,
+                Some(mainClass.className),
+                targetDir,
+                platform,
+                None
+              )
                 .flatMap { state =>
                   val files = targetDir.list.map(_.toString())
                   // We use node to run the program (is this a special case?)

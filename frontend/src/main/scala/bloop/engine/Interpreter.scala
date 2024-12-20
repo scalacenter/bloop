@@ -520,10 +520,10 @@ object Interpreter {
             project.platform match {
               case platform @ Platform.Js(config, _, _) =>
                 val targetDirectory = ScalaJsToolchain.linkTargetFrom(project, config)
-                LinkTask.linkJS(cmd, project, state, false, None, targetDirectory, platform)
+                LinkTask.linkJS(cmd, project, state, false, None, targetDirectory, platform, None)
               case platform @ Platform.Native(config, _, _) =>
                 val target = ScalaNativeToolchain.linkTargetFrom(project, config)
-                LinkTask.linkNative(cmd, project, state, None, target, platform)
+                LinkTask.linkNative(cmd, project, state, None, target, platform, None)
               case _ => Task.now(state)
             }
 
@@ -531,7 +531,7 @@ object Interpreter {
             project.platform match {
               case platform @ Platform.Native(config, _, _) =>
                 val target = ScalaNativeToolchain.linkTargetFrom(project, config)
-                LinkTask.linkNative(cmd, project, state, Some(mainClass), target, platform)
+                LinkTask.linkNative(cmd, project, state, Some(mainClass), target, platform, None)
 
               case platform @ Platform.Js(config, _, _) =>
                 val targetDirectory = ScalaJsToolchain.linkTargetFrom(project, config)
@@ -542,7 +542,8 @@ object Interpreter {
                   false,
                   Some(mainClass),
                   targetDirectory,
-                  platform
+                  platform,
+                  None
                 )
 
               case _: Platform.Jvm =>
@@ -579,7 +580,7 @@ object Interpreter {
               case platform @ Platform.Native(config, _, _) =>
                 val target = ScalaNativeToolchain.linkTargetFrom(project, config)
                 LinkTask
-                  .linkNative(cmd, project, state, Some(mainClass), target, platform)
+                  .linkNative(cmd, project, state, Some(mainClass), target, platform, None)
                   .flatMap { state =>
                     val args = (target.syntax +: cmd.args).toArray
                     if (!state.status.isOk) Task.now(state)
@@ -595,7 +596,8 @@ object Interpreter {
                     false,
                     Some(mainClass),
                     targetDirectory,
-                    platform
+                    platform,
+                    None
                   )
                   .flatMap { state =>
                     // We use node to run the program (is this a special case?)
