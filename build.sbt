@@ -399,17 +399,6 @@ lazy val nativeBridge04 = project
     (Test / fork) := true
   )
 
-lazy val nativeBridge04Test = project
-  .dependsOn(nativeBridge04 % Provided, frontend % "test->test")
-  .in(file("bridges") / "scala-native-0.4-test")
-  .disablePlugins(ScalafixPlugin, ScriptedPlugin)
-  .settings(
-    name := s"$nativeBridge04Name-test",
-    testSettings,
-    (Test / javaOptions) ++= jvmOptions,
-    (Test / fork) := true
-  )
-
 val nativeBridge05Name = "bloop-native-bridge-0-5"
 lazy val nativeBridge05 = project
   .dependsOn(bloopShared % Provided)
@@ -435,9 +424,7 @@ val allProjects = Seq(
   jsBridge06,
   jsBridge1,
   nativeBridge04,
-  nativeBridge04Test,
   nativeBridge05,
-  nativeBridge05Test,
   sbtBloop
 )
 

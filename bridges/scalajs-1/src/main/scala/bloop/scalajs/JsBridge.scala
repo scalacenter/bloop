@@ -102,7 +102,6 @@ object JsBridge {
       logger: BloopLogger,
       executionContext: ExecutionContext
   ): Unit = {
-    logger.error(config.toString)
     implicit val ec = executionContext
     implicit val logFilter: DebugFilter = DebugFilter.Link
     val linker = ScalaJSLinker.reuseOrCreate(config, targetDirectory)
