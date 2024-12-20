@@ -1231,52 +1231,53 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
     }
   }
 
-  test("support -Xfatal-warnings internal implementation") {
-    TestUtil.withinWorkspace { workspace =>
-      object Sources {
-        val `Foo.scala` =
-          """/Foo.scala
-            |import Predef.assert
-            |class Foo
+  for (fatalOpt <- List("-Xfatal-warnings", "-Werror"))
+    test(s"support $fatalOpt internal implementation") {
+      TestUtil.withinWorkspace { workspace =>
+        object Sources {
+          val `Foo.scala` =
+            """/Foo.scala
+              |import Predef.assert
+              |class Foo
             """.stripMargin
-        val `Bar.scala` =
-          """/Bar.scala
-            |class Bar
+          val `Bar.scala` =
+            """/Bar.scala
+              |class Bar
             """.stripMargin
-        val `Baz.scala` =
-          """/Baz.scala
-            |class Baz
+          val `Baz.scala` =
+            """/Baz.scala
+              |class Baz
             """.stripMargin
+        }
+
+        val logger = new RecordingLogger(ansiCodesSupported = false)
+        val sources = List(Sources.`Bar.scala`, Sources.`Foo.scala`, Sources.`Baz.scala`)
+        val options = List("-Ywarn-unused", fatalOpt)
+        val `A` = TestProject(workspace, "a", sources, scalacOptions = options)
+        val projects = List(`A`)
+        val state = loadState(workspace, projects, logger)
+        val compiledState = state.compile(`A`)
+        assertExitStatus(compiledState, ExitStatus.CompilationError)
+        // Despite error, compilation of project should be valid
+        assertValidCompilationState(compiledState, projects)
+
+        val targetFoo = TestUtil.universalPath("a/src/Foo.scala")
+        assertNoDiff(
+          logger.renderErrors(exceptContaining = "Failed to compile"),
+          s"""|[E1] ${targetFoo}:1:15
+              |     Unused import
+              |     L1: import Predef.assert
+              |         ^^^^^^^
+              |""".stripMargin
+        )
+        assertDiagnosticsResult(
+          compiledState.getLastResultFor(`A`),
+          errors = 0,
+          warnings = 1,
+          expectFatalWarnings = true
+        )
       }
-
-      val logger = new RecordingLogger(ansiCodesSupported = false)
-      val sources = List(Sources.`Bar.scala`, Sources.`Foo.scala`, Sources.`Baz.scala`)
-      val options = List("-Ywarn-unused", "-Xfatal-warnings")
-      val `A` = TestProject(workspace, "a", sources, scalacOptions = options)
-      val projects = List(`A`)
-      val state = loadState(workspace, projects, logger)
-      val compiledState = state.compile(`A`)
-      assertExitStatus(compiledState, ExitStatus.CompilationError)
-      // Despite error, compilation of project should be valid
-      assertValidCompilationState(compiledState, projects)
-
-      val targetFoo = TestUtil.universalPath("a/src/Foo.scala")
-      assertNoDiff(
-        logger.renderErrors(exceptContaining = "Failed to compile"),
-        s"""|[E1] ${targetFoo}:1:15
-            |     Unused import
-            |     L1: import Predef.assert
-            |         ^^^^^^^
-            |""".stripMargin
-      )
-      assertDiagnosticsResult(
-        compiledState.getLastResultFor(`A`),
-        errors = 0,
-        warnings = 1,
-        expectFatalWarnings = true
-      )
     }
-  }
 
   test("scalac -Xfatal-warnings should not set java fatal warnings as errors") {
     TestUtil.withinWorkspace { workspace =>
