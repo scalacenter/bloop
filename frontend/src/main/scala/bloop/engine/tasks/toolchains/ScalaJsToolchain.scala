@@ -50,7 +50,7 @@ final class ScalaJsToolchain private (bridgeClassLoader: ClassLoader) {
       config: JsConfig,
       project: Project,
       fullClasspath: Array[Path],
-      runMain: java.lang.Boolean,
+      isTest: java.lang.Boolean,
       mainClass: Option[String],
       targetDir: AbsolutePath,
       scheduler: Scheduler,
@@ -61,7 +61,17 @@ final class ScalaJsToolchain private (bridgeClassLoader: ClassLoader) {
     val target = targetDir.underlying
     val linkage = Task(
       method
-        .invoke(null, config, project, fullClasspath, runMain, mainClass, target, logger, scheduler)
+        .invoke(
+          null,
+          config,
+          project.name,
+          fullClasspath,
+          isTest,
+          mainClass,
+          target,
+          logger,
+          scheduler
+        )
         .asInstanceOf[Unit]
     ).materialize
     linkage.map {
@@ -102,7 +112,7 @@ final class ScalaJsToolchain private (bridgeClassLoader: ClassLoader) {
   }
 
   // format: OFF
-  private val paramTypesLink = classOf[JsConfig] :: classOf[Project] :: classOf[Array[Path]] :: classOf[java.lang.Boolean] :: classOf[Option[String]] :: classOf[Path] :: classOf[Logger] :: classOf[ExecutionContext] :: Nil
+  private val paramTypesLink = classOf[JsConfig] :: classOf[String] :: classOf[Array[Path]] :: classOf[java.lang.Boolean] :: classOf[Option[String]] :: classOf[Path] :: classOf[Logger] :: classOf[ExecutionContext] :: Nil
   private val paramTypesTestFrameworks = classOf[List[List[String]]] :: classOf[String] :: classOf[Path] :: classOf[Path] :: classOf[Logger] :: classOf[JsConfig] :: classOf[Map[String, String]] :: Nil
   // format: ON
 }

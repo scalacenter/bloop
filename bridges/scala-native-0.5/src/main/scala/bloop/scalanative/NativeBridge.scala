@@ -3,16 +3,19 @@ import java.nio.file.Files
 import java.nio.file.Path
 
 import scala.scalanative.build
+import scala.scalanative.build.BuildTarget
 import scala.scalanative.util.Scope
 import scala.concurrent.Future
 import scala.concurrent.ExecutionContext
-
+import bloop.config.Config.NativeBuildTarget
 import bloop.config.Config.LinkerMode
 import bloop.config.Config.NativeConfig
-import bloop.data.Project
 import bloop.io.Paths
+import bloop.io.AbsolutePath
 import bloop.logging.DebugFilter
 import bloop.logging.Logger
+
+class NativeLinkerException(msg: String) extends RuntimeException(msg)
 
 object NativeBridge {
   private implicit val ctx: DebugFilter = DebugFilter.Link
@@ -20,20 +23,20 @@ object NativeBridge {
 
   def nativeLink(
       config0: NativeConfig,
-      project: Project,
+      workdir: Path,
       classpath: Array[Path],
-      entry: String,
+      entry: Option[String],
       target: Path,
       logger: Logger,
       ec: ExecutionContext
   ): Future[Path] = {
-    val workdir = project.out.resolve("native")
-    if (workdir.isDirectory) Paths.delete(workdir)
-    Files.createDirectories(workdir.underlying)
+    val absWorkdir = AbsolutePath(workdir)
+    if (absWorkdir.isDirectory) Paths.delete(absWorkdir)
+    Files.createDirectories(workdir)
 
     val nativeLogger =
       build.Logger(logger.trace _, logger.debug _, logger.info _, logger.warn _, logger.error _)
-    val config = setUpNativeConfig(project, classpath, config0)
+    val config = setUpNativeConfig(classpath, config0)
     val nativeMode = config.mode match {
       case LinkerMode.Debug => build.Mode.debug
       case LinkerMode.Release => build.Mode.releaseFast
@@ -44,9 +47,16 @@ object NativeBridge {
       case LinkerMode.Release => build.LTO.thin
     }
 
+    val buildTarget = config.buildTarget
+      .map(_ match {
+        case NativeBuildTarget.Application => BuildTarget.application
+        case NativeBuildTarget.LibraryDynamic => BuildTarget.libraryDynamic
+        case NativeBuildTarget.LibraryStatic => BuildTarget.libraryStatic
+      })
+      .getOrElse(BuildTarget.application)
+
     val nativeConfig =
       build.Config.empty
-        .withMainClass(Option(entry))
         .withClassPath(classpath)
         .withBaseDir(target.getParent())
         .withLogger(nativeLogger)
@@ -59,6 +69,7 @@ object NativeBridge {
             .withLinkingOptions(config.options.linker)
             .withGC(build.GC(config.gc))
             .withMode(nativeMode)
+            .withBuildTarget(buildTarget)
             .withLTO(nativeLTO)
             .withLinkStubs(config.linkStubs)
             .withCheck(config.check)
@@ -66,11 +77,20 @@ object NativeBridge {
             .withTargetTriple(config.targetTriple)
         )
 
-    build.Build.build(nativeConfig)(sharedScope, ec)
+    if (buildTarget == BuildTarget.application) {
+      entry match {
+        case None =>
+          Future.failed(
+            new NativeLinkerException("Missing main class when linking native application")
+          )
+        case Some(mainClass) =>
+          build.Build.build(nativeConfig.withMainClass(Some(mainClass)))(sharedScope, ec)
+      }
+    } else build.Build.build(nativeConfig)(sharedScope, ec)
+
   }
 
   private[scalanative] def setUpNativeConfig(
-      project: Project,
       classpath: Array[Path],
       config: NativeConfig
   ): NativeConfig = {

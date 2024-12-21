@@ -11,7 +11,6 @@ import scala.ref.SoftReference
 import bloop.config.Config.JsConfig
 import bloop.config.Config.LinkerMode
 import bloop.config.Config.ModuleKindJS
-import bloop.data.Project
 import bloop.logging.DebugFilter
 import bloop.logging.{Logger => BloopLogger}
 
@@ -81,6 +80,7 @@ object JsBridge {
         .withSemantics(semantics)
         .withModuleKind(scalaJSModuleKind)
         .withSourceMap(config.emitSourceMaps)
+        .withMinify(isFullLinkJS)
 
       (config.kind, scalaJSModuleKindSplitStyle) match {
         case (ModuleKindJS.ESModule, Some(value)) =>
@@ -94,9 +94,9 @@ object JsBridge {
 
   def link(
       config: JsConfig,
-      project: Project,
+      projectName: String,
       classpath: Array[Path],
-      runMain: java.lang.Boolean,
+      isTest: java.lang.Boolean,
       mainClass: Option[String],
       targetDirectory: Path,
       logger: BloopLogger,
@@ -105,28 +105,25 @@ object JsBridge {
     implicit val ec = executionContext
     implicit val logFilter: DebugFilter = DebugFilter.Link
     val linker = ScalaJSLinker.reuseOrCreate(config, targetDirectory)
-
     val cache = StandardImpl.irFileCache().newCache
     val irContainersPairs = PathIRContainer.fromClasspath(classpath)
     val libraryIrsFuture = irContainersPairs.flatMap(pair => cache.cached(pair._1))
 
     val moduleInitializers = mainClass match {
-      case Some(mainClass) if runMain =>
-        logger.debug(s"Setting up main module initializers for $project")
+      case Some(mainClass) =>
+        logger.debug(s"Setting up main module initializers for $projectName")
         List(ModuleInitializer.mainMethodWithArgs(mainClass, "main"))
       case _ =>
-        if (runMain) {
-          logger.debug(s"Setting up no module initializers, commonjs module detected $project")
-          Nil // If run is disabled, it's a commonjs module and we link with exports
+        if (!isTest) {
+          logger.debug(s"Setting up no module initializers, commonjs module detected $projectName")
+          Nil
         } else {
           // There is no main class, install the test module initializers
-          logger.debug(s"Setting up test module initializers for $project")
-          List(
-            ModuleInitializer.mainMethod(
-              TestAdapterInitializer.ModuleClassName,
-              TestAdapterInitializer.MainMethodName
-            )
-          )
+          logger.debug(s"Setting up test module initializers for $projectName")
+          ModuleInitializer.mainMethod(
+            TestAdapterInitializer.ModuleClassName,
+            TestAdapterInitializer.MainMethodName
+          ) :: Nil
         }
     }
 
