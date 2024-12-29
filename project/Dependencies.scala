@@ -12,7 +12,7 @@ object Dependencies {
   val SbtVersion = "1.5.8"
 
   // Keep in sync in BloopComponentCompiler
-  val zincVersion = "1.10.5"
+  val zincVersion = "1.10.7"
 
   val bspVersion = "2.1.1"
 
@@ -23,7 +23,7 @@ object Dependencies {
   val coursierVersion = "2.1.22"
   val sourcecodeVersion = "0.4.2"
   val sbtTestInterfaceVersion = "1.0"
-  val sbtTestAgentVersion = "1.10.6"
+  val sbtTestAgentVersion = "1.10.7"
   val junitVersion = "0.13.3"
   val directoryWatcherVersion = "0.8.0+6-f651bd93"
   val monixVersion = "3.2.0"
@@ -39,7 +39,7 @@ object Dependencies {
   val difflibVersion = "1.3.0"
   val braveVersion = "5.18.1"
   val zipkinSenderVersion = "2.17.2"
-  val jnaVersion = "5.15.0"
+  val jnaVersion = "5.16.0"
   val asmVersion = "9.7.1"
   val ztExecVersion = "1.12"
   val debugAdapterVersion = "4.2.1"
@@ -72,7 +72,7 @@ object Dependencies {
   val sbtTestAgent = "org.scala-sbt" % "test-agent" % sbtTestAgentVersion
   val snailgun = "io.github.alexarchambault.scala-cli.snailgun" %% "snailgun-core" % "0.4.1-sc2"
   val ztExec = "org.zeroturnaround" % "zt-exec" % ztExecVersion
-  val logback = "ch.qos.logback" % "logback-classic" % "1.5.14"
+  val logback = "ch.qos.logback" % "logback-classic" % "1.5.15"
   val libdaemonjvm = "ch.epfl.scala" %% "libdaemon" % "0.0.12"
   val scopt = "com.github.scopt" % "scopt_2.12" % "4.0.0-RC2"
 
