@@ -20,7 +20,7 @@ object Dependencies {
   val lmVersion = "1.10.3"
   val configDirsVersion = "26"
   val caseAppVersion = "2.0.6"
-  val coursierVersion = "2.1.22"
+  val coursierVersion = "2.1.23"
   val sourcecodeVersion = "0.4.2"
   val sbtTestInterfaceVersion = "1.0"
   val sbtTestAgentVersion = "1.10.7"
