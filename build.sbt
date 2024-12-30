@@ -369,7 +369,7 @@ lazy val jsBridge06 = project
 
 val jsBridge1Name = "bloop-js-bridge-1"
 lazy val jsBridge1 = project
-  .dependsOn(bloopShared % Provided /* frontend % "test->test" */ )
+  .dependsOn(bloopShared % Provided)
   .in(file("bridges") / "scalajs-1")
   .disablePlugins(ScriptedPlugin, ScalafixPlugin)
   .settings(

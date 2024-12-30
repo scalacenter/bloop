@@ -437,6 +437,7 @@ final class BloopBspServices(
     val isDebug = compileArgs.exists(_ == "--debug")
 
     val overrideLinkerMode = if (isRelease && isDebug) {
+      logger.warn("both --release and --debug passed as additional arguments for linking. Ignoring arguments")
       None
     } else if (isRelease) {
       Some(Config.LinkerMode.Release)
