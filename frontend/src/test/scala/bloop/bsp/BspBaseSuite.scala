@@ -80,7 +80,7 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
     def simulateClientDroppingOut(): Unit = closeStreamsForcibly()
   }
 
-  final class ManagedBspTestState(
+  final case class ManagedBspTestState(
       state: State,
       lastBspStatus: bsp.StatusCode,
       currentCompileIteration: AtomicInt,

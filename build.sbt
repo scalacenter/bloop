@@ -184,6 +184,9 @@ lazy val frontend: Project = project
       // Before we export all test resources we ensure the current version of the sbt-bloop
       // plugin is published
       (sbtBloop / Keys.publishLocal).value
+      (jsBridge1 / Keys.publishLocal).value
+      (nativeBridge05 / Keys.publishLocal).value
+      (nativeBridge04 / Keys.publishLocal).value
       val additionalResources =
         BuildDefaults.exportProjectsInTestResources(dir, log.log, enableCache = true, version.value)
       main ++ additionalResources
@@ -366,7 +369,7 @@ lazy val jsBridge06 = project
 
 val jsBridge1Name = "bloop-js-bridge-1"
 lazy val jsBridge1 = project
-  .dependsOn(frontend % Provided, frontend % "test->test")
+  .dependsOn(bloopShared % Provided)
   .in(file("bridges") / "scalajs-1")
   .disablePlugins(ScriptedPlugin, ScalafixPlugin)
   .settings(
@@ -375,6 +378,7 @@ lazy val jsBridge1 = project
     libraryDependencies ++= List(
       Dependencies.scalaJsLinker1,
       Dependencies.scalaJsLogging1,
+      Dependencies.bloopConfig,
       Dependencies.scalaJsEnvs1,
       Dependencies.scalaJsEnvNode1,
       Dependencies.scalaJsEnvJsdomNode1,
@@ -384,26 +388,26 @@ lazy val jsBridge1 = project
 
 val nativeBridge04Name = "bloop-native-bridge-0-4"
 lazy val nativeBridge04 = project
-  .dependsOn(frontend % Provided, frontend % "test->test")
+  .dependsOn(bloopShared % Provided)
   .in(file("bridges") / "scala-native-0.4")
   .disablePlugins(ScalafixPlugin, ScriptedPlugin)
   .settings(
     name := nativeBridge04Name,
     testSettings,
-    libraryDependencies += Dependencies.scalaNativeTools04,
+    libraryDependencies ++= List(Dependencies.scalaNativeTools04, Dependencies.bloopConfig),
     (Test / javaOptions) ++= jvmOptions,
     (Test / fork) := true
   )
 
 val nativeBridge05Name = "bloop-native-bridge-0-5"
 lazy val nativeBridge05 = project
-  .dependsOn(frontend % Provided, frontend % "test->test")
+  .dependsOn(bloopShared % Provided)
   .in(file("bridges") / "scala-native-0.5")
   .disablePlugins(ScalafixPlugin, ScriptedPlugin)
   .settings(
     name := nativeBridge05Name,
     testSettings,
-    libraryDependencies += Dependencies.scalaNativeTools05,
+    libraryDependencies ++= List(Dependencies.scalaNativeTools05, Dependencies.bloopConfig),
     (Test / javaOptions) ++= jvmOptions,
     (Test / fork) := true
   )
