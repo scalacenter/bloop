@@ -31,6 +31,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.experimental.categories.Category
+import java.nio.file.StandardOpenOption
 
 @Category(Array(classOf[bloop.FastTests]))
 class RunSpec extends BloopHelpers {
@@ -168,7 +169,7 @@ class RunSpec extends BloopHelpers {
             else Files.createDirectories(resource.underlying)
           }
 
-          val fullClasspath = rootWithAggregation.fullRuntimeClasspath(dag, state.client).toList
+          val fullClasspath = rootWithAggregation.fullRuntimeClasspath().toList
           Assert.assertFalse(dependentResources.isEmpty)
           dependentResources.foreach { r =>
             Assert.assertTrue(s"Missing $r in $fullClasspath", fullClasspath.contains(r))
@@ -470,6 +471,42 @@ class RunSpec extends BloopHelpers {
       val projects = List(`A`)
       val state = loadState(workspace, projects, logger)
       val runState = state.run(`A`)
+      assertEquals(ExitStatus.Ok, runState.status)
+    }
+  }
+
+  @Test
+  def runSeesSingleFileResources(): Unit = {
+    TestUtil.withinWorkspace { workspace =>
+      object Sources {
+        val `a/A.scala` =
+          """/a/A.scala
+            |object A {
+            |  def main(args: Array[String]): Unit = {
+            |    val res = getClass.getClassLoader.getResourceAsStream("resource.txt")
+            |    val content = scala.io.Source.fromInputStream(res).mkString
+            |    //assert("goodbye" == content)
+            |  }
+            |}""".stripMargin
+      }
+
+      val tmpDir = Files.createTempDirectory("runtime-single")
+      val resource = tmpDir.resolve("resource.txt")
+      Files.write(resource, "goodbye".getBytes(), StandardOpenOption.CREATE)
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val `A` = TestProject(
+        workspace,
+        "a",
+        List(Sources.`a/A.scala`),
+        additionalResources = List(resource)
+      )
+
+      val projects = List(`A`)
+      val state = loadState(workspace, projects, logger)
+      val external = state.getClientExternalDir(A)
+      println(external)
+      val runState = state.run(`A`)
+      logger.dump()
       assertEquals(ExitStatus.Ok, runState.status)
     }
   }
