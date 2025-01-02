@@ -214,7 +214,7 @@ object ParallelOps {
               }
             }
           } finally {
-            takenByOtherCopyProcess.remove(originFile)
+            takenByOtherCopyProcess.remove(targetFile)
             // Complete successfully to unblock other tasks
             p.success(())
           }
@@ -223,7 +223,7 @@ object ParallelOps {
 
         def acquireFile: MonixTask[Unit] = {
           val currentPromise = Promise[Unit]()
-          val promiseInMap = takenByOtherCopyProcess.putIfAbsent(originFile, currentPromise)
+          val promiseInMap = takenByOtherCopyProcess.putIfAbsent(targetFile, currentPromise)
           if (promiseInMap == null) {
             triggerCopy(currentPromise)
           } else {
