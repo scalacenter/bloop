@@ -162,7 +162,8 @@ object CompileTask {
               ExecutionContext.ioScheduler,
               ExecutionContext.ioExecutor,
               bundle.dependenciesData.allInvalidatedClassFiles,
-              bundle.dependenciesData.allGeneratedClassFilePaths
+              bundle.dependenciesData.allGeneratedClassFilePaths,
+              project.runtimeResources
             )
           }
 

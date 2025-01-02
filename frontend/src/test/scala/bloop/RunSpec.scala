@@ -3,6 +3,7 @@ package bloop
 import java.io.ByteArrayInputStream
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
+import java.nio.file.StandardOpenOption
 import java.util.concurrent.TimeUnit
 
 import scala.concurrent.Await
@@ -465,6 +466,39 @@ class RunSpec extends BloopHelpers {
         List(Sources.`a/A.scala`),
         resources = List(Resources.`a/compile-resources/resource.txt`),
         runtimeResources = Some(List(Resources.`a/run-resources/resource.txt`))
+      )
+
+      val projects = List(`A`)
+      val state = loadState(workspace, projects, logger)
+      val runState = state.run(`A`)
+      assertEquals(ExitStatus.Ok, runState.status)
+    }
+  }
+
+  @Test
+  def runSeesSingleFileResources(): Unit = {
+    TestUtil.withinWorkspace { workspace =>
+      object Sources {
+        val `a/A.scala` =
+          """/a/A.scala
+            |object A {
+            |  def main(args: Array[String]): Unit = {
+            |    val res = getClass.getClassLoader.getResourceAsStream("resource.txt")
+            |    val content = scala.io.Source.fromInputStream(res).mkString
+            |    assert("goodbye" == content)
+            |  }
+            |}""".stripMargin
+      }
+
+      val tmpDir = Files.createTempDirectory("runtime-single")
+      val resource = tmpDir.resolve("resource.txt")
+      Files.write(resource, "goodbye".getBytes(), StandardOpenOption.CREATE)
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val `A` = TestProject(
+        workspace,
+        "a",
+        List(Sources.`a/A.scala`),
+        additionalResources = List(resource)
       )
 
       val projects = List(`A`)
