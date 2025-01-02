@@ -297,7 +297,7 @@ object Operations {
     promise.future
   }
 
-  private def nailgunClient(address: BloopRifleConfig.Address): Client =
+  private def nailgunClient(address: BloopRifleConfig.Address, logger: BloopRifleLogger): Client =
     address match {
       case BloopRifleConfig.Address.Tcp(host, port) =>
         TcpClient(host, port)
@@ -306,8 +306,12 @@ object Operations {
           val files = lockFiles(addr)
           val res = libdaemonjvm.client.Connect.tryConnect(files)
           res match {
-            case None => ??? // not running
-            case Some(Left(_)) => ??? // error
+            case None =>
+              logger.error("Nailgun server is no running")
+              throw new RuntimeException("Nailgun server is no running")
+            case Some(Left(err)) =>
+              logger.error(err.toString())
+              throw err
             case Some(Right(channel)) =>
               libdaemonjvm.Util.socketFromChannel(channel)
           }
@@ -340,7 +344,7 @@ object Operations {
   ): BspConnection = {
 
     val stop0 = new AtomicBoolean
-    val nailgunClient0 = nailgunClient(address)
+    val nailgunClient0 = nailgunClient(address, logger)
     val streams = Streams(inOpt, out, err)
 
     val promise = Promise[Int]()
@@ -460,7 +464,7 @@ object Operations {
   ): Int = {
 
     val stop0 = new AtomicBoolean
-    val nailgunClient0 = nailgunClient(address)
+    val nailgunClient0 = nailgunClient(address, logger)
     val streams = Streams(
       inOpt,
       out,
@@ -492,7 +496,7 @@ object Operations {
   ): Int = {
 
     val stop0 = new AtomicBoolean
-    val nailgunClient0 = nailgunClient(address)
+    val nailgunClient0 = nailgunClient(address, logger)
     val streams = Streams(None, out, err)
 
     timeout(30.seconds + BloopRifleConfig.extraTimeout, scheduler, logger) {
