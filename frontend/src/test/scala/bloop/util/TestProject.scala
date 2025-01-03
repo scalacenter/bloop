@@ -113,7 +113,8 @@ abstract class BaseTestProject {
       order: Config.CompileOrder = Config.Mixed,
       jars: Array[AbsolutePath] = Array(),
       sourcesGlobs: List[Config.SourcesGlobs] = Nil,
-      sourceGenerators: List[Config.SourceGenerator] = Nil
+      sourceGenerators: List[Config.SourceGenerator] = Nil,
+      additionalResources: List[Path] = Nil
   ): TestProject = {
     val projectBaseDir = Files.createDirectories(baseDir.underlying.resolve(name))
     val ProjectArchetype(sourceDir, outDir, resourceDir, classes, runtimeResourceDir) =
@@ -146,7 +147,7 @@ abstract class BaseTestProject {
       if (strictDependencies) (directClasspath, transitiveClasspath)
       else (transitiveClasspath, transitiveClasspath)
     }
-    val compileResourcesList = Some(List(resourceDir.underlying))
+    val compileResourcesList = Some(List(resourceDir.underlying) ::: additionalResources)
     val runtimeResourcesList = runtimeResources match {
       case None => compileResourcesList
       case Some(_) => Some(List(runtimeResourceDir.underlying))
