@@ -1,5 +1,5 @@
 import build.BuildImplementation.BuildDefaults
-import build.BuildImplementation.jvmOptions
+import build.BuildImplementation.{jvmOptions, javacOpts}
 import build.Dependencies
 import build.Dependencies.{Scala211Version, Scala212Version, SbtVersion}
 
@@ -208,6 +208,7 @@ lazy val frontend: Project = project
 lazy val cliSettings = Seq(
   name := "bloop-cli",
   scalaVersion := Dependencies.Scala213Version,
+  javacOptions ++= javacOpts,
   (run / fork) := true,
   (Test / fork) := true,
   (Test / parallelExecution) := false,

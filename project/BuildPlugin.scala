@@ -272,6 +272,9 @@ object BuildImplementation {
   final val jvmOptions =
     "-Xmx3g" :: "-Xms1g" :: "-XX:ReservedCodeCacheSize=512m" :: "-XX:MaxInlineLevel=20" :: Nil
 
+  final val javacOpts =
+    "-source" :: "1.8" :: "-target" :: "1.8" :: Nil
+
   object BuildDefaults {
     def exportProjectsInTestResources(
         baseDir: File,
