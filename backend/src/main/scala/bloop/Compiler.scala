@@ -72,7 +72,8 @@ case class CompileInputs(
     ioScheduler: Scheduler,
     ioExecutor: Executor,
     invalidatedClassFilesInDependentProjects: Set[File],
-    generatedClassFilePathsInDependentProjects: Map[String, File]
+    generatedClassFilePathsInDependentProjects: Map[String, File],
+    resources: List[AbsolutePath]
 )
 
 case class CompileOutPaths(

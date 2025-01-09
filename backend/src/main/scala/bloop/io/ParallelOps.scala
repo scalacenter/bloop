@@ -71,7 +71,8 @@ object ParallelOps {
       target: Path,
       scheduler: Scheduler,
       enableCancellation: Boolean,
-      logger: Logger
+      logger: Logger,
+      additionalFiles: Seq[(Path, Path)] = Nil
   ): Task[FileWalk] = Task.defer {
     val isCancelled = AtomicBoolean(false)
 
@@ -81,6 +82,14 @@ object ParallelOps {
     val (observer, observable) = Observable.multicast[((Path, BasicFileAttributes), Path)](
       MulticastStrategy.publish
     )(scheduler)
+
+    val copyAdditionalFiles = Task {
+      additionalFiles.foreach {
+        case (from, to) =>
+          val attributes = Files.readAttributes(from, classOf[BasicFileAttributes])
+          observer.onNext(((from, attributes), to))
+      }
+    }
 
     val discovery = new FileVisitor[Path] {
       var firstVisit: Boolean = true
@@ -274,7 +283,10 @@ object ParallelOps {
       }
     }
 
-    val orderlyDiscovery = Task.fromFuture(subscribed.future).flatMap(_ => discoverFileTree)
+    val orderlyDiscovery = Task
+      .fromFuture(subscribed.future)
+      .flatMap(_ => copyAdditionalFiles)
+      .flatMap(_ => discoverFileTree)
     val aggregatedCopyTask = Task {
       Task.mapBoth(orderlyDiscovery, copyFilesInParallel) { case (fileWalk, _) => fileWalk }
     }.flatten.executeOn(scheduler)

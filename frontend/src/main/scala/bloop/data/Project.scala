@@ -4,6 +4,7 @@ import java.nio.charset.StandardCharsets
 
 import scala.collection.mutable
 import scala.util.Properties
+import scala.util.Success
 import scala.util.Try
 import scala.util.control.NonFatal
 
@@ -28,7 +29,6 @@ import bloop.util.JavaRuntime
 import scalaz.Cord
 import xsbti.compile.ClasspathOptions
 import xsbti.compile.CompileOrder
-import scala.util.Success
 
 final case class Project(
     name: String,
@@ -117,10 +117,8 @@ final case class Project(
   private def fullClasspath(
       dag: Dag[Project],
       client: ClientInfo,
-      rawClasspath: List[AbsolutePath],
-      pickValidResources: Project => Array[AbsolutePath]
+      rawClasspath: List[AbsolutePath]
   ): Array[AbsolutePath] = {
-    val addedResources = new mutable.HashSet[AbsolutePath]()
     val cp = (this.genericClassesDir :: rawClasspath).toBuffer
 
     // Add the resources right before the classes directory if found in the classpath
@@ -128,16 +126,8 @@ final case class Project(
       val genericClassesDir = p.genericClassesDir
       val uniqueClassesDir = client.getUniqueClassesDirFor(p, forceGeneration = true)
       val index = cp.indexOf(genericClassesDir)
-      val newResources = pickValidResources(p).filterNot(r => addedResources.contains(r))
-      newResources.foreach(r => addedResources.add(r))
-      if (index == -1) {
-        // Not found? Weird. Let's add resources to end just in case
-        cp.appendAll(newResources)
-      } else {
-        // Replace in-place for the classes directory unique to the client
+      if (index != -1) {
         cp(index) = uniqueClassesDir
-        // Prepend resources to classes directories
-        cp.insertAll(index, newResources)
       }
     }
 
@@ -145,7 +135,7 @@ final case class Project(
   }
 
   def fullClasspath(dag: Dag[Project], client: ClientInfo): Array[AbsolutePath] = {
-    fullClasspath(dag, client, rawClasspath, p => Project.pickValidResources(p.resources))
+    fullClasspath(dag, client, rawClasspath)
   }
 
   def fullRuntimeClasspath(dag: Dag[Project], client: ClientInfo): Array[AbsolutePath] = {
@@ -156,8 +146,7 @@ final case class Project(
     fullClasspath(
       dag,
       client,
-      rawRuntimeClasspath,
-      p => Project.pickValidResources(p.runtimeResources)
+      rawRuntimeClasspath
     )
   }
 
