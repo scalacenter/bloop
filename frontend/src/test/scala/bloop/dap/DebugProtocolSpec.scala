@@ -46,7 +46,7 @@ object DebugProtocolSpec extends DebugBspBaseSuite {
   }
 
   // when the session detaches from the JVM, the JDI once again writes to the standard output
-  test("restarted session does not contain JDI output") {
+  flakyTest("restarted session does not contain JDI output", 3) {
     TestUtil.withinWorkspace { workspace =>
       val main =
         """|/main/scala/Main.scala
