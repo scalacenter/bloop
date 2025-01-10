@@ -14,6 +14,12 @@ import bloop.io.Paths
 import bloop.io.AbsolutePath
 import bloop.logging.DebugFilter
 import bloop.logging.Logger
+import bloop.config.Config.NativeLTO.Full
+import bloop.config.Config.NativeLTO
+import bloop.config.Config.NativeLTO.Thin
+import bloop.config.Config.NativeLinkerReleaseMode.ReleaseFast
+import bloop.config.Config.NativeLinkerReleaseMode.ReleaseFull
+import bloop.config.Config.NativeLinkerReleaseMode.ReleaseSize
 
 class NativeLinkerException(msg: String) extends RuntimeException(msg)
 
@@ -30,6 +36,7 @@ object NativeBridge {
       logger: Logger,
       ec: ExecutionContext
   ): Future[Path] = {
+
     val absWorkdir = AbsolutePath(workdir)
     if (absWorkdir.isDirectory) Paths.delete(absWorkdir)
     Files.createDirectories(workdir)
@@ -37,14 +44,30 @@ object NativeBridge {
     val nativeLogger =
       build.Logger(logger.trace _, logger.debug _, logger.info _, logger.warn _, logger.error _)
     val config = setUpNativeConfig(classpath, config0)
+
     val nativeMode = config.mode match {
       case LinkerMode.Debug => build.Mode.debug
-      case LinkerMode.Release => build.Mode.releaseFast
+      case LinkerMode.Release =>
+        config.nativeModeAndLTO.nativeLinkerReleaseMode match {
+          case None => build.Mode.releaseFast
+
+          case Some(mode) =>
+            mode match {
+              case ReleaseFast => build.Mode.releaseFast
+              case ReleaseFull => build.Mode.releaseFull
+              case ReleaseSize => build.Mode.releaseFast
+            }
+        }
     }
-    val nativeLTO = config.mode match {
-      case LinkerMode.Debug => build.LTO.none
-      case LinkerMode.Release if bloop.util.CrossPlatform.isMac => build.LTO.none
-      case LinkerMode.Release => build.LTO.thin
+
+    val nativeLTO = config.nativeModeAndLTO.lto match {
+      case None => build.LTO.none
+      case Some(lto) =>
+        lto match {
+          case Full => build.LTO.full
+          case NativeLTO.None => build.LTO.none
+          case Thin => build.LTO.thin
+        }
     }
 
     val buildTarget = config.buildTarget
@@ -75,6 +98,10 @@ object NativeBridge {
             .withCheck(config.check)
             .withDump(config.dump)
             .withTargetTriple(config.targetTriple)
+            .withOptimize(config.nativeFlags.optimize)
+            .withEmbedResources(config.nativeFlags.embedResources)
+            .withIncrementalCompilation(config.nativeFlags.useIncrementalCompilation)
+            .withMultithreading(config.nativeFlags.multithreading)
         )
 
     if (buildTarget == BuildTarget.application) {

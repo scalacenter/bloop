@@ -30,6 +30,7 @@ class BspLinkSpec(
       }
     }
   }
+
   test("can link scala-native-05 cross project") {
     TestUtil.withinWorkspace { workspace =>
       val logger = new RecordingLogger(ansiCodesSupported = false)
