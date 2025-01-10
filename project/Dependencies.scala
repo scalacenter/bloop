@@ -32,7 +32,7 @@ object Dependencies {
   val scalaNative04Version = "0.4.17"
   val scalaNative05Version = "0.5.6"
   val scalaJs06Version = "0.6.33"
-  val scalaJs1Version = "1.17.0"
+  val scalaJs1Version = "1.18.1"
   val scalaJsEnvsVersion = "1.1.1"
   val xxHashVersion = "1.3.0"
   val ztVersion = "1.17"
