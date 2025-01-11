@@ -1,7 +1,8 @@
 package bloop.cli
 
-import bloop.cli.util.JniGetWinDirs
-import coursier.cache.shaded.dirs.{GetWinDirs, ProjectDirectories}
+import dev.dirs.ProjectDirectories
+import dev.dirs.impl.Windows;
+import dev.dirs.jni.WindowsJni;
 
 import scala.util.Properties
 
@@ -31,11 +32,11 @@ object Directories {
   }
 
   def default(): Directories = {
-    val getWinDirs: GetWinDirs =
+    val getWinDirs =
       if (coursier.paths.Util.useJni())
-        new JniGetWinDirs
+        WindowsJni.getJdkAwareSupplier();
       else
-        GetWinDirs.powerShellBased
+        Windows.getDefaultSupplier();
 
     OsLocations(ProjectDirectories.from(null, null, "ScalaCli", getWinDirs))
   }
