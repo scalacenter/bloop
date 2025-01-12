@@ -217,6 +217,7 @@ lazy val cliSettings = Seq(
     Dependencies.coursier,
     Dependencies.coursierJvm,
     Dependencies.dependency,
+    Dependencies.directoriesJni,
     Dependencies.jsoniterCore,
     Dependencies.svm % Provided,
     Dependencies.jsoniterMacros % Provided
