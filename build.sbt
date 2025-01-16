@@ -452,7 +452,7 @@ addCommandAlias(
   "install",
   Seq(
     "publishLocal",
-    "bloopgun/graalvm-native-image:packageBin",
+    "cli/graalvm-native-image:packageBin",
     s"${frontend.id}/test:compile",
     "createLocalHomebrewFormula",
     "createLocalScoopFormula",

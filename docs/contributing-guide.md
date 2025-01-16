@@ -149,31 +149,31 @@ Then, **restart the bloop server** to pick up the new installed version.
 The command to run depends on how you have run the bloop server, the [Build
 Server reference](server.md) explains the available startup mechanisms.
 
+#### Scala CLI
+
+Scala CLI also uses Bloop to compile Scala code. To run it with a specific
+version of Bloop you can use the bloop subcommand, which requires the
+`--power` flag to run.
+
+```
+scala-cli --power bloop --bloop-version 2.0.6-85-43d49584-SNAPSHOT about
+```
+
+#### Metals
+
+To use the new version of bloop in Metals, you need to update the 
+`metals.bloopVersion` and agree to restart build server when prompted by Metals.
+
 #### Generic installation (most common)
 
-If you have installed bloop via the CURL script in the website, you can use a
-local Python script to override your installation in `$HOME/.bloop`:
+If you installed Bloop via coursier you can use the same option to install 
+snapshot or locally released versions.
 
-1. Give executable permission to the install script: `chmod +x $BLOOP_REPO/frontend/target/install.py`.
-1. Run script with `./$BLOOP_REPO/frontend/target/install.py`.
-
-You will roughly see something like this:
-
-```
-Downloading Bloop's coursier version, this may take some seconds...
-Installed bloop server in '/home/user/.bloop/blp-server'
-Installed bloop client in '/home/user/.bloop/bloop'
-HTTP Error 404: Not Found
-Couldn't download https://raw.githubusercontent.com/scalacenter/bloop/v1.2.5+464-0159c1c3+20190529-1423/etc/zsh/_bloop, please try again.
+```bash
+cs launch -r sonatype:snapshots ch.epfl.scala:bloop-cli_2.13:2.0.6-85-43d49584-SNAPSHOT  -M bloop.cli.Bloop -- about
 ```
 
-You can safely ignore the HTTP error and **restart the bloop server** to
-pick up the new installed version.
-
-The command to run depends on how you have run the bloop server, the [Build
-Server reference](server.md) explains the available startup mechanisms. For
-example, if you're a Linux user and use `systemd`, restart the server with
-`systemctl --user restart bloop`.
+You can replace the above snapshot version with the one you want to install.
 
 ### Verify the installation of a SNAPSHOT release
 
