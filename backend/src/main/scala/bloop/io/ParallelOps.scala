@@ -53,6 +53,39 @@ object ParallelOps {
   private[this] val takenByOtherCopyProcess = new ConcurrentHashMap[Path, Promise[Unit]]()
 
   /**
+   * Copies the resources in `resources` to the directory `copyTo` ,
+   */
+  def copyResources(
+      resources: List[AbsolutePath],
+      copyTo: AbsolutePath,
+      config: ParallelOps.CopyConfiguration,
+      logger: Logger,
+      scheduler: Scheduler
+  ): Task[Unit] = {
+    val (singleFiles, classpathEntries) =
+      resources.partition(path => path.exists && path.isFile)
+
+    val singleFilesToCopy =
+      for (file <- singleFiles)
+        yield file.underlying -> copyTo.underlying.resolve(file.underlying.toFile().getName())
+
+    val classpathEntriesCopy =
+      for (entry <- classpathEntries) yield {
+        ParallelOps
+          .copyDirectories(config)(
+            entry.underlying,
+            copyTo.underlying,
+            scheduler,
+            enableCancellation = false,
+            logger,
+            singleFilesToCopy
+          )
+      }
+
+    Task.gatherUnordered(classpathEntriesCopy).map(_ => ())
+  }
+
+  /**
    * Copies files from [[origin]] to [[target]] with the provided copy
    * configuration in parallel on the scheduler [[scheduler]].
    *

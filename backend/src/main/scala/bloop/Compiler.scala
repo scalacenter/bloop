@@ -804,6 +804,14 @@ object Compiler {
         val denyDir = Set(readOnlyClassesDir.resolve("META-INF/best-effort"))
         val config =
           ParallelOps.CopyConfiguration(5, CopyMode.ReplaceIfMetadataMismatch, denyList, denyDir)
+
+        val copyResources = ParallelOps.copyResources(
+          compileInputs.resources,
+          clientClassesDir,
+          config,
+          compileInputs.logger,
+          compileInputs.ioScheduler
+        )
         val lastCopy = ParallelOps.copyDirectories(config)(
           readOnlyClassesDir,
           clientClassesDir.underlying,
@@ -812,7 +820,7 @@ object Compiler {
           compileInputs.logger
         )
 
-        lastCopy.map { _ =>
+        Task.gatherUnordered(List(copyResources, lastCopy)).map { _ =>
           clientLogger.debug(
             s"Finished copying classes from $readOnlyClassesDir to $clientClassesDir"
           )
