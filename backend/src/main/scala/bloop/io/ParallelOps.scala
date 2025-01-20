@@ -41,11 +41,12 @@ object ParallelOps {
    * @param replaceExisting Whether the copy should replace existing paths in the target.
    * @param denylist A list of both origin and target paths that if matched skip the copy.
    */
-  case class CopyConfiguration private (
+  case class CopyConfiguration(
       parallelUnits: Int,
       mode: CopyMode,
       denylist: Set[Path],
-      denyDirs: Set[Path]
+      denyDirs: Set[Path],
+      skipDotDirectories: Boolean = false
   )
 
   case class FileWalk(visited: List[Path], target: List[Path])
@@ -72,7 +73,7 @@ object ParallelOps {
     val classpathEntriesCopy =
       for (entry <- classpathEntries) yield {
         ParallelOps
-          .copyDirectories(config)(
+          .copyDirectories(config.copy(skipDotDirectories = true))(
             entry.underlying,
             copyTo.underlying,
             scheduler,
@@ -157,7 +158,9 @@ object ParallelOps {
           directory: Path,
           attributes: BasicFileAttributes
       ): FileVisitResult = {
-        if (isCancelled.get) FileVisitResult.TERMINATE
+        if (configuration.skipDotDirectories && directory.getFileName.toString.startsWith(".")) {
+          FileVisitResult.SKIP_SUBTREE
+        } else if (isCancelled.get) FileVisitResult.TERMINATE
         else {
           if (firstVisit) {
             firstVisit = false
