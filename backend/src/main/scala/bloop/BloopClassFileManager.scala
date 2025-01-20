@@ -201,34 +201,6 @@ final class BloopClassFileManager(
 
   }
 
-  private def copyResources(
-      resources: List[AbsolutePath],
-      copyTo: AbsolutePath,
-      config: ParallelOps.CopyConfiguration
-  ): Task[Unit] = {
-    val (singleFiles, classpathEntries) =
-      resources.partition(path => path.exists && path.isFile)
-
-    val singleFilesToCopy =
-      for (file <- singleFiles)
-        yield file.underlying -> copyTo.underlying.resolve(file.underlying.toFile().getName())
-
-    val classpathEntriesCopy =
-      for (entry <- classpathEntries) yield {
-        ParallelOps
-          .copyDirectories(config)(
-            entry.underlying,
-            copyTo.underlying,
-            inputs.ioScheduler,
-            enableCancellation = false,
-            inputs.logger,
-            singleFilesToCopy
-          )
-      }
-
-    Task.gatherUnordered(classpathEntriesCopy).map(_ => ())
-  }
-
   def complete(success: Boolean): Unit = {
 
     val deleteAfterCompilation = Task { BloopPaths.delete(AbsolutePath(backupDir)) }
@@ -262,11 +234,18 @@ final class BloopClassFileManager(
               }
               .flatMap(_ => deleteAfterCompilation)
 
+            val copyResources = ParallelOps.copyResources(
+              inputs.resources,
+              clientExternalClassesDir,
+              config,
+              inputs.logger,
+              inputs.ioScheduler
+            )
             Task
               .gatherUnordered(
                 List(
                   copyClassFiles,
-                  copyResources(inputs.resources, clientExternalClassesDir, config)
+                  copyResources
                 )
               )
               .map(_ => ())

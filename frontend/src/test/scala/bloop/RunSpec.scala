@@ -505,6 +505,13 @@ class RunSpec extends BloopHelpers {
       val state = loadState(workspace, projects, logger)
       val runState = state.run(`A`)
       assertEquals(ExitStatus.Ok, runState.status)
+
+      // Remove to make sure we copy on noop
+      state.getClientExternalDir(A).resolve("resource.txt").toFile.delete()
+
+      val state2 = loadState(workspace, projects, logger)
+      val runState2 = state2.run(`A`)
+      assertEquals(ExitStatus.Ok, runState2.status)
     }
   }
 
