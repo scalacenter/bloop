@@ -516,6 +516,45 @@ class RunSpec extends BloopHelpers {
   }
 
   @Test
+  def runNotSeesDotFileResources(): Unit = {
+    TestUtil.withinWorkspace { workspace =>
+      object Sources {
+        val `a/A.scala` =
+          """/a/A.scala
+            |
+            |object A {
+            |  def main(args: Array[String]): Unit = {
+            |    val res = Option(getClass.getClassLoader.getResourceAsStream(".dot/resource.txt"))
+            |    res match {
+            |     case Some(_) => assert(false)
+            |     case None => assert(true)
+            |    }
+            |  }
+            |}""".stripMargin
+      }
+
+      object Resources {
+        val dotResource =
+          """/.dot/resource.txt
+            |hello""".stripMargin
+      }
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val `A` = TestProject(
+        workspace,
+        "a",
+        List(Sources.`a/A.scala`),
+        resources = List(Resources.dotResource),
+        runtimeResources = Some(List(Resources.dotResource))
+      )
+
+      val projects = List(`A`)
+      val state = loadState(workspace, projects, logger)
+      val runState = state.run(`A`)
+      assertEquals(ExitStatus.Ok, runState.status)
+    }
+  }
+
+  @Test
   def runUsesRuntimeEnvironment(): Unit = {
     TestUtil.withinWorkspace { workspace =>
       object Sources {
