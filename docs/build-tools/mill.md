@@ -12,38 +12,33 @@ Mill has built-in support for Bloop via `mill-contrib`, so follow the instructio
 
 <!-- start -->
 
-## Requirements
-
-- Your mill version needs to be >= `0.4.0-2-4dbbce`.
-
-## Install the plugin
-
-Install bloop in `build.sc` by replacing `$MILL_VERSION` in the following
-command:
-
-```scala
-import $ivy.`com.lihaoyi::mill-contrib-bloop:$MILL_VERSION`
-```
-
 ## Export your build
 
-The mill command `mill mill.contrib.Bloop/install` exports your mill build to bloop.
+The following mill command automatically downloads the required plugin and exports your mill build to bloop:
+```bash
+mill --import ivy:com.lihaoyi::mill-contrib-bloop: mill.contrib.bloop.Bloop/install
+```
 
 The mill plugin generates a configuration file per every compile and test
 sources in your build definition. For example, a build with a single Scala
 project `foo` generates two configuration files by default:
 
 ```bash
-$ mill mill.contrib.Bloop/install
+$ mill --import ivy:com.lihaoyi::mill-contrib-bloop: mill.contrib.bloop.Bloop/install
 (...)
-info Generated '/disk/foo/.bloop/foo.json'.
-info Generated '/disk/foo/.bloop/foo-test.json'.
+[120/123] MillBuildRootModule.bloop.writeConfigFile
+[120] Wrote /disk/foo/.bloop/mill-build-.json
+[121/123] foo.bloop.writeConfigFile
+[121] Wrote /disk/foo/.bloop/foo.json
+[122/123] foo.test.bloop.writeConfigFile
+[122] Wrote /disk/foo/.bloop/foo.test.json
+[123/123] =================== mill.contrib.bloop.Bloop/install =================== 10s
 ```
 
 where:
   
 1. `foo` comes from the compile source set; and,
-1. `foo-test` comes from the test source set and depends on `foo`
+1. `foo.test` comes from the test source set and depends on `foo`
 
 ## Verify installation and export
 
@@ -53,8 +48,9 @@ Verify your installation by running `bloop projects` in the root of the mill wor
 
 ```bash
 $ bloop projects
+mill-build-
 foo
-foo-test
+foo.test
 ```
 
 If the results of `bloop projects` is empty, check that:
@@ -68,15 +64,16 @@ If you suspect bloop is loading the configuration files from somewhere else, run
 ```bash
 $ bloop projects --verbose
 [D] Projects loaded from '/my-project/.bloop':
+mill-build-
 foo
-foo-test
+foo.test
 ```
 
 Here's a list of bloop commands you can run next to start playing with bloop:
 
 1. `bloop compile --help`: shows the help section for compile.
-1. `bloop compile foo-test`: compiles foo's `src/main` and `src/test`.
-1. `bloop test foo-test -w`: runs foo tests repeatedly with file watching enabled.
+1. `bloop compile foo.test`: compiles foo's `src/main` and `src/test`.
+1. `bloop test foo.test -w`: runs foo tests repeatedly with file watching enabled.
 
 After verifying the export, you can continue using Bloop's command-line
 application or any build client integrating with Bloop, such as
