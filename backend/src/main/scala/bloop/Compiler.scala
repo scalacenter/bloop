@@ -387,7 +387,7 @@ object Compiler {
 
     // Manually skip redundant best-effort compilations. This is necessary because compiler
     // phases supplying the data needed to skip compilations in zinc remain unimplemented for now.
-    val noopBestEffortResult = compileInputs.previousCompilerResult match {
+    val (noopBestEffortResult, inputHash) = compileInputs.previousCompilerResult match {
       case Failed(
             problems,
             t,
@@ -402,7 +402,7 @@ object Compiler {
         // best effort compilation
         // * newClassesDir on the classpath of the previous successful best effort compilation
         // is also different from newClassesDir of the current compilation.
-        val newHash = BestEffortUtils.hashResult(
+        val newHash = BestEffortUtils.hashAll(
           previousCompilationResults.newClassesDir,
           compileInputs.sources,
           compileInputs.classpath,
@@ -460,9 +460,26 @@ object Compiler {
                 .map(_ => ())
             }
           }
-          Some(Failed(problems, t, elapsed, backgroundTasks, bestEffortProducts))
-        } else None
-      case _ => None
+          (
+            Some(Failed(problems, t, elapsed, backgroundTasks, bestEffortProducts)),
+            newHash.inputHash
+          )
+        } else (None, newHash.inputHash)
+      case _ =>
+        (
+          None,
+          if (isBestEffortMode)
+            BestEffortUtils.hashInput(
+              newClassesDir,
+              compileInputs.sources,
+              compileInputs.classpath,
+              ignoredClasspathDirectories = List(
+                compileOut.internalReadOnlyClassesDir,
+                compileOut.internalNewClassesDir
+              )
+            )
+          else ""
+        )
     }
 
     if (noopBestEffortResult.isDefined) {
@@ -495,7 +512,8 @@ object Compiler {
             backgroundTasksWhenNewSuccessfulAnalysis,
             previousSuccessfulProblems,
             errorCause = None,
-            shouldAttemptRestartingCompilationForBestEffort
+            shouldAttemptRestartingCompilationForBestEffort,
+            inputHash
           )
         case Success(result) =>
           // Report end of compilation only after we have reported all warnings from previous runs
@@ -751,7 +769,8 @@ object Compiler {
             backgroundTasksWhenNewSuccessfulAnalysis,
             previousSuccessfulProblems,
             errorCause = Some(cause),
-            shouldAttemptRestartingCompilationForBestEffort
+            shouldAttemptRestartingCompilationForBestEffort,
+            inputHash
           )
 
         case Failure(_: xsbti.CompileCancelled) => handleCancellation
@@ -987,7 +1006,8 @@ object Compiler {
       backgroundTasksWhenNewSuccessfulAnalysis: mutable.ListBuffer[CompileBackgroundTasks.Sig],
       previousSuccessfulProblems: List[ProblemPerPhase],
       errorCause: Option[xsbti.CompileFailed],
-      shouldAttemptRestartingCompilation: Boolean
+      shouldAttemptRestartingCompilation: Boolean,
+      inputHash: String
   ): Result = {
     val uniqueInputs = compileInputs.uniqueInputs
     val newClassesDir = compileOut.internalNewClassesDir.underlying
@@ -1053,13 +1073,11 @@ object Compiler {
 
     val newHash =
       if (!shouldAttemptRestartingCompilation)
-        BestEffortUtils.hashResult(
-          products.newClassesDir,
-          compileInputs.sources,
-          compileInputs.classpath,
-          List(compileOut.internalReadOnlyClassesDir, compileOut.internalNewClassesDir)
+        BestEffortUtils.NonEmptyBestEffortHash(
+          inputHash,
+          BestEffortUtils.hashOutput(products.newClassesDir)
         )
-      else ""
+      else BestEffortUtils.EmptyBestEffortHash
     val failedProblems = findFailedProblems(reporter, errorCause)
     Result.Failed(
       failedProblems,
