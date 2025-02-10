@@ -67,7 +67,7 @@ object Dependencies {
   val scalaCollectionCompat = "org.scala-lang.modules" %% "scala-collection-compat" % "2.13.0"
   val shapeless = "com.chuusai" %% "shapeless" % shapelessVersion
   val caseApp = "com.github.alexarchambault" %% "case-app" % caseAppVersion
-  val caseApp21 = "com.github.alexarchambault" %% "case-app" % "2.1.0-M15"
+  val caseApp21 = "com.github.alexarchambault" %% "case-app" % "2.1.0-M30"
   val sourcecode = "com.lihaoyi" %% "sourcecode" % sourcecodeVersion
   val sbtTestInterface = "org.scala-sbt" % "test-interface" % sbtTestInterfaceVersion
   val sbtTestAgent = "org.scala-sbt" % "test-agent" % sbtTestAgentVersion
