@@ -1,6 +1,7 @@
 package bloop.data
 
 import java.nio.charset.StandardCharsets
+import java.nio.file.Files
 
 import scala.collection.mutable
 import scala.util.Properties
@@ -10,6 +11,7 @@ import scala.util.control.NonFatal
 
 import ch.epfl.scala.{bsp => Bsp}
 
+import bloop.DependencyResolution
 import bloop.ScalaInstance
 import bloop.bsp.ProjectUris
 import bloop.config.Config
@@ -271,6 +273,22 @@ object Project {
     val project = file.project
     val scala = project.`scala`
 
+    // Resolve missing artifacts if they don't exist in the file system
+    file.project.resolution.toIterable
+      .flatMap(_.modules)
+      .map { module =>
+        val missingArtifacts = module.artifacts.filter(art => !Files.exists(art.path))
+        missingArtifacts.foreach { artifact =>
+          DependencyResolution.resolve(
+            List(
+              DependencyResolution
+                .Artifact(module.organization, module.name, module.version, artifact.classifier)
+            ),
+            logger
+          )
+        }
+      }
+
     // Use the default Bloop scala instance if it's not a Scala project or if Scala jars are empty
     val instance = scala
       .flatMap { scala =>
@@ -289,7 +307,6 @@ object Project {
           )
         }
       }
-
     val setup = project.`scala`.flatMap(_.setup).getOrElse(Config.CompileSetup.empty)
     val compileClasspath = project.classpath.map(AbsolutePath.apply)
     val compileResources = project.resources.toList.flatten.map(AbsolutePath.apply)
