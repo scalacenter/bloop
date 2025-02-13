@@ -24,6 +24,7 @@ import bloop.io.ByteHasher
 import bloop.logging.DebugFilter
 import bloop.logging.Logger
 import bloop.task.Task
+import bloop.testing.TestNGFrameworkDependency
 import bloop.util.JavaRuntime
 
 import scalaz.Cord
@@ -293,14 +294,22 @@ object Project {
     val setup = project.`scala`.flatMap(_.setup).getOrElse(Config.CompileSetup.empty)
     val compileClasspath = project.classpath.map(AbsolutePath.apply)
     val compileResources = project.resources.toList.flatten.map(AbsolutePath.apply)
+    val testFrameworks = project.test.map(_.frameworks).getOrElse(Nil)
     val platform = project.platform match {
       case Some(platform: Config.Platform.Jvm) =>
         val compileEnv = JdkConfig.fromConfig(platform.config)
         val runtimeEnv = platform.runtimeConfig.map(JdkConfig.fromConfig)
         val toolchain = JvmToolchain.resolveToolchain(platform, logger)
-        val runtimeClasspath = platform.classpath
-          .map(_.map(AbsolutePath.apply))
-          .getOrElse(compileClasspath)
+        val runtimeClasspath = {
+          val classpath = platform.classpath
+            .map(_.map(AbsolutePath.apply))
+            .getOrElse(compileClasspath)
+
+          // adjust for testng
+          if (testFrameworks.contains(Config.TestFramework.TestNG))
+            TestNGFrameworkDependency.maybeAddTestNGFrameworkDependency(classpath, logger)
+          else classpath
+        }
         val runtimeResources = platform.resources
           .map(_.map(AbsolutePath.apply))
           .getOrElse(compileResources)
@@ -355,7 +364,7 @@ object Project {
       SourcesGlobs.fromConfig(project, logger),
       sourceRoots,
       project.sourceGenerators.getOrElse(Nil).map(SourceGenerator.fromConfig(projectDirectory, _)),
-      project.test.map(_.frameworks).getOrElse(Nil),
+      testFrameworks,
       project.test.map(_.options).getOrElse(Config.TestOptions.empty),
       AbsolutePath(project.out),
       analysisOut,

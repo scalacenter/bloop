@@ -3,9 +3,13 @@ package bloop
 import bloop.config.Config
 import bloop.data.Platform
 import bloop.data.Project
+import bloop.engine.tasks.RunMode
+import bloop.exec.JvmProcessForker
 import bloop.io.AbsolutePath
+import bloop.logging.Logger
 import bloop.logging.RecordingLogger
 import bloop.testing.BloopHelpers
+import bloop.testing.TestInternals
 import bloop.util.TestProject
 import bloop.util.TestUtil
 
@@ -57,5 +61,38 @@ class LoadProjectSpec extends BloopHelpers {
       val _ = loadState(workspace, List(`A`), logger)
       ()
     }
+  }
+
+  @Test def addTestNGFrameworkDependency(): Unit = {
+    val logger = new RecordingLogger()
+    val origin = TestUtil.syntheticOriginFor(AbsolutePath.completelyUnsafe(""))
+    val project = Project.fromConfig(testNGProjectConfig(logger), origin, logger)
+
+    val platform = project.platform.asInstanceOf[Platform.Jvm]
+    pprint.log(platform.classpath)
+    val forker = JvmProcessForker(platform.config, platform.classpath.toArray, RunMode.Normal)
+    val testLoader = forker.newClassLoader(Some(TestInternals.filteredLoader))
+    val frameworks =
+      project.testFrameworks.flatMap(f => TestInternals.loadFramework(testLoader, f.names, logger))
+    TestUtil.assertNoDiff(frameworks.map(_.name()).mkString("\n"), "TestNG")
+  }
+
+  private def testNGProjectConfig(logger: Logger) = {
+    val dummyForTest = Config.File.dummyForTests("JVM")
+    val jvmPlatform =
+      dummyForTest.project.platform.get.asInstanceOf[bloop.config.Config.Platform.Jvm]
+    dummyForTest.copy(project =
+      dummyForTest.project.copy(
+        platform =
+          Some(jvmPlatform.copy(classpath = jvmPlatform.classpath.map(_ ++ getTestNGDep(logger)))),
+        test = Some(Config.Test(List(Config.TestFramework.TestNG), Config.TestOptions(Nil, Nil)))
+      )
+    )
+  }
+
+  private def getTestNGDep(logger: Logger) = {
+    val testNG =
+      DependencyResolution.Artifact("org.testng", "testng", "7.9.0")
+    DependencyResolution.resolve(List(testNG), logger).map(_.underlying)
   }
 }
