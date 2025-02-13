@@ -53,11 +53,11 @@ object Dependencies {
   val nailgun = "io.github.alexarchambault.bleep" % "nailgun-server" % "1.0.7"
   val bloopConfig = "ch.epfl.scala" %% "bloop-config" % bloopConfigVersion
 
-  val configDirectories = "dev.dirs" % "directories" % configDirsVersion
   val libraryManagement = "org.scala-sbt" %% "librarymanagement-ivy" % lmVersion
   val log4j = "org.apache.logging.log4j" % "log4j-core" % "2.23.0"
   val scalazCore = "org.scalaz" %% "scalaz-core" % scalazVersion
   val coursierInterface = "io.get-coursier" % "interface" % "1.0.28"
+  val configDirectories = "io.get-coursier.util" % "directories-jni" % "0.1.2"
   val coursierInterfaceSubs = "io.get-coursier" % "interface-svm-subs" % "1.0.19"
   val svm = "org.graalvm.nativeimage" % "svm" % "24.1.2"
   val coursier = "io.get-coursier" %% "coursier" % coursierVersion

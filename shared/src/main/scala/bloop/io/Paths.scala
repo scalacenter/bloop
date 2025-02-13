@@ -20,16 +20,16 @@ import java.util
 import scala.collection.mutable
 import scala.util.Properties
 
+import dev.dirs.ProjectDirectories
+import dev.dirs.jni.WindowsJni
+
 object Paths {
   private def createDirFor(filepath: String): AbsolutePath =
     AbsolutePath(Files.createDirectories(NioPaths.get(filepath)))
 
-  private lazy val bloopCacheDir: AbsolutePath = createDirFor(
-    bloop.io.internal.ProjDirHelper.cacheDir()
-  )
-  private lazy val bloopDataDir: AbsolutePath = createDirFor(
-    bloop.io.internal.ProjDirHelper.dataDir()
-  )
+  val projDirs = ProjectDirectories.from(null, null, "bloop", WindowsJni.getJdkAwareSupplier())
+  private lazy val bloopCacheDir: AbsolutePath = createDirFor(projDirs.cacheDir)
+  private lazy val bloopDataDir: AbsolutePath = createDirFor(projDirs.dataDir)
 
   lazy val daemonDir: AbsolutePath = {
     def defaultDir = {
