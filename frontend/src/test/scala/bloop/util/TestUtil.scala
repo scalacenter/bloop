@@ -17,6 +17,7 @@ import scala.tools.nsc.Properties
 import scala.util.control.NonFatal
 
 import bloop.CompilerCache
+import bloop.DependencyResolution
 import bloop.ScalaInstance
 import bloop.bsp.BloopRpcServices
 import bloop.cli.Commands
@@ -37,6 +38,7 @@ import bloop.engine.Run
 import bloop.engine.State
 import bloop.engine.caches.ResultsCache
 import bloop.engine.caches.SourceGeneratorCache
+import bloop.internal.build.BuildTestInfo
 import bloop.io.AbsolutePath
 import bloop.io.Environment.LineSplitter
 import bloop.io.Environment.lineSeparator
@@ -54,7 +56,6 @@ import _root_.monix.execution.Scheduler
 import org.junit.Assert
 import sbt.internal.inc.BloopComponentCompiler
 import xsbti.ComponentProvider
-import bloop.internal.build.BuildTestInfo
 
 object TestUtil {
   def projectDir(base: Path, name: String): Path = base.resolve(name)
@@ -654,4 +655,10 @@ object TestUtil {
     if (hasPython3) List("python3", BuildTestInfo.sampleSourceGenerator.getAbsolutePath)
     else if (hasPython2) List("python", BuildTestInfo.sampleSourceGenerator.getAbsolutePath)
     else Nil
+
+  def getTestNGDep(logger: Logger) = {
+    val testNG =
+      DependencyResolution.Artifact("org.testng", "testng", "7.9.0")
+    DependencyResolution.resolve(List(testNG), logger)
+  }
 }
