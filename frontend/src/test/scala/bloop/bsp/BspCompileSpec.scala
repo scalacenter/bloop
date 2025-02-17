@@ -966,6 +966,47 @@ class BspCompileSpec(
     }
   }
 
+  test("reconnect and redownload dependencies") {
+    TestUtil.withinWorkspace { workspace =>
+      object Sources {
+        val `App.scala` =
+          """/main/scala/App.scala
+            |object App {
+            |  def main(args: Array[String]): Unit = {}
+            |}
+          """.stripMargin
+      }
+
+      val cliLogger = new RecordingLogger(ansiCodesSupported = false)
+      val bspLogger = new RecordingLogger(ansiCodesSupported = false)
+      val `A` = TestProject(workspace, "a", List(Sources.`App.scala`))
+      val projects = List(`A`)
+      val cliState = loadState(workspace, projects, cliLogger)
+
+      val cliCompiledState = cliState.compile(`A`)
+      assertExitStatus(cliCompiledState, ExitStatus.Ok)
+      assertValidCompilationState(cliCompiledState, projects)
+      assertNoDiff(
+        cliLogger.compilingInfos.mkString(lineSeparator),
+        "Compiling a (1 Scala source)"
+      )
+
+      cliCompiledState.build.loadedProjects.foreach { project =>
+        println(s"Deleting ${project.project.scalaInstance}")
+        project.project.resolution.toIterable.flatMap(_.modules).flatMap(_.artifacts).foreach {
+          artifact =>
+            println(s"Deleting ${artifact.path}")
+            artifact.path.toFile().delete()
+        }
+      }
+
+      loadBspState(workspace, projects, bspLogger) { state =>
+        val compiledState = state.compile(`A`)
+        assertExitStatus(compiledState, ExitStatus.Ok)
+      }
+    }
+  }
+
   test("compile incrementally and clear old errors fixed in previous CLI compilations") {
     TestUtil.withinWorkspace { workspace =>
       object Sources {
