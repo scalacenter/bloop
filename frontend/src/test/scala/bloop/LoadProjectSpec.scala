@@ -69,7 +69,6 @@ class LoadProjectSpec extends BloopHelpers {
     val project = Project.fromConfig(testNGProjectConfig(logger), origin, logger)
 
     val platform = project.platform.asInstanceOf[Platform.Jvm]
-    pprint.log(platform.classpath)
     val forker = JvmProcessForker(platform.config, platform.classpath.toArray, RunMode.Normal)
     val testLoader = forker.newClassLoader(Some(TestInternals.filteredLoader))
     val frameworks =
@@ -83,16 +82,13 @@ class LoadProjectSpec extends BloopHelpers {
       dummyForTest.project.platform.get.asInstanceOf[bloop.config.Config.Platform.Jvm]
     dummyForTest.copy(project =
       dummyForTest.project.copy(
-        platform =
-          Some(jvmPlatform.copy(classpath = jvmPlatform.classpath.map(_ ++ getTestNGDep(logger)))),
+        platform = Some(
+          jvmPlatform.copy(classpath =
+            jvmPlatform.classpath.map(_ ++ TestUtil.getTestNGDep(logger).map(_.underlying))
+          )
+        ),
         test = Some(Config.Test(List(Config.TestFramework.TestNG), Config.TestOptions(Nil, Nil)))
       )
     )
-  }
-
-  private def getTestNGDep(logger: Logger) = {
-    val testNG =
-      DependencyResolution.Artifact("org.testng", "testng", "7.9.0")
-    DependencyResolution.resolve(List(testNG), logger).map(_.underlying)
   }
 }
