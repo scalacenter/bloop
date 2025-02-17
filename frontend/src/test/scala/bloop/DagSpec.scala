@@ -154,7 +154,7 @@ class DagSpec {
           |  "f" [label="f"];
           |  "c" [label="c"];
           |  "a" [label="a"];
-          |  
+          |
           |  "f" -> "d";
           |  "d" -> "c";
           |  "b" -> "a";

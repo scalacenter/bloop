@@ -37,7 +37,7 @@ class ForkerSpec {
          |      print("first\\n")
          |      print("second\\r\\n")
          |      print("third\\r\\n")
-         |    } else { 
+         |    } else {
          |      println(s"Arguments: $${args.mkString(", ")}")
          |      val cwd = new java.io.File(sys.props("user.dir")).getCanonicalPath
          |      println(s"CWD: $$cwd")
