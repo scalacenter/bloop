@@ -323,6 +323,31 @@ class BspProtocolSpec(
     }
   }
 
+  test("find test classes") {
+    TestUtil.withinWorkspace { workspace =>
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      loadBspBuildFromResources("simple-build", workspace, logger) { build =>
+        val project = build.projectFor("a")
+        val compiledState = build.state.compile(project, timeout = 120)
+
+        compiledState.state.build.loadedProjects.foreach { project =>
+          assert(compiledState.status == ExitStatus.Ok)
+          project.project.resolution.toIterable.flatMap(_.modules).flatMap(_.artifacts).foreach {
+            artifact =>
+              if (artifact.path.toString.contains("sourcecode")) {
+                artifact.path.toFile().delete()
+              }
+          }
+        }
+      }
+      loadBspBuildFromResources("simple-build", workspace, logger) { build =>
+        val project = build.projectFor("a")
+        val compiledState = build.state.compile(project, timeout = 120)
+        assert(compiledState.status == ExitStatus.Ok)
+      }
+    }
+  }
+
   test("build targets request works on complicated build") {
     TestUtil.withinWorkspace { workspace =>
       val logger = new RecordingLogger(ansiCodesSupported = false)

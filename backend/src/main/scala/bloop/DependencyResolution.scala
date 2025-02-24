@@ -16,7 +16,12 @@ object DependencyResolution {
    * @param module       The module's name.
    * @param version      The module's version.
    */
-  case class Artifact(organization: String, module: String, version: String)
+  case class Artifact(
+      organization: String,
+      module: String,
+      version: String,
+      classifier: Option[String] = None
+  )
 
   /**
    * Resolve the specified modules and get all the files. By default, the local Ivy
@@ -59,8 +64,13 @@ object DependencyResolution {
       import artifact._
       logger.debug(s"Resolving $organization:$module:$version")(DebugFilter.All)
       val baseDep = coursierapi.Dependency.of(organization, module, version)
-      if (resolveSources) baseDep.withClassifier("sources")
-      else baseDep
+      classifier match {
+        case Some(c) => baseDep.withClassifier(c)
+        case None =>
+          if (resolveSources) baseDep.withClassifier("sources")
+          else baseDep
+      }
+
     }
     resolveDependenciesWithErrors(dependencies, resolveSources, additionalRepositories)
   }
