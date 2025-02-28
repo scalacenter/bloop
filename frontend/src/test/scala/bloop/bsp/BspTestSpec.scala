@@ -1,5 +1,10 @@
 package bloop.bsp
 
+import ch.epfl.scala.bsp.ScalaTestClassesItem
+import ch.epfl.scala.bsp.ScalaTestParams
+import ch.epfl.scala.bsp.ScalaTestSuiteSelection
+import ch.epfl.scala.bsp.ScalaTestSuites
+
 import bloop.cli.BspProtocol
 import bloop.cli.ExitStatus
 import bloop.internal.build.BuildTestInfo
@@ -7,13 +12,11 @@ import bloop.io.AbsolutePath
 import bloop.logging.RecordingLogger
 import bloop.util.TestProject
 import bloop.util.TestUtil
+
 import com.github.plokhotnyuk.jsoniter_scala.core.writeToArray
-import jsonrpc4s.RawJson
-import ch.epfl.scala.bsp.ScalaTestParams
-import ch.epfl.scala.bsp.ScalaTestClassesItem
 import com.github.plokhotnyuk.jsoniter_scala.macros.JsonCodecMaker
-import ch.epfl.scala.bsp.ScalaTestSuites
-import ch.epfl.scala.bsp.ScalaTestSuiteSelection
+import jsonrpc4s.RawJson
+import scalaz.std.java.time
 
 object TcpBspTestSpec extends BspTestSpec(BspProtocol.Tcp)
 object LocalBspTestSpec extends BspTestSpec(BspProtocol.Local)
@@ -338,6 +341,56 @@ class BspTestSpec(override val protocol: BspProtocol) extends BspBaseSuite {
       loadBspState(workspace, List(A), logger) { state =>
         val testResult: ManagedBspTestState = state.test(A)
         assertExitStatus(testResult, ExitStatus.TestExecutionError)
+      }
+    }
+  }
+
+  test("Test TestNG running a test suite") {
+    TestUtil.withinWorkspace { workspace =>
+      val sources = List(
+        """/FooTest.scala
+          |import org.testng.annotations.Test
+          |import org.testng.Assert.assertEquals
+          |class FooTest {
+          |  @Test
+          |  def aaa() = assertEquals(1, 2)
+          |}
+          """.stripMargin,
+        """/BarTest.scala
+          |import org.testng.annotations.Test
+          |import org.testng.Assert.assertEquals
+          |class BarTest {
+          |  @Test
+          |  def aaa() = assertEquals(1, 1)
+          |}
+          """.stripMargin
+      )
+
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+
+      val A = TestProject(
+        workspace,
+        "a",
+        sources,
+        enableTests = true,
+        jars = TestUtil.getTestNGDep(logger)
+      )
+      loadBspState(workspace, List(A), logger) { state =>
+        val cls =
+          state.testClasses(A)
+
+        val classes =
+          Some(
+            List(
+              ScalaTestClassesItem(cls.items.head.target, cls.items.head.framework, List("BarTest"))
+            )
+          )
+
+        val data = RawJson(writeToArray(ScalaTestParams(classes, None)))
+
+        val testResult: ManagedBspTestState =
+          state.test(A, dataKind = Some("scala-test"), data = Some(data), timeout = 10)
+        assertExitStatus(testResult, ExitStatus.Ok)
       }
     }
   }
