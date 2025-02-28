@@ -16,6 +16,7 @@ import bloop.util.TestUtil
 import com.github.plokhotnyuk.jsoniter_scala.core.writeToArray
 import com.github.plokhotnyuk.jsoniter_scala.macros.JsonCodecMaker
 import jsonrpc4s.RawJson
+import scalaz.std.java.time
 
 object TcpBspTestSpec extends BspTestSpec(BspProtocol.Tcp)
 object LocalBspTestSpec extends BspTestSpec(BspProtocol.Local)
@@ -388,7 +389,7 @@ class BspTestSpec(override val protocol: BspProtocol) extends BspBaseSuite {
         val data = RawJson(writeToArray(ScalaTestParams(classes, None)))
 
         val testResult: ManagedBspTestState =
-          state.test(A, dataKind = Some("scala-test"), data = Some(data))
+          state.test(A, dataKind = Some("scala-test"), data = Some(data), timeout = 10)
         assertExitStatus(testResult, ExitStatus.Ok)
       }
     }
