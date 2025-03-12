@@ -476,6 +476,42 @@ class RunSpec extends BloopHelpers {
   }
 
   @Test
+  def runWithDuplicateSingleFileResources(): Unit = {
+    TestUtil.withinWorkspace { workspace =>
+      object Sources {
+        val `a/A.scala` =
+          """/a/A.scala
+            |object A {
+            |  def main(args: Array[String]): Unit = {
+            |    val res = getClass.getClassLoader.getResourceAsStream("resource.txt")
+            |    val content = scala.io.Source.fromInputStream(res).mkString
+            |    assert("hello" == content)
+            |  }
+            |}""".stripMargin
+      }
+
+      val tmpDir1 = Files.createTempDirectory("runtime-single")
+      val tmpDir2 = Files.createTempDirectory("runtime-single")
+      val resource1 = tmpDir1.resolve("resource.txt")
+      val resource2 = tmpDir2.resolve("resource.txt")
+      Files.write(resource1, "goodbye".getBytes(), StandardOpenOption.CREATE)
+      Files.write(resource2, "hello".getBytes(), StandardOpenOption.CREATE)
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val `A` = TestProject(
+        workspace,
+        "a",
+        List(Sources.`a/A.scala`),
+        additionalResources = List(resource1, resource2)
+      )
+
+      val projects = List(`A`)
+      val state = loadState(workspace, projects, logger)
+      val runState = state.run(`A`)
+      assertEquals(ExitStatus.Ok, runState.status)
+    }
+  }
+
+  @Test
   def runSeesSingleFileResources(): Unit = {
     TestUtil.withinWorkspace { workspace =>
       object Sources {
