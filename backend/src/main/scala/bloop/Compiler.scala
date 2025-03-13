@@ -542,13 +542,8 @@ object Compiler {
           // .betasty files are always produced with -Ybest-effort, even when
           // the compilation is successful.
           // We might want to change this in the compiler itself...
-          def deleteBestEffortDir() =
-            if (isBestEffortMode)
-              Task(
-                BloopPaths
-                  .delete(compileOut.internalNewClassesDir.resolve("META-INF/best-effort"))
-              )
-            else Task {}
+          if (isBestEffortMode)
+            BloopPaths.delete(compileOut.internalNewClassesDir.resolve("META-INF/best-effort"))
 
           val isNoOp = previousAnalysis.contains(analysis)
           if (isNoOp) {
@@ -582,8 +577,7 @@ object Compiler {
                   Task
                     .gatherUnordered(
                       List(
-                        deleteClientExternalBestEffortDirTask(clientClassesDir),
-                        deleteBestEffortDir()
+                        deleteClientExternalBestEffortDirTask(clientClassesDir)
                       )
                     )
                     .flatMap { _ =>
@@ -679,7 +673,6 @@ object Compiler {
                   Task
                     .gatherUnordered(
                       List(
-                        deleteBestEffortDir(),
                         deleteClientExternalBestEffortDirTask(clientClassesDir)
                       )
                     )
