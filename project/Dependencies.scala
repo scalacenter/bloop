@@ -12,18 +12,18 @@ object Dependencies {
   val SbtVersion = "1.5.8"
 
   // Keep in sync in BloopComponentCompiler
-  val zincVersion = "1.10.7"
+  val zincVersion = "1.10.8"
 
   val bspVersion = "2.1.1"
 
   val scalazVersion = "7.3.8"
-  val lmVersion = "1.10.3"
+  val lmVersion = "1.10.4"
   val configDirsVersion = "26"
   val caseAppVersion = "2.0.6"
   val coursierVersion = "2.1.24"
   val sourcecodeVersion = "0.4.2"
   val sbtTestInterfaceVersion = "1.0"
-  val sbtTestAgentVersion = "1.10.7"
+  val sbtTestAgentVersion = "1.10.10"
   val junitVersion = "0.13.3"
   val directoryWatcherVersion = "0.8.0+6-f651bd93"
   val monixVersion = "3.2.0"

@@ -24,6 +24,7 @@ import monix.execution.cancelables.CompositeCancelable
 import monix.reactive.Consumer
 import monix.reactive.MulticastStrategy
 import monix.reactive.Observable
+import java.nio.file.AccessDeniedException
 
 object ParallelOps {
 
@@ -205,7 +206,7 @@ object ParallelOps {
 
     val copyFileSequentially = Consumer.foreachTask[((Path, BasicFileAttributes), Path)] {
       case ((originFile, originAttrs), targetFile) =>
-        def copy(replaceExisting: Boolean): Unit = try {
+        def copy(replaceExisting: Boolean, retry: Int = 3): Unit = try {
           if (replaceExisting) {
             Files.copy(
               originFile,
@@ -222,6 +223,9 @@ object ParallelOps {
           }
           ()
         } catch {
+          case _: AccessDeniedException if retry > 0 =>
+            logger.warn(s"Could not access file, retrying copying $originFile to $targetFile.")
+            copy(replaceExisting, retry - 1)
           case NonFatal(t) =>
             logger.error(
               s"Unexpected error when copying $originFile to $targetFile, you might need to restart the build server.",
