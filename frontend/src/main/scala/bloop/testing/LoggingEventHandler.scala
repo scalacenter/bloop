@@ -102,8 +102,8 @@ class LoggingEventHandler(logger: Logger) extends BloopTestSuiteEventHandler {
       .toMap
 
   override def report(): Unit = {
-    val separator = "=" * getTerminalWidth
-    logger.info(separator)
+    val delimiter = "=" * getTerminalWidth
+    logger.info(delimiter)
     logger.info(s"Total duration: ${TimeFormat.readableMillis(suitesDuration)}")
 
     if (suitesTotal == 0) {
@@ -133,7 +133,7 @@ class LoggingEventHandler(logger: Logger) extends BloopTestSuiteEventHandler {
       }
     }
 
-    logger.info(separator)
+    logger.info(delimiter)
   }
 
   def getTerminalWidth: Int = {

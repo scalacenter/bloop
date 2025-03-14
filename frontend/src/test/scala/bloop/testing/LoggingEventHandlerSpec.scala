@@ -16,7 +16,7 @@ object LoggingEventHandlerSpec extends BaseSuite {
     val logger = new RecordingLogger()
     val handler = new LoggingEventHandler(logger)
     val terminalWidth = handler.getTerminalWidth
-    val separator = "=" * terminalWidth
+    val delimiter = "=" * terminalWidth
 
     handler.handle(
       TestSuiteEvent.Results("suite1", List(successfulEvent("suite1", "successful test")))
@@ -36,10 +36,10 @@ object LoggingEventHandlerSpec extends BaseSuite {
          |1 tests, 1 passed
          |All tests in suite2 passed
          |
-         |$separator
+         |$delimiter
          |Total duration: ???
          |All 2 test suites passed.
-         |$separator
+         |$delimiter
          |""".stripMargin
     )
   }
@@ -48,7 +48,7 @@ object LoggingEventHandlerSpec extends BaseSuite {
     val logger = new RecordingLogger()
     val handler = new LoggingEventHandler(logger)
     val terminalWidth = handler.getTerminalWidth
-    val separator = "=" * terminalWidth
+    val delimiter = "=" * terminalWidth
     
     handler.handle(
       TestSuiteEvent
@@ -75,7 +75,7 @@ object LoggingEventHandlerSpec extends BaseSuite {
          |Execution took ???
          |1 tests, 1 failed
          |
-         |$separator
+         |$delimiter
          |Total duration: ???
          |2 failed
          |
@@ -85,7 +85,7 @@ object LoggingEventHandlerSpec extends BaseSuite {
          | * failed.test2 - failure message2
          |- suite2:
          | * failed.test3 - failure message1
-         |$separator
+         |$delimiter
          |""".stripMargin
     )
   }
