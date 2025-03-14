@@ -15,6 +15,8 @@ object LoggingEventHandlerSpec extends BaseSuite {
   test("logs and displays short summary of successful run") {
     val logger = new RecordingLogger()
     val handler = new LoggingEventHandler(logger)
+    val terminalWidth = handler.getTerminalWidth
+    val separator = "=" * terminalWidth
 
     handler.handle(
       TestSuiteEvent.Results("suite1", List(successfulEvent("suite1", "successful test")))
@@ -26,7 +28,7 @@ object LoggingEventHandlerSpec extends BaseSuite {
     handler.report()
     assertNoDiff(
       logger.renderTimeInsensitiveInfos,
-      """|Execution took ???
+      s"""|Execution took ???
          |1 tests, 1 passed
          |All tests in suite1 passed
          |
@@ -34,10 +36,10 @@ object LoggingEventHandlerSpec extends BaseSuite {
          |1 tests, 1 passed
          |All tests in suite2 passed
          |
-         |===============================================
+         |$separator
          |Total duration: ???
          |All 2 test suites passed.
-         |===============================================
+         |$separator
          |""".stripMargin
     )
   }
@@ -45,7 +47,9 @@ object LoggingEventHandlerSpec extends BaseSuite {
   test("logs and displays short summary of run with failed test") {
     val logger = new RecordingLogger()
     val handler = new LoggingEventHandler(logger)
-
+    val terminalWidth = handler.getTerminalWidth
+    val separator = "=" * terminalWidth
+    
     handler.handle(
       TestSuiteEvent
         .Results("suite1", List(failedEvent("suite1", "failed.test1", "failure message1")))
@@ -62,7 +66,7 @@ object LoggingEventHandlerSpec extends BaseSuite {
     handler.report()
     assertNoDiff(
       logger.renderTimeInsensitiveInfos,
-      """|Execution took ???
+      s"""|Execution took ???
          |1 tests, 1 failed
          |
          |Execution took ???
@@ -71,7 +75,7 @@ object LoggingEventHandlerSpec extends BaseSuite {
          |Execution took ???
          |1 tests, 1 failed
          |
-         |===============================================
+         |$separator
          |Total duration: ???
          |2 failed
          |
@@ -81,7 +85,7 @@ object LoggingEventHandlerSpec extends BaseSuite {
          | * failed.test2 - failure message2
          |- suite2:
          | * failed.test3 - failure message1
-         |===============================================
+         |$separator
          |""".stripMargin
     )
   }

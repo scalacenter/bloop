@@ -1,6 +1,7 @@
 package bloop.testing
 
 import scala.collection.mutable
+import scala.sys.process._
 
 import ch.epfl.scala.debugadapter.DebuggeeListener
 import ch.epfl.scala.debugadapter.testing.TestSuiteEvent
@@ -101,8 +102,8 @@ class LoggingEventHandler(logger: Logger) extends BloopTestSuiteEventHandler {
       .toMap
 
   override def report(): Unit = {
-    // TODO: Shall we think of a better way to format this delimiter based on screen length?
-    logger.info("===============================================")
+    val separator = "=" * getTerminalWidth
+    logger.info(separator)
     logger.info(s"Total duration: ${TimeFormat.readableMillis(suitesDuration)}")
 
     if (suitesTotal == 0) {
@@ -132,7 +133,15 @@ class LoggingEventHandler(logger: Logger) extends BloopTestSuiteEventHandler {
       }
     }
 
-    logger.info("===============================================")
+    logger.info(separator)
+  }
+
+  def getTerminalWidth: Int = {
+    try {
+      Seq("tput", "cols").!!.trim.toInt
+    } catch {
+      case _: Throwable => 80
+    }
   }
 }
 
