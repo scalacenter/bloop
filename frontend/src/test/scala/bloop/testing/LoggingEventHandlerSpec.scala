@@ -29,18 +29,18 @@ object LoggingEventHandlerSpec extends BaseSuite {
     assertNoDiff(
       logger.renderTimeInsensitiveInfos,
       s"""|Execution took ???
-         |1 tests, 1 passed
-         |All tests in suite1 passed
-         |
-         |Execution took ???
-         |1 tests, 1 passed
-         |All tests in suite2 passed
-         |
-         |$delimiter
-         |Total duration: ???
-         |All 2 test suites passed.
-         |$delimiter
-         |""".stripMargin
+          |1 tests, 1 passed
+          |All tests in suite1 passed
+          |
+          |Execution took ???
+          |1 tests, 1 passed
+          |All tests in suite2 passed
+          |
+          |$delimiter
+          |Total duration: ???
+          |All 2 test suites passed.
+          |$delimiter
+          |""".stripMargin
     )
   }
 
@@ -49,7 +49,7 @@ object LoggingEventHandlerSpec extends BaseSuite {
     val handler = new LoggingEventHandler(logger)
     val terminalWidth = handler.getTerminalWidth
     val delimiter = "=" * terminalWidth
-    
+
     handler.handle(
       TestSuiteEvent
         .Results("suite1", List(failedEvent("suite1", "failed.test1", "failure message1")))
@@ -67,26 +67,26 @@ object LoggingEventHandlerSpec extends BaseSuite {
     assertNoDiff(
       logger.renderTimeInsensitiveInfos,
       s"""|Execution took ???
-         |1 tests, 1 failed
-         |
-         |Execution took ???
-         |1 tests, 1 failed
-         |
-         |Execution took ???
-         |1 tests, 1 failed
-         |
-         |$delimiter
-         |Total duration: ???
-         |2 failed
-         |
-         |Failed:
-         |- suite1:
-         | * failed.test1 - failure message1
-         | * failed.test2 - failure message2
-         |- suite2:
-         | * failed.test3 - failure message1
-         |$delimiter
-         |""".stripMargin
+          |1 tests, 1 failed
+          |
+          |Execution took ???
+          |1 tests, 1 failed
+          |
+          |Execution took ???
+          |1 tests, 1 failed
+          |
+          |$delimiter
+          |Total duration: ???
+          |2 failed
+          |
+          |Failed:
+          |- suite1:
+          | * failed.test1 - failure message1
+          | * failed.test2 - failure message2
+          |- suite2:
+          | * failed.test3 - failure message1
+          |$delimiter
+          |""".stripMargin
     )
   }
   private def successfulEvent(suite: String, testName: String): Event = new Event {
