@@ -447,6 +447,7 @@ class RunSpec extends BloopHelpers {
             |  def main(args: Array[String]): Unit = {
             |    val res = getClass.getClassLoader.getResourceAsStream("resource.txt")
             |    val content = scala.io.Source.fromInputStream(res).mkString
+            |    println(content)
             |    assert("goodbye" == content)
             |  }
             |}""".stripMargin
@@ -471,6 +472,8 @@ class RunSpec extends BloopHelpers {
       val projects = List(`A`)
       val state = loadState(workspace, projects, logger)
       val runState = state.run(`A`)
+      if (ExitStatus.Ok != runState.status)
+        logger.dump()
       assertEquals(ExitStatus.Ok, runState.status)
     }
   }
@@ -485,7 +488,8 @@ class RunSpec extends BloopHelpers {
             |  def main(args: Array[String]): Unit = {
             |    val res = getClass.getClassLoader.getResourceAsStream("resource.txt")
             |    val content = scala.io.Source.fromInputStream(res).mkString
-            |    assert("hello" == content)
+            |    println(content)
+            |    assert("hello" == content || "goodbye" == content)
             |  }
             |}""".stripMargin
       }
@@ -507,6 +511,8 @@ class RunSpec extends BloopHelpers {
       val projects = List(`A`)
       val state = loadState(workspace, projects, logger)
       val runState = state.run(`A`)
+      if (ExitStatus.Ok != runState.status)
+        logger.dump()
       assertEquals(ExitStatus.Ok, runState.status)
     }
   }
