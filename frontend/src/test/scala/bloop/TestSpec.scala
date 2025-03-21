@@ -50,10 +50,10 @@ object SeedTestSpec extends BaseTestSpec("root-test", "scala-seed-project") {
        |1 tests, 1 passed
        |All tests in example.HelloSpec passed
        |
-       |$delimiter
+       |s"$delimiter"
        |Total duration: ???
        |All 1 test suites passed.
-       |$delimiter
+       |s"$delimiter"
        |""".stripMargin
 }
 
@@ -96,10 +96,10 @@ object JsTestSpec extends BaseTestSpec("test-projectJS-test", "cross-test-build-
        |1 tests, 1 passed
        |All tests in hello.UTestTest passed
        |
-       |$delimiter
+       |s"$delimiter"
        |Total duration: ???
        |All 5 test suites passed.
-       |$delimiter
+       |s"$delimiter"
        |""".stripMargin
 
   }
@@ -156,10 +156,10 @@ object JvmTestSpec extends BaseTestSpec("test-project-test", "cross-test-build-s
        |1 tests, 1 passed
        |All tests in hello.UTestTest passed
        |
-       |$delimiter
+       |s"$delimiter"
        |Total duration: ???
        |6 passed
-       |$delimiter""".stripMargin
+       |s"$delimiter"""".stripMargin
   }
 
   testProject("test options work when one framework is singled out", runOnlyOnJava8 = true) {
@@ -175,10 +175,10 @@ object JvmTestSpec extends BaseTestSpec("test-project-test", "cross-test-build-s
           |1 tests, 1 passed
           |All tests in hello.JUnitTest passed
           |
-          |$delimiter
+          |s"$delimiter"
           |Total duration: ???
           |All 1 test suites passed.
-          |$delimiter""".stripMargin
+          |s"$delimiter"""".stripMargin
       )
   }
 
@@ -229,10 +229,10 @@ object JvmTestSpec extends BaseTestSpec("test-project-test", "cross-test-build-s
          |1 tests, 1 passed
          |All tests in hello.UTestTest passed
          |
-         |$delimiter
+         |s"$delimiter"
          |Total duration: ???
          |5 passed
-         |$delimiter""".stripMargin
+         |s"$delimiter"""".stripMargin
     )
   }
 
@@ -249,10 +249,10 @@ object JvmTestSpec extends BaseTestSpec("test-project-test", "cross-test-build-s
         |1 tests, 1 passed
         |All tests in hello.ScalaTestTest passed
         |
-        |$delimiter
+        |s"$delimiter"
         |Total duration: ???
         |All 1 test suites passed.
-        |$delimiter""".stripMargin
+        |s"$delimiter"""".stripMargin
     )
   }
 
@@ -317,10 +317,10 @@ object JvmTestSpec extends BaseTestSpec("test-project-test", "cross-test-build-s
            |1 tests, 1 passed
            |All tests in hello.UTestTest passed
            |
-           |$delimiter
+           |s"$delimiter"
            |Total duration: ???
            |6 passed
-           |$delimiter""".stripMargin
+           |s"$delimiter"""".stripMargin
       )
   }
 
@@ -483,9 +483,9 @@ object MultiFingerprintMatch extends BaseTestSpec("test-test", "custom-test-fram
        |Execution took ???
        |No test suite was run
        |
-       |$delimiter
+       |s"$delimiter"
        |Total duration: ???
        |
-       |$delimiter
+       |s"$delimiter"
        |""".stripMargin
 }
