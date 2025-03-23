@@ -43,6 +43,7 @@ object Dependencies {
   val asmVersion = "9.7.1"
   val ztExecVersion = "1.12"
   val debugAdapterVersion = "4.2.4"
+  // TODO: update after PR to bloop-config is merged
   val bloopConfigVersion = "2.3.2"
   val semanticdbVersion = "4.9.9"
   val millVersion = "0.12.7"
