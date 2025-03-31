@@ -4,6 +4,7 @@ import java.nio.file.FileSystems
 
 import scala.collection.mutable
 import scala.util.control.NoStackTrace
+import scala.util.matching.Regex
 
 import bloop.cli.CommonOptions
 import bloop.config.Config
@@ -21,7 +22,8 @@ final case class SourceGenerator(
     sourcesGlobs: List[SourcesGlobs],
     outputDirectory: AbsolutePath,
     unmangedInputs: List[AbsolutePath],
-    command: List[String]
+    command: List[String],
+    commandTemplate: Option[List[String]]
 ) {
 
   /**
@@ -66,7 +68,14 @@ final case class SourceGenerator(
       logger: Logger,
       opts: CommonOptions
   ): Task[SourceGenerator.Run] = {
-    val cmd = (command :+ outputDirectory.syntax) ++ inputs.keys.map(_.syntax)
+    val cmd =
+      buildCommand(
+        outputDirectory.syntax,
+        inputs.keys.map(_.syntax).toSeq,
+        unmangedInputs.keys.map(_.syntax).toSeq,
+        logger
+      )
+
     logger.debug { () =>
       cmd.mkString(s"Running source generator:${System.lineSeparator()}$$ ", " ", "")
     }
@@ -78,6 +87,28 @@ final case class SourceGenerator(
         Task.raiseError(new SourceGenerator.SourceGeneratorException(exitCode))
     }
   }
+
+  private def buildCommand(
+      outputDirectory: String,
+      inputs: Seq[String],
+      unmangedInputs: Seq[String],
+      logger: Logger
+  ): Seq[String] =
+    commandTemplate match {
+      case None =>
+        (command :+ outputDirectory) ++ inputs
+      case Some(cmd) =>
+        val substs = Map[String, Seq[String]](
+          SourceGenerator.Arg.Output -> Seq(outputDirectory),
+          SourceGenerator.Arg.Inputs -> inputs,
+          SourceGenerator.Arg.UnmanagedInputs -> unmangedInputs
+        ).withDefault { name =>
+          logger.warn(s"Couldn't find substitution for `$name`, consider escaping it with a $$.")
+          Seq.empty[String]
+        }
+
+        cmd.flatMap(SourceGenerator.Arg.substitute(substs)(_))
+    }
 
   private def needsUpdate(previous: SourceGenerator.Run): Task[SourceGenerator.Changes] = {
     previous match {
@@ -141,6 +172,33 @@ object SourceGenerator {
       unamanagedInputs: Map[AbsolutePath, Int]
   ) extends Changes
 
+  private object Arg {
+    private val Single: Regex = """((?:\$)+)\{([a-zA-Z]+)\}""".r
+    private val Anywhere: Regex = Single.unanchored
+
+    // TODO: make these configurable in some way?
+    val Inputs = "inputs"
+    val Output = "output"
+    val UnmanagedInputs = "unmanaged"
+
+    def substitute(substs: Map[String, Seq[String]])(s: String): Seq[String] =
+      s match {
+        case Single("$", name) => substs(name)
+        case _ =>
+          Seq(Anywhere.replaceAllIn(s, m => Regex.quoteReplacement(replace(m, substs))))
+      }
+
+    private def replace(mtch: Regex.Match, substs: Map[String, Seq[String]]): String = {
+      val dollars = mtch.group(1).size
+      val name = mtch.group(2)
+      val value =
+        if (dollars % 2 == 0) s"{$name}"
+        else substs(name).mkString(" ")
+
+      s"${"$" * (dollars / 2)}$value"
+    }
+  }
+
   def fromConfig(cwd: AbsolutePath, generator: Config.SourceGenerator): SourceGenerator = {
     val sourcesGlobs = generator.sourcesGlobs.map {
       case Config.SourcesGlobs(directory, depth, includes, excludes) =>
@@ -159,7 +217,9 @@ object SourceGenerator {
       sourcesGlobs,
       AbsolutePath(generator.outputDirectory),
       generator.unmanagedInputs.map(AbsolutePath.apply),
-      generator.command
+      generator.command,
+      // TODO: change to `generator.commandTemplate` after PR to bloop-config is merged
+      None
     )
   }
 
