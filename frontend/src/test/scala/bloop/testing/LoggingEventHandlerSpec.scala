@@ -15,6 +15,8 @@ object LoggingEventHandlerSpec extends BaseSuite {
   test("logs and displays short summary of successful run") {
     val logger = new RecordingLogger()
     val handler = new LoggingEventHandler(logger)
+    val terminalWidth = LoggingEventHandler.getTerminalWidth
+    val delimiter = "=" * terminalWidth
 
     handler.handle(
       TestSuiteEvent.Results("suite1", List(successfulEvent("suite1", "successful test")))
@@ -26,25 +28,27 @@ object LoggingEventHandlerSpec extends BaseSuite {
     handler.report()
     assertNoDiff(
       logger.renderTimeInsensitiveInfos,
-      """|Execution took ???
-         |1 tests, 1 passed
-         |All tests in suite1 passed
-         |
-         |Execution took ???
-         |1 tests, 1 passed
-         |All tests in suite2 passed
-         |
-         |===============================================
-         |Total duration: ???
-         |All 2 test suites passed.
-         |===============================================
-         |""".stripMargin
+      s"""|Execution took ???
+          |1 tests, 1 passed
+          |All tests in suite1 passed
+          |
+          |Execution took ???
+          |1 tests, 1 passed
+          |All tests in suite2 passed
+          |
+          |$delimiter
+          |Total duration: ???
+          |All 2 test suites passed.
+          |$delimiter
+          |""".stripMargin
     )
   }
 
   test("logs and displays short summary of run with failed test") {
     val logger = new RecordingLogger()
     val handler = new LoggingEventHandler(logger)
+    val terminalWidth = LoggingEventHandler.getTerminalWidth
+    val delimiter = "=" * terminalWidth
 
     handler.handle(
       TestSuiteEvent
@@ -62,27 +66,27 @@ object LoggingEventHandlerSpec extends BaseSuite {
     handler.report()
     assertNoDiff(
       logger.renderTimeInsensitiveInfos,
-      """|Execution took ???
-         |1 tests, 1 failed
-         |
-         |Execution took ???
-         |1 tests, 1 failed
-         |
-         |Execution took ???
-         |1 tests, 1 failed
-         |
-         |===============================================
-         |Total duration: ???
-         |2 failed
-         |
-         |Failed:
-         |- suite1:
-         | * failed.test1 - failure message1
-         | * failed.test2 - failure message2
-         |- suite2:
-         | * failed.test3 - failure message1
-         |===============================================
-         |""".stripMargin
+      s"""|Execution took ???
+          |1 tests, 1 failed
+          |
+          |Execution took ???
+          |1 tests, 1 failed
+          |
+          |Execution took ???
+          |1 tests, 1 failed
+          |
+          |$delimiter
+          |Total duration: ???
+          |2 failed
+          |
+          |Failed:
+          |- suite1:
+          | * failed.test1 - failure message1
+          | * failed.test2 - failure message2
+          |- suite2:
+          | * failed.test3 - failure message1
+          |$delimiter
+          |""".stripMargin
     )
   }
   private def successfulEvent(suite: String, testName: String): Event = new Event {
