@@ -43,23 +43,23 @@ abstract class BaseTestSpec(val projectName: String, buildName: String)
 
 object SeedTestSpec extends BaseTestSpec("root-test", "scala-seed-project") {
   val expectedFullTestsOutput: String =
-    """|HelloSpec:
+    s"""|HelloSpec:
        |The Hello object
        |- should say hello
        |Execution took ???
        |1 tests, 1 passed
        |All tests in example.HelloSpec passed
        |
-       |s"$delimiter"
+       |"$delimiter"
        |Total duration: ???
        |All 1 test suites passed.
-       |s"$delimiter"
+       |"$delimiter"
        |""".stripMargin
 }
 
 object JsTestSpec extends BaseTestSpec("test-projectJS-test", "cross-test-build-scalajs-0.6") {
   val expectedFullTestsOutput: String = {
-    """|Execution took ???
+    s"""|Execution took ???
        |1 tests, 1 passed
        |All tests in hello.JUnitTest passed
        |
@@ -96,10 +96,10 @@ object JsTestSpec extends BaseTestSpec("test-projectJS-test", "cross-test-build-
        |1 tests, 1 passed
        |All tests in hello.UTestTest passed
        |
-       |s"$delimiter"
+       |"$delimiter"
        |Total duration: ???
        |All 5 test suites passed.
-       |s"$delimiter"
+       |"$delimiter"
        |""".stripMargin
 
   }
@@ -107,7 +107,7 @@ object JsTestSpec extends BaseTestSpec("test-projectJS-test", "cross-test-build-
 
 object JvmTestSpec extends BaseTestSpec("test-project-test", "cross-test-build-scalajs-0.6") {
   val expectedFullTestsOutput: String = {
-    """|Test run started
+    s"""|Test run started
        |Test hello.JUnitTest.myTest started
        |Test run finished: 0 failed, 0 ignored, 1 total, ???
        |Execution took ???
@@ -156,10 +156,10 @@ object JvmTestSpec extends BaseTestSpec("test-project-test", "cross-test-build-s
        |1 tests, 1 passed
        |All tests in hello.UTestTest passed
        |
-       |s"$delimiter"
+       |"$delimiter"
        |Total duration: ???
        |6 passed
-       |s"$delimiter"""".stripMargin
+       |"$delimiter"""".stripMargin
   }
 
   testProject("test options work when one framework is singled out", runOnlyOnJava8 = true) {
@@ -175,10 +175,10 @@ object JvmTestSpec extends BaseTestSpec("test-project-test", "cross-test-build-s
           |1 tests, 1 passed
           |All tests in hello.JUnitTest passed
           |
-          |s"$delimiter"
+          |"$delimiter"
           |Total duration: ???
           |All 1 test suites passed.
-          |s"$delimiter"""".stripMargin
+          |"$delimiter"""".stripMargin
       )
   }
 
@@ -187,7 +187,7 @@ object JvmTestSpec extends BaseTestSpec("test-project-test", "cross-test-build-s
     build.state.test(project, List("-hello.JUnitTest"), Nil)
     assertNoDiff(
       logger.renderTimeInsensitiveTestInfos,
-      """|Execution took ???
+      s"""|Execution took ???
          |No test suite was run
          |
          |+ Greeting.is personal: OK, passed 100 tests.
@@ -229,10 +229,10 @@ object JvmTestSpec extends BaseTestSpec("test-project-test", "cross-test-build-s
          |1 tests, 1 passed
          |All tests in hello.UTestTest passed
          |
-         |s"$delimiter"
+         |"$delimiter"
          |Total duration: ???
          |5 passed
-         |s"$delimiter"""".stripMargin
+         |"$delimiter"""".stripMargin
     )
   }
 
@@ -249,10 +249,10 @@ object JvmTestSpec extends BaseTestSpec("test-project-test", "cross-test-build-s
         |1 tests, 1 passed
         |All tests in hello.ScalaTestTest passed
         |
-        |s"$delimiter"
+        |"$delimiter"
         |Total duration: ???
         |All 1 test suites passed.
-        |s"$delimiter"""".stripMargin
+        |"$delimiter"""".stripMargin
     )
   }
 
@@ -268,7 +268,7 @@ object JvmTestSpec extends BaseTestSpec("test-project-test", "cross-test-build-s
 
       assertNoDiff(
         logger.renderTimeInsensitiveTestInfos,
-        """|Test run started
+        s"""|Test run started
            |Test hello.JUnitTest.myTest started
            |Test run finished: 0 failed, 0 ignored, 1 total, ???
            |Execution took ???
@@ -317,10 +317,10 @@ object JvmTestSpec extends BaseTestSpec("test-project-test", "cross-test-build-s
            |1 tests, 1 passed
            |All tests in hello.UTestTest passed
            |
-           |s"$delimiter"
+           |"$delimiter"
            |Total duration: ???
            |6 passed
-           |s"$delimiter"""".stripMargin
+           |"$delimiter"""".stripMargin
       )
   }
 
@@ -479,13 +479,13 @@ object TestCompileErrorExitCode extends bloop.testing.BaseSuite {
 
 object MultiFingerprintMatch extends BaseTestSpec("test-test", "custom-test-framework") {
   val expectedFullTestsOutput: String =
-    """|Running task: foo.MyTest
+    s"""|Running task: foo.MyTest
        |Execution took ???
        |No test suite was run
        |
-       |s"$delimiter"
+       |"$delimiter"
        |Total duration: ???
        |
-       |s"$delimiter"
+       |"$delimiter"
        |""".stripMargin
 }
