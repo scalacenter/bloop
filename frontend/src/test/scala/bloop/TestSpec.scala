@@ -35,9 +35,8 @@ abstract class BaseTestSpec(val projectName: String, buildName: String)
       expectedFullTestsOutput
     )
   }
-  val logger = new RecordingLogger()
-  val handler = new LoggingEventHandler(logger)
-  val terminalWidth = handler.getTerminalWidth
+
+  val terminalWidth = LoggingEventHandler.getTerminalWidth
   val delimiter = "=" * terminalWidth
 }
 

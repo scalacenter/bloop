@@ -102,7 +102,7 @@ class LoggingEventHandler(logger: Logger) extends BloopTestSuiteEventHandler {
       .toMap
 
   override def report(): Unit = {
-    val delimiter = "=" * getTerminalWidth
+    val delimiter = "=" * LoggingEventHandler.getTerminalWidth
     logger.info(delimiter)
     logger.info(s"Total duration: ${TimeFormat.readableMillis(suitesDuration)}")
 
@@ -135,14 +135,6 @@ class LoggingEventHandler(logger: Logger) extends BloopTestSuiteEventHandler {
 
     logger.info(delimiter)
   }
-
-  def getTerminalWidth: Int = {
-    try {
-      Seq("tput", "cols").!!.trim.toInt
-    } catch {
-      case _: Throwable => 80
-    }
-  }
 }
 
 /**
@@ -166,4 +158,14 @@ final class DebugLoggingEventHandler(logger: Logger, listener: DebuggeeListener)
 object NoopEventHandler extends BloopTestSuiteEventHandler {
   override def handle(event: TestSuiteEvent): Unit = ()
   override def report(): Unit = ()
+}
+
+object LoggingEventHandler {
+  val getTerminalWidth: Int = {
+    try {
+      Seq("tput", "cols").!!.trim.toInt
+    } catch {
+      case _: Throwable => 80
+    }
+  }
 }
