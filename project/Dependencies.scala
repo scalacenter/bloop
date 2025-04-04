@@ -23,7 +23,7 @@ object Dependencies {
   val coursierVersion = "2.1.24"
   val sourcecodeVersion = "0.4.2"
   val sbtTestInterfaceVersion = "1.0"
-  val sbtTestAgentVersion = "1.10.10"
+  val sbtTestAgentVersion = "1.10.11"
   val junitVersion = "0.13.3"
   val directoryWatcherVersion = "0.8.0+6-f651bd93"
   val monixVersion = "3.2.0"
@@ -39,8 +39,8 @@ object Dependencies {
   val difflibVersion = "1.3.0"
   val braveVersion = "5.18.1"
   val zipkinSenderVersion = "2.17.2"
-  val jnaVersion = "5.16.0"
-  val asmVersion = "9.7.1"
+  val jnaVersion = "5.17.0"
+  val asmVersion = "9.8"
   val ztExecVersion = "1.12"
   val debugAdapterVersion = "4.2.4"
   val bloopConfigVersion = "2.3.2"
@@ -60,7 +60,7 @@ object Dependencies {
   val coursierInterface = "io.get-coursier" % "interface" % "1.0.28"
   val configDirectories = "io.get-coursier.util" % "directories-jni" % "0.1.2"
   val coursierInterfaceSubs = "io.get-coursier" % "interface-svm-subs" % "1.0.19"
-  val svm = "org.graalvm.nativeimage" % "svm" % "24.1.2"
+  val svm = "org.graalvm.nativeimage" % "svm" % "24.2.0"
   val coursier = "io.get-coursier" %% "coursier" % coursierVersion
   val coursierJvm = "io.get-coursier" %% "coursier-jvm" % coursierVersion
   val dependency = "io.get-coursier" %% "dependency" % "0.3.2"
@@ -74,7 +74,7 @@ object Dependencies {
   val sbtTestAgent = "org.scala-sbt" % "test-agent" % sbtTestAgentVersion
   val snailgun = "io.github.alexarchambault.scala-cli.snailgun" %% "snailgun-core" % "0.4.1-sc2"
   val ztExec = "org.zeroturnaround" % "zt-exec" % ztExecVersion
-  val logback = "ch.qos.logback" % "logback-classic" % "1.5.17"
+  val logback = "ch.qos.logback" % "logback-classic" % "1.5.18"
   val libdaemonjvm = "ch.epfl.scala" %% "libdaemon" % "0.0.12"
   val scopt = "com.github.scopt" % "scopt_2.12" % "4.0.0-RC2"
 
