@@ -15,7 +15,7 @@ object LoggingEventHandlerSpec extends BaseSuite {
   test("logs and displays short summary of successful run") {
     val logger = new RecordingLogger()
     val handler = new LoggingEventHandler(logger)
-    val terminalWidth = handler.getTerminalWidth
+    val terminalWidth = LoggingEventHandler.getTerminalWidth
     val delimiter = "=" * terminalWidth
 
     handler.handle(
@@ -47,7 +47,7 @@ object LoggingEventHandlerSpec extends BaseSuite {
   test("logs and displays short summary of run with failed test") {
     val logger = new RecordingLogger()
     val handler = new LoggingEventHandler(logger)
-    val terminalWidth = handler.getTerminalWidth
+    val terminalWidth = LoggingEventHandler.getTerminalWidth
     val delimiter = "=" * terminalWidth
 
     handler.handle(
