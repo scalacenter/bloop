@@ -43,63 +43,63 @@ abstract class BaseTestSpec(val projectName: String, buildName: String)
 object SeedTestSpec extends BaseTestSpec("root-test", "scala-seed-project") {
   val expectedFullTestsOutput: String =
     s"""|HelloSpec:
-       |The Hello object
-       |- should say hello
-       |Execution took ???
-       |1 tests, 1 passed
-       |All tests in example.HelloSpec passed
-       |
-       |"$delimiter"
-       |Total duration: ???
-       |All 1 test suites passed.
-       |"$delimiter"
-       |""".stripMargin
+        |The Hello object
+        |- should say hello
+        |Execution took ???
+        |1 tests, 1 passed
+        |All tests in example.HelloSpec passed
+        |
+        |$delimiter
+        |Total duration: ???
+        |All 1 test suites passed.
+        |$delimiter
+        |""".stripMargin
 }
 
 object JsTestSpec extends BaseTestSpec("test-projectJS-test", "cross-test-build-scalajs-0.6") {
   val expectedFullTestsOutput: String = {
     s"""|Execution took ???
-       |1 tests, 1 passed
-       |All tests in hello.JUnitTest passed
-       |
-       |+ Greeting.is personal: OK, passed 100 tests.
-       |Summary: Passed: Total 1, Failed 0, Errors 0, Passed 1 Warning: Unknown ScalaCheck args provided: -o
-       |Execution took ???
-       |1 tests, 1 passed
-       |All tests in hello.ScalaCheckTest passed
-       |
-       |ScalaTestTest:
-       |A greeting
-       |- should be very personal
-       |Summary: Run completed in ??? Total number of tests run: 0 Suites: completed 0, aborted 0 Tests: succeeded 0, failed 0, canceled 0, ignored 0, pending 0 No tests were executed.
-       |Execution took ???
-       |1 tests, 1 passed
-       |All tests in hello.ScalaTestTest passed
-       |
-       |Specs2Test
-       |
-       | This is a specification to check the `Hello` object.
-       |
-       | A greeting
-       | + is very personal
-       |
-       |Total for specification Specs2Test
-       |Finished in ??? 1 example, 0 failure, 0 error
-       |
-       |Execution took ???
-       |1 tests, 1 passed
-       |All tests in hello.Specs2Test passed
-       |
-       |Summary: Tests: 1, Passed: 1, Failed: 0
-       |Execution took ???
-       |1 tests, 1 passed
-       |All tests in hello.UTestTest passed
-       |
-       |"$delimiter"
-       |Total duration: ???
-       |All 5 test suites passed.
-       |"$delimiter"
-       |""".stripMargin
+        |1 tests, 1 passed
+        |All tests in hello.JUnitTest passed
+        |
+        |+ Greeting.is personal: OK, passed 100 tests.
+        |Summary: Passed: Total 1, Failed 0, Errors 0, Passed 1 Warning: Unknown ScalaCheck args provided: -o
+        |Execution took ???
+        |1 tests, 1 passed
+        |All tests in hello.ScalaCheckTest passed
+        |
+        |ScalaTestTest:
+        |A greeting
+        |- should be very personal
+        |Summary: Run completed in ??? Total number of tests run: 0 Suites: completed 0, aborted 0 Tests: succeeded 0, failed 0, canceled 0, ignored 0, pending 0 No tests were executed.
+        |Execution took ???
+        |1 tests, 1 passed
+        |All tests in hello.ScalaTestTest passed
+        |
+        |Specs2Test
+        |
+        | This is a specification to check the `Hello` object.
+        |
+        | A greeting
+        | + is very personal
+        |
+        |Total for specification Specs2Test
+        |Finished in ??? 1 example, 0 failure, 0 error
+        |
+        |Execution took ???
+        |1 tests, 1 passed
+        |All tests in hello.Specs2Test passed
+        |
+        |Summary: Tests: 1, Passed: 1, Failed: 0
+        |Execution took ???
+        |1 tests, 1 passed
+        |All tests in hello.UTestTest passed
+        |
+        |$delimiter
+        |Total duration: ???
+        |All 5 test suites passed.
+        |$delimiter
+        |""".stripMargin
 
   }
 }
@@ -107,58 +107,58 @@ object JsTestSpec extends BaseTestSpec("test-projectJS-test", "cross-test-build-
 object JvmTestSpec extends BaseTestSpec("test-project-test", "cross-test-build-scalajs-0.6") {
   val expectedFullTestsOutput: String = {
     s"""|Test run started
-       |Test hello.JUnitTest.myTest started
-       |Test run finished: 0 failed, 0 ignored, 1 total, ???
-       |Execution took ???
-       |1 tests, 1 passed
-       |All tests in hello.JUnitTest passed
-       |
-       |Execution took ???
-       |No test suite was run
-       |
-       |+ Greeting.is personal: OK, passed 100 tests.
-       |Execution took ???
-       |1 tests, 1 passed
-       |All tests in hello.ScalaCheckTest passed
-       |
-       |ResourcesTest:
-       |Resources
-       |- should be found
-       |Execution took ???
-       |1 tests, 1 passed
-       |All tests in hello.ResourcesTest passed
-       |
-       |ScalaTestTest:
-       |A greeting
-       |- should be very personal
-       |Execution took ???
-       |1 tests, 1 passed
-       |All tests in hello.ScalaTestTest passed
-       |
-       |Specs2Test
-       |
-       | This is a specification to check the `Hello` object.
-       |
-       | A greeting
-       | + is very personal
-       |
-       |Total for specification Specs2Test
-       |Finished in ??? 1 example, 0 failure, 0 error
-       |
-       |Execution took ???
-       |1 tests, 1 passed
-       |All tests in hello.Specs2Test passed
-       |
-       |-------------------------------- Running Tests --------------------------------
-       |+ hello.UTestTest.Greetings are very personal ???
-       |Execution took ???
-       |1 tests, 1 passed
-       |All tests in hello.UTestTest passed
-       |
-       |"$delimiter"
-       |Total duration: ???
-       |6 passed
-       |"$delimiter"""".stripMargin
+        |Test hello.JUnitTest.myTest started
+        |Test run finished: 0 failed, 0 ignored, 1 total, ???
+        |Execution took ???
+        |1 tests, 1 passed
+        |All tests in hello.JUnitTest passed
+        |
+        |Execution took ???
+        |No test suite was run
+        |
+        |+ Greeting.is personal: OK, passed 100 tests.
+        |Execution took ???
+        |1 tests, 1 passed
+        |All tests in hello.ScalaCheckTest passed
+        |
+        |ResourcesTest:
+        |Resources
+        |- should be found
+        |Execution took ???
+        |1 tests, 1 passed
+        |All tests in hello.ResourcesTest passed
+        |
+        |ScalaTestTest:
+        |A greeting
+        |- should be very personal
+        |Execution took ???
+        |1 tests, 1 passed
+        |All tests in hello.ScalaTestTest passed
+        |
+        |Specs2Test
+        |
+        | This is a specification to check the `Hello` object.
+        |
+        | A greeting
+        | + is very personal
+        |
+        |Total for specification Specs2Test
+        |Finished in ??? 1 example, 0 failure, 0 error
+        |
+        |Execution took ???
+        |1 tests, 1 passed
+        |All tests in hello.Specs2Test passed
+        |
+        |-------------------------------- Running Tests --------------------------------
+        |+ hello.UTestTest.Greetings are very personal ???
+        |Execution took ???
+        |1 tests, 1 passed
+        |All tests in hello.UTestTest passed
+        |
+        |$delimiter
+        |Total duration: ???
+        |6 passed
+        |$delimiter""".stripMargin
   }
 
   testProject("test options work when one framework is singled out", runOnlyOnJava8 = true) {
@@ -174,10 +174,10 @@ object JvmTestSpec extends BaseTestSpec("test-project-test", "cross-test-build-s
           |1 tests, 1 passed
           |All tests in hello.JUnitTest passed
           |
-          |"$delimiter"
+          |$delimiter
           |Total duration: ???
           |All 1 test suites passed.
-          |"$delimiter"""".stripMargin
+          |$delimiter""".stripMargin
       )
   }
 
@@ -187,51 +187,51 @@ object JvmTestSpec extends BaseTestSpec("test-project-test", "cross-test-build-s
     assertNoDiff(
       logger.renderTimeInsensitiveTestInfos,
       s"""|Execution took ???
-         |No test suite was run
-         |
-         |+ Greeting.is personal: OK, passed 100 tests.
-         |Execution took ???
-         |1 tests, 1 passed
-         |All tests in hello.ScalaCheckTest passed
-         |
-         |ResourcesTest:
-         |Resources
-         |- should be found
-         |Execution took ???
-         |1 tests, 1 passed
-         |All tests in hello.ResourcesTest passed
-         |
-         |ScalaTestTest:
-         |A greeting
-         |- should be very personal
-         |Execution took ???
-         |1 tests, 1 passed
-         |All tests in hello.ScalaTestTest passed
-         |
-         |Specs2Test
-         |
-         | This is a specification to check the `Hello` object.
-         |
-         | A greeting
-         | + is very personal
-         |
-         |Total for specification Specs2Test
-         |Finished in ??? 1 example, 0 failure, 0 error
-         |
-         |Execution took ???
-         |1 tests, 1 passed
-         |All tests in hello.Specs2Test passed
-         |
-         |-------------------------------- Running Tests --------------------------------
-         |+ hello.UTestTest.Greetings are very personal ???
-         |Execution took ???
-         |1 tests, 1 passed
-         |All tests in hello.UTestTest passed
-         |
-         |"$delimiter"
-         |Total duration: ???
-         |5 passed
-         |"$delimiter"""".stripMargin
+          |No test suite was run
+          |
+          |+ Greeting.is personal: OK, passed 100 tests.
+          |Execution took ???
+          |1 tests, 1 passed
+          |All tests in hello.ScalaCheckTest passed
+          |
+          |ResourcesTest:
+          |Resources
+          |- should be found
+          |Execution took ???
+          |1 tests, 1 passed
+          |All tests in hello.ResourcesTest passed
+          |
+          |ScalaTestTest:
+          |A greeting
+          |- should be very personal
+          |Execution took ???
+          |1 tests, 1 passed
+          |All tests in hello.ScalaTestTest passed
+          |
+          |Specs2Test
+          |
+          | This is a specification to check the `Hello` object.
+          |
+          | A greeting
+          | + is very personal
+          |
+          |Total for specification Specs2Test
+          |Finished in ??? 1 example, 0 failure, 0 error
+          |
+          |Execution took ???
+          |1 tests, 1 passed
+          |All tests in hello.Specs2Test passed
+          |
+          |-------------------------------- Running Tests --------------------------------
+          |+ hello.UTestTest.Greetings are very personal ???
+          |Execution took ???
+          |1 tests, 1 passed
+          |All tests in hello.UTestTest passed
+          |
+          |$delimiter
+          |Total duration: ???
+          |5 passed
+          |$delimiter""".stripMargin
     )
   }
 
@@ -248,10 +248,10 @@ object JvmTestSpec extends BaseTestSpec("test-project-test", "cross-test-build-s
         |1 tests, 1 passed
         |All tests in hello.ScalaTestTest passed
         |
-        |"$delimiter"
+        |$delimiter
         |Total duration: ???
         |All 1 test suites passed.
-        |"$delimiter"""".stripMargin
+        |$delimiter""".stripMargin
     )
   }
 
@@ -268,58 +268,58 @@ object JvmTestSpec extends BaseTestSpec("test-project-test", "cross-test-build-s
       assertNoDiff(
         logger.renderTimeInsensitiveTestInfos,
         s"""|Test run started
-           |Test hello.JUnitTest.myTest started
-           |Test run finished: 0 failed, 0 ignored, 1 total, ???
-           |Execution took ???
-           |1 tests, 1 passed
-           |All tests in hello.JUnitTest passed
-           |
-           |Execution took ???
-           |No test suite was run
-           |
-           |+ Greeting.is personal: OK, passed 100 tests.
-           |Execution took ???
-           |1 tests, 1 passed
-           |All tests in hello.ScalaCheckTest passed
-           |
-           |ResourcesTest:
-           |Resources
-           |- should be found
-           |Execution took ???
-           |1 tests, 1 passed
-           |All tests in hello.ResourcesTest passed
-           |
-           |ScalaTestTest:
-           |A greeting
-           |- should be very personal
-           |Execution took ???
-           |1 tests, 1 passed
-           |All tests in hello.ScalaTestTest passed
-           |
-           |Specs2Test
-           |
-           | This is a specification to check the `Hello` object.
-           |
-           | A greeting
-           | + is very personal
-           |
-           |Total for specification Specs2Test
-           |Finished in ??? 1 example, 0 failure, 0 error
-           |
-           |Execution took ???
-           |1 tests, 1 passed
-           |All tests in hello.Specs2Test passed
-           |
-           |-------------------------------- Running Tests --------------------------------
-           |+ hello.UTestTest.Greetings are very personal ???
-           |Execution took ???
-           |1 tests, 1 passed
-           |All tests in hello.UTestTest passed
-           |
-           |"$delimiter"
-           |Total duration: ???
-           |6 passed
-           |"$delimiter"""".stripMargin
+            |Test hello.JUnitTest.myTest started
+            |Test run finished: 0 failed, 0 ignored, 1 total, ???
+            |Execution took ???
+            |1 tests, 1 passed
+            |All tests in hello.JUnitTest passed
+            |
+            |Execution took ???
+            |No test suite was run
+            |
+            |+ Greeting.is personal: OK, passed 100 tests.
+            |Execution took ???
+            |1 tests, 1 passed
+            |All tests in hello.ScalaCheckTest passed
+            |
+            |ResourcesTest:
+            |Resources
+            |- should be found
+            |Execution took ???
+            |1 tests, 1 passed
+            |All tests in hello.ResourcesTest passed
+            |
+            |ScalaTestTest:
+            |A greeting
+            |- should be very personal
+            |Execution took ???
+            |1 tests, 1 passed
+            |All tests in hello.ScalaTestTest passed
+            |
+            |Specs2Test
+            |
+            | This is a specification to check the `Hello` object.
+            |
+            | A greeting
+            | + is very personal
+            |
+            |Total for specification Specs2Test
+            |Finished in ??? 1 example, 0 failure, 0 error
+            |
+            |Execution took ???
+            |1 tests, 1 passed
+            |All tests in hello.Specs2Test passed
+            |
+            |-------------------------------- Running Tests --------------------------------
+            |+ hello.UTestTest.Greetings are very personal ???
+            |Execution took ???
+            |1 tests, 1 passed
+            |All tests in hello.UTestTest passed
+            |
+            |$delimiter
+            |Total duration: ???
+            |6 passed
+            |$delimiter""".stripMargin
       )
   }
 
@@ -479,12 +479,12 @@ object TestCompileErrorExitCode extends bloop.testing.BaseSuite {
 object MultiFingerprintMatch extends BaseTestSpec("test-test", "custom-test-framework") {
   val expectedFullTestsOutput: String =
     s"""|Running task: foo.MyTest
-       |Execution took ???
-       |No test suite was run
-       |
-       |"$delimiter"
-       |Total duration: ???
-       |
-       |"$delimiter"
-       |""".stripMargin
+        |Execution took ???
+        |No test suite was run
+        |
+        |$delimiter
+        |Total duration: ???
+        |
+        |$delimiter
+        |""".stripMargin
 }
