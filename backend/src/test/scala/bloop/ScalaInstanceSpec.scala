@@ -5,6 +5,7 @@ import bloop.logging.RecordingLogger
 import org.junit.Assert
 import org.junit.Test
 import org.junit.experimental.categories.Category
+import bloop.io.AbsolutePath
 
 @Category(Array(classOf[FastTests]))
 class ScalaInstanceSpec {
@@ -18,5 +19,16 @@ class ScalaInstanceSpec {
         sys.error("Scala instance loader doesn't contain 'scala.tools.nsc.Main'.")
     }
     ()
+  }
+
+  @Test def creatingInstanceShouldNotThrow(): Unit = {
+    ScalaInstance.apply(
+      "org.scala-lang",
+      "scala-compiler",
+      "3.3.1",
+      Seq(AbsolutePath("scala-compiler-3.3.1.jar")), // This jar doesn't exist
+      new RecordingLogger()
+    )
+
   }
 }

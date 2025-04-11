@@ -109,7 +109,7 @@ final class ScalaInstance private (
     val attributedJars =
       allJars.toSeq.map { jar =>
         val (lastModified, size) = {
-          if (jar.exists()) (FileTime.fromMillis(0), 0)
+          if (!jar.exists()) (FileTime.fromMillis(0), 0)
           else {
             val attrs = Files.readAttributes(jar.toPath, classOf[BasicFileAttributes])
             (attrs.lastModifiedTime(), attrs.size())
@@ -200,7 +200,7 @@ object ScalaInstance {
       }
 
       val nonExistingJars = allJars.filter(j => !Files.exists(j.underlying))
-      nonExistingJars.foreach(p => logger.warn(s"Scala instance jar ${p.syntax} doesn't exist!"))
+      nonExistingJars.foreach(p => logger.error(s"Scala instance jar ${p.syntax} doesn't exist!"))
       instancesByJar.computeIfAbsent(jarsKey, _ => newInstance)
     } else resolve(scalaOrg, scalaName, scalaVersion, logger)
   }
