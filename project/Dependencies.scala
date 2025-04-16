@@ -60,7 +60,7 @@ object Dependencies {
   val coursierInterface = "io.get-coursier" % "interface" % "1.0.28"
   val configDirectories = "io.get-coursier.util" % "directories-jni" % "0.1.2"
   val coursierInterfaceSubs = "io.get-coursier" % "interface-svm-subs" % "1.0.19"
-  val svm = "org.graalvm.nativeimage" % "svm" % "24.2.0"
+  val svm = "org.graalvm.nativeimage" % "svm" % "24.2.1"
   val coursier = "io.get-coursier" %% "coursier" % coursierVersion
   val coursierJvm = "io.get-coursier" %% "coursier-jvm" % coursierVersion
   val dependency = "io.get-coursier" %% "dependency" % "0.3.2"
