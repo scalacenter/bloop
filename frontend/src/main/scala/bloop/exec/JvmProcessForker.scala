@@ -63,7 +63,7 @@ trait JvmProcessForker {
     val newEnv = envVars.foldLeft(opts.env) {
       case (properties, line) =>
         val eqIdx = line.indexOf("=")
-        if (eqIdx > 0 && eqIdx != line.length - 1) {
+        if (eqIdx > 0) {
           val key = line.substring(0, eqIdx)
           val value = line.substring(eqIdx + 1)
           properties.withProperty(key, value)

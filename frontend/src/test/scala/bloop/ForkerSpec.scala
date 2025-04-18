@@ -115,13 +115,15 @@ class ForkerSpec {
     val envs =
       List(
         "FOO=bar",
-        "TEST=http://localhost:8086?test=1&foo=bar"
+        "TEST=http://localhost:8086?test=1&foo=bar",
+        "EMPTYVAR="
       )
     run(tmp, Array("print-env"), envs = envs) {
       case (exitCode, messages) =>
         assertEquals(0, exitCode.toLong)
         assert(messages.contains(("info", "FOO = bar")))
         assert(messages.contains(("info", "TEST = http://localhost:8086?test=1&foo=bar")))
+        assert(messages.contains(("info", "EMPTYVAR = ")))
     }
   }
 
