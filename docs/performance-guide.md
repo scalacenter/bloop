@@ -60,9 +60,10 @@ We can obtain some compilation traces for the `akka` project by:
 1. Installing and running Zipkin as described above
 1. Compiling the `akka/akka` build with Bloop right away
 
-To enable tracing in Bloop you need to set `-Dbloop.tracing.enabled=true` in
-`~/.bloop/bloop.json` under the `javaOptions` field. A Bloop server restart
-**is** required because by default Bloop has it disabled. When the property is
+To enable tracing in Bloop you need to add `-Dbloop.tracing.enabled=true` to the `BLOOP_JAVA_OPTS` 
+environment variable or `bloop.java-opts` property when starting the server. If you are using Metals you 
+can also update the `metals.bloopJvmProperties` setting and run the `Restart build server` command. A Bloop 
+server restart **is** required because by default Bloop has it disabled. When the property is
 set Bloop will detect Zipkin running in the default localhost address
 automatically and enable tracing. You can point to another local or remote
 Zipkin server by setting the url to the `zipkin.server.url` system property.
