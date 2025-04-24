@@ -105,9 +105,10 @@ the guide, you should have a live Zipkin instance running at
 <li>Installing and running Zipkin as described above</li>
 <li>Compiling the <code>akka/akka</code> build with Bloop right away</li>
 </ol>
-<p>To enable tracing in Bloop you need to set <code>-Dbloop.tracing.enabled=true</code> in
-<code>~/.bloop/bloop.json</code> under the <code>javaOptions</code> field. A Bloop server restart
-<strong>is</strong> required because by default Bloop has it disabled. When the property is
+<p>To enable tracing in Bloop you need to add <code>-Dbloop.tracing.enabled=true</code> to the <code>BLOOP_JAVA_OPTS</code>
+environment variable or <code>bloop.java-opts</code> property when starting the server. If you are using Metals you
+can also update the <code>metals.bloopJvmProperties</code> setting and run the <code>Restart build server</code> command. A Bloop
+server restart <strong>is</strong> required because by default Bloop has it disabled. When the property is
 set Bloop will detect Zipkin running in the default localhost address
 automatically and enable tracing. You can point to another local or remote
 Zipkin server by setting the url to the <code>zipkin.server.url</code> system property.
