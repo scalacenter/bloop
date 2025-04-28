@@ -9,6 +9,7 @@ import bloop.logging.RecordingLogger
 import bloop.util.TestProject
 import bloop.util.TestUtil
 
+// TODO: add tests after PR to bloop-config is merged
 object SourceGeneratorSpec extends bloop.testing.BaseSuite {
 
   val generator = TestUtil.generator
