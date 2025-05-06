@@ -1,6 +1,14 @@
 package bloop
 
+import java.io.BufferedReader
+import java.io.File
+import java.io.InputStreamReader
+import java.nio.file.Files
+import java.nio.file.Path
+import java.nio.file.Paths
+
 import scala.collection.JavaConverters._
+import scala.util.Properties
 
 import bloop.io.AbsolutePath
 import bloop.logging.DebugFilter
@@ -62,7 +70,7 @@ object DependencyResolution {
       if (resolveSources) baseDep.withClassifier("sources")
       else baseDep
     }
-    resolveDependenciesWithErrors(dependencies, resolveSources, additionalRepositories)
+    resolveDependenciesWithErrors(dependencies, resolveSources, additionalRepositories, logger)
   }
 
   /**
@@ -78,7 +86,8 @@ object DependencyResolution {
   def resolveDependenciesWithErrors(
       dependencies: Seq[coursierapi.Dependency],
       resolveSources: Boolean = false,
-      additionalRepositories: Seq[Repository] = Nil
+      additionalRepositories: Seq[Repository] = Nil,
+      logger: Logger
   ): Either[CoursierError, Array[AbsolutePath]] = {
     val fetch = coursierapi.Fetch
       .create()
@@ -89,10 +98,120 @@ object DependencyResolution {
 
     try Right(fetch.fetch().asScala.toArray.map(f => AbsolutePath(f.toPath)))
     catch {
-      case error: CoursierError => Left(error)
+      case error: CoursierError =>
+        // Try fallback for each dependency
+        val fallbackJars = dependencies.flatMap(dep => fallbackDownload(dep, logger))
+        if (fallbackJars.nonEmpty)
+          Right(fallbackJars.map(AbsolutePath(_)).toArray)
+        else
+          Left(error)
     }
   }
 
   def majorMinorVersion(version: String): String =
     version.reverse.dropWhile(_ != '.').tail.reverse
+
+  /**
+   * There are some cases where we wouldn't be able to download
+   * dependencies using coursier, in those cases we can try to use a locally
+   * installed coursier to fetch the dependency.
+   *
+   * One potential issue is when we have credential issues
+   */
+  def fallbackDownload(
+      dependency: coursierapi.Dependency,
+      logger: Logger
+  ): List[Path] = {
+    val userHome: Path = Paths.get(Properties.userHome)
+    /* Metals VS Code extension will download coursier for us most of the time */
+    def inVsCodeMetals = {
+      val cs = userHome.resolve(".metals/cs")
+      val csExe = userHome.resolve(".metals/cs.exe")
+      if (Files.exists(cs)) Some(cs)
+      else if (Files.exists(csExe)) Some(csExe)
+      else None
+    }
+    findInPath("cs")
+      .orElse(findInPath("coursier"))
+      .orElse(inVsCodeMetals) match {
+      case None => Nil
+      case Some(path) =>
+        logger.debug(
+          s"Found coursier in path under $path, using it to fetch dependency"
+        )(DebugFilter.All)
+        val module = dependency.getModule()
+        val depString =
+          s"${module.getOrganization()}:${module.getName()}:${dependency.getVersion}"
+        runSync(
+          List(path.toString(), "fetch", depString),
+          AbsolutePath(userHome)
+        ) match {
+          case Some(out) =>
+            val lines = out.linesIterator.toList
+            val jars = lines.map(Paths.get(_))
+            jars
+          case None => Nil
+        }
+    }
+  }
+
+  private def findInPath(app: String): Option[Path] = {
+
+    def endsWithCaseInsensitive(s: String, suffix: String): Boolean =
+      s.length >= suffix.length &&
+        s.regionMatches(
+          true,
+          s.length - suffix.length,
+          suffix,
+          0,
+          suffix.length
+        )
+
+    val asIs = Paths.get(app)
+    if (Paths.get(app).getNameCount >= 2) Some(asIs)
+    else {
+      def pathEntries =
+        Option(System.getenv("PATH")).iterator
+          .flatMap(_.split(File.pathSeparator).iterator)
+      def pathExts =
+        if (Properties.isWin)
+          Option(System.getenv("PATHEXT")).iterator
+            .flatMap(_.split(File.pathSeparator).iterator)
+        else Iterator("")
+      def matches = for {
+        dir <- pathEntries
+        ext <- pathExts
+        app0 = if (endsWithCaseInsensitive(app, ext)) app else app + ext
+        path = Paths.get(dir).resolve(app0)
+        if Files.isExecutable(path) && !Files.isDirectory(path)
+      } yield path
+      matches.toStream.headOption
+    }
+  }
+
+  /**
+   * Runs a shell command synchronously, collects its output, and returns it as an Option[String].
+   */
+  private def runSync(
+      command: List[String],
+      workingDirectory: AbsolutePath
+  ): Option[String] = {
+    try {
+      val pb = new ProcessBuilder(command: _*)
+      pb.directory(workingDirectory.underlying.toFile)
+      val process = pb.start()
+      val is = process.getInputStream
+      val reader = new BufferedReader(new InputStreamReader(is))
+      val output = new StringBuilder
+      var line: String = null
+      while ({ line = reader.readLine(); line != null }) {
+        output.append(line).append(System.lineSeparator())
+      }
+      val exitCode = process.waitFor()
+      if (exitCode == 0) Some(output.toString)
+      else None
+    } catch {
+      case _: Throwable => None
+    }
+  }
 }
