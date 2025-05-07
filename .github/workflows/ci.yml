@@ -73,6 +73,7 @@ jobs:
           java-version: '17'
         if: matrix.jdk == '22.3.0'    
       - uses: coursier/cache-action@v6
+      - uses: coursier/setup-action@v1
       - uses: sbt/setup-sbt@v1
       - uses: actions/setup-node@v4
         with:

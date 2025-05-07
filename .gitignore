@@ -2,6 +2,7 @@
 bin/.coursier
 bin/.scalafmt*
 .vscode/
+.cursor/
 
 # Required because these are the proxies for the sourcedeps
 .bridge/
