@@ -1,17 +1,17 @@
 package bloop
 
+import bloop.DeduplicationSpec.assertInvalidCompilationState
+
 import java.io.ByteArrayOutputStream
 import java.io.PrintStream
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.Paths
 import java.util.concurrent.TimeUnit
-
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 import scala.concurrent.duration.FiniteDuration
 import scala.util.control.NonFatal
-
 import bloop.cli.CommonOptions
 import bloop.cli.ExitStatus
 import bloop.config.Config
@@ -2116,6 +2116,14 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
 
       val secondState = firstState.compile(`A`)
       assertExitStatus(secondState, ExitStatus.CompilationError)
+      assertInvalidCompilationState(
+        secondState,
+        projects,
+        existsAnalysisFile = true,
+        hasPreviousSuccessful = true,
+        hasSameContentsInClassesDir = true
+      )
+      assertExistingInternalClassesDir(secondState)(firstState, projects)
     }
   }
 
@@ -2193,6 +2201,14 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
 
       val secondState = firstState.compile(`A`)
       assertExitStatus(secondState, ExitStatus.CompilationError)
+      assertInvalidCompilationState(
+        secondState,
+        projects,
+        existsAnalysisFile = true,
+        hasPreviousSuccessful = true,
+        hasSameContentsInClassesDir = true
+      )
+      assertExistingInternalClassesDir(secondState)(firstState, projects)
     }
   }
 
@@ -2268,6 +2284,14 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
 
       val secondState = firstState.compile(`A`)
       assertExitStatus(secondState, ExitStatus.Ok)
+      assertInvalidCompilationState(
+        secondState,
+        projects,
+        existsAnalysisFile = true,
+        hasPreviousSuccessful = true,
+        hasSameContentsInClassesDir = true
+      )
+      assertNonExistingInternalClassesDir(secondState)(firstState, projects)
     }
   }
 
@@ -2344,6 +2368,14 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
 
       val secondState = firstState.compile(`A`)
       assertExitStatus(secondState, ExitStatus.CompilationError)
+      assertInvalidCompilationState(
+        secondState,
+        projects,
+        existsAnalysisFile = true,
+        hasPreviousSuccessful = true,
+        hasSameContentsInClassesDir = true
+      )
+      assertExistingInternalClassesDir(secondState)(firstState, projects)
     }
   }
 

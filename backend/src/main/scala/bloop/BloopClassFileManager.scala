@@ -292,7 +292,7 @@ final class BloopClassFileManager(
         if tmp.exists
       } {
         if (!orig.getParentFile.exists) {
-          Files.createDirectory(orig.getParentFile.toPath())
+          Files.createDirectories(orig.getParentFile.toPath())
         }
         Files.move(tmp.toPath(), orig.toPath())
       }
