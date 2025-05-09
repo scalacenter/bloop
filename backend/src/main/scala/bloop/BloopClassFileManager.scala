@@ -6,20 +6,19 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
 import java.nio.file.StandardCopyOption
-
 import scala.collection.mutable
 import scala.util.Failure
 import scala.util.Success
 import scala.util.Try
-
 import bloop.io.AbsolutePath
 import bloop.io.ParallelOps
 import bloop.io.ParallelOps.CopyMode
 import bloop.io.{Paths => BloopPaths}
 import bloop.task.Task
 import bloop.tracing.BraveTracer
-
 import xsbti.compile.ClassFileManager
+
+import scala.annotation.tailrec
 
 final class BloopClassFileManager(
     backupDir0: Path,
@@ -165,7 +164,38 @@ final class BloopClassFileManager(
       if f.exists()
     } f.delete()
 
+    pruneEmptyPackages(classes.toList, readOnlyClassesDir)
+
     allInvalidatedExtraCompileProducts.++=(invalidatedExtraCompileProducts)
+  }
+
+  private def pruneEmptyPackages(packages: List[File], contextDirPath: Path): Unit = {
+    def isEmptyDir(file: File): Boolean = {
+      val contents = file.list()
+      contents == null || contents.isEmpty
+    }
+    def isWithinContextDir(dir: File): Boolean = {
+      dir != null && dir.toPath.startsWith(contextDirPath)
+    }
+    @tailrec
+    def delete(packages: List[File]): Unit = {
+      packages match {
+        case Nil => ()
+        case dirs =>
+          for {
+            f <- dirs
+            if f != null && isEmptyDir(f)
+          } f.delete()
+          val parents =
+            for {
+              f <- dirs
+              parent = f.getParentFile
+              if isWithinContextDir(parent)
+            } yield parent
+          delete(parents)
+      }
+    }
+    delete(packages)
   }
 
   def generated(generatedClassFiles: Array[File]): Unit = {
@@ -262,7 +292,7 @@ final class BloopClassFileManager(
         if tmp.exists
       } {
         if (!orig.getParentFile.exists) {
-          Files.createDirectory(orig.getParentFile.toPath())
+          Files.createDirectories(orig.getParentFile.toPath())
         }
         Files.move(tmp.toPath(), orig.toPath())
       }

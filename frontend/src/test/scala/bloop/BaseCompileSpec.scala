@@ -1,17 +1,17 @@
 package bloop
 
+import bloop.DeduplicationSpec.assertInvalidCompilationState
+
 import java.io.ByteArrayOutputStream
 import java.io.PrintStream
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.Paths
 import java.util.concurrent.TimeUnit
-
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 import scala.concurrent.duration.FiniteDuration
 import scala.util.control.NonFatal
-
 import bloop.cli.CommonOptions
 import bloop.cli.ExitStatus
 import bloop.config.Config
@@ -2044,6 +2044,338 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
       val secondState = firstState.compile(`A`)
       assertExitStatus(secondState, ExitStatus.Ok)
 
+    }
+  }
+
+  test("fail compilation when using wildcard import from empty package - after package rename") {
+    TestUtil.withinWorkspace { workspace =>
+      object Sources {
+        val `Sun.scala` =
+          """/main/scala/Z/A/Sun.scala
+            |package org.someorg.Z.A
+            |class Sun
+          """.stripMargin
+        val `Mercury.scala` =
+          """/main/scala/Z/A/Mercury.scala
+            |package org.someorg.Z.A
+            |class Mercury
+          """.stripMargin
+        val `Moon.scala` =
+          """/main/scala/B/Moon.scala
+            |package org.someorg.B
+            |
+            |import org.someorg.Z.A._
+            |object Moon {
+            |      val o = new Sun()
+            |      val o1 = new Mercury()
+            | }
+          """.stripMargin
+        val `Sun2.scala` =
+          """/main/scala/Z/A/Sun.scala
+            |package org.someorg.Z.C
+            |class Sun
+          """.stripMargin
+        val `Mercury2.scala` =
+          """/main/scala/Z/A/Mercury.scala
+            |package org.someorg.Z.C
+            |class Mercury
+          """.stripMargin
+        val `Moon2.scala` =
+          """/main/scala/B/Moon.scala
+            |package org.someorg.B
+            |
+            |import org.someorg.Z.A._
+            |import org.someorg.Z.C.{Sun, Mercury}
+            |object Moon {
+            |      val o = new Sun()
+            |      val o1 = new Mercury()
+            | }
+          """.stripMargin
+      }
+      val logger = new RecordingLogger(
+        debug = true,
+        ansiCodesSupported = false,
+        debugOut = Some(new PrintStream(System.out))
+      )
+
+      val `A` = TestProject(
+        workspace,
+        "a",
+        List(Sources.`Sun.scala`, Sources.`Mercury.scala`, Sources.`Moon.scala`)
+      )
+
+      val projects = List(`A`)
+      val state = loadState(workspace, projects, logger)
+
+      val firstState = state.compile(`A`)
+      assertExitStatus(firstState, ExitStatus.Ok)
+
+      writeFile(`A`.srcFor("/main/scala/Z/A/Sun.scala"), Sources.`Sun2.scala`)
+      writeFile(`A`.srcFor("/main/scala/Z/A/Mercury.scala"), Sources.`Mercury2.scala`)
+      writeFile(`A`.srcFor("/main/scala/B/Moon.scala"), Sources.`Moon2.scala`)
+
+      val secondState = firstState.compile(`A`)
+      assertExitStatus(secondState, ExitStatus.CompilationError)
+      assertInvalidCompilationState(
+        secondState,
+        projects,
+        existsAnalysisFile = true,
+        hasPreviousSuccessful = true,
+        hasSameContentsInClassesDir = true
+      )
+      assertExistingInternalClassesDir(secondState)(firstState, projects)
+    }
+  }
+
+  test(
+    "fail compilation when using wildcard import from empty package if sub-packages are empty too"
+  ) {
+    TestUtil.withinWorkspace { workspace =>
+      object Sources {
+        val `Sun.scala` =
+          """/main/scala/Z/A/B/Sun.scala
+            |package org.someorg.Z.A.B
+            |class Sun
+          """.stripMargin
+        val `Mercury.scala` =
+          """/main/scala/Z/A/Mercury.scala
+            |package org.someorg.Z.A
+            |class Mercury
+          """.stripMargin
+        val `Moon.scala` =
+          """/main/scala/Y/Moon.scala
+            |package org.someorg.Y
+            |
+            |import org.someorg.Z.A.B._
+            |import org.someorg.Z.A._
+            |object Moon {
+            |      val o = new Sun()
+            |      val o1 = new Mercury()
+            | }
+          """.stripMargin
+        val `Sun2.scala` =
+          """/main/scala/Z/A/B/Sun.scala
+            |package org.someorg.Z.D.C
+            |class Sun
+          """.stripMargin
+        val `Mercury2.scala` =
+          """/main/scala/Z/A/Mercury.scala
+            |package org.someorg.Z.D
+            |class Mercury
+          """.stripMargin
+        val `Moon2.scala` =
+          """/main/scala/Y/Moon.scala
+            |package org.someorg.Y
+            |
+            |import org.someorg.Z.A.B._
+            |import org.someorg.Z.A._
+            |import org.someorg.Z.D.C.Sun
+            |import org.someorg.Z.D.Mercury
+            |object Moon {
+            |      val o = new Sun()
+            |      val o1 = new Mercury()
+            | }
+          """.stripMargin
+      }
+      val logger = new RecordingLogger(
+        debug = true,
+        ansiCodesSupported = false,
+        debugOut = Some(new PrintStream(System.out))
+      )
+
+      val `A` = TestProject(
+        workspace,
+        "a",
+        List(Sources.`Sun.scala`, Sources.`Mercury.scala`, Sources.`Moon.scala`)
+      )
+
+      val projects = List(`A`)
+      val state = loadState(workspace, projects, logger)
+
+      val firstState = state.compile(`A`)
+      assertExitStatus(firstState, ExitStatus.Ok)
+
+      writeFile(`A`.srcFor("/main/scala/Z/A/B/Sun.scala"), Sources.`Sun2.scala`)
+      writeFile(`A`.srcFor("/main/scala/Z/A/Mercury.scala"), Sources.`Mercury2.scala`)
+      writeFile(`A`.srcFor("/main/scala/Y/Moon.scala"), Sources.`Moon2.scala`)
+
+      val secondState = firstState.compile(`A`)
+      assertExitStatus(secondState, ExitStatus.CompilationError)
+      assertInvalidCompilationState(
+        secondState,
+        projects,
+        existsAnalysisFile = true,
+        hasPreviousSuccessful = true,
+        hasSameContentsInClassesDir = true
+      )
+      assertExistingInternalClassesDir(secondState)(firstState, projects)
+    }
+  }
+
+  test(
+    "compilation succeed if using wildcard import from package where dependency was replaced with different one"
+  ) {
+    TestUtil.withinWorkspace { workspace =>
+      object Sources {
+        val `Sun.scala` =
+          """/main/scala/Z/A/B/Sun.scala
+            |package org.someorg.Z.A.B
+            |class Sun
+          """.stripMargin
+        val `Mercury.scala` =
+          """/main/scala/Z/A/Mercury.scala
+            |package org.someorg.Z.A
+            |class Mercury
+          """.stripMargin
+        val `Moon.scala` =
+          """/main/scala/Y/Moon.scala
+            |package org.someorg.Y
+            |
+            |import org.someorg.Z.A._
+            |import org.someorg.Z.A.B.Sun
+            |object Moon {
+            |      val o = new Sun()
+            |      val o1 = new Mercury()
+            | }
+          """.stripMargin
+        val `Sun2.scala` =
+          """/main/scala/Z/A/B/Sun.scala
+            |package org.someorg.Z.A
+            |class Sun
+          """.stripMargin
+        val `Mercury2.scala` =
+          """/main/scala/Z/A/Mercury.scala
+            |package org.someorg.Z.D
+            |class Mercury
+          """.stripMargin
+        val `Moon2.scala` =
+          """/main/scala/Y/Moon.scala
+            |package org.someorg.Y
+            |
+            |import org.someorg.Z.A._
+            |import org.someorg.Z.D.Mercury
+            |object Moon {
+            |      val o = new Sun()
+            |      val o1 = new Mercury()
+            | }
+          """.stripMargin
+      }
+      val logger = new RecordingLogger(
+        debug = true,
+        ansiCodesSupported = false,
+        debugOut = Some(new PrintStream(System.out))
+      )
+
+      val `A` = TestProject(
+        workspace,
+        "a",
+        List(Sources.`Sun.scala`, Sources.`Mercury.scala`, Sources.`Moon.scala`)
+      )
+
+      val projects = List(`A`)
+      val state = loadState(workspace, projects, logger)
+
+      val firstState = state.compile(`A`)
+      assertExitStatus(firstState, ExitStatus.Ok)
+
+      writeFile(`A`.srcFor("/main/scala/Z/A/B/Sun.scala"), Sources.`Sun2.scala`)
+      writeFile(`A`.srcFor("/main/scala/Z/A/Mercury.scala"), Sources.`Mercury2.scala`)
+      writeFile(`A`.srcFor("/main/scala/Y/Moon.scala"), Sources.`Moon2.scala`)
+
+      val secondState = firstState.compile(`A`)
+      assertExitStatus(secondState, ExitStatus.Ok)
+      assertInvalidCompilationState(
+        secondState,
+        projects,
+        existsAnalysisFile = true,
+        hasPreviousSuccessful = true,
+        hasSameContentsInClassesDir = true
+      )
+      assertNonExistingInternalClassesDir(secondState)(firstState, projects)
+    }
+  }
+
+  test(
+    "pruning packages - whole package path is deleted if it is empty"
+  ) {
+    TestUtil.withinWorkspace { workspace =>
+      object Sources {
+        val `Sun.scala` =
+          """/main/scala/A/B/C/D/Sun.scala
+            |package org.someorg.A.B.C.D
+            |class Sun
+          """.stripMargin
+        val `Mercury.scala` =
+          """/main/scala/A/Mercury.scala
+            |package org.someorg.A
+            |class Mercury
+          """.stripMargin
+        val `Moon.scala` =
+          """/main/scala/Y/Moon.scala
+            |package org.someorg.Y
+            |
+            |import org.someorg.A._
+            |import org.someorg.A.B.C.D.Sun
+            |object Moon {
+            |      val o = new Sun()
+            |      val o1 = new Mercury()
+            | }
+          """.stripMargin
+        val `Sun2.scala` =
+          """/main/scala/A/B/C/D/Sun.scala
+            |package org.someorg.Z.B.C.D
+            |class Sun
+          """.stripMargin
+        val `Mercury2.scala` =
+          """/main/scala/A/Mercury.scala
+            |package org.someorg.Z
+            |class Mercury
+          """.stripMargin
+        val `Moon2.scala` =
+          """/main/scala/Y/Moon.scala
+            |package org.someorg.Y
+            |
+            |import org.someorg.A._
+            |import org.someorg.Z.B.C.D.Sun
+            |import org.someorg.Z.Mercury
+            |object Moon {
+            |      val o = new Sun()
+            |      val o1 = new Mercury()
+            | }
+          """.stripMargin
+      }
+      val logger = new RecordingLogger(
+        debug = true,
+        ansiCodesSupported = false,
+        debugOut = Some(new PrintStream(System.out))
+      )
+
+      val `A` = TestProject(
+        workspace,
+        "a",
+        List(Sources.`Sun.scala`, Sources.`Mercury.scala`, Sources.`Moon.scala`)
+      )
+
+      val projects = List(`A`)
+      val state = loadState(workspace, projects, logger)
+
+      val firstState = state.compile(`A`)
+      assertExitStatus(firstState, ExitStatus.Ok)
+
+      writeFile(`A`.srcFor("/main/scala/A/B/C/D/Sun.scala"), Sources.`Sun2.scala`)
+      writeFile(`A`.srcFor("/main/scala/A/Mercury.scala"), Sources.`Mercury2.scala`)
+      writeFile(`A`.srcFor("/main/scala/Y/Moon.scala"), Sources.`Moon2.scala`)
+
+      val secondState = firstState.compile(`A`)
+      assertExitStatus(secondState, ExitStatus.CompilationError)
+      assertInvalidCompilationState(
+        secondState,
+        projects,
+        existsAnalysisFile = true,
+        hasPreviousSuccessful = true,
+        hasSameContentsInClassesDir = true
+      )
+      assertExistingInternalClassesDir(secondState)(firstState, projects)
     }
   }
 
