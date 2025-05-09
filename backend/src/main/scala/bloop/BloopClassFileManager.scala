@@ -182,13 +182,11 @@ final class BloopClassFileManager(
       packages match {
         case Nil => ()
         case dirs =>
-          for {
-            f <- dirs
-            if f != null && isEmptyDir(f)
-          } f.delete()
+          val deletedDirs = dirs.filter(f => f != null && isEmptyDir(f))
+          deletedDirs.foreach(_.delete())
           val parents =
             for {
-              f <- dirs
+              f <- deletedDirs
               parent = f.getParentFile
               if isWithinContextDir(parent)
             } yield parent
