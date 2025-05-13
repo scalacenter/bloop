@@ -661,4 +661,19 @@ object TestUtil {
       DependencyResolution.Artifact("org.testng", "testng", "7.9.0")
     DependencyResolution.resolve(List(testNG), logger)
   }
+
+  def getMunitDep(logger: Logger) = {
+    // TODO: figure out clean way
+    val version =
+      if (Properties.versionNumberString.startsWith("2.12")) {
+        "2.12"
+      } else if (Properties.versionNumberString.startsWith("2.13")) {
+        "2.13"
+      } else {
+        "3"
+      }
+    val testNG =
+      DependencyResolution.Artifact("org.scalameta", s"munit_$version", "1.1.1")
+    DependencyResolution.resolve(List(testNG), logger)
+  }
 }

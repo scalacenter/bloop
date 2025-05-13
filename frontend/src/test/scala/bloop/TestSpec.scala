@@ -56,6 +56,21 @@ object SeedTestSpec extends BaseTestSpec("root-test", "scala-seed-project") {
         |""".stripMargin
 }
 
+object ResourcesTestSpec extends BaseTestSpec("root-test", "resources-test-project") {
+  val expectedFullTestsOutput: String =
+    s"""|[32mResourcesTest:[0m
+        |[32m + [0m[32mresources[0m ???
+        |Execution took ???
+        |1 tests, 1 passed
+        |All tests in ResourcesTest passed
+        |
+        |$delimiter
+        |Total duration: ???
+        |All 1 test suites passed.
+        |$delimiter
+        |""".stripMargin
+}
+
 object JsTestSpec extends BaseTestSpec("test-projectJS-test", "cross-test-build-scalajs-0.6") {
   val expectedFullTestsOutput: String = {
     s"""|Execution took ???
