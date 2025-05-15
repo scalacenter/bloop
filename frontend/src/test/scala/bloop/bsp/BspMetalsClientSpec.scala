@@ -807,6 +807,29 @@ class BspMetalsClientSpec(
     }
   }
 
+  test("resource not found in tests") {
+    TestUtil.withinWorkspace { workspace =>
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val projectDir = "resources-test-project"
+      val projectName = "root-test"
+      loadBspBuildFromResources(
+        projectDir,
+        workspace,
+        logger,
+        "Metals"
+      ) { build =>
+        val project = build.projectFor(projectName)
+        val projectPath = project.baseDir
+        val state = build.state
+        assertNoDiff(logger.warnings.mkString(lineSeparator), "")
+        val compiledState = state.compile(project)
+        val testState = compiledState.test(project)
+        assert(compiledState.status == ExitStatus.Ok)
+        assert(testState.status == ExitStatus.Ok)
+      }
+    }
+  }
+
   private val dummyFooScalaSources = List(
     """/Foo.scala
       |class Foo
