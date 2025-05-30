@@ -27,6 +27,7 @@ object Dependencies {
   val junitVersion = "0.13.3"
   val directoryWatcherVersion = "0.8.0+6-f651bd93"
   val monixVersion = "3.2.0"
+  val monixTestVersion = "0.3.0"
   val jsoniterVersion = "2.13.3.2"
   val shapelessVersion = "2.3.4"
   val scalaNative04Version = "0.4.17"
@@ -88,6 +89,7 @@ object Dependencies {
   val difflib = "com.googlecode.java-diff-utils" % "diffutils" % difflibVersion
 
   val monix = "io.monix" %% "monix" % monixVersion
+  val monixTest = "io.monix" %% "monix-testing-utest" % monixTestVersion % "test"
   val jsoniterCore =
     "com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-core" % jsoniterVersion
   val jsoniterMacros =
