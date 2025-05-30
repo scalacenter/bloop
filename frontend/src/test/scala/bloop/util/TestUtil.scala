@@ -7,7 +7,6 @@ import java.nio.file.Path
 import java.nio.file.attribute.FileTime
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
-
 import scala.concurrent.Await
 import scala.concurrent.ExecutionException
 import scala.concurrent.duration.Duration
@@ -15,7 +14,6 @@ import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.duration.TimeUnit
 import scala.tools.nsc.Properties
 import scala.util.control.NonFatal
-
 import bloop.CompilerCache
 import bloop.DependencyResolution
 import bloop.ScalaInstance
@@ -50,8 +48,8 @@ import bloop.logging.BufferedLogger
 import bloop.logging.DebugFilter
 import bloop.logging.Logger
 import bloop.logging.RecordingLogger
-
 import _root_.bloop.task.Task
+import _root_.monix.eval.{Task => MonixTask}
 import _root_.monix.execution.Scheduler
 import org.junit.Assert
 import sbt.internal.inc.BloopComponentCompiler
@@ -481,6 +479,15 @@ object TestUtil {
     val temp = Files.createTempDirectory("bloop-test-workspace").toRealPath()
     try op(AbsolutePath(temp))
     finally delete(AbsolutePath(temp))
+  }
+
+  /** Creates an empty workspace where operations can happen. */
+  def withinWorkspaceV2[T](op: AbsolutePath => MonixTask[T]): MonixTask[T] = {
+    MonixTask
+      .now(Files.createTempDirectory("bloop-test-workspace").toRealPath())
+      .flatMap { temp =>
+        op(AbsolutePath(temp)).guarantee(MonixTask(delete(AbsolutePath(temp))))
+      }
   }
 
   /** Creates an empty workspace where operations can happen. */
