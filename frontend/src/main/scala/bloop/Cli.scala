@@ -3,7 +3,6 @@ package bloop
 import java.io.InputStream
 import java.io.PrintStream
 import java.nio.file.Path
-import java.util.concurrent.ConcurrentHashMap
 import scala.util.control.NonFatal
 import bloop.cli.CliOptions
 import bloop.cli.Commands
@@ -23,7 +22,7 @@ import monix.eval.TaskApp
 import bloop.util.JavaRuntime
 import caseapp.core.help.Help
 import cats.effect.ExitCode
-import cats.effect.concurrent.Deferred
+import cats.effect.concurrent.{Deferred, Ref}
 import com.martiansoftware.nailgun.NGContext
 import monix.execution.Scheduler
 import monix.execution.atomic.AtomicBoolean
@@ -47,7 +46,8 @@ object Cli extends TaskApp {
       out: PrintStream,
       err: PrintStream,
       props: java.util.Properties,
-      cancel: Deferred[MonixTask, Boolean]
+      cancel: Deferred[MonixTask, Boolean],
+      activeCliSessions: Ref[MonixTask, Map[Path, List[CliSession]]]
   ): MonixTask[Int] = {
     val env = CommonOptions.PrettyProperties.from(props)
     val nailgunOptions = CommonOptions(
@@ -61,7 +61,7 @@ object Cli extends TaskApp {
     )
 
     val cmd = parse(args, nailgunOptions)
-    val exitStatus = run(cmd, NoPool, cancel)
+    val exitStatus = run(cmd, NoPool, cancel, activeCliSessions)
     exitStatus.map(_.code)
   }
 
@@ -305,11 +305,11 @@ object Cli extends TaskApp {
   }
 
   def run(action: Action, pool: ClientPool): MonixTask[ExitStatus] = {
-
     for {
       baseCancellation <- Deferred[MonixTask, Boolean]
+      activeCliSessions <- Ref.of[MonixTask, Map[Path, List[CliSession]]](Map.empty)
       _ <- baseCancellation.complete(false)
-      result <- run(action, pool, baseCancellation)
+      result <- run(action, pool, baseCancellation, activeCliSessions)
     } yield result
   }
 
@@ -318,7 +318,8 @@ object Cli extends TaskApp {
   private def run(
       action: Action,
       pool: ClientPool,
-      cancel: Deferred[MonixTask, Boolean]
+      cancel: Deferred[MonixTask, Boolean],
+      activeCliSessions: Ref[MonixTask, Map[Path, List[CliSession]]]
   ): MonixTask[ExitStatus] = {
     import bloop.io.AbsolutePath
     def getConfigDir(cliOptions: CliOptions): AbsolutePath = {
@@ -360,6 +361,7 @@ object Cli extends TaskApp {
           action,
           pool,
           cancel,
+          activeCliSessions,
           configDirectory,
           cliOptions,
           commonOpts,
@@ -372,6 +374,7 @@ object Cli extends TaskApp {
       action: Action,
       pool: ClientPool,
       cancel: Deferred[MonixTask, Boolean],
+      activeCliSessions: Ref[MonixTask, Map[Path, List[CliSession]]],
       configDirectory: AbsolutePath,
       cliOptions: CliOptions,
       commonOpts: CommonOptions,
@@ -397,27 +400,34 @@ object Cli extends TaskApp {
         interpret.toMonixTask(ExecutionContext.scheduler)
       }
 
-      val session = runTaskWithCliClient(configDirectory, action, taskToInterpret, pool, logger)
+      val session = runTaskWithCliClient(
+        configDirectory,
+        action,
+        taskToInterpret,
+        activeCliSessions,
+        pool,
+        logger
+      )
       val exitSession = MonixTask.defer {
-        cleanUpNonStableCliDirectories(session.client)
+        session.flatMap(s => cleanUpNonStableCliDirectories(s.client))
       }
 
-      session.task
+      session
+        .flatMap(_.task)
         .doOnCancel(exitSession)
         .doOnFinish(_ => exitSession)
     }
   }
-
-  private val activeCliSessions = new ConcurrentHashMap[Path, List[CliSession]]()
 
   case class CliSession(client: CliClientInfo, task: MonixTask[ExitStatus])
   def runTaskWithCliClient(
       configDir: AbsolutePath,
       action: Action,
       processCliTask: CliClientInfo => MonixTask[State],
+      activeCliSessions2: Ref[MonixTask, Map[Path, List[CliSession]]],
       pool: ClientPool,
       logger: Logger
-  ): CliSession = {
+  ): MonixTask[CliSession] = {
     val isClientConnected = AtomicBoolean(true)
     pool.addListener(_ => isClientConnected.set(false))
     val defaultClient = CliClientInfo(useStableCliDirs = true, () => isClientConnected.get)
@@ -429,28 +439,30 @@ object Cli extends TaskApp {
 
     val defaultClientSession = sessionFor(defaultClient)
     action match {
-      case Exit(_) => defaultClientSession
+      case Exit(_) => MonixTask.now(defaultClientSession)
       // Don't synchronize on commands that don't use compilation products and can run concurrently
-      case Run(_: Commands.About, _) => defaultClientSession
-      case Run(_: Commands.Projects, _) => defaultClientSession
-      case Run(_: Commands.Autocomplete, _) => defaultClientSession
-      case Run(_: Commands.Bsp, _) => defaultClientSession
-      case Run(_: Commands.ValidatedBsp, _) => defaultClientSession
-      case _ =>
-        val activeSessions = activeCliSessions.compute(
-          configDir.underlying,
-          (_: Path, sessions: List[CliSession]) => {
-            if (sessions == null || sessions.isEmpty) List(defaultClientSession)
-            else {
+      case Run(_: Commands.About, _) => MonixTask.now(defaultClientSession)
+      case Run(_: Commands.Projects, _) => MonixTask.now(defaultClientSession)
+      case Run(_: Commands.Autocomplete, _) => MonixTask.now(defaultClientSession)
+      case Run(_: Commands.Bsp, _) => MonixTask.now(defaultClientSession)
+      case Run(_: Commands.ValidatedBsp, _) => MonixTask.now(defaultClientSession)
+      case a @ _ =>
+        activeCliSessions2.modify { sessionsMap =>
+          val currentSessions = sessionsMap.getOrElse(configDir.underlying, Nil)
+
+          val updatedSessions =
+            if (currentSessions.isEmpty) {
+              List(defaultClientSession)
+            } else {
               logger.debug("Detected connected cli clients, starting CLI with unique dirs...")
               val newClient = CliClientInfo(useStableCliDirs = false, () => isClientConnected.get)
               val newClientSession = sessionFor(newClient)
-              newClientSession :: sessions
+              newClientSession :: currentSessions
             }
-          }
-        )
 
-        activeSessions.head
+          val updatedMap = sessionsMap.updated(configDir.underlying, updatedSessions)
+          (updatedMap, updatedSessions.head)
+        }
     }
   }
 
