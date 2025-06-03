@@ -133,227 +133,223 @@ object CompileGraph {
 
     withBundle { bundle0 =>
       val logger = bundle0.logger
+      val (runningCompilation, deduplicate) =
+        CompileGatekeeper.findRunningCompilationAtomically(inputs, bundle0, client, compile)
+      val bundle = bundle0.copy(lastSuccessful = runningCompilation.usedLastSuccessful)
 
-      CompileGatekeeper
-        .findRunningCompilationAtomically(inputs, bundle0, client, compile)
-        .flatMap { a =>
-          val (runningCompilation, deduplicate) = a
-          val bundle = bundle0.copy(lastSuccessful = runningCompilation.usedLastSuccessful)
+      if (!deduplicate) {
+        runningCompilation.traversal
+      } else {
+        val rawLogger = logger.underlying
+        rawLogger.info(
+          s"Deduplicating compilation of ${bundle.project.name} from ${runningCompilation.client}"
+        )
+        val reporter = bundle.reporter.underlying
+        // Don't use `bundle.lastSuccessful`, it's not the final input to `compile`
+        val analysis = runningCompilation.usedLastSuccessful.previous.analysis().toOption
+        val previousSuccessfulProblems =
+          Compiler.previousProblemsFromSuccessfulCompilation(analysis)
+        val wasPreviousSuccessful = bundle.latestResult match {
+          case Compiler.Result.Ok(_) => true
+          case _ => false
+        }
+        val previousProblems =
+          Compiler.previousProblemsFromResult(bundle.latestResult, previousSuccessfulProblems)
 
-          if (!deduplicate) {
-            runningCompilation.traversal
-          } else {
-            val rawLogger = logger.underlying
-            rawLogger.info(
-              s"Deduplicating compilation of ${bundle.project.name} from ${runningCompilation.client}"
-            )
-            val reporter = bundle.reporter.underlying
-            // Don't use `bundle.lastSuccessful`, it's not the final input to `compile`
-            val analysis = runningCompilation.usedLastSuccessful.previous.analysis().toOption
-            val previousSuccessfulProblems =
-              Compiler.previousProblemsFromSuccessfulCompilation(analysis)
-            val wasPreviousSuccessful = bundle.latestResult match {
-              case Compiler.Result.Ok(_) => true
-              case _ => false
-            }
-            val previousProblems =
-              Compiler.previousProblemsFromResult(bundle.latestResult, previousSuccessfulProblems)
+        val clientClassesObserver = client.getClassesObserverFor(bundle.project)
 
-            val clientClassesObserver = client.getClassesObserverFor(bundle.project)
-
-            // Replay events asynchronously to waiting for the compilation result
-            import scala.concurrent.duration.FiniteDuration
-            import monix.execution.exceptions.UpstreamTimeoutException
-            val disconnectionTime = SystemProperties.getCompileDisconnectionTime(rawLogger)
-            val replayEventsTask = runningCompilation.mirror
-              .timeoutOnSlowUpstream(disconnectionTime)
-              .foreachL {
-                case Left(action) =>
-                  action match {
-                    case ReporterAction.EnableFatalWarnings =>
-                      reporter.enableFatalWarnings()
-                    case ReporterAction.ReportStartCompilation =>
-                      reporter.reportStartCompilation(previousProblems, wasPreviousSuccessful)
-                    case a: ReporterAction.ReportStartIncrementalCycle =>
-                      reporter.reportStartIncrementalCycle(a.sources, a.outputDirs)
-                    case a: ReporterAction.ReportProblem => reporter.log(a.problem)
-                    case ReporterAction.PublishDiagnosticsSummary =>
-                      reporter.printSummary()
-                    case a: ReporterAction.ReportNextPhase =>
-                      reporter.reportNextPhase(a.phase, a.sourceFile)
-                    case a: ReporterAction.ReportCompilationProgress =>
-                      reporter.reportCompilationProgress(a.progress, a.total)
-                    case a: ReporterAction.ReportEndIncrementalCycle =>
-                      reporter.reportEndIncrementalCycle(a.durationMs, a.result)
-                    case ReporterAction.ReportCancelledCompilation =>
-                      reporter.reportCancelledCompilation()
-                    case a: ReporterAction.ProcessEndCompilation =>
-                      a.code match {
-                        case BspStatusCode.Cancelled | BspStatusCode.Error =>
-                          reporter.processEndCompilation(previousProblems, a.code, None, None)
-                          reporter.reportEndCompilation()
-                        case _ =>
-                          /*
-                           * Only process the end, don't report it. It's only safe to
-                           * report when all the client tasks have been run and the
-                           * analysis/classes dirs are fully populated so that clients
-                           * can use `taskFinish` notifications as a signal to process them.
-                           */
-                          reporter.processEndCompilation(
-                            previousProblems,
-                            a.code,
-                            Some(clientClassesObserver.classesDir),
-                            Some(bundle.out.analysisOut)
-                          )
-                      }
-                  }
-                case Right(action) =>
-                  action match {
-                    case LoggerAction.LogErrorMessage(msg) => rawLogger.error(msg)
-                    case LoggerAction.LogWarnMessage(msg) => rawLogger.warn(msg)
-                    case LoggerAction.LogInfoMessage(msg) => rawLogger.info(msg)
-                    case LoggerAction.LogDebugMessage(msg) =>
-                      rawLogger.debug(msg)
-                    case LoggerAction.LogTraceMessage(msg) =>
-                      rawLogger.debug(msg)
+        // Replay events asynchronously to waiting for the compilation result
+        import scala.concurrent.duration.FiniteDuration
+        import monix.execution.exceptions.UpstreamTimeoutException
+        val disconnectionTime = SystemProperties.getCompileDisconnectionTime(rawLogger)
+        val replayEventsTask = runningCompilation.mirror
+          .timeoutOnSlowUpstream(disconnectionTime)
+          .foreachL {
+            case Left(action) =>
+              action match {
+                case ReporterAction.EnableFatalWarnings =>
+                  reporter.enableFatalWarnings()
+                case ReporterAction.ReportStartCompilation =>
+                  reporter.reportStartCompilation(previousProblems, wasPreviousSuccessful)
+                case a: ReporterAction.ReportStartIncrementalCycle =>
+                  reporter.reportStartIncrementalCycle(a.sources, a.outputDirs)
+                case a: ReporterAction.ReportProblem => reporter.log(a.problem)
+                case ReporterAction.PublishDiagnosticsSummary =>
+                  reporter.printSummary()
+                case a: ReporterAction.ReportNextPhase =>
+                  reporter.reportNextPhase(a.phase, a.sourceFile)
+                case a: ReporterAction.ReportCompilationProgress =>
+                  reporter.reportCompilationProgress(a.progress, a.total)
+                case a: ReporterAction.ReportEndIncrementalCycle =>
+                  reporter.reportEndIncrementalCycle(a.durationMs, a.result)
+                case ReporterAction.ReportCancelledCompilation =>
+                  reporter.reportCancelledCompilation()
+                case a: ReporterAction.ProcessEndCompilation =>
+                  a.code match {
+                    case BspStatusCode.Cancelled | BspStatusCode.Error =>
+                      reporter.processEndCompilation(previousProblems, a.code, None, None)
+                      reporter.reportEndCompilation()
+                    case _ =>
+                      /*
+                       * Only process the end, don't report it. It's only safe to
+                       * report when all the client tasks have been run and the
+                       * analysis/classes dirs are fully populated so that clients
+                       * can use `taskFinish` notifications as a signal to process them.
+                       */
+                      reporter.processEndCompilation(
+                        previousProblems,
+                        a.code,
+                        Some(clientClassesObserver.classesDir),
+                        Some(bundle.out.analysisOut)
+                      )
                   }
               }
-              .materialize
-              .map {
-                case Success(_) => DeduplicationResult.Ok
-                case Failure(_: UpstreamTimeoutException) =>
-                  DeduplicationResult.DisconnectFromDeduplication
-                case Failure(t) => DeduplicationResult.DeduplicationError(t)
+            case Right(action) =>
+              action match {
+                case LoggerAction.LogErrorMessage(msg) => rawLogger.error(msg)
+                case LoggerAction.LogWarnMessage(msg) => rawLogger.warn(msg)
+                case LoggerAction.LogInfoMessage(msg) => rawLogger.info(msg)
+                case LoggerAction.LogDebugMessage(msg) =>
+                  rawLogger.debug(msg)
+                case LoggerAction.LogTraceMessage(msg) =>
+                  rawLogger.debug(msg)
               }
+          }
+          .materialize
+          .map {
+            case Success(_) => DeduplicationResult.Ok
+            case Failure(_: UpstreamTimeoutException) =>
+              DeduplicationResult.DisconnectFromDeduplication
+            case Failure(t) => DeduplicationResult.DeduplicationError(t)
+          }
 
-            /* The task set up by another process whose memoized result we're going to
-             * reuse. To prevent blocking compilations, we execute this task (which will
-             * block until its completion is done) in the IO thread pool, which is
-             * unbounded. This makes sure that the blocking threads *never* block
-             * the computation pool, which could produce a hang in the build server.
-             */
-            val runningCompilationTask =
-              runningCompilation.traversal.executeOn(ExecutionContext.ioScheduler)
+        /* The task set up by another process whose memoized result we're going to
+         * reuse. To prevent blocking compilations, we execute this task (which will
+         * block until its completion is done) in the IO thread pool, which is
+         * unbounded. This makes sure that the blocking threads *never* block
+         * the computation pool, which could produce a hang in the build server.
+         */
+        val runningCompilationTask =
+          runningCompilation.traversal.executeOn(ExecutionContext.ioScheduler)
 
-            val deduplicateStreamSideEffectsHandle =
-              replayEventsTask.runToFuture(ExecutionContext.ioScheduler)
+        val deduplicateStreamSideEffectsHandle =
+          replayEventsTask.runToFuture(ExecutionContext.ioScheduler)
 
-            /**
-             * Deduplicate and change the implementation of the task returning the
-             * deduplicate compiler result to trigger a syncing process to keep the
-             * client external classes directory up-to-date with the new classes
-             * directory. This copying process blocks until the background IO work
-             * of the deduplicated compilation result has been finished. Note that
-             * this mechanism allows pipelined compilations to perform this IO only
-             * when the full compilation of a module is finished.
-             */
-            val obtainResultFromDeduplication = runningCompilationTask.map { results =>
-              PartialCompileResult.mapEveryResult(results) {
-                case s @ PartialSuccess(bundle, compilerResult) =>
-                  val newCompilerResult = compilerResult.flatMap { results =>
-                    results.fromCompiler match {
-                      case s: Compiler.Result.Success =>
-                        // Wait on new classes to be populated for correctness
-                        val runningBackgroundTasks = s.backgroundTasks
-                          .trigger(clientClassesObserver, reporter, bundle.tracer, logger)
-                          .runAsync(ExecutionContext.ioScheduler)
-                        Task.now(results.copy(runningBackgroundTasks = runningBackgroundTasks))
-                      case _: Compiler.Result.Cancelled =>
-                        // Make sure to cancel the deduplicating task if compilation is cancelled
-                        deduplicateStreamSideEffectsHandle.cancel()
-                        Task.now(results)
-                      case _ => Task.now(results)
-                    }
-                  }
-                  s.copy(result = newCompilerResult)
-                case result => result
-              }
-            }
-
-            val compileAndDeduplicate = Task
-              .chooseFirstOf(
-                obtainResultFromDeduplication,
-                Task.fromFuture(deduplicateStreamSideEffectsHandle)
-              )
-              .executeOn(ExecutionContext.ioScheduler)
-
-            val finalCompileTask = compileAndDeduplicate.flatMap {
-              case Left((result, deduplicationFuture)) =>
-                Task.fromFuture(deduplicationFuture).map(_ => result)
-              case Right((compilationFuture, deduplicationResult)) =>
-                deduplicationResult match {
-                  case DeduplicationResult.Ok => Task.fromFuture(compilationFuture)
-                  case DeduplicationResult.DeduplicationError(t) =>
-                    rawLogger.trace(t)
-                    val failedDeduplicationResult = Compiler.Result.GlobalError(
-                      s"Unexpected error while deduplicating compilation for ${inputs.project.name}: ${t.getMessage}",
-                      Some(t)
-                    )
-
-                    /*
-                     * When an error happens while replaying all events of the
-                     * deduplicated compilation, we keep track of the error, wait
-                     * until the deduplicated compilation finishes and then we
-                     * replace the result by a failed result that informs the
-                     * client compilation was not successfully deduplicated.
-                     */
-                    Task.fromFuture(compilationFuture).map { results =>
-                      PartialCompileResult.mapEveryResult(results) { (p: PartialCompileResult) =>
-                        p match {
-                          case s: PartialSuccess =>
-                            val failedBundle = ResultBundle(failedDeduplicationResult, None, None)
-                            s.copy(result = s.result.map(_ => failedBundle))
-                          case result => result
-                        }
-                      }
-                    }
-
-                  case DeduplicationResult.DisconnectFromDeduplication =>
-                    /*
-                     * Deduplication timed out after no compilation updates were
-                     * recorded. In theory, this could happen because a rogue
-                     * compilation process has stalled or is blocked. To ensure
-                     * deduplicated clients always make progress, we now proceed
-                     * with:
-                     *
-                 * 1. Cancelling the dead-looking compilation, hoping that the
-                     *    process will wake up at some point and stop running.
-                     * 2. Shutting down the deduplication and triggering a new
-                     *    compilation. If there are several clients deduplicating this
-                     *    compilation, they will compete to start the compilation again
-                     *    with new compile inputs, as they could have already changed.
-                     * 3. Reporting the end of compilation in case it hasn't been
-                     *    reported. Clients must handle two end compilation notifications
-                     *    gracefully.
-                     * 4. Display the user that the deduplication was cancelled and a
-                     *    new compilation was scheduled.
-                     */
-
-                    CompileGatekeeper.disconnectDeduplicationFromRunning(
-                      bundle.uniqueInputs,
-                      runningCompilation
-                    )
-
-                    compilationFuture.cancel()
-                    reporter.processEndCompilation(Nil, StatusCode.Cancelled, None, None)
-                    reporter.reportEndCompilation()
-
-                    logger.displayWarningToUser(
-                      s"""Disconnecting from deduplication of ongoing compilation for '${inputs.project.name}'
-                         |No progress update for ${(disconnectionTime: FiniteDuration)
-                          .toString()} caused bloop to cancel compilation and schedule a new compile.
-                  """.stripMargin
-                    )
-
-                    setupAndDeduplicate(client, inputs, setup)(compile)
+        /**
+         * Deduplicate and change the implementation of the task returning the
+         * deduplicate compiler result to trigger a syncing process to keep the
+         * client external classes directory up-to-date with the new classes
+         * directory. This copying process blocks until the background IO work
+         * of the deduplicated compilation result has been finished. Note that
+         * this mechanism allows pipelined compilations to perform this IO only
+         * when the full compilation of a module is finished.
+         */
+        val obtainResultFromDeduplication = runningCompilationTask.map { results =>
+          PartialCompileResult.mapEveryResult(results) {
+            case s @ PartialSuccess(bundle, compilerResult) =>
+              val newCompilerResult = compilerResult.flatMap { results =>
+                results.fromCompiler match {
+                  case s: Compiler.Result.Success =>
+                    // Wait on new classes to be populated for correctness
+                    val runningBackgroundTasks = s.backgroundTasks
+                      .trigger(clientClassesObserver, reporter, bundle.tracer, logger)
+                      .runAsync(ExecutionContext.ioScheduler)
+                    Task.now(results.copy(runningBackgroundTasks = runningBackgroundTasks))
+                  case _: Compiler.Result.Cancelled =>
+                    // Make sure to cancel the deduplicating task if compilation is cancelled
+                    deduplicateStreamSideEffectsHandle.cancel()
+                    Task.now(results)
+                  case _ => Task.now(results)
                 }
-            }
-
-            bundle.tracer.traceTask(s"deduplicating ${bundle.project.name}") { _ =>
-              finalCompileTask.executeOn(ExecutionContext.ioScheduler)
-            }
+              }
+              s.copy(result = newCompilerResult)
+            case result => result
           }
         }
+
+        val compileAndDeduplicate = Task
+          .chooseFirstOf(
+            obtainResultFromDeduplication,
+            Task.fromFuture(deduplicateStreamSideEffectsHandle)
+          )
+          .executeOn(ExecutionContext.ioScheduler)
+
+        val finalCompileTask = compileAndDeduplicate.flatMap {
+          case Left((result, deduplicationFuture)) =>
+            Task.fromFuture(deduplicationFuture).map(_ => result)
+          case Right((compilationFuture, deduplicationResult)) =>
+            deduplicationResult match {
+              case DeduplicationResult.Ok => Task.fromFuture(compilationFuture)
+              case DeduplicationResult.DeduplicationError(t) =>
+                rawLogger.trace(t)
+                val failedDeduplicationResult = Compiler.Result.GlobalError(
+                  s"Unexpected error while deduplicating compilation for ${inputs.project.name}: ${t.getMessage}",
+                  Some(t)
+                )
+
+                /*
+                 * When an error happens while replaying all events of the
+                 * deduplicated compilation, we keep track of the error, wait
+                 * until the deduplicated compilation finishes and then we
+                 * replace the result by a failed result that informs the
+                 * client compilation was not successfully deduplicated.
+                 */
+                Task.fromFuture(compilationFuture).map { results =>
+                  PartialCompileResult.mapEveryResult(results) { (p: PartialCompileResult) =>
+                    p match {
+                      case s: PartialSuccess =>
+                        val failedBundle = ResultBundle(failedDeduplicationResult, None, None)
+                        s.copy(result = s.result.map(_ => failedBundle))
+                      case result => result
+                    }
+                  }
+                }
+
+              case DeduplicationResult.DisconnectFromDeduplication =>
+                /*
+                 * Deduplication timed out after no compilation updates were
+                 * recorded. In theory, this could happen because a rogue
+                 * compilation process has stalled or is blocked. To ensure
+                 * deduplicated clients always make progress, we now proceed
+                 * with:
+                 *
+                 * 1. Cancelling the dead-looking compilation, hoping that the
+                 *    process will wake up at some point and stop running.
+                 * 2. Shutting down the deduplication and triggering a new
+                 *    compilation. If there are several clients deduplicating this
+                 *    compilation, they will compete to start the compilation again
+                 *    with new compile inputs, as they could have already changed.
+                 * 3. Reporting the end of compilation in case it hasn't been
+                 *    reported. Clients must handle two end compilation notifications
+                 *    gracefully.
+                 * 4. Display the user that the deduplication was cancelled and a
+                 *    new compilation was scheduled.
+                 */
+
+                CompileGatekeeper.disconnectDeduplicationFromRunning(
+                  bundle.uniqueInputs,
+                  runningCompilation
+                )
+
+                compilationFuture.cancel()
+                reporter.processEndCompilation(Nil, StatusCode.Cancelled, None, None)
+                reporter.reportEndCompilation()
+
+                logger.displayWarningToUser(
+                  s"""Disconnecting from deduplication of ongoing compilation for '${inputs.project.name}'
+                     |No progress update for ${(disconnectionTime: FiniteDuration)
+                      .toString()} caused bloop to cancel compilation and schedule a new compile.
+                  """.stripMargin
+                )
+
+                setupAndDeduplicate(client, inputs, setup)(compile)
+            }
+        }
+
+        bundle.tracer.traceTask(s"deduplicating ${bundle.project.name}") { _ =>
+          finalCompileTask.executeOn(ExecutionContext.ioScheduler)
+        }
+      }
     }
   }
 
