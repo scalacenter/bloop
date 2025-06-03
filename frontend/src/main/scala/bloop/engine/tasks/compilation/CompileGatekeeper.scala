@@ -45,12 +45,14 @@ object CompileGatekeeper {
       client: ClientInfo,
       compile: SuccessfulCompileBundle => CompileTraversal
   ): (RunningCompilation, CanBeDeduplicated) = {
+    import bundle.logger
     var deduplicate = true
 
     val running = runningCompilations.compute(
       bundle.uniqueInputs,
       (_: UniqueCompileInputs, running: RunningCompilation) => {
         if (running == null) {
+          logger.debug(s"no running compilation found starting new one:${bundle.uniqueInputs}")
           deduplicate = false
           scheduleCompilation(inputs, bundle, client, compile)
         } else {
@@ -59,6 +61,7 @@ object CompileGatekeeper {
 
           usedClassesDirCounter.getAndTransform { count =>
             if (count == 0) {
+              logger.debug(s"Abort deduplication, dir is scheduled to be deleted in background:${bundle.uniqueInputs}")
               // Abort deduplication, dir is scheduled to be deleted in background
               deduplicate = false
               // Remove from map of used classes dirs in case it hasn't already been
@@ -66,6 +69,7 @@ object CompileGatekeeper {
               // Return previous count, this counter will soon be deallocated
               count
             } else {
+              logger.debug(s"Increase count to prevent other compiles to schedule its deletion:${bundle.uniqueInputs}")
               // Increase count to prevent other compiles to schedule its deletion
               count + 1
             }
@@ -82,8 +86,10 @@ object CompileGatekeeper {
 
   def disconnectDeduplicationFromRunning(
       inputs: UniqueCompileInputs,
-      runningCompilation: RunningCompilation
+      runningCompilation: RunningCompilation,
+      logger: Logger
   ): Unit = {
+    logger.debug(s"Disconnected deduplication from running compilation:${inputs}")
     runningCompilation.isUnsubscribed.compareAndSet(false, true)
     runningCompilations.remove(inputs, runningCompilation); ()
   }
@@ -132,14 +138,19 @@ object CompileGatekeeper {
       lastSuccessfulResults.compute(
         project.uniqueId,
         (_: String, previousResultOrNull: LastSuccessfulResult) => {
+          logger.debug(
+            s"Return previous result or the initial last successful coming from the bundle:${project.uniqueId}"
+          )
           // Return previous result or the initial last successful coming from the bundle
           val previousResult = initializeLastSuccessful(previousResultOrNull)
 
           currentlyUsedClassesDirs.compute(
             previousResult.classesDir,
             (_: AbsolutePath, counter: AtomicInt) => {
+              logger.debug(s"Set counter for used classes dir when init or incrementing:${previousResult.classesDir}")
               // Set counter for used classes dir when init or incrementing
               if (counter == null) {
+                logger.debug(s"Create new counter:${previousResult.classesDir}")
                 val initialCounter = AtomicInt(1)
                 counterForUsedClassesDir = initialCounter
                 initialCounter
@@ -200,6 +211,7 @@ object CompileGatekeeper {
     def cleanUpAfterCompilationError[T](result: T): T = {
       if (!isAlreadyUnsubscribed.get) {
         // Remove running compilation if host compilation hasn't unsubscribed (maybe it's blocked)
+        logger.debug(s"Remove running compilation if host compilation hasn't unsubscribed (maybe it's blocked):${oinputs}")
         runningCompilations.remove(oinputs)
       }
 
@@ -244,6 +256,7 @@ object CompileGatekeeper {
     runningCompilations.compute(
       oracleInputs,
       (_: UniqueCompileInputs, _: RunningCompilation) => {
+        logger.debug("Unregister deduplication and registered successfully")
         lastSuccessfulResults.compute(project.uniqueId, (_, _) => successful)
         null
       }

@@ -328,7 +328,8 @@ object CompileGraph {
 
                 CompileGatekeeper.disconnectDeduplicationFromRunning(
                   bundle.uniqueInputs,
-                  runningCompilation
+                  runningCompilation,
+                  logger
                 )
 
                 compilationFuture.cancel()

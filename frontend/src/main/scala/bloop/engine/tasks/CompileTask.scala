@@ -484,6 +484,7 @@ object CompileTask {
       compilerResult: Compiler.Result,
       logger: Logger
   ): Task[Unit] = {
+    logger.debug("cleaning up previous results")
     val previousClassesDir = previousSuccessful.classesDir
     val currentlyUsedCounter = previousSuccessful.counterForClassesDir.decrementAndGet(1)
 
