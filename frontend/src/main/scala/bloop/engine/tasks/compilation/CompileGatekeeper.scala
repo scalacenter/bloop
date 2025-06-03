@@ -61,7 +61,9 @@ object CompileGatekeeper {
 
           usedClassesDirCounter.getAndTransform { count =>
             if (count == 0) {
-              logger.debug(s"Abort deduplication, dir is scheduled to be deleted in background:${bundle.uniqueInputs}")
+              logger.debug(
+                s"Abort deduplication, dir is scheduled to be deleted in background:${bundle.uniqueInputs}"
+              )
               // Abort deduplication, dir is scheduled to be deleted in background
               deduplicate = false
               // Remove from map of used classes dirs in case it hasn't already been
@@ -69,7 +71,9 @@ object CompileGatekeeper {
               // Return previous count, this counter will soon be deallocated
               count
             } else {
-              logger.debug(s"Increase count to prevent other compiles to schedule its deletion:${bundle.uniqueInputs}")
+              logger.debug(
+                s"Increase count to prevent other compiles to schedule its deletion:${bundle.uniqueInputs}"
+              )
               // Increase count to prevent other compiles to schedule its deletion
               count + 1
             }
@@ -147,7 +151,9 @@ object CompileGatekeeper {
           currentlyUsedClassesDirs.compute(
             previousResult.classesDir,
             (_: AbsolutePath, counter: AtomicInt) => {
-              logger.debug(s"Set counter for used classes dir when init or incrementing:${previousResult.classesDir}")
+              logger.debug(
+                s"Set counter for used classes dir when init or incrementing:${previousResult.classesDir}"
+              )
               // Set counter for used classes dir when init or incrementing
               if (counter == null) {
                 logger.debug(s"Create new counter:${previousResult.classesDir}")
@@ -211,7 +217,9 @@ object CompileGatekeeper {
     def cleanUpAfterCompilationError[T](result: T): T = {
       if (!isAlreadyUnsubscribed.get) {
         // Remove running compilation if host compilation hasn't unsubscribed (maybe it's blocked)
-        logger.debug(s"Remove running compilation if host compilation hasn't unsubscribed (maybe it's blocked):${oinputs}")
+        logger.debug(
+          s"Remove running compilation if host compilation hasn't unsubscribed (maybe it's blocked):${oinputs}"
+        )
         runningCompilations.remove(oinputs)
       }
 
