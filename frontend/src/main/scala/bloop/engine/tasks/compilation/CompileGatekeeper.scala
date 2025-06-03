@@ -1,7 +1,5 @@
 package bloop.engine.tasks.compilation
 
-import java.util.concurrent.ConcurrentHashMap
-
 import bloop.Compiler
 import bloop.UniqueCompileInputs
 import bloop.data.ClientInfo
@@ -14,7 +12,8 @@ import bloop.logging.Logger
 import bloop.logging.LoggerAction
 import bloop.reporter.ReporterAction
 import bloop.task.Task
-
+import monix.eval.{Task => MonixTask}
+import cats.effect.concurrent.{Deferred, Ref}
 import monix.execution.atomic.AtomicBoolean
 import monix.execution.atomic.AtomicInt
 import monix.reactive.Observable
@@ -33,9 +32,16 @@ object CompileGatekeeper {
 
   /* -------------------------------------------------------------------------------------------- */
 
-  private val currentlyUsedClassesDirs = new ConcurrentHashMap[AbsolutePath, AtomicInt]()
-  private val runningCompilations = new ConcurrentHashMap[UniqueCompileInputs, RunningCompilation]()
-  private val lastSuccessfulResults = new ConcurrentHashMap[ProjectId, LastSuccessfulResult]()
+  case class CompilerState(
+      currentlyUsedClassesDirs: Map[AbsolutePath, AtomicInt],
+      runningCompilations: Map[UniqueCompileInputs, RunningCompilation],
+      lastSuccessfulResults: Map[ProjectId, LastSuccessfulResult]
+  )
+  object CompilerState {
+    def empty: CompilerState = CompilerState(Map.empty, Map.empty, Map.empty)
+  }
+
+  private val compilerStateRef: Ref[MonixTask, CompilerState] = Ref.unsafe(CompilerState.empty)
 
   /* -------------------------------------------------------------------------------------------- */
 
@@ -44,48 +50,68 @@ object CompileGatekeeper {
       bundle: SuccessfulCompileBundle,
       client: ClientInfo,
       compile: SuccessfulCompileBundle => CompileTraversal
-  ): (RunningCompilation, CanBeDeduplicated) = {
-    var deduplicate = true
-
-    val running = runningCompilations.compute(
-      bundle.uniqueInputs,
-      (_: UniqueCompileInputs, running: RunningCompilation) => {
-        if (running == null) {
-          deduplicate = false
-          scheduleCompilation(inputs, bundle, client, compile)
-        } else {
-          val usedClassesDir = running.usedLastSuccessful.classesDir
-          val usedClassesDirCounter = running.usedLastSuccessful.counterForClassesDir
-
-          usedClassesDirCounter.getAndTransform { count =>
-            if (count == 0) {
-              // Abort deduplication, dir is scheduled to be deleted in background
-              deduplicate = false
-              // Remove from map of used classes dirs in case it hasn't already been
-              currentlyUsedClassesDirs.remove(usedClassesDir, usedClassesDirCounter)
-              // Return previous count, this counter will soon be deallocated
-              count
-            } else {
-              // Increase count to prevent other compiles to schedule its deletion
-              count + 1
+  ): Task[(RunningCompilation, CanBeDeduplicated)] =
+    scheduleCompilation(inputs, bundle, client, compile)
+      .flatMap { orCompilation =>
+        Task.liftMonixTaskUncancellable {
+          compilerStateRef
+            .modify { state =>
+              val currentCompilation = state.runningCompilations.get(bundle.uniqueInputs)
+              val (compilation, deduplicate, classesDirs) = currentCompilation
+                .fold(
+                  (
+                    orCompilation,
+                    false,
+                    state.currentlyUsedClassesDirs
+                  )
+                ) { running =>
+                  val usedClassesDir = running.usedLastSuccessful.classesDir
+                  val usedClassesDirCounter = running.usedLastSuccessful.counterForClassesDir
+                  val deduplicate = usedClassesDirCounter.transformAndExtract {
+                    case count if count == 0 => (false -> count)
+                    case count => true -> (count + 1)
+                  }
+                  if (deduplicate) (running, deduplicate, state.currentlyUsedClassesDirs)
+                  else {
+                    val classesDirs =
+                      if (
+                        state.currentlyUsedClassesDirs
+                          .get(usedClassesDir)
+                          .contains(usedClassesDirCounter)
+                      )
+                        state.currentlyUsedClassesDirs - usedClassesDir
+                      else
+                        state.currentlyUsedClassesDirs
+                    (
+                      orCompilation,
+                      deduplicate,
+                      classesDirs
+                    )
+                  }
+                }
+              val newState =
+                state.copy(
+                  currentlyUsedClassesDirs = classesDirs,
+                  runningCompilations =
+                    state.runningCompilations + (bundle.uniqueInputs -> compilation)
+                )
+              (state, (compilation, deduplicate))
             }
-          }
-
-          if (deduplicate) running
-          else scheduleCompilation(inputs, bundle, client, compile)
         }
       }
-    )
-
-    (running, deduplicate)
-  }
 
   def disconnectDeduplicationFromRunning(
       inputs: UniqueCompileInputs,
       runningCompilation: RunningCompilation
-  ): Unit = {
+  ): Task[Unit] = Task.liftMonixTaskUncancellable {
     runningCompilation.isUnsubscribed.compareAndSet(false, true)
-    runningCompilations.remove(inputs, runningCompilation); ()
+    compilerStateRef.modify { state =>
+      val updated =
+        if (state.runningCompilations.get(inputs).contains(runningCompilation))
+          state.runningCompilations - inputs
+        else state.runningCompilations
+      (state.copy(runningCompilations = updated), ())
+    }
   }
 
   /**
@@ -100,15 +126,15 @@ object CompileGatekeeper {
       bundle: SuccessfulCompileBundle,
       client: ClientInfo,
       compile: SuccessfulCompileBundle => CompileTraversal
-  ): RunningCompilation = {
+  ): Task[RunningCompilation] = {
     import inputs.project
     import bundle.logger
     import logger.debug
 
-    var counterForUsedClassesDir: AtomicInt = null
-
-    def initializeLastSuccessful(previousOrNull: LastSuccessfulResult): LastSuccessfulResult = {
-      val result = Option(previousOrNull).getOrElse(bundle.lastSuccessful)
+    def initializeLastSuccessful(
+        maybePreviousResult: Option[LastSuccessfulResult]
+    ): LastSuccessfulResult = {
+      val result = maybePreviousResult.getOrElse(bundle.lastSuccessful)
       if (!result.classesDir.exists) {
         debug(s"Ignoring analysis for ${project.name}, directory ${result.classesDir} is missing")
         LastSuccessfulResult.empty(inputs.project)
@@ -128,65 +154,58 @@ object CompileGatekeeper {
       }
     }
 
-    def getMostRecentSuccessfulResultAtomically = {
-      lastSuccessfulResults.compute(
-        project.uniqueId,
-        (_: String, previousResultOrNull: LastSuccessfulResult) => {
-          // Return previous result or the initial last successful coming from the bundle
-          val previousResult = initializeLastSuccessful(previousResultOrNull)
-
-          currentlyUsedClassesDirs.compute(
-            previousResult.classesDir,
-            (_: AbsolutePath, counter: AtomicInt) => {
-              // Set counter for used classes dir when init or incrementing
-              if (counter == null) {
-                val initialCounter = AtomicInt(1)
-                counterForUsedClassesDir = initialCounter
-                initialCounter
-              } else {
-                counterForUsedClassesDir = counter
-                val newCount = counter.incrementAndGet(1)
-                logger.debug(s"Increasing counter for ${previousResult.classesDir} to $newCount")
-                counter
-              }
-            }
-          )
-
-          previousResult.copy(counterForClassesDir = counterForUsedClassesDir)
-        }
-      )
+    def getMostRecentSuccessfulResultAtomically = Task.liftMonixTaskUncancellable {
+      compilerStateRef.modify { state =>
+        val previousResult =
+          initializeLastSuccessful(state.lastSuccessfulResults.get(project.uniqueId))
+        val counter = state.currentlyUsedClassesDirs
+          .get(previousResult.classesDir)
+          .fold {
+            val initialCounter = AtomicInt(1)
+            initialCounter
+          } { counter =>
+            val newCount = counter.incrementAndGet(1)
+            logger.debug(s"Increasing counter for ${previousResult.classesDir} to $newCount")
+            counter
+          }
+        val newUserClassesDir = (previousResult.classesDir, counter)
+        val newResults = (project.uniqueId, previousResult)
+        state.copy(
+          lastSuccessfulResults = state.lastSuccessfulResults + newResults,
+          currentlyUsedClassesDirs = state.currentlyUsedClassesDirs + newUserClassesDir
+        ) -> previousResult
+      }
     }
 
     logger.debug(s"Scheduling compilation for ${project.name}...")
 
-    // Replace client-specific last successful with the most recent result
-    val mostRecentSuccessful = getMostRecentSuccessfulResultAtomically
+    getMostRecentSuccessfulResultAtomically
+      .map { mostRecentSuccessful =>
+        val isUnsubscribed = AtomicBoolean(false)
+        val newBundle = bundle.copy(lastSuccessful = mostRecentSuccessful)
+        val compileAndUnsubscribe = compile(newBundle)
+          .doOnFinish(_ => Task(logger.observer.onComplete()))
+          .flatMap { result =>
+            // Unregister deduplication atomically and register last successful if any
+            processResultAtomically(
+              result,
+              project,
+              bundle.uniqueInputs,
+              isUnsubscribed,
+              logger
+            )
+          }
+          .memoize
 
-    val isUnsubscribed = AtomicBoolean(false)
-    val newBundle = bundle.copy(lastSuccessful = mostRecentSuccessful)
-    val compileAndUnsubscribe = {
-      compile(newBundle)
-        .doOnFinish(_ => Task(logger.observer.onComplete()))
-        .map { result =>
-          // Unregister deduplication atomically and register last successful if any
-          processResultAtomically(
-            result,
-            project,
-            bundle.uniqueInputs,
-            isUnsubscribed,
-            logger
-          )
-        }
-        .memoize // Without memoization, there is no deduplication
-    }
+        RunningCompilation(
+          compileAndUnsubscribe,
+          mostRecentSuccessful,
+          isUnsubscribed,
+          bundle.mirror,
+          client
+        ) // Without memoization, there is no deduplication
+      }
 
-    RunningCompilation(
-      compileAndUnsubscribe,
-      mostRecentSuccessful,
-      isUnsubscribed,
-      bundle.mirror,
-      client
-    )
   }
 
   private def processResultAtomically(
@@ -195,27 +214,36 @@ object CompileGatekeeper {
       oinputs: UniqueCompileInputs,
       isAlreadyUnsubscribed: AtomicBoolean,
       logger: Logger
-  ): Dag[PartialCompileResult] = {
+  ): Task[Dag[PartialCompileResult]] = {
 
-    def cleanUpAfterCompilationError[T](result: T): T = {
-      if (!isAlreadyUnsubscribed.get) {
-        // Remove running compilation if host compilation hasn't unsubscribed (maybe it's blocked)
-        runningCompilations.remove(oinputs)
-      }
-
-      result
+    def cleanUpAfterCompilationError[T](result: T): Task[T] = {
+      Task {
+        if (!isAlreadyUnsubscribed.get) {
+          // Remove running compilation if host compilation hasn't unsubscribed (maybe it's blocked)
+          Task.liftMonixTaskUncancellable {
+            compilerStateRef.update { state =>
+              state.copy(runningCompilations = state.runningCompilations - oinputs)
+            }
+          }
+        } else
+          Task.unit
+      }.flatten.map(_ => result)
     }
 
     // Unregister deduplication atomically and register last successful if any
-    PartialCompileResult.mapEveryResult(resultDag) {
+    PartialCompileResult.mapEveryResultTask(resultDag) {
       case s: PartialSuccess =>
-        val processedResult = s.result.map { (result: ResultBundle) =>
-          result.successful match {
-            case None => cleanUpAfterCompilationError(result)
-            case Some(res) =>
-              unregisterDeduplicationAndRegisterSuccessful(project, oinputs, res, logger)
-          }
-          result
+        val processedResult = s.result.flatMap { (result: ResultBundle) =>
+          result.successful
+            .fold(cleanUpAfterCompilationError(result)) { res =>
+              unregisterDeduplicationAndRegisterSuccessful(
+                project,
+                oinputs,
+                res,
+                logger
+              )
+                .map(_ => result)
+            }
         }
 
         /**
@@ -223,7 +251,7 @@ object CompileGatekeeper {
          * memoized for correctness reasons. The result task can be called
          * several times by the compilation engine driving the execution.
          */
-        s.copy(result = processedResult.memoize)
+        Task(s.copy(result = processedResult.memoize))
 
       case result => cleanUpAfterCompilationError(result)
     }
@@ -240,26 +268,33 @@ object CompileGatekeeper {
       oracleInputs: UniqueCompileInputs,
       successful: LastSuccessfulResult,
       logger: Logger
-  ): Unit = {
-    runningCompilations.compute(
-      oracleInputs,
-      (_: UniqueCompileInputs, _: RunningCompilation) => {
-        lastSuccessfulResults.compute(project.uniqueId, (_, _) => successful)
-        null
+  ): Task[Unit] = Task.liftMonixTaskUncancellable {
+    compilerStateRef
+      .update { state =>
+        val newSuccessfulResults = (project.uniqueId, successful)
+        if (state.runningCompilations.contains(oracleInputs)) {
+          state
+            .copy(
+              lastSuccessfulResults = state.lastSuccessfulResults + newSuccessfulResults,
+              runningCompilations = (state.runningCompilations - oracleInputs)
+            )
+        } else {
+          state
+        }
       }
-    )
+      .map { _ =>
+        logger.debug(
+          s"Recording new last successful request for ${project.name} associated with ${successful.classesDir}"
+        )
 
-    logger.debug(
-      s"Recording new last successful request for ${project.name} associated with ${successful.classesDir}"
-    )
-
-    ()
+        ()
+      }
   }
 
   // Expose clearing mechanism so that it can be invoked in the tests and community build runner
-  private[bloop] def clearSuccessfulResults(): Unit = {
-    lastSuccessfulResults.synchronized {
-      lastSuccessfulResults.clear()
-    }
-  }
+//  private[bloop] def clearSuccessfulResults(): Unit = {
+//    lastSuccessfulResults.synchronized {
+//      lastSuccessfulResults.clear()
+//    }
+//  }
 }

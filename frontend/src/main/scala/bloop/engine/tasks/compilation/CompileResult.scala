@@ -32,6 +32,16 @@ object PartialCompileResult {
     }
   }
 
+  def mapEveryResultTask(
+      results: Dag[PartialCompileResult]
+  )(f: PartialCompileResult => Task[PartialCompileResult]): Task[Dag[PartialCompileResult]] = {
+    results match {
+      case Leaf(result) => f(result).map(Leaf(_))
+      case Parent(result, children) => f(result).map(Parent(_, children))
+      case Aggregate(_) => sys.error("Unexpected aggregate node in compile result!")
+    }
+  }
+
   /**
    * Turns a partial compile result to a full one. In the case of normal
    * compilation, this is an instant operation since the task returning the
