@@ -1,22 +1,14 @@
 package bloop
 
 import scala.annotation.tailrec
-
 import bloop.cli.CliOptions
 import bloop.cli.Commands
 import bloop.cli.ExitStatus
 import bloop.data.ClientInfo
 import bloop.data.WorkspaceSettings
-import bloop.engine.Build
-import bloop.engine.BuildLoader
-import bloop.engine.Exit
-import bloop.engine.Interpreter
-import bloop.engine.NoPool
-import bloop.engine.Run
-import bloop.engine.State
+import bloop.engine.{Build, BuildLoader, ExecutionContext, Exit, Interpreter, NoPool, Run, State}
 import bloop.io.AbsolutePath
 import bloop.logging.BloopLogger
-
 import _root_.bloop.task.Task
 import caseapp.CaseApp
 import caseapp.RemainingArgs
@@ -50,7 +42,7 @@ object Bloop extends CaseApp[CliOptions] {
       // Ignore the exit status here, all we want is the task to finish execution or fail.
       Cli.waitUntilEndOfWorld(options, state.pool, config, state.logger) {
         t.map(s => { State.stateCache.updateBuild(s.copy(status = ExitStatus.Ok)); s.status })
-      }
+      }(ExecutionContext.ioScheduler)
 
       // Recover the state if the previous task has been successful.
       State.stateCache

@@ -1034,7 +1034,7 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
     }
   }
 
-  ignore("two concurrent clients deduplicate compilation and run at the same time") {
+  test("two concurrent clients deduplicate compilation and run at the same time") {
     val logger = new RecordingLogger(ansiCodesSupported = false)
     val logger1 = new RecordingLogger(ansiCodesSupported = false)
     val logger2 = new RecordingLogger(ansiCodesSupported = false)
