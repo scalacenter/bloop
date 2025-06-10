@@ -379,7 +379,15 @@ object Cli {
 
       val session = runTaskWithCliClient(configDirectory, action, taskToInterpret, pool, logger)
       val exitSession = Task.defer {
-        cleanUpNonStableCliDirectories(session.client)
+        cleanUpNonStableCliDirectories(session.client, logger).map { _ =>
+          activeCliSessions.compute(
+            configDirectory.underlying,
+            (_, sessions) => {
+              sessions.filterNot(_ == session)
+            }
+          )
+          ()
+        }
       }
 
       session.task
@@ -438,10 +446,14 @@ object Cli {
   }
 
   def cleanUpNonStableCliDirectories(
-      client: CliClientInfo
+      client: CliClientInfo,
+      logger: Logger
   ): Task[Unit] = {
     if (client.useStableCliDirs) Task.unit
     else {
+      logger.debug(
+        s"Cleaning up non-stable CLI directories ${client.getCreatedCliDirectories.mkString(",")}"
+      )
       val deleteTasks = client.getCreatedCliDirectories.map { freshDir =>
         if (!freshDir.exists) Task.unit
         else {
