@@ -1005,7 +1005,7 @@ object DebugServerSpec extends DebugBspBaseSuite {
       def cliCompile(project: TestProject) = {
         val compileArgs = Array("compile", project.config.name, "--config-dir", configDir.syntax)
         val compileAction = Cli.parse(compileArgs, CommonOptions.default)
-        Task.eval(Cli.run(compileAction, NoPool)).executeAsync
+        Task.eval(Cli.run(compileAction, NoPool, ???, None)).executeAsync
       }
 
       def bspCommand() = createBspCommand(configDir)

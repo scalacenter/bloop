@@ -108,7 +108,7 @@ abstract class CommunityBuild(val buildpressHomeDir: AbsolutePath) {
       }
 
       // First thing to do: clear cache of successful results between project runs to free up space
-//      CompileGatekeeper.clearSuccessfulResults()
+//      CompileGatekeeperOld.clearSuccessfulResults()
 
       // After reporting the state of the execution, compile the projects accordingly.
       val logger = BloopLogger.default("community-build-logger")
