@@ -62,35 +62,3 @@ if __name__ == "__main__":
 def random():
     return 123
 
-
-def random():
-    return 123
-
-
-def random():
-    return 123
-
-
-def random():
-    return 123
-
-
-def random():
-    return 123
-
-
-def random():
-    return 123
-
-
-def random():
-    return 123
-
-
-def random():
-    return 123
-
-
-def random():
-    return 123
-

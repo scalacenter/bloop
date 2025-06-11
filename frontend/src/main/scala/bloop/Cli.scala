@@ -38,7 +38,7 @@ object Cli extends TaskApp {
     val action = parse(args.toArray, CommonOptions.default)
     for {
       activeCliSessions <- Ref.of[MonixTask, Map[Path, List[CliSession]]](Map.empty)
-      exitStatus <- run(action, NoPool, activeCliSessions, None)
+      exitStatus <- run(action, NoPool, activeCliSessions)
     } yield ExitCode(exitStatus.code)
   }
 
@@ -64,7 +64,7 @@ object Cli extends TaskApp {
     )
 
     val cmd = parse(args, nailgunOptions)
-    val exitStatus = run(cmd, NoPool, cancel, activeCliSessions, None)
+    val exitStatus = run(cmd, NoPool, cancel, activeCliSessions)
     exitStatus.map(_.code)
   }
 
@@ -99,7 +99,7 @@ object Cli extends TaskApp {
     val handle =
       Ref
         .of[MonixTask, Map[Path, List[CliSession]]](Map.empty)
-        .flatMap(run(cmd, NailgunPool(ngContext), _, None))
+        .flatMap(run(cmd, NailgunPool(ngContext), _))
         .onErrorHandle {
           case x: java.util.concurrent.ExecutionException =>
             // print stack trace of fatal errors thrown in asynchronous code, see https://stackoverflow.com/questions/17265022/what-is-a-boxed-error-in-scala
@@ -313,13 +313,12 @@ object Cli extends TaskApp {
   def run(
       action: Action,
       pool: ClientPool,
-      activeCliSessions: Ref[MonixTask, Map[Path, List[CliSession]]],
-      postfix: Option[String]
+      activeCliSessions: Ref[MonixTask, Map[Path, List[CliSession]]]
   ): MonixTask[ExitStatus] = {
     for {
       baseCancellation <- Deferred[MonixTask, Boolean]
       _ <- baseCancellation.complete(false)
-      result <- run(action, pool, baseCancellation, activeCliSessions, postfix)
+      result <- run(action, pool, baseCancellation, activeCliSessions)
     } yield result
   }
 
@@ -329,8 +328,7 @@ object Cli extends TaskApp {
       action: Action,
       pool: ClientPool,
       cancel: Deferred[MonixTask, Boolean],
-      activeCliSessions: Ref[MonixTask, Map[Path, List[CliSession]]],
-      postfix: Option[String]
+      activeCliSessions: Ref[MonixTask, Map[Path, List[CliSession]]]
   ): MonixTask[ExitStatus] = {
     import bloop.io.AbsolutePath
     def getConfigDir(cliOptions: CliOptions): AbsolutePath = {
@@ -362,13 +360,11 @@ object Cli extends TaskApp {
       !(cliOptions.noColor || commonOpts.env.containsKey("NO_COLOR")),
       debugFilter
     )
-    logger.debug("Running cli" + postfix.fold("")(":" + _) + "...")
     action match {
       case Print(msg, _, Exit(exitStatus)) =>
         logger.info(msg)
         MonixTask.now(exitStatus)
       case _ =>
-        logger.debug("running action" + postfix.fold("")(":" + _) + "...")
         runWithState(
           action,
           pool,
@@ -377,8 +373,7 @@ object Cli extends TaskApp {
           configDirectory,
           cliOptions,
           commonOpts,
-          logger,
-          postfix
+          logger
         )
     }
   }
@@ -391,19 +386,16 @@ object Cli extends TaskApp {
       configDirectory: AbsolutePath,
       cliOptions: CliOptions,
       commonOpts: CommonOptions,
-      logger: Logger,
-      postfix: Option[String]
+      logger: Logger
   ): MonixTask[ExitStatus] = {
-    logger.debug("running with state" + postfix.fold("")(":" + _) + "...")
     // Set the proxy settings right before loading the state of the build
     bloop.util.ProxySetup.updateProxySettings(commonOpts.env.toMap, logger)
 
     val configDir = configDirectory.underlying
     waitUntilEndOfWorld(cliOptions, pool, configDir, logger, cancel) {
       val taskToInterpret = { (cli: CliClientInfo) =>
-        logger.debug("Running command interpretation" + postfix.fold("")(":" + _) + "...")
         val state = State.loadActiveStateFor(configDirectory, cli, pool, cliOptions.common, logger)
-        val interpret = Interpreter.execute(action, state, postfix).map { newState =>
+        val interpret = Interpreter.execute(action, state).map { newState =>
           action match {
             case Run(_: Commands.ValidatedBsp, _) =>
               () // Ignore, BSP services auto-update the build
@@ -412,7 +404,7 @@ object Cli extends TaskApp {
 
           newState
         }
-        interpret.toMonixTask(ExecutionContext.scheduler)
+        MonixTask.defer(interpret.toMonixTask(ExecutionContext.scheduler))
       }
 
       val session = runTaskWithCliClient(
@@ -420,18 +412,11 @@ object Cli extends TaskApp {
         action,
         taskToInterpret,
         activeCliSessions,
-        pool,
-        logger,
-        postfix
+        pool
       )
       val exitSession = MonixTask.defer {
         session.flatMap { session =>
           cleanUpNonStableCliDirectories(session.client, logger).flatMap { _ =>
-            logger.debug(
-              s"Cleaning up non-stable cli directories: $configDirectory" + postfix.fold("")(
-                ":" + _
-              ) + "..."
-            )
             activeCliSessions.update(_ - configDirectory.underlying)
           }
         }
@@ -449,9 +434,7 @@ object Cli extends TaskApp {
       action: Action,
       processCliTask: CliClientInfo => MonixTask[State],
       activeCliSessions: Ref[MonixTask, Map[Path, List[CliSession]]],
-      pool: ClientPool,
-      logger: Logger,
-      postfix: Option[String]
+      pool: ClientPool
   ): MonixTask[CliSession] = {
     val isClientConnected = AtomicBoolean(true)
     pool.addListener(_ => isClientConnected.set(false))
@@ -462,21 +445,15 @@ object Cli extends TaskApp {
       CliSession(client, cliTask)
     }
 
-    val defaultClientSession = sessionFor(defaultClient)
     action match {
-      case Exit(_) => MonixTask.now(defaultClientSession)
+      case Exit(_) => MonixTask.now(sessionFor(defaultClient))
       // Don't synchronize on commands that don't use compilation products and can run concurrently
-      case Run(_: Commands.About, _) => MonixTask.now(defaultClientSession)
-      case Run(_: Commands.Projects, _) => MonixTask.now(defaultClientSession)
-      case Run(_: Commands.Autocomplete, _) => MonixTask.now(defaultClientSession)
-      case Run(_: Commands.Bsp, _) => MonixTask.now(defaultClientSession)
-      case Run(_: Commands.ValidatedBsp, _) => MonixTask.now(defaultClientSession)
+      case Run(_: Commands.About, _) => MonixTask.now(sessionFor(defaultClient))
+      case Run(_: Commands.Projects, _) => MonixTask.now(sessionFor(defaultClient))
+      case Run(_: Commands.Autocomplete, _) => MonixTask.now(sessionFor(defaultClient))
+      case Run(_: Commands.Bsp, _) => MonixTask.now(sessionFor(defaultClient))
+      case Run(_: Commands.ValidatedBsp, _) => MonixTask.now(sessionFor(defaultClient))
       case a @ _ =>
-        logger.debug(
-          "command: " + action.asInstanceOf[Run].command.getClass.toString + " " + postfix.fold("")(
-            ":" + _
-          ) + "..."
-        )
         activeCliSessions
           .modify { sessionsMap =>
             sessionsMap.get(configDir.underlying) match {
@@ -488,19 +465,12 @@ object Cli extends TaskApp {
                   newClientSession
                 )
               case None =>
+                val newSession = sessionFor(defaultClient)
                 (
-                  sessionsMap.updated(configDir.underlying, List(defaultClientSession)),
-                  defaultClientSession
+                  sessionsMap.updated(configDir.underlying, List(newSession)),
+                  newSession
                 )
             }
-          }
-          .flatMap { sessions =>
-            activeCliSessions.get
-              .map { sessionsMap =>
-                logger.debug("currentActiveSessions:" + postfix.fold("")(_ + ": ") + sessionsMap)
-                sessions
-              }
-
           }
     }
   }

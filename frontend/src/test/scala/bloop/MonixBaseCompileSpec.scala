@@ -23,22 +23,26 @@ abstract class MonixBaseCompileSpec extends bloop.testing.MonixBaseSuite {
   test("don't compile build in two concurrent CLI clients") {
     TestUtil.withinWorkspaceV2 { workspace =>
       val sources = List(
-        """/main/scala/Faa.scala
-          |class Faa
+        """/main/scala/Foo.scala
+          |class Foo
           """.stripMargin
       )
       val testOut = new ByteArrayOutputStream()
       val options = CommonOptions.default.copy(out = new PrintStream(testOut))
-      val `A` = TestProject(workspace, "z", sources)
+      val `A` = TestProject(workspace, "a", sources)
       val configDir = TestProject.populateWorkspace(workspace, List(`A`))
       val compileArgs =
-        Array("compile", "z", "--config-dir", configDir.syntax, "--verbose")
+        Array("compile", "a", "--config-dir", configDir.syntax)
       val compileAction = Cli.parse(compileArgs, options)
-      def runCompileAsync(activeSessions: Ref[Task, Map[Path, List[CliSession]]], postfix: String): Task[ExitStatus] =
-        Cli.run(compileAction, NoPool, activeSessions, Option(postfix))
+      def runCompileAsync(
+          activeSessions: Ref[Task, Map[Path, List[CliSession]]]
+      ): Task[ExitStatus] =
+        Cli.run(compileAction, NoPool, activeSessions)
       for {
         activeSessions <- Ref.of[Task, Map[Path, List[CliSession]]](Map.empty)
-        _ <- Task.parSequenceUnordered(List(runCompileAsync(activeSessions, "left"), runCompileAsync(activeSessions, "right")))
+        _ <- Task.parSequenceUnordered(
+          List(runCompileAsync(activeSessions), runCompileAsync(activeSessions))
+        )
       } yield {
         val actionsOutput = new String(testOut.toByteArray, StandardCharsets.UTF_8)
         def removeAsciiColorCodes(line: String): String = line.replaceAll("\u001B\\[[;\\d]*m", "")
@@ -54,9 +58,9 @@ abstract class MonixBaseCompileSpec extends bloop.testing.MonixBaseSuite {
         try {
           assertNoDiff(
             processOutput(obtained),
-            s"""Compiling z (1 Scala source)
-               |Deduplicating compilation of z from cli client ??? (since ???
-               |Compiling z (1 Scala source)
+            s"""Compiling a (1 Scala source)
+               |Deduplicating compilation of a from cli client ??? (since ???
+               |Compiling a (1 Scala source)
                |$extraCompilationMessageOutput
                |""".stripMargin
           )
@@ -65,9 +69,9 @@ abstract class MonixBaseCompileSpec extends bloop.testing.MonixBaseSuite {
             assertNoDiff(
               processOutput(obtained),
               s"""
-                 |Deduplicating compilation of z from cli client ??? (since ???
-                 |Compiling z (1 Scala source)
-                 |Compiling z (1 Scala source)
+                 |Deduplicating compilation of a from cli client ??? (since ???
+                 |Compiling a (1 Scala source)
+                 |Compiling a (1 Scala source)
                  |$extraCompilationMessageOutput
                  |""".stripMargin
             )

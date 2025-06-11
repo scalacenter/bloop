@@ -6,7 +6,6 @@ import java.net.SocketException
 import java.net.SocketTimeoutException
 import java.util.NoSuchElementException
 import java.util.concurrent.TimeUnit.MILLISECONDS
-
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.concurrent.Future
@@ -15,12 +14,11 @@ import scala.concurrent.TimeoutException
 import scala.concurrent.duration.Duration
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.duration._
-
 import ch.epfl.scala.bsp
 import ch.epfl.scala.bsp.ScalaMainClass
 import ch.epfl.scala.debugadapter._
-
 import bloop.Cli
+import bloop.Cli.CliSession
 import bloop.ScalaInstance
 import bloop.cli.CommonOptions
 import bloop.cli.ExitStatus
@@ -45,14 +43,17 @@ import bloop.reporter.ReporterAction
 import bloop.task.Task
 import bloop.util.TestProject
 import bloop.util.TestUtil
-
+import cats.effect.concurrent.Ref
 import com.microsoft.java.debug.core.protocol.Requests.SetBreakpointArguments
 import com.microsoft.java.debug.core.protocol.Types
 import com.microsoft.java.debug.core.protocol.Types.SourceBreakpoint
 import coursierapi.Dependency
 import coursierapi.Fetch
+import monix.eval.{Task => MonixTask}
 import monix.execution.Ack
 import monix.reactive.Observer
+
+import java.nio.file.Path
 
 object DebugServerSpec extends DebugBspBaseSuite {
   private val ServerNotListening = new IllegalStateException("Server is not accepting connections")
@@ -1005,7 +1006,11 @@ object DebugServerSpec extends DebugBspBaseSuite {
       def cliCompile(project: TestProject) = {
         val compileArgs = Array("compile", project.config.name, "--config-dir", configDir.syntax)
         val compileAction = Cli.parse(compileArgs, CommonOptions.default)
-        Task.eval(Cli.run(compileAction, NoPool, ???, None)).executeAsync
+        Task.liftMonixTaskUncancellable {
+          Ref
+            .of[MonixTask, Map[Path, List[CliSession]]](Map.empty)
+            .flatMap(Cli.run(compileAction, NoPool, _))
+        }.executeAsync
       }
 
       def bspCommand() = createBspCommand(configDir)

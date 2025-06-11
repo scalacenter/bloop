@@ -33,7 +33,7 @@ object TraceProperties {
       localServiceName,
       traceStartAnnotation,
       traceEndAnnotation,
-      true
+      enabled
     )
   }
 }

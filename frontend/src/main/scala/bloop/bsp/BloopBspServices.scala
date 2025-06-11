@@ -579,8 +579,7 @@ final class BloopBspServices(
         bestEffortAllowed,
         cancelCompilation,
         store,
-        logger,
-        Option("bloopBsp")
+        logger
       )
     }
 

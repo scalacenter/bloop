@@ -37,8 +37,8 @@ import bloop.testing.TestInternals
 
 object Interpreter {
   // This is stack-safe because of Monix's trampolined execution
-  def execute(action: Action, stateTask: Task[State], postfix: Option[String] = None): Task[State] = {
-    def execute(action: Action, stateTask: Task[State], postfix: Option[String]): Task[State] = {
+  def execute(action: Action, stateTask: Task[State]): Task[State] = {
+    def execute(action: Action, stateTask: Task[State]): Task[State] = {
       stateTask.flatMap { state =>
         action match {
           // We keep it case because there is a 'match may not be exhaustive' false positive by scalac
@@ -48,13 +48,13 @@ object Interpreter {
           case Exit(exitStatus: ExitStatus) => Task.now(state.mergeStatus(exitStatus))
           case Print(msg, _, next) =>
             state.logger.info(msg)
-            execute(next, Task.now(state), postfix)
+            execute(next, Task.now(state))
           case Run(cmd: Commands.Bsp, _) =>
             val msg = "Internal error: The `bsp` command must be validated before use"
             val printAction = Print(msg, cmd.cliOptions.common, Exit(ExitStatus.UnexpectedError))
-            execute(printAction, Task.now(state), postfix)
+            execute(printAction, Task.now(state))
           case Run(cmd: Commands.ValidatedBsp, next) =>
-            execute(next, runBsp(cmd, state), postfix)
+            execute(next, runBsp(cmd, state))
           case Run(cmd: Commands.About, _) =>
             notHandled("about", cmd.cliOptions, state)
           case Run(cmd: Commands.Help, _) =>
@@ -67,23 +67,23 @@ object Interpreter {
               else {
                 cmd match {
                   case cmd: Commands.Clean =>
-                    execute(next, clean(cmd, state), postfix)
+                    execute(next, clean(cmd, state))
                   case cmd: Commands.Compile =>
-                    execute(next, compile(cmd, state, postfix), postfix)
+                    execute(next, compile(cmd, state))
                   case cmd: Commands.Console =>
-                    execute(next, console(cmd, state), postfix)
+                    execute(next, console(cmd, state))
                   case cmd: Commands.Projects =>
-                    execute(next, showProjects(cmd, state), postfix)
+                    execute(next, showProjects(cmd, state))
                   case cmd: Commands.Test =>
-                    execute(next, test(cmd, state), postfix)
+                    execute(next, test(cmd, state))
                   case cmd: Commands.Run =>
-                    execute(next, run(cmd, state), postfix)
+                    execute(next, run(cmd, state))
                   case cmd: Commands.Configure =>
-                    execute(next, configure(cmd, state), postfix)
+                    execute(next, configure(cmd, state))
                   case cmd: Commands.Autocomplete =>
-                    execute(next, autocomplete(cmd, state), postfix)
+                    execute(next, autocomplete(cmd, state))
                   case cmd: Commands.Link =>
-                    execute(next, link(cmd, state), postfix)
+                    execute(next, link(cmd, state))
                 }
               }
             }
@@ -91,7 +91,7 @@ object Interpreter {
       }
     }
 
-    execute(action, stateTask, postfix)
+    execute(action, stateTask)
   }
 
   private def notHandled(command: String, cliOptions: CliOptions, state: State): Task[State] = {
@@ -153,8 +153,7 @@ object Interpreter {
       cmd: CompilingCommand,
       state0: State,
       projects: List[Project],
-      noColor: Boolean,
-      postfix: Option[String] = None
+      noColor: Boolean
   ): Task[State] = {
     // Make new state cleaned of all compilation products if compilation is not incremental
     val state: Task[State] = {
@@ -179,19 +178,14 @@ object Interpreter {
         bestEffortAllowed = false,
         Promise[Unit](),
         CompileClientStore.NoStore,
-        state.logger,
-        postfix
+        state.logger
       )
     }
 
     compileTask.map(_.mergeStatus(ExitStatus.Ok))
   }
 
-  private def compile(
-      cmd: Commands.Compile,
-      state: State,
-      postfix: Option[String] = None
-  ): Task[State] = {
+  private def compile(cmd: Commands.Compile, state: State): Task[State] = {
     val lookup = lookupProjects(cmd.projects, state.build.getProjectFor(_))
     if (lookup.missing.nonEmpty) Task.now(reportMissing(lookup.missing, state))
     else {
@@ -200,8 +194,8 @@ object Interpreter {
         else Dag.inverseDependencies(state.build.dags, lookup.found).reduced
       }
 
-      if (!cmd.watch) runCompile(cmd, state, projects, cmd.cliOptions.noColor, postfix)
-      else watch(projects, state)(runCompile(cmd, _, projects, cmd.cliOptions.noColor, postfix.map(_ + cmd + ":watch")))
+      if (!cmd.watch) runCompile(cmd, state, projects, cmd.cliOptions.noColor)
+      else watch(projects, state)(runCompile(cmd, _, projects, cmd.cliOptions.noColor))
     }
   }
 
@@ -224,10 +218,9 @@ object Interpreter {
       state: State,
       projects: List[Project],
       noColor: Boolean,
-      nextAction: String,
-      postfix: Option[String] = None
+      nextAction: String
   )(next: State => Task[State]): Task[State] = {
-    runCompile(cmd, state, projects, noColor, postfix.orElse(Some(nextAction))).flatMap { compiled =>
+    runCompile(cmd, state, projects, noColor).flatMap { compiled =>
       if (compiled.status != ExitStatus.CompilationError) next(compiled)
       else {
         val projectsString = projects.mkString(", ")
