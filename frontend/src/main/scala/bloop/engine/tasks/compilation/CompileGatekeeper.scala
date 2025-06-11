@@ -95,7 +95,7 @@ object CompileGatekeeper {
    * inputs. The call-site ensures that only one compilation can exist for the
    * same inputs for a period of time.
    */
-  def scheduleCompilation(
+  private def scheduleCompilation(
       inputs: BundleInputs,
       bundle: SuccessfulCompileBundle,
       client: ClientInfo,

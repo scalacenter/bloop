@@ -3,11 +3,7 @@ package bloop
 import java.io.InputStream
 import java.io.PrintStream
 import java.nio.file.Path
-import java.util.concurrent.CompletableFuture
-import java.util.concurrent.ConcurrentHashMap
-
 import scala.util.control.NonFatal
-
 import bloop.cli.CliOptions
 import bloop.cli.Commands
 import bloop.cli.CommonOptions
@@ -21,20 +17,29 @@ import bloop.logging.BloopLogger
 import bloop.logging.DebugFilter
 import bloop.logging.Logger
 import bloop.task.Task
+import monix.eval.{Task => MonixTask}
+import monix.eval.TaskApp
 import bloop.util.JavaRuntime
-
 import caseapp.core.help.Help
+import cats.effect.ExitCode
+import cats.effect.concurrent.{Deferred, Ref}
 import com.martiansoftware.nailgun.NGContext
+import monix.execution.Scheduler
 import monix.execution.atomic.AtomicBoolean
 
+import scala.concurrent.Await
+import scala.concurrent.duration.Duration
+
 class Cli
-object Cli {
+object Cli extends TaskApp {
 
   implicit private val filter: DebugFilter.All.type = DebugFilter.All
-  def main(args: Array[String]): Unit = {
-    val action = parse(args, CommonOptions.default)
-    val exitStatus = run(action, NoPool)
-    sys.exit(exitStatus.code)
+  def run(args: List[String]): MonixTask[ExitCode] = {
+    val action = parse(args.toArray, CommonOptions.default)
+    for {
+      activeCliSessions <- Ref.of[MonixTask, Map[Path, List[CliSession]]](Map.empty)
+      exitStatus <- run(action, NoPool, activeCliSessions)
+    } yield ExitCode(exitStatus.code)
   }
 
   def reflectMain(
@@ -44,8 +49,9 @@ object Cli {
       out: PrintStream,
       err: PrintStream,
       props: java.util.Properties,
-      cancel: CompletableFuture[java.lang.Boolean]
-  ): Int = {
+      cancel: Deferred[MonixTask, Boolean],
+      activeCliSessions: Ref[MonixTask, Map[Path, List[CliSession]]]
+  ): MonixTask[Int] = {
     val env = CommonOptions.PrettyProperties.from(props)
     val nailgunOptions = CommonOptions(
       in = in,
@@ -58,12 +64,12 @@ object Cli {
     )
 
     val cmd = parse(args, nailgunOptions)
-    val exitStatus = run(cmd, NoPool, cancel)
-    exitStatus.code
+    val exitStatus = run(cmd, NoPool, cancel, activeCliSessions)
+    exitStatus.map(_.code)
   }
 
   def nailMain(ngContext: NGContext): Unit = {
-    val env = CommonOptions.PrettyProperties.from(ngContext.getEnv())
+    val env = CommonOptions.PrettyProperties.from(ngContext.getEnv)
     val nailgunOptions = CommonOptions(
       in = ngContext.in,
       out = ngContext.out,
@@ -87,18 +93,24 @@ object Cli {
       else parse(args, nailgunOptions)
     }
     println(nailgunOptions.workingDirectory)
+
     println(nailgunOptions.workingPath)
 
-    try {
-      val exitStatus = run(cmd, NailgunPool(ngContext))
-      ngContext.exit(exitStatus.code)
-    } catch {
-      case x: java.util.concurrent.ExecutionException =>
-        // print stack trace of fatal errors thrown in asynchronous code, see https://stackoverflow.com/questions/17265022/what-is-a-boxed-error-in-scala
-        // the stack trace is somehow propagated all the way to the client when printing this
-        x.getCause.printStackTrace(ngContext.out)
-        ngContext.exit(ExitStatus.UnexpectedError.code)
-    }
+    val handle =
+      Ref
+        .of[MonixTask, Map[Path, List[CliSession]]](Map.empty)
+        .flatMap(run(cmd, NailgunPool(ngContext), _))
+        .onErrorHandle {
+          case x: java.util.concurrent.ExecutionException =>
+            // print stack trace of fatal errors thrown in asynchronous code, see https://stackoverflow.com/questions/17265022/what-is-a-boxed-error-in-scala
+            // the stack trace is somehow propagated all the way to the client when printing this
+            x.getCause.printStackTrace(ngContext.out)
+            ExitStatus.UnexpectedError.code
+        }
+        .runToFuture(ExecutionContext.ioScheduler)
+
+    Await.result(handle, Duration.Inf)
+    ()
   }
 
   val commands: Seq[String] = Commands.RawCommand.help.messages.flatMap(_._1.headOption.toSeq)
@@ -298,8 +310,16 @@ object Cli {
     }
   }
 
-  def run(action: Action, pool: ClientPool): ExitStatus = {
-    run(action, pool, FalseCancellation)
+  def run(
+      action: Action,
+      pool: ClientPool,
+      activeCliSessions: Ref[MonixTask, Map[Path, List[CliSession]]]
+  ): MonixTask[ExitStatus] = {
+    for {
+      baseCancellation <- Deferred[MonixTask, Boolean]
+      _ <- baseCancellation.complete(false)
+      result <- run(action, pool, baseCancellation, activeCliSessions)
+    } yield result
   }
 
   // Attempt to load JDI when we initialize the CLI class
@@ -307,8 +327,9 @@ object Cli {
   private def run(
       action: Action,
       pool: ClientPool,
-      cancel: CompletableFuture[java.lang.Boolean]
-  ): ExitStatus = {
+      cancel: Deferred[MonixTask, Boolean],
+      activeCliSessions: Ref[MonixTask, Map[Path, List[CliSession]]]
+  ): MonixTask[ExitStatus] = {
     import bloop.io.AbsolutePath
     def getConfigDir(cliOptions: CliOptions): AbsolutePath = {
       val cwd = AbsolutePath(cliOptions.common.workingDirectory)
@@ -339,26 +360,34 @@ object Cli {
       !(cliOptions.noColor || commonOpts.env.containsKey("NO_COLOR")),
       debugFilter
     )
-
     action match {
       case Print(msg, _, Exit(exitStatus)) =>
         logger.info(msg)
-        exitStatus
+        MonixTask.now(exitStatus)
       case _ =>
-        runWithState(action, pool, cancel, configDirectory, cliOptions, commonOpts, logger)
+        runWithState(
+          action,
+          pool,
+          cancel,
+          activeCliSessions,
+          configDirectory,
+          cliOptions,
+          commonOpts,
+          logger
+        )
     }
   }
 
   private def runWithState(
       action: Action,
       pool: ClientPool,
-      cancel: CompletableFuture[java.lang.Boolean],
+      cancel: Deferred[MonixTask, Boolean],
+      activeCliSessions: Ref[MonixTask, Map[Path, List[CliSession]]],
       configDirectory: AbsolutePath,
       cliOptions: CliOptions,
       commonOpts: CommonOptions,
       logger: Logger
-  ): ExitStatus = {
-
+  ): MonixTask[ExitStatus] = {
     // Set the proxy settings right before loading the state of the build
     bloop.util.ProxySetup.updateProxySettings(commonOpts.env.toMap, logger)
 
@@ -366,7 +395,7 @@ object Cli {
     waitUntilEndOfWorld(cliOptions, pool, configDir, logger, cancel) {
       val taskToInterpret = { (cli: CliClientInfo) =>
         val state = State.loadActiveStateFor(configDirectory, cli, pool, cliOptions.common, logger)
-        Interpreter.execute(action, state).map { newState =>
+        val interpret = Interpreter.execute(action, state).map { newState =>
           action match {
             case Run(_: Commands.ValidatedBsp, _) =>
               () // Ignore, BSP services auto-update the build
@@ -375,32 +404,38 @@ object Cli {
 
           newState
         }
+        MonixTask.defer(interpret.toMonixTask(ExecutionContext.scheduler))
       }
 
-      val session = runTaskWithCliClient(configDirectory, action, taskToInterpret, pool, logger)
-      val exitSession = Task.defer {
-        cleanUpNonStableCliDirectories(session.client)
+      val session = runTaskWithCliClient(
+        configDirectory,
+        action,
+        taskToInterpret,
+        activeCliSessions,
+        pool
+      )
+      val exitSession = MonixTask.defer {
+        session.flatMap { session =>
+          cleanUpNonStableCliDirectories(session.client, logger).flatMap { _ =>
+            activeCliSessions.update(_ - configDirectory.underlying)
+          }
+        }
       }
 
-      session.task
-        .doOnCancel(exitSession)
-        .doOnFinish(_ => exitSession)
+      session
+        .flatMap(_.task)
+        .guarantee(exitSession)
     }
   }
 
-  private final val FalseCancellation =
-    CompletableFuture.completedFuture[java.lang.Boolean](false)
-
-  private val activeCliSessions = new ConcurrentHashMap[Path, List[CliSession]]()
-
-  case class CliSession(client: CliClientInfo, task: Task[ExitStatus])
+  case class CliSession(client: CliClientInfo, task: MonixTask[ExitStatus])
   def runTaskWithCliClient(
       configDir: AbsolutePath,
       action: Action,
-      processCliTask: CliClientInfo => Task[State],
-      pool: ClientPool,
-      logger: Logger
-  ): CliSession = {
+      processCliTask: CliClientInfo => MonixTask[State],
+      activeCliSessions: Ref[MonixTask, Map[Path, List[CliSession]]],
+      pool: ClientPool
+  ): MonixTask[CliSession] = {
     val isClientConnected = AtomicBoolean(true)
     pool.addListener(_ => isClientConnected.set(false))
     val defaultClient = CliClientInfo(useStableCliDirs = true, () => isClientConnected.get)
@@ -410,66 +445,91 @@ object Cli {
       CliSession(client, cliTask)
     }
 
-    val defaultClientSession = sessionFor(defaultClient)
     action match {
-      case Exit(_) => defaultClientSession
+      case Exit(_) => MonixTask.now(sessionFor(defaultClient))
       // Don't synchronize on commands that don't use compilation products and can run concurrently
-      case Run(_: Commands.About, _) => defaultClientSession
-      case Run(_: Commands.Projects, _) => defaultClientSession
-      case Run(_: Commands.Autocomplete, _) => defaultClientSession
-      case Run(_: Commands.Bsp, _) => defaultClientSession
-      case Run(_: Commands.ValidatedBsp, _) => defaultClientSession
-      case _ =>
-        val activeSessions = activeCliSessions.compute(
-          configDir.underlying,
-          (_: Path, sessions: List[CliSession]) => {
-            if (sessions == null || sessions.isEmpty) List(defaultClientSession)
-            else {
-              logger.debug("Detected connected cli clients, starting CLI with unique dirs...")
-              val newClient = CliClientInfo(useStableCliDirs = false, () => isClientConnected.get)
-              val newClientSession = sessionFor(newClient)
-              newClientSession :: sessions
+      case Run(_: Commands.About, _) => MonixTask.now(sessionFor(defaultClient))
+      case Run(_: Commands.Projects, _) => MonixTask.now(sessionFor(defaultClient))
+      case Run(_: Commands.Autocomplete, _) => MonixTask.now(sessionFor(defaultClient))
+      case Run(_: Commands.Bsp, _) => MonixTask.now(sessionFor(defaultClient))
+      case Run(_: Commands.ValidatedBsp, _) => MonixTask.now(sessionFor(defaultClient))
+      case a @ _ =>
+        activeCliSessions
+          .modify { sessionsMap =>
+            sessionsMap.get(configDir.underlying) match {
+              case Some(sessions) =>
+                val newClient = CliClientInfo(useStableCliDirs = false, () => isClientConnected.get)
+                val newClientSession = sessionFor(newClient)
+                (
+                  sessionsMap.updated(configDir.underlying, newClientSession :: sessions),
+                  newClientSession
+                )
+              case None =>
+                val newSession = sessionFor(defaultClient)
+                (
+                  sessionsMap.updated(configDir.underlying, List(newSession)),
+                  newSession
+                )
             }
           }
-        )
-
-        activeSessions.head
     }
   }
 
   def cleanUpNonStableCliDirectories(
-      client: CliClientInfo
-  ): Task[Unit] = {
-    if (client.useStableCliDirs) Task.unit
+      client: CliClientInfo,
+      logger: Logger
+  ): MonixTask[Unit] = {
+    if (client.useStableCliDirs) MonixTask.unit
     else {
+      logger.debug(
+        s"Cleaning up non-stable CLI directories ${client.getCreatedCliDirectories.mkString(",")}"
+      )
       val deleteTasks = client.getCreatedCliDirectories.map { freshDir =>
-        if (!freshDir.exists) Task.unit
+        if (!freshDir.exists) MonixTask.unit
         else {
-          Task.eval(Paths.delete(freshDir)).asyncBoundary
+          MonixTask.eval(Paths.delete(freshDir)).asyncBoundary
         }
       }
 
       val groups = deleteTasks
         .grouped(4)
-        .map(group => Task.gatherUnordered(group).map(_ => ()))
+        .map(group => MonixTask.parSequenceUnordered(group).map(_ => ()))
         .toList
 
-      Task
+      MonixTask
         .sequence(groups)
         .map(_ => ())
         .executeOn(ExecutionContext.ioScheduler)
     }
   }
 
-  import scala.concurrent.Await
-  import scala.concurrent.duration.Duration
+  private[bloop] def waitUntilEndOfWorld(
+      cliOptions: CliOptions,
+      pool: ClientPool,
+      configDirectory: Path,
+      logger: Logger
+  )(task: Task[ExitStatus])(implicit s: Scheduler): ExitStatus = {
+    val handler =
+      for {
+        cancel <- Deferred[MonixTask, Boolean]
+        exitStatus <- waitUntilEndOfWorld(cliOptions, pool, configDirectory, logger, cancel)(
+          task.toMonixTask
+        )
+      } yield exitStatus
+    Await.result(
+      handler.runToFuture(ExecutionContext.ioScheduler),
+      Duration.Inf
+    )
+  }
+
   private[bloop] def waitUntilEndOfWorld(
       cliOptions: CliOptions,
       pool: ClientPool,
       configDirectory: Path,
       logger: Logger,
-      cancel: CompletableFuture[java.lang.Boolean] = FalseCancellation
-  )(task: Task[ExitStatus]): ExitStatus = {
+      cancel: Deferred[MonixTask, Boolean]
+  )(task: MonixTask[ExitStatus]): MonixTask[ExitStatus] = {
+
     val ngout = cliOptions.common.ngout
     def logElapsed(since: Long): Unit = {
       val elapsed = (System.nanoTime() - since).toDouble / 1e6
@@ -477,58 +537,80 @@ object Cli {
     }
 
     // Simulate try-catch-finally with monix tasks to time the task execution
-    val handle =
-      Task
-        .now(System.nanoTime())
-        .flatMap(start => task.materialize.map(s => (s, start)))
-        .map { case (state, start) => logElapsed(start); state }
-        .dematerialize
-        .runAsync(ExecutionContext.scheduler)
+    val handle: MonixTask[ExitStatus] =
+      for {
+        start <- MonixTask.now(System.nanoTime())
+        tryState <- task.materialize
+        _ = logElapsed(start)
+        state <- MonixTask.fromTry(tryState)
+      } yield state
 
-    if (!cancel.isDone) {
-      // Add support for a client to cancel bloop via Java's completable future
-      import bloop.util.Java8Compat.JavaCompletableFutureUtils
-      Task
-        .deferFutureAction(cancel.asScala(_))
-        .map { cancel =>
-          if (cancel) {
-            cliOptions.common.out.println(
-              s"Client in $configDirectory triggered cancellation. Cancelling tasks..."
-            )
-            handle.cancel()
-          }
-        }
-        .runAsync(ExecutionContext.ioScheduler)
-    }
+    def waitForCanceled: MonixTask[ExitStatus] =
+      for {
+        isCanceled <- cancel.get
+        status <-
+          if (isCanceled)
+            MonixTask
+              .now {
+                cliOptions.common.out.println(
+                  s"Client in $configDirectory triggered cancellation. Cancelling tasks..."
+                )
+              }
+              .map(_ => ExitStatus.UnexpectedError)
+          else MonixTask.now(ExitStatus.Ok)
+      } yield status
 
-    def handleException(t: Throwable) = {
-      handle.cancel()
-      if (!cancel.isDone)
-        cancel.complete(false)
-      logger.error(s"Caught $t")
-      logger.trace(t)
-      ExitStatus.UnexpectedError
-    }
-
-    try {
-      // Let's cancel tasks (if supported by the underlying implementation) when clients disconnect
-      pool.addListener {
-        case e: CloseEvent =>
-          if (!handle.isCompleted) {
-            ngout.println(
-              s"Client in $configDirectory disconnected with a '$e' event. Cancelling tasks..."
-            )
-            handle.cancel()
-            if (!cancel.isDone)
-              cancel.complete(false)
-            ()
-          }
+    def handleException(t: Throwable, completed: Boolean): MonixTask[ExitStatus] =
+      for {
+        _ <- if (completed) cancel.complete(completed) else MonixTask.unit
+      } yield {
+        logger.error(s"Caught $t")
+        logger.trace(t)
+        ExitStatus.UnexpectedError
       }
-
-      Await.result(handle, Duration.Inf)
-    } catch {
-      case i: InterruptedException => handleException(i)
-      case NonFatal(t) => handleException(t)
+    // Let's cancel tasks (if supported by the underlying implementation) when clients disconnect
+    def registerListener(
+        cancelSignal: Deferred[MonixTask, Boolean]
+    )(implicit s: Scheduler): MonixTask[Unit] = {
+      MonixTask {
+        pool.addListener { e: CloseEvent =>
+          MonixTask
+            .defer {
+              cancelSignal
+                .complete(true)
+                .attempt
+                .map {
+                  case Right(()) =>
+                    ngout.println(
+                      s"Client in $configDirectory disconnected with a '$e' event. Cancelling tasks..."
+                    )
+                  case Left(_) =>
+                    ngout.println(
+                      s"Client in $configDirectory disconnected with a '$e' event. Cancelling tasks..."
+                    )
+                }
+            }
+            .uncancelable // TODO: do we need it?
+            .runAsyncAndForget
+        }
+      }
     }
+
+    MonixTask
+      .racePair(
+        registerListener(cancel)(Scheduler.singleThread("cancel-signal")) *> waitForCanceled,
+        handle
+      )
+      .flatMap {
+        case Left((result, fiber)) =>
+          if (result.isOk) fiber.join else fiber.cancel *> MonixTask.now(result)
+        case Right((fiber, _)) => fiber.join
+      }
+      .onErrorHandleWith {
+        case i: InterruptedException => handleException(i, completed = true)
+      }
+      .onErrorRecoverWith {
+        case NonFatal(t) => handleException(t, completed = false)
+      }
   }
 }
