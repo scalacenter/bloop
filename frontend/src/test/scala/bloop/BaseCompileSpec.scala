@@ -44,7 +44,7 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
       expectedException: Option[String] = None
   ) = {
 
-    ignore(name) {
+    test(name) {
       TestUtil.withinWorkspace { workspace =>
         val sources = List(
           s"""/main/scala/Foo.scala
@@ -119,7 +119,7 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
     )
   )
 
-  ignore("compile a project twice with no input changes produces a no-op") {
+  test("compile a project twice with no input changes produces a no-op") {
     TestUtil.withinWorkspace { workspace =>
       val sources = List(
         """/main/scala/Foo.scala
@@ -146,7 +146,7 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
       }
     }
   }
-  ignore("compile-with-Vprint:typer") {
+  test("compile-with-Vprint:typer") {
     TestUtil.withinWorkspace { workspace =>
       val sources = List(
         """/main/scala/Foo.scala
@@ -179,7 +179,7 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
     }
   }
 
-  ignore("compile a project, delete an analysis and then write it back during a no-op compilation") {
+  test("compile a project, delete an analysis and then write it back during a no-op compilation") {
     TestUtil.withinWorkspace { workspace =>
       val sources = List(
         """/main/scala/Foo.scala
@@ -220,7 +220,7 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
     }
   }
 
-  ignore("compile build incrementally sourcing from an analysis file") {
+  test("compile build incrementally sourcing from an analysis file") {
     TestUtil.withinWorkspace { workspace =>
       object Sources {
         val `A.scala` =
@@ -258,7 +258,7 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
     }
   }
 
-  ignore(s"compile scala 3 build incrementally") {
+  test(s"compile scala 3 build incrementally") {
     TestUtil.withinWorkspace { workspace =>
       object Sources {
         val `A.scala` =
@@ -290,7 +290,7 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
     }
   }
 
-  ignore("compile project / clean / compile it again") {
+  test("compile project / clean / compile it again") {
     TestUtil.withinWorkspace { workspace =>
       val sources = List(
         """/main/scala/Foo.scala
@@ -328,7 +328,7 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
     }
   }
 
-  ignore("simulate an incremental compiler session") {
+  test("simulate an incremental compiler session") {
     TestUtil.withinWorkspace { workspace =>
       object Sources {
         val `A.scala` =
@@ -479,7 +479,7 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
     }
   }
 
-  ignore("compile a build with diamond shape and check basic compilation invariants") {
+  test("compile a build with diamond shape and check basic compilation invariants") {
     TestUtil.withinWorkspace { workspace =>
       object Sources {
         val `A.scala` =
@@ -560,7 +560,7 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
     }
   }
 
-  ignore("compile java code depending on scala code") {
+  test("compile java code depending on scala code") {
     TestUtil.withinWorkspace { workspace =>
       object Sources {
         val `A.scala` =
@@ -599,7 +599,7 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
     }
   }
 
-  ignore("compile after moving a class across project + invalidating symbol in a dependent project") {
+  test("compile after moving a class across project + invalidating symbol in a dependent project") {
     TestUtil.withinWorkspace { workspace =>
       object Sources {
         val `Foo.scala` =
@@ -695,7 +695,7 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
     }
   }
 
-  ignore("don't compile after renaming a Scala class and not its references in the same project") {
+  test("don't compile after renaming a Scala class and not its references in the same project") {
     TestUtil.withinWorkspace { workspace =>
       object Sources {
         val `Foo.scala` =
@@ -813,7 +813,7 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
     }
   }
 
-  ignore("detect binary changes in Java within the same project") {
+  test("detect binary changes in Java within the same project") {
     def compileTestWithOrder(order: Config.CompileOrder): Unit = {
       TestUtil.withinWorkspace { workspace =>
         object Sources {
@@ -902,7 +902,7 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
     compileTestWithOrder(Config.JavaThenScala)
   }
 
-  ignore("invalidate Scala class files in javac forked and local compilation") {
+  test("invalidate Scala class files in javac forked and local compilation") {
     TestUtil.withinWorkspace { workspace =>
       object Sources {
         val `Foo.java` =
@@ -989,7 +989,7 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
     }
   }
 
-  ignore("don't compile after renaming a class and not its references in a dependent project") {
+  test("don't compile after renaming a class and not its references in a dependent project") {
     // Checks bloop is invalidating classes + propagating them to *transitive* dependencies
     TestUtil.withinWorkspace { workspace =>
       object Sources {
@@ -1074,7 +1074,7 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
     }
   }
 
-  ignore("compile after moving class from one project to a dependent one") {
+  test("compile after moving class from one project to a dependent one") {
     // Checks bloop is invalidating classes + propagating them to *transitive* dependencies
     TestUtil.withinWorkspace { workspace =>
       object Sources {
@@ -1180,7 +1180,7 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
     }
   }
 
-  ignore("report java errors when `JavaThenScala` is enabled") {
+  test("report java errors when `JavaThenScala` is enabled") {
     TestUtil.withinWorkspace { workspace =>
       object Sources {
         val `A.scala` =
@@ -1232,7 +1232,7 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
   }
 
   for (fatalOpt <- List("-Xfatal-warnings", "-Werror"))
-    ignore(s"support $fatalOpt internal implementation") {
+    test(s"support $fatalOpt internal implementation") {
       TestUtil.withinWorkspace { workspace =>
         object Sources {
           val `Foo.scala` =
@@ -1279,7 +1279,7 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
       }
     }
 
-  ignore("scalac -Xfatal-warnings should not set java fatal warnings as errors") {
+  test("scalac -Xfatal-warnings should not set java fatal warnings as errors") {
     TestUtil.withinWorkspace { workspace =>
       object Sources {
         val `Main.scala` =
@@ -1337,7 +1337,7 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
     }
   }
 
-  ignore("detect Scala syntactic errors") {
+  test("detect Scala syntactic errors") {
     TestUtil.withinWorkspace { workspace =>
       val sources = List(
         """/Foo.scala
@@ -1374,7 +1374,7 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
     }
   }
 
-  ignore("detect invalid Scala compiler flags") {
+  test("detect invalid Scala compiler flags") {
     TestUtil.withinWorkspace { workspace =>
       val sources = List(
         """/Foo.scala
@@ -1405,7 +1405,7 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
     }
   }
 
-  ignore("cascade compilation compiles only a strict subset of targets") {
+  test("cascade compilation compiles only a strict subset of targets") {
     TestUtil.withinWorkspace { workspace =>
       /*
        *  Read build graph dependencies from top to bottom.
@@ -1464,7 +1464,7 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
     }
   }
 
-  ignore("cancel slow compilation") {
+  test("cancel slow compilation") {
     val logger = new RecordingLogger(ansiCodesSupported = false)
     BuildUtil.testSlowBuild(logger) { build =>
       val state = new TestState(build.state)
@@ -1593,7 +1593,7 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
     }
   }
 
-  ignore("check that we report rich diagnostics in the CLI when -Yrangepos") {
+  test("check that we report rich diagnostics in the CLI when -Yrangepos") {
     // From https://github.com/scalacenter/bloop/issues/787
     TestUtil.withinWorkspace { workspace =>
       object Sources {
@@ -1637,7 +1637,7 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
     }
   }
 
-  ignore("check positions reporting in adjacent diagnostics") {
+  test("check positions reporting in adjacent diagnostics") {
     TestUtil.withinWorkspace { workspace =>
       object Sources {
         val `A.scala` =
@@ -1677,7 +1677,7 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
     }
   }
 
-  ignore("don't compile build in two concurrent CLI clients") {
+  test("don't compile build in two concurrent CLI clients") {
     TestUtil.withinWorkspace { workspace =>
       val sources = List(
         """/main/scala/Foo.scala
@@ -1729,7 +1729,7 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
     }
   }
 
-  ignore("compile a project that redundantly lists an exact file as well as parent directory") {
+  test("compile a project that redundantly lists an exact file as well as parent directory") {
     TestUtil.withinWorkspace { workspace =>
       val filename = "/main/scala/Foo.scala"
       val sources = List(
@@ -1756,7 +1756,7 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
     }
   }
 
-  ignore("recompile entire mixed project") {
+  test("recompile entire mixed project") {
     TestUtil.withinWorkspace { workspace =>
       object Sources {
         val `Dummy1.scala` =
@@ -1828,7 +1828,7 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
     }
   }
 
-  ignore("compile Scala class after renaming a static member in a Java class") {
+  test("compile Scala class after renaming a static member in a Java class") {
     TestUtil.withinWorkspace { workspace =>
       object Sources {
         val `A1.java` =
@@ -1923,7 +1923,7 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
     }
   }
 
-  ignore("compile uses the compilation classpath") {
+  test("compile uses the compilation classpath") {
     TestUtil.withinWorkspace { workspace =>
       object Sources {
         val `a/pkg1/A.scala` =
@@ -1961,7 +1961,7 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
     }
   }
 
-  ignore("compile sees compile-time resources") {
+  test("compile sees compile-time resources") {
     TestUtil.withinWorkspace { workspace =>
       object Sources {
         val `a/Macro.scala` =
@@ -2014,7 +2014,7 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
     }
   }
 
-  ignore("detects removed products") {
+  test("detects removed products") {
     TestUtil.withinWorkspace { workspace =>
       object Sources {
         val `A.scala` =
@@ -2060,7 +2060,7 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
     }
   }
 
-  ignore("fail compilation when using wildcard import from empty package - after package rename") {
+  test("fail compilation when using wildcard import from empty package - after package rename") {
     TestUtil.withinWorkspace { workspace =>
       object Sources {
         val `Sun.scala` =
@@ -2140,7 +2140,7 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
     }
   }
 
-  ignore(
+  test(
     "fail compilation when using wildcard import from empty package if sub-packages are empty too"
   ) {
     TestUtil.withinWorkspace { workspace =>
@@ -2225,7 +2225,7 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
     }
   }
 
-  ignore(
+  test(
     "compilation succeed if using wildcard import from package where dependency was replaced with different one"
   ) {
     TestUtil.withinWorkspace { workspace =>
@@ -2308,7 +2308,7 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
     }
   }
 
-  ignore(
+  test(
     "pruning packages - whole package path is deleted if it is empty"
   ) {
     TestUtil.withinWorkspace { workspace =>
@@ -2392,7 +2392,7 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
     }
   }
 
-  ignore("unsafe") {
+  test("unsafe") {
     TestUtil.withinWorkspace { workspace =>
       val sources = List(
         """/main/scala/Foo.scala
