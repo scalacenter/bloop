@@ -1,10 +1,8 @@
 package bloop.engine.tasks
 
 import java.util.Optional
-
 import scala.collection.mutable
 import scala.concurrent.Promise
-
 import bloop.CompileBackgroundTasks
 import bloop.CompileInputs
 import bloop.CompileOutPaths
@@ -37,13 +35,14 @@ import bloop.reporter.ReporterInputs
 import bloop.task.Task
 import bloop.tracing.BraveTracer
 import bloop.util.BestEffortUtils.BestEffortProducts
-
 import monix.execution.CancelableFuture
 import monix.reactive.MulticastStrategy
 import monix.reactive.Observable
 import xsbti.compile.CompileAnalysis
 import xsbti.compile.MiniSetup
 import xsbti.compile.PreviousResult
+
+import java.nio.file.Path
 
 object CompileTask {
   private implicit val logContext: DebugFilter = DebugFilter.Compilation
@@ -113,6 +112,25 @@ object CompileTask {
           case Left(earlyResultBundle) =>
             compileProjectTracer.terminate()
             Task.now(earlyResultBundle)
+          case Right(CopyResourcesOnly(sources)) =>
+            val denylist = Set.empty[Path] // TODO: verify if it shouldn't be computed somehow
+            val config = ParallelOps.CopyConfiguration(5, CopyMode.NoReplace, denylist, Set.empty)
+            val copyResourcesTask: Task[Unit] =
+              ParallelOps.copyResources(
+                project.runtimeResources,
+                bundle.clientClassesObserver.classesDir,
+                config,
+                logger,
+                ExecutionContext.ioScheduler
+              )
+            Task.now(
+              ResultBundle(
+                Compiler.Result.Empty,
+                None,
+                None,
+                copyResourcesTask.runAsync(ExecutionContext.ioScheduler)
+              )
+            )
           case Right(CompileSourcesAndInstance(sources, instance, _)) =>
             val readOnlyClassesDir = lastSuccessful.classesDir
             val newClassesDir = compileOut.internalNewClassesDir
