@@ -112,7 +112,7 @@ object CompileTask {
           case Left(earlyResultBundle) =>
             compileProjectTracer.terminate()
             Task.now(earlyResultBundle)
-          case Right(CopyResourcesOnly(sources)) =>
+          case Right(CopyResourcesOnly) =>
             val denylist = Set.empty[Path] // TODO: verify if it shouldn't be computed somehow
             val config = ParallelOps.CopyConfiguration(5, CopyMode.NoReplace, denylist, Set.empty)
             val copyResourcesTask: Task[Unit] =

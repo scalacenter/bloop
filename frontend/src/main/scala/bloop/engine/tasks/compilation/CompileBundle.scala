@@ -116,7 +116,7 @@ final case class SuccessfulCompileBundle(
     scalaInstance match {
       case Some(instance) =>
         (scalaSources, javaSources) match {
-          case (Nil, Nil) => Right(CopyResourcesOnly(uniqueSources))
+          case (Nil, Nil) => Right(CopyResourcesOnly)
           case (Nil, _ :: _) => Right(CompileSourcesAndInstance(uniqueSources, instance, true))
           case _ => Right(CompileSourcesAndInstance(uniqueSources, instance, false))
         }
@@ -150,9 +150,7 @@ case class CompileSourcesAndInstance(
     javaOnly: Boolean
 ) extends ValidSourcesAndInstances
 
-case class CopyResourcesOnly(
-    sources: List[AbsolutePath]
-) extends ValidSourcesAndInstances
+case object CopyResourcesOnly extends ValidSourcesAndInstances
 
 object CompileBundle {
   implicit val filter: DebugFilter.Compilation.type = bloop.logging.DebugFilter.Compilation
