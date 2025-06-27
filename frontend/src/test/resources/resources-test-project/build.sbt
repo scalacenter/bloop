@@ -1,5 +1,5 @@
 import Dependencies._
-bloopConfigDir in Global := baseDirectory.value / "bloop-config"
+Global / bloopConfigDir := baseDirectory.value / "bloop-config"
 
 ThisBuild / scalaVersion := "2.12.20"
 ThisBuild / version := "0.1.0-SNAPSHOT"
@@ -10,5 +10,5 @@ lazy val root = (project in file("."))
   .settings(
     name := "resources-test-project",
     libraryDependencies += munit % Test,
-    fork in Test := true
+    Test / fork := true
   )
