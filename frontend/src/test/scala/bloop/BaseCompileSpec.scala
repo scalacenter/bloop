@@ -1513,7 +1513,6 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
       val projectB = build.projectFor("projectB")
       val compiledState = build.state.compile(projectB)
       val runState = compiledState.run(projectB)
-      println(logger.render)
       assertExitStatus(compiledState, ExitStatus.Ok)
       assertExitStatus(runState, ExitStatus.Ok)
     }
