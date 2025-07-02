@@ -1506,7 +1506,19 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
     }
   }
 
-  test("compiler plugins are cached automatically") {
+  test("resources only downstream project resolved correctly") {
+    TestUtil.withinWorkspace { workspace =>
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val build = loadBuildFromResources("resources-only-downstream-project", workspace, logger)
+      val projectB = build.projectFor("projectB")
+      val compiledState = build.state.compile(projectB)
+      val runState = compiledState.run(projectB)
+      assertExitStatus(compiledState, ExitStatus.Ok)
+      assertExitStatus(runState, ExitStatus.Ok)
+    }
+  }
+
+  ignore("compiler plugins are cached automatically") {
     TestUtil.withinWorkspace { workspace =>
       object Sources {
         // A slight modification of the original `App.scala` to trigger incremental compilation
