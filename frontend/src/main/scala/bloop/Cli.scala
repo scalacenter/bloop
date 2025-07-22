@@ -174,6 +174,19 @@ object Cli {
     }
   }
 
+  private def withProjectsOrAll(
+      currentProjects: List[String],
+      remainingArgs: Seq[String]
+  )(f: List[String] => Action): Action = {
+    // We interpret remaining args as projects too
+    val potentialProjects = currentProjects ++ remainingArgs
+    if (potentialProjects.nonEmpty) f(potentialProjects)
+    else {
+      // Use empty list to signal that all projects should be used
+      f(List.empty)
+    }
+  }
+
   def parse(args: Array[String], commonOptions: CommonOptions): Action = {
     import caseapp.core.help.WithHelp
     Commands.RawCommand.parser.withHelp.detailedParse(args)(CliOptions.parser.withHelp) match {
@@ -207,11 +220,9 @@ object Cli {
                 Validate.bsp(newCommand)
               case Right(c: Commands.Compile) =>
                 val newCommand = c.copy(cliOptions = c.cliOptions.copy(common = commonOptions))
-                withNonEmptyProjects(
+                withProjectsOrAll(
                   c.projects,
-                  commandName.mkString(" "),
-                  remainingArgs.all,
-                  commonOptions
+                  remainingArgs.all
                 ) { ps =>
                   run(newCommand.copy(projects = ps), newCommand.cliOptions)
                 }
@@ -234,11 +245,9 @@ object Cli {
                 }
               case Right(c: Commands.Test) =>
                 val newCommand = c.copy(cliOptions = c.cliOptions.copy(common = commonOptions))
-                withNonEmptyProjects(
+                withProjectsOrAll(
                   c.projects,
-                  commandName.mkString(" "),
-                  remainingArgs.remaining,
-                  commonOptions
+                  remainingArgs.remaining
                 ) { ps =>
                   run(
                     // Infer everything after '--' as if they were execution args

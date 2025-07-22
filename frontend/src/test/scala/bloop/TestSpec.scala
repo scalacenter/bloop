@@ -10,8 +10,8 @@ import bloop.engine.ExecutionContext
 import bloop.io.AbsolutePath
 import bloop.io.Environment.lineSeparator
 import bloop.logging.RecordingLogger
-import bloop.testing.ProjectBaseSuite
 import bloop.testing.LoggingEventHandler
+import bloop.testing.ProjectBaseSuite
 import bloop.util.TestProject
 import bloop.util.TestUtil
 
