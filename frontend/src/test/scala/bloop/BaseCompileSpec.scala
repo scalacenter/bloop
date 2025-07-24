@@ -1,7 +1,5 @@
 package bloop
 
-import bloop.DeduplicationSpec.assertInvalidCompilationState
-
 import java.io.ByteArrayOutputStream
 import java.io.PrintStream
 import java.nio.charset.StandardCharsets
@@ -596,6 +594,48 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
       val compiledState = state.compile(`B`)
       assertExitStatus(compiledState, ExitStatus.Ok)
       assertValidCompilationState(compiledState, projects)
+    }
+  }
+
+  test("compile all on empty projects") {
+    TestUtil.withinWorkspace { workspace =>
+      object Sources {
+        val `A.scala` =
+          """/A.scala
+            |package a
+            |object A {
+            |  val HelloWorld: String = "Hello World!"
+            |}""".stripMargin
+        val `B.scala` =
+          """/B.scala
+            |package b
+            |object B {
+            |  println(a.A.HelloWorld)
+            |}""".stripMargin
+        val `C.scala` =
+          """/C.scala
+            |package b
+            |object C {
+            |  println(a.A.HelloWorld)
+            |  println(b.B)
+            |}""".stripMargin
+      }
+
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val `A` = TestProject(workspace, "a", List(Sources.`A.scala`))
+      val `B` = TestProject(workspace, "b", List(Sources.`B.scala`, Sources.`C.scala`), List(`A`))
+      val projects = List(`A`, `B`)
+      val state = loadState(workspace, projects, logger)
+      val compiledState = state.compile()
+      assertExitStatus(compiledState, ExitStatus.Ok)
+      assertValidCompilationState(compiledState, projects)
+
+      assertNoDiff(
+        logger.compilingInfos.sorted.mkString(lineSeparator),
+        """|Compiling a (1 Scala source)
+           |Compiling b (2 Scala sources)
+          """.stripMargin
+      )
     }
   }
 

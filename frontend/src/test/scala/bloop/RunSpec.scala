@@ -18,6 +18,7 @@ import bloop.engine.ExecutionContext
 import bloop.engine.Run
 import bloop.engine.State
 import bloop.engine.tasks.Tasks
+import bloop.io.AbsolutePath
 import bloop.logging.RecordingLogger
 import bloop.testing.BloopHelpers
 import bloop.util.TestProject
@@ -624,4 +625,51 @@ class RunSpec extends BloopHelpers {
     }
   }
 
+  @Test
+  def testAllProjectsWhenNoneSpecified(): Unit = {
+    TestUtil.withinWorkspace { workspace =>
+      object Sources {
+        val `ATest.scala` =
+          """/ATest.scala
+            |class ATest {
+            |  @org.junit.Test def testA(): Unit = org.junit.Assert.assertTrue(true)
+            |}""".stripMargin
+        val `BTest.scala` =
+          """/BTest.scala
+            |class BTest {
+            |  @org.junit.Test def testB(): Unit = org.junit.Assert.assertTrue(true)
+            |}""".stripMargin
+      }
+
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val junitJars =
+        bloop.internal.build.BuildTestInfo.junitTestJars.map(AbsolutePath.apply).toArray
+      val `A` = TestProject(
+        workspace,
+        "a",
+        List(Sources.`ATest.scala`),
+        enableTests = true,
+        jars = junitJars
+      )
+      val `B` = TestProject(
+        workspace,
+        "b",
+        List(Sources.`BTest.scala`),
+        enableTests = true,
+        jars = junitJars
+      )
+      val projects = List(`A`, `B`)
+      val state = loadState(workspace, projects, logger)
+
+      // This tests the new functionality: calling test with empty project list should test all projects
+      val testTask = Run(Commands.Test(List.empty))
+      val testState = new TestState(TestUtil.blockingExecute(testTask, state.state))
+      assertEquals(ExitStatus.Ok, testState.status)
+
+      // Verify that both projects were tested by checking the logger output
+      val logOutput = logger.renderTimeInsensitiveTestInfos
+      assert(logOutput.contains("ATest"))
+      assert(logOutput.contains("BTest"))
+    }
+  }
 }

@@ -186,16 +186,23 @@ object Interpreter {
   }
 
   private def compile(cmd: Commands.Compile, state: State): Task[State] = {
-    val lookup = lookupProjects(cmd.projects, state.build.getProjectFor(_))
-    if (lookup.missing.nonEmpty) Task.now(reportMissing(lookup.missing, state))
-    else {
+    def runCompileProjects(projectsToCompile: List[Project]) = {
       val projects: List[Project] = {
-        if (!cmd.cascade) lookup.found
-        else Dag.inverseDependencies(state.build.dags, lookup.found).reduced
+        if (!cmd.cascade) projectsToCompile
+        else Dag.inverseDependencies(state.build.dags, projectsToCompile).reduced
       }
 
       if (!cmd.watch) runCompile(cmd, state, projects, cmd.cliOptions.noColor)
       else watch(projects, state)(runCompile(cmd, _, projects, cmd.cliOptions.noColor))
+    }
+
+    if (cmd.projects.isEmpty) {
+      // If no projects specified, compile all projects
+      runCompileProjects(state.build.loadedProjects.map(_.project))
+    } else {
+      val lookup = lookupProjects(cmd.projects, state.build.getProjectFor(_))
+      if (lookup.missing.nonEmpty) Task.now(reportMissing(lookup.missing, state))
+      else runCompileProjects(lookup.found)
     }
   }
 
@@ -332,11 +339,37 @@ object Interpreter {
 
   private def test(cmd: Commands.Test, state: State): Task[State] = {
     import state.logger
-    val lookup = lookupProjects(cmd.projects, Tasks.pickTestProject(_, state))
-    if (lookup.missing.nonEmpty) Task.now(reportMissing(lookup.missing, state))
-    else {
+
+    def testAllProjects(
+        state: State,
+        projectsToCompile: List[Project],
+        projectsToTest: List[Project]
+    ): Task[State] = {
+      val testFilter = TestInternals.parseFilters(cmd.only)
+      compileAnd(cmd, state, projectsToCompile, cmd.cliOptions.noColor, "`test`") { state =>
+        logger.debug(
+          s"Preparing test execution for ${projectsToTest.mkString(", ")}"
+        )(DebugFilter.Test)
+
+        val handler = new LoggingEventHandler(state.logger)
+
+        Tasks
+          .test(
+            state,
+            projectsToTest,
+            cmd.args,
+            testFilter,
+            ch.epfl.scala.bsp.ScalaTestSuites(Nil, Nil, Nil),
+            handler,
+            cmd.parallel,
+            RunMode.Normal
+          )
+          .map(testRuns => state.mergeStatus(testRuns.status))
+      }
+    }
+
+    def testSelectedProjects(userSelectedProjects: List[Project]): Task[State] = {
       // Projects to test != projects that need compiling
-      val userSelectedProjects = lookup.found
       val (projectsToCompile, projectsToTest) = {
         if (!cmd.cascade) {
           val projectsToTest = {
@@ -358,32 +391,19 @@ object Interpreter {
         s"Preparing compilation of ${projectsToCompile.mkString(", ")} transitively"
       )(DebugFilter.Test)
 
-      def testAllProjects(state: State): Task[State] = {
-        val testFilter = TestInternals.parseFilters(cmd.only)
-        compileAnd(cmd, state, projectsToCompile, cmd.cliOptions.noColor, "`test`") { state =>
-          logger.debug(
-            s"Preparing test execution for ${projectsToTest.mkString(", ")}"
-          )(DebugFilter.Test)
+      if (!cmd.watch) testAllProjects(state, projectsToCompile, projectsToTest)
+      else watch(projectsToCompile, state)(testAllProjects(_, projectsToCompile, projectsToTest))
+    }
 
-          val handler = new LoggingEventHandler(state.logger)
-
-          Tasks
-            .test(
-              state,
-              projectsToTest,
-              cmd.args,
-              testFilter,
-              ch.epfl.scala.bsp.ScalaTestSuites(Nil, Nil, Nil),
-              handler,
-              cmd.parallel,
-              RunMode.Normal
-            )
-            .map(testRuns => state.mergeStatus(testRuns.status))
-        }
-      }
-
-      if (!cmd.watch) testAllProjects(state)
-      else watch(projectsToCompile, state)(testAllProjects(_))
+    if (cmd.projects.isEmpty) {
+      // If no projects specified, test all projects (using pickTestProject logic for each)
+      testSelectedProjects(
+        state.build.loadedProjects.flatMap(lp => Tasks.pickTestProject(lp.project.name, state))
+      )
+    } else {
+      val lookup = lookupProjects(cmd.projects, Tasks.pickTestProject(_, state))
+      if (lookup.missing.nonEmpty) Task.now(reportMissing(lookup.missing, state))
+      else testSelectedProjects(lookup.found)
     }
   }
 
