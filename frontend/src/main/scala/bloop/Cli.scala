@@ -392,7 +392,9 @@ object Cli {
           activeCliSessions.compute(
             configDirectory.underlying,
             (_, sessions) => {
-              sessions.filterNot(_ == session)
+              if (sessions != null)
+                sessions.filterNot(_ == session)
+              else Nil
             }
           )
           ()
