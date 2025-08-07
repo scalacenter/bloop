@@ -22,17 +22,23 @@ class CompilationTraceRecorder(private val traceFile: AbsolutePath) {
   private val entries = new ConcurrentHashMap[String, CompilationTraceEntry]()
   
   def startCompilation(project: String): Unit = {
-    val entry = CompilationTraceEntry(
-      project = project,
-      startTime = Instant.now(),
-      endTime = None,
-      compiledFiles = List.empty,
-      diagnostics = List.empty,
-      artifacts = List.empty,
-      isNoOp = false,
-      result = "In Progress"
-    )
-    entries.put(project, entry)
+    try {
+      val entry = CompilationTraceEntry(
+        project = project,
+        startTime = Instant.now(),
+        endTime = None,
+        compiledFiles = List.empty,
+        diagnostics = List.empty,
+        artifacts = List.empty,
+        isNoOp = false,
+        result = "In Progress"
+      )
+      entries.put(project, entry)
+    } catch {
+      case ex: Exception =>
+        // Don't fail compilation due to trace recording errors
+        System.err.println(s"Failed to start compilation trace for project $project: ${ex.getMessage}")
+    }
   }
   
   def endCompilation(
@@ -43,45 +49,64 @@ class CompilationTraceRecorder(private val traceFile: AbsolutePath) {
       isNoOp: Boolean,
       result: String
   ): Unit = {
-    val currentEntry = entries.get(project)
-    if (currentEntry != null) {
-      val traceProblems = diagnostics.map { problem =>
-        val pos = problem.position
-        CompilationDiagnostic(
-          file = pos.sourceFile.map(_.toString).getOrElse("unknown"),
-          severity = problem.severity.toString.toLowerCase,
-          message = problem.message,
-          line = pos.line,
-          column = pos.column
+    try {
+      val currentEntry = entries.get(project)
+      if (currentEntry != null) {
+        val traceProblems = diagnostics.map { problem =>
+          val pos = problem.position
+          CompilationDiagnostic(
+            file = pos.sourceFile.map(_.toString).getOrElse("unknown"),
+            severity = problem.severity.toString.toLowerCase,
+            message = problem.message,
+            line = pos.line,
+            column = pos.column
+          )
+        }
+        
+        val updatedEntry = currentEntry.copy(
+          endTime = Some(Instant.now()),
+          compiledFiles = compiledFiles,
+          diagnostics = traceProblems,
+          artifacts = artifacts,
+          isNoOp = isNoOp,
+          result = result
         )
+        entries.put(project, updatedEntry)
       }
-      
-      val updatedEntry = currentEntry.copy(
-        endTime = Some(Instant.now()),
-        compiledFiles = compiledFiles,
-        diagnostics = traceProblems,
-        artifacts = artifacts,
-        isNoOp = isNoOp,
-        result = result
-      )
-      entries.put(project, updatedEntry)
+    } catch {
+      case ex: Exception =>
+        // Don't fail compilation due to trace recording errors
+        System.err.println(s"Failed to end compilation trace for project $project: ${ex.getMessage}")
     }
   }
   
   def recordArtifactCopy(project: String, source: String, destination: String, artifactType: String): Unit = {
-    val currentEntry = entries.get(project)
-    if (currentEntry != null) {
-      val artifact = CompilationArtifact(source, destination, artifactType)
-      val updatedEntry = currentEntry.copy(artifacts = currentEntry.artifacts :+ artifact)
-      entries.put(project, updatedEntry)
+    try {
+      val currentEntry = entries.get(project)
+      if (currentEntry != null) {
+        val artifact = CompilationArtifact(source, destination, artifactType)
+        val updatedEntry = currentEntry.copy(artifacts = currentEntry.artifacts :+ artifact)
+        entries.put(project, updatedEntry)
+      }
+    } catch {
+      case ex: Exception =>
+        // Don't fail compilation due to trace recording errors
+        System.err.println(s"Failed to record artifact copy for project $project: ${ex.getMessage}")
     }
   }
   
   def writeTrace(): Unit = {
-    val trace = CompilationTrace(entries.values().asScala.toList)
-    val bytes = writeToArray(trace, WriterConfig.withIndentionStep(2))
-    Files.createDirectories(traceFile.getParent.underlying)
-    Files.write(traceFile.underlying, bytes)
+    try {
+      val trace = CompilationTrace(entries.values().asScala.toList)
+      val bytes = writeToArray(trace, WriterConfig.withIndentionStep(2))
+      Files.createDirectories(traceFile.getParent.underlying)
+      Files.write(traceFile.underlying, bytes)
+    } catch {
+      case ex: Exception =>
+        // Don't fail compilation due to trace writing errors
+        // Just log the error and continue
+        System.err.println(s"Failed to write compilation trace to ${traceFile}: ${ex.getMessage}")
+    }
   }
 }
 

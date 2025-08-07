@@ -273,9 +273,7 @@ object Compiler {
     val newClassesDirPath = newClassesDir.toString
 
     // Start compilation trace if recorder is available
-    val projectName = compileInputs.uniqueInputs.sources.headOption
-      .map(_.getParent.getParent.getFileName.toString)
-      .getOrElse("unknown")
+    val projectName = compileInputs.uniqueInputs.baseDirectory.getFileName.toString
     compileInputs.compilationTraceRecorder.foreach(_.startCompilation(projectName))
 
     def recordCompilationEnd(
@@ -1123,9 +1121,7 @@ object Compiler {
     val failedProblems = findFailedProblems(reporter, errorCause)
     // Note: This is a failed result but for best effort mode, so we record it as best effort
     compileInputs.compilationTraceRecorder.foreach { recorder =>
-      val projectName = compileInputs.uniqueInputs.sources.headOption
-        .map(_.getParent.getParent.getFileName.toString)
-        .getOrElse("unknown")
+      val projectName = compileInputs.uniqueInputs.baseDirectory.getFileName.toString
       val compiledFiles = compileInputs.sources.map(_.syntax).toList
       val diagnostics = reporter.allProblemsPerPhase.flatMap(_.problem).toList
       val artifacts = List(
