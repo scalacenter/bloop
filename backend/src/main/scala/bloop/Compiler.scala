@@ -21,6 +21,8 @@ import bloop.io.{Paths => BloopPaths}
 import bloop.logging.DebugFilter
 import bloop.logging.Logger
 import bloop.logging.ObservedLogger
+import bloop.logging.CompilationTraceRecorder
+import bloop.logging.CompilationArtifact
 import bloop.reporter.ProblemPerPhase
 import bloop.reporter.Reporter
 import bloop.reporter.ZincReporter
@@ -73,7 +75,8 @@ case class CompileInputs(
     ioExecutor: Executor,
     invalidatedClassFilesInDependentProjects: Set[File],
     generatedClassFilePathsInDependentProjects: Map[String, File],
-    resources: List[AbsolutePath]
+    resources: List[AbsolutePath],
+    compilationTraceRecorder: Option[CompilationTraceRecorder]
 )
 
 case class CompileOutPaths(
@@ -269,6 +272,47 @@ object Compiler {
     val newClassesDir = compileOut.internalNewClassesDir.underlying
     val newClassesDirPath = newClassesDir.toString
 
+    // Start compilation trace if recorder is available
+    val projectName = compileInputs.uniqueInputs.sources.headOption
+      .map(_.getParent.getParent.getFileName.toString)
+      .getOrElse("unknown")
+    compileInputs.compilationTraceRecorder.foreach(_.startCompilation(projectName))
+
+    def recordCompilationEnd(
+        result: String,
+        isNoOp: Boolean = false,
+        products: Option[CompileProducts] = None
+    ): Unit = {
+      compileInputs.compilationTraceRecorder.foreach { recorder =>
+        val compiledFiles = compileInputs.sources.map(_.syntax).toList
+        val reporter = compileInputs.reporter
+        val diagnostics = reporter.allProblemsPerPhase.flatMap(_.problem).toList
+        val artifacts = products.map { p =>
+          List(
+            CompilationArtifact(
+              source = p.newClassesDir.syntax,
+              destination = compileOut.externalClassesDir.syntax,
+              artifactType = "class"
+            ),
+            CompilationArtifact(
+              source = p.analysisOut.syntax,
+              destination = compileOut.analysisOut.syntax,
+              artifactType = "analysis"
+            )
+          )
+        }.getOrElse(List.empty)
+        
+        recorder.endCompilation(
+          projectName,
+          compiledFiles,
+          diagnostics,
+          artifacts,
+          isNoOp,
+          result
+        )
+      }
+    }
+
     logger.debug(s"External classes directory ${externalClassesDirPath}")
     logger.debug(s"Read-only classes directory ${readOnlyClassesDirPath}")
     logger.debug(s"New rw classes directory ${newClassesDirPath}")
@@ -369,6 +413,7 @@ object Compiler {
       reporter.reportEndCompilation()
       val backgroundTasks =
         toBackgroundTasks(backgroundTasksForFailedCompilation.toList)
+      recordCompilationEnd("Cancelled")
       Result.Cancelled(reporter.allProblemsPerPhase.toList, elapsed, backgroundTasks)
     }
 
@@ -632,6 +677,7 @@ object Compiler {
                   .doOnFinish(_ => Task(clientReporter.reportEndCompilation()))
               }
             }
+            recordCompilationEnd("Success", isNoOp, Some(products))
             Result.Success(
               compileInputs.uniqueInputs,
               compileInputs.reporter,
@@ -739,6 +785,7 @@ object Compiler {
               allGeneratedProducts
             )
 
+            recordCompilationEnd("Success", isNoOp, Some(products))
             Result.Success(
               compileInputs.uniqueInputs,
               compileInputs.reporter,
@@ -777,6 +824,7 @@ object Compiler {
               val failedProblems = findFailedProblems(reporter, Some(f))
               val backgroundTasks =
                 toBackgroundTasks(backgroundTasksForFailedCompilation.toList)
+              recordCompilationEnd("Failed")
               Result.Failed(failedProblems, None, elapsed, backgroundTasks, None)
             case t: Throwable =>
               t.printStackTrace()
@@ -786,6 +834,7 @@ object Compiler {
               val backgroundTasks =
                 toBackgroundTasks(backgroundTasksForFailedCompilation.toList)
               val failedProblems = findFailedProblems(reporter, None)
+              recordCompilationEnd("Failed")
               Result.Failed(failedProblems, Some(t), elapsed, backgroundTasks, None)
           }
       }
@@ -1072,6 +1121,30 @@ object Compiler {
         )
       else BestEffortUtils.EmptyBestEffortHash
     val failedProblems = findFailedProblems(reporter, errorCause)
+    // Note: This is a failed result but for best effort mode, so we record it as best effort
+    compileInputs.compilationTraceRecorder.foreach { recorder =>
+      val projectName = compileInputs.uniqueInputs.sources.headOption
+        .map(_.getParent.getParent.getFileName.toString)
+        .getOrElse("unknown")
+      val compiledFiles = compileInputs.sources.map(_.syntax).toList
+      val diagnostics = reporter.allProblemsPerPhase.flatMap(_.problem).toList
+      val artifacts = List(
+        CompilationArtifact(
+          source = products.newClassesDir.syntax,
+          destination = compileOut.externalClassesDir.syntax,
+          artifactType = "class"
+        )
+      )
+      
+      recorder.endCompilation(
+        projectName,
+        compiledFiles,
+        diagnostics,
+        artifacts,
+        isNoOp = false,
+        "Best Effort Failed"
+      )
+    }
     Result.Failed(
       failedProblems,
       None,

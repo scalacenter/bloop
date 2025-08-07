@@ -58,7 +58,8 @@ case class WorkspaceSettings(
     // Managed by the user
     refreshProjectsCommand: Option[List[String]],
     traceSettings: Option[TraceSettings],
-    enableBestEffortMode: Option[Boolean]
+    enableBestEffortMode: Option[Boolean],
+    enableCompilationTrace: Option[Boolean]
 ) {
   def withSemanticdbSettings: Option[(WorkspaceSettings, SemanticdbSettings)] =
     if (semanticDBVersion.nonEmpty || javaSemanticDBVersion.nonEmpty) {
@@ -88,6 +89,7 @@ object WorkspaceSettings {
       Some(javaSemanticDBVersion),
       Some(scalaSemanticDBVersion),
       Some(supportedScalaVersions),
+      None,
       None,
       None,
       None

@@ -69,6 +69,13 @@ object CompileTask {
 
     val traceProperties = WorkspaceSettings.tracePropertiesFrom(state.build.workspaceSettings)
 
+    // Initialize compilation trace recorder if enabled
+    import bloop.logging.CompilationTraceRecorder
+    val compilationTraceRecorder = state.build.workspaceSettings
+      .flatMap(_.enableCompilationTrace)
+      .filter(identity)
+      .map(_ => CompilationTraceRecorder.create(cwd))
+
     val rootTracer = BraveTracer(
       s"compile $topLevelTargets (transitively)",
       traceProperties,
@@ -184,7 +191,8 @@ object CompileTask {
                 ExecutionContext.ioExecutor,
                 bundle.dependenciesData.allInvalidatedClassFiles,
                 bundle.dependenciesData.allGeneratedClassFilePaths,
-                project.runtimeResources
+                project.runtimeResources,
+                compilationTraceRecorder
               )
             }
 
@@ -404,7 +412,11 @@ object CompileTask {
             // Block on all background task that are running and are required for correctness
             runningTasksRequiredForCorrectness
               .executeOn(ExecutionContext.ioScheduler)
-              .map(_ => newState)
+              .map { _ =>
+                // Write compilation trace if recorder is available
+                compilationTraceRecorder.foreach(_.writeTrace())
+                newState
+              }
               .doOnFinish(_ => Task(rootTracer.terminate()))
           }
         }
