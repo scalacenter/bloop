@@ -34,7 +34,6 @@ class DebuggeeLogger(listener: DebuggeeListener, underlying: Logger) extends Log
     new DebuggeeLogger(listener, underlying.withOriginId(originId))
 
   override def error(msg: String): Unit = {
-    underlying.error(msg)
     listener.err(msg)
   }
 
