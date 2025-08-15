@@ -25,6 +25,7 @@ import monix.reactive.Consumer
 import monix.reactive.MulticastStrategy
 import monix.reactive.Observable
 import sbt.internal.inc.PlainVirtualFileConverter
+import bloop.logging.Logger
 
 object SourceHasher {
   private final val sourceMatcher =
@@ -58,7 +59,8 @@ object SourceHasher {
       updateGenerator: SourceGenerator => Task[List[AbsolutePath]],
       parallelUnits: Int,
       cancelCompilation: Promise[Unit],
-      scheduler: Scheduler
+      scheduler: Scheduler,
+      logger: Logger
   ): Task[Either[Unit, List[HashedSource]]] = {
     val isCancelled = AtomicBoolean(false)
     val sourceFilesAndDirectories = project.sources.distinct
@@ -80,8 +82,10 @@ object SourceHasher {
       def visitFileFailed(
           t: Path,
           e: IOException
-      ): FileVisitResult = FileVisitResult.CONTINUE
-
+      ): FileVisitResult = {
+        logger.error(s"Failed to visit file $t: ${e.getMessage}", e)
+        FileVisitResult.CONTINUE
+      }
       def preVisitDirectory(
           directory: Path,
           attributes: BasicFileAttributes
@@ -103,7 +107,7 @@ object SourceHasher {
       val discovery = fileVisitor(matchSourceFile)
       val opts = java.util.EnumSet.of(FileVisitOption.FOLLOW_LINKS)
       sourceFilesAndDirectories.foreach { sourcePath =>
-        if (visitedDirs.contains(sourcePath.underlying)) ()
+        if (visitedDirs.contains(sourcePath.underlying) || !sourcePath.exists) ()
         else if (isCancelled.get) ()
         else {
           Files.walkFileTree(sourcePath.underlying, opts, Int.MaxValue, discovery)

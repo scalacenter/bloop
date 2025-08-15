@@ -193,7 +193,8 @@ object CompileBundle {
             sourceGeneratorCache.update(_, logger, options),
             20,
             cancelCompilation,
-            ioScheduler
+            ioScheduler,
+            logger
           )
           .map(res => res.map(_.sortBy(_.source.id())))
           .executeOn(ioScheduler)
