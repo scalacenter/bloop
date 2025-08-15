@@ -44,7 +44,8 @@ object SourceHasherSpec extends bloop.testing.BaseSuite {
           state.state.sourceGeneratorCache.update(_, logger, state.state.commonOptions),
           2,
           cancelPromise,
-          ioScheduler
+          ioScheduler,
+          logger
         )
       val running = sourceHashesTask.runAsync(ioScheduler)
 
@@ -61,7 +62,8 @@ object SourceHasherSpec extends bloop.testing.BaseSuite {
           state.state.sourceGeneratorCache.update(_, logger, state.state.commonOptions),
           2,
           cancelPromise2,
-          ioScheduler
+          ioScheduler,
+          logger
         )
       val running2 = sourceHashesTask2.runAsync(ioScheduler)
       val uncancelledResult = Await.result(running2, FiniteDuration(20, "s"))

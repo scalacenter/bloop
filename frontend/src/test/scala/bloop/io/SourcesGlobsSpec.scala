@@ -53,7 +53,8 @@ object SourcesGlobsSpec extends bloop.testing.BaseSuite {
           state.sourceGeneratorCache.update(_, logger, state.commonOptions),
           1,
           Promise[Unit](),
-          ioScheduler
+          ioScheduler,
+          logger
         )
         val Right(result) = TestUtil.await(10, TimeUnit.SECONDS)(hashedSources)
         val obtainedFilenames = result
