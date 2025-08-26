@@ -279,7 +279,9 @@ private[inc] class BloopComponentCompiler(
             List(
               coursierapi.MavenRepository.of(
                 "https://scala-ci.typesafe.com/artifactory/scala-integration/"
-              )
+              ),
+              coursierapi.MavenRepository
+                .of("https://repo.scala-lang.org/artifactory/maven-nightlies")
             )
           ) match {
             case Right(paths) => paths.map(_.underlying).toVector
@@ -288,10 +290,12 @@ private[inc] class BloopComponentCompiler(
               throw new InvalidComponent(msg, t)
           }
         }
-
         if (!shouldResolveSources) {
-          // This is usually true in the Dotty case, that has a pre-compiled compiler
-          manager.define(compilerBridgeId, allArtifacts.map(_.toFile()))
+          // This is usually true in the Dotty case, that has a pre-compiled compiler, only take the bridge jar
+          manager.define(
+            compilerBridgeId,
+            allArtifacts.find(_.toString().contains(bridgeSources.name)).toList.map(_.toFile())
+          )
         } else {
           val (sources, xsbtiJars) =
             allArtifacts.partition(_.toFile.getName.endsWith("-sources.jar"))

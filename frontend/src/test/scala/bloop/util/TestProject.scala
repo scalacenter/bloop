@@ -21,6 +21,7 @@ import bloop.io.RelativePath
 import bloop.logging.Logger
 import bloop.logging.NoopLogger
 import bloop.util.TestUtil.ProjectArchetype
+import coursierapi.MavenRepository
 
 final case class TestProject(
     config: Config.Project,
@@ -217,10 +218,26 @@ abstract class BaseTestProject {
       scalaVersion: Option[String],
       allJars: Seq[AbsolutePath],
       logger: Logger
-  ): ScalaInstance =
+  ): ScalaInstance = {
+    val additionalRepositories = if (scalaVersion.exists(_.contains("NIGHTLY"))) {
+      List(MavenRepository.of("https://repo.scala-lang.org/artifactory/maven-nightlies"))
+    } else {
+      Nil
+    }
     scalaVersion
-      .map(v => ScalaInstance.apply(scalaOrg, scalaName, v, allJars, logger))
+      .map(v =>
+        ScalaInstance.apply(
+          scalaOrg,
+          scalaName,
+          v,
+          allJars,
+          logger,
+          None,
+          additionalRepositories
+        )
+      )
       .getOrElse(TestUtil.scalaInstance)
+  }
 
   def populateWorkspaceInConfigDir(
       configDir: AbsolutePath,

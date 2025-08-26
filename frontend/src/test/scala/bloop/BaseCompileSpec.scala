@@ -70,6 +70,15 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
     }
   }
 
+  checkCompiles(
+    "scala3-nightly",
+    ExitStatus.Ok,
+    "3.8.0-RC1-bin-20250825-25092c7-NIGHTLY",
+    """|class Foo:
+       |  def foo: Int = 1
+       |""".stripMargin
+  )
+
   // https://github.com/scala/scala3/issues/22026
   checkCompiles(
     "scala3-i22026",
