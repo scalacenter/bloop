@@ -181,7 +181,8 @@ object ScalaInstance {
       scalaVersion: String,
       allJars: Seq[AbsolutePath],
       logger: Logger,
-      bridgeJarsOpt: Option[Seq[AbsolutePath]]
+      bridgeJarsOpt: Option[Seq[AbsolutePath]],
+      additionalRepositories: List[Repository] = Nil
   ): ScalaInstance = {
     val jarsKey = allJars.map(_.underlying).sortBy(_.toString).toList
     if (allJars.nonEmpty) {
@@ -202,7 +203,7 @@ object ScalaInstance {
       val nonExistingJars = allJars.filter(j => !Files.exists(j.underlying))
       nonExistingJars.foreach(p => logger.error(s"Scala instance jar ${p.syntax} doesn't exist!"))
       instancesByJar.computeIfAbsent(jarsKey, _ => newInstance)
-    } else resolve(scalaOrg, scalaName, scalaVersion, logger)
+    } else resolve(scalaOrg, scalaName, scalaVersion, logger, additionalRepositories)
   }
 
   // Cannot wait to use opaque types for this
