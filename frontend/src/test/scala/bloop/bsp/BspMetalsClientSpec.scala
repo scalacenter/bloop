@@ -830,6 +830,81 @@ class BspMetalsClientSpec(
     }
   }
 
+  test("debugIncrementalCompilation-endpoint-succeeds") {
+    TestUtil.withinWorkspace { workspace =>
+      val sources = List(
+        """/Foo.scala
+          |object Foo {
+          |  def main(args: Array[String]): Unit = {
+          |    println("Hello World")
+          |  }
+          |}
+          """.stripMargin
+      )
+
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val A = TestProject(workspace, "a", sources)
+
+      loadBspState(workspace, List(A), logger) { state =>
+        // First compile the project to generate incremental compilation data
+        val compiled = state.compile(A)
+        assertExitStatus(compiled, ExitStatus.Ok)
+
+        val (_, debugInfo) = compiled.debugIncrementalCompilation(A)
+
+        val debugInformation = debugInfo.debugInfos.head
+        // Verify we get debug information
+        assert(debugInformation.target == A.bspId)
+        assert(debugInformation.lastCompilationInfo.nonEmpty)
+        assert(debugInformation.analysisInfo.isDefined)
+        assert(debugInformation.analysisInfo.get.classFiles == 2)
+        assert(debugInformation.analysisInfo.get.sourceFiles == 1)
+        assert(debugInformation.allFileHashes.size == 1)
+      }
+    }
+  }
+
+  test("debugIncrementalCompilation-after-failure") {
+    TestUtil.withinWorkspace { workspace =>
+      val fooBefore =
+        """/Foo.scala
+          |object Foo {
+          |  def main(args: Array[String]): Unit = {
+          |    println("Hello World")
+          |  }
+          |}
+          """.stripMargin
+      val fooAfter =
+        """/Foo.scala
+          |object Foo {
+          |  def main(args: Array[String]): Unit = {
+          |    val a: Int = String
+          |  }
+          |}
+          """.stripMargin
+
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val A = TestProject(workspace, "a", List(fooBefore))
+
+      loadBspState(workspace, List(A), logger) { state =>
+        // First compile the project to generate incremental compilation data
+        val compiled = state.compile(A)
+        assertExitStatus(compiled, ExitStatus.Ok)
+        assertIsFile(writeFile(A.srcFor("Foo.scala"), fooAfter))
+        val compiled2 = state.compile(A)
+        assertExitStatus(compiled2, ExitStatus.CompilationError)
+
+        val (_, debugInfo) = compiled.debugIncrementalCompilation(A)
+
+        val debugInformation = debugInfo.debugInfos.head
+        // Verify we get debug information
+        assert(debugInformation.maybeFailedCompilation.startsWith("Failed("))
+        assert(debugInformation.analysisInfo.isDefined)
+        assert(debugInformation.analysisInfo.get.excludedFiles.isEmpty)
+      }
+    }
+  }
+
   private val dummyFooScalaSources = List(
     """/Foo.scala
       |class Foo

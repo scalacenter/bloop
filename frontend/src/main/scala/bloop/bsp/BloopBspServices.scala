@@ -41,6 +41,9 @@ import bloop.data.ClientInfo
 import bloop.data.ClientInfo.BspClientInfo
 import bloop.data.JdkConfig
 import bloop.data.Platform
+import bloop.data.Platform.Js
+import bloop.data.Platform.Jvm
+import bloop.data.Platform.Native
 import bloop.data.Project
 import bloop.data.WorkspaceSettings
 import bloop.engine.Aggregate
@@ -58,6 +61,7 @@ import bloop.engine.tasks.toolchains.ScalaNativeToolchain
 import bloop.exec.Forker
 import bloop.internal.build.BuildInfo
 import bloop.io.AbsolutePath
+import bloop.io.ByteHasher
 import bloop.io.Environment.lineSeparator
 import bloop.io.RelativePath
 import bloop.logging.BspServerLogger
@@ -70,22 +74,21 @@ import bloop.reporter.ReporterInputs
 import bloop.task.Task
 import bloop.testing.LoggingEventHandler
 import bloop.testing.TestInternals
+import bloop.util.JavaCompat._
 import bloop.util.JavaRuntime
 
-import com.github.plokhotnyuk.jsoniter_scala.core._
-import com.github.plokhotnyuk.jsoniter_scala.macros.JsonCodecMaker
 import com.github.plokhotnyuk.jsoniter_scala.core.JsonValueCodec
-import jsonrpc4s._
+import com.github.plokhotnyuk.jsoniter_scala.core._
 import com.github.plokhotnyuk.jsoniter_scala.core.readFromArray
+import com.github.plokhotnyuk.jsoniter_scala.macros.JsonCodecMaker
+import jsonrpc4s._
 import monix.execution.Cancelable
 import monix.execution.CancelablePromise
 import monix.execution.Scheduler
 import monix.execution.atomic.AtomicBoolean
 import monix.execution.atomic.AtomicInt
 import monix.reactive.subjects.BehaviorSubject
-import bloop.data.Platform.Js
-import bloop.data.Platform.Jvm
-import bloop.data.Platform.Native
+import sbt.internal.inc.PlainVirtualFileConverter
 
 final class BloopBspServices(
     callSiteState: State,
@@ -150,6 +153,9 @@ final class BloopBspServices(
     .requestAsync(endpoints.BuildTarget.jvmTestEnvironment)(p => schedule(jvmTestEnvironment(p)))
     .requestAsync(endpoints.BuildTarget.jvmRunEnvironment)(p => schedule(jvmRunEnvironment(p)))
     .notificationAsync(BloopBspDefinitions.stopClientCaching)(p => stopClientCaching(p))
+    .requestAsync(BloopBspDefinitions.debugIncrementalCompilation)(p =>
+      schedule(debugIncrementalCompilation(p))
+    )
 
   // Internal state, initial value defaults to
   @volatile private var currentState: State = callSiteState
@@ -422,6 +428,138 @@ final class BloopBspServices(
 
   def stopClientCaching(params: BloopBspDefinitions.StopClientCachingParams): Task[Unit] = {
     Task.eval { originToCompileStores.remove(params.originId); () }.executeAsync
+  }
+
+  def debugIncrementalCompilation(
+      params: BloopBspDefinitions.DebugIncrementalCompilationParams
+  ): BspEndpointResponse[BloopBspDefinitions.DebugIncrementalCompilationResult] = {
+    def debugInfo(
+        projects: Seq[ProjectMapping],
+        state: State
+    ): BspResult[BloopBspDefinitions.DebugIncrementalCompilationResult] = {
+      val debugInfos = projects.map {
+        case (target, project) =>
+          collectDebugInfo(target, project, state)
+      }
+      Task.sequence(debugInfos).map { debugInfos =>
+        (state, Right(BloopBspDefinitions.DebugIncrementalCompilationResult(debugInfos.toList)))
+      }
+    }
+
+    ifInitialized(None) { (state: State, _: BspServerLogger) =>
+      mapToProjects(params.targets, state) match {
+        case Left(error) => Task.now((state, Left(Response.invalidRequest(error))))
+        case Right(mappings) => debugInfo(mappings, state)
+      }
+    }
+  }
+
+  private def collectDebugInfo(
+      target: bsp.BuildTargetIdentifier,
+      project: Project,
+      state: State
+  ): Task[BloopBspDefinitions.IncrementalCompilationDebugInfo] = {
+    val allSources = bloop.io.SourceHasher
+      .findAndHashSourcesInProject(
+        project,
+        _ => Task.now(Nil),
+        20,
+        Promise[Unit](),
+        ioScheduler,
+        state.logger
+      )
+      .map(res => res.map(_.sortBy(_.source.id())))
+      .executeOn(ioScheduler)
+    allSources.map { allSources =>
+      import bloop.bsp.BloopBspDefinitions._
+      import java.nio.file.Files
+
+      val projectAnalysisFile = state.client
+        .getUniqueClassesDirFor(project, forceGeneration = false)
+        .resolve(s"../../${project.name}-analysis.bin")
+
+      val converter = PlainVirtualFileConverter.converter
+      // Extract analysis info from successful compilation results
+      val analysisInfo = state.results.lastSuccessfulResult(project) match {
+        case Some(success) =>
+          val maybeAnalysis = success.previous.analysis()
+          val analysis = maybeAnalysis.toOption match {
+            case Some(analysis: sbt.internal.inc.Analysis) => analysis
+            case _ => sbt.internal.inc.Analysis.empty
+          }
+          val compilationInfo = analysis
+            .readCompilations()
+            .getAllCompilations
+            .toList
+            .map { compilation =>
+              s" ${compilation.getStartTime} -> ${compilation.getOutput()}"
+            }
+            .mkString("\n")
+
+          val relations = analysis.relations
+          val lastModifiedA =
+            if (Files.exists(projectAnalysisFile.underlying))
+              Files.getLastModifiedTime(projectAnalysisFile.underlying).toMillis()
+            else 0L
+          val changedSource = allSources match {
+            case Left(_) => Nil
+            case Right(value) =>
+              value.filterNot { sourceHash =>
+                success.sources.exists(_.source.id() == sourceHash.source.id())
+              }
+          }
+          val hashes = success.sources.map { sourceHash =>
+            val sourcePath = converter.toPath(sourceHash.source)
+            val exists = Files.exists(sourcePath)
+            val lastModified = if (exists) sourcePath.toFile.lastModified() else 0L
+            val currentHash =
+              if (exists) ByteHasher.hashFileContents(sourcePath.toFile)
+              else 0
+
+            FileHashInfo(
+              uri = bsp.Uri(sourcePath.toUri()),
+              currentHash = currentHash,
+              analysisHash = Some(sourceHash.hash),
+              lastModified = lastModified,
+              exists = exists
+            )
+          }
+          val currentFailedResult = state.results.latestResult(project) match {
+            case _: Compiler.Result.Success => ""
+            case otherwise => otherwise.toString()
+          }
+
+          val analysisInfo =
+            AnalysisDebugInfo(
+              lastModified = lastModifiedA,
+              sourceFiles = analysis.readStamps.getAllSourceStamps.size(),
+              classFiles = analysis.readStamps.getAllProductStamps.size(),
+              internalDependencies = relations.allProducts.size,
+              externalDependencies = relations.allLibraryDeps.size,
+              location = bsp.Uri(projectAnalysisFile.toBspUri),
+              excludedFiles = changedSource.map(_.source.toString())
+            )
+          Some(
+            IncrementalCompilationDebugInfo(
+              target = target,
+              analysisInfo = Some(analysisInfo),
+              allFileHashes = hashes.toList,
+              lastCompilationInfo = compilationInfo,
+              maybeFailedCompilation = currentFailedResult
+            )
+          )
+        case _ => None
+      }
+      analysisInfo.getOrElse(
+        IncrementalCompilationDebugInfo(
+          target = target,
+          analysisInfo = None,
+          allFileHashes = Nil,
+          lastCompilationInfo = "",
+          maybeFailedCompilation = ""
+        )
+      )
+    }
   }
 
   def linkProjects(

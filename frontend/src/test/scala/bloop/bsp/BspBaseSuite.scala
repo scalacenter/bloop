@@ -518,6 +518,18 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
       awaitForTask(jvmEnvironmentTask)
     }
 
+    def debugIncrementalCompilation(
+        project: TestProject
+    ): (ManagedBspTestState, BloopBspDefinitions.DebugIncrementalCompilationResult) = {
+      val debugTask = runAfterTargets(project) { target =>
+        rpcRequest(
+          BloopBspDefinitions.debugIncrementalCompilation,
+          BloopBspDefinitions.DebugIncrementalCompilationParams(List(target))
+        )
+      }
+      await(debugTask)
+    }
+
     def jvmTestEnvironment(
         project: TestProject,
         originId: Option[String]

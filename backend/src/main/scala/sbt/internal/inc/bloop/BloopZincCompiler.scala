@@ -24,7 +24,6 @@ import sbt.internal.inc.bloop.internal.BloopIncremental
 import sbt.internal.inc.bloop.internal.BloopLookup
 import sbt.internal.inc.bloop.internal.BloopStamps
 import sbt.util.InterfaceUtil
-import xsbti.AnalysisCallback
 import xsbti.VirtualFile
 import xsbti.compile._
 
@@ -137,8 +136,7 @@ object BloopZincCompiler {
         val lookup = new BloopLookup(config, previousSetup, logger)
         val analysis = invalidateAnalysisFromSetup(config.currentSetup, previousSetup, setOfSources, prev, manager, logger)
 
-        // Scala needs the explicit type signature to infer the function type arguments
-        val compile: (Set[VirtualFile], DependencyChanges, AnalysisCallback, ClassFileManager) => Task[Unit] = compiler.compile(_, _, _, _, cancelPromise)
+        val compile = compiler.compile(_, _, _, _, cancelPromise)
         BloopIncremental
           .compile(
             setOfSources,
