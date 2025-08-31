@@ -68,11 +68,10 @@ final class ScalaInstance private (
     new URLClassLoader(jarsToLoad.map(_.toURI.toURL), loaderLibraryOnly)
   }
 
-  import ScalaInstance.ScalacCompilerName
   private def isJar(filename: String): Boolean = filename.endsWith(".jar")
   private def hasScalaCompilerName(filename: String): Boolean =
-    filename.startsWith(ScalacCompilerName) ||
-      (isDotty && (filename.startsWith("dotty-compiler") || filename.startsWith("scala3-compiler")))
+    ScalaInstance.compilerJarRegex.findFirstIn(filename).isDefined
+
   private def hasScalaLibraryName(filename: String): Boolean =
     filename.startsWith("scala-library") || filename.startsWith("scala3-library")
 
@@ -127,6 +126,8 @@ final class ScalaInstance private (
 
 object ScalaInstance {
   import bloop.io.AbsolutePath
+
+  private val compilerJarRegex = ".*(scala3|dotty|scala)-compiler.*\\.jar".r
 
   private[ScalaInstance] val bootClassLoader: ClassLoader = {
     if (!scala.util.Properties.isJavaAtLeast("9")) null
