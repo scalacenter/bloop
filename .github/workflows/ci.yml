@@ -13,7 +13,7 @@ jobs:
     name: Formatting
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: graalvm/setup-graalvm@v1
         with:
           version: '22.3.0'
@@ -31,7 +31,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, macOS-13]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           submodules: true
       - uses: graalvm/setup-graalvm@v1
@@ -58,7 +58,7 @@ jobs:
       HYDRA_LICENSE: ${{ secrets.HYDRA_LICENSE }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           submodules: true
           fetch-depth: 0
@@ -124,7 +124,7 @@ jobs:
       BLOOPOID_GITHUB_TOKEN: ${{ secrets.BLOOPOID_GITHUB_TOKEN }}
       ARTIFACT_NAME: ${{ matrix.artifact }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           submodules: true
           fetch-depth: 0
@@ -187,7 +187,7 @@ jobs:
       BLOOPOID_SSH_PUBLIC_KEY: ${{ secrets.BLOOPOID_SSH_PUBLIC_KEY }}
       BLOOPOID_SSH_PRIVATE_KEY: ${{ secrets.BLOOPOID_SSH_PRIVATE_KEY }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           submodules: true
           fetch-depth: 0
