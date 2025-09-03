@@ -29,6 +29,6 @@ class ScalaInstanceSpec {
       Seq(AbsolutePath("scala-compiler-3.3.1.jar")), // This jar doesn't exist
       new RecordingLogger()
     )
-
+    ()
   }
 }

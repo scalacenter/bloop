@@ -152,15 +152,15 @@ object BloopDefaults {
     BloopKeys.bloopInstall := bloopInstall.value,
     BloopKeys.bloopAggregateSourceDependencies := true,
     // Override classifiers so that we don't resolve always docs
-    Keys.transitiveClassifiers in Keys.updateClassifiers := {
-      val old = (Keys.transitiveClassifiers in Keys.updateClassifiers).value
-      val bloopClassifiers = BloopKeys.bloopExportJarClassifiers.in(ThisBuild).value
+    Keys.updateClassifiers / Keys.transitiveClassifiers := {
+      val old = (Keys.updateClassifiers / Keys.transitiveClassifiers).value
+      val bloopClassifiers = (ThisBuild / BloopKeys.bloopExportJarClassifiers).value
       (if (bloopClassifiers.isEmpty) old else bloopClassifiers.get).toList
     },
     BloopKeys.bloopIsMetaBuild := {
       val buildStructure = Keys.loadedBuild.value
       val baseDirectory = new File(buildStructure.root)
-      val isMetaBuild = Keys.sbtPlugin.in(LocalRootProject).value
+      val isMetaBuild = (LocalRootProject / Keys.sbtPlugin).value
       isMetaBuild && baseDirectory.getAbsolutePath != cwd
     },
     Keys.onLoad := {
@@ -200,12 +200,12 @@ object BloopDefaults {
 
   // We create build setting proxies to global settings so that we get autocompletion (sbt bug)
   lazy val buildSettings: Seq[Def.Setting[_]] = List(
-    BloopKeys.bloopInstall := BloopKeys.bloopInstall.in(Global).value,
+    BloopKeys.bloopInstall := (Global / BloopKeys.bloopInstall).value,
     // Repeat definition so that sbt shows autocopmletion for these settings
-    BloopKeys.bloopExportJarClassifiers := BloopKeys.bloopExportJarClassifiers.in(Global).value,
+    BloopKeys.bloopExportJarClassifiers := (Global / BloopKeys.bloopExportJarClassifiers).value,
     // Bloop users: Do NEVER override this setting as a user if you want it to work
     BloopKeys.bloopAggregateSourceDependencies :=
-      BloopKeys.bloopAggregateSourceDependencies.in(Global).value
+      (Global / BloopKeys.bloopAggregateSourceDependencies).value
   )
 
   /**
@@ -227,7 +227,7 @@ object BloopDefaults {
       },
       BloopKeys.bloopPostGenerate := bloopPostGenerate.value,
       BloopKeys.bloopMainClass := None,
-      BloopKeys.bloopMainClass in Keys.run := BloopKeys.bloopMainClass.value
+      Keys.run / BloopKeys.bloopMainClass := BloopKeys.bloopMainClass.value
     ) ++ discoveredSbtPluginsSettings
 
   lazy val projectSettings: Seq[Def.Setting[_]] = {
@@ -238,19 +238,19 @@ object BloopDefaults {
         BloopKeys.bloopScalaJSStage := findOutScalaJsStage.value,
         BloopKeys.bloopScalaJSModuleKind := findOutScalaJsModuleKind.value,
         // Override checksums so that `updates` don't check md5 for all jars
-        Keys.checksums in Keys.update := Vector("sha1"),
-        Keys.checksums in Keys.updateClassifiers := Vector("sha1"),
+        Keys.update / Keys.checksums := Vector("sha1"),
+        Keys.updateClassifiers / Keys.checksums := Vector("sha1"),
         BloopKeys.bloopTargetDir := bloopTargetDir.value,
         BloopKeys.bloopConfigDir := Def.settingDyn {
           val ref = Keys.thisProjectRef.value
           val rootBuild = sbt.BuildRef(Keys.loadedBuild.value.root)
           Def.setting {
             (BloopKeys.bloopConfigDir in Global).?.value.getOrElse {
-              if (BloopKeys.bloopAggregateSourceDependencies.in(Global).value) {
-                (Keys.baseDirectory in rootBuild).value / ".bloop"
+              if ((Global / BloopKeys.bloopAggregateSourceDependencies).value) {
+                (rootBuild / Keys.baseDirectory).value / ".bloop"
               } else {
                 // We do this so that it works nicely with source dependencies.
-                (Keys.baseDirectory in ref in ThisBuild).value / ".bloop"
+                (ref / Keys.baseDirectory).value / ".bloop"
               }
             }
           }
@@ -337,8 +337,9 @@ object BloopDefaults {
     val bloopConfigDir = BloopKeys.bloopConfigDir.value
     Defaults.makeCrossTarget(
       bloopConfigDir / project.id,
+      Keys.scalaVersion.value,
       Keys.scalaBinaryVersion.value,
-      (Keys.sbtBinaryVersion in Keys.pluginCrossBuild).value,
+      (Keys.pluginCrossBuild / Keys.sbtBinaryVersion).value,
       Keys.sbtPlugin.value,
       Keys.crossPaths.value
     )
@@ -440,7 +441,7 @@ object BloopDefaults {
       val thisProjectRef = Keys.thisProjectRef.value
       val eligibleConfigs = activeProjectConfigs.filter { c =>
         val configKey = ConfigKey.configurationToKey(c)
-        val eligibleKey = BloopKeys.bloopGenerate in (thisProjectRef, configKey)
+        val eligibleKey = thisProjectRef / configKey / BloopKeys.bloopGenerate
         eligibleKey.get(data) match {
           case Some(t) =>
             // Sbt seems to return tasks for the extended configurations (looks like a big bug)
@@ -508,7 +509,7 @@ object BloopDefaults {
   private def getConfigurations(
       p: sbt.ResolvedReference,
       data: Settings[Scope]
-  ): Seq[Configuration] = Keys.ivyConfigurations.in(p).get(data).getOrElse(Nil)
+  ): Seq[Configuration] = (p / Keys.ivyConfigurations).get(data).getOrElse(Nil)
 
   private val defaultSbtConfigurationMappings: Map[String, Option[Configuration]] = {
     List(
@@ -723,9 +724,8 @@ object BloopDefaults {
   ): Def.Initialize[Task[Config.Platform]] = Def.taskDyn {
     val project = Keys.thisProject.value
     val (javaHome, javaOptions) = javaConfiguration.value
-    val mainClass = BloopKeys.bloopMainClass.in(Keys.run).value
+    val mainClass = (Keys.run / BloopKeys.bloopMainClass).value
     val rootBaseDirectory = new File(Keys.loadedBuild.value.root)
-    val forkScopedTask = if (configuration == Test) Keys.test else Keys.run
 
     val libraryDeps = Keys.libraryDependencies.value
     val externalClasspath: Seq[Path] =
@@ -784,7 +784,11 @@ object BloopDefaults {
       }
     } else {
       Def.task {
-        val isForkedExecution = (Keys.fork in configuration in forkScopedTask).value
+        val isForkedExecution = if (configuration == Test || configuration == IntegrationTest) {
+          (Test / Keys.test / Keys.fork).value
+        } else {
+          (Compile / Keys.run / Keys.fork).value
+        }
         val workingDir = if (isForkedExecution) Keys.baseDirectory.value else rootBaseDirectory
         val extraJavaOptions = List(s"-Duser.dir=${workingDir.getAbsolutePath}")
         lazy val runtimeClasspath =  BloopKeys.bloopProductDirectories.value.head.toPath() +:
@@ -886,10 +890,10 @@ object BloopDefaults {
     else if (generated.isDefined && generated.get.fromSbtUniverseId == currentSbtUniverse) {
       Def.task {
         // Force source generators on this task manually
-        Keys.managedSources.value
+        val _ = Keys.managedSources.value
 
         // Force classpath to force side-effects downstream to fully simulate `bloopGenerate`
-        val _ = emulateDependencyClasspath.value
+        val _classpath = emulateDependencyClasspath.value
         Value(generated.map(_.outPath.toFile))
       }
     } else
@@ -897,7 +901,7 @@ object BloopDefaults {
         Def
           .task {
             val baseDirectory = Keys.baseDirectory.value.toPath.toAbsolutePath
-            val buildBaseDirectory = Keys.baseDirectory.in(ThisBuild).value.getAbsoluteFile
+            val buildBaseDirectory = (ThisBuild / Keys.baseDirectory).value.getAbsoluteFile
             val rootBaseDirectory = new File(Keys.loadedBuild.value.root)
 
             val bloopConfigDir = BloopKeys.bloopConfigDir.value
@@ -957,7 +961,7 @@ object BloopDefaults {
             val scalaVersion = Keys.scalaVersion.value
             val scalaOrg = Keys.ivyScala.value.map(_.scalaOrganization).getOrElse("org.scala-lang")
             val allScalaJars =
-              Keys.scalaInstance.in(Keys.compile).value.allJars.map(_.toPath.toAbsolutePath).toList
+              (Keys.compile / Keys.scalaInstance).value.allJars.map(_.toPath.toAbsolutePath).toList
 
             val classesDir = BloopKeys.bloopProductDirectories.value.head.toPath()
             val classpath = emulateDependencyClasspath.value.map(_.toPath.toAbsolutePath).toList
@@ -1008,21 +1012,18 @@ object BloopDefaults {
                 opt
               }
             }
-            val javacOptions = Keys.javacOptions.in(Keys.compile).in(configuration).value.toList
+            val javacOptions = (configuration / Keys.compile / Keys.javacOptions).value.toList
             val scalacOptions = {
 
               // Drop pipelining options which need to be handled separately in Bloop
-              val (filteredOptions, _) = Keys.scalacOptions
-                .in(Keys.compile)
-                .in(configuration)
-                .value
-                .toList
-                .foldLeft((List.empty[String], /*drop next*/ false)) {
-                  case ((acc, dropNext), opt) if dropNext => (acc, false)
-                  case ((acc, dropNext), opt) if opt == "-Ypickle-write" => (acc, true)
-                  case ((acc, dropNext), opt) if opt.startsWith("-Ypickle") => (acc, false)
-                  case ((acc, _), opt) => (acc :+ opt, false)
-                }
+              val (filteredOptions, _) =
+                (configuration / Keys.compile / Keys.scalacOptions).value.toList
+                  .foldLeft((List.empty[String], /*drop next*/ false)) {
+                    case ((acc, dropNext), opt) if dropNext => (acc, false)
+                    case ((acc, dropNext), opt) if opt == "-Ypickle-write" => (acc, true)
+                    case ((acc, dropNext), opt) if opt.startsWith("-Ypickle") => (acc, false)
+                    case ((acc, _), opt) => (acc :+ opt, false)
+                  }
 
               val options = filteredOptions
                 .map(makePluginPathAbsolute)
@@ -1062,7 +1063,7 @@ object BloopDefaults {
             val bridge = Keys.scalaCompilerBridgeBinaryJar.value.map(file => List(file.toPath()))
 
             // Force source generators on this task manually
-            Keys.managedSources.value
+            val _ = Keys.managedSources.value
 
           // format: OFF
           val config = {
@@ -1083,7 +1084,7 @@ object BloopDefaults {
             writeConfigAtomically(config, outFile.toPath)
 
             // Only shorten path for configuration files written to the the root build
-            val allInRoot = BloopKeys.bloopAggregateSourceDependencies.in(Global).value
+            val allInRoot = (Global / BloopKeys.bloopAggregateSourceDependencies).value
             val userFriendlyConfigPath = {
               if (allInRoot || buildBaseDirectory == rootBaseDirectory)
                 outFile.relativeTo(rootBaseDirectory).getOrElse(outFile)
@@ -1228,11 +1229,11 @@ object BloopDefaults {
           val bloopProductDirs = (new java.util.LinkedHashSet[Task[Seq[File]]]).asScala
           for ((dep, c) <- visited) {
             if ((dep != currentProject) || (conf.name != c && self.name != c)) {
-              val classpathKey = productDirectoriesUndeprecatedKey in (dep, sbt.ConfigKey(c))
+              val classpathKey = dep / sbt.ConfigKey(c) / productDirectoriesUndeprecatedKey
               if (classpathKey.get(data).isEmpty) ()
               else {
                 productDirs += classpathKey.get(data).getOrElse(sbt.std.TaskExtra.constant(Nil))
-                val bloopKey = BloopKeys.bloopProductDirectories in (dep, sbt.ConfigKey(c))
+                val bloopKey = dep / sbt.ConfigKey(c) / BloopKeys.bloopProductDirectories
                 bloopProductDirs += bloopKey.get(data).getOrElse(sbt.std.TaskExtra.constant(Nil))
               }
             }
@@ -1296,7 +1297,7 @@ object BloopDefaults {
 
             val currentResources = generated.project.resources.toList.flatten
             val currentResourceDirs = currentResources.filter(Files.isDirectory(_))
-            val allResourceFiles = Keys.resources.in(configuration).value
+            val allResourceFiles = (configuration / Keys.resources).value
             val additionalResources =
               ConfigUtil.pathsOutsideRoots(currentResourceDirs, allResourceFiles.map(_.toPath))
 
@@ -1345,13 +1346,13 @@ object BloopDefaults {
         val bloopClassDir = BloopKeys.bloopClassDirectory.value
         val resourceDirs = Classpaths
           .concatSettings(
-            Keys.unmanagedResourceDirectories.in(configKey),
-            Keys.managedResourceDirectories.in(configKey)
+            configKey / Keys.unmanagedResourceDirectories,
+            configKey / Keys.managedResourceDirectories
           )
           .value
           .map(_.toPath)
 
-        val unmanagedResourceFiles = Keys.unmanagedResources.in(configKey).value
+        val unmanagedResourceFiles = (configKey / Keys.unmanagedResources).value
         val additionalResources =
           ConfigUtil.pathsOutsideRoots(resourceDirs, unmanagedResourceFiles.map(_.toPath))
         (resourceDirs ++ additionalResources).toList
@@ -1369,8 +1370,8 @@ object BloopDefaults {
     val configuration = Keys.configuration.value
     lazy val defaultJavaHome = new File(sys.props("java.home"))
     def scoped[T, K[T]](key: Scoped.ScopingSetting[K[T]]): K[T] =
-      if (configuration == Test) key.in(Test)
-      else key.in(Keys.run)
+      if (configuration == Test) Test / key
+      else Keys.run / key
 
     Def.task {
       val javaHome = scoped(Keys.javaHome).value.getOrElse(defaultJavaHome)

@@ -523,11 +523,11 @@ object Operations {
     scheduler.execute { () =>
       try {
         val retCode = body
-        p.tryComplete(Success(retCode))
+        p.tryComplete(Success(retCode)): Unit
       } catch {
         case t: Throwable =>
           logger.debug(s"Caught $t while trying to run code with timeout")
-          p.tryComplete(Failure(t))
+          p.tryComplete(Failure(t)): Unit
       }
     }
 
