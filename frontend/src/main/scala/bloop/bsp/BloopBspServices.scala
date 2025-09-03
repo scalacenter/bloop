@@ -86,6 +86,7 @@ import monix.reactive.subjects.BehaviorSubject
 import bloop.data.Platform.Js
 import bloop.data.Platform.Jvm
 import bloop.data.Platform.Native
+import scala.annotation.nowarn
 
 final class BloopBspServices(
     callSiteState: State,
@@ -125,6 +126,7 @@ final class BloopBspServices(
   private val taskIdCounter: AtomicInt = AtomicInt(0)
   private val baseBspLogger = BspServerLogger(callSiteState, client, taskIdCounter, false)
 
+  @nowarn("msg=deprecated")
   final val services: BloopRpcServices = BloopRpcServices
     .empty(baseBspLogger)
     .requestAsync(endpoints.Build.initialize)(p => schedule(initialize(p)))

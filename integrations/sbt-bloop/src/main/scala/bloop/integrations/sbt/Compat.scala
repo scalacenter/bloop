@@ -57,6 +57,7 @@ object Compat {
           case w: sbt.FlatMapped[t, k] => sbt.FlatMapped[t, k](w.in, w.f, w.alist)
           case sbt.Join(in, f) => sbt.Join(in, f)
           case sbt.Pure(f, inline) => sbt.Pure(f, inline)
+          case sbt.Selected(fab, fin) => sbt.Selected(fab, fin)
         }
       }
     )
