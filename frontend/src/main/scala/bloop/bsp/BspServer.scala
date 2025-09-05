@@ -91,7 +91,7 @@ object BspServer {
           .fromInputStream(in, bspLogger)
           .guaranteeCase(_ => monix.eval.Task(inputExit.success(())))
           .asyncBoundary(OverflowStrategy.Unbounded) // allows to catch input stream close earlier
-          .mapParallelOrdered(4) { bytes =>
+          .mapParallelUnordered(4) { bytes =>
             val msg = LowLevelMessage.toMsg(bytes)
             server
               .handleValidMessage(msg)

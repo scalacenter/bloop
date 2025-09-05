@@ -966,6 +966,72 @@ class BspCompileSpec(
     }
   }
 
+  test("workspace-buildTargets-should-not-block") {
+    TestUtil.withinWorkspace { workspace =>
+      val `A.scala` =
+        """/A.scala
+          |package macros
+          |
+          |import scala.reflect.macros.blackbox.Context
+          |import scala.language.experimental.macros
+          |
+          |object SleepMacro {
+          |  def sleep(): Unit = macro sleepImpl
+          |  def sleepImpl(c: Context)(): c.Expr[Unit] = {
+          |    import c.universe._
+          |    Thread.sleep(10000)
+          |    reify { () }
+          |  }
+          |}""".stripMargin
+
+      val `B.scala` =
+        """/B.scala
+          |package example
+          |object B { def foo(s: String): String = s.toString; macros.SleepMacro.sleep() }
+          """.stripMargin
+
+      val `A` = TestProject(workspace, "a", List(`A.scala`))
+
+      val `B` = TestProject(workspace, "b", List(`B.scala`), List(`A`))
+
+      val projects = List(`A`, `B`)
+
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+
+      loadBspState(workspace, projects, logger) { state =>
+        // First, get a baseline by calling buildTargets when no compilation is running
+        val initialTargets = state.workspaceTargets
+        assert(initialTargets.targets.size == 2)
+        val targets = initialTargets.targets.flatMap(_.displayName).toSet
+        assert(targets.contains("a") && targets.contains("b"))
+
+        // Start compilation in the background
+        val compilationHandle = state.compileHandle(`A`)
+
+        // Wait a bit to ensure compilation has started
+        Thread.sleep(100)
+
+        // Try to get build targets while compilation is running
+        val startTime = System.currentTimeMillis()
+        for (_ <- 1 to 10) {
+          state.workspaceTargets
+        }
+        val endTime = System.currentTimeMillis()
+        val elapsedMs = endTime - startTime
+
+        // The buildTargets call should return quickly (within 1 second)
+        // and should not wait for compilation to complete
+        if (elapsedMs >= 1000L) {
+          fail(s"buildTargets took ${elapsedMs}ms, expected < 1000ms")
+        }
+
+        // Wait for compilation to complete
+        val result = TestUtil.await(FiniteDuration(30, "s"))(Task.fromFuture(compilationHandle))
+        assert(result.status == ExitStatus.Ok)
+      }
+    }
+  }
+
   test("compile incrementally and clear old errors fixed in previous CLI compilations") {
     TestUtil.withinWorkspace { workspace =>
       object Sources {
