@@ -25,7 +25,6 @@ import sbt.internal.inc.AnalyzingCompiler
 import sbt.internal.inc.BloopComponentCompiler
 import sbt.internal.inc.BloopZincLibraryManagement
 import sbt.internal.inc.CompilerArguments
-import sbt.internal.inc.PlainVirtualFileConverter
 import sbt.internal.inc.ZincUtil
 import sbt.internal.inc.javac.DiagnosticsReporter
 import sbt.internal.inc.javac.JavaTools
@@ -41,6 +40,7 @@ import xsbti.compile.JavaCompiler
 import xsbti.compile.Output
 import xsbti.{Logger => XLogger}
 import xsbti.{Reporter => XReporter}
+import bloop.util.HashedSource
 
 object CompilerCache {
   final case class JavacKey(javacBin: Option[AbsolutePath], allowLocal: Boolean)
@@ -155,8 +155,6 @@ final class CompilerCache(
   final class BloopForkedJavaCompiler(javaHome: Option[File]) extends JavaCompiler {
     import xsbti.compile.IncToolOptions
 
-    private val converter = PlainVirtualFileConverter.converter
-
     def run(
         sources: Array[VirtualFile],
         options: Array[String],
@@ -217,7 +215,7 @@ final class CompilerCache(
               BloopForkedJavaUtils.launch(
                 javaHome,
                 "javac",
-                sources.map(converter.toPath(_)),
+                sources.map(HashedSource.converter.toPath(_)),
                 options ++ outputOption,
                 log,
                 reporter
@@ -241,7 +239,6 @@ final class CompilerCache(
     import java.io.File
     import xsbti.compile.IncToolOptions
     import xsbti.Reporter
-    private val converter = PlainVirtualFileConverter.converter
     override def run(
         sources: Array[VirtualFile],
         options: Array[String],
@@ -268,7 +265,7 @@ final class CompilerCache(
       var compileSuccess = false
       val zincFileManager = incToolOptions.classFileManager().get()
       val fileManager = new BloopInvalidatingFileManager(fileManager0, zincFileManager)
-      val sourceFiles: Array[File] = sources.map(converter.toPath(_).toFile())
+      val sourceFiles: Array[File] = sources.map(HashedSource.converter.toPath(_).toFile())
       val jfiles = fileManager0.getJavaFileObjectsFromFiles(sourceFiles.toList.asJava)
       try {
         // Create directories of java args that trigger error if they don't exist

@@ -8,6 +8,7 @@ import bloop.logging.ObservedLogger
 import bloop.reporter.ZincReporter
 import bloop.task.Task
 import bloop.tracing.BraveTracer
+import bloop.util.HashedSource
 
 import sbt.internal.inc.Analysis
 import sbt.internal.inc.CompileConfiguration
@@ -18,7 +19,6 @@ import sbt.internal.inc.JavaInterfaceUtil.EnrichOptional
 import sbt.internal.inc.JavaInterfaceUtil.EnrichSbtTuple
 import sbt.internal.inc.MiniSetupUtil
 import sbt.internal.inc.MixedAnalyzingCompiler
-import sbt.internal.inc.PlainVirtualFileConverter
 import sbt.internal.inc.bloop.internal.BloopHighLevelCompiler
 import sbt.internal.inc.bloop.internal.BloopIncremental
 import sbt.internal.inc.bloop.internal.BloopLookup
@@ -267,7 +267,7 @@ object BloopZincCompiler {
     val outputJar = JarUtils.createOutputJarContent(output)
     MixedAnalyzingCompiler.config(
       sources,
-      PlainVirtualFileConverter.converter,
+      HashedSource.converter,
       classpath,
       compileSetup,
       progress,

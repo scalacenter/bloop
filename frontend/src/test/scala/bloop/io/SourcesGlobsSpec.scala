@@ -10,8 +10,6 @@ import bloop.logging.RecordingLogger
 import bloop.util.TestProject
 import bloop.util.TestUtil
 
-import sbt.internal.inc.PlainVirtualFileConverter
-
 object SourcesGlobsSpec extends bloop.testing.BaseSuite {
 
   def checkGlobs(
@@ -59,7 +57,7 @@ object SourcesGlobsSpec extends bloop.testing.BaseSuite {
         val Right(result) = TestUtil.await(10, TimeUnit.SECONDS)(hashedSources)
         val obtainedFilenames = result
           .map { file =>
-            val path = AbsolutePath(PlainVirtualFileConverter.converter.toPath(file.source))
+            val path = AbsolutePath(file.path)
             path
               .toRelative(globDirectory)
               .toUri(isDirectory = false)

@@ -12,7 +12,6 @@ import java.nio.file.attribute.BasicFileAttributes
 import scala.collection.mutable
 import scala.concurrent.Promise
 
-import bloop.UniqueCompileInputs.HashedSource
 import bloop.data.Project
 import bloop.engine.SourceGenerator
 import bloop.task.Task
@@ -24,8 +23,8 @@ import monix.execution.atomic.AtomicBoolean
 import monix.reactive.Consumer
 import monix.reactive.MulticastStrategy
 import monix.reactive.Observable
-import sbt.internal.inc.PlainVirtualFileConverter
 import bloop.logging.Logger
+import bloop.util.HashedSource
 
 object SourceHasher {
   private final val sourceMatcher =
@@ -150,8 +149,9 @@ object SourceHasher {
         val hashSourcesInParallel = observable.mapParallelUnordered(parallelUnits) {
           (source: Path) =>
             monix.eval.Task.eval {
-              val hash = ByteHasher.hashFileContents(source.toFile)
-              HashedSource(PlainVirtualFileConverter.converter.toVirtualFile(source), hash)
+              val content = Files.readAllBytes(source)
+              val hash = ByteHasher.hashBytes(content)
+              HashedSource(content, hash, source)
             }
         }
 

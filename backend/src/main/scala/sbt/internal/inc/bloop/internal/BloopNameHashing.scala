@@ -4,8 +4,8 @@ import scala.collection.parallel.immutable.ParVector
 
 import bloop.task.Task
 
-import _root_.bloop.UniqueCompileInputs
 import _root_.bloop.tracing.BraveTracer
+import _root_.bloop.util.HashedSource
 import sbt.internal.inc._
 import sbt.util.Logger
 import xsbti.FileConverter
@@ -33,7 +33,6 @@ import xsbti.compile.Output
  */
 private final class BloopNameHashing(
     log: Logger,
-    uniqueInputs: UniqueCompileInputs,
     options: IncOptions,
     profiler: RunProfiler,
     tracer: BraveTracer
@@ -87,7 +86,7 @@ private final class BloopNameHashing(
           previous
         ).map {
           case f: VirtualFile => f
-          case ref: VirtualFileRef => PlainVirtualFileConverter.converter.toVirtualFile(ref)
+          case ref: VirtualFileRef => HashedSource.converter.toVirtualFile(ref)
         }
 
       recompileClasses(
@@ -168,21 +167,22 @@ private final class BloopNameHashing(
       val previous = previousAnalysis.stamps
       val previousRelations = previousAnalysis.relations
 
-      val hashesMap = uniqueInputs.sources.map(kv => kv.source -> kv.hash).toMap
       val sourceChanges = tracer.traceVerbose("source changes") { _ =>
         lookup.changedSources(previousAnalysis).getOrElse {
           val previousSources = previous.allSources.toSet
           new UnderlyingChanges[VirtualFileRef] {
             private val sourceRefs = sources.map(f => f: VirtualFileRef)
-            private val inBoth = previousSources & sourceRefs
-            val removed = previousSources -- inBoth
-            val added = sourceRefs -- inBoth
+            private val inBoth = sourceRefs.filter(previousSources)
+            val removed = previousSources.filterNot(inBoth)
+            val added = sourceRefs.filterNot(inBoth)
             val (changed, unmodified) = inBoth.partition { f =>
               // We compute hashes via xxHash in Bloop, so we adapt them to the zinc hex format
-              val newStamp = hashesMap
-                .get(f)
-                .map(bloopHash => BloopStamps.fromBloopHashToZincHash(bloopHash))
-                .getOrElse(BloopStamps.forHash(f))
+              val newStamp = f match {
+                case hashed: HashedSource => BloopStamps.fromBloopHashToZincHash(hashed.bloopHash)
+                case other =>
+                  log.debug(s"Expected file to be hashed previously: ${other}")
+                  BloopStamps.forHash(other)
+              }
               !equivS.equiv(previous.sources(f), newStamp)
             }
           }
@@ -206,7 +206,7 @@ private final class BloopNameHashing(
             previous,
             stamps,
             previousRelations,
-            PlainVirtualFileConverter.converter,
+            HashedSource.converter,
             log
           )
           previous.allLibraries.filter(detectChange).toSet
@@ -250,7 +250,7 @@ private final class BloopNameHashing(
         invalidatedSources,
         previous,
         classfileManager,
-        PlainVirtualFileConverter.converter
+        HashedSource.converter
       )
     debug("********* Pruned: \n" + pruned.relations + "\n*********")
     compileTask(currentInvalidatedSources, binaryChanges).map { fresh =>

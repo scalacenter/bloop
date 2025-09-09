@@ -7,11 +7,11 @@ import java.nio.file.Path
 import bloop.UniqueCompileInputs
 import bloop.task.Task
 import bloop.tracing.BraveTracer
+import bloop.util.HashedSource
 
 import sbt.internal.inc.Analysis
 import sbt.internal.inc.InvalidationProfiler
 import sbt.internal.inc.Lookup
-import sbt.internal.inc.PlainVirtualFileConverter
 import sbt.util.Logger
 import xsbti.AnalysisCallback
 import xsbti.VirtualFile
@@ -23,8 +23,6 @@ import xsbti.compile.analysis.Stamp
 object BloopIncremental {
   type CompileFunction =
     (Set[VirtualFile], DependencyChanges, AnalysisCallback, ClassFileManager) => Task[Unit]
-
-  private val converter = PlainVirtualFileConverter.converter
 
   def compile(
       sources: Iterable[VirtualFile],
@@ -48,7 +46,8 @@ object BloopIncremental {
       }
     }
 
-    val current = BloopStamps.initial(log)
+    val current = new CachedBloopStamps(BloopStamps.initial(log), uniqueInputs)
+
     val externalAPI = getExternalAPI(lookup)
     val previous = previous0 match { case a: Analysis => a }
     val previousRelations = previous.relations
@@ -60,12 +59,11 @@ object BloopIncremental {
         () => new ConcurrentAnalysisCallback(internalBinaryToSourceClassName, externalAPI, current, output, options, manager)
     }
     // We used to catch for `CompileCancelled`, but we prefer to propagate it so that Bloop catches it
-    compileIncremental(sources, uniqueInputs, lookup, previous, current, compile, builder, log, output, options, manager, tracer)
+    compileIncremental(sources, lookup, previous, current, compile, builder, log, output, options, manager, tracer)
   }
 
   def compileIncremental(
       sources: Iterable[VirtualFile],
-      uniqueInputs: UniqueCompileInputs,
       lookup: Lookup,
       previous: Analysis,
       current: ReadStamps,
@@ -80,14 +78,14 @@ object BloopIncremental {
       profiler: InvalidationProfiler = InvalidationProfiler.empty
   )(implicit equivS: Equiv[Stamp]): Task[(Boolean, Analysis)] = {
     val setOfSources = sources.toSet
-    val incremental = new BloopNameHashing(log, uniqueInputs, options, profiler.profileRun, tracer)
-    val initialChanges = incremental.detectInitialChanges(setOfSources, previous, current, lookup, converter, output)
+    val incremental = new BloopNameHashing(log, options, profiler.profileRun, tracer)
+    val initialChanges = incremental.detectInitialChanges(setOfSources, previous, current, lookup, HashedSource.converter, output)
     def isJrt(path: Path) = path.getFileSystem.provider().getScheme == "jrt"
     val binaryChanges = new DependencyChanges {
       val modifiedLibraries = initialChanges.libraryDeps.toArray
 
       val modifiedBinaries: Array[File] = modifiedLibraries
-        .map(converter.toPath(_))
+        .map(HashedSource.converter.toPath(_))
         .collect {
           // jrt path is neither a jar nor a normal file
           case path if !isJrt(path) =>

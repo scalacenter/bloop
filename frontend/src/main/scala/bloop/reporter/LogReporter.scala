@@ -9,6 +9,8 @@ import bloop.logging.Logger
 
 import xsbti.Severity
 import xsbti.VirtualFile
+import bloop.UniqueCompileInputs
+import bloop.util.HashedSource
 
 final class LogReporter(
     val project: Project,
@@ -65,7 +67,7 @@ final class LogReporter(
   ): Unit = {
     // TODO(jvican): Fix https://github.com/scalacenter/bloop/issues/386 here
     require(sources.size > 0) // This is an invariant enforced in the call-site
-    val plainFiles = sources.map(converter.toPath(_).toFile())
+    val plainFiles = sources.map(HashedSource.converter.toPath(_).toFile())
     compilingFiles ++ plainFiles
     logger.info(Reporter.compilationMsgFor(project.name, plainFiles))
   }

@@ -1316,4 +1316,111 @@ class BspCompileSpec(
       }
     }
 
+  test("add-method-during-compilation") {
+    TestUtil.withinWorkspace { workspace =>
+      // Macro project - must be compiled first
+      val macroProject = TestProject(
+        workspace,
+        "macros",
+        List(
+          """/main/scala/SleepMacro.scala
+            |package macros
+            |
+            |import scala.reflect.macros.blackbox.Context
+            |import scala.language.experimental.macros
+            |
+            |object SleepMacro {
+            |  def sleep(): Unit = macro sleepImpl
+            |  def sleepImpl(c: Context)(): c.Expr[Unit] = {
+            |    import c.universe._
+            |    // Sleep to create compilation window
+            |    Thread.sleep(3000)
+            |    reify { () }
+            |  }
+            |}
+          """.stripMargin
+        )
+      )
+      // Fast file that will be modified to break compilation if stale bytecode is used
+      val fastFile =
+        """/main/scala/a/FastCompilation.scala
+          |package a
+          |object FastCompilation {
+          |  def method1(): String = "initial version"
+          |}
+        """.stripMargin
+      // Slow file that uses the macro AND depends on the fast file
+      val slowFile =
+        """/main/scala/a/SlowCompilation.scala
+          |package a
+          |object SlowCompilation {
+          |  def slowMethod(): Unit = {
+          |    macros.SleepMacro.sleep()
+          |    val result = FastCompilation.method1()
+          |    println(s"Slow compilation complete: $result")
+          |  }
+          |}
+        """.stripMargin
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val testProject = TestProject(
+        workspace,
+        "a",
+        List(slowFile, fastFile),
+        List(macroProject),
+        scalaVersion = Some("2.13.16")
+      )
+      val projects = List(macroProject, testProject)
+      val configDir = TestProject.populateWorkspace(workspace, projects)
+      val bloopState = TestUtil.loadTestProject(configDir.underlying, logger)
+      val macroState1 = new TestState(bloopState)
+      // First compile the macro project
+      val macroCompiled = macroState1.compile(macroProject)
+      assert(macroCompiled.status == ExitStatus.Ok)
+      def runTest(sleepBeforeModifyFile: Long): Unit = {
+        writeFile(testProject.srcFor("main/scala/a/SlowCompilation.scala"), slowFile)
+        writeFile(testProject.srcFor("main/scala/a/FastCompilation.scala"), fastFile)
+        // Start compilation of main project asynchronously
+        val projectState1 = new TestState(TestUtil.loadTestProject(configDir.underlying, logger))
+        val compilationTask = Task {
+          projectState1.compile(testProject)
+        }.runAsync(bloop.engine.ExecutionContext.ioScheduler)
+        // Sleep just long enough for Zinc to read files into memory
+        // but modify during the macro sleep (3000ms) in hopes of hitting bug where Zinc re-reads the file,
+        // post-compile, as part of generating the analysis.
+        Thread.sleep(sleepBeforeModifyFile)
+        require(!compilationTask.isCompleted, "Slept too long! First compile already completed!")
+        val modifiedFastFile =
+          """/main/scala/a/FastCompilation.scala
+            |package a
+            |object FastCompilation {
+            |  def method1(): String = "1" // OLD METHOD
+            |  def method2(): String = "2" // NEW METHOD!
+            |}
+        """.stripMargin
+        // writeFile helper actually deletes and recreates
+        writeFile(testProject.srcFor("main/scala/a/FastCompilation.scala"), modifiedFastFile)
+        // Wait for first compilation to complete
+        scala.concurrent.Await.result(compilationTask, FiniteDuration(20, TimeUnit.SECONDS))
+        // Now modify downstream file and compile again. If there's a race, this compile might not recompile FastCompilation
+        // even though it's necessary, given that method2 was missed.
+        val modifiedSlowFile =
+          """/main/scala/a/SlowCompilation.scala
+            |package a
+            |object SlowCompilation {
+            |  def slowMethod(): Unit = {
+            |    macros.SleepMacro.sleep()
+            |    val result = FastCompilation.method2() // CHANGED USAGE!
+            |    println(s"Slow compilation complete: $result")
+            |  }
+            |}
+        """.stripMargin
+        writeFile(testProject.srcFor("main/scala/a/SlowCompilation.scala"), modifiedSlowFile)
+        val projectState2 = new TestState(TestUtil.loadTestProject(configDir.underlying, logger))
+        val secondResult = projectState2.compile(testProject)
+        assert(secondResult.status == ExitStatus.Ok)
+      }
+      runTest(2000)
+    }
+  }
+
 }

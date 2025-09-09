@@ -8,6 +8,7 @@ import bloop.io.AbsolutePath
 import bloop.logging.RecordingLogger
 import bloop.util.TestProject
 import bloop.util.TestUtil
+import bloop.util.HashedSource
 
 object SourceGeneratorSpec extends bloop.testing.BaseSuite {
 
@@ -282,8 +283,8 @@ object SourceGeneratorSpec extends bloop.testing.BaseSuite {
     state.getLastResultFor(project) match {
       case Success(inputs, _, _, _, _, _, _) =>
         inputs.sources.collectFirst {
-          case UniqueCompileInputs.HashedSource(source, hash) if source.name == name =>
-            hash
+          case hashed: HashedSource if hashed.name() == name =>
+            hashed.bloopHash
         }
       case _ =>
         None

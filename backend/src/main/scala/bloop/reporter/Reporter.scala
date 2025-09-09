@@ -12,7 +12,6 @@ import bloop.io.AbsolutePath
 import bloop.logging.Logger
 
 import monix.execution.atomic.AtomicInt
-import sbt.internal.inc.PlainVirtualFileConverter
 import sbt.util.InterfaceUtil
 import xsbti.Position
 import xsbti.Severity
@@ -38,7 +37,6 @@ abstract class Reporter(
     override val config: ReporterConfig,
     val _problems: Reporter.Buffer[ProblemPerPhase]
 ) extends ZincReporter {
-  protected val converter = PlainVirtualFileConverter.converter
   private case class PositionId(sourcePath: String, offset: Int)
   private val _severities = TrieMap.empty[PositionId, Severity]
   private val _messages = TrieMap.empty[PositionId, List[String]]

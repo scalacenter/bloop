@@ -23,7 +23,6 @@ import bloop.task.Task
 import bloop.tracing.BraveTracer
 
 import monix.reactive.Observable
-import sbt.internal.inc.PlainVirtualFileConverter
 
 sealed trait CompileBundle
 
@@ -196,7 +195,7 @@ object CompileBundle {
             ioScheduler,
             logger
           )
-          .map(res => res.map(_.sortBy(_.source.id())))
+          .map(res => res.map(_.sortBy(_.id())))
           .executeOn(ioScheduler)
       }
 
@@ -211,7 +210,7 @@ object CompileBundle {
             val javaSources = new ListBuffer[AbsolutePath]()
             val scalaSources = new ListBuffer[AbsolutePath]()
             sourceHashes.foreach { hashed =>
-              val source = AbsolutePath(PlainVirtualFileConverter.converter.toPath(hashed.source))
+              val source = AbsolutePath(hashed.path)
               val sourceName = source.underlying.getFileName().toString
               if (sourceName.endsWith(".scala")) {
                 scalaSources += source

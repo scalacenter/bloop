@@ -6,10 +6,11 @@ import java.{util => ju}
 
 import scala.collection.JavaConverters._
 
+import bloop.util.HashedSource
+
 import sbt.internal.inc.Analysis
 import sbt.internal.inc.Compilation
 import sbt.internal.inc.Incremental
-import sbt.internal.inc.PlainVirtualFileConverter
 import sbt.internal.inc.SourceInfos
 import sbt.internal.inc.UsedName
 import sbt.internal.inc.UsedNames
@@ -97,7 +98,7 @@ final class BloopAnalysisCallback(
   // source files containing a macro def.
   private[this] val macroClasses = mutable.HashSet[String]()
 
-  private[this] val converter = PlainVirtualFileConverter.converter
+  private[this] val converter = HashedSource.converter
 
   private def add[A, B](map: mutable.HashMap[A, mutable.HashSet[B]], a: A, b: B): Unit = {
     map.getOrElseUpdate(a, new mutable.HashSet[B]()).+=(b)
