@@ -108,7 +108,7 @@ object FinalCompileResult {
             case Compiler.Result.Empty => s"${projectName} (empty)"
             case Compiler.Result.Cancelled(problems, ms, _) =>
               s"${projectName} (cancelled, failed with ${Problem.count(problems)}, ${ms}ms)"
-            case Compiler.Result.Success(_, _, _, ms, _, isNoOp, reportedFatalWarnings) =>
+            case Compiler.Result.Success(_, _, ms, _, isNoOp, reportedFatalWarnings) =>
               val mode = {
                 if (isNoOp) " no-op"
                 else if (reportedFatalWarnings) " with fatal warnings"

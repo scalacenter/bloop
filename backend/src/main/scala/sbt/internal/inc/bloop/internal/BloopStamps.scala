@@ -37,7 +37,8 @@ class CachedBloopStamps(initial: ReadStamps, uniqueInputs: UniqueCompileInputs) 
     }
     .map {
       // java map is invariant, which seems to cause a type error if we don't cast to VirtualFileRef and Stamp
-      case (vf: VirtualFileRef, hash: Stamp) => vf.asInstanceOf[VirtualFileRef]  -> hash.asInstanceOf[Stamp]
+      case (vf: VirtualFileRef, hash: Stamp) =>
+        vf.asInstanceOf[VirtualFileRef] -> hash.asInstanceOf[Stamp]
     }
     .toMap
 

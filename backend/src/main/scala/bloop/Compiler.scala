@@ -208,7 +208,6 @@ object Compiler {
         with CacheHashCode
 
     final case class Success(
-        inputs: UniqueCompileInputs,
         reporter: ZincReporter,
         products: CompileProducts,
         elapsed: Long,
@@ -236,7 +235,7 @@ object Compiler {
 
     object Ok {
       def unapply(result: Result): Option[Result] = result match {
-        case s @ (Success(_, _, _, _, _, _, _) | Empty) => Some(s)
+        case s @ (Success(_, _, _, _, _, _) | Empty) => Some(s)
         case _ => None
       }
     }
@@ -633,7 +632,6 @@ object Compiler {
               }
             }
             Result.Success(
-              compileInputs.uniqueInputs,
               compileInputs.reporter,
               products,
               elapsed,
@@ -740,7 +738,6 @@ object Compiler {
             )
 
             Result.Success(
-              compileInputs.uniqueInputs,
               compileInputs.reporter,
               products,
               elapsed,
