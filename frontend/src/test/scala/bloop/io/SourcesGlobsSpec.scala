@@ -57,7 +57,7 @@ object SourcesGlobsSpec extends bloop.testing.BaseSuite {
         val Right(result) = TestUtil.await(10, TimeUnit.SECONDS)(hashedSources)
         val obtainedFilenames = result
           .map { file =>
-            val path = AbsolutePath(file.path)
+            val path = AbsolutePath(file.toPath())
             path
               .toRelative(globDirectory)
               .toUri(isDirectory = false)

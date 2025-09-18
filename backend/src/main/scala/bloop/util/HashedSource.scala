@@ -12,6 +12,7 @@ import xsbti.BasicVirtualFileRef
 import xsbti.FileConverter
 import xsbti.PathBasedFile
 import xsbti.VirtualFile
+import xsbti.VirtualFileRef
 
 /**
  * In memory VirtualFile that has a hash corresponding to the actual file
@@ -21,7 +22,7 @@ import xsbti.VirtualFile
  * @param bloopHash the hash of the file based on the input
  * @param path path to the file
  */
-case class HashedSource(content: Array[Byte], bloopHash: Int, path: Path)
+class HashedSource(content: Array[Byte], val bloopHash: Int, path: Path)
     extends BasicVirtualFileRef(path.toString)
     with VirtualFile
     with PathBasedFile {
@@ -39,5 +40,16 @@ case class HashedSource(content: Array[Byte], bloopHash: Int, path: Path)
 }
 
 object HashedSource {
-  val converter: FileConverter = PlainVirtualFileConverter.converter
+  private val baseConverter = PlainVirtualFileConverter.converter
+  class HashedSourceConverter extends FileConverter {
+    override def toPath(file: VirtualFileRef): Path = baseConverter.toPath(file)
+    override def toVirtualFile(path: Path): VirtualFile = baseConverter.toVirtualFile(path)
+    override def toVirtualFile(ref: VirtualFileRef): VirtualFile = {
+      ref match {
+        case virtualFile: VirtualFile => virtualFile
+        case other => baseConverter.toVirtualFile(other)
+      }
+    }
+  }
+  val converter: FileConverter = new HashedSourceConverter()
 }

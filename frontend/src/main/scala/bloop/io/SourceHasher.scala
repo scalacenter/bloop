@@ -149,9 +149,8 @@ object SourceHasher {
         val hashSourcesInParallel = observable.mapParallelUnordered(parallelUnits) {
           (source: Path) =>
             monix.eval.Task.eval {
-              val content = Files.readAllBytes(source)
-              val hash = ByteHasher.hashBytes(content)
-              HashedSource(content, hash, source)
+              val (hash, content) = ByteHasher.hashFileContents(source.toFile)
+              new HashedSource(content, hash, source)
             }
         }
 

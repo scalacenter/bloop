@@ -5,6 +5,7 @@ import java.io.RandomAccessFile
 import java.nio.ByteBuffer
 
 import net.jpountz.xxhash.XXHashFactory
+import scala.collection.mutable.ArrayBuilder
 
 object ByteHasher {
   private final val seed = 0x9747b28c
@@ -13,15 +14,19 @@ object ByteHasher {
     val hashFunction = hashFactory.hash32()
     hashFunction.hash(ByteBuffer.wrap(bytes), seed)
   }
+  def hashFileContents(file: File): (Int, Array[Byte]) = {
 
-  def hashFileContents(file: File, userBytesArray: Option[Array[Byte]] = None): Int = {
+    val arrayBuilder = new ArrayBuilder.ofByte()
+    val hash32 = hashFile(file, { bytes => arrayBuilder ++= bytes })
+    (hash32, arrayBuilder.result())
+  }
+  def hashFile(file: File, onBytes: Array[Byte] => Unit = _ => ()): Int = {
     val hash32 = hashFactory.newStreamingHash32(seed)
     val channel = new RandomAccessFile(file, "r").getChannel()
-
     try {
-      val length = userBytesArray.map(_.length).getOrElse(8092)
+      val length = 8092
       val buffer = ByteBuffer.allocate(length)
-      val bytes = userBytesArray.getOrElse(new Array[Byte](length))
+      val bytes = new Array[Byte](length)
       var read: Int = 0
 
       while ({
@@ -31,6 +36,7 @@ object ByteHasher {
         buffer.flip()
         buffer.get(bytes, 0, read)
         hash32.update(bytes, 0, read)
+        onBytes(bytes)
         buffer.clear()
       }
 

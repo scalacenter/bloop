@@ -210,7 +210,7 @@ object CompileBundle {
             val javaSources = new ListBuffer[AbsolutePath]()
             val scalaSources = new ListBuffer[AbsolutePath]()
             sourceHashes.foreach { hashed =>
-              val source = AbsolutePath(hashed.path)
+              val source = AbsolutePath(hashed.toPath())
               val sourceName = source.underlying.getFileName().toString
               if (sourceName.endsWith(".scala")) {
                 scalaSources += source

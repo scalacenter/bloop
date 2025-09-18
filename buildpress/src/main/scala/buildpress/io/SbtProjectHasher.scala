@@ -138,7 +138,7 @@ object SbtProjectHasher {
 
     // TODO(tkroman): hash structure, not plain files
     collected
-      .mapResult(ps => ps.map(p => AbsolutePath(p) -> ByteHasher.hashFileContents(p.toFile)))
+      .mapResult(ps => ps.map(p => AbsolutePath(p) -> ByteHasher.hashFile(p.toFile)))
       .result()
   }
 }

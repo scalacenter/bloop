@@ -95,7 +95,7 @@ object BloopStamps {
   def forHash(fileRef: VirtualFileRef): Hash = {
     val file = converter.toPath(fileRef).toFile()
     if (file.exists())
-      fromBloopHashToZincHash(ByteHasher.hashFileContents(file))
+      fromBloopHashToZincHash(ByteHasher.hashFile(file))
     else fromBloopHashToZincHash(0)
   }
 

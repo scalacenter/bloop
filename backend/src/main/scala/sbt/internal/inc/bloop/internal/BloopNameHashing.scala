@@ -180,7 +180,7 @@ private final class BloopNameHashing(
               val newStamp = f match {
                 case hashed: HashedSource => BloopStamps.fromBloopHashToZincHash(hashed.bloopHash)
                 case other =>
-                  log.debug(s"Expected file to be hashed previously: ${other}")
+                  log.error(s"Expected file to be hashed previously: ${other}")
                   BloopStamps.forHash(other)
               }
               !equivS.equiv(previous.sources(f), newStamp)
