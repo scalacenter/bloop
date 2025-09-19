@@ -14,6 +14,8 @@ import bloop.logging.CompilationEvent
 
 import monix.execution.atomic.AtomicInt
 import xsbti.VirtualFile
+import bloop.UniqueCompileInputs
+import bloop.util.HashedSource
 
 final class BspProjectReporter(
     val project: Project,
@@ -166,7 +168,7 @@ final class BspProjectReporter(
       sources: Seq[VirtualFile],
       outputDirs: Seq[File]
   ): Unit = {
-    val plainFiles = sources.map(converter.toPath(_).toFile())
+    val plainFiles = sources.map(HashedSource.converter.toPath(_).toFile())
     cycleCount.incrementAndGet()
 
     statusForNextEndCycle match {

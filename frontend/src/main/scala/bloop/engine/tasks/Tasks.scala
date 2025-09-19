@@ -18,11 +18,11 @@ import bloop.logging.DebugFilter
 import bloop.task.Task
 import bloop.testing.BloopTestSuiteEventHandler
 import bloop.testing.LoggingEventHandler
+import bloop.util.HashedSource
 import bloop.util.JavaCompat.EnrichOptional
 
 import sbt.internal.inc.Analysis
 import sbt.internal.inc.AnalyzingCompiler
-import sbt.internal.inc.PlainVirtualFileConverter
 import sbt.internal.inc.classpath.ClasspathUtil
 import sbt.testing._
 
@@ -77,7 +77,7 @@ object Tasks {
             .scalac
             .asInstanceOf[AnalyzingCompiler]
         val options = project.scalacOptions :+ "-Xnojline"
-        val converter = PlainVirtualFileConverter.converter
+        val converter = HashedSource.converter
         // We should by all means add better error handling here!
         compiler.console(
           pathEntries.map(e => converter.toVirtualFile(e)),

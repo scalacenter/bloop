@@ -1,10 +1,12 @@
 package bloop
 
-import bloop.Compiler.Result.Success
+import java.nio.file.Files
+
 import bloop.cli.ExitStatus
 import bloop.config.Config
 import bloop.internal.build.BuildTestInfo
 import bloop.io.AbsolutePath
+import bloop.io.ByteHasher
 import bloop.logging.RecordingLogger
 import bloop.util.TestProject
 import bloop.util.TestUtil
@@ -20,8 +22,14 @@ object SourceGeneratorSpec extends bloop.testing.BaseSuite {
     else ignore(name, label = s"IGNORED: no python found on path")(fun)
   }
 
+  def getHashedSource(workspace: AbsolutePath, name: String): Int = {
+    val source = workspace.resolve(name)
+    val content = Files.readAllBytes(source.underlying)
+    ByteHasher.hashBytes(content)
+  }
+
   testOnlyWithPython("compile a project having a source generator") {
-    singleProjectWithSourceGenerator("glob:*.in" :: Nil) { (workspace, project, state) =>
+    singleProjectWithSourceGenerator("glob:*.in" :: Nil) { (workspace, _, project, state) =>
       writeFile(project.srcFor("Foo.scala", exists = false), assertNInputs(n = 3))
       writeFile(workspace.resolve("file_one.in"), "file one")
       writeFile(workspace.resolve("file_two.in"), "file two")
@@ -112,7 +120,7 @@ object SourceGeneratorSpec extends bloop.testing.BaseSuite {
   }
 
   testOnlyWithPython("source generator is run when there are no matching input files") {
-    singleProjectWithSourceGenerator("glob:*.in" :: Nil) { (_, project, state) =>
+    singleProjectWithSourceGenerator("glob:*.in" :: Nil) { (_, _, project, state) =>
       writeFile(project.srcFor("test.scala", exists = false), assertNInputs(n = 0))
       val compiledState = state.compile(project)
       assertExitStatus(compiledState, ExitStatus.Ok)
@@ -120,7 +128,7 @@ object SourceGeneratorSpec extends bloop.testing.BaseSuite {
   }
 
   testOnlyWithPython("source generator is re-run when an input file is removed") {
-    singleProjectWithSourceGenerator("glob:*.in" :: Nil) { (workspace, project, state) =>
+    singleProjectWithSourceGenerator("glob:*.in" :: Nil) { (workspace, _, project, state) =>
       writeFile(workspace.resolve("hello.in"), "hello")
       writeFile(project.srcFor("test.scala", exists = false), assertNInputs(n = 1))
       val compiledState1 = state.compile(project)
@@ -135,7 +143,7 @@ object SourceGeneratorSpec extends bloop.testing.BaseSuite {
   }
 
   testOnlyWithPython("source generator is re-run when an input file is added") {
-    singleProjectWithSourceGenerator("glob:*.in" :: Nil) { (workspace, project, state) =>
+    singleProjectWithSourceGenerator("glob:*.in" :: Nil) { (workspace, _, project, state) =>
       writeFile(workspace.resolve("hello.in"), "hello")
       writeFile(project.srcFor("test.scala", exists = false), assertNInputs(n = 1))
       val compiledState1 = state.compile(project)
@@ -150,11 +158,12 @@ object SourceGeneratorSpec extends bloop.testing.BaseSuite {
   }
 
   testOnlyWithPython("source generator is re-run when an input file is modified") {
-    singleProjectWithSourceGenerator("glob:*.in" :: Nil) { (workspace, project, state) =>
+    singleProjectWithSourceGenerator("glob:*.in" :: Nil) { (workspace, output, project, state) =>
       writeFile(workspace.resolve("hello.in"), "hello")
       writeFile(project.srcFor("test.scala", exists = false), assertNInputs(n = 1))
       val compiledState1 = state.compile(project)
-      val origHash = sourceHashFor("NameLengths_1.scala", project, compiledState1)
+      val origHash = getHashedSource(output, "NameLengths_1.scala")
+
       assertExitStatus(compiledState1, ExitStatus.Ok)
 
       writeFile(workspace.resolve("hello.in"), "goodbye")
@@ -162,20 +171,20 @@ object SourceGeneratorSpec extends bloop.testing.BaseSuite {
       val compiledState2 = compiledState1.compile(project)
       assertExitStatus(compiledState2, ExitStatus.Ok)
 
-      val newHash = sourceHashFor("NameLengths_1.scala", project, compiledState2)
+      val newHash = getHashedSource(output, "NameLengths_1.scala")
       assertNotEquals(origHash, newHash)
     }
   }
 
   testOnlyWithPython("source generator is re-run when an output file is modified") {
-    singleProjectWithSourceGenerator("glob:*.in" :: Nil) { (workspace, project, state) =>
+    singleProjectWithSourceGenerator("glob:*.in" :: Nil) { (workspace, output, project, state) =>
       val generatorOutput = project.config.sourceGenerators
         .flatMap(_.headOption)
         .map(p => AbsolutePath(p.outputDirectory))
       writeFile(workspace.resolve("hello.in"), "hello")
       writeFile(project.srcFor("test.scala", exists = false), assertNInputs(n = 1))
       val compiledState1 = state.compile(project)
-      val origHash = sourceHashFor("NameLengths_1.scala", project, compiledState1)
+      val origHash = getHashedSource(output, "NameLengths_1.scala")
       assertExitStatus(compiledState1, ExitStatus.Ok)
 
       generatorOutput.foreach { out =>
@@ -185,17 +194,17 @@ object SourceGeneratorSpec extends bloop.testing.BaseSuite {
       val compiledState2 = compiledState1.compile(project)
       assertExitStatus(compiledState2, ExitStatus.Ok)
 
-      val newHash = sourceHashFor("NameLengths_1.scala", project, compiledState2)
+      val newHash = getHashedSource(output, "NameLengths_1.scala")
       assertNotEquals(origHash, newHash)
     }
   }
 
   testOnlyWithPython("source generator is re-run when generator file is modified") {
-    singleProjectWithSourceGenerator("glob:*.in" :: Nil) { (workspace, project, state) =>
+    singleProjectWithSourceGenerator("glob:*.in" :: Nil) { (workspace, output, project, state) =>
       writeFile(workspace.resolve("hello.in"), "hello")
       writeFile(project.srcFor("test.scala", exists = false), assertNInputs(n = 1))
       val compiledState1 = state.compile(project)
-      val origHash = sourceHashFor("NameLengths_1.scala", project, compiledState1)
+      val origHash = getHashedSource(output, "NameLengths_1.scala")
       assertExitStatus(compiledState1, ExitStatus.Ok)
 
       val generatorFile = AbsolutePath(BuildTestInfo.sampleSourceGenerator.toPath())
@@ -211,20 +220,20 @@ object SourceGeneratorSpec extends bloop.testing.BaseSuite {
       val compiledState2 = compiledState1.compile(project)
       assertExitStatus(compiledState2, ExitStatus.Ok)
 
-      val newHash = sourceHashFor("NameLengths_1.scala", project, compiledState2)
+      val newHash = getHashedSource(output, "NameLengths_1.scala")
       assertNotEquals(origHash, newHash)
     }
   }
 
   testOnlyWithPython("source generator is re-run when an output file is deleted") {
-    singleProjectWithSourceGenerator("glob:*.in" :: Nil) { (workspace, project, state) =>
+    singleProjectWithSourceGenerator("glob:*.in" :: Nil) { (workspace, output, project, state) =>
       val generatorOutput = project.config.sourceGenerators
         .flatMap(_.headOption)
         .map(p => AbsolutePath(p.outputDirectory))
       writeFile(workspace.resolve("hello.in"), "hello")
       writeFile(project.srcFor("test.scala", exists = false), assertNInputs(n = 1))
       val compiledState1 = state.compile(project)
-      val origHash = sourceHashFor("NameLengths_1.scala", project, compiledState1)
+      val origHash = getHashedSource(output, "NameLengths_1.scala")
       assertExitStatus(compiledState1, ExitStatus.Ok)
 
       generatorOutput.foreach { out =>
@@ -234,23 +243,23 @@ object SourceGeneratorSpec extends bloop.testing.BaseSuite {
       val compiledState2 = compiledState1.compile(project)
       assertExitStatus(compiledState2, ExitStatus.Ok)
 
-      val newHash = sourceHashFor("NameLengths_1.scala", project, compiledState2)
+      val newHash = getHashedSource(output, "NameLengths_1.scala")
       assertNotEquals(origHash, newHash)
     }
   }
 
   testOnlyWithPython("source generator is not re-run when nothing has changed") {
-    singleProjectWithSourceGenerator("glob:*.in" :: Nil) { (workspace, project, state) =>
+    singleProjectWithSourceGenerator("glob:*.in" :: Nil) { (workspace, output, project, state) =>
       writeFile(workspace.resolve("hello.in"), "hello")
       writeFile(project.srcFor("test.scala", exists = false), assertNInputs(n = 1))
       val compiledState1 = state.compile(project)
-      val origHash = sourceHashFor("NameLengths_1.scala", project, compiledState1)
+      val origHash = getHashedSource(output, "NameLengths_1.scala")
       assertExitStatus(compiledState1, ExitStatus.Ok)
 
       val compiledState2 = compiledState1.compile(project)
       assertExitStatus(compiledState2, ExitStatus.Ok)
 
-      val newHash = sourceHashFor("NameLengths_1.scala", project, compiledState2)
+      val newHash = getHashedSource(output, "NameLengths_1.scala")
       assertEquals(origHash, newHash)
     }
   }
@@ -262,12 +271,13 @@ object SourceGeneratorSpec extends bloop.testing.BaseSuite {
        |}""".stripMargin
 
   private def singleProjectWithSourceGenerator(includeGlobs: List[String])(
-      op: (AbsolutePath, TestProject, TestState) => Unit
+      op: (AbsolutePath, AbsolutePath, TestProject, TestState) => Unit
   ): Unit = TestUtil.withinWorkspace { workspace =>
     val logger = new RecordingLogger(ansiCodesSupported = false)
+    val output = workspace.resolve("source-generator-output")
     val sourceGenerator = Config.SourceGenerator(
       sourcesGlobs = List(Config.SourcesGlobs(workspace.underlying, None, includeGlobs, Nil)),
-      outputDirectory = workspace.underlying.resolve("source-generator-output"),
+      outputDirectory = output.underlying,
       command = generator,
       unmanagedInputs = List(BuildTestInfo.sampleSourceGenerator.toPath())
     )
@@ -275,18 +285,7 @@ object SourceGeneratorSpec extends bloop.testing.BaseSuite {
     val projects = List(`A`)
     val state = loadState(workspace, projects, logger)
 
-    op(workspace, `A`, state)
+    op(workspace, output, `A`, state)
   }
 
-  private def sourceHashFor(name: String, project: TestProject, state: TestState): Option[Int] = {
-    state.getLastResultFor(project) match {
-      case Success(inputs, _, _, _, _, _, _) =>
-        inputs.sources.collectFirst {
-          case UniqueCompileInputs.HashedSource(source, hash) if source.name == name =>
-            hash
-        }
-      case _ =>
-        None
-    }
-  }
 }

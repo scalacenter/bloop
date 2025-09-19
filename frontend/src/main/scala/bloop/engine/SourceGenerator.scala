@@ -117,7 +117,7 @@ final case class SourceGenerator(
   }
 
   private def hashFiles(files: List[AbsolutePath]): Map[AbsolutePath, Int] =
-    files.map(f => f -> ByteHasher.hashFileContents(f.toFile)).toMap
+    files.map(f => f -> ByteHasher.hashFile(f.toFile)).toMap
 }
 
 object SourceGenerator {

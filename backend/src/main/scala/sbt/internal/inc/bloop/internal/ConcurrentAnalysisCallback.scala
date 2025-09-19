@@ -6,10 +6,11 @@ import java.{util => ju}
 
 import scala.collection.JavaConverters._
 
+import bloop.util.HashedSource
+
 import sbt.internal.inc.Analysis
 import sbt.internal.inc.Compilation
 import sbt.internal.inc.Incremental
-import sbt.internal.inc.PlainVirtualFileConverter
 import sbt.internal.inc.SourceInfos
 import sbt.internal.inc.UsedName
 import sbt.internal.inc.UsedNames
@@ -39,8 +40,8 @@ import xsbti.api.SafeLazyProxy
 import xsbti.compile.ClassFileManager
 import xsbti.compile.IncOptions
 import xsbti.compile.Output
-import xsbti.compile.analysis.ReadStamps
 import xsbti.compile.analysis.ReadSourceInfos
+import xsbti.compile.analysis.ReadStamps
 
 /**
  * This class provides a thread-safe implementation of `xsbti.AnalysisCallback` which is required to compile with the
@@ -106,7 +107,7 @@ final class ConcurrentAnalysisCallback(
   // source files containing a macro def.
   private[this] val macroClasses = ConcurrentHashMap.newKeySet[String]()
 
-  private[this] val converter = PlainVirtualFileConverter.converter
+  private[this] val converter = HashedSource.converter
 
   private def add[A, B](map: TrieMap[A, ConcurrentSet[B]], a: A, b: B): Unit = {
     map.getOrElseUpdate(a, ConcurrentHashMap.newKeySet[B]()).add(b)

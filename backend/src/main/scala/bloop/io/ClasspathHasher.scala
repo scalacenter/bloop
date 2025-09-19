@@ -101,7 +101,7 @@ object ClasspathHasher {
                         tracer.traceVerbose(s"computing hash ${path.toAbsolutePath.toString}") {
                           _ =>
                             val newHash =
-                              FileHash.of(path, ByteHasher.hashFileContents(path.toFile))
+                              FileHash.of(path, ByteHasher.hashFile(path.toFile))
                             cacheMetadataJar.put(path, (currentMetadata, newHash))
                             newHash
                         }

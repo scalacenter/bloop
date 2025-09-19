@@ -11,21 +11,18 @@ import bloop.task.Task
 
 import monix.execution.atomic.AtomicInt
 import xsbti.compile.CompileAnalysis
-import xsbti.compile.FileHash
 import xsbti.compile.MiniSetup
 import xsbti.compile.PreviousResult
 
 case class LastSuccessfulResult(
-    sources: Vector[UniqueCompileInputs.HashedSource],
-    classpath: Vector[FileHash],
+    noClassPathAndSources: Boolean,
     previous: PreviousResult,
     classesDir: AbsolutePath,
     counterForClassesDir: AtomicInt,
     populatingProducts: Task[Unit]
 ) {
   def isEmpty: Boolean = {
-    sources.isEmpty &&
-    classpath.isEmpty &&
+    noClassPathAndSources &&
     previous == LastSuccessfulResult.EmptyPreviousResult &&
     CompileOutPaths.hasEmptyClassesDir(classesDir)
   }
@@ -43,8 +40,7 @@ object LastSuccessfulResult {
     val emptyClassesDir =
       CompileOutPaths.deriveEmptyClassesDir(project.name, project.genericClassesDir)
     LastSuccessfulResult(
-      Vector.empty,
-      Vector.empty,
+      noClassPathAndSources = true,
       EmptyPreviousResult,
       emptyClassesDir,
       AtomicInt(0),
@@ -58,8 +54,7 @@ object LastSuccessfulResult {
       backgroundIO: Task[Unit]
   ): LastSuccessfulResult = {
     LastSuccessfulResult(
-      inputs.sources,
-      inputs.classpath,
+      noClassPathAndSources = inputs.sources.size == 0 && inputs.classpath.size == 0,
       products.resultForFutureCompilationRuns,
       AbsolutePath(products.newClassesDir),
       AtomicInt(0),

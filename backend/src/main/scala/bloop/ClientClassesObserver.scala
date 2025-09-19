@@ -10,10 +10,10 @@ import bloop.task.Task
 
 import monix.reactive.Observable
 import monix.reactive.subjects.PublishSubject
-import sbt.internal.inc.PlainVirtualFileConverter
 import xsbti.VirtualFileRef
 import xsbti.compile.CompileAnalysis
 import xsbti.compile.analysis.Stamp
+import bloop.util.HashedSource
 
 /**
  * Each time a new compile analysis is produced for a given client, it is given to
@@ -25,7 +25,6 @@ import xsbti.compile.analysis.Stamp
  * @param clientClassesDir the class directory for the client
  */
 private[bloop] class ClientClassesObserver(val classesDir: AbsolutePath) {
-  private val converter = PlainVirtualFileConverter.converter
   private val previousAnalysis: AtomicReference[CompileAnalysis] = new AtomicReference()
   private val classesSubject: PublishSubject[Seq[String]] = PublishSubject()
 
@@ -58,7 +57,7 @@ private[bloop] class ClientClassesObserver(val classesDir: AbsolutePath) {
     }
 
   private def getFullyQualifiedClassName(vf: VirtualFileRef): String = {
-    val path = converter.toPath(vf)
+    val path = HashedSource.converter.toPath(vf)
     val relativePath = classesDir.underlying.relativize(path)
     relativePath.toString.replace(File.separator, ".").stripSuffix(".class")
   }

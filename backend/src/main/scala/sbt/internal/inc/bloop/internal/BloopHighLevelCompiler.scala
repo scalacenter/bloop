@@ -13,12 +13,12 @@ import bloop.logging.TeeOutputStream
 import bloop.reporter.ZincReporter
 import bloop.task.Task
 import bloop.tracing.BraveTracer
+import bloop.util.HashedSource
 
 import sbt.internal.inc.AnalyzingCompiler
 import sbt.internal.inc.CompileConfiguration
 import sbt.internal.inc.JavaInterfaceUtil.EnrichOption
 import sbt.internal.inc.MixedAnalyzingCompiler
-import sbt.internal.inc.PlainVirtualFileConverter
 import sbt.internal.inc.javac.AnalyzingJavaCompiler
 import xsbt.InterfaceCompileCancelled
 import xsbti.AnalysisCallback
@@ -138,7 +138,7 @@ final class BloopHighLevelCompiler(
             scalac.compile(
               sources.toArray,
               classpath.toArray,
-              PlainVirtualFileConverter.converter,
+              HashedSource.converter,
               changes,
               scalacOptions,
               setup.output,
@@ -194,7 +194,7 @@ final class BloopHighLevelCompiler(
         )
         val javaOptions = setup.options.javacOptions.toArray[String]
         try {
-          javac.compile(javaSources, Nil, PlainVirtualFileConverter.converter, javaOptions, setup.output, None, callback, incToolOptions, config.reporter, logger, config.progress)
+          javac.compile(javaSources, Nil, HashedSource.converter, javaOptions, setup.output, None, callback, incToolOptions, config.reporter, logger, config.progress)
           JavaCompleted.trySuccess(())
           ()
         } catch {
