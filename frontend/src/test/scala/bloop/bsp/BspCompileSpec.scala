@@ -1422,5 +1422,70 @@ class BspCompileSpec(
       runTest(2000)
     }
   }
+  test("crash-compiler-diagnostics") {
+    TestUtil.withinWorkspace { workspace =>
+      // Macro project - must be compiled first
+      val macroProject = TestProject(
+        workspace,
+        "macros",
+        List(
+          """/main/scala/FooMacro.scala
+            |package macros
+            |
+            |import scala.language.experimental.macros
+            |import scala.reflect.macros.blackbox
+            |
+            |object FooMacro {
+            |  def crashNow: Int = macro crashNowImpl
+            |
+            |  def crashNowImpl(c: blackbox.Context): c.Expr[Int] = {
+            |    import c.universe._
+            |    val badSymbol = c.internal.newTermSymbol(NoSymbol, TermName("badSymbol"))
+            |    val badTree = Ident(badSymbol)
+            |    c.Expr[Int](badTree)
+            |  }
+            |}
+            |
+            |
+          """.stripMargin
+        )
+      )
+      // Fast file that will be modified to break compilation if stale bytecode is used
+      val downstreamFile =
+        """/main/scala/a/FastCompilation.scala
+          |package a
+          |import macros.FooMacro
+          |
+          |case class User(name: Int, age: Int)
+          |
+          |object Bar{
+          |  def baz2 = FooMacro.crashNow
+          |
+          |}
+          |
+        """.stripMargin
+
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val testProject = TestProject(
+        workspace,
+        "a",
+        List(downstreamFile),
+        List(macroProject),
+        scalaVersion = Some("2.13.16")
+      )
+      val projects = List(macroProject, testProject)
+      loadBspState(workspace, projects, logger) { state =>
+        val macroCompiled = state.compile(macroProject)
+        assert(macroCompiled.status == ExitStatus.Ok)
+        val downstreamCompiled = state.compile(testProject)
+        assert(downstreamCompiled.status == ExitStatus.CompilationError)
+        val lastDiagnostics = downstreamCompiled.lastDiagnostics(testProject)
+        assertContains(lastDiagnostics, "Range(Position(6,0),Position(6,0))")
+        assertContains(lastDiagnostics, "badSymbol")
+        assertContains(lastDiagnostics, "tree position: line 7 of ")
+        assertContains(lastDiagnostics, "a/src/main/scala/a/FastCompilation.scala")
+      }
+    }
+  }
 
 }
