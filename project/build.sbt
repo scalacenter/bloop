@@ -8,7 +8,7 @@ addSbtPlugin("com.eed3si9n" % "sbt-buildinfo" % "0.13.1")
 // needs to be updated in order for us to bump to 0.4.x.
 addSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.7")
 addSbtPlugin("com.github.sbt" % "sbt-git" % "2.1.0")
-addSbtPlugin("com.github.sbt" % "sbt-ci-release" % "1.11.1")
+addSbtPlugin("com.github.sbt" % "sbt-ci-release" % "1.11.2")
 addSbtPlugin("org.scalameta" % "sbt-mdoc" % "2.7.1")
 addSbtPlugin("org.scala-debugger" % "sbt-jdi-tools" % "1.1.1")
 addSbtPlugin("com.github.sbt" % "sbt-native-packager" % "1.11.1")
