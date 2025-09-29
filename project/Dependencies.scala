@@ -107,7 +107,7 @@ object Dependencies {
   val scalaJsEnvJsdomNode1 = "org.scala-js" %% "scalajs-env-jsdom-nodejs" % "1.1.0" % Provided
   val scalaJsSbtTestAdapter1 =
     "org.scala-js" %% "scalajs-sbt-test-adapter" % scalaJs1Version % Provided
-  val scalaJsLogging1 = "org.scala-js" %% "scalajs-logging" % "1.1.1" % Provided
+  val scalaJsLogging1 = "org.scala-js" %% "scalajs-logging" % "1.2.0" % Provided
   val semanticdb = "org.scalameta" % "semanticdb" % semanticdbVersion cross CrossVersion.full
 
   val xxHashLibrary = "net.jpountz.lz4" % "lz4" % xxHashVersion
