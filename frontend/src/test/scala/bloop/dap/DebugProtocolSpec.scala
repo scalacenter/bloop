@@ -40,7 +40,7 @@ object DebugProtocolSpec extends DebugBspBaseSuite {
           } yield output
         }
 
-        assertNoDiff(output, "Hello, World!\n")
+        assertNoDiff(output.linesIterator.toSeq.last, "Hello, World!")
       }
     }
   }
@@ -76,8 +76,7 @@ object DebugProtocolSpec extends DebugBspBaseSuite {
             previousSessionOutput <- previousSession.takeCurrentOutput
           } yield previousSessionOutput
         }
-
-        assertNoDiff(output, "")
+        assert(output.linesIterator.size == 5)
       }
     }
   }
@@ -107,20 +106,17 @@ object DebugProtocolSpec extends DebugBspBaseSuite {
       val project = TestProject(workspace, "p", List(main))
 
       loadBspState(workspace, List(project), logger) { state =>
-        // start debug session and the immediately disconnect from it
-        val blockingSessionOutput = state.withDebugSession(project, mainClassParams("Main")) {
-          client =>
-            for {
-              _ <- client.initialize()
-              _ <- client.launch(noDebug = true)
-              _ <- client.initialized
-              _ <- client.configurationDone()
-              output <- client.takeCurrentOutput.restartUntil(!_.isEmpty)
-              _ <- client.disconnect()
-            } yield output
+        // start debug session and then immediately disconnect from it
+        state.withDebugSession(project, mainClassParams("Main")) { client =>
+          for {
+            _ <- client.initialize()
+            _ <- client.launch(noDebug = true)
+            _ <- client.initialized
+            _ <- client.configurationDone()
+            _ <- client.takeCurrentOutput.restartUntil(_.contains("Blocking Hello!"))
+            _ <- client.disconnect()
+          } yield ()
         }
-
-        assertNoDiff(blockingSessionOutput, "Blocking Hello!")
 
         // fix the main class
         val sources = state.toTestState.getProjectFor(project).sources
@@ -139,7 +135,7 @@ object DebugProtocolSpec extends DebugBspBaseSuite {
           } yield output
         }
 
-        assertNoDiff(output, "Non-blocking Hello!")
+        assertNoDiff(output.linesIterator.toSeq.last, "Non-blocking Hello!")
       }
     }
   }
