@@ -137,6 +137,8 @@ object BloopDefaults {
   import Compat._
   import sbt.{Task, Defaults, State}
 
+  private final val StandardConfigClassName = "org.scalajs.linker.interface.StandardConfig"
+
   val productDirectoriesUndeprecatedKey: TaskKey[Seq[File]] =
     sbt.TaskKey[Seq[File]]("productDirectories", rank = KeyRanks.CTask)
 
@@ -317,14 +319,20 @@ object BloopDefaults {
 
   def findOutScalaJsModuleKind: Def.Initialize[Option[String]] = Def.settingDyn {
     try {
-      val stageClass = Class.forName("core.tools.linker.backend.ModuleKind")
-      val stageSetting = proxyForSetting("scalaJSModuleKind", stageClass)
+      val NoModuleClazz = Class.forName("org.scalajs.linker.interface.ModuleKind$NoModule$")
+      val CommonJSModuleClazz =
+        Class.forName("org.scalajs.linker.interface.ModuleKind$CommonJSModule$")
+      val ESModuleClazz = Class.forName("org.scalajs.linker.interface.ModuleKind$ESModule$")
+      val StandardConfigClazz = Class.forName(StandardConfigClassName)
+
       Def.setting {
-        stageSetting.value.toString match {
-          case "Some(NoModule)" => Some(NoJSModule)
-          case "Some(CommonJSModule)" => Some(CommonJSModule)
-          case "Some(ESModule)" => Some(ESModule)
-          case _ => None
+        proxyForSetting("scalaJSLinkerConfig", StandardConfigClazz).value.flatMap { config =>
+          val method = StandardConfigClazz.getDeclaredMethod("moduleKind")
+          val moduleKind = method.invoke(config)
+          if (NoModuleClazz.isInstance(moduleKind)) Some(NoJSModule)
+          else if (ESModuleClazz.isInstance(moduleKind)) Some(ESModule)
+          else if (CommonJSModuleClazz.isInstance(moduleKind)) Some(CommonJSModule)
+          else None
         }
       }
     } catch {
@@ -762,7 +770,7 @@ object BloopDefaults {
           .find(module => module.organization == "org.scala-js" && module.name.startsWith("scalajs-library_"))
           .map(_.revision)
           .getOrElse(BuildInfo.latestScalaJsVersion)
-          
+
         val scalaJsStage = BloopKeys.bloopScalaJSStage.value match {
           case Some(ScalaJsFastOpt) => Config.LinkerMode.Debug
           case Some(ScalaJsFullOpt) => Config.LinkerMode.Release
