@@ -81,6 +81,7 @@ object JsBridge {
         .withModuleKind(scalaJSModuleKind)
         .withSourceMap(config.emitSourceMaps)
         .withMinify(isFullLinkJS)
+        .withExperimentalUseWebAssembly(config.useWebAssembly)
 
       (config.kind, scalaJSModuleKindSplitStyle) match {
         case (ModuleKindJS.ESModule, Some(value)) =>
