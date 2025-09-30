@@ -96,6 +96,8 @@ object BloopKeys {
     settingKey[Option[String]]("Scala.js-independent definition of `scalaJSModuleKind`")
   val bloopScalaJSSourceMap: SettingKey[Option[Boolean]] =
     settingKey("Proxy for Scala.js definition of `scalajsLinkerConfig#sourceMap`")
+  val bloopScalaJSUseWebAssembly: SettingKey[Option[Boolean]] =
+    settingKey("Proxy for Scala.js definition of `scalajsLinkerConfig#experimentalUseWebAssembly`")
   val bloopMainClass: SettingKey[Option[String]] =
     settingKey[Option[String]]("The main class to run a bloop target")
   val bloopSupportedConfigurations: SettingKey[Seq[Configuration]] =
@@ -242,6 +244,7 @@ object BloopDefaults {
         BloopKeys.bloopScalaJSStage := findOutScalaJsStage.value,
         BloopKeys.bloopScalaJSModuleKind := findOutScalaJsModuleKind.value,
         BloopKeys.bloopScalaJSSourceMap := findOutScalaJsSourceMap.value,
+        BloopKeys.bloopScalaJSUseWebAssembly := findOutScalaJsUseWebAssembly.value,
         // Override checksums so that `updates` don't check md5 for all jars
         Keys.update / Keys.checksums := Vector("sha1"),
         Keys.updateClassifiers / Keys.checksums := Vector("sha1"),
@@ -317,6 +320,7 @@ object BloopDefaults {
       }
     } catch {
       case _: ClassNotFoundException => Def.setting(None)
+      case _: NoSuchMethodException => Def.setting(None)
     }
   }
 
@@ -340,6 +344,7 @@ object BloopDefaults {
       }
     } catch {
       case _: ClassNotFoundException => Def.setting(None)
+      case _: NoSuchMethodException => Def.setting(None)
     }
   }
 
@@ -355,6 +360,24 @@ object BloopDefaults {
       }
     } catch {
       case _: ClassNotFoundException => Def.setting(None)
+      case _: NoSuchMethodException => Def.setting(None)
+    }
+  }
+
+  def findOutScalaJsUseWebAssembly: Def.Initialize[Option[Boolean]] = Def.settingDyn {
+    try {
+      val StandardConfigClazz = Class.forName(StandardConfigClassName)
+      Def.setting {
+        proxyForSetting("scalaJSLinkerConfig", StandardConfigClazz).value.flatMap { config =>
+          // https://github.com/scala-js/scala-js/blob/6a145af4dc575340a40b80459d1bf15184c3a2da/linker-interface/shared/src/main/scala/org/scalajs/linker/interface/StandardConfig.scala#L88-L89
+          val method = StandardConfigClazz.getDeclaredMethod("experimentalUseWebAssembly")
+          val sourceMap = method.invoke(config)
+          Some(sourceMap.asInstanceOf[Boolean])
+        }
+      }
+    } catch {
+      case _: ClassNotFoundException => Def.setting(None)
+      case _: NoSuchMethodException => Def.setting(None)
     }
   }
 
@@ -803,8 +826,10 @@ object BloopDefaults {
         }
 
         val scalaJsEmitSourceMaps = BloopKeys.bloopScalaJSSourceMap.value.getOrElse(false)
+        val scalaJsUseWebAssembly = BloopKeys.bloopScalaJSUseWebAssembly.value.getOrElse(false)
         val jsdom = Some(false)
-        val jsConfig = Config.JsConfig(scalaJsVersion, scalaJsStage, scalaJsModule, scalaJsEmitSourceMaps, jsdom, None, None, Nil)
+        val jsConfig = Config.JsConfig(scalaJsVersion, scalaJsStage, scalaJsModule, scalaJsEmitSourceMaps, jsdom, None, None, Nil,
+            /* moduleSplitStyle*/ None, scalaJsUseWebAssembly)
         Config.Platform.Js(jsConfig, mainClass)
       }
     } else {
