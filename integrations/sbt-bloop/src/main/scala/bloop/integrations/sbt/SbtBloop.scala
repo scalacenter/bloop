@@ -94,6 +94,8 @@ object BloopKeys {
     settingKey[Option[String]]("Scala.js-independent definition of `scalaJSStage`")
   val bloopScalaJSModuleKind: SettingKey[Option[String]] =
     settingKey[Option[String]]("Scala.js-independent definition of `scalaJSModuleKind`")
+  val bloopScalaJSSourceMap: SettingKey[Option[Boolean]] =
+    settingKey("Proxy for Scala.js definition of `scalajsLinkerConfig#sourceMap`")
   val bloopMainClass: SettingKey[Option[String]] =
     settingKey[Option[String]]("The main class to run a bloop target")
   val bloopSupportedConfigurations: SettingKey[Seq[Configuration]] =
@@ -239,6 +241,7 @@ object BloopDefaults {
       List(
         BloopKeys.bloopScalaJSStage := findOutScalaJsStage.value,
         BloopKeys.bloopScalaJSModuleKind := findOutScalaJsModuleKind.value,
+        BloopKeys.bloopScalaJSSourceMap := findOutScalaJsSourceMap.value,
         // Override checksums so that `updates` don't check md5 for all jars
         Keys.update / Keys.checksums := Vector("sha1"),
         Keys.updateClassifiers / Keys.checksums := Vector("sha1"),
@@ -333,6 +336,21 @@ object BloopDefaults {
           else if (ESModuleClazz.isInstance(moduleKind)) Some(ESModule)
           else if (CommonJSModuleClazz.isInstance(moduleKind)) Some(CommonJSModule)
           else None
+        }
+      }
+    } catch {
+      case _: ClassNotFoundException => Def.setting(None)
+    }
+  }
+
+  def findOutScalaJsSourceMap: Def.Initialize[Option[Boolean]] = Def.settingDyn {
+    try {
+      val StandardConfigClazz = Class.forName(StandardConfigClassName)
+      Def.setting {
+        proxyForSetting("scalaJSLinkerConfig", StandardConfigClazz).value.flatMap { config =>
+          val method = StandardConfigClazz.getDeclaredMethod("sourceMap")
+          val sourceMap = method.invoke(config)
+          Some(sourceMap.asInstanceOf[Boolean])
         }
       }
     } catch {
@@ -784,8 +802,7 @@ object BloopDefaults {
           case _ => Config.ModuleKindJS.NoModule
         }
 
-        val scalaJsEmitSourceMaps =
-          ScalaJsKeys.scalaJSEmitSourceMaps.?.value.getOrElse(false)
+        val scalaJsEmitSourceMaps = BloopKeys.bloopScalaJSSourceMap.value.getOrElse(false)
         val jsdom = Some(false)
         val jsConfig = Config.JsConfig(scalaJsVersion, scalaJsStage, scalaJsModule, scalaJsEmitSourceMaps, jsdom, None, None, Nil)
         Config.Platform.Js(jsConfig, mainClass)
