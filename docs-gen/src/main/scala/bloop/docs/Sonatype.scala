@@ -32,9 +32,7 @@ object Sonatype {
     )
     val resolvedJars = DependencyResolution.resolve(
       artifacts,
-      NoopLogger,
-      additionalRepos =
-        List(MavenRepository.of(s"https://oss.sonatype.org/content/repositories/staging"))
+      NoopLogger
     )
 
     val latestStableVersion = resolvedJars.find(_.syntax.contains(artifact)) match {
@@ -53,7 +51,7 @@ object Sonatype {
 
     val doc = Jsoup
       .connect(
-        s"https://oss.sonatype.org/content/repositories/releases/ch/epfl/scala/$artifact/"
+        s"https://repo1.maven.org/maven2/ch/epfl/scala/$artifact/"
       )
       .get
 
