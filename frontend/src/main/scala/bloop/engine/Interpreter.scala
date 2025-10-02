@@ -620,8 +620,16 @@ object Interpreter {
                     None
                   )
                   .flatMap { state =>
+                    // TODO: We should use `jsEnvInput` to obtain the JS files to run
+                    // (or even use https://github.com/scala-js/scala-js-js-envs to run ideally),
+                    // https://github.com/scala-js/scala-js/blob/6a145af4dc575340a40b80459d1bf15184c3a2da/sbt-plugin/src/main/scala/org/scalajs/sbtplugin/ScalaJSPlugin.scala#L252-L255
+                    // and get command line options from `jsEnv` tasks for Node.js options.
+                    // https://github.com/scala-js/scala-js/blob/6a145af4dc575340a40b80459d1bf15184c3a2da/sbt-plugin/src/main/scala/org/scalajs/sbtplugin/ScalaJSPlugin.scala#L238-L240
+                    // For now, we just filter .js files (so we don't include sourcemap, .wasm files, and __loader.js generated for Wasm), and run them.
+                    val files = targetDirectory.list
+                      .map(_.toString())
+                      .filter(name => name.endsWith(".js") && !name.endsWith("__loader.js"))
                     // We use node to run the program (is this a special case?)
-                    val files = targetDirectory.list.map(_.toString())
                     val args = ("node" +: files ::: cmd.args).toArray
                     if (!state.status.isOk) Task.now(state)
                     else Tasks.runNativeOrJs(state, cwd, args)
