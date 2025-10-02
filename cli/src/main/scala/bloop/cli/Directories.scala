@@ -3,6 +3,7 @@ package bloop.cli
 import scala.util.Properties
 
 import dev.dirs.ProjectDirectories
+import dev.dirs.impl.Windows
 import dev.dirs.jni.WindowsJni
 
 trait Directories {
@@ -31,7 +32,15 @@ object Directories {
   }
 
   def default(): Directories = {
-    OsLocations(ProjectDirectories.from(null, null, "ScalaCli", WindowsJni.getJdkAwareSupplier()))
+    val name = "ScalaCli"
+    val windows =
+      if (coursier.paths.Util.useJni())
+        WindowsJni.getJdkAwareSupplier()
+      else
+        Windows.getDefaultSupplier()
+
+    OsLocations(ProjectDirectories.from(null, null, name, windows))
+
   }
 
   def under(dir: os.Path): Directories =

@@ -227,7 +227,7 @@ lazy val cliSettings = Seq(
   graalVMNativeImageOptions ++= {
     val reflectionFile = (Compile / Keys.sourceDirectory).value./("graal")./("reflection.json")
     assert(reflectionFile.exists, s"${reflectionFile.getAbsolutePath()} doesn't exist")
-    List(
+    val baseOptions = List(
       "--add-exports=org.graalvm.nativeimage.base/com.oracle.svm.util=ALL-UNNAMED",
       "--add-exports=org.graalvm.nativeimage.builder/com.oracle.svm.core.jni=ALL-UNNAMED",
       "--add-exports=org.graalvm.nativeimage.builder/com.oracle.svm.core.jdk=ALL-UNNAMED",
@@ -242,6 +242,13 @@ lazy val cliSettings = Seq(
       "--initialize-at-build-time=scala.runtime.StructuralCallSite",
       "--initialize-at-build-time=scala.runtime.EmptyMethodCache"
     )
+
+    if (scala.util.Properties.isWin) {
+      val staticLibs = (Compile / Keys.sourceDirectory).value./("graal")./("static-libs")
+      baseOptions :+ s"-H:CLibraryPath=${staticLibs}"
+    } else {
+      baseOptions
+    }
   }
 )
 
