@@ -163,6 +163,17 @@ jobs:
         with:
           name: ${{ matrix.artifact }}
           path: bloop-artifacts/${{ matrix.artifact }}
+      
+      - name: Sanity check of the generated binary
+        run: sbt publishLocal
+
+      - name: Check on windows
+        if: matrix.os == 'windows-latest'
+        run: cli/target/graalvm-native-image/bloop-cli.exe about
+      
+      - name: Check on other systems
+        if: matrix.os == 'windows-latest'
+        run: cli/target/graalvm-native-image/bloop-cli about
 
   release:
     name: Release version on ${{ matrix.os }}
