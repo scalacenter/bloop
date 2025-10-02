@@ -94,6 +94,10 @@ object BloopKeys {
     settingKey[Option[String]]("Scala.js-independent definition of `scalaJSStage`")
   val bloopScalaJSModuleKind: SettingKey[Option[String]] =
     settingKey[Option[String]]("Scala.js-independent definition of `scalaJSModuleKind`")
+  val bloopScalaJSSourceMap: SettingKey[Option[Boolean]] =
+    settingKey("Proxy for Scala.js definition of `scalajsLinkerConfig#sourceMap`")
+  val bloopScalaJSUseWebAssembly: SettingKey[Option[Boolean]] =
+    settingKey("Proxy for Scala.js definition of `scalajsLinkerConfig#experimentalUseWebAssembly`")
   val bloopMainClass: SettingKey[Option[String]] =
     settingKey[Option[String]]("The main class to run a bloop target")
   val bloopSupportedConfigurations: SettingKey[Seq[Configuration]] =
@@ -136,6 +140,8 @@ object BloopKeys {
 object BloopDefaults {
   import Compat._
   import sbt.{Task, Defaults, State}
+
+  private final val StandardConfigClassName = "org.scalajs.linker.interface.StandardConfig"
 
   val productDirectoriesUndeprecatedKey: TaskKey[Seq[File]] =
     sbt.TaskKey[Seq[File]]("productDirectories", rank = KeyRanks.CTask)
@@ -237,6 +243,8 @@ object BloopDefaults {
       List(
         BloopKeys.bloopScalaJSStage := findOutScalaJsStage.value,
         BloopKeys.bloopScalaJSModuleKind := findOutScalaJsModuleKind.value,
+        BloopKeys.bloopScalaJSSourceMap := findOutScalaJsSourceMap.value,
+        BloopKeys.bloopScalaJSUseWebAssembly := findOutScalaJsUseWebAssembly.value,
         // Override checksums so that `updates` don't check md5 for all jars
         Keys.update / Keys.checksums := Vector("sha1"),
         Keys.updateClassifiers / Keys.checksums := Vector("sha1"),
@@ -312,23 +320,64 @@ object BloopDefaults {
       }
     } catch {
       case _: ClassNotFoundException => Def.setting(None)
+      case _: NoSuchMethodException => Def.setting(None)
     }
   }
 
   def findOutScalaJsModuleKind: Def.Initialize[Option[String]] = Def.settingDyn {
     try {
-      val stageClass = Class.forName("core.tools.linker.backend.ModuleKind")
-      val stageSetting = proxyForSetting("scalaJSModuleKind", stageClass)
+      val NoModuleClazz = Class.forName("org.scalajs.linker.interface.ModuleKind$NoModule$")
+      val CommonJSModuleClazz =
+        Class.forName("org.scalajs.linker.interface.ModuleKind$CommonJSModule$")
+      val ESModuleClazz = Class.forName("org.scalajs.linker.interface.ModuleKind$ESModule$")
+      val StandardConfigClazz = Class.forName(StandardConfigClassName)
+      val method = StandardConfigClazz.getDeclaredMethod("moduleKind")
+
       Def.setting {
-        stageSetting.value.toString match {
-          case "Some(NoModule)" => Some(NoJSModule)
-          case "Some(CommonJSModule)" => Some(CommonJSModule)
-          case "Some(ESModule)" => Some(ESModule)
-          case _ => None
+        proxyForSetting("scalaJSLinkerConfig", StandardConfigClazz).value.flatMap { config =>
+          val moduleKind = method.invoke(config)
+          if (NoModuleClazz.isInstance(moduleKind)) Some(NoJSModule)
+          else if (ESModuleClazz.isInstance(moduleKind)) Some(ESModule)
+          else if (CommonJSModuleClazz.isInstance(moduleKind)) Some(CommonJSModule)
+          else None
         }
       }
     } catch {
       case _: ClassNotFoundException => Def.setting(None)
+      case _: NoSuchMethodException => Def.setting(None)
+    }
+  }
+
+  def findOutScalaJsSourceMap: Def.Initialize[Option[Boolean]] = Def.settingDyn {
+    try {
+      val StandardConfigClazz = Class.forName(StandardConfigClassName)
+      val method = StandardConfigClazz.getDeclaredMethod("sourceMap")
+      Def.setting {
+        proxyForSetting("scalaJSLinkerConfig", StandardConfigClazz).value.flatMap { config =>
+          val sourceMap = method.invoke(config)
+          Some(sourceMap.asInstanceOf[Boolean])
+        }
+      }
+    } catch {
+      case _: ClassNotFoundException => Def.setting(None)
+      case _: NoSuchMethodException => Def.setting(None)
+    }
+  }
+
+  def findOutScalaJsUseWebAssembly: Def.Initialize[Option[Boolean]] = Def.settingDyn {
+    try {
+      val StandardConfigClazz = Class.forName(StandardConfigClassName)
+      val method = StandardConfigClazz.getDeclaredMethod("experimentalUseWebAssembly")
+      Def.setting {
+        proxyForSetting("scalaJSLinkerConfig", StandardConfigClazz).value.flatMap { config =>
+          // https://github.com/scala-js/scala-js/blob/6a145af4dc575340a40b80459d1bf15184c3a2da/linker-interface/shared/src/main/scala/org/scalajs/linker/interface/StandardConfig.scala#L88-L89
+          val sourceMap = method.invoke(config)
+          Some(sourceMap.asInstanceOf[Boolean])
+        }
+      }
+    } catch {
+      case _: ClassNotFoundException => Def.setting(None)
+      case _: NoSuchMethodException => Def.setting(None)
     }
   }
 
@@ -762,7 +811,7 @@ object BloopDefaults {
           .find(module => module.organization == "org.scala-js" && module.name.startsWith("scalajs-library_"))
           .map(_.revision)
           .getOrElse(BuildInfo.latestScalaJsVersion)
-          
+
         val scalaJsStage = BloopKeys.bloopScalaJSStage.value match {
           case Some(ScalaJsFastOpt) => Config.LinkerMode.Debug
           case Some(ScalaJsFullOpt) => Config.LinkerMode.Release
@@ -776,10 +825,11 @@ object BloopDefaults {
           case _ => Config.ModuleKindJS.NoModule
         }
 
-        val scalaJsEmitSourceMaps =
-          ScalaJsKeys.scalaJSEmitSourceMaps.?.value.getOrElse(false)
+        val scalaJsEmitSourceMaps = BloopKeys.bloopScalaJSSourceMap.value.getOrElse(false)
+        val scalaJsUseWebAssembly = BloopKeys.bloopScalaJSUseWebAssembly.value.getOrElse(false)
         val jsdom = Some(false)
-        val jsConfig = Config.JsConfig(scalaJsVersion, scalaJsStage, scalaJsModule, scalaJsEmitSourceMaps, jsdom, None, None, Nil)
+        val jsConfig = Config.JsConfig(scalaJsVersion, scalaJsStage, scalaJsModule, scalaJsEmitSourceMaps, jsdom, None, None, Nil,
+            /* moduleSplitStyle*/ None, scalaJsUseWebAssembly)
         Config.Platform.Js(jsConfig, mainClass)
       }
     } else {
