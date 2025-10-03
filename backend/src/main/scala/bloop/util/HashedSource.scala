@@ -4,8 +4,6 @@ import java.io.ByteArrayInputStream
 import java.io.InputStream
 import java.nio.file.Path
 
-import bloop.reporter.Problem
-
 import sbt.internal.inc.HashUtil
 import sbt.internal.inc.PlainVirtualFileConverter
 import xsbti.BasicVirtualFileRef
@@ -36,7 +34,7 @@ class HashedSource(content: Array[Byte], val bloopHash: Int, path: Path)
   override def input(): InputStream = {
     new ByteArrayInputStream(content)
   }
-  override def toString: String = s"VirtualSourceFile($Problem.id@${bloopHash})"
+  override def toString: String = path.toString()
 }
 
 object HashedSource {
