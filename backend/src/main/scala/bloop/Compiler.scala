@@ -10,6 +10,7 @@ import java.util.concurrent.Executor
 
 import scala.collection.mutable
 import scala.concurrent.Promise
+import scala.tools.nsc.FatalError
 import scala.util.Try
 
 import bloop.Compiler.Result.Failed
@@ -21,6 +22,7 @@ import bloop.io.{Paths => BloopPaths}
 import bloop.logging.DebugFilter
 import bloop.logging.Logger
 import bloop.logging.ObservedLogger
+import bloop.reporter.ObservedReporter
 import bloop.reporter.ProblemPerPhase
 import bloop.reporter.Reporter
 import bloop.reporter.ZincReporter
@@ -31,6 +33,7 @@ import bloop.util.AnalysisUtils
 import bloop.util.BestEffortUtils
 import bloop.util.BestEffortUtils.BestEffortProducts
 import bloop.util.CacheHashCode
+import bloop.util.HashedSource
 import bloop.util.JavaRuntime
 import bloop.util.UUIDUtil
 
@@ -47,7 +50,6 @@ import sbt.util.InterfaceUtil
 import xsbti.T2
 import xsbti.VirtualFileRef
 import xsbti.compile._
-import bloop.util.HashedSource
 
 case class CompileInputs(
     scalaInstance: ScalaInstance,
@@ -783,7 +785,33 @@ object Compiler {
               val backgroundTasks =
                 toBackgroundTasks(backgroundTasksForFailedCompilation.toList)
               val failedProblems = findFailedProblems(reporter, None)
-              Result.Failed(failedProblems, Some(t), elapsed, backgroundTasks, None)
+              val errorFromThrowable = t match {
+                case _: AssertionError | _: FatalError | _: IllegalArgumentException =>
+                  bloop.reporter.Problem.fromError(t) match {
+                    case Some(problem) =>
+                      reporter match {
+                        case observedReporter: ObservedReporter =>
+                          observedReporter.log(problem)
+                        case _ =>
+                      }
+                      List(
+                        ProblemPerPhase(
+                          problem,
+                          phase = None
+                        )
+                      )
+
+                    case None => Nil
+                  }
+                case _ => Nil
+              }
+              Result.Failed(
+                failedProblems ++ errorFromThrowable,
+                Some(t),
+                elapsed,
+                backgroundTasks,
+                None
+              )
           }
       }
   }

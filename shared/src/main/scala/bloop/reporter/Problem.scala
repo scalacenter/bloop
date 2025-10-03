@@ -3,6 +3,9 @@ package bloop.reporter
 import java.util.Optional
 
 import xsbti.Severity
+import java.util.ArrayList
+import java.io.File
+import java.nio.file.Paths
 
 /** Describes a problem (error, warning, message, etc.) given to the reporter. */
 final case class Problem private (
@@ -34,6 +37,45 @@ object Problem {
       problem.diagnosticRelatedInformation(),
       problem.actions()
     )
+  }
+
+  def fromError(error: Throwable): Option[Problem] = {
+    val assertionErrorRegex = """tree position: line (\d+) of (.+\.scala)""".r
+    assertionErrorRegex.findFirstMatchIn(error.getMessage()) match {
+      case Some(m) =>
+        val line = m.group(1).toInt
+        val file = Paths.get(m.group(2)).toFile()
+        Some(
+          Problem(
+            -1,
+            xsbti.Severity.Error,
+            error.getMessage(),
+            BloopPosition(file, Optional.of(line)),
+            "assertion error",
+            Optional.empty(),
+            new ArrayList[xsbti.DiagnosticRelatedInformation](),
+            new ArrayList[xsbti.Action]()
+          )
+        )
+      case None => // No match
+        None
+    }
+  }
+
+  case class BloopPosition(file: File, line: Optional[Integer]) extends xsbti.Position {
+
+    override def lineContent(): String = ""
+
+    override def offset(): Optional[Integer] = Optional.empty()
+
+    override def pointer(): Optional[Integer] = Optional.empty()
+
+    override def pointerSpace(): Optional[String] = Optional.empty()
+
+    override def sourcePath(): Optional[String] = Optional.empty()
+
+    override def sourceFile(): Optional[File] = Optional.of(file)
+
   }
 
   case class DiagnosticsCount(errors: Long, warnings: Long) {
