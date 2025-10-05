@@ -40,7 +40,7 @@ object Dependencies {
   val braveVersion = "5.18.1"
   val zipkinSenderVersion = "2.17.2"
   val jnaVersion = "5.18.1"
-  val asmVersion = "9.8"
+  val asmVersion = "9.9"
   val ztExecVersion = "1.12"
   val debugAdapterVersion = "4.2.8"
   val bloopConfigVersion = "2.3.3"
