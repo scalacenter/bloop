@@ -104,7 +104,7 @@ object Dependencies {
   val scalaJsLinker1 = "org.scala-js" %% "scalajs-linker" % scalaJs1Version % Provided
   val scalaJsEnvs1 = "org.scala-js" %% "scalajs-js-envs" % scalaJsEnvsVersion % Provided
   val scalaJsEnvNode1 = "org.scala-js" %% "scalajs-env-nodejs" % scalaJsEnvsVersion % Provided
-  val scalaJsEnvJsdomNode1 = "org.scala-js" %% "scalajs-env-jsdom-nodejs" % "1.1.0" % Provided
+  val scalaJsEnvJsdomNode1 = "org.scala-js" %% "scalajs-env-jsdom-nodejs" % "1.1.1" % Provided
   val scalaJsSbtTestAdapter1 =
     "org.scala-js" %% "scalajs-sbt-test-adapter" % scalaJs1Version % Provided
   val scalaJsLogging1 = "org.scala-js" %% "scalajs-logging" % "1.2.0" % Provided
