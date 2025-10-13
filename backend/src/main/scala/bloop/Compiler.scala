@@ -4,6 +4,7 @@ import java.io.File
 import java.io.PrintWriter
 import java.io.StringWriter
 import java.nio.file.Files
+import java.nio.file.NoSuchFileException
 import java.nio.file.Path
 import java.util.Optional
 import java.util.concurrent.Executor
@@ -31,6 +32,7 @@ import bloop.util.AnalysisUtils
 import bloop.util.BestEffortUtils
 import bloop.util.BestEffortUtils.BestEffortProducts
 import bloop.util.CacheHashCode
+import bloop.util.HashedSource
 import bloop.util.JavaRuntime
 import bloop.util.UUIDUtil
 
@@ -47,7 +49,6 @@ import sbt.util.InterfaceUtil
 import xsbti.T2
 import xsbti.VirtualFileRef
 import xsbti.compile._
-import bloop.util.HashedSource
 
 case class CompileInputs(
     scalaInstance: ScalaInstance,
@@ -704,8 +705,10 @@ object Compiler {
                         val rebasedFile = AbsolutePath(
                           syntax.replace(readOnlyClassesDirPath, clientClassesDir.toString)
                         )
-                        if (rebasedFile.exists) {
+                        if (rebasedFile.exists) try {
                           Files.delete(rebasedFile.underlying)
+                        } catch {
+                          case _: NoSuchFileException => // Means it was already removed
                         }
                       }
                     }
