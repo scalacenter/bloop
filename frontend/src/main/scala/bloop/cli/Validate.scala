@@ -25,7 +25,7 @@ object Validate {
     val cliOptions = cmd.cliOptions
     val commonOptions = cliOptions.common
 
-    def validateSocket = cmd.socket.map(_.normalize.toAbsolutePath) match {
+    def validateSocket = cmd.socket.map(_.normalize) match {
       case Some(socket) if Files.exists(socket) =>
         cliError(Feedback.existingSocketFile(socket), commonOptions)
       case Some(socket) if !Files.exists(socket.getParent) =>
