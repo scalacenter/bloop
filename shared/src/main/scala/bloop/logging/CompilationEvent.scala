@@ -97,7 +97,8 @@ object CompilationEvent {
   case class Diagnostic(
       projectUri: bsp.Uri,
       problem: xsbti.Problem,
-      clear: Boolean
+      clear: Boolean,
+      showRenderedMessage: Boolean
   ) extends CompilationEvent
 
   /**

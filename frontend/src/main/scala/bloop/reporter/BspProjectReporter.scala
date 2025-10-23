@@ -23,6 +23,7 @@ final class BspProjectReporter(
     cwd: AbsolutePath,
     config: ReporterConfig,
     reportAllPreviousProblems: Boolean,
+    showRenderedMessage: Boolean,
     override val _problems: Reporter.Buffer[ProblemPerPhase]
 ) extends Reporter(logger, cwd, config, _problems) {
 
@@ -31,7 +32,8 @@ final class BspProjectReporter(
       logger: BspServerLogger,
       cwd: AbsolutePath,
       config: ReporterConfig,
-      reportAllPreviousProblems: Boolean
+      reportAllPreviousProblems: Boolean,
+      showRenderedMessage: Boolean
   ) =
     this(
       project,
@@ -39,6 +41,7 @@ final class BspProjectReporter(
       cwd,
       config,
       reportAllPreviousProblems,
+      showRenderedMessage,
       createBuffer[ProblemPerPhase](project)
     )
 
@@ -60,8 +63,13 @@ final class BspProjectReporter(
       case Some(file) =>
         // If it's the first diagnostic for this file, set clear to true
         val clear = clearedFilesForClient.putIfAbsent(file, true).isEmpty
-        logger.diagnostic(CompilationEvent.Diagnostic(project.bspUri, problem, clear))
-      case None => logger.diagnostic(CompilationEvent.Diagnostic(project.bspUri, problem, false))
+        logger.diagnostic(
+          CompilationEvent.Diagnostic(project.bspUri, problem, clear, showRenderedMessage)
+        )
+      case None =>
+        logger.diagnostic(
+          CompilationEvent.Diagnostic(project.bspUri, problem, false, showRenderedMessage)
+        )
     }
   }
 
@@ -249,7 +257,12 @@ final class BspProjectReporter(
                     case ProblemPerPhase(problem, _) =>
                       val clear = clearedFilesForClient.putIfAbsent(sourceFile, true).isEmpty
                       logger.diagnostic(
-                        CompilationEvent.Diagnostic(project.bspUri, problem, clear)
+                        CompilationEvent.Diagnostic(
+                          project.bspUri,
+                          problem,
+                          clear,
+                          showRenderedMessage
+                        )
                       )
                   }
                 }
@@ -266,7 +279,9 @@ final class BspProjectReporter(
     problems.foreach {
       case ProblemPerPhase(problem, _) =>
         val clear = clearedFilesForClient.putIfAbsent(sourceFile, true).isEmpty
-        logger.diagnostic(CompilationEvent.Diagnostic(project.bspUri, problem, clear))
+        logger.diagnostic(
+          CompilationEvent.Diagnostic(project.bspUri, problem, clear, showRenderedMessage)
+        )
     }
   }
 
@@ -336,7 +351,12 @@ final class BspProjectReporter(
                   case ProblemPerPhase(problem, _) =>
                     val clear = clearedFilesForClient.putIfAbsent(sourceFile, true).isEmpty
                     logger.diagnostic(
-                      CompilationEvent.Diagnostic(project.bspUri, problem, clear)
+                      CompilationEvent.Diagnostic(
+                        project.bspUri,
+                        problem,
+                        clear,
+                        showRenderedMessage
+                      )
                     )
                 }
               }
