@@ -1,12 +1,14 @@
 package bloop.io
 
 import java.io.IOException
+import java.nio.file.AccessDeniedException
 import java.nio.file.FileVisitResult
 import java.nio.file.FileVisitor
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
 import java.nio.file.attribute.BasicFileAttributes
+import java.time.temporal.ChronoUnit
 import java.util.concurrent.ConcurrentHashMap
 
 import scala.concurrent.Promise
@@ -24,7 +26,6 @@ import monix.execution.cancelables.CompositeCancelable
 import monix.reactive.Consumer
 import monix.reactive.MulticastStrategy
 import monix.reactive.Observable
-import java.nio.file.AccessDeniedException
 
 object ParallelOps {
 
@@ -246,9 +247,13 @@ object ParallelOps {
                   Try(Files.readAttributes(targetFile, classOf[BasicFileAttributes])) match {
                     case Success(targetAttrs) =>
                       val changedMetadata = {
-                        originAttrs.lastModifiedTime
-                          .compareTo(targetAttrs.lastModifiedTime) != 0 ||
-                        originAttrs.size() != targetAttrs.size()
+                        def originTime =
+                          originAttrs.lastModifiedTime.toInstant.truncatedTo(ChronoUnit.MILLIS)
+                        def targetTime =
+                          targetAttrs.lastModifiedTime.toInstant.truncatedTo(ChronoUnit.MILLIS)
+                        originAttrs.size() != targetAttrs.size() ||
+                        originTime.compareTo(targetTime) != 0
+
                       }
 
                       if (!changedMetadata) ()
