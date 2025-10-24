@@ -51,7 +51,7 @@ object Environment {
    *  - "\r\n"
    *  - "\r"
    */
-  def END_OF_LINE_MATCHER = "\r\n|\n"
+  def END_OF_LINE_MATCHER = "\r\n|\n|\r"
 
   /*
    * A list of valid shell paths.  The SHELL environment variable must

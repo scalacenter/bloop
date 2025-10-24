@@ -16,6 +16,8 @@ final case class Problem private (
     position: xsbti.Position,
     /** The category of this problem. */
     category: String,
+    /** If present, the string shown to the user when displaying this Problem */
+    override val rendered: Optional[String],
     /** Unique code attatched to the diagnostic being reported */
     override val diagnosticCode: Optional[xsbti.DiagnosticCode],
     override val diagnosticRelatedInforamation: java.util.List[xsbti.DiagnosticRelatedInformation],
@@ -30,6 +32,7 @@ object Problem {
       problem.message(),
       problem.position(),
       problem.category(),
+      problem.rendered(),
       problem.diagnosticCode(),
       problem.diagnosticRelatedInformation(),
       problem.actions()

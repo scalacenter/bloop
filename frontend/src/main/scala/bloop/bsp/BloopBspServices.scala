@@ -529,6 +529,7 @@ final class BloopBspServices(
 
     val isPipeline = compileArgs.exists(_ == "--pipeline")
     val bestEffortAllowed = compileArgs.exists(_ == "--best-effort")
+    val showRenderedMessage = compileArgs.exists(_ == "--show-rendered-message")
     def compile(projects: List[Project]): Task[State] = {
       val config = ReporterConfig.defaultFormat.copy(reverseOrder = false)
 
@@ -553,7 +554,8 @@ final class BloopBspServices(
           inputs.logger,
           inputs.cwd,
           config,
-          reportAllPreviousProblems
+          reportAllPreviousProblems,
+          showRenderedMessage
         )
       }
 
