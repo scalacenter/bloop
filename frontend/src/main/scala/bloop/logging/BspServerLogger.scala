@@ -8,7 +8,6 @@ import scala.collection.JavaConverters._
 import ch.epfl.scala.bsp
 import ch.epfl.scala.bsp.BuildTargetIdentifier
 import ch.epfl.scala.bsp.DiagnosticSeverity
-import ch.epfl.scala.bsp.Uri
 import ch.epfl.scala.bsp.endpoints.Build
 
 import bloop.bsp.BloopLanguageClient
@@ -349,16 +348,13 @@ final class BspServerLogger private (
     val errors = event.problems.count(_.severity == Severity.Error)
     val warnings = event.problems.count(_.severity == Severity.Warn)
     val encoded = writeToArray(
-      BspServerLogger.BloopCompileReport(
+      bsp.CompileReport(
         bsp.BuildTargetIdentifier(event.projectUri),
         originId,
         errors,
         warnings,
         None,
-        Some(event.isNoOp),
-        Some(event.isLastCycle),
-        event.clientDir.map(path => bsp.Uri(path.toBspUri)),
-        event.analysisOut.map(path => bsp.Uri(path.toBspUri))
+        Some(event.isNoOp)
       )
     )
 
@@ -390,27 +386,4 @@ object BspServerLogger {
     new BspServerLogger(name, state.logger, client, taskIdCounter, ansiCodesSupported, None)
   }
 
-  /**
-   * A modified version of `bsp.CompileReport` with optional bloop fields.
-   *
-   * We should consider upstreaming many of these fields as they are usually
-   * very useful for clients.
-   */
-  final case class BloopCompileReport(
-      target: BuildTargetIdentifier,
-      originId: Option[String],
-      errors: Int,
-      warnings: Int,
-      time: Option[Long],
-      // ++ bloop ++
-      isNoOp: Option[Boolean],
-      isLastCycle: Option[Boolean],
-      clientDir: Option[Uri],
-      analysisOut: Option[Uri]
-  )
-
-  object BloopCompileReport {
-    implicit val codec: JsonValueCodec[BloopCompileReport] =
-      JsonCodecMaker.makeWithRequiredCollectionFields
-  }
 }

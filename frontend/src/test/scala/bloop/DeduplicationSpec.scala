@@ -115,7 +115,7 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
             |  -> Msg: Compiling user (2 Scala sources)
             |  -> Data kind: compile-task
             |#1: task finish 1
-            |  -> errors 0, warnings 0
+            |  -> errors 0, warnings 0, noop false
             |  -> Msg: Compiled 'user'
             |  -> Data kind: compile-report
         """.stripMargin
@@ -230,7 +230,7 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
             |  -> Msg: Compiling user (2 Scala sources)
             |  -> Data kind: compile-task
             |#1: task finish 1
-            |  -> errors 0, warnings 0
+            |  -> errors 0, warnings 0, noop false
             |  -> Msg: Compiled 'user'
             |  -> Data kind: compile-report
         """.stripMargin
@@ -323,7 +323,7 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
             |  -> Msg: Compiling user (1 Scala source)
             |  -> Data kind: compile-task
             |#2: task finish 2
-            |  -> errors 0, warnings 0
+            |  -> errors 0, warnings 0, noop false
             |  -> Msg: Compiled 'user'
             |  -> Data kind: compile-report
         """.stripMargin
@@ -409,7 +409,7 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
             |  -> Msg: Compiling user (2 Scala sources)
             |  -> Data kind: compile-task
             |#1: task finish 1
-            |  -> errors 0, warnings 0
+            |  -> errors 0, warnings 0, noop false
             |  -> Msg: Compiled 'user'
             |  -> Data kind: compile-report
         """.stripMargin
@@ -563,7 +563,7 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
             |  -> List(Diagnostic(Range(Position(2,28),Position(2,28)),Some(Error),Some(_),Some(_),type mismatch;  found   : Int  required: String,None,None,Some({"actions":[]})))
             |  -> reset = true
             |#1: task finish 1
-            |  -> errors 1, warnings 0
+            |  -> errors 1, warnings 0, noop false
             |  -> Msg: Compiled 'b'
             |  -> Data kind: compile-report
         """.stripMargin
@@ -644,7 +644,7 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
             |  -> List(Diagnostic(Range(Position(2,28),Position(2,28)),Some(Error),Some(_),Some(_),type mismatch;  found   : Int  required: String,None,None,Some({"actions":[]})))
             |  -> reset = true
             |#2: task finish 2
-            |  -> errors 1, warnings 0
+            |  -> errors 1, warnings 0, noop false
             |  -> Msg: Compiled 'b'
             |  -> Data kind: compile-report
         """.stripMargin
@@ -744,7 +744,7 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
             |  -> List()
             |  -> reset = true
             |#3: task finish 3
-            |  -> errors 0, warnings 0
+            |  -> errors 0, warnings 0, noop false
             |  -> Msg: Compiled 'b'
             |  -> Data kind: compile-report
         """.stripMargin
@@ -891,7 +891,7 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
                |  -> Msg: Compiling b (6 Scala sources)
                |  -> Data kind: compile-task
                |#1: task finish 1
-               |  -> errors 0, warnings 0
+               |  -> errors 0, warnings 0, noop false
                |  -> Msg: Compiled 'b'
                |  -> Data kind: compile-report
            """.stripMargin
@@ -1093,7 +1093,7 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
             |  -> Msg: Compiling user (32 Scala sources)
             |  -> Data kind: compile-task
             |#1: task finish 2
-            |  -> errors 0, warnings 0
+            |  -> errors 0, warnings 0, noop false
             |  -> Msg: Compiled 'user'
             |  -> Data kind: compile-report
         """.stripMargin
