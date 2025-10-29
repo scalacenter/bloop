@@ -102,6 +102,7 @@ abstract class Reporter(
           p.message,
           mappedPos,
           p.category,
+          p.rendered(),
           p.diagnosticCode(),
           p.diagnosticRelatedInformation(),
           p.actions()
