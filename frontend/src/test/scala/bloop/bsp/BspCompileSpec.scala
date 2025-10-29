@@ -1451,14 +1451,14 @@ class BspCompileSpec(
              |  -> List(Diagnostic(Range(Position(0,26),Position(0,27)),Some(Error),Some(_),Some(_),-- [E007] Type Mismatch Error: $workspace${sep}a${sep}src${sep}main${sep}scala${sep}Foo.scala:1:26  1 |def foo(s: String): Int = s   |                          ^   |                          Found:    (s : String)   |                          Required: Int   |   | longer explanation available when compiling with `-explain`,None,None,Some({"actions":[]})))
              |  -> reset = true
              |#1: task finish 1
-             |  -> errors 1, warnings 0
+             |  -> errors 1, warnings 0, noop false
              |  -> Msg: Compiled 'a'
              |  -> Data kind: compile-report """.stripMargin
         )
       }
     }
   }
-  
+
   test("task notifications are sent when compiling project with dependency") {
     TestUtil.withinWorkspace { workspace =>
       val sourcesA = List(
