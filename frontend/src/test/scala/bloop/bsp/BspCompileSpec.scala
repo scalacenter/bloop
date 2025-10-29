@@ -72,7 +72,7 @@ class BspCompileSpec(
             |  -> Msg: Compiling a (1 Scala source)
             |  -> Data kind: compile-task
             |#1: task finish 1
-            |  -> errors 0, warnings 0
+            |  -> errors 0, warnings 0, noop false
             |  -> Msg: Compiled 'a'
             |  -> Data kind: compile-report""".stripMargin,
           compiledState.lastDiagnostics(`A`)
@@ -110,7 +110,7 @@ class BspCompileSpec(
             |  -> Msg: Compiling a (1 Scala source)
             |  -> Data kind: compile-task
             |#1: task finish 1
-            |  -> errors 0, warnings 0
+            |  -> errors 0, warnings 0, noop false
             |  -> Msg: Compiled 'a'
             |  -> Data kind: compile-report""".stripMargin,
           compiledState.lastDiagnostics(`A`)
@@ -127,7 +127,7 @@ class BspCompileSpec(
             |  -> Msg: Compiling a (1 Scala source)
             |  -> Data kind: compile-task
             |#2: task finish 2
-            |  -> errors 0, warnings 0
+            |  -> errors 0, warnings 0, noop false
             |  -> Msg: Compiled 'a'
             |  -> Data kind: compile-report""".stripMargin,
           compiledState.lastDiagnostics(`A`)
@@ -163,7 +163,7 @@ class BspCompileSpec(
              |  -> reset = true
              |  -> origin = test-origin
              |#1: task finish 1
-             |  -> errors 0, warnings 1
+             |  -> errors 0, warnings 1, noop false
              |  -> origin = test-origin
              |  -> Msg: Compiled 'a'
              |  -> Data kind: compile-report
@@ -276,7 +276,7 @@ class BspCompileSpec(
             |  -> Msg: Compiling a (1 Scala source)
             |  -> Data kind: compile-task
             |#1: task finish 1
-            |  -> errors 0, warnings 0
+            |  -> errors 0, warnings 0, noop false
             |  -> Msg: Compiled 'a'
             |  -> Data kind: compile-report""".stripMargin
         )
@@ -287,7 +287,7 @@ class BspCompileSpec(
             |  -> Msg: Compiling b (1 Scala source)
             |  -> Data kind: compile-task
             |#1: task finish 2
-            |  -> errors 0, warnings 0
+            |  -> errors 0, warnings 0, noop false
             |  -> Msg: Compiled 'b'
             |  -> Data kind: compile-report""".stripMargin
         )
@@ -317,7 +317,7 @@ class BspCompileSpec(
             |  -> List(Diagnostic(Range(Position(2,28),Position(2,28)),Some(Error),Some(_),Some(_),type mismatch;  found   : Int  required: String,None,None,Some({"actions":[]})))
             |  -> reset = true
             |#2: task finish 3
-            |  -> errors 1, warnings 0
+            |  -> errors 1, warnings 0, noop false
             |  -> Msg: Compiled 'a'
             |  -> Data kind: compile-report """.stripMargin
         )
@@ -606,7 +606,7 @@ class BspCompileSpec(
             |  -> Msg: Compiling a (2 Scala sources)
             |  -> Data kind: compile-task
             |#1: task finish 1
-            |  -> errors 0, warnings 0
+            |  -> errors 0, warnings 0, noop false
             |  -> Msg: Compiled 'a'
             |  -> Data kind: compile-report
             """.stripMargin
@@ -633,7 +633,7 @@ class BspCompileSpec(
             |  -> List(Diagnostic(Range(Position(2,6),Position(2,6)),Some(Error),Some(_),Some(_),x is already defined as value x,None,None,Some({"actions":[]})))
             |  -> reset = true
             |#2: task finish 2
-            |  -> errors 1, warnings 0
+            |  -> errors 1, warnings 0, noop false
             |  -> Msg: Compiled 'a'
             |  -> Data kind: compile-report
             """.stripMargin
@@ -653,7 +653,7 @@ class BspCompileSpec(
             |  -> Msg: Start no-op compilation for a
             |  -> Data kind: compile-task
             |#3: task finish 3
-            |  -> errors 0, warnings 0
+            |  -> errors 0, warnings 0, noop true
             |  -> Msg: Compiled 'a'
             |  -> Data kind: compile-report
             """.stripMargin // no-op so it only gives the compile-report
@@ -683,7 +683,7 @@ class BspCompileSpec(
             |  -> List(Diagnostic(Range(Position(0,0),Position(0,26)),Some(Warning),Some(_),Some(_),Unused import,None,None,Some({"actions":[]})))
             |  -> reset = false
             |#4: task finish 4
-            |  -> errors 1, warnings 1
+            |  -> errors 1, warnings 1, noop false
             |  -> Msg: Compiled 'a'
             |  -> Data kind: compile-report
             """.stripMargin
@@ -703,7 +703,7 @@ class BspCompileSpec(
             |  -> List(Diagnostic(Range(Position(0,0),Position(0,26)),Some(Warning),Some(_),Some(_),Unused import,None,None,Some({"actions":[]})))
             |  -> reset = true
             |#5: task finish 5
-            |  -> errors 0, warnings 1
+            |  -> errors 0, warnings 1, noop false
             |  -> Msg: Compiled 'a'
             |  -> Data kind: compile-report
             """.stripMargin
@@ -729,7 +729,7 @@ class BspCompileSpec(
             |  -> List()
             |  -> reset = true
             |#6: task finish 6
-            |  -> errors 0, warnings 0
+            |  -> errors 0, warnings 0, noop false
             |  -> Msg: Compiled 'a'
             |  -> Data kind: compile-report
             |#6: task start 6
@@ -742,7 +742,7 @@ class BspCompileSpec(
             |  -> List(Diagnostic(Range(Position(1,0),Position(3,1)),Some(Error),Some(_),Some(_),object creation impossible, since value y in trait Base of type Int is not defined,None,None,Some({"actions":[]})))
             |  -> reset = false
             |#6: task finish 6
-            |  -> errors 1, warnings 1
+            |  -> errors 1, warnings 1, noop false
             |  -> Msg: Compiled 'a'
             |  -> Data kind: compile-report
             """.stripMargin
@@ -763,7 +763,7 @@ class BspCompileSpec(
             |  -> List(Diagnostic(Range(Position(0,0),Position(0,26)),Some(Warning),Some(_),Some(_),Unused import,None,None,Some({"actions":[]})))
             |  -> reset = true
             |#7: task finish 7
-            |  -> errors 0, warnings 0
+            |  -> errors 0, warnings 0, noop false
             |  -> Msg: Compiled 'a'
             |  -> Data kind: compile-report
             """.stripMargin
@@ -874,7 +874,7 @@ class BspCompileSpec(
              |  -> Msg: Start no-op compilation for a
              |  -> Data kind: compile-task
              |#1: task finish 1
-             |  -> errors 0, warnings 0
+             |  -> errors 0, warnings 0, noop true
              |  -> Msg: Compiled 'a'
              |  -> Data kind: compile-report
              |""".stripMargin
@@ -936,7 +936,7 @@ class BspCompileSpec(
             |  -> List(Diagnostic(Range(Position(2,4),Position(2,4)),Some(Warning),Some(_),Some(_),a pure expression does nothing in statement position,None,None,Some({"actions":[]})))
             |  -> reset = true
             |#1: task finish 1
-            |  -> errors 0, warnings 0
+            |  -> errors 0, warnings 0, noop false
             |  -> Msg: Compiled 'a'
             |  -> Data kind: compile-report""".stripMargin
         )
@@ -958,7 +958,7 @@ class BspCompileSpec(
              |  -> List()
              |  -> reset = true
              |#2: task finish 2
-             |  -> errors 0, warnings 0
+             |  -> errors 0, warnings 0, noop false
              |  -> Msg: Compiled 'a'
              |  -> Data kind: compile-report
              |""".stripMargin
@@ -1102,7 +1102,7 @@ class BspCompileSpec(
             |  -> List(Diagnostic(Range(Position(1,28),Position(1,28)),Some(Error),Some(_),Some(_),type mismatch;  found   : Int  required: String,None,None,Some({"actions":[]})))
             |  -> reset = true
             |#1: task finish 1
-            |  -> errors 1, warnings 0
+            |  -> errors 1, warnings 0, noop false
             |  -> Msg: Compiled 'a'
             |  -> Data kind: compile-report""".stripMargin
         )
@@ -1137,7 +1137,7 @@ class BspCompileSpec(
             |  -> List()
             |  -> reset = true
             |#2: task finish 2
-            |  -> errors 1, warnings 0
+            |  -> errors 1, warnings 0, noop false
             |  -> Msg: Compiled 'a'
             |  -> Data kind: compile-report""".stripMargin
         )
@@ -1168,7 +1168,7 @@ class BspCompileSpec(
              |  -> Msg: Start no-op compilation for a
              |  -> Data kind: compile-task
              |#3: task finish 3
-             |  -> errors 0, warnings 0
+             |  -> errors 0, warnings 0, noop true
              |  -> Msg: Compiled 'a'
              |  -> Data kind: compile-report""".stripMargin
         )
@@ -1234,7 +1234,7 @@ class BspCompileSpec(
                |  -> List(Diagnostic(Range(Position(0,0),Position(0,7)),Some(Error),Some(_),Some(_),Unused import,None,None,Some({"actions":[]})))
                |  -> reset = true
                |#1: task finish 1
-               |  -> errors 1, warnings 0
+               |  -> errors 1, warnings 0, noop false
                |  -> Msg: Compiled 'a'
                |  -> Data kind: compile-report
                |""".stripMargin
@@ -1246,7 +1246,7 @@ class BspCompileSpec(
                |  -> Msg: Compiling b (1 Scala source)
                |  -> Data kind: compile-task
                |#1: task finish 2
-               |  -> errors 0, warnings 0
+               |  -> errors 0, warnings 0, noop false
                |  -> Msg: Compiled 'b'
                |  -> Data kind: compile-report
                |""".stripMargin
@@ -1265,7 +1265,7 @@ class BspCompileSpec(
                |  -> List()
                |  -> reset = true
                |#2: task finish 3
-               |  -> errors 0, warnings 0
+               |  -> errors 0, warnings 0, noop false
                |  -> Msg: Compiled 'a'
                |  -> Data kind: compile-report
                |""".stripMargin
@@ -1293,7 +1293,7 @@ class BspCompileSpec(
                |  -> List(Diagnostic(Range(Position(1,0),Position(1,7)),Some(Error),Some(_),Some(_),Unused import,None,None,Some({"actions":[]})))
                |  -> reset = false
                |#3: task finish 4
-               |  -> errors 2, warnings 0
+               |  -> errors 2, warnings 0, noop false
                |  -> Msg: Compiled 'a'
                |  -> Data kind: compile-report
                |""".stripMargin
@@ -1308,7 +1308,7 @@ class BspCompileSpec(
                |  -> List(Diagnostic(Range(Position(0,0),Position(0,7)),Some(Error),Some(_),Some(_),Unused import,None,None,Some({"actions":[]})))
                |  -> reset = true
                |#3: task finish 5
-               |  -> errors 1, warnings 0
+               |  -> errors 1, warnings 0, noop false
                |  -> Msg: Compiled 'b'
                |  -> Data kind: compile-report
                |""".stripMargin
@@ -1454,6 +1454,257 @@ class BspCompileSpec(
              |  -> errors 1, warnings 0
              |  -> Msg: Compiled 'a'
              |  -> Data kind: compile-report """.stripMargin
+        )
+      }
+    }
+  }
+  
+  test("task notifications are sent when compiling project with dependency") {
+    TestUtil.withinWorkspace { workspace =>
+      val sourcesA = List(
+        """/main/scala/Foo.scala
+          |class Foo {
+          |  def foo(s: String): String = s
+          |}
+        """.stripMargin
+      )
+
+      val sourcesB = List(
+        """/main/scala/Bar.scala
+          |object Bar {
+          |  def bar(s: String): String = (new Foo()).foo(s)
+          |}
+        """.stripMargin
+      )
+
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val `A` = TestProject(workspace, "a", sourcesA)
+      val `B` = TestProject(workspace, "b", sourcesB, List(`A`))
+      val projects = List(`A`, `B`)
+
+      loadBspState(workspace, projects, logger) { state =>
+        // When we compile B, which depends on A, both should get task notifications
+        val compiledState = state.compile(`B`)
+        assertExitStatus(compiledState, ExitStatus.Ok)
+        assertValidCompilationState(compiledState, projects)
+
+        // Verify A gets task start and task finish notifications
+        assertNoDiff(
+          compiledState.lastDiagnostics(`A`),
+          """#1: task start 1
+            |  -> Msg: Compiling a (1 Scala source)
+            |  -> Data kind: compile-task
+            |#1: task finish 1
+            |  -> errors 0, warnings 0, noop false
+            |  -> Msg: Compiled 'a'
+            |  -> Data kind: compile-report""".stripMargin
+        )
+
+        // Verify B gets task start and task finish notifications with different task IDs
+        assertNoDiff(
+          compiledState.lastDiagnostics(`B`),
+          """#1: task start 2
+            |  -> Msg: Compiling b (1 Scala source)
+            |  -> Data kind: compile-task
+            |#1: task finish 2
+            |  -> errors 0, warnings 0, noop false
+            |  -> Msg: Compiled 'b'
+            |  -> Data kind: compile-report""".stripMargin
+        )
+
+      }
+    }
+  }
+
+  test("task notifications are sent when compiling dependency chain A -> B -> C") {
+    TestUtil.withinWorkspace { workspace =>
+      val sourcesA = List(
+        """/main/scala/A.scala
+          |class A {
+          |  def methodA(): String = "A"
+          |}
+        """.stripMargin
+      )
+
+      val sourcesB = List(
+        """/main/scala/B.scala
+          |class B {
+          |  def methodB(): String = (new A()).methodA() + "B"
+          |}
+        """.stripMargin
+      )
+
+      val sourcesC = List(
+        """/main/scala/C.scala
+          |object C {
+          |  def methodC(): String = (new B()).methodB() + "C"
+          |}
+        """.stripMargin
+      )
+
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val `A` = TestProject(workspace, "a", sourcesA)
+      val `B` = TestProject(workspace, "b", sourcesB, List(`A`))
+      val `C` = TestProject(workspace, "c", sourcesC, List(`B`))
+      val projects = List(`A`, `B`, `C`)
+
+      loadBspState(workspace, projects, logger) { state =>
+        // When we compile C, which depends on B -> A, all three should get task notifications
+        val compiledState = state.compile(`C`)
+        assertExitStatus(compiledState, ExitStatus.Ok)
+        assertValidCompilationState(compiledState, projects)
+
+        // Verify A gets task notifications (task id 1)
+        assertNoDiff(
+          compiledState.lastDiagnostics(`A`),
+          """#1: task start 1
+            |  -> Msg: Compiling a (1 Scala source)
+            |  -> Data kind: compile-task
+            |#1: task finish 1
+            |  -> errors 0, warnings 0, noop false
+            |  -> Msg: Compiled 'a'
+            |  -> Data kind: compile-report""".stripMargin
+        )
+
+        // Verify B gets task notifications (task id 2)
+        assertNoDiff(
+          compiledState.lastDiagnostics(`B`),
+          """#1: task start 2
+            |  -> Msg: Compiling b (1 Scala source)
+            |  -> Data kind: compile-task
+            |#1: task finish 2
+            |  -> errors 0, warnings 0, noop false
+            |  -> Msg: Compiled 'b'
+            |  -> Data kind: compile-report""".stripMargin
+        )
+
+        // Verify C gets task notifications (task id 3)
+        assertNoDiff(
+          compiledState.lastDiagnostics(`C`),
+          """#1: task start 3
+            |  -> Msg: Compiling c (1 Scala source)
+            |  -> Data kind: compile-task
+            |#1: task finish 3
+            |  -> errors 0, warnings 0, noop false
+            |  -> Msg: Compiled 'c'
+            |  -> Data kind: compile-report""".stripMargin
+        )
+      }
+    }
+  }
+
+  test("send-noop") {
+    TestUtil.withinWorkspace { workspace =>
+      val sourcesA = List(
+        """/main/scala/Foo.scala
+          |class Foo
+        """.stripMargin
+      )
+
+      val sourcesB = List(
+        """/main/scala/Bar.scala
+          |class Bar
+        """.stripMargin
+      )
+
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val `A` = TestProject(workspace, "a", sourcesA)
+      val `B` = TestProject(workspace, "b", sourcesB, List(`A`))
+      val projects = List(`A`, `B`)
+
+      loadBspState(workspace, projects, logger) { state =>
+        // First compilation
+        val compiledState = state.compile(`B`)
+        assertExitStatus(compiledState, ExitStatus.Ok)
+        assertValidCompilationState(compiledState, projects)
+
+        // Second compilation (no-op) - should not send task notifications for either project
+        val secondCompiledState = compiledState.compile(`B`)
+        assertExitStatus(secondCompiledState, ExitStatus.Ok)
+        assertValidCompilationState(secondCompiledState, projects)
+
+        // Verify noop task notifications for A
+        assertNoDiff(
+          secondCompiledState.lastDiagnostics(`A`),
+          ""
+        )
+
+        // Verify noop task notifications for B
+        assertNoDiff(
+          secondCompiledState.lastDiagnostics(`B`),
+          ""
+        )
+
+      }
+    }
+  }
+
+  test("task notifications sent when only dependency needs recompilation") {
+    TestUtil.withinWorkspace { workspace =>
+      val sourcesA = List(
+        """/main/scala/Foo.scala
+          |class Foo {
+          |  def foo(): String = "original"
+          |}
+        """.stripMargin
+      )
+
+      val sourcesB = List(
+        """/main/scala/Bar.scala
+          |class Bar {
+          |  def bar(): String = (new Foo()).foo()
+          |}
+        """.stripMargin
+      )
+
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val `A` = TestProject(workspace, "a", sourcesA)
+      val `B` = TestProject(workspace, "b", sourcesB, List(`A`))
+      val projects = List(`A`, `B`)
+
+      loadBspState(workspace, projects, logger) { state =>
+        // First compilation
+        val compiledState = state.compile(`B`)
+        assertExitStatus(compiledState, ExitStatus.Ok)
+        assertValidCompilationState(compiledState, projects)
+
+        // Modify only A
+        writeFile(
+          `A`.srcFor("/main/scala/Foo.scala"),
+          """/main/scala/Foo.scala
+            |class Foo {
+            |  def foo(): String = "modified"
+            |}
+          """.stripMargin
+        )
+
+        // Compile B again - should trigger recompilation of A and B
+        val secondCompiledState = compiledState.compile(`B`)
+        assertExitStatus(secondCompiledState, ExitStatus.Ok)
+        assertValidCompilationState(secondCompiledState, projects)
+
+        // Verify A gets task notifications (modified and recompiled)
+        assertNoDiff(
+          secondCompiledState.lastDiagnostics(`A`),
+          """#2: task start 3
+            |  -> Msg: Compiling a (1 Scala source)
+            |  -> Data kind: compile-task
+            |#2: task finish 3
+            |  -> errors 0, warnings 0, noop false
+            |  -> Msg: Compiled 'a'
+            |  -> Data kind: compile-report""".stripMargin
+        )
+
+        // Verify B gets task notifications (needs recompilation due to A change)
+        assertNoDiff(
+          secondCompiledState.lastDiagnostics(`B`),
+          """#2: task start 4
+            |  -> Msg: Compiling b (1 Scala source)
+            |  -> Data kind: compile-task
+            |#2: task finish 4
+            |  -> errors 0, warnings 0, noop false
+            |  -> Msg: Compiled 'b'
+            |  -> Data kind: compile-report""".stripMargin
         )
       }
     }

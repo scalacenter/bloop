@@ -14,7 +14,6 @@ import bloop.logging.CompilationEvent
 
 import monix.execution.atomic.AtomicInt
 import xsbti.VirtualFile
-import bloop.UniqueCompileInputs
 import bloop.util.HashedSource
 
 final class BspProjectReporter(

@@ -227,7 +227,7 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
     }
   }
 
-  test("compile build incrementally sourcing from an analysis file") {
+  test("incremental-noop") {
     TestUtil.withinWorkspace { workspace =>
       object Sources {
         val `A.scala` =

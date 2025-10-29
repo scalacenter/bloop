@@ -75,7 +75,7 @@ class BspSbtClientSpec(
              |  -> Msg: Compiling a (1 Scala source)
              |  -> Data kind: compile-task
              |# task finish 1
-             |  -> errors 0, warnings 0
+             |  -> errors 0, warnings 0, noop false
              |  -> origin = $firstOriginId
              |  -> Msg: Compiled 'a'
              |  -> Data kind: compile-report""".stripMargin,
@@ -87,7 +87,7 @@ class BspSbtClientSpec(
              |  -> Msg: Compiling b (1 Scala source)
              |  -> Data kind: compile-task
              |# task finish 2
-             |  -> errors 0, warnings 0
+             |  -> errors 0, warnings 0, noop false
              |  -> origin = $firstOriginId
              |  -> Msg: Compiled 'b'
              |  -> Data kind: compile-report""".stripMargin,
@@ -99,7 +99,7 @@ class BspSbtClientSpec(
              |  -> Msg: Compiling c (1 Scala source)
              |  -> Data kind: compile-task
              |# task finish 3
-             |  -> errors 0, warnings 0
+             |  -> errors 0, warnings 0, noop false
              |  -> origin = $firstOriginId
              |  -> Msg: Compiled 'c'
              |  -> Data kind: compile-report""".stripMargin,
@@ -111,7 +111,7 @@ class BspSbtClientSpec(
              |  -> Msg: Compiling d (1 Scala source)
              |  -> Data kind: compile-task
              |# task finish 4
-             |  -> errors 0, warnings 0
+             |  -> errors 0, warnings 0, noop false
              |  -> origin = $firstOriginId
              |  -> Msg: Compiled 'd'
              |  -> Data kind: compile-report""".stripMargin,
@@ -123,7 +123,7 @@ class BspSbtClientSpec(
              |  -> Msg: Compiling e (1 Scala source)
              |  -> Data kind: compile-task
              |# task finish 5
-             |  -> errors 0, warnings 0
+             |  -> errors 0, warnings 0, noop false
              |  -> origin = $firstOriginId
              |  -> Msg: Compiled 'e'
              |  -> Data kind: compile-report""".stripMargin,
@@ -160,7 +160,7 @@ class BspSbtClientSpec(
              |  -> Msg: Compiling a (1 Scala source)
              |  -> Data kind: compile-task
              |# task finish 6
-             |  -> errors 0, warnings 0
+             |  -> errors 0, warnings 0, noop false
              |  -> origin = $secondOriginId
              |  -> Msg: Compiled 'a'
              |  -> Data kind: compile-report""".stripMargin
@@ -177,7 +177,7 @@ class BspSbtClientSpec(
              |  -> Msg: Compiling c (1 Scala source)
              |  -> Data kind: compile-task
              |# task finish 7
-             |  -> errors 0, warnings 0
+             |  -> errors 0, warnings 0, noop false
              |  -> origin = $secondOriginId
              |  -> Msg: Compiled 'c'
              |  -> Data kind: compile-report""".stripMargin
@@ -238,7 +238,7 @@ class BspSbtClientSpec(
             |  -> Msg: Compiling a (1 Scala source)
             |  -> Data kind: compile-task
             |#1: task finish 1
-            |  -> errors 0, warnings 0
+            |  -> errors 0, warnings 0, noop false
             |  -> Msg: Compiled 'a'
             |  -> Data kind: compile-report""".stripMargin
         )
@@ -267,7 +267,7 @@ class BspSbtClientSpec(
             |  -> List(Diagnostic(Range(Position(1,3),Position(1,3)),Some(Error),Some(_),Some(_),';' expected but 'def' found.,None,None,Some({"actions":[]})))
             |  -> reset = true
             |#2: task finish 2
-            |  -> errors 1, warnings 0
+            |  -> errors 1, warnings 0, noop false
             |  -> Msg: Compiled 'a'
             |  -> Data kind: compile-report """.stripMargin
         )
@@ -288,7 +288,7 @@ class BspSbtClientSpec(
             |  -> Msg: Start no-op compilation for a
             |  -> Data kind: compile-task
             |#3: task finish 3
-            |  -> errors 0, warnings 0
+            |  -> errors 0, warnings 0, noop true
             |  -> Msg: Compiled 'a'
             |  -> Data kind: compile-report""".stripMargin
         )
