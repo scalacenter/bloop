@@ -49,13 +49,16 @@ class BspConnectionSpec(
         configDir,
         bspLogger
       )
+      var lastCompilationHashes: Option[Map[String, Int]] = None
       bspState.withinSession { state =>
         val compiledState = state.compile(`B`)
         assertExitStatus(compiledState, ExitStatus.Ok)
         assert(compiledState.wasLastCompilationNoop.exists(_ == false))
+        lastCompilationHashes = compiledState.lastCompilationHashes
         val secondCompiledState = compiledState.compile(`B`)
         assertExitStatus(secondCompiledState, ExitStatus.Ok)
         assert(secondCompiledState.wasLastCompilationNoop.exists(_ == true))
+        assertEquals(secondCompiledState.lastCompilationHashes, lastCompilationHashes)
         ()
       }
 
@@ -70,9 +73,11 @@ class BspConnectionSpec(
         val compiledState = state.compile(`B`)
         assertExitStatus(compiledState, ExitStatus.Ok)
         assert(compiledState.wasLastCompilationNoop.exists(_ == true))
+        assertEquals(compiledState.lastCompilationHashes, lastCompilationHashes)
         val secondCompiledState = compiledState.compile(`B`)
         assertExitStatus(secondCompiledState, ExitStatus.Ok)
         assert(secondCompiledState.wasLastCompilationNoop.exists(_ == true))
+        assertEquals(compiledState.lastCompilationHashes, lastCompilationHashes)
         ()
       }
 

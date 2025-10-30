@@ -269,7 +269,7 @@ abstract class BaseSuite extends TestSuite with BloopHelpers {
       }
     } else {
       result match {
-        case Compiler.Result.Success(reporter, _, _, _, _, reportedFatalWarnings) =>
+        case Compiler.Result.Success(reporter, _, _, _, _, reportedFatalWarnings, _) =>
           val count = Problem.count(reporter.allProblemsPerPhase.toList)
           assert(count.errors == 0)
           assert(expectFatalWarnings == reportedFatalWarnings)

@@ -602,7 +602,7 @@ final class BloopBspServices(
           result match {
             case Compiler.Result.Empty => Nil
             case Compiler.Result.Blocked(_) => Nil
-            case Compiler.Result.Success(_, _, _, _, _, _) =>
+            case Compiler.Result.Success(_, _, _, _, _, _, _) =>
               previouslyFailedCompilations.remove(p)
               Nil
             case Compiler.Result.GlobalError(problem, _) => List(problem)
@@ -618,21 +618,30 @@ final class BloopBspServices(
           }
       }
 
-      val isFullCompilationNoopNoOp = compiledResults.forall {
-        case (_, result) =>
-          result match {
-            case Compiler.Result.Success(_, _, _, _, isNoOp, _) => isNoOp
-            case _ => false
-          }
-      }
-
       val response: Either[Response.Error, bsp.CompileResult] = {
         if (cancelCompilation.isCompleted)
           Right(bsp.CompileResult(originId, bsp.StatusCode.Cancelled, None, None))
         else {
           errorMsgs match {
             case Nil =>
-              val result = ScalaCompileReport(errors = 0, warnings = 0, isFullCompilationNoopNoOp)
+
+              val isFullCompilationNoopNoOp = compiledResults.forall {
+                case (_, Compiler.Result.Success(_, _, _, _, isNoOp, _, _)) => isNoOp
+                case _ => false
+              }
+              val successfulHashes = compiledResults.collect {
+                case (project, Compiler.Result.Success(_, _, _, _, _, _, Some(lastAnalysisHash))) =>
+                  project.bspUri.value -> lastAnalysisHash
+
+              }.toMap
+
+              val result = ScalaCompileReport(
+                errors = 0,
+                warnings = 0,
+                isFullCompilationNoopNoOp,
+                successfulHashes
+              )
+
               Right(
                 bsp.CompileResult(
                   originId,

@@ -62,6 +62,7 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
         state,
         bsp.StatusCode.Ok,
         None,
+        None,
         currentCompileIteration,
         diagnostics,
         client,
@@ -87,6 +88,7 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
       state: State,
       lastBspStatus: bsp.StatusCode,
       wasLastCompilationNoop: Option[Boolean],
+      lastCompilationHashes: Option[Map[String, Int]],
       currentCompileIteration: AtomicInt,
       val diagnostics: ConcurrentHashMap[bsp.BuildTargetIdentifier, StringBuilder],
       implicit val client0: BloopLanguageClient,
@@ -169,10 +171,12 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
               )
               .map { state =>
                 val isNoOp = result.map(_.isCompilationNoop)
+                val lastCompilationHashes = result.map(_.compilationHashes)
                 new ManagedBspTestState(
                   state,
                   r.statusCode,
                   isNoOp,
+                  lastCompilationHashes,
                   currentCompileIteration,
                   diagnostics,
                   client0,
@@ -237,6 +241,7 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
                 state,
                 r.statusCode,
                 None,
+                None,
                 currentCompileIteration,
                 diagnostics,
                 client0,
@@ -274,6 +279,7 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
               new ManagedBspTestState(
                 state,
                 statusCode,
+                None,
                 None,
                 currentCompileIteration,
                 diagnostics,
@@ -313,6 +319,7 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
                 new ManagedBspTestState(
                   state,
                   r.statusCode,
+                  None,
                   None,
                   currentCompileIteration,
                   diagnostics,
@@ -492,6 +499,7 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
                 state,
                 toBspStatus(state.status),
                 None,
+                None,
                 currentCompileIteration,
                 diagnostics,
                 client0,
@@ -558,6 +566,7 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
                 state,
                 toBspStatus(state.status),
                 None,
+                None,
                 currentCompileIteration,
                 diagnostics,
                 client0,
@@ -580,6 +589,7 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
       new ManagedBspTestState(
         newState,
         this.lastBspStatus,
+        None,
         None,
         this.currentCompileIteration,
         this.diagnostics,

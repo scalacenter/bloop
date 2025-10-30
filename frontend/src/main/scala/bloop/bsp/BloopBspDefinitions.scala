@@ -40,7 +40,8 @@ object BloopBspDefinitions {
   case class ScalaCompileReport(
       errors: Int,
       warnings: Int,
-      isCompilationNoop: Boolean
+      isCompilationNoop: Boolean,
+      compilationHashes: Map[String, Int]
   )
 
   object ScalaCompileReport {
