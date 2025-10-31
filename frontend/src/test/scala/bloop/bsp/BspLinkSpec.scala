@@ -19,7 +19,7 @@ class BspLinkSpec(
       loadBspBuildFromResources(s"cross-test-build-scala-native-0.4", workspace, logger) { build =>
         val project: TestProject = build.projectFor("test-projectNative")
         val compiledState =
-          build.state.compile(project, arguments = Some(List("--link")))
+          build.state.compile(project, arguments = Some(List("--link")), timeout = 60)
         assertEquals(compiledState.status, ExitStatus.Ok)
         assert(
           logger
@@ -37,7 +37,7 @@ class BspLinkSpec(
       loadBspBuildFromResources(s"cross-test-build-scala-native-0.5", workspace, logger) { build =>
         val project: TestProject = build.projectFor("test-projectNative")
         val compiledState =
-          build.state.compile(project, arguments = Some(List("--link")))
+          build.state.compile(project, arguments = Some(List("--link")), timeout = 60)
         assertEquals(compiledState.status, ExitStatus.Ok)
         assert(
           logger
@@ -55,7 +55,7 @@ class BspLinkSpec(
       loadBspBuildFromResources(s"cross-test-build-scala-native-0.5", workspace, logger) { build =>
         val project: TestProject = build.projectFor("test-projectNative")
         val compiledState =
-          build.state.compile(project, arguments = Some(List("--link", "--release")))
+          build.state.compile(project, arguments = Some(List("--link", "--release")), timeout = 60)
         assertEquals(compiledState.status, ExitStatus.Ok)
         assert(
           logger
@@ -73,7 +73,7 @@ class BspLinkSpec(
       loadBspBuildFromResources(s"cross-test-build-scalajs-1.x", workspace, logger) { build =>
         val project: TestProject = build.projectFor("test-projectJS")
         val compiledState =
-          build.state.compile(project, arguments = Some(List("--link")))
+          build.state.compile(project, arguments = Some(List("--link")), timeout = 60)
         assertEquals(compiledState.status, ExitStatus.Ok)
         assert(
           logger
@@ -91,7 +91,7 @@ class BspLinkSpec(
       loadBspBuildFromResources(s"cross-test-build-scalajs-1.x", workspace, logger) { build =>
         val project: TestProject = build.projectFor("test-projectJS")
         val compiledState =
-          build.state.compile(project, arguments = Some(List("--link", "--release")))
+          build.state.compile(project, arguments = Some(List("--link", "--release")), timeout = 60)
         assertEquals(compiledState.status, ExitStatus.Ok)
         assert(
           logger
