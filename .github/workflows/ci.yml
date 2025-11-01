@@ -75,7 +75,7 @@ jobs:
       - uses: coursier/cache-action@v6
       - uses: coursier/setup-action@v1
       - uses: sbt/setup-sbt@v1
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v6
         with:
           node-version: "16"
       - name: Set up environment
@@ -206,7 +206,7 @@ jobs:
         with:
           jvm: 'temurin:17'
       - uses: sbt/setup-sbt@v1
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v6
         with:
           node-version: "16"
       - name: Download built GraalVM binaries
