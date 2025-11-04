@@ -100,7 +100,8 @@ object DependencyResolution {
     catch {
       case error: CoursierError =>
         // Try fallback for each dependency
-        val fallbackJars = dependencies.flatMap(dep => fallbackDownload(dep, logger))
+        val fallbackJars =
+          dependencies.flatMap(dep => fallbackDownload(dep, logger, resolveSources))
         if (fallbackJars.nonEmpty)
           Right(fallbackJars.map(AbsolutePath(_)).toArray)
         else
@@ -120,7 +121,8 @@ object DependencyResolution {
    */
   def fallbackDownload(
       dependency: coursierapi.Dependency,
-      logger: Logger
+      logger: Logger,
+      resolveSources: Boolean
   ): List[Path] = {
     val userHome: Path = Paths.get(Properties.userHome)
     /* Metals VS Code extension will download coursier for us most of the time */
@@ -137,13 +139,14 @@ object DependencyResolution {
       case None => Nil
       case Some(path) =>
         logger.debug(
-          s"Found coursier in path under $path, using it to fetch dependency"
+          s"Found coursier in path under $path, Bloop will use it to fetch the dependency"
         )(DebugFilter.All)
         val module = dependency.getModule()
         val depString =
           s"${module.getOrganization()}:${module.getName()}:${dependency.getVersion}"
+        val withSourceFlag = if (resolveSources) List("--sources") else Nil
         runSync(
-          List(path.toString(), "fetch", depString),
+          List(path.toString(), "fetch", depString) ++ withSourceFlag,
           AbsolutePath(userHome)
         ) match {
           case Some(out) =>

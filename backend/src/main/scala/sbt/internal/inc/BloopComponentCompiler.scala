@@ -287,6 +287,7 @@ private[inc] class BloopComponentCompiler(
             case Right(paths) => paths.map(_.underlying).toVector
             case Left(t) =>
               val msg = s"Couldn't retrieve module $bridgeSources"
+              logger.error(msg, t)
               throw new InvalidComponent(msg, t)
           }
         }
