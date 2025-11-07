@@ -56,8 +56,10 @@
             });
         </script></nav></div><div class="container mainContainer docsContainer"><div class="wrapper"><div class="post"><header class="postHeader"><a class="edit-page-link button" href="https://github.com/scalacenter/bloop/edit/main/docs/integration.md" target="_blank" rel="noreferrer noopener">Edit</a><h1 id="__docusaurus" class="postHeaderTitle">Integrate with the Build Server</h1></header><article><div><span><p>There are two ways to implement a client integration with Bloop's build server:</p>
 <ol>
-<li>via the <strong>Build Server Protocol</strong>, recommended for text editors and build tools</li>
-<li>via the <strong>Command-Line Application</strong>, recommended for lightweight clients such as scripts</li>
+<li>via the <strong>Build Server Protocol</strong>, recommended for text editors and build
+tools</li>
+<li>via the <strong>Command-Line Application</strong>, recommended for lightweight clients
+such as scripts</li>
 </ol>
 <div class="diagram">
   <p>
@@ -74,47 +76,107 @@ server, as well as establish an open bsp connection with it. Therefore, clients
 that wish to integrate with bloop can provide an out-of-the-box experience to
 their users.</p>
 <h2><a class="anchor" aria-hidden="true" id="build-server-protocol-bsp"></a><a href="#build-server-protocol-bsp" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Build Server Protocol (BSP)</h2>
-<p>The <a href="https://github.com/scalacenter/bsp">Build Server Protocol</a> is a work-in-progress protocol designed by the <a href="https://scala.epfl.ch">Scala
-Center</a> and <a href="https://www.jetbrains.com/">JetBrains</a>. Bloop is the first build
-server to implement the protocol and provide build supports to clients such as
-<a href="https://scalameta.org/metals/">Metals</a> and <a href="https://www.jetbrains.com/idea/">IntelliJ</a></p>
-<p>At the moment, Bloop 2.0.16 partially implements version 2.0.0-M2 and Bloop v1.0.0 implements
-version 1.0.0. If you want to implement a compatible build client, check out <a href="https://github.com/scalacenter/bsp/blob/master/docs/bsp.md">the protocol
-specification</a>. As a client, the
-protocol gives you fine-grained build and action information and it's more suitable for rich clients
-such as build tools or editors.</p>
+<p>The <a href="https://github.com/scalacenter/bsp">Build Server Protocol</a> is a work-in-progress protocol designed by the
+<a href="https://scala.epfl.ch">Scala Center</a> and
+<a href="https://www.jetbrains.com/">JetBrains</a>. Bloop is the first build server to
+implement the protocol and provide build supports to clients such as
+<a href="https://scalameta.org/metals/">Metals</a> and
+<a href="https://www.jetbrains.com/idea/">IntelliJ</a></p>
+<p>At the moment, Bloop 2.0.16 partially implements version 2.0.0-M2 and Bloop
+v1.0.0 implements version 1.0.0. If you want to implement a compatible build
+client, check out
+<a href="https://github.com/scalacenter/bsp/blob/master/docs/bsp.md">the protocol specification</a>.
+As a client, the protocol gives you fine-grained build and action information
+and it's more suitable for rich clients such as build tools or editors.</p>
 <h3><a class="anchor" aria-hidden="true" id="creating-a-bsp-client"></a><a href="#creating-a-bsp-client" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Creating a BSP client</h3>
-<p>BSP allows clients to have fine-grained information and control about the build tool actions. For
-example, a client can obtain the projects in a build, inspect their metadata, trigger supported
-tasks such as compilation, listen to compiler diagnostics and receive task notifications.</p>
+<p>BSP allows clients to have fine-grained information and control about the build
+tool actions. For example, a client can obtain the projects in a build, inspect
+their metadata, trigger supported tasks such as compilation, listen to compiler
+diagnostics and receive task notifications.</p>
 <p>You can implement your BSP client:</p>
 <ol>
-<li>via Java (<a href="https://github.com/scalacenter/bsp/tree/master/bsp4j/src/main">ch.epfl.scala:bsp4j:2.0.0-M2</a>) based on <a href="https://github.com/eclipse/lsp4j">lsp4j</a></li>
-<li>via Scala (<a href="https://github.com/scalacenter/bsp/tree/master/bsp4s/src/main">ch.epfl.scala:bsp4s:2.0.0-M2</a>) based on <a href="https://github.com/scalameta/lsp4s">lsp4s</a></li>
+<li>via Java
+(<a href="https://github.com/scalacenter/bsp/tree/master/bsp4j/src/main">ch.epfl.scala:bsp4j:2.0.0-M2</a>)
+based on <a href="https://github.com/eclipse/lsp4j">lsp4j</a></li>
+<li>via Scala
+(<a href="https://github.com/scalacenter/bsp/tree/master/bsp4s/src/main">ch.epfl.scala:bsp4s:2.0.0-M2</a>)
+based on <a href="https://github.com/scalameta/lsp4s">lsp4s</a></li>
 </ol>
 <h2><a class="anchor" aria-hidden="true" id="command-line-application-cli"></a><a href="#command-line-application-cli" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Command-line application (CLI)</h2>
-<p>Lightweight build clients that don't need to control the output of the build server or obtain the
-positions of compiler diagnostics can shell out to the bloop command-line application. This simple
-integration is useful whenever you want to use bloop features in custom tools or scripts or when you
-want to prototype a quick build tool integration.</p>
-<p>To interface with the bloop CLI, head to the <a href="cli/reference">CLI reference</a> to learn all the
-supported commands.</p>
+<p>Lightweight build clients that don't need to control the output of the build
+server or obtain the positions of compiler diagnostics can shell out to the
+bloop command-line application. This simple integration is useful whenever you
+want to use bloop features in custom tools or scripts or when you want to
+prototype a quick build tool integration.</p>
+<p>To interface with the bloop CLI, head to the <a href="cli/reference">CLI reference</a> to
+learn all the supported commands.</p>
 <h3><a class="anchor" aria-hidden="true" id="generating-configuration-files"></a><a href="#generating-configuration-files" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Generating configuration files</h3>
-<p>You may have a simple tool that wants to use Bloop but needs to generate Bloop configuration files.
-For example, imagine that you are creating a small utility to run integration tests or you want to
-assert that a certain code snippet doesn't compile in your tests.</p>
-<p>To use bloop in these scenarios, you need to learn how to generate Bloop configuration files. Head
-to the <a href="configuration-format">JSON Configuration Reference</a> to learn more about what's required to
-generate configuration files.</p>
+<p>You may have a simple tool that wants to use Bloop but needs to generate Bloop
+configuration files. For example, imagine that you are creating a small utility
+to run integration tests or you want to assert that a certain code snippet
+doesn't compile in your tests.</p>
+<p>To use bloop in these scenarios, you need to learn how to generate Bloop
+configuration files. Head to the
+<a href="configuration-format">JSON Configuration Reference</a> to learn more about what's
+required to generate configuration files.</p>
 <h3><a class="anchor" aria-hidden="true" id="inspecting-json-files-with-scripts"></a><a href="#inspecting-json-files-with-scripts" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Inspecting JSON files with scripts</h3>
-<p>Have you ever wanted to extract information from your build definition when writing a script for
-your local development, your team or your CI? With bloop you can extract this information from its
-configuration files via common CLI tools such as:</p>
+<p>Have you ever wanted to extract information from your build definition when
+writing a script for your local development, your team or your CI? With bloop
+you can extract this information from its configuration files via common CLI
+tools such as:</p>
 <ol>
 <li><a href="https://github.com/tomnomnom/gron">gron</a> to simply grep JSON files.</li>
-<li><a href="https://stedolan.github.io/jq/">jq</a> to process and extract in-depth JSON data.</li>
+<li><a href="https://stedolan.github.io/jq/">jq</a> to process and extract in-depth JSON
+data.</li>
 </ol>
-</span></div></article></div><div class="docs-prevnext"><a class="docs-prev button" href="/bloop/docs/what-is-bloop"><span class="arrow-prev">← </span><span>What is Bloop</span></a><a class="docs-next button" href="/bloop/docs/cli/tutorial"><span>CLI tutorial</span><span class="arrow-next"> →</span></a></div></div></div><nav class="onPageNav"><ul class="toc-headings"><li><a href="#build-server-protocol-bsp">Build Server Protocol (BSP)</a><ul class="toc-headings"><li><a href="#creating-a-bsp-client">Creating a BSP client</a></li></ul></li><li><a href="#command-line-application-cli">Command-line application (CLI)</a><ul class="toc-headings"><li><a href="#generating-configuration-files">Generating configuration files</a></li><li><a href="#inspecting-json-files-with-scripts">Inspecting JSON files with scripts</a></li></ul></li></ul></nav></div><footer class="nav-footer" id="footer" style="background-color:rgb(17, 42, 68)"><section class="sitemap"><a href="/bloop/" class="nav-home"><img src="/bloop/img/impure-logo-bloop.svg" alt="Bloop" height="60"/></a><a href="/bloop/" class="nav-home"><img src="/bloop/img/frontpage/scala.png" alt="Bloop" height="60"/></a><div><h5>Overview</h5><a href="/bloop/docs/what-is-bloop">What is Bloop</a><a href="/bloop/docs/integration">Integrate with Bloop</a><a href="/bloop/docs/build-tools/overview">Build Tools</a><a href=" /bloop/docs/contributing-guide">Contributing</a></div><div><h5>Build Tools</h5><a href="/bloop/docs/build-tools/sbt">sbt</a><a href="/bloop/docs/build-tools/gradle">Gradle</a><a href="/bloop/docs/build-tools/maven">Maven</a><a href="/bloop/docs/build-tools/mill">Mill</a></div><div><h5>Social</h5><a href="https://github.com/scalacenter/bloop" target="_blank"><img src="https://img.shields.io/github/stars/scalacenter/bloop.svg?color=%23087e8b&amp;label=stars&amp;logo=github&amp;style=social"/></a><a href="https://discord.gg/KWF9zMhJWS" target="_blank"><img src="https://img.shields.io/discord/632642981228314653?logo=discord&amp;style=social"/></a></div></section><section class="copyright">Copyright © 2025 Bloop</section><section class="copyright">Credits to @freepik for svg icons</section><section class="copyright">Credits to Bazel, Babel and Metals for inspiring Bloop&#x27;s website design</section></footer></div><script type="text/javascript" src="https://cdn.jsdelivr.net/docsearch.js/1/docsearch.min.js"></script><script>
+<h3><a class="anchor" aria-hidden="true" id="when-does-bloop-compile-projects"></a><a href="#when-does-bloop-compile-projects" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>When does Bloop compile projects?</h3>
+<p>Bloop will only compile projects if there is anything that changed since the
+last compilation.</p>
+<p>The changes that Bloop will check are:</p>
+<ul>
+<li>any changes to the the jar files in the project (though Bloop will not check
+the contents of the jar files)</li>
+<li>any changes to the source files</li>
+<li>any changes in the external APIs of the targets that the current target
+depends on</li>
+<li>any removals of previously compiled products (classes, semanticdb files, etc.)</li>
+</ul>
+<p>If there was no change in any of the above, Bloop will not compile the project
+and will return a no-op compilation for a given target. This includes cases
+where the current target was compiled in a previous connection to Bloop or by a
+separate client such as CLI.</p>
+<p>For more details see <code>detectInitialChanges</code> method in the <code>BloopNameHashing</code>
+class.</p>
+<p>When compilation is noop, Bloop will send that information to the client in the
+return message of the compile request. This is done by setting the
+<code>isCompilationNoop</code> field to true in the <code>ScalaCompileReport</code> message available
+under the data field of the <code>CompileResult</code> message.</p>
+<p>The <code>ScalaCompileReport</code> message is defined as follows:</p>
+<pre><code class="hljs"><span class="hljs-keyword">case</span> <span class="hljs-keyword">class</span> <span class="hljs-symbol">ScalaCompileReport</span>(
+      <span class="hljs-symbol">errors: <span class="hljs-symbol">Int</span>,
+      <span class="hljs-symbol">warnings</span>: <span class="hljs-symbol">Int</span>,
+      <span class="hljs-symbol">isCompilationNoop</span>: <span class="hljs-symbol">Boolean</span>,
+      <span class="hljs-symbol">compilationHashes</span>: <span class="hljs-symbol">Map</span></span>[<span class="hljs-symbol">String, <span class="hljs-symbol">Int</span></span>]
+)
+</code></pre>
+<p>Is <code>isCompilationNoop</code> set to true only when the compilation didn't cause any
+target to be compiled. This means that a compilation could have take before with
+a request from a different client.</p>
+<p>The <code>compilationHashes</code> field is a map of project URIs to the hashes of the
+analyses of the projects. These hashes are unique for each compilation and can
+be used to determine if the compilation was a noop in terms of the current
+client. It's especially useful to ensure the compilation wasn't done by a
+different client and the current client were just notified about the same
+compilation.</p>
+<p>Bloop will also send additional notifications for each project that had a noop
+compilation, but only if most recent change was reverted. For example, when a
+user broke a file by adding an error and later removed it, Bloop will send a
+notification for the project that had a noop compilation to signify that despite
+the changes no compilation was needed. If no task notifications were sent after
+compile request, the client can assume that the compilation was a noop. However,
+it's much more convenient to use the <code>isCompilationNoop</code> field in the
+<code>ScalaCompileReport</code> message.</p>
+</span></div></article></div><div class="docs-prevnext"><a class="docs-prev button" href="/bloop/docs/what-is-bloop"><span class="arrow-prev">← </span><span>What is Bloop</span></a><a class="docs-next button" href="/bloop/docs/cli/tutorial"><span>CLI tutorial</span><span class="arrow-next"> →</span></a></div></div></div><nav class="onPageNav"><ul class="toc-headings"><li><a href="#build-server-protocol-bsp">Build Server Protocol (BSP)</a><ul class="toc-headings"><li><a href="#creating-a-bsp-client">Creating a BSP client</a></li></ul></li><li><a href="#command-line-application-cli">Command-line application (CLI)</a><ul class="toc-headings"><li><a href="#generating-configuration-files">Generating configuration files</a></li><li><a href="#inspecting-json-files-with-scripts">Inspecting JSON files with scripts</a></li><li><a href="#when-does-bloop-compile-projects">When does Bloop compile projects?</a></li></ul></li></ul></nav></div><footer class="nav-footer" id="footer" style="background-color:rgb(17, 42, 68)"><section class="sitemap"><a href="/bloop/" class="nav-home"><img src="/bloop/img/impure-logo-bloop.svg" alt="Bloop" height="60"/></a><a href="/bloop/" class="nav-home"><img src="/bloop/img/frontpage/scala.png" alt="Bloop" height="60"/></a><div><h5>Overview</h5><a href="/bloop/docs/what-is-bloop">What is Bloop</a><a href="/bloop/docs/integration">Integrate with Bloop</a><a href="/bloop/docs/build-tools/overview">Build Tools</a><a href=" /bloop/docs/contributing-guide">Contributing</a></div><div><h5>Build Tools</h5><a href="/bloop/docs/build-tools/sbt">sbt</a><a href="/bloop/docs/build-tools/gradle">Gradle</a><a href="/bloop/docs/build-tools/maven">Maven</a><a href="/bloop/docs/build-tools/mill">Mill</a></div><div><h5>Social</h5><a href="https://github.com/scalacenter/bloop" target="_blank"><img src="https://img.shields.io/github/stars/scalacenter/bloop.svg?color=%23087e8b&amp;label=stars&amp;logo=github&amp;style=social"/></a><a href="https://discord.gg/KWF9zMhJWS" target="_blank"><img src="https://img.shields.io/discord/632642981228314653?logo=discord&amp;style=social"/></a></div></section><section class="copyright">Copyright © 2025 Bloop</section><section class="copyright">Credits to @freepik for svg icons</section><section class="copyright">Credits to Bazel, Babel and Metals for inspiring Bloop&#x27;s website design</section></footer></div><script type="text/javascript" src="https://cdn.jsdelivr.net/docsearch.js/1/docsearch.min.js"></script><script>
                 document.addEventListener('keyup', function(e) {
                   if (e.target !== document.body) {
                     return;
