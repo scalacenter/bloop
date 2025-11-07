@@ -1034,7 +1034,7 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
     }
   }
 
-  ignore("two concurrent clients deduplicate compilation and run at the same time") {
+  test("two concurrent clients deduplicate compilation and run at the same time") {
     val logger = new RecordingLogger(ansiCodesSupported = false)
     val logger1 = new RecordingLogger(ansiCodesSupported = false)
     val logger2 = new RecordingLogger(ansiCodesSupported = false)
@@ -1089,10 +1089,10 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
 
         assertNoDiff(
           firstRunState.lastDiagnostics(build.userProject),
-          """#1: task start 2
+          """#1: task start 1
             |  -> Msg: Compiling user (32 Scala sources)
             |  -> Data kind: compile-task
-            |#1: task finish 2
+            |#1: task finish 1
             |  -> errors 0, warnings 0, noop false
             |  -> Msg: Compiled 'user'
             |  -> Data kind: compile-report
