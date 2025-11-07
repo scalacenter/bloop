@@ -1617,12 +1617,13 @@ class BspCompileSpec(
         val compiledState = state.compile(`B`)
         assertExitStatus(compiledState, ExitStatus.Ok)
         assertValidCompilationState(compiledState, projects)
+        assert(compiledState.wasLastCompilationNoop.exists(_ == false))
 
         // Second compilation (no-op) - should not send task notifications for either project
         val secondCompiledState = compiledState.compile(`B`)
         assertExitStatus(secondCompiledState, ExitStatus.Ok)
         assertValidCompilationState(secondCompiledState, projects)
-
+        assert(secondCompiledState.wasLastCompilationNoop.exists(_ == true))
         // Verify noop task notifications for A
         assertNoDiff(
           secondCompiledState.lastDiagnostics(`A`),

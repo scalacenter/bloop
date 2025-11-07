@@ -257,7 +257,7 @@ object ResultsCache {
                       val products =
                         CompileProducts(classesDir, classesDir, r, r, Set.empty, Map.empty)
                       val bundle = ResultBundle(
-                        Result.Success(reporter, products, 0L, dummyTasks, false, false),
+                        Result.Success(reporter, products, 0L, dummyTasks, false, false, None),
                         Some(LastSuccessfulResult(inputs, products, Task.now(()))),
                         None
                       )

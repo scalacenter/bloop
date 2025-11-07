@@ -36,6 +36,19 @@ object BloopBspDefinitions {
       JsonCodecMaker.makeWithRequiredCollectionFields
   }
 
+  final val ScalaCompileReportKind = "scala-compile-report"
+  case class ScalaCompileReport(
+      errors: Int,
+      warnings: Int,
+      isCompilationNoop: Boolean,
+      compilationHashes: Map[String, Int]
+  )
+
+  object ScalaCompileReport {
+    implicit val codec: JsonValueCodec[ScalaCompileReport] =
+      JsonCodecMaker.makeWithRequiredCollectionFields
+  }
+
   object stopClientCaching
       extends Endpoint[StopClientCachingParams, Unit]("bloop/stopClientCaching")(
         StopClientCachingParams.codec,

@@ -214,7 +214,8 @@ object Compiler {
         elapsed: Long,
         backgroundTasks: CompileBackgroundTasks,
         isNoOp: Boolean,
-        reportedFatalWarnings: Boolean
+        reportedFatalWarnings: Boolean,
+        analysisHash: Option[Int]
     ) extends Result
         with CacheHashCode
 
@@ -236,7 +237,7 @@ object Compiler {
 
     object Ok {
       def unapply(result: Result): Option[Result] = result match {
-        case s @ (Success(_, _, _, _, _, _) | Empty) => Some(s)
+        case s @ (Success(_, _, _, _, _, _, _) | Empty) => Some(s)
         case _ => None
       }
     }
@@ -547,6 +548,7 @@ object Compiler {
 
           val isNoOp = previousAnalysis.contains(analysis)
           if (isNoOp) {
+
             // If no-op, return previous result with updated classpath hashes
             val noOpPreviousResult = {
               updatePreviousResultWithRecentClasspathHashes(
@@ -638,7 +640,8 @@ object Compiler {
               elapsed,
               backgroundTasks,
               isNoOp,
-              reportedFatalWarnings
+              reportedFatalWarnings,
+              Some(analysis.hashCode())
             )
           } else {
             val allGeneratedProducts = allGeneratedRelativeClassFilePaths.toMap
@@ -746,7 +749,8 @@ object Compiler {
               elapsed,
               backgroundTasksExecution,
               isNoOp,
-              reportedFatalWarnings
+              reportedFatalWarnings,
+              Some(analysis.hashCode())
             )
           }
         case Failure(cause: xsbti.CompileFailed)

@@ -26,6 +26,64 @@ class BspConnectionSpec(
     ExecutionModel.Default
   )
 
+  test("reconnect-noop") {
+    TestUtil.withinWorkspace { workspace =>
+      val sources = List(
+        """/main/scala/Foo.scala
+          |class Foo
+          """.stripMargin
+      )
+      val `A` = TestProject(workspace, "a", sources)
+      val `B` = TestProject(workspace, "b", sources, List(`A`))
+      val projects = List(`A`, `B`)
+
+      val configDir = TestProject.populateWorkspace(workspace, projects)
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val bspLogger = new BspClientLogger(logger)
+
+      def bspCommand() = createBspCommand(configDir)
+      val state = TestUtil.loadTestProject(configDir.underlying, logger)
+      val bspState = openBspConnection(
+        state,
+        bspCommand,
+        configDir,
+        bspLogger
+      )
+      var lastCompilationHashes: Option[Map[String, Int]] = None
+      bspState.withinSession { state =>
+        val compiledState = state.compile(`B`)
+        assertExitStatus(compiledState, ExitStatus.Ok)
+        assert(compiledState.wasLastCompilationNoop.exists(_ == false))
+        lastCompilationHashes = compiledState.lastCompilationHashes
+        val secondCompiledState = compiledState.compile(`B`)
+        assertExitStatus(secondCompiledState, ExitStatus.Ok)
+        assert(secondCompiledState.wasLastCompilationNoop.exists(_ == true))
+        assertEquals(secondCompiledState.lastCompilationHashes, lastCompilationHashes)
+        ()
+      }
+
+      val bspState2 = openBspConnection(
+        state,
+        bspCommand,
+        configDir,
+        bspLogger
+      )
+
+      bspState2.withinSession { state =>
+        val compiledState = state.compile(`B`)
+        assertExitStatus(compiledState, ExitStatus.Ok)
+        assert(compiledState.wasLastCompilationNoop.exists(_ == true))
+        assertEquals(compiledState.lastCompilationHashes, lastCompilationHashes)
+        val secondCompiledState = compiledState.compile(`B`)
+        assertExitStatus(secondCompiledState, ExitStatus.Ok)
+        assert(secondCompiledState.wasLastCompilationNoop.exists(_ == true))
+        assertEquals(compiledState.lastCompilationHashes, lastCompilationHashes)
+        ()
+      }
+
+    }
+  }
+
   test("initialize several clients concurrently and simulate a hard disconnection") {
     TestUtil.withinWorkspace { workspace =>
       val `A` = TestProject(workspace, "a", Nil)

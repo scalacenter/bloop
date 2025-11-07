@@ -7,6 +7,7 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
+import scala.annotation.nowarn
 import scala.collection.concurrent.TrieMap
 import scala.collection.mutable
 import scala.concurrent.Promise
@@ -30,6 +31,8 @@ import ch.epfl.scala.debugadapter.Debuggee
 import bloop.Compiler
 import bloop.ScalaInstance
 import bloop.bsp.BloopBspDefinitions.BloopExtraBuildParams
+import bloop.bsp.BloopBspDefinitions.ScalaCompileReport
+import bloop.bsp.BloopBspDefinitions.ScalaCompileReportKind
 import bloop.cli.Commands
 import bloop.cli.ExitStatus
 import bloop.cli.Validate
@@ -41,6 +44,9 @@ import bloop.data.ClientInfo
 import bloop.data.ClientInfo.BspClientInfo
 import bloop.data.JdkConfig
 import bloop.data.Platform
+import bloop.data.Platform.Js
+import bloop.data.Platform.Jvm
+import bloop.data.Platform.Native
 import bloop.data.Project
 import bloop.data.WorkspaceSettings
 import bloop.engine.Aggregate
@@ -72,21 +78,17 @@ import bloop.testing.LoggingEventHandler
 import bloop.testing.TestInternals
 import bloop.util.JavaRuntime
 
-import com.github.plokhotnyuk.jsoniter_scala.core._
-import com.github.plokhotnyuk.jsoniter_scala.macros.JsonCodecMaker
 import com.github.plokhotnyuk.jsoniter_scala.core.JsonValueCodec
-import jsonrpc4s._
+import com.github.plokhotnyuk.jsoniter_scala.core._
 import com.github.plokhotnyuk.jsoniter_scala.core.readFromArray
+import com.github.plokhotnyuk.jsoniter_scala.macros.JsonCodecMaker
+import jsonrpc4s._
 import monix.execution.Cancelable
 import monix.execution.CancelablePromise
 import monix.execution.Scheduler
 import monix.execution.atomic.AtomicBoolean
 import monix.execution.atomic.AtomicInt
 import monix.reactive.subjects.BehaviorSubject
-import bloop.data.Platform.Js
-import bloop.data.Platform.Jvm
-import bloop.data.Platform.Native
-import scala.annotation.nowarn
 
 final class BloopBspServices(
     callSiteState: State,
@@ -600,7 +602,7 @@ final class BloopBspServices(
           result match {
             case Compiler.Result.Empty => Nil
             case Compiler.Result.Blocked(_) => Nil
-            case Compiler.Result.Success(_, _, _, _, _, _) =>
+            case Compiler.Result.Success(_, _, _, _, _, _, _) =>
               previouslyFailedCompilations.remove(p)
               Nil
             case Compiler.Result.GlobalError(problem, _) => List(problem)
@@ -621,7 +623,33 @@ final class BloopBspServices(
           Right(bsp.CompileResult(originId, bsp.StatusCode.Cancelled, None, None))
         else {
           errorMsgs match {
-            case Nil => Right(bsp.CompileResult(originId, bsp.StatusCode.Ok, None, None))
+            case Nil =>
+
+              val isFullCompilationNoopNoOp = compiledResults.forall {
+                case (_, Compiler.Result.Success(_, _, _, _, isNoOp, _, _)) => isNoOp
+                case _ => false
+              }
+              val successfulHashes = compiledResults.collect {
+                case (project, Compiler.Result.Success(_, _, _, _, _, _, Some(lastAnalysisHash))) =>
+                  project.bspUri.value -> lastAnalysisHash
+
+              }.toMap
+
+              val result = ScalaCompileReport(
+                errors = 0,
+                warnings = 0,
+                isFullCompilationNoopNoOp,
+                successfulHashes
+              )
+
+              Right(
+                bsp.CompileResult(
+                  originId,
+                  bsp.StatusCode.Ok,
+                  Some(ScalaCompileReportKind),
+                  Some(RawJson(writeToArray(result)))
+                )
+              )
             case _ => Right(bsp.CompileResult(originId, bsp.StatusCode.Error, None, None))
           }
         }

@@ -43,6 +43,8 @@ import monix.execution.Scheduler
 import monix.execution.atomic.AtomicInt
 import monix.reactive.Observable
 import monix.reactive.subjects.BehaviorSubject
+import bloop.bsp.BloopBspDefinitions.ScalaCompileReportKind
+import bloop.bsp.BloopBspDefinitions.ScalaCompileReport
 
 abstract class BspBaseSuite extends BaseSuite with BspClientTest {
   final class UnmanagedBspTestState(
@@ -59,6 +61,8 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
       new ManagedBspTestState(
         state,
         bsp.StatusCode.Ok,
+        None,
+        None,
         currentCompileIteration,
         diagnostics,
         client,
@@ -83,6 +87,8 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
   final case class ManagedBspTestState(
       state: State,
       lastBspStatus: bsp.StatusCode,
+      wasLastCompilationNoop: Option[Boolean],
+      lastCompilationHashes: Option[Map[String, Int]],
       currentCompileIteration: AtomicInt,
       val diagnostics: ConcurrentHashMap[bsp.BuildTargetIdentifier, StringBuilder],
       implicit val client0: BloopLanguageClient,
@@ -154,15 +160,23 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
 
         rpcRequest(BuildTarget.compile, bsp.CompileParams(List(target), originId, arguments))
           .flatMap { r =>
+            val result: Option[ScalaCompileReport] =
+              if (r.dataKind.contains(ScalaCompileReportKind))
+                r.data.map(data => readFromArray[ScalaCompileReport](data.value))
+              else None
             // `headL` returns latest saved state from bsp because source is behavior subject
             Task
               .liftMonixTaskUncancellable(
                 serverStates.headL
               )
               .map { state =>
+                val isNoOp = result.map(_.isCompilationNoop)
+                val lastCompilationHashes = result.map(_.compilationHashes)
                 new ManagedBspTestState(
                   state,
                   r.statusCode,
+                  isNoOp,
+                  lastCompilationHashes,
                   currentCompileIteration,
                   diagnostics,
                   client0,
@@ -226,6 +240,8 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
               new ManagedBspTestState(
                 state,
                 r.statusCode,
+                None,
+                None,
                 currentCompileIteration,
                 diagnostics,
                 client0,
@@ -263,6 +279,8 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
               new ManagedBspTestState(
                 state,
                 statusCode,
+                None,
+                None,
                 currentCompileIteration,
                 diagnostics,
                 client0,
@@ -301,6 +319,8 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
                 new ManagedBspTestState(
                   state,
                   r.statusCode,
+                  None,
+                  None,
                   currentCompileIteration,
                   diagnostics,
                   client0,
@@ -478,6 +498,8 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
               val latestServerState = new ManagedBspTestState(
                 state,
                 toBspStatus(state.status),
+                None,
+                None,
                 currentCompileIteration,
                 diagnostics,
                 client0,
@@ -543,6 +565,8 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
               val latestServerState = new ManagedBspTestState(
                 state,
                 toBspStatus(state.status),
+                None,
+                None,
                 currentCompileIteration,
                 diagnostics,
                 client0,
@@ -565,6 +589,8 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
       new ManagedBspTestState(
         newState,
         this.lastBspStatus,
+        None,
+        None,
         this.currentCompileIteration,
         this.diagnostics,
         this.client0,

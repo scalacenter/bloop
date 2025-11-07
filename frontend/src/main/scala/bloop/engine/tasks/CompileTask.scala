@@ -525,7 +525,7 @@ object CompileTask {
     val currentlyUsedCounter = previousSuccessful.counterForClassesDir.decrementAndGet(1)
 
     val previousReadOnlyToDelete = compilerResult match {
-      case Success(_, products, _, _, isNoOp, _) =>
+      case Success(_, products, _, _, isNoOp, _, _) =>
         if (isNoOp) {
           logger.debug(s"Skipping delete of ${previousClassesDir} associated with no-op result")
           None
@@ -548,7 +548,7 @@ object CompileTask {
     val previousBestEffortToDelete = previousResult match {
       case Some(Failed(_, _, _, _, Some(BestEffortProducts(previousProducts, _, _)))) =>
         val newClassesDirOpt = compilerResult match {
-          case Success(_, products, _, _, _, _) => Some(products.newClassesDir)
+          case Success(_, products, _, _, _, _, _) => Some(products.newClassesDir)
           case Failed(_, _, _, _, Some(BestEffortProducts(products, _, _))) =>
             Some(products.newClassesDir)
           case _ => None
