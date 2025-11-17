@@ -74,10 +74,6 @@
         "title": "Integrate with the Build Server",
         "sidebar_label": "Integration Guide"
       },
-      "bloop-rifle": {
-        "title": "Bloop Rifle",
-        "sidebar_label": "Built-in Launcher"
-      },
       "offloading-compilation-sbt": {
         "title": "offloading-compilation-sbt"
       },
@@ -87,6 +83,10 @@
       },
       "release-table": {
         "title": "release-table"
+      },
+      "bloop-rifle": {
+        "title": "Launcher Reference",
+        "sidebar_label": "Built-in Launcher"
       },
       "server-reference": {
         "title": "Build Server Reference",
