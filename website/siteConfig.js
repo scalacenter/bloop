@@ -1,4 +1,4 @@
-const parseYaml = require("js-yaml").safeLoad;
+const parseYaml = require("js-yaml").load;
 const path = require("path");
 const fs = require("fs");
 
