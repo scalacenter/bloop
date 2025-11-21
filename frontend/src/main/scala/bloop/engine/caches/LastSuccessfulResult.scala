@@ -9,7 +9,6 @@ import bloop.data.Project
 import bloop.io.AbsolutePath
 import bloop.task.Task
 
-import monix.execution.atomic.AtomicInt
 import xsbti.compile.CompileAnalysis
 import xsbti.compile.MiniSetup
 import xsbti.compile.PreviousResult
@@ -18,7 +17,6 @@ case class LastSuccessfulResult(
     noClassPathAndSources: Boolean,
     previous: PreviousResult,
     classesDir: AbsolutePath,
-    counterForClassesDir: AtomicInt,
     populatingProducts: Task[Unit]
 ) {
   def isEmpty: Boolean = {
@@ -43,7 +41,6 @@ object LastSuccessfulResult {
       noClassPathAndSources = true,
       EmptyPreviousResult,
       emptyClassesDir,
-      AtomicInt(0),
       Task.now(())
     )
   }
@@ -57,7 +54,6 @@ object LastSuccessfulResult {
       noClassPathAndSources = inputs.sources.size == 0 && inputs.classpath.size == 0,
       products.resultForFutureCompilationRuns,
       AbsolutePath(products.newClassesDir),
-      AtomicInt(0),
       backgroundIO
     )
   }

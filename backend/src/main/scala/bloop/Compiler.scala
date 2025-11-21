@@ -435,7 +435,6 @@ object Compiler {
               // new compilation artifacts coming from scalac, which we will not
               // have in this case and it's going to remain empty.
               val firstTask = Task { BloopPaths.delete(AbsolutePath(newClassesDir)) }
-
               // Then we copy previous best effort artifacts to a clientDir from the
               // cached compilation result.
               // This is useful if e.g. the client restarted after the last compilation
