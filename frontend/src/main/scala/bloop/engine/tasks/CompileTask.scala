@@ -1,8 +1,13 @@
 package bloop.engine.tasks
 
+import java.nio.file.Path
 import java.util.Optional
+import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.concurrent.atomic.AtomicInteger
+
 import scala.collection.mutable
 import scala.concurrent.Promise
+
 import bloop.CompileBackgroundTasks
 import bloop.CompileInputs
 import bloop.CompileOutPaths
@@ -35,6 +40,7 @@ import bloop.reporter.ReporterInputs
 import bloop.task.Task
 import bloop.tracing.BraveTracer
 import bloop.util.BestEffortUtils.BestEffortProducts
+
 import monix.execution.CancelableFuture
 import monix.reactive.MulticastStrategy
 import monix.reactive.Observable
@@ -42,10 +48,10 @@ import xsbti.compile.CompileAnalysis
 import xsbti.compile.MiniSetup
 import xsbti.compile.PreviousResult
 
-import java.nio.file.Path
-
 object CompileTask {
   private implicit val logContext: DebugFilter = DebugFilter.Compilation
+  private val compilationCounter = new AtomicInteger(0)
+  private val cleanUpTasks = new ConcurrentLinkedQueue[AbsolutePath]()
 
   def compile[UseSiteLogger <: Logger](
       state: State,
@@ -57,6 +63,8 @@ object CompileTask {
       store: CompileClientStore,
       rawLogger: UseSiteLogger
   ): Task[State] = Task.defer {
+    compilationCounter.incrementAndGet()
+
     import bloop.data.ClientInfo
     import bloop.internal.build.BuildInfo
     val originUri = state.build.origin
@@ -337,7 +345,7 @@ object CompileTask {
       }
 
       val client = state.client
-      CompileGraph
+      val compilation = CompileGraph
         .traverse(dag, client, store, bestEffortAllowed, setup, compile, tracer)
         .flatMap { pdag =>
           val partialResults = Dag.dfs(pdag, mode = Dag.PreOrder)
@@ -408,7 +416,12 @@ object CompileTask {
               .doOnFinish(_ => Task(rootTracer.terminate()))
           }
         }
+      compilation
+        .doOnFinish(_ =>
+          cleanupIfNoCompilationRunning(compilationCounter.decrementAndGet(), tracer, rawLogger)
+        )
     }
+
   }
 
   case class ConfiguredCompilation(scalacOptions: List[String])
@@ -470,13 +483,14 @@ object CompileTask {
             for {
               _ <- previousSuccessful.populatingProducts
               _ <- populateNewProductsTask
-              _ <- cleanUpPreviousResult(
+              toDelete = previousDirectoriesToCleanup(
                 previousSuccessful,
                 previousResult,
                 compilerResult,
                 tracer,
                 logger
               )
+              _ = toDelete.foreach(cleanUpTasks.add)
             } yield ()
         }
 
@@ -514,15 +528,14 @@ object CompileTask {
    * superseeded by the new classes directory generated during a successful
    * compile.
    */
-  private def cleanUpPreviousResult(
+  private def previousDirectoriesToCleanup(
       previousSuccessful: LastSuccessfulResult,
       previousResult: Option[Compiler.Result],
       compilerResult: Compiler.Result,
       tracer: BraveTracer,
       logger: Logger
-  ): Task[Unit] = tracer.trace("clean up previous result") { implicit tracer =>
+  ): List[AbsolutePath] = tracer.trace("clean up previous result") { _ =>
     val previousClassesDir = previousSuccessful.classesDir
-    val currentlyUsedCounter = previousSuccessful.counterForClassesDir.decrementAndGet(1)
 
     val previousReadOnlyToDelete = compilerResult match {
       case Success(_, products, _, _, isNoOp, _, _) =>
@@ -531,11 +544,6 @@ object CompileTask {
           None
         } else if (CompileOutPaths.hasEmptyClassesDir(previousClassesDir)) {
           logger.debug(s"Skipping delete of empty classes dir ${previousClassesDir}")
-          None
-        } else if (currentlyUsedCounter != 0) {
-          logger.debug(
-            s"Skipping delete of $previousClassesDir, counter is $currentlyUsedCounter"
-          )
           None
         } else {
           val newClassesDir = products.newClassesDir
@@ -566,28 +574,34 @@ object CompileTask {
       case _ => None
     }
 
-    def deleteOrphanDir(orphanDir: Option[AbsolutePath])(implicit
-        tracer: BraveTracer
-    ): Task[Unit] = {
-      tracer.trace("delete orphan dir") { _ =>
-        orphanDir match {
-          case None => Task.unit
-          case Some(classesDir) =>
+    List(
+      previousReadOnlyToDelete,
+      previousBestEffortToDelete
+    ).flatten
+
+  }
+
+  def cleanupIfNoCompilationRunning(
+      counter: Int,
+      tracer: BraveTracer,
+      logger: Logger
+  ): Task[Unit] = {
+    if (counter == 0) {
+      tracer.trace("delete orphan directories") { _ =>
+        val allDeleteDirectories = new mutable.ListBuffer[AbsolutePath]()
+        while (cleanUpTasks.size() > 0) allDeleteDirectories += cleanUpTasks.poll()
+        val allDeleteTasks = allDeleteDirectories
+          .result()
+          .map(classesDir => {
             Task.eval {
-              logger.debug(s"Deleting contents of orphan dir $classesDir")
+              logger.debug(s"Deleting contents of orphan dir $classesDir : ${classesDir.exists}")
               BloopPaths.delete(classesDir)
             }.asyncBoundary
-        }
+          })
+        Task.gatherUnordered(allDeleteTasks).map(_ => ())
       }
+    } else {
+      Task.unit
     }
-
-    Task
-      .gatherUnordered(
-        List(
-          deleteOrphanDir(previousReadOnlyToDelete),
-          deleteOrphanDir(previousBestEffortToDelete)
-        )
-      )
-      .map(_ => ())
   }
 }

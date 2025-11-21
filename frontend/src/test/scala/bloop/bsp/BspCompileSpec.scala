@@ -29,6 +29,80 @@ object LocalBspCompileSpec extends BspCompileSpec(BspProtocol.Local)
 class BspCompileSpec(
     override val protocol: BspProtocol
 ) extends BspBaseSuite {
+
+  test("finish-after-compilation") {
+    TestUtil.withinWorkspace { workspace =>
+      object Sources {
+        val `A.scala` =
+          """/A.scala
+            |object A {
+            |  def foo(s: String) = s.toString
+            |}
+          """.stripMargin
+
+        val `A2.scala` =
+          """/A.scala
+            |object A {
+            |  def foo(s: String) = s.toString + " v2"
+            |}
+          """.stripMargin
+
+        val `A3.scala` =
+          """/A.scala
+            |object A {
+            |  def foo(s: String) = s.toString + " v3"
+            |}
+          """.stripMargin
+      }
+
+      val `A` = TestProject(workspace, "a", List(Sources.`A.scala`))
+
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val projects = List(`A`)
+      loadBspState(workspace, projects, logger) { initialState =>
+        // First compilation - creates initial internal classes directory
+        val firstCompiledState = initialState.compile(`A`)
+        assertExitStatus(firstCompiledState, ExitStatus.Ok)
+        assertValidCompilationState(firstCompiledState, projects)
+
+        def listClassesDirs(dir: AbsolutePath) =
+          bloop.io.Paths.list(dir)
+
+        val internalClassesRootDir = workspace.resolve("target/a/bloop-internal-classes")
+        // After first compilation, there should be exactly one internal classes directory
+        val firstInternalDirs = listClassesDirs(internalClassesRootDir)
+        assert(firstInternalDirs.size == 1)
+
+        // Second compilation with source change - old directory should be cleaned up
+        assertIsFile(writeFile(`A`.srcFor("A.scala"), Sources.`A2.scala`))
+        val secondCompiledState = firstCompiledState.compile(`A`)
+        assertExitStatus(secondCompiledState, ExitStatus.Ok)
+        assertValidCompilationState(secondCompiledState, projects)
+
+        // Wait a bit for background cleanup tasks to complete
+        Thread.sleep(100)
+
+        // After second compilation, there should still be exactly one internal classes directory
+        // because the old one should have been cleaned up by the cleanUpTasks mechanism
+        val secondInternalDirs = listClassesDirs(internalClassesRootDir)
+        assert(secondInternalDirs.size == 1)
+
+        // Third compilation with another source change
+        assertIsFile(writeFile(`A`.srcFor("A.scala"), Sources.`A3.scala`))
+        val thirdCompiledState = secondCompiledState.compile(`A`)
+        assertExitStatus(thirdCompiledState, ExitStatus.Ok)
+        assertValidCompilationState(thirdCompiledState, projects)
+
+        // Wait a bit for background cleanup tasks to complete
+        Thread.sleep(100)
+
+        // After third compilation, there should still be exactly one internal classes directory
+        val thirdInternalDirs = listClassesDirs(internalClassesRootDir)
+        assert(thirdInternalDirs.size == 1)
+      }
+    }
+  }
+
   test("initialize and exit a build via BSP") {
     val logger = new RecordingLogger(ansiCodesSupported = false)
     TestUtil.withinWorkspace { workspace =>
