@@ -1368,7 +1368,7 @@ class BspCompileSpec(
         "a",
         List(slowFile, fastFile),
         List(macroProject),
-        scalaVersion = Some("2.13.17")
+        scalaVersion = Some("2.13.18")
       )
       val projects = List(macroProject, testProject)
       val configDir = TestProject.populateWorkspace(workspace, projects)
