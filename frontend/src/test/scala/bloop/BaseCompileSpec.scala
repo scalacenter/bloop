@@ -1316,7 +1316,7 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
           s"""|[E1] ${targetFoo}:1:15
               |     Unused import
               |     L1: import Predef.assert
-              |         ^^^^^^^
+              |                       ^^^^^^
               |""".stripMargin
         )
         assertDiagnosticsResult(
