@@ -18,22 +18,23 @@ def readConfigFor(projectName: String, allConfigs: Seq[File]): bloop.config.Conf
   BloopDefaults.unsafeParseConfig(configFile.toPath)
 }
 
-checkBloopFiles in ThisBuild := {
-  import java.nio.file.Files
-  val bloopDir = Keys.baseDirectory.value./(".bloop")
-  val fooConfig = bloopDir./("foo.json")
-  val barConfig = bloopDir./("bar.json")
+checkBloopFiles := {
+  if (Keys.name.value != "foo" && Keys.name.value != "bar") {
+    import java.nio.file.Files
+    val bloopDir = Keys.baseDirectory.value./(".bloop")
+    val fooConfig = bloopDir./("foo.json")
+    val barConfig = bloopDir./("bar.json")
 
-  assert(Files.exists(fooConfig.toPath))
-  assert(Files.exists(barConfig.toPath))
+    assert(Files.exists(fooConfig.toPath))
+    assert(Files.exists(barConfig.toPath))
 
-  val outputFileFoo = BloopDefaults.unsafeParseConfig(fooConfig.toPath)
-  val outputFileBar = BloopDefaults.unsafeParseConfig(barConfig.toPath)
+    val outputFileFoo = BloopDefaults.unsafeParseConfig(fooConfig.toPath)
+    val outputFileBar = BloopDefaults.unsafeParseConfig(barConfig.toPath)
 
-  val optsFoo = outputFileFoo.project.scala.get.options
-  assert(optsFoo == List("-Ydebug"), s"Expected `List(-Ydebug)` in scala options, got `$optsFoo`")
+    val optsFoo = outputFileFoo.project.scala.get.options
+    assert(optsFoo == List("-Ydebug"), s"Expected `List(-Ydebug)` in scala options, got `$optsFoo`")
 
-  val optsBar = outputFileBar.project.scala.get.options
-  assert(optsBar == List("-Ydebug"), s"Expected `List(-Ydebug)` in scala options, got `$optsBar`")
-
+    val optsBar = outputFileBar.project.scala.get.options
+    assert(optsBar == List("-Ydebug"), s"Expected `List(-Ydebug)` in scala options, got `$optsBar`")
+  }
 }

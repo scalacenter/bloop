@@ -8,14 +8,21 @@ val foo = project
   )
 
 val checkBloopFiles = taskKey[Unit]("Check bloop file contents")
-checkBloopFiles in ThisBuild := {
-  import java.nio.file.Files
-  val bloopDir = Keys.baseDirectory.value./(".bloop")
-  val fooConfigFile = bloopDir./("foo.json")
+checkBloopFiles := {
+  if (Keys.name.value != "foo") {
+    import java.nio.file.Files
+    val bloopDir = Keys.baseDirectory.value./(".bloop")
+    val fooConfigFile = bloopDir./("foo.json")
 
-  val fooConfig = BloopDefaults.unsafeParseConfig(fooConfigFile.toPath)
+    val fooConfig = BloopDefaults.unsafeParseConfig(fooConfigFile.toPath)
 
-  val pluginPath =
-    fooConfig.project.scala.get.options.find(_.startsWith("-Xplugin")).get.stripPrefix("-Xplugin:")
-  assert(Paths.get(pluginPath).toFile.exists())
+    val pluginPath =
+      fooConfig.project.scala.get.options
+        .find(_.startsWith("-Xplugin"))
+        .get
+        .stripPrefix("-Xplugin:")
+    println(s"pluginPath: $pluginPath")
+    println(s"pluginPath: ${Paths.get(pluginPath).toFile.exists()}")
+    assert(Paths.get(pluginPath).toFile.exists())
+  }
 }

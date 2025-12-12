@@ -44,6 +44,22 @@ jobs:
       - name: Tests
         run: sbt "sbtBloop/publishLocal; sbtBloop/scripted"
         shell: bash
+      - name: Sbt 2
+        run: |
+          sbt "++3.7.3 sbtBloop/scripted \
+            sbt-bloop/wartremover \
+            sbt-bloop/stale-projects \
+            sbt-bloop/sbt-plugin-build \
+            sbt-bloop/runtime-dependency \
+            sbt-bloop/optional-dependency \
+            sbt-bloop/provided-dependency \
+            sbt-bloop/optional-dependency \
+            sbt-bloop/bsp-enabled \
+            sbt-bloop/custom-bridge \
+            sbt-bloop/meta-builds \
+            sbt-bloop/no-compile-incremental \
+            sbt-bloop/non-compiling"
+        shell: bash
 
   test:
     runs-on: ${{ matrix.os }}
