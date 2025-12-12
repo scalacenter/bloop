@@ -9,7 +9,7 @@ class DependencyResolutionSpec {
   @Test
   def fallbackDownloadShouldDownloadSemanticdb(): Unit = {
     val logger = new RecordingLogger()
-    val dep = coursierapi.Dependency.of("org.scalameta", "semanticdb-scalac_2.12.20", "4.13.5")
+    val dep = coursierapi.Dependency.of("org.scalameta", "semanticdb-scalac_2.12.21", "4.14.0")
     val jars = DependencyResolution.fallbackDownload(dep, logger, resolveSources = false)
     assertTrue("No jars were downloaded by fallbackDownload", jars.nonEmpty)
     jars.foreach { jar =>
@@ -19,7 +19,7 @@ class DependencyResolutionSpec {
   @Test
   def fallbackDownloadShouldDownloadSemanticdbWithSources(): Unit = {
     val logger = new RecordingLogger()
-    val dep = coursierapi.Dependency.of("org.scalameta", "semanticdb-scalac_2.12.20", "4.13.5")
+    val dep = coursierapi.Dependency.of("org.scalameta", "semanticdb-scalac_2.12.21", "4.14.0")
     val jars = DependencyResolution.fallbackDownload(dep, logger, resolveSources = true)
     assertTrue("No jars were downloaded by fallbackDownload", jars.nonEmpty)
     jars.foreach { jar =>
