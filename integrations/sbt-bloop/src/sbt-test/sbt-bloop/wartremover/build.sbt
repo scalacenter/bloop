@@ -21,8 +21,6 @@ checkBloopFiles := {
         .find(_.startsWith("-Xplugin"))
         .get
         .stripPrefix("-Xplugin:")
-    println(s"pluginPath: $pluginPath")
-    println(s"pluginPath: ${Paths.get(pluginPath).toFile.exists()}")
     assert(Paths.get(pluginPath).toFile.exists())
   }
 }

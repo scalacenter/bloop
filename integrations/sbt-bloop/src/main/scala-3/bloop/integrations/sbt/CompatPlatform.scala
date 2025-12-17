@@ -53,8 +53,5 @@ trait CompatPlatform {
       .value
   )
 
-  type TaskExtraSyntax = sbt.std.TaskExtra.type
-  val TaskExtraSyntax: sbt.std.TaskExtra.type = sbt.std.TaskExtra
-
   def taskDefFromTask[T](task: sbt.Task[T]) = task.attributes.get(Keys.taskDefinitionKey)
 }

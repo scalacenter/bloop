@@ -1,6 +1,6 @@
 package bloop.integrations.sbt
 
-import sbt.{File, Inc => SbtInc, IntegrationTest => SbtIntegrationTest, Value => SbtValue}
+import sbt.File
 import sbt.Keys
 import sbt.Def
 import sbt.Scope
@@ -12,22 +12,16 @@ trait CompatPlatform {
   // In sbt 1.x, Result is a simple type with Inc and Value as objects
   type Result[T] = sbt.Result[T]
   val Result = sbt.Result
-  val Inc = SbtInc
-  val Value = SbtValue
+  val Inc = sbt.Inc
+  val Value = sbt.Value
   type ScopeSettings = sbt.Settings[Scope]
 
   // IntegrationTest is directly available in sbt 1.x
-  val IntegrationTest = SbtIntegrationTest
+  val IntegrationTest = sbt.IntegrationTest
 
   // In sbt 1.x, classpath uses File directly, no conversion needed
   implicit class ClasspathOps(val classpath: Seq[sbt.Attributed[File]]) {
     def toFiles: Seq[sbt.Attributed[File]] = classpath
-  }
-
-  object TaskExtraSyntax {
-    implicit class TaskOps[T](tasks: Seq[sbt.Task[T]]) {
-      def join: sbt.Task[Seq[T]] = sbt.std.TaskExtra.joinTasks(tasks).join
-    }
   }
 
   def inlinedTask[T](value: T): Def.Initialize[sbt.Task[T]] = Def.toITask(Def.value(value))
