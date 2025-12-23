@@ -1,1 +1,1 @@
-bloopExportJarClassifiers in Global := Some(Set("sources", "javadoc"))
+bloopExportJarClassifiers := Some(Set("sources", "javadoc"))

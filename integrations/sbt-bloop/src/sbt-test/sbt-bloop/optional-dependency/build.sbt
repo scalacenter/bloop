@@ -5,7 +5,7 @@ val bar = project.dependsOn(foo % Optional)
 val baz = project.dependsOn(bar)
 
 val allBloopConfigFiles = settingKey[List[File]]("All config files to test")
-allBloopConfigFiles in ThisBuild := {
+allBloopConfigFiles := {
   val bloopDir = Keys.baseDirectory.value./(".bloop")
   val fooConfig = bloopDir./("foo.json")
   val fooTestConfig = bloopDir./("foo-test.json")
@@ -24,29 +24,31 @@ def readConfigFor(projectName: String, allConfigs: Seq[File]): bloop.config.Conf
 }
 
 val checkBloopFiles = taskKey[Unit]("Check bloop file contents")
-checkBloopFiles in ThisBuild := {
-  val allConfigs = allBloopConfigFiles.value
-  val barConfigContents = readConfigFor("bar", allConfigs)
-  assert(
-    barConfigContents.project.classpath.exists(_.toString.contains("/foo")),
-    barConfigContents.project.classpath.mkString("\n")
-  )
-  assert(
-    barConfigContents.project.dependencies == List("foo"),
-    barConfigContents.project.dependencies
-  )
+checkBloopFiles := {
+  if (Keys.name.value != "foo" && Keys.name.value != "bar" && Keys.name.value != "baz") {
+    val allConfigs = allBloopConfigFiles.value
+    val barConfigContents = readConfigFor("bar", allConfigs)
+    assert(
+      barConfigContents.project.classpath.exists(_.toString.contains("/foo")),
+      barConfigContents.project.classpath.mkString("\n")
+    )
+    assert(
+      barConfigContents.project.dependencies == List("foo"),
+      barConfigContents.project.dependencies
+    )
 
-  val bazConfigContents = readConfigFor("baz", allConfigs)
-  assert(
-    bazConfigContents.project.classpath.exists(_.toString.contains("/bar")),
-    bazConfigContents.project.classpath.mkString("\n")
-  )
-  assert(
-    !bazConfigContents.project.classpath.exists(_.toString.contains("/foo")),
-    bazConfigContents.project.classpath.mkString("\n")
-  )
-  assert(
-    bazConfigContents.project.dependencies.sorted == List("bar"),
-    bazConfigContents.project.dependencies.sorted
-  )
+    val bazConfigContents = readConfigFor("baz", allConfigs)
+    assert(
+      bazConfigContents.project.classpath.exists(_.toString.contains("/bar")),
+      bazConfigContents.project.classpath.mkString("\n")
+    )
+    assert(
+      !bazConfigContents.project.classpath.exists(_.toString.contains("/foo")),
+      bazConfigContents.project.classpath.mkString("\n")
+    )
+    assert(
+      bazConfigContents.project.dependencies.sorted == List("bar"),
+      bazConfigContents.project.dependencies.sorted
+    )
+  }
 }

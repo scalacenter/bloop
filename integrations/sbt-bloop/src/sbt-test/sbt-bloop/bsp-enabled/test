@@ -1,2 +1,5 @@
 > bloopInstall
-> checkBloopFiles
+$ exists .bloop/foo.json
+$ exists .bloop/foo-test.json
+$ absent .bloop/bar.json
+$ absent .bloop/bar-test.json

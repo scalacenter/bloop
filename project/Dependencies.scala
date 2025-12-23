@@ -8,8 +8,9 @@ object Dependencies {
   val Scala211Version = "2.11.12"
   val Scala212Version = "2.12.21"
   val Scala213Version = "2.13.18"
+  val Scala3Version = "3.7.3"
 
-  val SbtVersion = "1.5.8"
+  val SbtVersion = "1.9.0"
 
   // Keep in sync in BloopComponentCompiler
   val zincVersion = "1.11.0"

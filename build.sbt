@@ -1,7 +1,7 @@
 import build.BuildImplementation.BuildDefaults
 import build.BuildImplementation.jvmOptions
 import build.Dependencies
-import build.Dependencies.{Scala211Version, Scala212Version, SbtVersion}
+import build.Dependencies.{Scala211Version, Scala212Version, SbtVersion, Scala3Version}
 
 ThisBuild / dynverSeparator := "-"
 ThisBuild / resolvers ++= Resolver.sonatypeOssRepos("snapshots")
@@ -306,9 +306,18 @@ lazy val sbtBloop: Project = project
     scriptedBufferLog := false,
     scriptedLaunchOpts := {
       scriptedLaunchOpts.value ++
-        Seq("-Xmx1024M", "-Dplugin.version=" + version.value)
+        Seq(
+          "-Xmx1024M",
+          "-Dplugin.version=" + version.value,
+          "-DscalaVersion=" + scalaVersion.value
+        )
     },
     name := "sbt-bloop",
+    pluginCrossBuild / sbtVersion := (scalaBinaryVersion.value match {
+      case "2.12" => SbtVersion
+      case _ => "2.0.0-RC6"
+    }),
+    crossScalaVersions := List(Scala212Version, Scala3Version),
     sbtPlugin := true,
     sbtVersion := SbtVersion,
     target := (file("integrations") / "sbt-bloop" / "target" / SbtVersion).getAbsoluteFile,

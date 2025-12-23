@@ -1,3 +1,2 @@
-> foo/bloopGenerate
-> foo/test:bloopGenerate
+> bloopGenerate
 > checkBloopFiles

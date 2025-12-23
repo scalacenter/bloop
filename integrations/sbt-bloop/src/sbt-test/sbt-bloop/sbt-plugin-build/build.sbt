@@ -4,7 +4,7 @@ sbtPlugin := true
 import java.nio.file.Files
 
 val checkMetaBuildInfo = taskKey[Unit]("Check sbt meta build info is not generated")
-checkMetaBuildInfo in ThisBuild := {
+checkMetaBuildInfo := {
   def readBareFile(p: java.nio.file.Path): String =
     new String(Files.readAllBytes(p)).replaceAll("\\s", "")
 
