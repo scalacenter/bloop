@@ -1,18 +1,22 @@
 package bloop.engine.tasks.compilation
 
-import bloop.{Compiler, UniqueCompileInputs}
-import bloop.data.{ClientInfo, Project}
+import java.util.concurrent.ConcurrentHashMap
+
+import bloop.Compiler
+import bloop.UniqueCompileInputs
+import bloop.data.ClientInfo
+import bloop.data.Project
 import bloop.engine.Dag
 import bloop.engine.caches.LastSuccessfulResult
-import bloop.io.AbsolutePath
-import bloop.logging.{DebugFilter, Logger, LoggerAction}
+import bloop.logging.DebugFilter
+import bloop.logging.Logger
+import bloop.logging.LoggerAction
 import bloop.reporter.ReporterAction
 import bloop.task.Task
 import bloop.tracing.BraveTracer
-import monix.execution.atomic.{AtomicBoolean, AtomicInt}
-import monix.reactive.Observable
 
-import java.util.concurrent.ConcurrentHashMap
+import monix.execution.atomic.AtomicBoolean
+import monix.reactive.Observable
 
 object CompileGatekeeper {
   private implicit val filter: DebugFilter = DebugFilter.Compilation
@@ -28,7 +32,6 @@ object CompileGatekeeper {
 
   /* -------------------------------------------------------------------------------------------- */
 
-  private val currentlyUsedClassesDirs = new ConcurrentHashMap[AbsolutePath, AtomicInt]()
   private val runningCompilations = new ConcurrentHashMap[UniqueCompileInputs, RunningCompilation]()
   private val lastSuccessfulResults = new ConcurrentHashMap[ProjectId, LastSuccessfulResult]()
 
@@ -62,39 +65,6 @@ object CompileGatekeeper {
               "Found matching compilation",
               ("uniqueInputs", bundle.uniqueInputs.toString)
             ) { tracer =>
-              val usedClassesDir = running.usedLastSuccessful.classesDir
-              val usedClassesDirCounter = running.usedLastSuccessful.counterForClassesDir
-
-              usedClassesDirCounter.getAndTransform { count =>
-                if (count == 0) {
-                  tracer.trace(
-                    "Aborting deduplication",
-                    ("uniqueInputs", bundle.uniqueInputs.toString)
-                  ) { tracer =>
-                    logger.debug(
-                      s"Abort deduplication, dir is scheduled to be deleted in background:${bundle.uniqueInputs}"
-                    )
-                    // Abort deduplication, dir is scheduled to be deleted in background
-                    deduplicate = false
-                    // Remove from map of used classes dirs in case it hasn't already been
-                    currentlyUsedClassesDirs.remove(usedClassesDir, usedClassesDirCounter)
-                    // Return previous count, this counter will soon be deallocated
-                    count
-                  }
-                } else {
-                  tracer.trace(
-                    "Increasing compilation counter",
-                    ("uniqueInputs", bundle.uniqueInputs.toString)
-                  ) { tracer =>
-                    logger.debug(
-                      s"Increase count to prevent other compiles to schedule its deletion:${bundle.uniqueInputs}"
-                    )
-                    // Increase count to prevent other compiles to schedule its deletion
-                    count + 1
-                  }
-                }
-              }
-
               if (deduplicate) running
               else scheduleCompilation(inputs, bundle, client, compile, tracer)
             }
@@ -139,8 +109,6 @@ object CompileGatekeeper {
       import bundle.logger
       import inputs.project
 
-      var counterForUsedClassesDir: AtomicInt = null
-
       def initializeLastSuccessful(previousOrNull: LastSuccessfulResult): LastSuccessfulResult =
         tracer.trace(s"initialize last successful") { _ =>
           val result = Option(previousOrNull).getOrElse(bundle.lastSuccessful)
@@ -156,7 +124,6 @@ object CompileGatekeeper {
               // Replace classes dir, counter and populating with values from previous for correctness
               .copy(
                 classesDir = result.classesDir,
-                counterForClassesDir = result.counterForClassesDir,
                 populatingProducts = result.populatingProducts
               )
           } else {
@@ -176,32 +143,7 @@ object CompileGatekeeper {
                 s"Return previous result or the initial last successful coming from the bundle:${project.uniqueId}"
               )
               // Return previous result or the initial last successful coming from the bundle
-              val previousResult = initializeLastSuccessful(previousResultOrNull)
-
-              currentlyUsedClassesDirs.compute(
-                previousResult.classesDir,
-                (_: AbsolutePath, counter: AtomicInt) => {
-                  logger.debug(
-                    s"Set counter for used classes dir when init or incrementing:${previousResult.classesDir}"
-                  )
-                  // Set counter for used classes dir when init or incrementing
-                  if (counter == null) {
-                    logger.debug(s"Create new counter:${previousResult.classesDir}")
-                    val initialCounter = AtomicInt(1)
-                    counterForUsedClassesDir = initialCounter
-                    initialCounter
-                  } else {
-                    counterForUsedClassesDir = counter
-                    val newCount = counter.incrementAndGet(1)
-                    logger.debug(
-                      s"Increasing counter for ${previousResult.classesDir} to $newCount"
-                    )
-                    counter
-                  }
-                }
-              )
-
-              previousResult.copy(counterForClassesDir = counterForUsedClassesDir)
+              initializeLastSuccessful(previousResultOrNull)
             }
           )
         }
