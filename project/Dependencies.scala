@@ -13,7 +13,7 @@ object Dependencies {
   val SbtVersion = "1.9.0"
 
   // Keep in sync in BloopComponentCompiler
-  val zincVersion = "1.11.0"
+  val zincVersion = "1.12.0"
 
   val bspVersion = "2.1.1"
 
