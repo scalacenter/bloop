@@ -325,17 +325,17 @@ foo-test
 <p>The Bloop plugin for Maven doesn't need to be installed, you can run
 <code>bloopInstall</code>, the task to export your Maven builds to bloop, with the
 following command.</p>
-<pre><code class="hljs css language-bash">$ mvn ch.epfl.scala:bloop-maven-plugin:2.0.1:bloopInstall
+<pre><code class="hljs css language-bash">$ mvn ch.epfl.scala:bloop-maven-plugin:2.0.3:bloopInstall
 </code></pre>
 <p>In some cases, when you are using generated sources in you project
 you might need to run:</p>
-<pre><code class="hljs css language-bash">$ mvn generate-sources ch.epfl.scala:bloop-maven-plugin:2.0.1:bloopInstall
+<pre><code class="hljs css language-bash">$ mvn generate-sources ch.epfl.scala:bloop-maven-plugin:2.0.3:bloopInstall
 </code></pre>
 <p><strong>Note</strong>: if you've used this command before you'll have noticed the artifact
 name has changed. In the past you would have used <code>maven-bloop_2.13</code>, however as
 of the 2.x series the artifact name has changed to <code>bloop-maven-plugin</code>.</p>
 <p>To build with a single Scala project <code>foo</code> generates two configuration files:</p>
-<pre><code class="hljs css language-bash">$ mvn ch.epfl.scala:bloop-maven-plugin:2.0.1:bloopInstall
+<pre><code class="hljs css language-bash">$ mvn ch.epfl.scala:bloop-maven-plugin:2.0.3:bloopInstall
 (...)
 Generated <span class="hljs-string">'/disk/foo/.bloop/foo.json'</span>.
 Generated <span class="hljs-string">'/disk/foo/.bloop/foo-test.json'</span>.
@@ -482,8 +482,8 @@ toolchain with minimum interference in their current workflow.</p>
           <td><code>-r sonatype:releases</code></td>
         </tr>
         <tr>
-          <td>2.0.17-53-a4b32bc1-SNAPSHOT</td>
-          <td>02 Jan 2026 11:44</td>
+          <td>2.0.17-55-8e4961b8-SNAPSHOT</td>
+          <td>05 Jan 2026 09:53</td>
           <td><code>-r sonatype:releases</code></td>
         </tr>
       </tbody>
@@ -550,7 +550,7 @@ machine. Now, it's time to write Scala code and be productive.</p>
 available.</p>
 <p>If you need help, you can always come over our <a href="https://discord.gg/KWF9zMhJWS">Discord
 channel</a>.</p>
-</span></div></div></div></div></div><script src="/bloop/scripts/tools.js?t=1767354276938"></script><script src="/bloop/scripts/build-tools.js?t=1767354276938"></script></div></div><footer class="nav-footer" id="footer" style="background-color:rgb(17, 42, 68)"><section class="sitemap"><a href="/bloop/" class="nav-home"><img src="/bloop/img/impure-logo-bloop.svg" alt="Bloop" height="60"/></a><a href="/bloop/" class="nav-home"><img src="/bloop/img/frontpage/scala.png" alt="Bloop" height="60"/></a><div><h5>Overview</h5><a href="/bloop/docs/what-is-bloop">What is Bloop</a><a href="/bloop/docs/integration">Integrate with Bloop</a><a href="/bloop/docs/build-tools/overview">Build Tools</a><a href=" /bloop/docs/contributing-guide">Contributing</a></div><div><h5>Build Tools</h5><a href="/bloop/docs/build-tools/sbt">sbt</a><a href="/bloop/docs/build-tools/gradle">Gradle</a><a href="/bloop/docs/build-tools/maven">Maven</a><a href="/bloop/docs/build-tools/mill">Mill</a></div><div><h5>Social</h5><a href="https://github.com/scalacenter/bloop" target="_blank"><img src="https://img.shields.io/github/stars/scalacenter/bloop.svg?color=%23087e8b&amp;label=stars&amp;logo=github&amp;style=social"/></a><a href="https://discord.gg/KWF9zMhJWS" target="_blank"><img src="https://img.shields.io/discord/632642981228314653?logo=discord&amp;style=social"/></a></div></section><section class="copyright">Copyright © 2026 Bloop</section><section class="copyright">Credits to @freepik for svg icons</section><section class="copyright">Credits to Bazel, Babel and Metals for inspiring Bloop&#x27;s website design</section></footer></div><script type="text/javascript" src="https://cdn.jsdelivr.net/docsearch.js/1/docsearch.min.js"></script><script>
+</span></div></div></div></div></div><script src="/bloop/scripts/tools.js?t=1767606821710"></script><script src="/bloop/scripts/build-tools.js?t=1767606821710"></script></div></div><footer class="nav-footer" id="footer" style="background-color:rgb(17, 42, 68)"><section class="sitemap"><a href="/bloop/" class="nav-home"><img src="/bloop/img/impure-logo-bloop.svg" alt="Bloop" height="60"/></a><a href="/bloop/" class="nav-home"><img src="/bloop/img/frontpage/scala.png" alt="Bloop" height="60"/></a><div><h5>Overview</h5><a href="/bloop/docs/what-is-bloop">What is Bloop</a><a href="/bloop/docs/integration">Integrate with Bloop</a><a href="/bloop/docs/build-tools/overview">Build Tools</a><a href=" /bloop/docs/contributing-guide">Contributing</a></div><div><h5>Build Tools</h5><a href="/bloop/docs/build-tools/sbt">sbt</a><a href="/bloop/docs/build-tools/gradle">Gradle</a><a href="/bloop/docs/build-tools/maven">Maven</a><a href="/bloop/docs/build-tools/mill">Mill</a></div><div><h5>Social</h5><a href="https://github.com/scalacenter/bloop" target="_blank"><img src="https://img.shields.io/github/stars/scalacenter/bloop.svg?color=%23087e8b&amp;label=stars&amp;logo=github&amp;style=social"/></a><a href="https://discord.gg/KWF9zMhJWS" target="_blank"><img src="https://img.shields.io/discord/632642981228314653?logo=discord&amp;style=social"/></a></div></section><section class="copyright">Copyright © 2026 Bloop</section><section class="copyright">Credits to @freepik for svg icons</section><section class="copyright">Credits to Bazel, Babel and Metals for inspiring Bloop&#x27;s website design</section></footer></div><script type="text/javascript" src="https://cdn.jsdelivr.net/docsearch.js/1/docsearch.min.js"></script><script>
                 document.addEventListener('keyup', function(e) {
                   if (e.target !== document.body) {
                     return;
