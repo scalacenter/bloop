@@ -1323,7 +1323,8 @@ object BloopDefaults {
     implicit val fileConverter: xsbti.FileConverter = Keys.fileConverter.value
     val internalClasspath = (Runtime / BloopKeys.bloopInternalClasspath).value.map(_._2)
     val externalClasspath = (Runtime / Keys.externalDependencyClasspath).value.toFiles.map(_.data)
-    internalClasspath ++ externalClasspath
+    val providedClasspath = (Provided / Keys.externalDependencyClasspath).value.toFiles.map(_.data)
+    (internalClasspath ++ externalClasspath ++ providedClasspath).distinct
   }
 
   /**
