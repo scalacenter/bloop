@@ -123,12 +123,23 @@ object CompileTask {
                 logger,
                 ExecutionContext.ioScheduler
               )
+
+            // Also copy mapped resources if any
+            val copyMappedResourcesTask: Task[Unit] =
+              bloop.io.ResourceMapper.copyMappedResources(
+                project.resourceMappings,
+                bundle.clientClassesObserver.classesDir,
+                logger
+              )
+
+            val allCopyTasks =
+              Task.gatherUnordered(List(copyResourcesTask, copyMappedResourcesTask))
             Task.now(
               ResultBundle(
                 Compiler.Result.Empty,
                 None,
                 None,
-                copyResourcesTask.runAsync(ExecutionContext.ioScheduler)
+                allCopyTasks.map(_ => ()).runAsync(ExecutionContext.ioScheduler)
               )
             )
           case Right(CompileSourcesAndInstance(sources, instance, _)) =>
@@ -245,8 +256,21 @@ object CompileTask {
                         compileProjectTracer,
                         logger
                       )
-                      .doOnFinish(_ => Task(compileProjectTracer.terminate()))
-                  postCompilationTasks.runAsync(ExecutionContext.ioScheduler)
+
+                  // Copy mapped resources after compilation
+                  val copyMappedResourcesTask =
+                    bloop.io.ResourceMapper.copyMappedResources(
+                      project.resourceMappings,
+                      bundle.clientClassesObserver.classesDir,
+                      logger
+                    )
+
+                  val allTasks = Task
+                    .gatherUnordered(List(postCompilationTasks, copyMappedResourcesTask))
+                    .map(_ => ())
+                    .doOnFinish(_ => Task(compileProjectTracer.terminate()))
+
+                  allTasks.runAsync(ExecutionContext.ioScheduler)
                 }
 
                 // Populate the last successful result if result was success
