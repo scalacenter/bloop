@@ -99,49 +99,16 @@ object ResourceMapper {
     }
   }
 
-  /**
-   * Validate resource mappings for common issues.
-   *
-   * @param mappings List of (source, targetRelativePath) tuples
-   * @param logger Logger for warnings
-   * @return List of validation errors
-   */
-  def validateMappings(
-      mappings: List[(AbsolutePath, String)],
-      logger: Logger
-  ): List[String] = {
-    val errors = scala.collection.mutable.ListBuffer.empty[String]
-
-    // Check for duplicate targets
-    val targetCounts = mappings.groupBy(_._2).filter(_._2.size > 1)
-    targetCounts.foreach {
-      case (target, sources) =>
-        val sourceList = sources.map(_._1.syntax).mkString(", ")
-        errors += s"Multiple sources map to same target '$target': $sourceList"
-    }
-
-    // Check for path traversal attempts
-    mappings.foreach {
-      case (_, target) =>
-        if (target.contains("..")) {
-          errors += s"Invalid target path contains '..': $target"
-        }
-        if (target.startsWith("/")) {
-          logger.warn(s"Target path starts with '/': $target (will be treated as relative)")
-        }
-    }
-
-    errors.toList
-  }
-
   private def hasDirectoryChanged(dir: AbsolutePath, lastModified: Long): Boolean = {
-    if (!dir.exists) return false
-
-    val stream = Files.walk(dir.underlying)
-    try {
-      stream.anyMatch(path => Files.getLastModifiedTime(path).toMillis > lastModified)
-    } finally {
-      stream.close()
+    if (dir.exists) {
+      val stream = Files.walk(dir.underlying)
+      try {
+        stream.anyMatch(path => Files.getLastModifiedTime(path).toMillis > lastModified)
+      } finally {
+        stream.close()
+      }
+    } else {
+      false
     }
   }
 }

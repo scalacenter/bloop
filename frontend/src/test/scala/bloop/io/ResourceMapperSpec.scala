@@ -90,67 +90,6 @@ object ResourceMapperSpec extends bloop.testing.BaseSuite {
     }
   }
 
-  test("validate duplicate target paths") {
-    TestUtil.withinWorkspace { workspace =>
-      val logger = new RecordingLogger()
-
-      val file1 = workspace.resolve("file1.txt")
-      val file2 = workspace.resolve("file2.txt")
-      Files.write(file1.underlying, "content 1".getBytes("UTF-8"))
-      Files.write(file2.underlying, "content 2".getBytes("UTF-8"))
-
-      // Two sources mapping to same target
-      val mappings = List(
-        (file1, "output.txt"),
-        (file2, "output.txt")
-      )
-
-      val errors = ResourceMapper.validateMappings(mappings, logger)
-
-      assert(errors.nonEmpty)
-      assert(errors.exists(_.contains("Multiple sources map to same target")))
-      assert(errors.exists(_.contains("output.txt")))
-    }
-  }
-
-  test("validate path traversal attempts") {
-    TestUtil.withinWorkspace { workspace =>
-      val logger = new RecordingLogger()
-
-      val file = workspace.resolve("file.txt")
-      Files.write(file.underlying, "content".getBytes("UTF-8"))
-
-      // Mapping with .. in target path
-      val mappings = List(
-        (file, "../escape/file.txt")
-      )
-
-      val errors = ResourceMapper.validateMappings(mappings, logger)
-
-      assert(errors.nonEmpty)
-      assert(errors.exists(_.contains("Invalid target path contains '..'")))
-    }
-  }
-
-  test("warn about absolute target paths") {
-    TestUtil.withinWorkspace { workspace =>
-      val logger = new RecordingLogger()
-
-      val file = workspace.resolve("file.txt")
-      Files.write(file.underlying, "content".getBytes("UTF-8"))
-
-      // Mapping with absolute target path
-      val mappings = List(
-        (file, "/absolute/path/file.txt")
-      )
-
-      ResourceMapper.validateMappings(mappings, logger)
-
-      // Should warn but not error
-      assert(logger.warnings.exists(_.contains("Target path starts with '/'")))
-    }
-  }
-
   test("handle non-existent source file") {
     TestUtil.withinWorkspace { workspace =>
       val logger = new RecordingLogger()

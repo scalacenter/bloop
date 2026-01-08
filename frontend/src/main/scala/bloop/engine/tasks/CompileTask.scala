@@ -195,7 +195,8 @@ object CompileTask {
                 ExecutionContext.ioExecutor,
                 bundle.dependenciesData.allInvalidatedClassFiles,
                 bundle.dependenciesData.allGeneratedClassFilePaths,
-                project.runtimeResources
+                project.runtimeResources,
+                project.resourceMappings
               )
             }
 
@@ -258,15 +259,8 @@ object CompileTask {
                       )
 
                   // Copy mapped resources after compilation
-                  val copyMappedResourcesTask =
-                    bloop.io.ResourceMapper.copyMappedResources(
-                      project.resourceMappings,
-                      bundle.clientClassesObserver.classesDir,
-                      logger
-                    )
-
                   val allTasks = Task
-                    .gatherUnordered(List(postCompilationTasks, copyMappedResourcesTask))
+                    .gatherUnordered(List(postCompilationTasks))
                     .map(_ => ())
                     .doOnFinish(_ => Task(compileProjectTracer.terminate()))
 

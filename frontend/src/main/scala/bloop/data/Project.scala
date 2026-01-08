@@ -348,9 +348,6 @@ object Project {
     val tags = project.tags.getOrElse(Nil)
     val projectDirectory = AbsolutePath(project.directory)
 
-    // Parse resource mappings if available (requires bloop-config 2.3.4+)
-    // TODO: Uncomment parsing logic once bloop-config is updated with resourceMapping field
-    // See bloop_config_changes.md for details
     val resourceMappings = List.empty[(AbsolutePath, String)]
 
     Project(
