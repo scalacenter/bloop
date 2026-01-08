@@ -298,9 +298,8 @@ lazy val benchmarks = project
 val integrations = file("integrations")
 
 lazy val sbtBloop: Project = project
-  .enablePlugins(ScriptedPlugin)
   .disablePlugins(ScalafixPlugin)
-  .enablePlugins(BuildInfoPlugin)
+  .enablePlugins(BuildInfoPlugin, SbtPlugin)
   .in(integrations / "sbt-bloop")
   .settings(
     scriptedBufferLog := false,
