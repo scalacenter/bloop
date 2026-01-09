@@ -55,7 +55,6 @@ jobs:
             sbt-bloop/provided-dependency \
             sbt-bloop/optional-dependency \
             sbt-bloop/bsp-enabled \
-            sbt-bloop/custom-bridge \
             sbt-bloop/meta-builds \
             sbt-bloop/no-compile-incremental \
             sbt-bloop/non-compiling"

@@ -314,7 +314,7 @@ lazy val sbtBloop: Project = project
     name := "sbt-bloop",
     pluginCrossBuild / sbtVersion := (scalaBinaryVersion.value match {
       case "2.12" => SbtVersion
-      case _ => "2.0.0-RC6"
+      case _ => "2.0.0-RC8"
     }),
     crossScalaVersions := List(Scala212Version, Scala3Version),
     sbtPlugin := true,

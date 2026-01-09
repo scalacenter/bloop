@@ -1090,7 +1090,6 @@ object BloopDefaults {
               val modules = onlyCompilationModules(allModules, classpath).toList
               if (modules.isEmpty) None else Some(Config.Resolution(modules))
             }
-            val bridge = Keys.scalaCompilerBridgeBinaryJar.value.map(file => List(file.toPath()))
 
             // Force source generators on this task manually
             val _ = Keys.managedSources.value
@@ -1114,7 +1113,7 @@ object BloopDefaults {
                 allScalaJars,
                 None,
                 Some(compileSetup),
-                bridge
+                scalaCompilerBridgeBinaryJar.value
               )
               val resources = Some(bloopResourcesTask.value)
               val sbt = None // Written by `postGenerate` instead
