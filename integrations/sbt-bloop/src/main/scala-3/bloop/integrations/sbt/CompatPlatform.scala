@@ -5,6 +5,8 @@ import sbt.Keys
 import sbt.Def
 import sbt.Task
 import sbt.internal.PluginDiscovery
+import java.nio.file.Path
+import sbt.internal.inc.PlainVirtualFileConverter
 
 /** sbt 2.x specific compatibility */
 trait CompatPlatform {
@@ -52,6 +54,13 @@ trait CompatPlatform {
       })
       .value
   )
+  val fileConverter = PlainVirtualFileConverter.converter
 
   def taskDefFromTask[T](task: sbt.Task[T]) = task.attributes.get(Keys.taskDefinitionKey)
+
+  def scalaCompilerBridgeBinaryJar = Def.task {
+    val all = Keys.scalaCompilerBridgeBin.value.map(fileConverter.toPath)
+    if (all.isEmpty) None else Some(all.toList)
+  }
+
 }

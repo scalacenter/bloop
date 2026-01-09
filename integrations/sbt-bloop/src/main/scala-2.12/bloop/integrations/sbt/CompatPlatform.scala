@@ -6,6 +6,7 @@ import sbt.Def
 import sbt.Scope
 import sbt.Task
 import sbt.internal.PluginDiscovery
+import java.nio.file.Path
 
 /** sbt 1.x specific compatibility */
 trait CompatPlatform {
@@ -48,4 +49,8 @@ trait CompatPlatform {
 
   def taskDefFromTask[T](task: sbt.Task[T]): Option[Def.ScopedKey[_]] =
     task.info.get(Keys.taskDefinitionKey)
+
+  def scalaCompilerBridgeBinaryJar = Def.task {
+    Keys.scalaCompilerBridgeBinaryJar.value.map(f => List(f.toPath()))
+  }
 }
