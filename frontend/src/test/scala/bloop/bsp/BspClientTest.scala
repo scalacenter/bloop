@@ -52,8 +52,7 @@ trait BspClientTest {
     cmd match {
       case cmd: Commands.UnixLocalBsp =>
         // We delete the socket file created by the BSP communication
-        if (!Files.exists(cmd.socket.underlying)) ()
-        else Files.delete(cmd.socket.underlying)
+        Files.deleteIfExists(cmd.socket.underlying)
       case _: Commands.TcpBsp => ()
     }
   }

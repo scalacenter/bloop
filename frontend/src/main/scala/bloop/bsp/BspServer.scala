@@ -121,6 +121,8 @@ object BspServer {
           def askCurrentBspClients: Set[ClientInfo.BspClientInfo] = {
             import scala.collection.JavaConverters._
             val clients0 = connectedBspClients.keySet().asScala.toSet
+            // Add client that will be removed from map always so that its
+            // project directories are visited and orphan dirs pruned
             initializedClientInfo match {
               case Some(bspInfo) => clients0.+(bspInfo)
               case None => clients0
