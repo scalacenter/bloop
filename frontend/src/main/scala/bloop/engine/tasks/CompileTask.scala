@@ -46,7 +46,17 @@ import monix.reactive.MulticastStrategy
 import monix.reactive.Observable
 import xsbti.compile.CompileAnalysis
 import xsbti.compile.MiniSetup
+import xsbti.compile.CompileAnalysis
+import xsbti.compile.MiniSetup
 import xsbti.compile.PreviousResult
+import bloop.tracing.CompilationTrace
+import bloop.tracing.TraceDiagnostic
+import bloop.tracing.TraceRange
+import bloop.tracing.TraceArtifacts
+import bloop.tracing.TraceProperties
+import com.github.plokhotnyuk.jsoniter_scala.core.writeToArray
+import com.github.plokhotnyuk.jsoniter_scala.core.WriterConfig
+import bloop.util.JavaCompat.EnrichOptional
 
 object CompileTask {
   private implicit val logContext: DebugFilter = DebugFilter.Compilation
@@ -131,12 +141,23 @@ object CompileTask {
                 logger,
                 ExecutionContext.ioScheduler
               )
+
+            // Also copy mapped resources if any
+            val copyMappedResourcesTask: Task[Unit] =
+              bloop.io.ResourceMapper.copyMappedResources(
+                project.resourceMappings,
+                bundle.clientClassesObserver.classesDir,
+                logger
+              )
+
+            val allCopyTasks =
+              Task.gatherUnordered(List(copyResourcesTask, copyMappedResourcesTask))
             Task.now(
               ResultBundle(
                 Compiler.Result.Empty,
                 None,
                 None,
-                copyResourcesTask.runAsync(ExecutionContext.ioScheduler)
+                allCopyTasks.map(_ => ()).runAsync(ExecutionContext.ioScheduler)
               )
             )
           case Right(CompileSourcesAndInstance(sources, instance, _)) =>
@@ -192,7 +213,8 @@ object CompileTask {
                 ExecutionContext.ioExecutor,
                 bundle.dependenciesData.allInvalidatedClassFiles,
                 bundle.dependenciesData.allGeneratedClassFilePaths,
-                project.runtimeResources
+                project.runtimeResources,
+                project.resourceMappings
               )
             }
 
@@ -253,8 +275,14 @@ object CompileTask {
                         compileProjectTracer,
                         logger
                       )
-                      .doOnFinish(_ => Task(compileProjectTracer.terminate()))
-                  postCompilationTasks.runAsync(ExecutionContext.ioScheduler)
+
+                  // Copy mapped resources after compilation
+                  val allTasks = Task
+                    .gatherUnordered(List(postCompilationTasks))
+                    .map(_ => ())
+                    .doOnFinish(_ => Task(compileProjectTracer.terminate()))
+
+                  allTasks.runAsync(ExecutionContext.ioScheduler)
                 }
 
                 // Populate the last successful result if result was success
@@ -354,7 +382,7 @@ object CompileTask {
               markUnusedClassesDir(results, state, tracer, rawLogger)
 
             val failures = results.flatMap {
-              case FinalNormalCompileResult(p, results) =>
+              case FinalNormalCompileResult(p, results, _) =>
                 results.fromCompiler match {
                   case Compiler.Result.NotOk(_) => List(p)
                   // Consider success with reported fatal warnings as error to simulate -Xfatal-warnings
@@ -407,7 +435,7 @@ object CompileTask {
 
             val runningTasksRequiredForCorrectness = Task.sequence {
               results.flatMap {
-                case FinalNormalCompileResult(_, result) =>
+                case FinalNormalCompileResult(_, result, _) =>
                   val tasksAtEndOfBuildCompilation =
                     Task.fromFuture(result.runningBackgroundTasks)
                   List(tasksAtEndOfBuildCompilation)
@@ -418,6 +446,7 @@ object CompileTask {
             // Block on all background task that are running and are required for correctness
             runningTasksRequiredForCorrectness
               .executeOn(ExecutionContext.ioScheduler)
+              .flatMap(_ => reportCompilationTrace(results, traceProperties, rawLogger))
               .map(_ => newState)
               .doOnFinish(_ => Task(rootTracer.terminate()))
           }
@@ -474,7 +503,7 @@ object CompileTask {
         val compilerResult = resultBundle.fromCompiler
         val previousResult =
           finalResult match {
-            case FinalNormalCompileResult(p, _) =>
+            case FinalNormalCompileResult(p, _, _) =>
               previousState.results.all.get(p)
             case _ => None
           }
@@ -501,6 +530,100 @@ object CompileTask {
 
       markDeleteTasks.toList
     }
+
+  private def reportCompilationTrace(
+      results: List[FinalCompileResult],
+      traceProperties: TraceProperties,
+      logger: Logger
+  ): Task[Unit] = {
+    if (!traceProperties.compilationTrace) Task.unit
+    else {
+      val validResults = results.collect { case r: FinalNormalCompileResult => r }
+      logger.info(
+        s"Reporting compilation trace for ${validResults.size} projects. Enabled: ${traceProperties.compilationTrace}"
+      )
+      if (validResults.isEmpty) Task.unit
+      else {
+        val traces = validResults.flatMap {
+          case FinalNormalCompileResult(project, resultBundle, bundleOpt) =>
+            val result = resultBundle.fromCompiler
+            val successful = resultBundle.successful
+
+            val diagnostics = bundleOpt.map(_.reporter.allProblems).getOrElse(Nil).map { p =>
+              val range = for {
+                startLine <- p.position.startLine.toOption
+                startChar <- p.position.startColumn.toOption
+                endLine <- p.position.endLine.toOption
+                endChar <- p.position.endColumn.toOption
+              } yield TraceRange(startLine, startChar, endLine, endChar)
+
+              val code = Option(p.position.lineContent).filter(_.nonEmpty)
+              val source = p.position.sourcePath.toOption.filter(_.nonEmpty)
+
+              TraceDiagnostic(
+                p.severity.toString,
+                p.message,
+                range,
+                code,
+                source
+              )
+            }
+
+            val classesDir = result match {
+              case s: Compiler.Result.Success =>
+                s.products.newClassesDir.toString
+              case _ =>
+                ""
+            }
+
+            val analysisOut = bundleOpt.map(_.out.analysisOut.toString).getOrElse("")
+
+            val artifacts = TraceArtifacts(classesDir, analysisOut)
+
+            val files = bundleOpt match {
+              case Some(s) => s.uniqueInputs.sources.map(_.toPath.toString)
+              case None => Seq.empty
+            }
+
+            val isNoOp = result match {
+              case Compiler.Result.Success(_, _, _, _, isNoOp, _, _) => isNoOp
+              case _ => false
+            }
+
+            Some(
+              CompilationTrace(
+                project.name,
+                files,
+                diagnostics.toSeq,
+                artifacts,
+                isNoOp,
+                0L
+              )
+            )
+        }
+
+        Task.eval {
+          val workspaceDir = validResults.head.project.baseDirectory.getParent
+          val traceFile = workspaceDir.resolve(".bloop").resolve("compilation-trace.json")
+          logger.info(s"Writing trace to $traceFile")
+          try {
+            if (!java.nio.file.Files.exists(traceFile.getParent.underlying)) {
+              java.nio.file.Files.createDirectories(traceFile.getParent.underlying)
+            }
+            val bytes =
+              writeToArray(traces, WriterConfig.withIndentionStep(4))(CompilationTrace.listCodec)
+            java.nio.file.Files.write(traceFile.underlying, bytes)
+            ()
+          } catch {
+            case scala.util.control.NonFatal(e) =>
+              logger.error(s"Failed to write compilation trace: ${e.getMessage}")
+              e.printStackTrace()
+              ()
+          }
+        }
+      }
+    }
+  }
 
   def runIOTasksInParallel[T](
       tasks: Traversable[Task[T]],
