@@ -1,5 +1,5 @@
-//> using dep org.kohsuke:github-api:1.114
-//> using toolkit default
+//> using dep org.kohsuke:github-api:1.330
+//> using toolkit 0.8.0
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable

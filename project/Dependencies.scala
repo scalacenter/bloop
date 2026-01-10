@@ -8,7 +8,7 @@ object Dependencies {
   val Scala211Version = "2.11.12"
   val Scala212Version = "2.12.21"
   val Scala213Version = "2.13.18"
-  val Scala3Version = "3.7.3"
+  val Scala3Version = "3.7.4"
 
   val SbtVersion = "1.9.0"
 
@@ -18,13 +18,13 @@ object Dependencies {
   val bspVersion = "2.1.1"
 
   val scalazVersion = "7.3.8"
-  val lmVersion = "1.11.6"
+  val lmVersion = "1.12.0"
   val configDirsVersion = "26"
   val caseAppVersion = "2.0.6"
-  val coursierVersion = "2.1.25-M22"
+  val coursierVersion = "2.1.25-M23"
   val sourcecodeVersion = "0.4.4"
   val sbtTestInterfaceVersion = "1.0"
-  val sbtTestAgentVersion = "1.11.7"
+  val sbtTestAgentVersion = "1.12.0"
   val junitVersion = "0.13.3"
   val directoryWatcherVersion = "0.8.0+6-f651bd93"
   val monixVersion = "3.2.0"
@@ -33,7 +33,7 @@ object Dependencies {
   val scalaNative04Version = "0.4.17"
   val scalaNative05Version = "0.5.9"
   val scalaJs06Version = "0.6.33"
-  val scalaJs1Version = "1.20.1"
+  val scalaJs1Version = "1.20.2"
   val scalaJsEnvsVersion = "1.5.0"
   val xxHashVersion = "1.3.0"
   val ztVersion = "1.17"
@@ -75,7 +75,7 @@ object Dependencies {
   val sbtTestAgent = "org.scala-sbt" % "test-agent" % sbtTestAgentVersion
   val snailgun = "io.github.alexarchambault.scala-cli.snailgun" %% "snailgun-core" % "0.4.1-sc2"
   val ztExec = "org.zeroturnaround" % "zt-exec" % ztExecVersion
-  val logback = "ch.qos.logback" % "logback-classic" % "1.5.23"
+  val logback = "ch.qos.logback" % "logback-classic" % "1.5.24"
   val libdaemonjvm = "ch.epfl.scala" %% "libdaemon" % "0.0.12"
   val scopt = "com.github.scopt" % "scopt_2.12" % "4.0.0-RC2"
 

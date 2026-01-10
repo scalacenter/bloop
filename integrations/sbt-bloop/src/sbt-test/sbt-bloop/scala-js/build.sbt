@@ -7,6 +7,6 @@ val jsProject = project
       val lines = IO.read(config).replaceAll("\\s", "")
       assert(lines.contains(s""""platform":{"name":"$expected""""))
       assert(lines.contains(s""""mode":"debug""""))
-      assert(lines.contains(s""""version":"1.20.1""""))
+      assert(lines.contains(s""""version":"1.20.2""""))
     }
   )

@@ -298,9 +298,8 @@ lazy val benchmarks = project
 val integrations = file("integrations")
 
 lazy val sbtBloop: Project = project
-  .enablePlugins(ScriptedPlugin)
   .disablePlugins(ScalafixPlugin)
-  .enablePlugins(BuildInfoPlugin)
+  .enablePlugins(BuildInfoPlugin, SbtPlugin)
   .in(integrations / "sbt-bloop")
   .settings(
     scriptedBufferLog := false,
@@ -315,7 +314,7 @@ lazy val sbtBloop: Project = project
     name := "sbt-bloop",
     pluginCrossBuild / sbtVersion := (scalaBinaryVersion.value match {
       case "2.12" => SbtVersion
-      case _ => "2.0.0-RC6"
+      case _ => "2.0.0-RC8"
     }),
     crossScalaVersions := List(Scala212Version, Scala3Version),
     sbtPlugin := true,

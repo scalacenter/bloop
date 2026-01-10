@@ -60,7 +60,11 @@ object DefaultOptions {
 
     def finalJvmIndexOs = jvm.jvmIndexOs.getOrElse(OsLibc.jvmIndexOs)
 
-    val coursierCache = coursier.coursierCache(logging.logger.coursierLogger(""))
+    val coursierCache = {
+      val logger = logging.logger.coursierLogger("")
+      logger.init()
+      coursier.coursierCache(logger)
+    }
 
     def javaHomeManager(
         archiveCache: ArchiveCache[Task],
