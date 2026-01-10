@@ -1323,8 +1323,12 @@ object BloopDefaults {
     implicit val fileConverter: xsbti.FileConverter = Keys.fileConverter.value
     val internalClasspath = (Runtime / BloopKeys.bloopInternalClasspath).value.map(_._2)
     val externalClasspath = (Runtime / Keys.externalDependencyClasspath).value.toFiles.map(_.data)
-    val providedClasspath = (Provided / Keys.externalDependencyClasspath).value.toFiles.map(_.data)
-    (internalClasspath ++ externalClasspath ++ providedClasspath).distinct
+    // Provided dependencies are in Compile classpath but not in Runtime classpath.
+    // For BSP export, we include them in the runtime classpath so IDEs can run with provided deps.
+    val compileClasspath = (Compile / Keys.externalDependencyClasspath).value.toFiles.map(_.data)
+    val runtimePaths = externalClasspath.map(_.getCanonicalPath).toSet
+    val providedClasspath = compileClasspath.filterNot(f => runtimePaths.contains(f.getCanonicalPath))
+    internalClasspath ++ externalClasspath ++ providedClasspath
   }
 
   /**
