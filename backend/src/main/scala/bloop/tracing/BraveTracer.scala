@@ -21,6 +21,8 @@ sealed trait BraveTracer {
       thunk: BraveTracer => T
   ): T
 
+  def tag(key: String, value: String): Unit
+
   def traceVerbose[T](name: String, tags: (String, String)*)(
       thunk: BraveTracer => T
   ): T
@@ -48,6 +50,8 @@ sealed trait BraveTracer {
 object NoopTracer extends BraveTracer {
 
   override def startNewChildTracer(name: String, tags: (String, String)*): BraveTracer = this
+
+  override def tag(key: String, value: String): Unit = ()
 
   override def trace[T](name: String, tags: (String, String)*)(thunk: BraveTracer => T): T = thunk(
     this
@@ -88,10 +92,29 @@ object BraveTracer {
       ctx: Option[TraceContext],
       tags: (String, String)*
   ): BraveTracer = {
-    if (properties.enabled) {
+    val braveTracer = if (properties.enabled) {
       BraveTracerInternal(name, properties, ctx, tags: _*)
     } else {
       NoopTracer
+    }
+
+    if (properties.compilationTrace) {
+      val traceFile = bloop.io.AbsolutePath(
+        java.nio.file.Paths
+          .get(name.stripPrefix("compile ").stripSuffix(" (transitively)"))
+          .getParent
+          .resolve(".bloop")
+          .resolve("compilation-trace.json")
+      )
+      val projectName = tags
+        .collectFirst { case ("compile.target", value) => value }
+        .getOrElse(name)
+      CompositeTracer(
+        braveTracer,
+        new CompilationTraceTracer(projectName, traceFile, System.currentTimeMillis())
+      )
+    } else {
+      braveTracer
     }
 
   }
@@ -103,6 +126,11 @@ final class BraveTracerInternal private (
     closeCurrentSpan: () => Unit,
     properties: TraceProperties
 ) extends BraveTracer {
+
+  override def tag(key: String, value: String): Unit = {
+    _currentSpan.tag(key, value)
+    ()
+  }
 
   def currentSpan = Some(_currentSpan)
 
@@ -262,4 +290,120 @@ object BraveTracerInternal {
 
     new BraveTracerInternal(tracer, rootSpan, closeEverything, properties)
   }
+}
+
+final class CompilationTraceTracer(
+    project: String,
+    traceFile: bloop.io.AbsolutePath,
+    startTime: Long
+) extends BraveTracer {
+  import bloop.tracing.CompilationTrace
+  import bloop.tracing.TraceArtifacts
+  import com.github.plokhotnyuk.jsoniter_scala.core.writeToArray
+  import com.github.plokhotnyuk.jsoniter_scala.core.WriterConfig
+
+  private val tags = new ConcurrentHashMap[String, String]()
+
+  override def startNewChildTracer(name: String, tags: (String, String)*): BraveTracer = this
+  override def tag(key: String, value: String): Unit = {
+    this.tags.put(key, value)
+    ()
+  }
+
+  override def trace[T](name: String, tags: (String, String)*)(thunk: BraveTracer => T): T =
+    thunk(this)
+  override def traceVerbose[T](name: String, tags: (String, String)*)(
+      thunk: BraveTracer => T
+  ): T = thunk(this)
+  override def traceTask[T](name: String, tags: (String, String)*)(
+      thunk: BraveTracer => Task[T]
+  ): Task[T] = thunk(this)
+  override def traceTaskVerbose[T](name: String, tags: (String, String)*)(
+      thunk: BraveTracer => Task[T]
+  ): Task[T] = thunk(this)
+
+  override def terminate(): Unit = {
+    val durationMs = System.currentTimeMillis() - startTime
+    // We only want to write the trace if we have collected the necessary tags
+    // The "success" tag is used as a signal that the compilation finished
+    if (tags.containsKey("success")) {
+      val isNoOp = tags.getOrDefault("noop", "false").toBoolean
+      val analysisOut = tags.getOrDefault("analysis", "")
+      val classesDir = tags.getOrDefault("classesDir", "")
+      val artifacts = TraceArtifacts(classesDir, analysisOut)
+      val fileCount = tags.getOrDefault("fileCount", "0").toInt
+      val files = (0 until fileCount).map(i => tags.get(s"file.$i")).filter(_ != null)
+
+      val trace = CompilationTrace(
+        project,
+        files,
+        Seq.empty,
+        artifacts,
+        isNoOp,
+        durationMs
+      )
+
+      try {
+        if (!java.nio.file.Files.exists(traceFile.getParent.underlying)) {
+          java.nio.file.Files.createDirectories(traceFile.getParent.underlying)
+        }
+        traceFile.getParent.underlying.synchronized {
+          val projectTraceFile = traceFile.getParent.resolve(s"compilation-trace-${project}.json")
+          val bytes = writeToArray(trace, WriterConfig.withIndentionStep(4))(CompilationTrace.codec)
+          java.nio.file.Files.write(projectTraceFile.underlying, bytes)
+          ()
+        }
+      } catch {
+        case NonFatal(e) => e.printStackTrace()
+      }
+    }
+  }
+
+  override def currentSpan: Option[Span] = None
+  override def toIndependentTracer(
+      name: String,
+      traceProperties: TraceProperties,
+      tags: (String, String)*
+  ): BraveTracer =
+    this
+}
+
+final case class CompositeTracer(tracers: BraveTracer*) extends BraveTracer {
+  override def startNewChildTracer(name: String, tags: (String, String)*): BraveTracer =
+    CompositeTracer(tracers.map(_.startNewChildTracer(name, tags: _*)): _*)
+
+  override def tag(key: String, value: String): Unit =
+    tracers.foreach(_.tag(key, value))
+
+  override def trace[T](name: String, tags: (String, String)*)(thunk: BraveTracer => T): T = {
+    val children = tracers.map(_.startNewChildTracer(name, tags: _*))
+    val compositeChild = CompositeTracer(children: _*)
+    try thunk(compositeChild)
+    finally children.foreach(_.terminate())
+  }
+
+  override def traceVerbose[T](name: String, tags: (String, String)*)(thunk: BraveTracer => T): T =
+    trace(name, tags: _*)(thunk)
+
+  override def traceTask[T](name: String, tags: (String, String)*)(
+      thunk: BraveTracer => Task[T]
+  ): Task[T] = {
+    val children = tracers.map(_.startNewChildTracer(name, tags: _*))
+    val compositeChild = CompositeTracer(children: _*)
+    thunk(compositeChild).doOnFinish(_ => Task.eval(children.foreach(_.terminate())))
+  }
+
+  override def traceTaskVerbose[T](name: String, tags: (String, String)*)(
+      thunk: BraveTracer => Task[T]
+  ): Task[T] =
+    traceTask(name, tags: _*)(thunk)
+
+  override def terminate(): Unit = tracers.foreach(_.terminate())
+  override def currentSpan: Option[Span] = tracers.flatMap(_.currentSpan).headOption
+  override def toIndependentTracer(
+      name: String,
+      traceProperties: TraceProperties,
+      tags: (String, String)*
+  ): BraveTracer =
+    CompositeTracer(tracers.map(_.toIndependentTracer(name, traceProperties, tags: _*)): _*)
 }

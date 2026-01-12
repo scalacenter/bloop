@@ -829,11 +829,6 @@ object Compiler {
           compileInputs.logger,
           compileInputs.ioScheduler
         )
-        val copyMappedResources = bloop.io.ResourceMapper.copyMappedResources(
-          compileInputs.resourceMappings,
-          clientClassesDir,
-          compileInputs.logger
-        )
         val lastCopy = ParallelOps.copyDirectories(config)(
           readOnlyClassesDir,
           clientClassesDir.underlying,
@@ -842,7 +837,7 @@ object Compiler {
           compileInputs.logger
         )
 
-        Task.gatherUnordered(List(copyResources, copyMappedResources, lastCopy)).map { _ =>
+        Task.gatherUnordered(List(copyResources, lastCopy)).map { _ =>
           clientLogger.debug(
             s"Finished copying classes from $readOnlyClassesDir to $clientClassesDir"
           )
