@@ -1327,7 +1327,8 @@ object BloopDefaults {
     // For BSP export, we include them in the runtime classpath so IDEs can run with provided deps.
     val compileClasspath = (Compile / Keys.externalDependencyClasspath).value.toFiles.map(_.data)
     val runtimePaths = externalClasspath.map(_.getCanonicalPath).toSet
-    val providedClasspath = compileClasspath.filterNot(f => runtimePaths.contains(f.getCanonicalPath))
+    val providedClasspath =
+      compileClasspath.filterNot(f => runtimePaths.contains(f.getCanonicalPath))
     internalClasspath ++ externalClasspath ++ providedClasspath
   }
 
