@@ -317,7 +317,6 @@ lazy val sbtBloop: Project = project
       case _ => "2.0.0-RC8"
     }),
     crossScalaVersions := List(Scala212Version, Scala3Version),
-    sbtVersion := SbtVersion,
     libraryDependencies += Dependencies.bloopConfig,
     buildInfoPackage := "bloop.integrations.sbt",
     buildInfoKeys := List[BuildInfoKey](
