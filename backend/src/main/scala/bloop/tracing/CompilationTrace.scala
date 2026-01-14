@@ -17,6 +17,8 @@ object CompilationTrace {
     JsonCodecMaker.make[CompilationTrace]
   implicit val listCodec: JsonValueCodec[List[CompilationTrace]] =
     JsonCodecMaker.make[List[CompilationTrace]]
+  implicit val diagnosticCodec: JsonValueCodec[TraceDiagnostic] =
+    JsonCodecMaker.make[TraceDiagnostic]
 }
 
 case class TraceDiagnostic(

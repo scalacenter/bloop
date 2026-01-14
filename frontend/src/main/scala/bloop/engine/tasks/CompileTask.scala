@@ -76,6 +76,7 @@ object CompileTask {
       traceProperties,
       "bloop.version" -> BuildInfo.version,
       "zinc.version" -> BuildInfo.zincVersion,
+      "workspace.dir" -> cwd.syntax,
       "build.uri" -> originUri.syntax,
       "compile.target" -> topLevelTargets,
       "client" -> clientName
@@ -86,6 +87,7 @@ object CompileTask {
       traceProperties,
       "bloop.version" -> BuildInfo.version,
       "zinc.version" -> BuildInfo.zincVersion,
+      "workspace.dir" -> cwd.syntax,
       "build.uri" -> originUri.syntax,
       "compile.target" -> topLevelTargets,
       "client" -> clientName
@@ -296,8 +298,22 @@ object CompileTask {
                         compileProjectTracer.tag(s"file.$idx", file.toPath.toString)
                     }
 
+                    reportDiagnostics(compileProjectTracer, s.reporter.allProblems)
+
                     ResultBundle(s, Some(newSuccessful), Some(lastSuccessful), runningTasks)
                   case f: Compiler.Result.Failed =>
+                    compileProjectTracer.tag("success", "false")
+
+                    val sources = bundle.uniqueInputs.sources
+                    compileProjectTracer.tag("fileCount", sources.length.toString)
+                    sources.zipWithIndex.foreach {
+                      case (file, idx) =>
+                        compileProjectTracer.tag(s"file.$idx", file.toPath.toString)
+                    }
+
+                    val problems = f.problems.map(_.problem)
+                    reportDiagnostics(compileProjectTracer, problems)
+
                     val runningTasks = runPostCompilationTasks(f.backgroundTasks)
                     ResultBundle(result, None, Some(lastSuccessful), runningTasks)
                   case c: Compiler.Result.Cancelled =>
@@ -615,5 +631,46 @@ object CompileTask {
         )
       )
       .map(_ => ())
+  }
+
+  private def reportDiagnostics(
+      tracer: BraveTracer,
+      problems: Seq[xsbti.Problem]
+  ): Unit = {
+    import bloop.tracing.TraceDiagnostic
+    import bloop.tracing.TraceRange
+    import com.github.plokhotnyuk.jsoniter_scala.core.writeToString
+
+    def toOption[T](opt: java.util.Optional[T]): Option[T] =
+      if (opt.isPresent) Some(opt.get) else None
+
+    tracer.tag("diagnostics.count", problems.length.toString)
+    problems.zipWithIndex.foreach {
+      case (p, idx) =>
+        val range = toOption(p.position.startLine).map { startLine =>
+          TraceRange(
+            startLine.intValue(),
+            toOption(p.position.startColumn).map(_.intValue()).getOrElse(0),
+            toOption(p.position.endLine).map(_.intValue()).getOrElse(startLine.intValue()),
+            toOption(p.position.endColumn).map(_.intValue()).getOrElse(0)
+          )
+        }
+
+        val diagnostic = TraceDiagnostic(
+          p.severity.toString,
+          p.message,
+          range,
+          toOption(p.diagnosticCode).map(_.code),
+          toOption(p.position.sourcePath)
+        )
+
+        try {
+          val json = writeToString(diagnostic)(bloop.tracing.CompilationTrace.diagnosticCodec)
+          tracer.tag(s"diagnostic.$idx", json)
+        } catch {
+          case scala.util.control.NonFatal(e) =>
+            tracer.tag(s"diagnostic.$idx.error", e.getMessage)
+        }
+    }
   }
 }
