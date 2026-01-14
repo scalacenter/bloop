@@ -2,7 +2,9 @@ package bloop.bsp
 
 import java.net.ServerSocket
 import java.net.Socket
+import java.nio.file.Files
 import java.nio.file.NoSuchFileException
+import java.nio.file.Path
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 
@@ -32,6 +34,7 @@ object BspServer {
   private implicit val logContext: DebugFilter = DebugFilter.Bsp
 
   import Commands.ValidatedBsp
+
   private def initServer(handle: ServerHandle, state: State): Task[ServerSocket] = {
     state.logger.debug(s"Waiting for a connection at $handle...")
     val openSocket = handle.server
@@ -52,10 +55,13 @@ object BspServer {
   ): Task[State] = {
     import state.logger
 
-    def listenToConnection(handle: ServerHandle, serverSocket: ServerSocket): Task[State] = {
+    def listenToConnection(
+        handle: ServerHandle,
+        serverSocket: ServerSocket,
+        shutdownHook: Option[Thread]
+    ): Task[State] = {
       val isCommunicationActive = Atomic(true)
       val connectionURI = handle.uri
-
       // Do NOT change this log, it's used by clients to know when to start a connection
       logger.info(s"The server is listening for incoming connections at $connectionURI...")
       promiseWhenStarted.foreach(_.success(()))
@@ -122,11 +128,14 @@ object BspServer {
               case None => clients0
             }
           }
+
           bspLogger.info {
             if (cancelled) "BSP server cancelled, closing socket..."
             else "BSP server stopped"
           }
+
           server.cancelAllRequests()
+
           ioScheduler.scheduleOnce(
             100,
             TimeUnit.MILLISECONDS,
@@ -138,15 +147,25 @@ object BspServer {
               }
             }
           )
-          closeCommunication(latestState, socket, serverSocket)
+
+          val socketPath = handle match {
+            case ServerHandle.UnixLocal(socketFile) => Some(socketFile.underlying)
+            case _ => None
+          }
+
+          shutdownHook.foreach { hook =>
+            try Runtime.getRuntime.removeShutdownHook(hook)
+            catch { case NonFatal(_) => () }
+          }
+
+          closeCommunication(latestState, socket, serverSocket, socketPath)
         }
       }
 
       process
         .doOnCancel(Task(stopListeting(cancelled = true)))
         .doOnFinish { errOpt =>
-          for (err <- errOpt)
-            err.printStackTrace(System.err)
+          for (err <- errOpt) err.printStackTrace(System.err)
           Task(stopListeting(cancelled = false))
         }
         .map(_ => provider.stateAfterExecution)
@@ -160,13 +179,27 @@ object BspServer {
     }
 
     initServer(handle, state).materialize.flatMap {
-      case scala.util.Success(socket: ServerSocket) =>
-        listenToConnection(handle, socket).onErrorRecover {
+      case scala.util.Success(serverSocket: ServerSocket) =>
+        val shutdownHook: Option[Thread] = handle match {
+          case ServerHandle.UnixLocal(socketFile) =>
+            val hook = new Thread {
+              override def run(): Unit = {
+                try Files.deleteIfExists(socketFile.underlying)
+                catch { case NonFatal(_) => () }
+              }
+            }
+            Runtime.getRuntime.addShutdownHook(hook)
+            Some(hook)
+          case _ => None
+        }
+
+        listenToConnection(handle, serverSocket, shutdownHook).onErrorRecover {
           case t =>
             System.err.println("Exiting BSP server with:")
             t.printStackTrace(System.err)
             state.withError(s"Exiting BSP server with ${t.getMessage}", t)
         }
+
       case scala.util.Failure(t: Throwable) =>
         promiseWhenStarted.foreach(p => if (!p.isCompleted) p.failure(t))
         Task.now(state.withError(s"BSP server failed to open a socket: '${t.getMessage}'", t))
@@ -176,7 +209,8 @@ object BspServer {
   def closeCommunication(
       latestState: State,
       socket: Socket,
-      serverSocket: ServerSocket
+      serverSocket: ServerSocket,
+      socketPath: Option[Path] = None
   ): Unit = {
     // Close any socket communication asap and swallow exceptions
     try {
@@ -185,6 +219,12 @@ object BspServer {
       finally {
         try serverSocket.close()
         catch { case NonFatal(_) => () }
+        finally {
+          socketPath.foreach { path =>
+            try Files.deleteIfExists(path)
+            catch { case NonFatal(_) => () }
+          }
+        }
       }
     } finally {
       // Guarantee that we always schedule the external classes directories deletion
@@ -214,5 +254,4 @@ object BspServer {
       ()
     }
   }
-
 }
