@@ -62,7 +62,7 @@ object BspServer {
     ): Task[State] = {
       val isCommunicationActive = Atomic(true)
       val connectionURI = handle.uri
-      // Do NOT change this log, it's used by clients to know when to start a connection
+
       logger.info(s"The server is listening for incoming connections at $connectionURI...")
       promiseWhenStarted.foreach(_.success(()))
 
@@ -87,7 +87,7 @@ object BspServer {
         scheduler,
         ioScheduler
       )
-      // In this case BloopLanguageServer doesn't use input observable
+
       val server =
         new BloopLanguageServer(Observable.never, client, provider.services, ioScheduler, bspLogger)
 
@@ -96,7 +96,7 @@ object BspServer {
         LowLevelMessage
           .fromInputStream(in, bspLogger)
           .guaranteeCase(_ => monix.eval.Task(inputExit.success(())))
-          .asyncBoundary(OverflowStrategy.Unbounded) // allows to catch input stream close earlier
+          .asyncBoundary(OverflowStrategy.Unbounded)
           .mapParallelUnordered(4) { bytes =>
             val msg = LowLevelMessage.toMsg(bytes)
             server
@@ -121,6 +121,8 @@ object BspServer {
           def askCurrentBspClients: Set[ClientInfo.BspClientInfo] = {
             import scala.collection.JavaConverters._
             val clients0 = connectedBspClients.keySet().asScala.toSet
+            // Add client that will be removed from map always so that its
+            // project directories are visited and orphan dirs pruned
             initializedClientInfo match {
               case Some(bspInfo) => clients0.+(bspInfo)
               case None => clients0
@@ -210,7 +212,6 @@ object BspServer {
       serverSocket: ServerSocket,
       socketPath: Option[Path] = None
   ): Unit = {
-    // Close any socket communication asap and swallow exceptions  
     try {
       try socket.close()
       catch { case NonFatal(_) => () }
@@ -225,7 +226,6 @@ object BspServer {
         }
       }
     } finally {
-    q// Guarantee that we always schedule the external classes directories deletion
       val deleteExternalDirsTasks = latestState.build.loadedProjects.map { loadedProject =>
         import bloop.io.Paths
         val project = loadedProject.project
