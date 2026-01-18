@@ -317,7 +317,7 @@ object CompileGraph {
                    * deduplicated clients always make progress, we now proceed
                    * with:
                    *
-                 * 1. Cancelling the dead-looking compilation, hoping that the
+                   * 1. Cancelling the dead-looking compilation, hoping that the
                    *    process will wake up at some point and stop running.
                    * 2. Shutting down the deduplication and triggering a new
                    *    compilation. If there are several clients deduplicating this
