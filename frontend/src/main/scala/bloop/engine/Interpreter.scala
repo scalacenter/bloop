@@ -258,20 +258,59 @@ object Interpreter {
               cmd.cliOptions.noColor,
               "`console`"
             ) { state =>
+              // Helper to output a REPL command - either print it or write to file
+              def outputReplCommand(
+                  replCmd: List[String],
+                  replName: String
+              ): Task[State] = {
+                val cmdString = replCmd.mkString("\n")
+                cmd.outFile match {
+                  case None =>
+                    // Print the command for the client to run locally (interactive REPLs
+                    // need direct terminal access which isn't available through nailgun)
+                    Task.now(state.withInfo(cmdString))
+                  case Some(outFile) =>
+                    try {
+                      Files.write(outFile, cmdString.getBytes(StandardCharsets.UTF_8))
+                      val msg = s"Wrote $replName command to $outFile"
+                      Task.now(state.withDebug(msg)(DebugFilter.All))
+                    } catch {
+                      case _: IOException =>
+                        val msg = s"Unexpected error when writing $replName command to $outFile"
+                        Task.now(state.withError(msg, ExitStatus.RunError))
+                    }
+                }
+              }
+
               cmd.repl match {
                 case ScalacRepl =>
                   if (cmd.ammoniteVersion.isDefined) {
                     val errMsg =
                       "Specifying an Ammonite version while using the Scalac console does not work"
                     Task.now(state.withError(errMsg, ExitStatus.InvalidCommandLineOption))
-                  } else if (cmd.args.nonEmpty) {
-                    val errMsg = "Passing arguments to the Scalac console does not work"
-                    Task.now(state.withError(errMsg, ExitStatus.InvalidCommandLineOption))
                   } else {
-                    Tasks.console(state, project)
+                    val dag = state.build.getDagFor(project)
+                    val scalaVersion = project.scalaInstance
+                      .map(_.version)
+                      .getOrElse(ScalaInstance.scalaInstanceForJavaProjects(state.logger))
+
+                    val classpath = project.fullRuntimeClasspath(dag, state.client)
+                    val classpathStr = classpath.map(_.syntax).mkString(java.io.File.pathSeparator)
+
+                    val scalaCmd = List(
+                      "coursier",
+                      "launch",
+                      s"org.scala-lang:scala-compiler:$scalaVersion",
+                      "--main-class",
+                      "scala.tools.nsc.MainGenericRunner",
+                      "--",
+                      "-cp",
+                      classpathStr
+                    ) ++ cmd.args
+
+                    outputReplCommand(scalaCmd, "Scala REPL")
                   }
                 case AmmoniteRepl =>
-                  // Look for version of scala instance in any of the projects
                   def findScalaVersion(dag: Dag[Project]): Option[String] = {
                     dag match {
                       case Aggregate(dags) => dags.flatMap(findScalaVersion).headOption
@@ -285,44 +324,23 @@ object Interpreter {
                   }
 
                   val dag = state.build.getDagFor(project)
-                  // If none version is found (e.g. all Java projects), use Bloop's scala version
                   val scalaVersion = findScalaVersion(dag)
                     .getOrElse(ScalaInstance.scalaInstanceForJavaProjects(state.logger))
 
                   val ammVersion = cmd.ammoniteVersion.getOrElse("latest.release")
-                  val coursierCmd = List(
+                  val classpath = project.fullRuntimeClasspath(dag, state.client)
+                  val coursierClasspathArgs =
+                    classpath.flatMap(elem => Seq("--extra-jars", elem.syntax))
+
+                  val ammCmd = List(
                     "coursier",
                     "launch",
                     s"com.lihaoyi:ammonite_$scalaVersion:$ammVersion",
                     "--main-class",
                     "ammonite.Main"
-                  )
+                  ) ++ coursierClasspathArgs ++ ("--" :: cmd.args)
 
-                  val classpath = project.fullRuntimeClasspath(dag, state.client)
-                  val coursierClasspathArgs =
-                    classpath.flatMap(elem => Seq("--extra-jars", elem.syntax))
-
-                  val ammArgs = "--" :: cmd.args
-
-                  /**
-                   * Whenever `console` is run an extra `--out-file` parameter is added.
-                   * That file is later used to write a coursier command to and Bloopgun uses it
-                   * to download and run Ammonite.
-                   */
-                  val ammoniteCmd = (coursierCmd ++ coursierClasspathArgs ++ ammArgs).mkString("\n")
-                  cmd.outFile match {
-                    case None => Task.now(state.withInfo(ammoniteCmd))
-                    case Some(outFile) =>
-                      try {
-                        Files.write(outFile, ammoniteCmd.getBytes(StandardCharsets.UTF_8))
-                        val msg = s"Wrote Ammonite command to $outFile"
-                        Task.now(state.withDebug(msg)(DebugFilter.All))
-                      } catch {
-                        case _: IOException =>
-                          val msg = s"Unexpected error when writing Ammonite command to $outFile"
-                          Task.now(state.withError(msg, ExitStatus.RunError))
-                      }
-                  }
+                  outputReplCommand(ammCmd, "Ammonite")
               }
             }
           case None => Task.now(reportMissing(project :: Nil, state))
