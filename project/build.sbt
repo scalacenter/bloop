@@ -19,7 +19,7 @@ libraryDependencies ++= List(
   // context https://github.com/scalacenter/bloop/pull/2101
   "org.eclipse.jgit" % "org.eclipse.jgit" % "5.13.5.202508271544-r",
   "org.eclipse.jgit" % "org.eclipse.jgit.ssh.jsch" % "5.13.5.202508271544-r",
-  "commons-codec" % "commons-codec" % "1.20.0",
+  "commons-codec" % "commons-codec" % "1.21.0",
   "org.kohsuke" % "github-api" % "1.330",
   ("ch.epfl.scala" % "jarjar" % "1.7.2-patched")
     .exclude("org.apache.ant", "ant")
