@@ -4,7 +4,6 @@ import build.Dependencies
 import build.Dependencies.{Scala211Version, Scala212Version, SbtVersion, Scala3Version}
 
 ThisBuild / dynverSeparator := "-"
-ThisBuild / resolvers ++= Resolver.sonatypeOssRepos("snapshots")
 
 // Add hook for scalafmt validation
 Global / onLoad ~= { old =>
