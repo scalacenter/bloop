@@ -32,7 +32,7 @@ object BloopClassPath {
       params = ScalaParameters(sv, sbv)
       cp <- Artifacts.artifacts(
         Seq(dep),
-        Seq("sonatype:snapshots"),
+        Seq("https://central.sonatype.com/repository/maven-snapshots"),
         Some(params),
         logger,
         cache.withMessage(s"Downloading compilation server ${dep.version}")

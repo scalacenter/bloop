@@ -170,7 +170,7 @@ If you installed Bloop via coursier you can use the same option to install
 snapshot or locally released versions.
 
 ```bash
-cs launch -r sonatype:snapshots ch.epfl.scala:bloop-cli_2.13:2.0.6-85-43d49584-SNAPSHOT  -M bloop.cli.Bloop -- about
+cs launch -r https://central.sonatype.com/repository/maven-snapshots ch.epfl.scala:bloop-cli_2.13:2.0.6-85-43d49584-SNAPSHOT  -M bloop.cli.Bloop -- about
 ```
 
 You can replace the above snapshot version with the one you want to install.
