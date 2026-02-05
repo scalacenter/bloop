@@ -411,6 +411,7 @@ object TestUtil {
       scalaInstance = scalaInstance,
       rawClasspath = classpath,
       resources = Nil,
+      resourceMappings = Nil,
       isBestEffort = false,
       compileSetup = Config.CompileSetup.empty.copy(order = compileOrder),
       genericClassesDir = classes,
