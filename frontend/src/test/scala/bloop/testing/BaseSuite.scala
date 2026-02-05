@@ -438,12 +438,11 @@ abstract class BaseSuite extends TestSuite with BloopHelpers {
       expectedTitle: String
   )(implicit filename: sourcecode.File, line: sourcecode.Line): Unit = {
     colored {
-      DiffAssertions.assertNoDiffOrPrintExpected(
+      DiffAssertions.assertNoDiffOrPrintObtained(
         obtained,
         expected,
         obtainedTitle,
-        expectedTitle,
-        true
+        expectedTitle
       )
       ()
     }
@@ -456,9 +455,18 @@ abstract class BaseSuite extends TestSuite with BloopHelpers {
       print: Boolean = true
   )(implicit filename: sourcecode.File, line: sourcecode.Line): Unit = {
     colored {
-      DiffAssertions.assertNoDiffOrPrintExpected(obtained, expected, title, title, print)
+      if (print) DiffAssertions.assertNoDiffOrPrintObtained(obtained, expected, title, title)
+      else DiffAssertions.assertNoDiff(obtained, expected, title, title)
       ()
     }
+  }
+
+  def assertEndsWith(
+      obtained: String,
+      expected: String,
+      title: String = ""
+  )(implicit filename: sourcecode.File, line: sourcecode.Line): Unit = {
+    colored { DiffAssertions.assertEndsWithOrPrintObtained(obtained, expected, title, title) }
   }
 
   def colored[T](
