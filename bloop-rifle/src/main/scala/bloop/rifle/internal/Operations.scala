@@ -154,10 +154,16 @@ object Operations {
         s"-Dbloop.truncate-output-file-periodically=${writeOutputTo.toAbsolutePath}"
       }
 
+    val filteredJavaOpts =
+      if (System.getProperty("os.name").endsWith("BSD"))
+        javaOpts.filterNot(_ == "-XX:+UseZGC")
+      else
+        javaOpts
+
     val baseCommand =
       Seq(javaPath) ++
         extraJavaOpts ++
-        javaOpts ++
+        filteredJavaOpts ++
         Seq(
           "-cp",
           classPath.map(_.toString).mkString(File.pathSeparator),
