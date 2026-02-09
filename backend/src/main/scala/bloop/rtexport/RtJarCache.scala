@@ -25,19 +25,18 @@ object RtJarCache {
     val manager =
       new BloopComponentManager(SemanticDBCacheLock, provider, secondaryCacheDir = None)
 
-    Try(manager.file(bloopJavaVersion)(IfMissing.Fail)) match {
-      case Success(rtPath) => Some(AbsolutePath(rtPath))
+    Try(manager.files(bloopJavaVersion)(IfMissing.Fail)) match {
+      case Success(rtPath) => rtPath.headOption.map(AbsolutePath(_))
       case Failure(_) =>
-        manager.define(bloopJavaVersion, Seq(Export.rt()))
-        Try(manager.file(bloopJavaVersion)(IfMissing.Fail)) match {
+        manager.define(bloopJavaVersion, Export.rt())
+        Try(manager.files(bloopJavaVersion)(IfMissing.Fail)) match {
           case Failure(exception) =>
             logger.error(
               "Could not create rt.jar needed for correct compilation for JDK 8.",
               exception
             )
             None
-          case Success(value) =>
-            Some(AbsolutePath(value))
+          case Success(value) => value.headOption.map(AbsolutePath(_))
         }
     }
   }

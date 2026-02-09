@@ -64,20 +64,8 @@ class BloopComponentManager(
     lockLocalCache(getOrElse(fromSecondary))
   }
 
-  /**
-   * Get the file for component 'id',
-   *  throwing an exception if no files or multiple files exist for the component.
-   */
-  def file(id: String)(ifMissing: IfMissing): File = {
-    files(id)(ifMissing).toList match {
-      case x :: Nil => x
-      case xs => invalid(s"Expected single file for component '$id', found: ${xs.mkString(", ")}")
-    }
-  }
-
-  /** Associate a component id to a series of jars. */
-  def define(id: String, files: Iterable[File]): Unit =
-    lockLocalCache(provider.defineComponent(id, files.toSeq.toArray))
+  def define(id: String, file: File): Unit =
+    lockLocalCache(provider.defineComponent(id, Array(file)))
 
   private def lockLocalCache[T](action: => T): T = lock(provider.lockFile)(action)
   private def lockSecondaryCache[T](action: => T): Option[T] =
@@ -95,16 +83,16 @@ class BloopComponentManager(
     secondaryCacheDir.foreach { dir =>
       val file = secondaryCacheFile(id, dir)
       if (file.exists) {
-        define(id, Seq(file))
+        define(id, file)
       }
     }
   }
 
   /** Install the files for component 'id' to the secondary cache. */
   private def copyFromCacheToSecondaryCache(id: String): Unit = {
-    val fromPrimaryCache = file(id)(IfMissing.fail)
+    val fromPrimaryCache = files(id)(IfMissing.fail)
     secondaryCacheDir.foreach { dir =>
-      IO.copyFile(fromPrimaryCache, secondaryCacheFile(id, dir))
+      fromPrimaryCache.foreach(file => IO.copyFile(file, secondaryCacheFile(id, dir)))
     }
   }
 

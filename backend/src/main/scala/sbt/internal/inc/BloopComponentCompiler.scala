@@ -29,6 +29,7 @@ import xsbti.ComponentProvider
 import xsbti.Logger
 import xsbti.compile.ClasspathOptionsUtil
 import xsbti.compile.CompilerBridgeProvider
+import java.nio.file.NoSuchFileException
 
 object BloopComponentCompiler {
   import xsbti.compile.ScalaInstance
@@ -130,7 +131,7 @@ object BloopComponentCompiler {
       logger.debug(s"Getting $bridgeSources for Scala ${scalaInstance.version}")(
         DebugFilter.Compilation
       )
-      zinc.compiledBridgeJar
+      zinc.compiledBridgeJar(retry = true)
     }
 
     override def fetchCompiledBridge(scalaInstance: ScalaInstance, logger: Logger): File = {
@@ -243,7 +244,7 @@ private[inc] class BloopComponentCompiler(
     logger: BloopLogger
 ) {
   implicit val debugFilter: DebugFilter.Compilation.type = DebugFilter.Compilation
-  def compiledBridgeJar: File = {
+  def compiledBridgeJar(retry: Boolean = true): File = {
     val jarBinaryName = {
       val instance = compiler.scalaInstance
       val bridgeName = {
@@ -253,7 +254,26 @@ private[inc] class BloopComponentCompiler(
 
       BloopComponentCompiler.getBridgeComponentId(bridgeName, compiler.scalaInstance)
     }
-    manager.file(jarBinaryName)(IfMissing.define(true, compileAndInstall(jarBinaryName)))
+
+    def getBridgeFiles() = manager.files(jarBinaryName)(
+      IfMissing.define(true, compileAndInstall(jarBinaryName))
+    )
+
+    val bridgeFiles = try {
+      getBridgeFiles()
+    } catch {
+      case _: NoSuchFileException =>
+        compileAndInstall(jarBinaryName)
+        getBridgeFiles()
+    }
+    bridgeFiles.filter(_.getName.contains(bridgeSources.name)).headOption.getOrElse {
+      compileAndInstall(jarBinaryName)
+      if (retry) compiledBridgeJar(retry = false)
+      else
+        throw new InvalidComponent(
+          s"Expected to find '$jarBinaryName' in files: ${bridgeFiles.mkString(", ")}"
+        )
+    }
   }
 
   /**
@@ -268,7 +288,13 @@ private[inc] class BloopComponentCompiler(
       IO.withTemporaryDirectory { _ =>
         val shouldResolveSources =
           bridgeSources.explicitArtifacts.exists(_.`type` == "src")
-        val allArtifacts = bridgeJarsOpt.map(_.map(_.toPath)).getOrElse {
+        val bridgeJars = bridgeJarsOpt.flatMap { jars =>
+          jars.map(_.toPath).filter(Files.exists(_)) match {
+            case Nil => None
+            case jars => Some(jars)
+          }
+        }
+        val allArtifacts = bridgeJars.getOrElse {
           BloopDependencyResolution.resolveWithErrors(
             List(
               BloopDependencyResolution
@@ -292,10 +318,19 @@ private[inc] class BloopComponentCompiler(
           }
         }
         if (!shouldResolveSources) {
+          val bridgeJar =
+            allArtifacts
+              .find(_.toString().contains(bridgeSources.name))
+              .map(_.toFile)
+              .getOrElse(
+                throw new InvalidComponent(
+                  s"Could not find bridge sources for $bridgeSources in $allArtifacts"
+                )
+              )
           // This is usually true in the Dotty case, that has a pre-compiled compiler, only take the bridge jar
           manager.define(
             compilerBridgeId,
-            allArtifacts.find(_.toString().contains(bridgeSources.name)).toList.map(_.toFile())
+            bridgeJar
           )
         } else {
           val (sources, xsbtiJars) =
@@ -327,7 +362,7 @@ private[inc] class BloopComponentCompiler(
             logger
           )
 
-          manager.define(compilerBridgeId, Seq(target))
+          manager.define(compilerBridgeId, target)
         }
       }
     }
