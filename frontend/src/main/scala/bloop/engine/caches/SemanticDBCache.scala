@@ -56,11 +56,15 @@ object SemanticDBCache {
       val manager =
         new BloopComponentManager(SemanticDBCacheLock, provider, secondaryCacheDir = None)
       val semanticDBId = s"${artifact.organization}.${artifact.module}.${artifact.version}"
-      Try(manager.file(semanticDBId)(IfMissing.Fail)) match {
-        case Success(pluginPath) => Right(AbsolutePath(pluginPath))
+      Try(manager.files(semanticDBId)(IfMissing.Fail)) match {
+        case Success(pluginPaths) =>
+          pluginPaths.headOption
+            .map(AbsolutePath(_))
+            .map(Right(_))
+            .getOrElse(Left(s"No plugin found for $semanticDBId"))
         case Failure(_) =>
           val resolvedPlugin = attemptResolution
-          resolvedPlugin.foreach(plugin => manager.define(semanticDBId, Seq(plugin.toFile)))
+          resolvedPlugin.foreach(plugin => manager.define(semanticDBId, plugin.toFile))
           resolvedPlugin
       }
     }
