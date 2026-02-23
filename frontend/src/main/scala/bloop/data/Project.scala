@@ -39,6 +39,7 @@ final case class Project(
     scalaInstance: Option[ScalaInstance],
     rawClasspath: List[AbsolutePath],
     resources: List[AbsolutePath],
+    resourceMappings: List[(AbsolutePath, String)],
     compileSetup: Config.CompileSetup,
     genericClassesDir: AbsolutePath,
     isBestEffort: Boolean,
@@ -347,6 +348,8 @@ object Project {
     val tags = project.tags.getOrElse(Nil)
     val projectDirectory = AbsolutePath(project.directory)
 
+    val resourceMappings = List.empty[(AbsolutePath, String)]
+
     Project(
       project.name,
       projectDirectory,
@@ -355,6 +358,7 @@ object Project {
       instance,
       compileClasspath,
       compileResources,
+      resourceMappings,
       setup,
       AbsolutePath(project.classesDir),
       isBestEffort = false,

@@ -1,10 +1,13 @@
 package bloop.tracing
 
 import java.util.concurrent.ConcurrentHashMap
+import java.nio.file.{Paths => NioPaths, Files}
+import java.net.URI
 
 import scala.util.control.NonFatal
 
 import bloop.task.Task
+import bloop.io.AbsolutePath
 
 import brave.Span
 import brave.Tracer
@@ -20,6 +23,8 @@ sealed trait BraveTracer {
   def trace[T](name: String, tags: (String, String)*)(
       thunk: BraveTracer => T
   ): T
+
+  def tag(key: String, value: String): Unit
 
   def traceVerbose[T](name: String, tags: (String, String)*)(
       thunk: BraveTracer => T
@@ -48,6 +53,8 @@ sealed trait BraveTracer {
 object NoopTracer extends BraveTracer {
 
   override def startNewChildTracer(name: String, tags: (String, String)*): BraveTracer = this
+
+  override def tag(key: String, value: String): Unit = ()
 
   override def trace[T](name: String, tags: (String, String)*)(thunk: BraveTracer => T): T = thunk(
     this
@@ -91,9 +98,22 @@ object BraveTracer {
     if (properties.enabled) {
       BraveTracerInternal(name, properties, ctx, tags: _*)
     } else {
-      NoopTracer
+      val buildUri = tags.collectFirst { case ("workspace.dir", value) => value }
+      buildUri match {
+        case Some(uri) =>
+          val workspaceDir = AbsolutePath(NioPaths.get(uri))
+          val traceFile = workspaceDir.resolve("compilation-trace.json")
+          if (traceFile.exists) {
+            val projectName = tags
+              .collectFirst { case ("compile.target", value) => value }
+              .getOrElse(name)
+            new CompilationTraceTracer(projectName, traceFile, System.currentTimeMillis())
+          } else {
+            NoopTracer
+          }
+        case None => NoopTracer
+      }
     }
-
   }
 }
 
@@ -103,6 +123,11 @@ final class BraveTracerInternal private (
     closeCurrentSpan: () => Unit,
     properties: TraceProperties
 ) extends BraveTracer {
+
+  override def tag(key: String, value: String): Unit = {
+    _currentSpan.tag(key, value)
+    ()
+  }
 
   def currentSpan = Some(_currentSpan)
 
@@ -262,4 +287,87 @@ object BraveTracerInternal {
 
     new BraveTracerInternal(tracer, rootSpan, closeEverything, properties)
   }
+}
+
+final class CompilationTraceTracer(
+    project: String,
+    traceFile: bloop.io.AbsolutePath,
+    startTime: Long
+) extends BraveTracer {
+  import bloop.tracing.CompilationTrace
+  import bloop.tracing.TraceArtifacts
+  import com.github.plokhotnyuk.jsoniter_scala.core.writeToArray
+  import com.github.plokhotnyuk.jsoniter_scala.core.WriterConfig
+
+  private val tags = new ConcurrentHashMap[String, String]()
+
+  override def startNewChildTracer(name: String, tags: (String, String)*): BraveTracer = this
+  override def tag(key: String, value: String): Unit = {
+    this.tags.put(key, value)
+    ()
+  }
+
+  override def trace[T](name: String, tags: (String, String)*)(thunk: BraveTracer => T): T =
+    thunk(this)
+  override def traceVerbose[T](name: String, tags: (String, String)*)(
+      thunk: BraveTracer => T
+  ): T = thunk(this)
+  override def traceTask[T](name: String, tags: (String, String)*)(
+      thunk: BraveTracer => Task[T]
+  ): Task[T] = thunk(this)
+  override def traceTaskVerbose[T](name: String, tags: (String, String)*)(
+      thunk: BraveTracer => Task[T]
+  ): Task[T] = thunk(this)
+
+  override def terminate(): Unit = {
+    val durationMs = System.currentTimeMillis() - startTime
+    val isNoOp = tags.getOrDefault("isNoOp", "false").toBoolean
+    val analysisOut = tags.getOrDefault("analysis", "")
+    val classesDir = tags.getOrDefault("classesDir", "")
+    val artifacts = TraceArtifacts(classesDir, analysisOut)
+    val fileCount = tags.getOrDefault("fileCount", "0").toInt
+    val files = (0 until fileCount).map(i => tags.get(s"file.$i")).filter(_ != null)
+
+    import com.github.plokhotnyuk.jsoniter_scala.core.readFromString
+    val diagnosticCount = tags.getOrDefault("diagnostics.count", "0").toInt
+    val diagnostics = (0 until diagnosticCount).flatMap { i =>
+      val json = tags.get(s"diagnostic.$i")
+      if (json != null) {
+        try {
+          Some(readFromString[TraceDiagnostic](json)(CompilationTrace.diagnosticCodec))
+        } catch { case NonFatal(_) => None }
+      } else None
+    }
+
+    val trace = CompilationTrace(
+      project,
+      files,
+      diagnostics,
+      artifacts,
+      isNoOp,
+      durationMs
+    )
+
+    try {
+      if (!java.nio.file.Files.exists(traceFile.getParent.underlying)) {
+        java.nio.file.Files.createDirectories(traceFile.getParent.underlying)
+      }
+      traceFile.getParent.underlying.synchronized {
+        val projectTraceFile = traceFile.getParent.resolve(s"compilation-trace-${project}.json")
+        val bytes = writeToArray(trace, WriterConfig.withIndentionStep(4))(CompilationTrace.codec)
+        java.nio.file.Files.write(projectTraceFile.underlying, bytes)
+        ()
+      }
+    } catch {
+      case NonFatal(e) => e.printStackTrace()
+    }
+  }
+
+  override def currentSpan: Option[Span] = None
+  override def toIndependentTracer(
+      name: String,
+      traceProperties: TraceProperties,
+      tags: (String, String)*
+  ): BraveTracer =
+    this
 }
