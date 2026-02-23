@@ -69,51 +69,36 @@ object Forker {
       logger: Logger,
       opts: CommonOptions
   ): Task[Int] = {
-    val consumeInput: Option[Cancelable] = None
-    @volatile var shutdownInput: Boolean = false
-
-    /* We need to gobble the input manually with a fixed delay because otherwise
-     * the remote process will not see it.
-     *
-     * The input gobble runs on a 50ms basis and it can process a maximum of 4096
-     * bytes at a time. The rest that is not read will be read in the next 50ms. */
-    def goobleInput(to: OutputStream): Cancelable = {
-      val duration = FiniteDuration(50, TimeUnit.MILLISECONDS)
-      ExecutionContext.ioScheduler.scheduleWithFixedDelay(duration, duration) {
-        val buffer = new Array[Byte](4096)
-        if (shutdownInput) {
-          consumeInput.foreach(_.cancel())
-        } else {
-          try {
-            if (opts.in.available() > 0) {
-              val read = opts.in.read(buffer, 0, buffer.length)
-              if (read == -1) ()
-              else {
-                to.write(buffer, 0, read)
-                to.flush()
-              }
-            }
-          } catch {
-            case t: IOException =>
-              logger.debug(s"Error from input gobbler: ${t.getMessage}")
-              logger.trace(t)
-              // Rethrow so that Monix cancels future scheduling of the same task
-              throw t
-          }
-        }
-      }
-    }
-
     val runTask = run(
       Some(cwd.underlying.toFile),
       cmd,
       logger,
       opts.env.toMap,
       writeToStdIn = outputStream => {
-        val mainCancellable = goobleInput(outputStream)
+        val thread = new Thread {
+          override def run(): Unit = {
+            val buffer = new Array[Byte](4096)
+            try {
+              while (opts.in != null) {
+                val read = opts.in.read(buffer, 0, buffer.length)
+                if (read == -1) return
+                else {
+                  outputStream.write(buffer, 0, read)
+                  outputStream.flush()
+                }
+              }
+            } catch {
+              case t: IOException =>
+                logger.debug(s"Error from input reader: ${t.getMessage}")
+                logger.trace(t)
+            }
+          }
+        }
+
+        thread.start()
+
         Cancelable { () =>
-          shutdownInput = true
-          mainCancellable.cancel()
+          thread.interrupt()
         }
       },
       debugLog = msg => {
