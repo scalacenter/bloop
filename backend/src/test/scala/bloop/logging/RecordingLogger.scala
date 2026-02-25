@@ -138,38 +138,13 @@ class RecordingLogger(
 }
 
 object RecordingLogger {
-  def replaceTimingInfo(msg: String): String = {
-    def representsTime(word: String, idx: Int): Boolean = {
-      idx > 0 && {
-        val lastChar = word.charAt(idx - 1)
-        Character.isDigit(lastChar)
-      }
-    }
+  private val timingInfoRegex = raw"(\()?\d+\.?\d*\s*(ms|s)(\s|\)|$$)".r
 
-    msg
-      .split("\\s+")
-      .foldLeft(Nil: List[String]) {
-        case (seen, word) =>
-          val indexOfMs = word.lastIndexOf("ms")
-          val indexOfS = word.lastIndexOf("s")
-          if (representsTime(word, indexOfMs)) "???" :: seen
-          else if (representsTime(word, indexOfS)) "???" :: seen
-          else {
-            seen match {
-              case p :: ps =>
-                if (word == "s" && Character.isDigit(p.last)) "???" :: ps
-                else if (word == "ms" && Character.isDigit(p.last)) "???" :: ps
-                else if (word.startsWith("seconds") && Character.isDigit(p.last))
-                  "???" :: ps
-                else if (word.startsWith("milliseconds") && Character.isDigit(p.last))
-                  "???" :: ps
-                else word :: seen
-              case _ => word :: seen
-            }
-          }
-      }
-      .reverse
-      .mkString(" ")
+  def filterANSIColorCodes(str: String): String =
+    str.replaceAll("\u001b\\[1A\u001b\\[K|\u001B\\[[;\\d]*m", "")
+
+  def replaceTimingInfo(msg: String): String = {
+    timingInfoRegex.replaceAllIn(filterANSIColorCodes(msg), "???").split("\\s+").mkString(" ")
   }
 
 }
