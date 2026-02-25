@@ -6,14 +6,13 @@ sidebar_label: Overview
 
 Bloop supports several build tools with varying degree of functionality.
 
-| Build tool |  **Build export**   | **Built-in Compile / Test / Run** |
-| ---------- | :-----------------: | :-------------------------------: |
-| sbt        |         ✅          |          ✅ experimental          |
-| Gradle     |         ✅          |                                   |
-| Maven      |         ✅          |                                   |
-| Mill       |         ✅          |                                   |
-| Bazel      |         ❌          |                                   |
-| Pants      | 🚧 work-in-progress |                                   |
+| Build tool |  **Build export**   |
+| ---------- | :-----------------: |
+| sbt        |         ✅          |
+| Gradle     |         ✅          |
+| Maven      |         ✅          |
+| Mill       |         ✅          |
+| Bazel      |         ❌          |
 
 ## Build Export
 
@@ -25,18 +24,5 @@ all you need to get started with Bloop.
 Exporting your build is supported by a large array of popular Scala and Java
 build tools. However, it's a tedious process that users must remember to run
 whenever their build changes (client integrations such as
-[Metals](https://scalameta.org/metals/) can export the build automatically, but that's
+[Metals](<https://scalameta.org/metals/> or [Scala CLI](http://scala-cli.virtuslab.org)) can export the build automatically, but that's
 usually not the case if you're interfacing directly with the bloop CLI).
-
-## Built-in compile, test and run
-
-**Built-in compile, test and run** is a richer build tool integration that swaps
-your build tool's implementation of `compile`, `test` and `run` by their
-implementation in Bloop. This integration relieves users from exporting the
-build (build export is automatic) and instead provides a transparent build tool
-integration users are unaware of.
-
-Whereas built-in integrations are not fully developed yet, a built-in build tool
-integration for sbt is planned for the next release. These integrations will
-help users benefit from the speed and reliability of a more modern Scala
-toolchain with minimum interference in their current workflow.
