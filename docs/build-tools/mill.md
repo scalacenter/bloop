@@ -6,15 +6,17 @@ sidebar_label: Mill
 
 ## Getting Started
 
+**Starting from Mill 1.0.0, Bloop will no longer be available, please use the build-in BSP server**
+
 You can use Mill together with Bloop to speed up your development workflow and better integrate your build with your IDE.
 
-Mill has built-in support for Bloop via `mill-contrib`, so follow the instructions below to install the `mill-bloop` module.
+Mill 0.x versions have built-in support for Bloop via `mill-contrib`, so follow the instructions below to install the `mill-bloop` module.
 
 <!-- start -->
 
 ## Export your build
 
-The following mill command automatically downloads the required plugin and exports your mill build to bloop:
+When using versions of Mill before 1.0.0, the following mill command automatically downloads the required plugin and exports your mill build to bloop:
 ```bash
 mill --import ivy:com.lihaoyi::mill-contrib-bloop: mill.contrib.bloop.Bloop/install
 ```
