@@ -11,7 +11,7 @@ addSbtPlugin("com.github.sbt" % "sbt-ci-release" % "1.11.2")
 addSbtPlugin("org.scalameta" % "sbt-mdoc" % "2.8.2")
 addSbtPlugin("org.scala-debugger" % "sbt-jdi-tools" % "1.1.1")
 addSbtPlugin("com.github.sbt" % "sbt-native-packager" % "1.11.7")
-addSbtPlugin("ch.epfl.scala" % "sbt-scalafix" % "0.14.5")
+addSbtPlugin("ch.epfl.scala" % "sbt-scalafix" % "0.14.6")
 
 updateOptions := updateOptions.value.withLatestSnapshots(false)
 libraryDependencies ++= List(
