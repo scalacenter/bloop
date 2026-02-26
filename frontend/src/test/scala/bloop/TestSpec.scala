@@ -58,8 +58,8 @@ object SeedTestSpec extends BaseTestSpec("root-test", "scala-seed-project") {
 
 object ResourcesTestSpec extends BaseTestSpec("root-test", "resources-test-project") {
   val expectedFullTestsOutput: String =
-    s"""|[32mResourcesTest:[0m
-        |[32m + [0m[32mresources[0m ???
+    s"""|ResourcesTest:
+        | + resources ???
         |Execution took ???
         |1 tests, 1 passed
         |All tests in ResourcesTest passed
