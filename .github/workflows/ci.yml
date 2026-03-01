@@ -40,7 +40,7 @@ jobs:
           java-version: '17'
           github-token: ${{ secrets.GITHUB_TOKEN }}
       - uses: sbt/setup-sbt@v1
-      - uses: coursier/cache-action@v7
+      - uses: coursier/cache-action@v8
       - name: Tests
         run: sbt "sbtBloop/publishLocal; sbtBloop/scripted"
         shell: bash
@@ -87,7 +87,7 @@ jobs:
           version: ${{ matrix.jdk }}
           java-version: '17'
         if: matrix.jdk == '22.3.0'    
-      - uses: coursier/cache-action@v7
+      - uses: coursier/cache-action@v8
       - uses: coursier/setup-action@v2
       - uses: sbt/setup-sbt@v1
       - uses: actions/setup-node@v6
