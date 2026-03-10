@@ -46,6 +46,8 @@ import monix.reactive.MulticastStrategy
 import monix.reactive.Observable
 import xsbti.compile.CompileAnalysis
 import xsbti.compile.MiniSetup
+import xsbti.compile.CompileAnalysis
+import xsbti.compile.MiniSetup
 import xsbti.compile.PreviousResult
 
 object CompileTask {
@@ -82,6 +84,7 @@ object CompileTask {
       traceProperties,
       "bloop.version" -> BuildInfo.version,
       "zinc.version" -> BuildInfo.zincVersion,
+      "workspace.dir" -> cwd.syntax,
       "build.uri" -> originUri.syntax,
       "compile.target" -> topLevelTargets,
       "client" -> clientName
@@ -92,6 +95,7 @@ object CompileTask {
       traceProperties,
       "bloop.version" -> BuildInfo.version,
       "zinc.version" -> BuildInfo.zincVersion,
+      "workspace.dir" -> cwd.syntax,
       "build.uri" -> originUri.syntax,
       "compile.target" -> topLevelTargets,
       "client" -> clientName
@@ -131,12 +135,15 @@ object CompileTask {
                 logger,
                 ExecutionContext.ioScheduler
               )
+
+            // Also copy mapped resources if any
+            val allCopyTasks = copyResourcesTask
             Task.now(
               ResultBundle(
                 Compiler.Result.Empty,
                 None,
                 None,
-                copyResourcesTask.runAsync(ExecutionContext.ioScheduler)
+                allCopyTasks.map(_ => ()).runAsync(ExecutionContext.ioScheduler)
               )
             )
           case Right(CompileSourcesAndInstance(sources, instance, _)) =>
@@ -192,7 +199,8 @@ object CompileTask {
                 ExecutionContext.ioExecutor,
                 bundle.dependenciesData.allInvalidatedClassFiles,
                 bundle.dependenciesData.allGeneratedClassFilePaths,
-                project.runtimeResources
+                project.runtimeResources,
+                project.resourceMappings
               )
             }
 
@@ -253,8 +261,14 @@ object CompileTask {
                         compileProjectTracer,
                         logger
                       )
-                      .doOnFinish(_ => Task(compileProjectTracer.terminate()))
-                  postCompilationTasks.runAsync(ExecutionContext.ioScheduler)
+
+                  // Copy mapped resources after compilation
+                  val allTasks = Task
+                    .gatherUnordered(List(postCompilationTasks))
+                    .map(_ => ())
+                    .doOnFinish(_ => Task(compileProjectTracer.terminate()))
+
+                  allTasks.runAsync(ExecutionContext.ioScheduler)
                 }
 
                 // Populate the last successful result if result was success
@@ -278,8 +292,36 @@ object CompileTask {
                     // Memoize so that no matter how many times it's run, it's executed only once
                     val newSuccessful =
                       LastSuccessfulResult(bundle.uniqueInputs, s.products, populatingTask.memoize)
+
+                    // Tag tracer with success results
+                    compileProjectTracer.tag("success", "true")
+                    compileProjectTracer.tag("isNoOp", s.isNoOp.toString)
+                    compileProjectTracer.tag("classesDir", s.products.newClassesDir.toString)
+                    compileProjectTracer.tag("analysis", compileOut.analysisOut.toString)
+
+                    val sources = bundle.uniqueInputs.sources
+                    compileProjectTracer.tag("fileCount", sources.length.toString)
+                    sources.zipWithIndex.foreach {
+                      case (file, idx) =>
+                        compileProjectTracer.tag(s"file.$idx", file.toPath.toString)
+                    }
+
+                    reportDiagnostics(compileProjectTracer, s.reporter.allProblems)
+
                     ResultBundle(s, Some(newSuccessful), Some(lastSuccessful), runningTasks)
                   case f: Compiler.Result.Failed =>
+                    compileProjectTracer.tag("success", "false")
+
+                    val sources = bundle.uniqueInputs.sources
+                    compileProjectTracer.tag("fileCount", sources.length.toString)
+                    sources.zipWithIndex.foreach {
+                      case (file, idx) =>
+                        compileProjectTracer.tag(s"file.$idx", file.toPath.toString)
+                    }
+
+                    val problems = f.problems.map(_.problem)
+                    reportDiagnostics(compileProjectTracer, problems)
+
                     val runningTasks = runPostCompilationTasks(f.backgroundTasks)
                     ResultBundle(result, None, Some(lastSuccessful), runningTasks)
                   case c: Compiler.Result.Cancelled =>
@@ -354,7 +396,7 @@ object CompileTask {
               markUnusedClassesDir(results, state, tracer, rawLogger)
 
             val failures = results.flatMap {
-              case FinalNormalCompileResult(p, results) =>
+              case FinalNormalCompileResult(p, results, _) =>
                 results.fromCompiler match {
                   case Compiler.Result.NotOk(_) => List(p)
                   // Consider success with reported fatal warnings as error to simulate -Xfatal-warnings
@@ -407,7 +449,7 @@ object CompileTask {
 
             val runningTasksRequiredForCorrectness = Task.sequence {
               results.flatMap {
-                case FinalNormalCompileResult(_, result) =>
+                case FinalNormalCompileResult(_, result, _) =>
                   val tasksAtEndOfBuildCompilation =
                     Task.fromFuture(result.runningBackgroundTasks)
                   List(tasksAtEndOfBuildCompilation)
@@ -474,7 +516,7 @@ object CompileTask {
         val compilerResult = resultBundle.fromCompiler
         val previousResult =
           finalResult match {
-            case FinalNormalCompileResult(p, _) =>
+            case FinalNormalCompileResult(p, _, _) =>
               previousState.results.all.get(p)
             case _ => None
           }
@@ -610,5 +652,46 @@ object CompileTask {
         Task.unit
       }
     }.flatten
+  }
+
+  private def reportDiagnostics(
+      tracer: BraveTracer,
+      problems: Seq[xsbti.Problem]
+  ): Unit = {
+    import bloop.tracing.TraceDiagnostic
+    import bloop.tracing.TraceRange
+    import com.github.plokhotnyuk.jsoniter_scala.core.writeToString
+
+    def toOption[T](opt: java.util.Optional[T]): Option[T] =
+      if (opt.isPresent) Some(opt.get) else None
+
+    tracer.tag("diagnostics.count", problems.length.toString)
+    problems.zipWithIndex.foreach {
+      case (p, idx) =>
+        val range = toOption(p.position.startLine).map { startLine =>
+          TraceRange(
+            startLine.intValue(),
+            toOption(p.position.startColumn).map(_.intValue()).getOrElse(0),
+            toOption(p.position.endLine).map(_.intValue()).getOrElse(startLine.intValue()),
+            toOption(p.position.endColumn).map(_.intValue()).getOrElse(0)
+          )
+        }
+
+        val diagnostic = TraceDiagnostic(
+          p.severity.toString,
+          p.message,
+          range,
+          toOption(p.diagnosticCode).map(_.code),
+          toOption(p.position.sourcePath)
+        )
+
+        try {
+          val json = writeToString(diagnostic)(bloop.tracing.CompilationTrace.diagnosticCodec)
+          tracer.tag(s"diagnostic.$idx", json)
+        } catch {
+          case scala.util.control.NonFatal(e) =>
+            tracer.tag(s"diagnostic.$idx.error", e.getMessage)
+        }
+    }
   }
 }

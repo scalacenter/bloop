@@ -41,10 +41,10 @@ object PartialCompileResult {
   def toFinalResult(result: PartialCompileResult): Task[List[FinalCompileResult]] = {
     result match {
       case PartialEmpty => Task.now(FinalEmptyResult :: Nil)
-      case PartialFailure(project, _, bundle) =>
-        bundle.map(b => FinalNormalCompileResult(project, b) :: Nil)
+      case PartialFailure(project, _, resultTask, bundleOpt) =>
+        resultTask.map(b => FinalNormalCompileResult(project, b, bundleOpt) :: Nil)
       case PartialSuccess(bundle, result) =>
-        result.map(res => FinalNormalCompileResult(bundle.project, res) :: Nil)
+        result.map(res => FinalNormalCompileResult(bundle.project, res, Some(bundle)) :: Nil)
     }
   }
 }
@@ -57,7 +57,8 @@ case object PartialEmpty extends PartialCompileResult {
 case class PartialFailure(
     project: Project,
     exception: Throwable,
-    result: Task[ResultBundle]
+    result: Task[ResultBundle],
+    bundle: Option[SuccessfulCompileBundle] = None
 ) extends PartialCompileResult
     with CacheHashCode {}
 
@@ -77,7 +78,8 @@ case object FinalEmptyResult extends FinalCompileResult {
 
 case class FinalNormalCompileResult private (
     project: Project,
-    result: ResultBundle
+    result: ResultBundle,
+    bundle: Option[SuccessfulCompileBundle]
 ) extends FinalCompileResult
     with CacheHashCode
 
@@ -102,7 +104,7 @@ object FinalCompileResult {
     override def shows(r: FinalCompileResult): String = {
       r match {
         case FinalEmptyResult => s"<empty> (product of dag aggregation)"
-        case FinalNormalCompileResult(project, result) =>
+        case FinalNormalCompileResult(project, result, _) =>
           val projectName = project.name
           result.fromCompiler match {
             case Compiler.Result.Empty => s"${projectName} (empty)"
