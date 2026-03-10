@@ -200,6 +200,11 @@ object Forker {
       val envMap = builder.environment()
       envMap.putAll(env.asJava)
       builder.redirectErrorStream(false)
+      logger.info("Forking process:")
+      logger.info("- working directory: " + cwd.map(_.toString).getOrElse("null"))
+      logger.info("- command line: " + cmd.mkString(" "))
+      val envFormatted = env.map { case (key, value) => s"  $key=$value" }.mkString("\n")
+      logger.info("- environment variables:\n" + envFormatted)
       builder.start()
     }.flatMap { ps =>
       val writeIn = writeToStdIn(ps.getOutputStream)
