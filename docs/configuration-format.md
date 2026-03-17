@@ -55,16 +55,16 @@ dependency in your build:
 _sbt_
 
 ```scala
-libraryDependencies += "ch.epfl.scala" %% "bloop-config" % "1.5.5"
+libraryDependencies += "ch.epfl.scala" %% "bloop-config" % "2.3.3"
 ```
 
 _mill_
 
 ```scala
-def ivyDeps = Agg(ivy"ch.epfl.scala::bloop-config:1.5.5")
+def ivyDeps = Agg(ivy"ch.epfl.scala::bloop-config:2.3.3")
 ```
 
-`bloop-config` is published for 2.11-2.13 on the JVM and JS. It implements
+`bloop-config` is published for Scala 2.11, 2.12, 2.13 and 3.x on the JVM and JS. It implements
 encoders and decoders to read and write configuration files. Once the library is
 added in your build:
 

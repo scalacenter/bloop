@@ -23,7 +23,7 @@ Every of the above mechanisms require you to have an environment with `bloop`
 installed and a server running in the background. It's likely that won't always
 hold for all your users. Can you still use `bloop`?
 
-The answer is yes. The [Launcher Reference](launcher.md) explains how you can
+The answer is yes. The [Launcher Reference](rifle.md) explains how you can
 use bloop's launcher to automatically install bloop and start a background
 server, as well as establish an open bsp connection with it. Therefore, clients
 that wish to integrate with bloop can provide an out-of-the-box experience to
@@ -38,8 +38,7 @@ implement the protocol and provide build supports to clients such as
 [Metals](https://scalameta.org/metals/) and
 [IntelliJ](https://www.jetbrains.com/idea/)
 
-At the moment, Bloop @VERSION@ partially implements version 2.0.0-M2 and Bloop
-v1.0.0 implements version 1.0.0. If you want to implement a compatible build
+Bloop implements BSP 2.x (see the [release notes](https://github.com/scalacenter/bloop/releases) for the exact version). If you want to implement a compatible build
 client, check out
 [the protocol specification](https://github.com/scalacenter/bsp/blob/master/docs/bsp.md).
 As a client, the protocol gives you fine-grained build and action information

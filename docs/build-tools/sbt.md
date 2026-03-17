@@ -112,9 +112,9 @@ customize the result of the `bloopGenerate` task (which is scoped at the configu
 val foo = project
   .settings(
     // Bloop will not generate a target for the compile configuration of `foo`
-    bloopGenerate in Compile := Value(None),
+    Compile / bloopGenerate := Value(None),
     // Bloop will not generate a target for the test configuration of `foo`
-    bloopGenerate in Test := Value(None),
+    Test / bloopGenerate := Value(None),
   )
 ```
 
@@ -173,7 +173,7 @@ you want to generate bloop configuration files for them too, add the following t
 
 ```scala
 // Note that this task has to be scoped globally
-bloopAggregateSourceDependencies in Global := true
+Global / bloopAggregateSourceDependencies := true
 ```
 
 ### Download dependencies sources
@@ -182,7 +182,7 @@ To enable source classifiers and download the sources of your binary dependencie
 the following setting in your `build.sbt`:
 
 ```scala
-bloopExportJarClassifiers in Global := Some(Set("sources"))
+Global / bloopExportJarClassifiers := Some(Set("sources"))
 ```
 
 This option is required if you are using bloop with IDEs (e.g. Metals or IntelliJ) and expect
