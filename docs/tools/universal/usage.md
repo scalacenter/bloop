@@ -1,38 +1,17 @@
 The installation script installs the build server and the bloop command-line application (CLI).
-The build server **must be started** before the command-line application is used. Start it with:
+The build server **will be started** first time the command-line application is used.
 
-```bash
-bloop server
-```
-
-<blockquote>
-  <p>
-    Note that <code>bloop server</code> is a command-line alias for <code>$BLOOP_INSTALLATION_DIR/blp-server</code>.
-    If the server is not located in the same directory as the bloop CLI binary, pass in the server
-    location to the `--server-location` flag.
-  </p>
-</blockquote>
-
-Then, verify your installation by running the command-line application:
+Verify your installation by running the command-line application:
 
 ```
 $ bloop about
 bloop v@VERSION@
 
-Running on Scala v2.12.7 and Zinc v1.1.0
-Maintained by the Scala Center (Martin Duhem, Jorge Vicente Cantero)
+Using Scala v2.12.21 and Zinc v1.12.0
+Running on Java JDK v25.0.1 (/Users/tgodzik/.sdkman/candidates/java/25.0.1-tem)
+  -> Supports debugging user code, Java Debug Interface (JDI) is available.
+Maintained by the Scala Center and the community.
 ```
-
-### Running the server in the background
-
-Bloop's build server is a long-running process designed to provide the fastest compilation possible
-to users. As such, users are responsible for managing its lifecycle and minimizing the amount of
-times it's restarted.
-
-We have seen how to manually start the server with `bloop server`. However, you may prefer an
-automatic solution that starts the server in the background when you log in and allows you to
-quickly restart it. There are several mechanisms to do so, read the [Build Server
-Reference](docs/server-reference).
 
 ### Command-Line Completions
 
