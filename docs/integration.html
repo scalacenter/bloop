@@ -70,7 +70,7 @@ such as scripts</li>
 <p>Every of the above mechanisms require you to have an environment with <code>bloop</code>
 installed and a server running in the background. It's likely that won't always
 hold for all your users. Can you still use <code>bloop</code>?</p>
-<p>The answer is yes. The <a href="launcher.md">Launcher Reference</a> explains how you can
+<p>The answer is yes. The <a href="/bloop/docs/bloop-rifle">Launcher Reference</a> explains how you can
 use bloop's launcher to automatically install bloop and start a background
 server, as well as establish an open bsp connection with it. Therefore, clients
 that wish to integrate with bloop can provide an out-of-the-box experience to
@@ -82,8 +82,7 @@ their users.</p>
 implement the protocol and provide build supports to clients such as
 <a href="https://scalameta.org/metals/">Metals</a> and
 <a href="https://www.jetbrains.com/idea/">IntelliJ</a></p>
-<p>At the moment, Bloop 2.0.19 partially implements version 2.0.0-M2 and Bloop
-v1.0.0 implements version 1.0.0. If you want to implement a compatible build
+<p>Bloop implements BSP 2.x (see the <a href="https://github.com/scalacenter/bloop/releases">release notes</a> for the exact version). If you want to implement a compatible build
 client, check out
 <a href="https://github.com/scalacenter/bsp/blob/master/docs/bsp.md">the protocol specification</a>.
 As a client, the protocol gives you fine-grained build and action information
