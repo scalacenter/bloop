@@ -1330,6 +1330,7 @@ object BloopDefaults {
    */
   final def bloopExtraExportedJarsTask: Def.Initialize[Task[Seq[File]]] = {
     Def.taskDyn {
+      implicit val fc: xsbti.FileConverter = Keys.fileConverter.value
       val currentProject = Keys.thisProjectRef.value
       val data = Keys.settingsData.value
       val deps = Keys.buildDependencies.value
@@ -1341,9 +1342,10 @@ object BloopDefaults {
           val emptyTask: Task[Seq[File]] = sbt.std.TaskExtra.constant(Nil)
           val extraJarTasks = visited.collect {
             case (dep, c) if (dep != currentProject) || (conf.name != c && self.name != c) =>
-              val sourcesKey = (dep / sbt.ConfigKey(c)) / Keys.sources
-              val exportedKey = (dep / sbt.ConfigKey(c)) / Keys.exportedProducts
-              val productDirsKey = (dep / sbt.ConfigKey(c)) / Keys.productDirectories
+              val subpath = (dep / sbt.ConfigKey(c))
+              val sourcesKey = subpath / Keys.sources
+              val exportedKey = subpath / Keys.exportedProducts
+              val productDirsKey = subpath / Keys.productDirectories
               (sourcesKey.get(data), exportedKey.get(data), productDirsKey.get(data)) match {
                 case (Some(sourcesTask), Some(exportedTask), Some(productDirsTask)) =>
                   sourcesTask.flatMap[Seq[File]] { sources =>
@@ -1352,7 +1354,7 @@ object BloopDefaults {
                       exportedTask.flatMap { exported =>
                         productDirsTask.map { productDirs =>
                           val productPaths = productDirs.map(_.getCanonicalPath).toSet
-                          exported
+                          exported.toFiles
                             .map(_.data)
                             .filter(f => f.getName.endsWith(".jar") && f.exists())
                             .filterNot(f => productPaths.contains(f.getCanonicalPath))

@@ -29,6 +29,7 @@ val expectedJarName = settingKey[String]("Expected jar file name from lib's pack
 expectedJarName := s"lib_${scalaBinaryVersion.value}-${version.value}.jar"
 
 val checkBloopFiles = taskKey[Unit]("Check bloop file contents")
+checkBloopFiles / aggregate := false
 checkBloopFiles := {
   val bloopDir = Keys.baseDirectory.value / ".bloop"
   val jarName = expectedJarName.value
