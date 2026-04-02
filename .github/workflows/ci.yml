@@ -78,7 +78,7 @@ jobs:
           submodules: true
           fetch-depth: 0
 
-      - uses: coursier/setup-action@v2
+      - uses: coursier/setup-action@v3
         with:
           jvm: 'temurin:17'
         if: matrix.jdk == '17'
@@ -88,7 +88,7 @@ jobs:
           java-version: '17'
         if: matrix.jdk == '22.3.0'    
       - uses: coursier/cache-action@v8
-      - uses: coursier/setup-action@v2
+      - uses: coursier/setup-action@v3
       - uses: sbt/setup-sbt@v1
       - uses: actions/setup-node@v6
         with:
@@ -217,7 +217,7 @@ jobs:
         with:
           submodules: true
           fetch-depth: 0
-      - uses: coursier/setup-action@v2
+      - uses: coursier/setup-action@v3
         with:
           jvm: 'temurin:17'
       - uses: sbt/setup-sbt@v1
