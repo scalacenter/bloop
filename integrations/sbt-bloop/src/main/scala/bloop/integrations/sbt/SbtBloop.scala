@@ -101,6 +101,10 @@ object BloopKeys {
     settingKey[Seq[Configuration]](
       "The sequence of configurations that are used to detect inter-project dependencies by bloop."
     )
+  val bloopExtraExportedJars: TaskKey[Seq[File]] =
+    taskKey[Seq[File]](
+      "Jar files from internal dependencies whose exportedProducts differ from productDirectories"
+    )
 
   val bloopGlobalUniqueId: SettingKey[String] =
     sbt.SettingKey[String](
@@ -216,6 +220,7 @@ object BloopDefaults {
       BloopKeys.bloopProductDirectories := List(BloopKeys.bloopClassDirectory.value),
       BloopKeys.bloopClassDirectory := generateBloopProductDirectories.value,
       BloopKeys.bloopInternalClasspath := bloopInternalDependencyClasspath.value,
+      BloopKeys.bloopExtraExportedJars := bloopExtraExportedJarsTask.value,
       BloopKeys.bloopGenerate := {
         if (Keys.bspEnabled.value) bloopGenerate.value else Value(None)
       },
@@ -1311,24 +1316,83 @@ object BloopDefaults {
     }
   }
 
+  /**
+   * Collects jar files from internal dependencies whose `exportedProducts`
+   * differ from their `productDirectories`. This handles projects that override
+   * `exportedProducts` to point to assembly/shaded jars instead of compiled classes
+   * (e.g. shading facade projects with no sources of their own).
+   * Without this, Bloop would only see empty class directories for such projects.
+   *
+   * To avoid triggering compilation of all dependency projects (since
+   * `exportedProducts` depends on `compile`), we only evaluate it for
+   * dependencies that have no sources - these are the only projects where
+   * `exportedProducts` can meaningfully differ from `productDirectories`.
+   */
+  final def bloopExtraExportedJarsTask: Def.Initialize[Task[Seq[File]]] = {
+    Def.taskDyn {
+      implicit val fc: xsbti.FileConverter = Keys.fileConverter.value
+      val currentProject = Keys.thisProjectRef.value
+      val data = Keys.settingsData.value
+      val deps = Keys.buildDependencies.value
+      val self = Keys.configuration.value
+
+      Keys.classpathConfiguration.?.value match {
+        case Some(conf) =>
+          val visited = Classpaths.interSort(currentProject, conf, data, deps)
+          val emptyTask: Task[Seq[File]] = sbt.std.TaskExtra.constant(Nil)
+          val extraJarTasks = visited.collect {
+            case (dep, c) if (dep != currentProject) || (conf.name != c && self.name != c) =>
+              val subpath = (dep / sbt.ConfigKey(c))
+              val sourcesKey = subpath / Keys.sources
+              val exportedKey = subpath / Keys.exportedProducts
+              val productDirsKey = subpath / Keys.productDirectories
+              (sourcesKey.get(data), exportedKey.get(data), productDirsKey.get(data)) match {
+                case (Some(sourcesTask), Some(exportedTask), Some(productDirsTask)) =>
+                  sourcesTask.flatMap[Seq[File]] { sources =>
+                    if (sources.nonEmpty) emptyTask
+                    else
+                      exportedTask.flatMap { exported =>
+                        productDirsTask.map { productDirs =>
+                          val productPaths = productDirs.map(_.getCanonicalPath).toSet
+                          exported.toFiles
+                            .map(_.data)
+                            .filter(f => f.getName.endsWith(".jar") && f.exists())
+                            .filterNot(f => productPaths.contains(f.getCanonicalPath))
+                        }
+                      }
+                  }
+                case _ => emptyTask
+              }
+          }
+
+          wrapWithInitialize(
+            extraJarTasks.toList.join.map(_.flatten.distinct)
+          )
+        case None => inlinedTask(Nil)
+      }
+    }
+  }
+
   def emulateDependencyClasspath: Def.Initialize[Task[Seq[File]]] = Def.task {
     implicit val fileConverter: xsbti.FileConverter = Keys.fileConverter.value
     val internalClasspath = BloopKeys.bloopInternalClasspath.value.map(_._2)
     val externalClasspath = Keys.externalDependencyClasspath.value.toFiles.map(_.data)
-    internalClasspath ++ externalClasspath
+    val extraExportedJars = BloopKeys.bloopExtraExportedJars.value
+    internalClasspath ++ extraExportedJars ++ externalClasspath
   }
 
   def emulateRuntimeDependencyClasspath: Def.Initialize[Task[Seq[File]]] = Def.task {
     implicit val fileConverter: xsbti.FileConverter = Keys.fileConverter.value
     val internalClasspath = (Runtime / BloopKeys.bloopInternalClasspath).value.map(_._2)
     val externalClasspath = (Runtime / Keys.externalDependencyClasspath).value.toFiles.map(_.data)
+    val extraExportedJars = (Runtime / BloopKeys.bloopExtraExportedJars).value
     // Provided dependencies are in Compile classpath but not in Runtime classpath.
     // For BSP export, we include them in the runtime classpath so IDEs can run with provided deps.
     val compileClasspath = (Compile / Keys.externalDependencyClasspath).value.toFiles.map(_.data)
     val runtimePaths = externalClasspath.map(_.getCanonicalPath).toSet
     val providedClasspath =
       compileClasspath.filterNot(f => runtimePaths.contains(f.getCanonicalPath))
-    internalClasspath ++ externalClasspath ++ providedClasspath
+    internalClasspath ++ extraExportedJars ++ externalClasspath ++ providedClasspath
   }
 
   /**
