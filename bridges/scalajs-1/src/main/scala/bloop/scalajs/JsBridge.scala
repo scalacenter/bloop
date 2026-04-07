@@ -73,10 +73,7 @@ object JsBridge {
             ScalaJSModuleKindSplitStyle.SmallModulesFor(packages)
         }
 
-      val useClosure = isFullLinkJS && config.kind != ModuleKindJS.ESModule
-
       val linkerConfig = StandardConfig()
-        .withClosureCompiler(useClosure)
         .withSemantics(semantics)
         .withModuleKind(scalaJSModuleKind)
         .withSourceMap(config.emitSourceMaps)
