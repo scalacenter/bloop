@@ -141,13 +141,26 @@ object DependencyResolution {
         logger.debug(
           s"Found coursier in path under $path, Bloop will use it to fetch the dependency"
         )(DebugFilter.All)
+        val additionalProperties = List(
+          Properties
+            .propOrNone("coursier.credentials")
+            .map(cred => List("--credential-file", cred))
+            .getOrElse(Nil)
+        ).flatten
         val module = dependency.getModule()
         val depString =
           s"${module.getOrganization()}:${module.getName()}:${dependency.getVersion}"
         val withSourceFlag = if (resolveSources) List("--sources") else Nil
+        val envWithMirrors = Properties
+          .propOrNone("coursier.mirrors")
+          .map(mirror => Map("COURSIER_MIRRORS" -> mirror))
+          .getOrElse(Map.empty)
         runSync(
-          List(path.toString(), "fetch", depString) ++ withSourceFlag,
-          AbsolutePath(userHome)
+          List(path.toString(), "fetch") ++ additionalProperties ++ List(
+            depString
+          ) ++ withSourceFlag,
+          AbsolutePath(userHome),
+          envWithMirrors
         ) match {
           case Some(out) =>
             val lines = out.linesIterator.toList
@@ -197,11 +210,13 @@ object DependencyResolution {
    */
   private def runSync(
       command: List[String],
-      workingDirectory: AbsolutePath
+      workingDirectory: AbsolutePath,
+      additionalEnvironment: Map[String, String] = Map.empty
   ): Option[String] = {
     try {
       val pb = new ProcessBuilder(command: _*)
       pb.directory(workingDirectory.underlying.toFile)
+      pb.environment().putAll(additionalEnvironment.asJava)
       val process = pb.start()
       val is = process.getInputStream
       val reader = new BufferedReader(new InputStreamReader(is))
