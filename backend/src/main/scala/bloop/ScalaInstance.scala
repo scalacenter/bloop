@@ -84,7 +84,7 @@ final class ScalaInstance private (
   private def hasScala3AdditionalLibraryName(filename: String): Boolean =
     isDotty &&
       (filename.startsWith("scala3-interfaces") || filename.startsWith("tasty-core") ||
-        filename.startsWith("scala-asm"))
+        filename.startsWith("scala-asm")) || filename.startsWith("asm-")
 
   private def isCompilerJar(file: File) = {
     val name = file.getName()
