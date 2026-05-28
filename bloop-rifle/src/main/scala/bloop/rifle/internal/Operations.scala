@@ -379,7 +379,7 @@ object Operations {
       case t: BspConnectionAddress.Tcp =>
         Array("--protocol", "tcp", "--host", t.host, "--port", t.port.toString)
       case s: BspConnectionAddress.UnixDomainSocket =>
-        Array("--protocol", "local", "--socket", s.path.getAbsolutePath)
+        Array("--protocol", "local", "--socket", s.path.toAbsolutePath.toString)
     }
     val runnable: Runnable = logger.runnable(threadName) { () =>
       val maybeRetCode = Try {
@@ -414,7 +414,7 @@ object Operations {
       def address = bspSocketOrPort match {
         case t: BspConnectionAddress.Tcp => s"${t.host}:${t.port}"
         case s: BspConnectionAddress.UnixDomainSocket =>
-          "local:" + s.path.toURI.toASCIIString.stripPrefix("file:")
+          "local:" + s.path.toUri.toASCIIString.stripPrefix("file:")
       }
       def openSocket(period: FiniteDuration, timeout: FiniteDuration) = bspSocketOrPort match {
         case t: BspConnectionAddress.Tcp =>
@@ -426,14 +426,14 @@ object Operations {
           var socket: SocketChannel = null
           while (socket == null && count < maxCount && closed.value.isEmpty) {
             logger.debug {
-              if (socketFile.exists())
+              if (Files.exists(socketFile))
                 s"BSP connection $socketFile found but not open, waiting $period"
               else
                 s"BSP connection at $socketFile not found, waiting $period"
             }
             Thread.sleep(period.toMillis)
-            if (socketFile.exists()) {
-              val addr = UnixDomainSocketAddress.of(socketFile.toPath)
+            if (Files.exists(socketFile)) {
+              val addr = UnixDomainSocketAddress.of(socketFile)
               socket = SocketChannel.open(StandardProtocolFamily.UNIX)
               socket.connect(addr)
               socket.finishConnect()
