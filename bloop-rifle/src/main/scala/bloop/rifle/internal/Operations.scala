@@ -113,24 +113,44 @@ object Operations {
 
   /**
    * Starts a new bloop server.
-   *
-   * @param host
-   * @param port
-   * @param javaPath
-   * @param classPath
-   * @param scheduler
-   * @param waitInterval
-   * @param timeout
-   * @param logger
-   * @return
-   *   A future, that gets completed when the server is done starting (and can thus be used).
+   * @return A future, which gets completed when the server is done starting (and can thus be used).
+   */
+  @deprecated(message = "Use startServer which accepts a java.nio.file.Path for workingDir")
+  def startServer(
+    address: BloopRifleConfig.Address,
+    javaPath: String,
+    javaOpts: Seq[String],
+    classPath: Seq[Path],
+    workingDir: File,
+    scheduler: ScheduledExecutorService,
+    waitInterval: FiniteDuration,
+    timeout: Duration,
+    logger: BloopRifleLogger,
+    bloopServerSupportsFileTruncating: Boolean
+  ): Future[Unit] =
+    startServer(
+      address = address,
+      javaPath = javaPath,
+      javaOpts = javaOpts,
+      classPath = classPath,
+      workingDir = workingDir.toPath,
+      scheduler = scheduler,
+      waitInterval = waitInterval,
+      timeout = timeout,
+      logger = logger,
+      bloopServerSupportsFileTruncating = bloopServerSupportsFileTruncating
+    )
+
+  /**
+   * Starts a new bloop server.
+   * @return A future, which gets completed when the server is done starting (and can thus be used).
    */
   def startServer(
       address: BloopRifleConfig.Address,
       javaPath: String,
       javaOpts: Seq[String],
       classPath: Seq[Path],
-      workingDir: File,
+      workingDir: Path,
       scheduler: ScheduledExecutorService,
       waitInterval: FiniteDuration,
       timeout: Duration,
@@ -245,8 +265,8 @@ object Operations {
         (b, () => ())
     }
 
-    workingDir.mkdirs()
-    b.directory(workingDir)
+    Files.createDirectories(workingDir)
+    b.directory(workingDir.toFile)
     b.redirectInput(ProcessBuilder.Redirect.PIPE)
     val p = b.start()
     p.getOutputStream.close()
