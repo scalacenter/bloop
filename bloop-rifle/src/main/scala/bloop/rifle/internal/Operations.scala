@@ -113,24 +113,44 @@ object Operations {
 
   /**
    * Starts a new bloop server.
-   *
-   * @param host
-   * @param port
-   * @param javaPath
-   * @param classPath
-   * @param scheduler
-   * @param waitInterval
-   * @param timeout
-   * @param logger
-   * @return
-   *   A future, that gets completed when the server is done starting (and can thus be used).
+   * @return A future, which gets completed when the server is done starting (and can thus be used).
    */
+  @deprecated(message = "Use startServer which accepts a java.nio.file.Path for workingDir")
   def startServer(
       address: BloopRifleConfig.Address,
       javaPath: String,
       javaOpts: Seq[String],
       classPath: Seq[Path],
       workingDir: File,
+      scheduler: ScheduledExecutorService,
+      waitInterval: FiniteDuration,
+      timeout: Duration,
+      logger: BloopRifleLogger,
+      bloopServerSupportsFileTruncating: Boolean
+  ): Future[Unit] =
+    startServer(
+      address = address,
+      javaPath = javaPath,
+      javaOpts = javaOpts,
+      classPath = classPath,
+      workingDir = workingDir.toPath,
+      scheduler = scheduler,
+      waitInterval = waitInterval,
+      timeout = timeout,
+      logger = logger,
+      bloopServerSupportsFileTruncating = bloopServerSupportsFileTruncating
+    )
+
+  /**
+   * Starts a new bloop server.
+   * @return A future, which gets completed when the server is done starting (and can thus be used).
+   */
+  def startServer(
+      address: BloopRifleConfig.Address,
+      javaPath: String,
+      javaOpts: Seq[String],
+      classPath: Seq[Path],
+      workingDir: Path,
       scheduler: ScheduledExecutorService,
       waitInterval: FiniteDuration,
       timeout: Duration,
@@ -245,8 +265,8 @@ object Operations {
         (b, () => ())
     }
 
-    workingDir.mkdirs()
-    b.directory(workingDir)
+    Files.createDirectories(workingDir)
+    b.directory(workingDir.toFile)
     b.redirectInput(ProcessBuilder.Redirect.PIPE)
     val p = b.start()
     p.getOutputStream.close()
@@ -359,7 +379,7 @@ object Operations {
       case t: BspConnectionAddress.Tcp =>
         Array("--protocol", "tcp", "--host", t.host, "--port", t.port.toString)
       case s: BspConnectionAddress.UnixDomainSocket =>
-        Array("--protocol", "local", "--socket", s.path.getAbsolutePath)
+        Array("--protocol", "local", "--socket", s.path.toAbsolutePath.toString)
     }
     val runnable: Runnable = logger.runnable(threadName) { () =>
       val maybeRetCode = Try {
@@ -394,7 +414,7 @@ object Operations {
       def address = bspSocketOrPort match {
         case t: BspConnectionAddress.Tcp => s"${t.host}:${t.port}"
         case s: BspConnectionAddress.UnixDomainSocket =>
-          "local:" + s.path.toURI.toASCIIString.stripPrefix("file:")
+          "local:" + s.path.toUri.toASCIIString.stripPrefix("file:")
       }
       def openSocket(period: FiniteDuration, timeout: FiniteDuration) = bspSocketOrPort match {
         case t: BspConnectionAddress.Tcp =>
@@ -406,14 +426,14 @@ object Operations {
           var socket: SocketChannel = null
           while (socket == null && count < maxCount && closed.value.isEmpty) {
             logger.debug {
-              if (socketFile.exists())
+              if (Files.exists(socketFile))
                 s"BSP connection $socketFile found but not open, waiting $period"
               else
                 s"BSP connection at $socketFile not found, waiting $period"
             }
             Thread.sleep(period.toMillis)
-            if (socketFile.exists()) {
-              val addr = UnixDomainSocketAddress.of(socketFile.toPath)
+            if (Files.exists(socketFile)) {
+              val addr = UnixDomainSocketAddress.of(socketFile)
               socket = SocketChannel.open(StandardProtocolFamily.UNIX)
               socket.connect(addr)
               socket.finishConnect()

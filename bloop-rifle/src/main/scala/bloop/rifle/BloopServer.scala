@@ -7,7 +7,7 @@ import bloop.rifle.bloop4j.BloopExtraBuildParams
 import bloop.rifle.internal.BuildInfo
 import org.eclipse.lsp4j.jsonrpc
 
-import java.io.{File, IOException}
+import java.io.IOException
 import java.net.{ConnectException, Socket}
 import java.nio.file.{Files, Path, Paths}
 import java.util.concurrent.{Future => JFuture, ScheduledExecutorService, TimeoutException}
@@ -67,7 +67,7 @@ object BloopServer {
       startServerChecksPool: ScheduledExecutorService,
       logger: BloopRifleLogger
   ): BloopRifle.BloopServerRuntimeInfo = {
-    val workdir = new File(".").getCanonicalFile.toPath
+    val workdir = Path.of(".").toAbsolutePath.normalize()
     def startBloop(bloopVersion: String, bloopJava: String) = {
       val fut = BloopRifle.startServer(
         config,
