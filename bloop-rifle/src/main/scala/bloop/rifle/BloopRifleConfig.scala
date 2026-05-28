@@ -4,7 +4,6 @@ import bloop.rifle.internal.BuildInfo
 
 import java.io.{File, InputStream, OutputStream}
 import java.nio.file.Path
-
 import scala.concurrent.duration._
 import scala.util.Try
 
@@ -12,8 +11,8 @@ final case class BloopRifleConfig(
     address: BloopRifleConfig.Address,
     javaPath: String,
     javaOpts: Seq[String],
-    classPath: String => Either[Throwable, Seq[File]],
-    workingDir: File,
+    classPath: String => Either[Throwable, Seq[Path]],
+    workingDir: Path,
     bspSocketOrPort: Option[() => BspConnectionAddress],
     bspStdin: Option[InputStream],
     bspStdout: Option[OutputStream],
@@ -126,10 +125,22 @@ object BloopRifleConfig {
     .collect { case d: FiniteDuration => d }
     .getOrElse(Duration.Zero)
 
+  @deprecated(message = "Use default which accepts java.nio.file.Path parameters")
+  def default(
+    address: Address,
+    bloopClassPath: String => Either[Throwable, Seq[File]],
+    workingDir: File
+  ): BloopRifleConfig =
+    default(
+      address = address,
+      bloopClassPath = s => bloopClassPath(s).map(_.map(_.toPath)),
+      workingDir = workingDir.toPath
+    )
+
   def default(
       address: Address,
-      bloopClassPath: String => Either[Throwable, Seq[File]],
-      workingDir: File
+      bloopClassPath: String => Either[Throwable, Seq[Path]],
+      workingDir: Path
   ): BloopRifleConfig =
     BloopRifleConfig(
       address = address,

@@ -75,7 +75,7 @@ object BloopRifle {
           config.address,
           bloopJava,
           config.javaOpts,
-          cp.map(_.toPath),
+          cp,
           config.workingDir,
           scheduler,
           config.startCheckPeriod,
