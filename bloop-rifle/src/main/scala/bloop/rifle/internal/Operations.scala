@@ -117,16 +117,16 @@ object Operations {
    */
   @deprecated(message = "Use startServer which accepts a java.nio.file.Path for workingDir")
   def startServer(
-    address: BloopRifleConfig.Address,
-    javaPath: String,
-    javaOpts: Seq[String],
-    classPath: Seq[Path],
-    workingDir: File,
-    scheduler: ScheduledExecutorService,
-    waitInterval: FiniteDuration,
-    timeout: Duration,
-    logger: BloopRifleLogger,
-    bloopServerSupportsFileTruncating: Boolean
+      address: BloopRifleConfig.Address,
+      javaPath: String,
+      javaOpts: Seq[String],
+      classPath: Seq[Path],
+      workingDir: File,
+      scheduler: ScheduledExecutorService,
+      waitInterval: FiniteDuration,
+      timeout: Duration,
+      logger: BloopRifleLogger,
+      bloopServerSupportsFileTruncating: Boolean
   ): Future[Unit] =
     startServer(
       address = address,

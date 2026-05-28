@@ -127,9 +127,9 @@ object BloopRifleConfig {
 
   @deprecated(message = "Use default which accepts java.nio.file.Path parameters")
   def default(
-    address: Address,
-    bloopClassPath: String => Either[Throwable, Seq[File]],
-    workingDir: File
+      address: Address,
+      bloopClassPath: String => Either[Throwable, Seq[File]],
+      workingDir: File
   ): BloopRifleConfig =
     default(
       address = address,
