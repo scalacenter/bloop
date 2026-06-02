@@ -395,7 +395,7 @@ object TestTask {
       case None => List.empty
       case Some(found) =>
         val frameworks = found.frameworks
-        val lastCompileResult = state.results.lastSuccessfulResultOrEmpty(project)
+        val lastCompileResult = Tasks.freshestSuccessfulResult(state, project)
         val analysis = lastCompileResult.previous.analysis().toOption.getOrElse {
           state.logger
             .debug(s"TestsFQCN was triggered, but no compilation detected for ${project.name}")(
