@@ -6,6 +6,7 @@ import java.util.concurrent.TimeUnit
 
 import scala.concurrent.duration.Duration
 
+import bloop.cli.CommonOptions
 import bloop.cli.ExitStatus
 import bloop.data.JdkConfig
 import bloop.exec.Forker
@@ -190,6 +191,23 @@ class ForkerSpec {
         assertEquals(ExitStatus.RunError, exitStatus)
         assert(messages.exists(expected), s"Could not find expected error messages in $messages")
     }
+  }
+
+  @Test
+  def runReportsMissingExecutable(): Unit = TestUtil.withinWorkspace { tmp =>
+    val logger = new RecordingLogger
+    val missing = "bloop-nonexistent-binary-xyz"
+    val wait = Duration.apply(25, TimeUnit.SECONDS)
+    val exitCode = TestUtil.await(wait)(
+      Forker.run(tmp, List(missing), logger, CommonOptions.default)
+    )
+    val messages = logger.getMessages()
+    assertEquals(ExitStatus.RunError, Forker.exitStatus(exitCode))
+    val expected: ((String, String)) => Boolean = {
+      case ("error", msg) => msg.contains("Failed to run") && msg.contains(missing)
+      case _ => false
+    }
+    assert(messages.exists(expected), s"Could not find expected error message in $messages")
   }
 
   @Test

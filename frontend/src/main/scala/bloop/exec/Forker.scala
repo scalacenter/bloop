@@ -95,8 +95,18 @@ object Forker {
             }
           } catch {
             case t: IOException =>
-              logger.debug(s"Error from input gobbler: ${t.getMessage}")
-              logger.trace(t)
+              // A broken/closed pipe is expected once the child stops reading stdin;
+              // anything else is a genuine input-forwarding failure worth surfacing.
+              val benign = shutdownInput ||
+                Option(t.getMessage).exists { m =>
+                  m.contains("Broken pipe") || m.contains("Stream closed")
+                }
+              if (benign) {
+                logger.debug(s"Error from input gobbler: ${t.getMessage}")
+                logger.trace(t)
+              } else {
+                logger.error("Error forwarding standard input to the forked process", t)
+              }
               // Rethrow so that Monix cancels future scheduling of the same task
               throw t
           }
@@ -180,13 +190,21 @@ object Forker {
       }
     }
 
-    def readOutput(stream: InputStream, f: String => Unit): Thread = {
-      val thread = new Thread {
+    def readOutput(streamName: String, stream: InputStream, f: String => Unit): Thread = {
+      val thread = new Thread(s"bloop-forker-$streamName") {
         override def run(): Unit = {
           // use scala.sys.process implementation
           try {
             BasicIO.processFully(f)(stream)
-          } catch { case NonFatal(_) => }
+          } catch {
+            // Reader threads are interrupted on completion/cancellation; only surface
+            // failures that are not part of a normal teardown so genuine I/O errors
+            // are no longer swallowed silently.
+            case _: java.io.InterruptedIOException => ()
+            case NonFatal(t) =>
+              if (!isInterrupted)
+                logger.error(s"Error reading $streamName from the forked process", t)
+          }
         }
       }
       thread.setDaemon(true)
@@ -205,8 +223,8 @@ object Forker {
       val writeIn = writeToStdIn(ps.getOutputStream)
       val outReaders =
         List(
-          readOutput(ps.getInputStream(), logger.info),
-          readOutput(ps.getErrorStream(), logger.error)
+          readOutput("stdout", ps.getInputStream(), logger.info),
+          readOutput("stderr", ps.getErrorStream(), logger.error)
         )
       awaitCompletion(writeIn, outReaders, ps)
         .doOnCancel(cancelTask(writeIn, outReaders, ps))
@@ -214,14 +232,14 @@ object Forker {
           case error =>
             writeIn.cancel()
             outReaders.foreach(_.interrupt())
-            logger.error(error.getMessage)
+            logger.error(s"Failed to run '${cmd.mkString(" ")}'", error)
             Forker.EXIT_ERROR
         }
     }
 
     task.onErrorRecover {
       case e =>
-        logger.error(e.getMessage)
+        logger.error(s"Failed to run '${cmd.mkString(" ")}'", e)
         Forker.EXIT_ERROR
     }
   }
