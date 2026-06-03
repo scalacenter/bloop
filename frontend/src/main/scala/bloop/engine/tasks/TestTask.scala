@@ -114,6 +114,10 @@ object TestTask {
         case Some(found) =>
           val configuredFrameworks = found.frameworks
           logger.debug(s"Found test frameworks: ${configuredFrameworks.map(_.name).mkString(", ")}")
+          val jvmTestLoader = found match {
+            case DiscoveredTestFrameworks.Jvm(_, _, loader) => Some(loader)
+            case _: DiscoveredTestFrameworks.Js => None
+          }
           val suites =
             discoverTestSuites(
               state,
@@ -121,7 +125,8 @@ object TestTask {
               configuredFrameworks,
               compileAnalysis,
               testFilter,
-              testClasses
+              testClasses,
+              jvmTestLoader
             )
           val discoveredFrameworks = suites.iterator.filterNot(_._2.isEmpty).map(_._1).toList
           val (userJvmOptions, userTestOptions) = rawTestOptions.partition(_.startsWith("-J"))
@@ -208,9 +213,23 @@ object TestTask {
         val classpath = project.fullRuntimeClasspath(dag, state.client)
         val forker = JvmProcessForker(env, classpath, mode)
         val testLoader = forker.newClassLoader(Some(TestInternals.filteredLoader))
-        val frameworks = project.testFrameworks.flatMap(f =>
+        val configuredFrameworks = project.testFrameworks.flatMap(f =>
           TestInternals.loadFramework(testLoader, f.names, logger)
         )
+        // The JUnit 5 adapter may be on the classpath without being declared in the bloop config
+        // (e.g. config generators that don't export it). Load it so its tests are still discovered.
+        val frameworks =
+          if (configuredFrameworks.exists(TestInternals.isJupiterFramework)) configuredFrameworks
+          else if (
+            classpath.exists(_.underlying.getFileName.toString.startsWith("jupiter-interface"))
+          )
+            configuredFrameworks ++
+              TestInternals.loadFramework(
+                testLoader,
+                List(TestInternals.JupiterFrameworkClass),
+                logger
+              )
+          else configuredFrameworks
         Task.now(Some(DiscoveredTestFrameworks.Jvm(frameworks, forker, testLoader)))
 
       case Platform.Js(config, toolchain, userMainClass) =>
@@ -293,10 +312,11 @@ object TestTask {
       frameworks: List[Framework],
       analysis: CompileAnalysis,
       testFilter: String => Boolean,
-      testClasses: bsp.ScalaTestSuites
+      testClasses: bsp.ScalaTestSuites,
+      classLoader: Option[ClassLoader] = None
   ): Map[Framework, List[TaskDef]] = {
     import state.logger
-    val tests = discoverTests(analysis, frameworks)
+    val tests = discoverAllTests(state, project, frameworks, analysis, classLoader)
     val excluded = project.testOptions.excludes.toSet
     val ungroupedTests = tests.toList.flatMap {
       case (framework, tasks) => tasks.map(taskDef => TaskDefWithFramework(taskDef, framework))
@@ -343,7 +363,7 @@ object TestTask {
                 new TaskDef(
                   taskDef.fullyQualifiedName(),
                   taskDef.fingerprint(),
-                  false,
+                  taskDef.explicitlySpecified(),
                   value.map(test => new TestSelector(test)).toList.toArray
                 )
             }
@@ -381,6 +401,41 @@ object TestTask {
   }
 
   /**
+   * Discovers tests for all frameworks, combining sbt fingerprint discovery with the JUnit
+   * Platform discovery needed for JUnit 5 (Jupiter). Jupiter tests cannot be found by the
+   * fingerprint path (the adapter reports a fake fingerprint on purpose), so when a Jupiter
+   * framework is present and the project is a JVM project we run `JupiterTestCollector` against
+   * the project's compiled classes and merge its TaskDefs in. `classLoader` is only used as the
+   * "this is a JVM project" signal; discovery itself runs against Bloop's bundled Platform stack.
+   */
+  private[bloop] def discoverAllTests(
+      state: State,
+      project: Project,
+      frameworks: List[Framework],
+      analysis: CompileAnalysis,
+      classLoader: Option[ClassLoader]
+  ): Map[Framework, List[TaskDef]] = {
+    val fingerprintTests = discoverTests(analysis, frameworks)
+    (classLoader, frameworks.find(TestInternals.isJupiterFramework)) match {
+      case (Some(_), Some(jupiter)) =>
+        val classDirectory =
+          state.client.getUniqueClassesDirFor(project, forceGeneration = true).underlying
+        val dag = state.build.getDagFor(project)
+        val runtimeClasspath =
+          project.fullRuntimeClasspath(dag, state.client).map(_.underlying.toUri.toURL)
+        val jupiterTests =
+          TestInternals.discoverJUnit5Tests(classDirectory, runtimeClasspath, state.logger)
+        if (jupiterTests.isEmpty) fingerprintTests
+        else
+          fingerprintTests.updated(
+            jupiter,
+            fingerprintTests.getOrElse(jupiter, Nil) ++ jupiterTests
+          )
+      case _ => fingerprintTests
+    }
+  }
+
+  /**
    * Finds the fully qualified names of the test names discovered in a project.
    *
    * @param state   The current state of Bloop.
@@ -395,6 +450,10 @@ object TestTask {
       case None => List.empty
       case Some(found) =>
         val frameworks = found.frameworks
+        val jvmTestLoader = found match {
+          case DiscoveredTestFrameworks.Jvm(_, _, loader) => Some(loader)
+          case _: DiscoveredTestFrameworks.Js => None
+        }
         val lastCompileResult = state.results.lastSuccessfulResultOrEmpty(project)
         val analysis = lastCompileResult.previous.analysis().toOption.getOrElse {
           state.logger
@@ -403,7 +462,7 @@ object TestTask {
             )
           Analysis.empty
         }
-        val tests = discoverTests(analysis, frameworks)
+        val tests = discoverAllTests(state, project, frameworks, analysis, jvmTestLoader)
         tests.map {
           case (framework, tasks) =>
             TestFrameworkWithClasses(framework.name, tasks.map(_.fullyQualifiedName))

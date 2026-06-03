@@ -363,12 +363,22 @@ object BuildImplementation {
               val junitJars = jars.filter(j => j.contains("junit") || j.contains("hamcrest"))
               "junitTestJars" -> junitJars
           }
+          val jupiterTestJars = BuildInfoKey.map((Test / Keys.externalDependencyClasspath)) {
+            case (_, classpath) =>
+              val jars = classpath.map(_.data.getAbsolutePath)
+              val jupiterJars = jars.filter(j =>
+                j.contains("jupiter") || j.contains("junit-platform") ||
+                  j.contains("opentest4j") || j.contains("apiguardian")
+              )
+              "jupiterTestJars" -> jupiterJars
+          }
           val sampleSourceGenerator = (Test / Keys.resourceDirectory).value / "source-generator.py"
 
           List(
             "sampleSourceGenerator" -> sampleSourceGenerator,
             "semanticdbVersion" -> Dependencies.semanticdbVersion,
             junitTestJars,
+            jupiterTestJars,
             BuildKeys.bloopCoursierJson,
             (ThisBuild / Keys.baseDirectory)
           )
