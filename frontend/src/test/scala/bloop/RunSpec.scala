@@ -18,8 +18,11 @@ import bloop.engine.Dag
 import bloop.engine.ExecutionContext
 import bloop.engine.Run
 import bloop.engine.State
+import bloop.engine.caches.ResultsCache
 import bloop.engine.tasks.Tasks
+import bloop.engine.tasks.compilation.CompileGatekeeper
 import bloop.io.AbsolutePath
+import bloop.io.Paths
 import bloop.logging.RecordingLogger
 import bloop.testing.BloopHelpers
 import bloop.util.TestProject
@@ -129,6 +132,51 @@ class RunSpec extends BloopHelpers {
       assertEquals(2, mainClasses.length.toLong)
       assertEquals(s"$packageName.$mainClassName0", mainClasses(0))
       assertEquals(s"$packageName.$mainClassName1", mainClasses(1))
+    }
+  }
+
+  @Test
+  def findsMainClassesViaGatekeeperWhenResultsCacheEmpty(): Unit = {
+    // Clients query mainClasses/testClasses right after a `taskFinish`, before the
+    // per-connection state observes the new results, so the lookup must fall back
+    // to the gatekeeper (which is updated earlier).
+    val projectName = "test-project"
+    val projectsStructure = Map(projectName -> Map("A.scala" -> ArtificialSources.RunnableClass0))
+    val expectedMainClass = s"$packageName.$mainClassName0"
+    checkAfterCleanCompilation(
+      projectsStructure,
+      noDependencies,
+      rootProjects = List(projectName),
+      jdkConfig = JdkConfig.default,
+      quiet = true
+    ) { state =>
+      val project = getProject(projectName, state)
+
+      // Sanity: the normal post-compile path resolves the main class.
+      val mainClasses = Tasks.findMainClasses(state, project)
+      assertEquals(1, mainClasses.length.toLong)
+      assertEquals(expectedMainClass, mainClasses(0))
+
+      // Race window: empty per-connection cache, but the gatekeeper already has it.
+      val racyState = state.copy(results = ResultsCache.emptyForTests)
+      assertTrue(
+        "Precondition: the racy state must have no cached successful result",
+        !TestUtil.hasPreviousResult(project, racyState)
+      )
+      val racyMainClasses = Tasks.findMainClasses(racyState, project)
+      assertEquals(1, racyMainClasses.length.toLong)
+      assertEquals(expectedMainClass, racyMainClasses(0))
+      // The shared helper also exposes the analysis used for test-class discovery.
+      assertTrue(
+        "Analysis must be available for test discovery in the race window",
+        Tasks.freshestSuccessfulResult(racyState, project).previous.analysis().isPresent
+      )
+
+      // Guard: a stale gatekeeper entry whose classes dir was deleted (e.g. by
+      // `cleanCache`) must be ignored.
+      val classesDir = CompileGatekeeper.latestSuccessfulResult(project).get.classesDir
+      Paths.delete(classesDir)
+      assertEquals(0, Tasks.findMainClasses(racyState, project).length.toLong)
     }
   }
 

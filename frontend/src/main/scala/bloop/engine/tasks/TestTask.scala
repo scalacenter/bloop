@@ -81,15 +81,18 @@ object TestTask {
   ): Task[Int] = {
     import state.logger
     val isTest = isTestProject(project)
-    def handleEmptyTestFrameworks: Task[Int] = {
+    // Report a problem as an error for test projects (failing the run) or a warning otherwise.
+    def reportMissing(reason: String): Task[Int] = {
       if (isTest) {
-        logger.error(s"Missing configured test frameworks in ${project.name}")
+        logger.error(reason)
         Task.now(1)
       } else {
-        logger.warn(s"Missing configured test frameworks in ${project.name}")
+        logger.warn(reason)
         Task.now(0)
       }
     }
+    def handleEmptyTestFrameworks: Task[Int] =
+      reportMissing(s"Missing configured test frameworks in ${project.name}")
 
     val lastCompilerResult = state.results.latestResult(project)
     val lastSuccessful = state.results.lastSuccessfulResultOrEmpty(project)
@@ -99,92 +102,145 @@ object TestTask {
         logger.warn(s"Skipping test for ${project.name} because compiler result is empty")
         Task.now(0)
       } else {
-        if (isTest) {
-          logger.error(s"Missing compilation to test ${project.name}")
-          Task.now(1)
-        } else {
-          logger.warn(s"Missing compilation to test ${project.name}")
-          Task.now(0)
-        }
+        reportMissing(s"Missing compilation to test ${project.name}")
       }
     } else {
-      TestTask.discoverTestFrameworks(project, state, mode).flatMap {
-        case None => handleEmptyTestFrameworks
-        case Some(found) if found.frameworks.isEmpty => handleEmptyTestFrameworks
-        case Some(found) =>
-          val configuredFrameworks = found.frameworks
-          logger.debug(s"Found test frameworks: ${configuredFrameworks.map(_.name).mkString(", ")}")
-          val suites =
-            discoverTestSuites(
+      TestTask
+        .discoverTestFrameworks(project, state, mode)
+        .map(found => Right(found): Either[Int, Option[DiscoveredTestFrameworks]])
+        .onErrorRecover {
+          // A discovery failure (e.g. node/JSDOM unavailable) is reported here so the cause is
+          // visible without `--verbose`; returning a non-zero code avoids the misleading
+          // "Missing configured test frameworks" path below.
+          case NonFatal(t) =>
+            logger.error(
+              Feedback
+                .printException(s"Failed to discover test frameworks for '${project.name}'", t)
+            )
+            logger.trace(t)
+            Left(ExitStatus.TestExecutionError.code)
+        }
+        .flatMap {
+          case Left(code) => Task.now(code)
+          case Right(None) => handleEmptyTestFrameworks
+          case Right(Some(found)) if found.frameworks.isEmpty => handleEmptyTestFrameworks
+          case Right(Some(found)) =>
+            runDiscoveredSuites(
               state,
               project,
-              configuredFrameworks,
+              cwd,
               compileAnalysis,
+              rawTestOptions,
               testFilter,
-              testClasses
+              testClasses,
+              handler,
+              found
             )
-          val discoveredFrameworks = suites.iterator.filterNot(_._2.isEmpty).map(_._1).toList
-          val (userJvmOptions, userTestOptions) = rawTestOptions.partition(_.startsWith("-J"))
-          val jvmOptions = userJvmOptions.map(_.stripPrefix("-J")) ++ testClasses.jvmOptions
-          val envOptions = testClasses.environmentVariables
-          val frameworkArgs = considerFrameworkArgs(discoveredFrameworks, userTestOptions, logger)
-          val args = project.testOptions.arguments ++ frameworkArgs
-          logger.debug(s"Running test suites with arguments: $args")
-          logger.debug(s"Running ForkMain with jvm opts: $jvmOptions")
-          logger.debug(s"Running ForkMain with env variables: $envOptions")
+        }
+    }
+  }
 
-          found match {
-            case DiscoveredTestFrameworks.Jvm(_, forker, loader) =>
-              val opts = state.commonOptions
-              // FORMAT: OFF
-              TestInternals.execute(cwd, forker, loader, suites, args, jvmOptions, envOptions, handler, logger, opts)
-              // FORMAT: ON
-            case DiscoveredTestFrameworks.Js(_, closeResources) =>
-              val cancelled: AtomicBoolean = AtomicBoolean(false)
-              def cancel(): Unit = {
-                if (!cancelled.getAndSet(true)) {
-                  closeResources()
-                }
-              }
+  /**
+   * Runs the suites for the already-discovered `found` frameworks, dispatching to the JVM or
+   * Scala.js runner depending on the project's platform.
+   */
+  private def runDiscoveredSuites(
+      state: State,
+      project: Project,
+      cwd: AbsolutePath,
+      compileAnalysis: CompileAnalysis,
+      rawTestOptions: List[String],
+      testFilter: String => Boolean,
+      testClasses: bsp.ScalaTestSuites,
+      handler: LoggingEventHandler,
+      found: DiscoveredTestFrameworks
+  ): Task[Int] = {
+    import state.logger
+    val configuredFrameworks = found.frameworks
+    logger.debug(s"Found test frameworks: ${configuredFrameworks.map(_.name).mkString(", ")}")
+    val suites =
+      discoverTestSuites(
+        state,
+        project,
+        configuredFrameworks,
+        compileAnalysis,
+        testFilter,
+        testClasses
+      )
+    val discoveredFrameworks = suites.iterator.filterNot(_._2.isEmpty).map(_._1).toList
+    val (userJvmOptions, userTestOptions) = rawTestOptions.partition(_.startsWith("-J"))
+    val jvmOptions = userJvmOptions.map(_.stripPrefix("-J")) ++ testClasses.jvmOptions
+    val envOptions = testClasses.environmentVariables
+    val frameworkArgs = considerFrameworkArgs(discoveredFrameworks, userTestOptions, logger)
+    val args = project.testOptions.arguments ++ frameworkArgs
+    logger.debug(s"Running test suites with arguments: $args")
+    logger.debug(s"Running ForkMain with jvm opts: $jvmOptions")
+    logger.debug(s"Running ForkMain with env variables: $envOptions")
 
-              def reportTestException(t: Throwable): scala.util.Try[Int] = {
-                logger.error(Feedback.printException("Unexpected test-related exception", t))
-                logger.trace(t)
-                scala.util.Success(ExitStatus.TestExecutionError.code)
-              }
+    found match {
+      case DiscoveredTestFrameworks.Jvm(_, forker, loader) =>
+        val opts = state.commonOptions
+        // FORMAT: OFF
+        TestInternals.execute(cwd, forker, loader, suites, args, jvmOptions, envOptions, handler, logger, opts)
+        // FORMAT: ON
+      case DiscoveredTestFrameworks.Js(_, closeResources) =>
+        runJsTestSuites(suites, args, handler, closeResources, logger)
+    }
+  }
 
-              val checkCancelled = () => cancelled.get
-              TestInternals
-                .runJsTestsInProcess(suites, args, handler, checkCancelled, logger)
-                .materialize
-                .doOnCancel(Task(cancel()))
-                .map {
-                  case s @ scala.util.Success(_) => closeResources(); s
-                  case scala.util.Failure(e) =>
-                    e match {
-                      case NonFatal(t) =>
-                        if (!checkCancelled()) {
-                          closeResources()
-                          reportTestException(t)
-                        } else {
-                          t.getCause match {
-                            // Swallow the ISE because we know it happens when cancelling
-                            case _: IllegalStateException =>
-                              logger.debug("Test server has been successfully closed.")
-                              scala.util.Success(0)
-                            // Swallow the IAE because we know it happens when cancelling
-                            case _: IllegalArgumentException =>
-                              logger.debug("Test server has been successfully closed.")
-                              scala.util.Success(0)
-                            case _ => reportTestException(t)
-                          }
-                        }
-                    }
-                }
-                .dematerialize
-          }
+  /**
+   * Runs the Scala.js test suites in-process, making sure the underlying test server is always
+   * closed and that cancellation-induced exceptions are not reported as failures.
+   */
+  private def runJsTestSuites(
+      suites: Map[Framework, List[TaskDef]],
+      args: List[Config.TestArgument],
+      handler: LoggingEventHandler,
+      closeResources: ScalaJsToolchain.CloseResources,
+      logger: Logger
+  ): Task[Int] = {
+    val cancelled: AtomicBoolean = AtomicBoolean(false)
+    def cancel(): Unit = {
+      if (!cancelled.getAndSet(true)) {
+        closeResources()
       }
     }
+
+    def reportTestException(t: Throwable): scala.util.Try[Int] = {
+      logger.error(Feedback.printException("Unexpected test-related exception", t))
+      logger.trace(t)
+      scala.util.Success(ExitStatus.TestExecutionError.code)
+    }
+
+    val checkCancelled = () => cancelled.get
+    TestInternals
+      .runJsTestsInProcess(suites, args, handler, checkCancelled, logger)
+      .materialize
+      .doOnCancel(Task(cancel()))
+      .map {
+        case s @ scala.util.Success(_) => closeResources(); s
+        case scala.util.Failure(e) =>
+          e match {
+            case NonFatal(t) =>
+              if (!checkCancelled()) {
+                closeResources()
+                reportTestException(t)
+              } else {
+                t.getCause match {
+                  // Swallow the ISE because we know it happens when cancelling
+                  case _: IllegalStateException =>
+                    logger.debug("Test server has been successfully closed.")
+                    scala.util.Success(0)
+                  // Swallow the IAE because we know it happens when cancelling
+                  case _: IllegalArgumentException =>
+                    logger.debug("Test server has been successfully closed.")
+                    scala.util.Success(0)
+                  case _ => reportTestException(t)
+                }
+              }
+          }
+      }
+      .dematerialize
   }
 
   /**
@@ -395,7 +451,7 @@ object TestTask {
       case None => List.empty
       case Some(found) =>
         val frameworks = found.frameworks
-        val lastCompileResult = state.results.lastSuccessfulResultOrEmpty(project)
+        val lastCompileResult = Tasks.freshestSuccessfulResult(state, project)
         val analysis = lastCompileResult.previous.analysis().toOption.getOrElse {
           state.logger
             .debug(s"TestsFQCN was triggered, but no compilation detected for ${project.name}")(

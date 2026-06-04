@@ -264,6 +264,15 @@ object CompileGatekeeper {
     ()
   }
 
+  /**
+   * Returns the most recent successful result for a project, if any. It is
+   * registered when a target finishes compiling, before its `taskFinish` is
+   * emitted, so read endpoints can consult it instead of the per-connection
+   * state (which only observes new results at the end of the compile request).
+   */
+  def latestSuccessfulResult(project: Project): Option[LastSuccessfulResult] =
+    Option(lastSuccessfulResults.get(project.uniqueId))
+
   // Expose clearing mechanism so that it can be invoked in the tests and community build runner
   private[bloop] def clearSuccessfulResults(): Unit = {
     lastSuccessfulResults.synchronized {
