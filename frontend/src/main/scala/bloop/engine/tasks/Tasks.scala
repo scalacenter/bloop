@@ -11,6 +11,8 @@ import bloop.data.JdkConfig
 import bloop.data.Project
 import bloop.engine.Dag
 import bloop.engine.State
+import bloop.engine.caches.LastSuccessfulResult
+import bloop.engine.tasks.compilation.CompileGatekeeper
 import bloop.exec.Forker
 import bloop.exec.JvmProcessForker
 import bloop.io.AbsolutePath
@@ -254,6 +256,22 @@ object Tasks {
   }
 
   /**
+   * Returns the freshest successful result for `project`. Prefers the gatekeeper
+   * (updated before `taskFinish`) when it points at a usable classes directory,
+   * else the per-connection state. This lets read endpoints answer correctly
+   * right after a `taskFinish`, before the state has observed the new results.
+   */
+  private[bloop] def freshestSuccessfulResult(
+      state: State,
+      project: Project
+  ): LastSuccessfulResult =
+    CompileGatekeeper
+      .latestSuccessfulResult(project)
+      .filter(r => !r.isEmpty && r.classesDir.exists)
+      .orElse(state.results.lastSuccessfulResult(project))
+      .getOrElse(LastSuccessfulResult.empty(project))
+
+  /**
    * Finds the main classes in `project`.
    *
    * @param state   The current state of Bloop.
@@ -263,7 +281,7 @@ object Tasks {
   def findMainClasses(state: State, project: Project): List[String] = {
     import state.logger
 
-    state.results.lastSuccessfulResultOrEmpty(project).previous.analysis().toOption match {
+    freshestSuccessfulResult(state, project).previous.analysis().toOption match {
       case Some(analysis: Analysis) =>
         val mainClasses = analysis.infos.allInfos.values.flatMap(_.getMainClasses).toList
         logger.debug(s"Found ${mainClasses.size} main classes: ${mainClasses.mkString(", ")}.")(
