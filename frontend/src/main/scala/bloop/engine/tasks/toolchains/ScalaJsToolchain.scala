@@ -104,9 +104,15 @@ final class ScalaJsToolchain private (bridgeClassLoader: ClassLoader) {
     val bridgeClazz = bridgeClassLoader.loadClass("bloop.scalajs.JsBridge")
     val method = bridgeClazz.getMethod("discoverTestFrameworks", paramTypesTestFrameworks: _*)
     val node = config.nodePath.map(_.toAbsolutePath.toString).getOrElse("node")
-    val (frameworks, closeResources) = method
-      .invoke(null, frameworkNames, node, linkedFile.underlying, baseDir, logger, config, env)
-      .asInstanceOf[(List[sbt.testing.Framework], ScalaJsToolchain.CloseResources)]
+    val (frameworks, closeResources) =
+      try {
+        method
+          .invoke(null, frameworkNames, node, linkedFile.underlying, baseDir, logger, config, env)
+          .asInstanceOf[(List[sbt.testing.Framework], ScalaJsToolchain.CloseResources)]
+      } catch {
+        // Unwrap the reflective wrapper so callers see the real cause, mirroring `link`
+        case e: InvocationTargetException => throw e.getCause
+      }
 
     DiscoveredTestFrameworks.Js(frameworks, closeResources)
   }
