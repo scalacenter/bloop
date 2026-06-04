@@ -11,6 +11,7 @@ import scala.util.control.NonFatal
 
 import bloop.cli.CommonOptions
 import bloop.cli.ExitStatus
+import bloop.engine.ExecutionContext
 import bloop.io.AbsolutePath
 import bloop.logging.DebugFilter
 import bloop.logging.Logger
@@ -73,31 +74,37 @@ object Forker {
       logger,
       opts.env.toMap,
       writeToStdIn = outputStream => {
-        /* Block on stdin in a daemon thread and forward bytes to the forked process
-         * as soon as they arrive. We must NOT poll `available()`: on the CLI path
-         * `opts.in` is nailgun's NGInputStream, whose `available()` returns 0 even
-         * while data is in flight, which silently drops input. Mirrors the blocking
-         * `readOutput` threads used below for stdout/stderr. */
-        val thread = new Thread("bloop-forker-stdin") {
-          setDaemon(true)
-          override def run(): Unit = {
-            val buffer = new Array[Byte](4096)
-            try {
-              var read = opts.in.read(buffer, 0, buffer.length)
-              while (read != -1) {
-                outputStream.write(buffer, 0, read)
-                outputStream.flush()
-                read = opts.in.read(buffer, 0, buffer.length)
-              }
-            } catch {
-              case t: IOException =>
-                logger.debug(s"Error from input reader: ${t.getMessage}")
-                logger.trace(t)
+        /* Forward stdin to the forked process on the blocking-I/O scheduler. We must
+         * BLOCK on `read` rather than poll `available()`: on the CLI path `opts.in` is
+         * nailgun's NGInputStream, whose `available()` returns 0 even while data is in
+         * flight, which silently drops input. Mirrors the Task-on-ioScheduler blocking
+         * I/O idiom used by `BspServer`/`TestServer`. */
+        val pipe = Task {
+          val buffer = new Array[Byte](4096)
+          try {
+            var read = opts.in.read(buffer, 0, buffer.length)
+            while (read != -1) {
+              outputStream.write(buffer, 0, read)
+              outputStream.flush()
+              read = opts.in.read(buffer, 0, buffer.length)
             }
+          } catch {
+            case t: IOException =>
+              // A broken/closed pipe is expected once the child stops reading stdin;
+              // anything else is a genuine input-forwarding failure worth surfacing.
+              val benign = Option(t.getMessage).exists { m =>
+                m.contains("Broken pipe") || m.contains("Stream closed")
+              }
+              if (benign) {
+                logger.debug(s"Error forwarding standard input: ${t.getMessage}")
+                logger.trace(t)
+              } else {
+                logger.error("Error forwarding standard input to the forked process", t)
+              }
           }
-        }
-        thread.start()
-        Cancelable(() => thread.interrupt())
+        }.executeOn(ExecutionContext.ioScheduler)
+        val handle = pipe.runAsync(ExecutionContext.ioScheduler)
+        Cancelable(() => handle.cancel())
       },
       debugLog = msg => {
         opts.ngout.println(msg)
