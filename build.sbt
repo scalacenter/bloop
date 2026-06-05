@@ -262,7 +262,6 @@ lazy val bloopRifle: Project = project
       Dependencies.bsp4j,
       Dependencies.scalaCollectionCompat,
       Dependencies.libdaemonjvm,
-      Dependencies.snailgun,
       Dependencies.expecty % Test,
       Dependencies.munit % Test
     ),
