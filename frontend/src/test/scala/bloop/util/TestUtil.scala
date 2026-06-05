@@ -400,7 +400,10 @@ object TestUtil {
     val classpath = depsTargets ++ allJars ++ extraJars
     val sourceDirectories = List(srcs)
     val testFrameworks =
-      if (classpath.exists(_.syntax.contains("junit"))) List(Config.TestFramework.JUnit) else Nil
+      if (classpath.exists(_.syntax.contains("jupiter-interface")))
+        List(Config.TestFramework(List(bloop.testing.TestInternals.JupiterFrameworkClass)))
+      else if (classpath.exists(_.syntax.contains("junit"))) List(Config.TestFramework.JUnit)
+      else Nil
 
     writeFilesToBase(srcs, sources.map(kv => RelativePath(kv._1) -> kv._2))
     Project(

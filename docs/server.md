@@ -11,6 +11,12 @@ Bloop's build server is a long-running process designed to provide the fastest
 compilation possible to users. As such, users are responsible for managing its
 lifecycle and minimizing the amount of times it's restarted.
 
+<blockquote class="grab-attention">
+Discovering and running <b>JUnit 5</b> (Jupiter) tests requires the build server to run on
+<b>JDK 17 or newer</b>, because Bloop discovers them with the JUnit Platform launcher (which targets
+Java 17). The native CLI is unaffected. On older JVMs JUnit 5 discovery is skipped with a warning.
+</blockquote>
+
 ## Start the build server
 
 At the end of the day, the build server is an artifact in Maven Central.

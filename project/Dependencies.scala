@@ -26,6 +26,7 @@ object Dependencies {
   val sbtTestInterfaceVersion = "1.0"
   val sbtTestAgentVersion = "1.12.11"
   val junitVersion = "0.13.3"
+  val jupiterInterfaceVersion = "0.19.0"
   val directoryWatcherVersion = "0.8.0+6-f651bd93"
   val monixVersion = "3.2.0"
   val jsoniterVersion = "2.13.3.2"
@@ -85,6 +86,7 @@ object Dependencies {
   val pprint = "com.lihaoyi" %% "pprint" % "0.9.6"
   val oslib = "com.lihaoyi" %% "os-lib" % "0.11.8"
   val junit = "com.github.sbt" % "junit-interface" % junitVersion
+  val jupiterInterface = "com.github.sbt.junit" % "jupiter-interface" % jupiterInterfaceVersion
   val directoryWatcher = "ch.epfl.scala" % "directory-watcher" % directoryWatcherVersion
   val difflib = "com.googlecode.java-diff-utils" % "diffutils" % difflibVersion
 

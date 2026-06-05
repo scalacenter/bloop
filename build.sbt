@@ -142,7 +142,8 @@ lazy val frontend: Project = project
       "jsBridge06" -> (jsBridge06Name + "_" + Keys.scalaBinaryVersion.value),
       "jsBridge1" -> (jsBridge1Name + "_" + Keys.scalaBinaryVersion.value),
       "lastSupportedSemanticdb" -> build.SemanticDbSupport.last,
-      "millVersion" -> Dependencies.millVersion
+      "millVersion" -> Dependencies.millVersion,
+      "jupiterInterfaceVersion" -> Dependencies.jupiterInterfaceVersion
     ),
     (run / javaOptions) ++= jvmOptions,
     (Test / javaOptions) ++= jvmOptions,
@@ -159,7 +160,8 @@ lazy val frontend: Project = project
       Dependencies.scalaDebugAdapter,
       Dependencies.bloopConfig,
       Dependencies.logback,
-      Dependencies.libdaemonjvm
+      Dependencies.libdaemonjvm,
+      Dependencies.jupiterInterface
     ),
     // needed for tests and to be automatically updated
     Test / libraryDependencies += Dependencies.semanticdb intransitive (),

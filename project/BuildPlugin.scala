@@ -360,8 +360,26 @@ object BuildImplementation {
           val junitTestJars = BuildInfoKey.map((Test / Keys.externalDependencyClasspath)) {
             case (_, classpath) =>
               val jars = classpath.map(_.data.getAbsolutePath)
-              val junitJars = jars.filter(j => j.contains("junit") || j.contains("hamcrest"))
+              // JUnit 4 fixture jars only: exclude the JUnit 5 / Platform stack, which is on the
+              // test classpath via bloop's jupiter-interface dependency and would otherwise be
+              // pulled in by the loose `contains("junit")` match (e.g. the `.../junit/...` path of
+              // jupiter-interface and the `junit-jupiter`/`junit-platform` jars).
+              val junitJars = jars.filter(j =>
+                (j.contains("junit") || j.contains("hamcrest")) &&
+                  !j.contains("jupiter") && !j.contains("junit-platform") &&
+                  !j.contains("junit-vintage") && !j.contains("opentest4j") &&
+                  !j.contains("apiguardian")
+              )
               "junitTestJars" -> junitJars
+          }
+          val jupiterTestJars = BuildInfoKey.map((Test / Keys.externalDependencyClasspath)) {
+            case (_, classpath) =>
+              val jars = classpath.map(_.data.getAbsolutePath)
+              val jupiterJars = jars.filter(j =>
+                j.contains("jupiter") || j.contains("junit-platform") ||
+                  j.contains("opentest4j") || j.contains("apiguardian")
+              )
+              "jupiterTestJars" -> jupiterJars
           }
           val sampleSourceGenerator = (Test / Keys.resourceDirectory).value / "source-generator.py"
 
@@ -369,6 +387,7 @@ object BuildImplementation {
             "sampleSourceGenerator" -> sampleSourceGenerator,
             "semanticdbVersion" -> Dependencies.semanticdbVersion,
             junitTestJars,
+            jupiterTestJars,
             BuildKeys.bloopCoursierJson,
             (ThisBuild / Keys.baseDirectory)
           )
