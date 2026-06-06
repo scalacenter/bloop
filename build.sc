@@ -45,7 +45,7 @@ object Dependencies {
   def dependency        = ivy"io.get-coursier::dependency:0.2.2"
   def difflib           = ivy"com.googlecode.java-diff-utils:diffutils:1.3.0"
   def directoryWatcher  = ivy"ch.epfl.scala:directory-watcher:0.8.0+6-f651bd93"
-  def expecty           = ivy"com.eed3si9n.expecty::expecty:0.15.4"
+  def expecty           = ivy"com.eed3si9n.expecty::expecty:0.17.1"
   def jsoniterCore =
     ivy"com.github.plokhotnyuk.jsoniter-scala::jsoniter-scala-core:$jsoniterVersion"
   def jsoniterMacros =
