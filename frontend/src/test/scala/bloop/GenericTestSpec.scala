@@ -102,4 +102,112 @@ class GenericTestSpec {
       )
     }
   }
+
+  @Test
+  def canCombineCascadingAndDependencies(): Unit = {
+    /*
+     *    I
+     *    |\
+     *    | \
+     *    H  G
+     *    |
+     *    F
+     *
+     *  where `F`, `H`, `G` and `I` all define tests.
+     *
+     *  Testing `H` with both `--cascade` and `--include-dependencies` should run tests for:
+     *    - `H` itself
+     *    - `I` (cascades up: `I` depends on `H`)
+     *    - `F` (includes dependencies: `H` depends on `F`)
+     *  but NOT `G`, which is neither a dependent nor a dependency of `H`.
+     */
+
+    object Sources {
+      val `F.scala` =
+        """
+          |package p0
+          |
+          |import org.junit.Test
+          |
+          |class F {
+          |  @Test def testF(): Unit = ()
+          |}
+        """.stripMargin
+
+      val `H.scala` =
+        """
+          |package p1
+          |
+          |import org.junit.Test
+          |
+          |class H {
+          |  @Test def testH(): Unit = ()
+          |}
+        """.stripMargin
+
+      val `G.scala` =
+        """
+          |package p4
+          |
+          |import org.junit.Test
+          |
+          |class G {
+          |  @Test def testG(): Unit = ()
+          |}
+        """.stripMargin
+
+      val `I.scala` =
+        """
+          |package p3
+          |
+          |import org.junit.Test
+          |
+          |class I {
+          |  @Test def testI(): Unit = ()
+          |}
+        """.stripMargin
+    }
+
+    val structure = Map(
+      "F" -> Map("F.scala" -> Sources.`F.scala`),
+      "H" -> Map("H.scala" -> Sources.`H.scala`),
+      "I" -> Map("I.scala" -> Sources.`I.scala`),
+      "G" -> Map("G.scala" -> Sources.`G.scala`)
+    )
+
+    val logger = new RecordingLogger(ansiCodesSupported = false)
+    val deps = Map("I" -> Set("H", "G", "F"), "H" -> Set("F"))
+    val testProjects = Set("F", "G", "H", "I")
+    val junitJars = bloop.internal.build.BuildTestInfo.junitTestJars.map(AbsolutePath.apply).toArray
+    TestUtil.testState(
+      structure,
+      deps,
+      userLogger = Some(logger),
+      extraJars = junitJars,
+      testProjects = testProjects
+    ) { state =>
+      val action = Run(
+        Commands.Test(
+          List("H"),
+          cascade = true,
+          includeDependencies = true,
+          args = List("-v", "-a")
+        )
+      )
+      val compiledState = TestUtil.blockingExecute(action, state)
+      Assert.assertTrue("Unexpected compilation error", compiledState.status.isOk)
+      // Cascade pulls in I (depends on H); include-dependencies pulls in F (H depends on F).
+      TestUtil.assertNoDiff(
+        """
+          |Test p0.F.testF started
+          |Test p1.H.testH started
+          |Test p3.I.testI started
+          |Test run p0.F started
+          |Test run p1.H started
+          |Test run p3.I started
+        """.stripMargin,
+        logger.startedTestInfos.sorted.mkString(lineSeparator)
+      )
+    }
+  }
 }
