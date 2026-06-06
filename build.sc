@@ -37,7 +37,7 @@ object Dependencies {
   def bsp4j             = ivy"ch.epfl.scala:bsp4j:2.1.1"
   def bsp4s             = ivy"ch.epfl.scala::bsp4s:2.1.1"
   def caseApp           = ivy"com.github.alexarchambault::case-app:2.0.6"
-  def caseApp21         = ivy"com.github.alexarchambault::case-app:2.1.0-M15"
+  def caseApp21         = ivy"com.github.alexarchambault::case-app:2.1.0"
   def collectionCompat  = ivy"org.scala-lang.modules::scala-collection-compat:2.9.0"
   def coursier          = ivy"io.get-coursier::coursier:$coursierVersion"
   def coursierInterface = ivy"io.get-coursier:interface:1.0.13"
