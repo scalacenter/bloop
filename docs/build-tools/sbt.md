@@ -131,8 +131,13 @@ $ sbt bloopInstall
 ### Enable custom configurations
 
 By default, `bloopInstall` exports projects for the standard `Compile`,
-`Test` and `IntegrationTest` sbt configurations. If your build defines
-additional configurations in a project, such as [your own sbt custom
+`Test` and `IntegrationTest` sbt configurations, as well as the `multi-jvm`
+configuration used by Akka's [sbt-multi-jvm](https://doc.akka.io/docs/akka/current/multi-jvm-testing.html)
+plugin. The latter is exported automatically whenever a project enables the
+plugin, so its `src/multi-jvm` sources are compiled with no extra setup.
+
+If your build defines other additional configurations in a project, such as
+[your own sbt custom
 configuration](https://www.scala-sbt.org/1.0/docs/offline/Testing.html#Custom+test+configuration),
 you might want to export these configurations to Bloop projects too.
 

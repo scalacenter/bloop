@@ -1,0 +1,6 @@
+# The multi-jvm sources must compile through sbt's own multi-jvm configuration
+> foo / MultiJvm / compile
+# Bloop must export the multi-jvm configuration without any extra build setup
+> bloopInstall
+$ exists .bloop/foo-multi-jvm.json
+> checkBloopFile
