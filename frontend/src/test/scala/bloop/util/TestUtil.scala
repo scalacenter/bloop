@@ -654,6 +654,15 @@ object TestUtil {
   private lazy val hasPython3 = hasPythonNamed("python3")
   private lazy val hasPython2 = hasPythonNamed("python")
 
+  /** Whether the `coursier` launcher is on the PATH (the binary `bloop console` shells out to). */
+  lazy val hasCoursier: Boolean = try {
+    scala.sys.process
+      .Process(Seq("coursier", "version"))
+      .!(scala.sys.process.ProcessLogger(_ => (), _ => ())) == 0
+  } catch {
+    case NonFatal(_) => false
+  }
+
   lazy val generator: List[String] =
     if (hasPython3) List("python3", BuildTestInfo.sampleSourceGenerator.getAbsolutePath)
     else if (hasPython2) List("python", BuildTestInfo.sampleSourceGenerator.getAbsolutePath)
