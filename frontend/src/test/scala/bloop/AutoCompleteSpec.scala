@@ -29,6 +29,7 @@ class AutoCompleteSpec {
         |projects
         |run
         |test
+        |version
         |clean compile console link run test
         |A
         |B
@@ -65,6 +66,7 @@ class AutoCompleteSpec {
         |projects
         |run
         |test
+        |version
         |clean compile console link run test
         |A
         |B
@@ -101,6 +103,7 @@ class AutoCompleteSpec {
         |projects
         |run
         |test
+        |version
         |clean compile console link run test
         |A
         |B
