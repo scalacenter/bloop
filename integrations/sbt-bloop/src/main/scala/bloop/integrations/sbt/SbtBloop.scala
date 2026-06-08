@@ -174,6 +174,7 @@ object BloopDefaults {
       Compile,
       Test,
       IntegrationTest,
+      MultiJvm,
       Provided,
       Optional
     )
@@ -229,10 +230,20 @@ object BloopDefaults {
       Keys.run / BloopKeys.bloopMainClass := BloopKeys.bloopMainClass.value
     ) ++ discoveredSbtPluginsSettings
 
+  /**
+   * The configuration used by Akka's sbt-multi-jvm plugin for its `src/multi-jvm`
+   * sources. Bloop matches it by name so that multi-jvm targets are exported
+   * automatically, without users having to wire `configSettings` in their build.
+   * Projects that don't enable the plugin define no products for it, so
+   * `bloopGenerate` short-circuits and no target is produced.
+   */
+  val MultiJvm: Configuration = Configuration.of("MultiJvm", "multi-jvm")
+
   lazy val projectSettings: Seq[Def.Setting[?]] = {
     sbt.inConfig(Compile)(configSettings) ++
       sbt.inConfig(Test)(configSettings) ++
       sbt.inConfig(IntegrationTest)(configSettings) ++
+      sbt.inConfig(MultiJvm)(configSettings) ++
       List(
         BloopKeys.bloopScalaJSStage := findOutScalaJsStage.value,
         BloopKeys.bloopScalaJSModuleKind := findOutScalaJsModuleKind.value,
@@ -809,7 +820,10 @@ object BloopDefaults {
       }
     } else {
       Def.task {
-        val isForkedExecution = if (configuration == Test || configuration == IntegrationTest) {
+        val isTestLike =
+          configuration == Test || configuration == IntegrationTest ||
+            configuration.name == MultiJvm.name
+        val isForkedExecution = if (isTestLike) {
           (Test / Keys.test / Keys.fork).value
         } else {
           (Compile / Keys.run / Keys.fork).value
@@ -908,6 +922,8 @@ object BloopDefaults {
     val tags = configuration match {
       case IntegrationTest => List(Tag.IntegrationTest)
       case Test => List(Tag.Test)
+      // multi-jvm extends Test, so its target holds test code
+      case c if c.name == MultiJvm.name => List(Tag.Test)
       case _ => List(Tag.Library)
     }
 

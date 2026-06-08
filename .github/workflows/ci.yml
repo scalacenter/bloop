@@ -57,6 +57,7 @@ jobs:
             sbt-bloop/bsp-enabled \
             sbt-bloop/meta-builds \
             sbt-bloop/no-compile-incremental \
+            sbt-bloop/multi-jvm-configuration \
             sbt-bloop/non-compiling"
         shell: bash
 
