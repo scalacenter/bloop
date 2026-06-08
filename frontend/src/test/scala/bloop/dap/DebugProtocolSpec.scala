@@ -45,6 +45,51 @@ object DebugProtocolSpec extends DebugBspBaseSuite {
     }
   }
 
+  test("starts a debug session with environment variables") {
+    TestUtil.withinWorkspace { workspace =>
+      val main =
+        """|/main/scala/Main.scala
+           |object Main {
+           |  def main(args: Array[String]): Unit = {
+           |    println(args(0))
+           |    print(sys.props("world"))
+           |    print(sys.env("EXCL"))
+           |  }
+           |}
+           |""".stripMargin
+
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val project = TestProject(workspace, "p", List(main))
+
+      loadBspState(workspace, List(project), logger) { state =>
+        val params = mainClassParams(
+          "Main",
+          arguments = List("hello"),
+          jvmOptions = List("-J-Dworld=world"),
+          environmentVariables = Some(List("EXCL=!"))
+        )
+        val output = state.withDebugSession(project, params) { client =>
+          for {
+            _ <- client.initialize()
+            _ <- client.launch(noDebug = true)
+            _ <- client.configurationDone()
+            _ <- client.exited
+            _ <- client.terminated
+            output <- client.blockForAllOutput
+          } yield output
+        }
+
+        assertNoDiff(
+          output.linesIterator
+            .filterNot(_.contains("ERROR: JDWP Unable to get JNI 1.2 environment"))
+            .filterNot(_.contains("JDWP exit error AGENT_ERROR_NO_JNI_ENV"))
+            .mkString("\n"),
+          "hello\nworld!"
+        )
+      }
+    }
+  }
+
   // when the session detaches from the JVM, the JDI once again writes to the standard output
   flakyTest("restarted session does not contain JDI output", 3) {
     TestUtil.withinWorkspace { workspace =>
@@ -172,16 +217,19 @@ object DebugProtocolSpec extends DebugBspBaseSuite {
     }
   }
 
-  def mainClassParams(mainClass: String): bsp.BuildTargetIdentifier => bsp.DebugSessionParams = {
-    target =>
-      val targets = List(target)
-      val data = bsp.ScalaMainClass(mainClass, Nil, Nil, None)
-      val json = writeToArray[bsp.ScalaMainClass](data)
-      bsp.DebugSessionParams(
-        targets,
-        Some(bsp.DebugSessionParamsDataKind.ScalaMainClass),
-        Some(RawJson(json))
-      )
+  def mainClassParams(
+      mainClass: String,
+      arguments: List[String] = Nil,
+      jvmOptions: List[String] = Nil,
+      environmentVariables: Option[List[String]] = None
+  ): bsp.BuildTargetIdentifier => bsp.DebugSessionParams = { target =>
+    val data = bsp.ScalaMainClass(mainClass, arguments, jvmOptions, environmentVariables)
+    val json = writeToArray[bsp.ScalaMainClass](data)
+    bsp.DebugSessionParams(
+      List(target),
+      Some(bsp.DebugSessionParamsDataKind.ScalaMainClass),
+      Some(RawJson(json))
+    )
   }
 
   def testSuiteParams(
