@@ -28,7 +28,7 @@ import java.nio.file.Files
 object LocalBspMetalsClientSpec extends BspMetalsClientSpec(BspProtocol.Local)
 object TcpBspMetalsClientSpec extends BspMetalsClientSpec(BspProtocol.Tcp)
 
-class BspMetalsClientSpec(
+abstract class BspMetalsClientSpec(
     override val protocol: BspProtocol
 ) extends BspBaseSuite {
   private val testedScalaVersion = BuildInfo.scalaVersion
