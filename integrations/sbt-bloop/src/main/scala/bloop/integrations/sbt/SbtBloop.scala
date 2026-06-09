@@ -2,15 +2,19 @@ package bloop.integrations.sbt
 
 import java.io.File
 import java.nio.charset.StandardCharsets
+import java.nio.file.FileVisitResult
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
+import java.nio.file.SimpleFileVisitor
 import java.nio.file.StandardCopyOption
+import java.nio.file.attribute.BasicFileAttributes
 import java.util.concurrent.ConcurrentHashMap
 
 import scala.util.Failure
 import scala.util.Success
 import scala.util.Try
+import scala.util.control.NonFatal
 
 import bloop.config.Config
 import bloop.config.Tag
@@ -64,6 +68,8 @@ object BloopKeys {
     settingKey[File]("Directory where to write bloop configuration files")
   val bloopIsMetaBuild: SettingKey[Boolean] =
     settingKey[Boolean]("Is this a meta build?")
+  val bloopExportMetaBuild: SettingKey[Boolean] =
+    settingKey[Boolean]("Automatically export the sbt meta-build on load (needed by Metals).")
   val bloopAggregateSourceDependencies: SettingKey[Boolean] =
     settingKey[Boolean]("Flag to tell bloop to aggregate bloop config files in the same bloop dir")
   val bloopExportJarClassifiers: SettingKey[Option[Set[String]]] =
@@ -148,6 +154,11 @@ object BloopDefaults {
         .map(_.split(",").toSet)
         .orElse(Some(Set("sources")))
     },
+    BloopKeys.bloopExportMetaBuild := {
+      !Option(System.getProperty("bloop.export-meta-build"))
+        .orElse(Option(System.getenv("BLOOP_EXPORT_META_BUILD")))
+        .contains("false")
+    },
     BloopKeys.bloopInstall := bloopInstall.value,
     BloopKeys.bloopAggregateSourceDependencies := true,
     // Override classifiers so that we don't resolve always docs
@@ -164,10 +175,22 @@ object BloopDefaults {
     },
     Keys.onLoad := {
       val oldOnLoad = Keys.onLoad.value
+      val isMetaBuild = BloopKeys.bloopIsMetaBuild.value
+      val exportMetaBuild = BloopKeys.bloopExportMetaBuild.value
+      val metaBuildBase = new File(Keys.loadedBuild.value.root)
       oldOnLoad.andThen { state =>
-        val isMetaBuild = BloopKeys.bloopIsMetaBuild.value
-        if (!isMetaBuild) state
-        else runCommandAndRemaining("bloopInstall")(state)
+        if (!isMetaBuild || !exportMetaBuild) state
+        else if (metaBuildExportUpToDate(metaBuildBase)) {
+          state.globalLogging.full.debug(
+            s"Bloop meta-build export up to date; skipping $metaBuildBase"
+          )
+          state
+        } else {
+          // `bloopInstall` stamps the change-detection fingerprint on success.
+          inAutomaticMetaExport = true
+          try runCommandAndRemaining("bloopInstall")(state)
+          finally inAutomaticMetaExport = false
+        }
       }
     },
     BloopKeys.bloopSupportedConfigurations := List(
@@ -895,6 +918,88 @@ object BloopDefaults {
   private[bloop] val targetNamesToConfigs =
     new ConcurrentHashMap[String, GeneratedProject]()
 
+  // Set while the automatic on-load meta-build export runs so its logging stays
+  // quiet, while a manual `bloopInstall` keeps its usual feedback.
+  @volatile private var inAutomaticMetaExport: Boolean = false
+
+  private final val metaBuildFingerprintName = ".meta-build-fingerprint"
+
+  /**
+   * Best-effort change detection for the automatic meta-build export. We skip
+   * the on-load `bloopInstall` when the meta-build already has bloop configs and
+   * a fingerprint of its build-definition sources that still matches, so `sbt`
+   * startup stays fast when the build definition hasn't changed. Any edit,
+   * addition, deletion or rename under the meta-build (or a manual
+   * `bloopInstall`) changes the fingerprint and regenerates.
+   */
+  private def metaBuildExportUpToDate(buildBase: File): Boolean =
+    try {
+      val bloopDir = new File(buildBase, ".bloop")
+      metaBuildConfigFiles(bloopDir).nonEmpty &&
+      readMetaBuildFingerprint(bloopDir).contains(metaBuildFingerprint(buildBase))
+    } catch {
+      // Never let change detection break loading; fall back to exporting.
+      case NonFatal(_) => false
+    }
+
+  private[bloop] def writeMetaBuildFingerprint(buildBase: File): Unit =
+    try {
+      val bloopDir = new File(buildBase, ".bloop")
+      if (bloopDir.isDirectory || bloopDir.mkdirs()) {
+        val target = new File(bloopDir, metaBuildFingerprintName).toPath
+        Files.write(target, metaBuildFingerprint(buildBase).getBytes(StandardCharsets.UTF_8))
+        ()
+      }
+    } catch {
+      case NonFatal(_) => ()
+    }
+
+  private def readMetaBuildFingerprint(bloopDir: File): Option[String] = {
+    val file = new File(bloopDir, metaBuildFingerprintName)
+    if (!file.isFile) None
+    else Some(new String(Files.readAllBytes(file.toPath), StandardCharsets.UTF_8).trim)
+  }
+
+  private def metaBuildConfigFiles(bloopDir: File): List[File] =
+    Option(bloopDir.listFiles()).toList.flatten.filter { f =>
+      f.isFile && f.getName.endsWith(".json") && f.getName != "bloop.settings.json"
+    }
+
+  /**
+   * Hash of every file under the meta-build (path, mtime, size), with the
+   * `target` and `.bloop` subtrees pruned so they are never traversed during
+   * load. We fingerprint all files, not just `*.{sbt,scala,java}`, so build
+   * definitions that read versions/settings from e.g. `dependencies.properties`
+   * are still invalidated. Inputs that are not files under `project/` (system
+   * properties, environment variables, …) are out of scope.
+   */
+  private def metaBuildFingerprint(buildBase: File): String = {
+    val base = buildBase.toPath
+    val entries = scala.collection.mutable.ArrayBuffer.empty[String]
+    if (Files.isDirectory(base)) {
+      Files.walkFileTree(
+        base,
+        new SimpleFileVisitor[Path] {
+          override def preVisitDirectory(dir: Path, attrs: BasicFileAttributes): FileVisitResult = {
+            val name = Option(dir.getFileName).map(_.toString).getOrElse("")
+            if (dir != base && (name == "target" || name == ".bloop")) FileVisitResult.SKIP_SUBTREE
+            else FileVisitResult.CONTINUE
+          }
+          override def visitFile(file: Path, attrs: BasicFileAttributes): FileVisitResult = {
+            val rel = base.relativize(file).toString
+            entries += s"$rel:${attrs.lastModifiedTime().toMillis}:${attrs.size()}"
+            FileVisitResult.CONTINUE
+          }
+          override def visitFileFailed(file: Path, exc: java.io.IOException): FileVisitResult =
+            FileVisitResult.CONTINUE
+        }
+      )
+    }
+    val payload = (Config.File.LatestVersion.toString +: entries.sorted).mkString("\n")
+    val digest = java.security.MessageDigest.getInstance("SHA-1")
+    digest.digest(payload.getBytes(StandardCharsets.UTF_8)).map(b => f"${b & 0xff}%02x").mkString
+  }
+
   def bloopGenerate: Def.Initialize[Task[Result[Option[File]]]] = Def.taskDyn {
     val logger = Keys.streams.value.log
     val project = Keys.thisProject.value
@@ -1163,7 +1268,9 @@ object BloopDefaults {
               )
 
             logger.debug(s"Bloop wrote the configuration of project '$projectName' to '$outFile'")
-            logger.success(s"Generated $userFriendlyConfigPath")
+            // Quiet the automatic on-load meta-build export; a manual run still reports.
+            if (inAutomaticMetaExport) logger.debug(s"Generated $userFriendlyConfigPath")
+            else logger.success(s"Generated $userFriendlyConfigPath")
             Option(outFile)
           }
       }.result
@@ -1219,6 +1326,8 @@ object BloopDefaults {
 
     // Clear the global map of available names and add the ones detected now
     val loadedBuild = Keys.loadedBuild.value
+    val isMetaBuild = BloopKeys.bloopIsMetaBuild.value
+    val metaBuildBase = new File(loadedBuild.root)
     allProjectNames.clear()
     projectNameReplacements.clear()
     allProjectNames.++=(loadedBuild.allProjectRefs.map(_._1.project))
@@ -1263,6 +1372,10 @@ object BloopDefaults {
             )
           }
           throw fail.head
+        } else if (isMetaBuild) {
+          // Stamp the change-detection fingerprint so the next load can skip,
+          // regardless of whether this `bloopInstall` was automatic or manual.
+          writeMetaBuildFingerprint(metaBuildBase)
         }
       )
   }

@@ -1,0 +1,8 @@
+# bloopExportMetaBuild is disabled at both the outer (project/) and nested
+# (project/project/) meta-build layers, so loading must export neither.
+> checkExportsAbsent
+# Re-enable both layers and reload: both must now export.
+$ delete project/disable-export.sbt
+$ delete project/project/disable-export.sbt
+> reload
+> checkExportsPresent

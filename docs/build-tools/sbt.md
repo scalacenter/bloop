@@ -256,5 +256,38 @@ either you or an sbt plugin are incremental and complete as soon as possible.
 Lastly, make sure you keep a hot sbt session around as much time as possible. Running `bloopInstall`
 a second time in the sbt session is *really* fast.
 
+### Automatic meta-build export
+
+The plugin exports the sbt **meta-build** (the build definition under `project/`) to bloop so that
+Metals and other tools can compile and navigate your `project/*.scala` and `*.sbt` sources. This runs
+on load, but is **change-detected**: the export is skipped while a fingerprint of the files under
+`project/` is unchanged, so a normal `sbt` startup is fast and silent once the build definition is
+stable. Editing, adding, or removing any file under `project/` regenerates it.
+
+> Only files under `project/` are fingerprinted. Inputs your build definition reads from elsewhere —
+> system properties, environment variables, or files outside `project/` — are not tracked; run
+> `bloopInstall` (or touch a file under `project/`) to force a re-export after changing those.
+
+If you'd rather turn the automatic export off entirely, the robust switch is the
+`bloop.export-meta-build` system property or the `BLOOP_EXPORT_META_BUILD` environment variable —
+these are read at every meta-build layer, so they also cover nested `project/project` builds:
+
+```bash
+sbt -Dbloop.export-meta-build=false
+# or
+BLOOP_EXPORT_META_BUILD=false sbt
+```
+
+There is also a `bloopExportMetaBuild` setting, but it only affects the build layer it is defined in
+(`project/*.sbt` configures the outer meta-build, `project/project/*.sbt` the next one down), so for
+nested meta-builds prefer the property/environment variable above:
+
+```scala
+Global / bloopExportMetaBuild := false
+```
+
+> Turning this off prevents Metals from importing and compiling your sbt build definition. Regular
+project sources are unaffected — `bloopInstall` still exports them as usual.
+
 [sbt-configuration]: https://www.scala-sbt.org/1.x/docs/Multi-Project.html
 [integration-test-conf]: https://www.scala-sbt.org/1.0/docs/offline/Testing.html#Integration+Tests
