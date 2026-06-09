@@ -9,7 +9,7 @@ import bloop.cli.ExitStatus
 object TcpBspLinkSpec extends BspLinkSpec(BspProtocol.Tcp)
 object LocalBspLinkSpec extends BspLinkSpec(BspProtocol.Local)
 
-class BspLinkSpec(
+abstract class BspLinkSpec(
     override val protocol: BspProtocol
 ) extends BspBaseSuite {
 

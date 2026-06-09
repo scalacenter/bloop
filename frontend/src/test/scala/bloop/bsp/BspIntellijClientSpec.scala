@@ -14,7 +14,7 @@ import bloop.util.TestUtil
 object LocalBspIntellijClientSpec extends BspIntellijClientSpec(BspProtocol.Local)
 object TcpBspIntellijClientSpec extends BspIntellijClientSpec(BspProtocol.Tcp)
 
-class BspIntellijClientSpec(
+abstract class BspIntellijClientSpec(
     override val protocol: BspProtocol
 ) extends BspBaseSuite {
 

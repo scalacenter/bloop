@@ -4,8 +4,6 @@ import scala.annotation.nowarn
 import scala.collection.JavaConverters._
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
-import scala.language.experimental.macros
-import scala.reflect.ClassTag
 import scala.util.control.NonFatal
 
 import bloop.Compiler
@@ -21,15 +19,13 @@ import bloop.task.Task
 import bloop.util.TestProject
 import bloop.util.TestUtil
 
-import utest.TestSuite
-import utest.Tests
-import utest.asserts.Asserts
+import utest._
 import utest.framework.Formatter
 import utest.framework.TestCallTree
 import utest.framework.Tree
-import utest.ufansi.Attrs
-import utest.ufansi.Color
-import utest.ufansi.Str
+import utest.shaded.fansi.Attrs
+import utest.shaded.fansi.Color
+import utest.shaded.fansi.Str
 
 abstract class BaseSuite extends TestSuite with BloopHelpers {
   val pprint = _root_.pprint.PPrinter.BlackWhite
@@ -38,7 +34,6 @@ abstract class BaseSuite extends TestSuite with BloopHelpers {
   def isAppveyor: Boolean = "True" == System.getenv("APPVEYOR")
   def beforeAll(): Unit = ()
   def afterAll(): Unit = ()
-  def intercept[T: ClassTag](exprs: Unit): T = macro Asserts.interceptProxy[T]
 
   def assertNotEmpty(string: String): Unit = {
     if (string.isEmpty) {
@@ -57,14 +52,12 @@ abstract class BaseSuite extends TestSuite with BloopHelpers {
   }
 
   def assertContains(string: String, substring: String): Unit = {
-    assert(string.contains(substring))
+    Predef.assert(string.contains(substring))
   }
 
   def assertNotContains(string: String, substring: String): Unit = {
-    assert(!string.contains(substring))
+    Predef.assert(!string.contains(substring))
   }
-
-  def assert(exprs: Boolean*): Unit = macro Asserts.assertProxy
 
   def assertNotEquals[T](obtained: T, expected: T, hint: String = ""): Unit = {
     if (obtained == expected) {
@@ -529,7 +522,7 @@ abstract class BaseSuite extends TestSuite with BloopHelpers {
   @nowarn("msg=parameter value fun in method ignore is never used")
   def ignore(name: String, label: String = "IGNORED")(fun: => Any): Unit = {
     myTests += FlatTest(
-      utest.ufansi.Color.LightRed(s"$label - $name").toString(),
+      utest.shaded.fansi.Color.LightRed(s"$label - $name").toString(),
       () => ()
     )
   }

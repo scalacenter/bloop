@@ -17,7 +17,7 @@ import monix.execution.Scheduler
 object TcpBspConnectionSpec extends BspConnectionSpec(BspProtocol.Tcp)
 object LocalBspConnectionSpec extends BspConnectionSpec(BspProtocol.Local)
 
-class BspConnectionSpec(
+abstract class BspConnectionSpec(
     override val protocol: BspProtocol
 ) extends BspBaseSuite {
   // A custom pool we use to make sure we don't block on threads

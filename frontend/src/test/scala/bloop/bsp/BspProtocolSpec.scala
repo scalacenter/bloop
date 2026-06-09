@@ -27,7 +27,7 @@ import com.github.plokhotnyuk.jsoniter_scala.core._
 object TcpBspProtocolSpec extends BspProtocolSpec(BspProtocol.Tcp)
 object LocalBspProtocolSpec extends BspProtocolSpec(BspProtocol.Local)
 
-class BspProtocolSpec(
+abstract class BspProtocolSpec(
     override val protocol: BspProtocol
 ) extends BspBaseSuite {
   import ch.epfl.scala.bsp
