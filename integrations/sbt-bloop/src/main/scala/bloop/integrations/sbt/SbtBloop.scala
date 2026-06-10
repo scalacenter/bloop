@@ -1396,6 +1396,15 @@ object BloopDefaults {
   }
 
   /**
+   * Delegate to `ConfigUtil.pathsOutsideRoots` after normalizing both roots and
+   * candidate paths to absolute. A relative single-segment path has a null
+   * parent, which makes the upstream utility NPE; normalizing both sides also
+   * avoids misclassifying in-root resources when the roots are relative.
+   */
+  private def resourcesOutsideRoots(roots: Seq[Path], paths: Seq[Path]): Seq[Path] =
+    ConfigUtil.pathsOutsideRoots(roots.map(_.toAbsolutePath), paths.map(_.toAbsolutePath))
+
+  /**
    * This task is triggered by `bloopGenerate` and does stuff which is
    * sometimes dangerous because it can incur on cyclic dependencies, such as:
    *
@@ -1430,7 +1439,7 @@ object BloopDefaults {
             val currentResourceDirs = currentResources.filter(Files.isDirectory(_))
             val allResourceFiles = (configuration / Keys.resources).value
             val additionalResources =
-              ConfigUtil.pathsOutsideRoots(currentResourceDirs, allResourceFiles.map(_.toPath))
+              resourcesOutsideRoots(currentResourceDirs, allResourceFiles.map(_.toPath))
 
             val newGeneratedProject = {
               val sbt = computeSbtMetadata.value.map(_.config)
@@ -1485,7 +1494,7 @@ object BloopDefaults {
 
         val unmanagedResourceFiles = (configKey / Keys.unmanagedResources).value
         val additionalResources =
-          ConfigUtil.pathsOutsideRoots(resourceDirs, unmanagedResourceFiles.map(_.toPath))
+          resourcesOutsideRoots(resourceDirs, unmanagedResourceFiles.map(_.toPath))
         (resourceDirs ++ additionalResources).toList
       }
     }
