@@ -57,6 +57,8 @@ object Interpreter {
             execute(next, runBsp(cmd, state))
           case Run(cmd: Commands.About, _) =>
             notHandled("about", cmd.cliOptions, state)
+          case Run(cmd: Commands.Version, _) =>
+            notHandled("version", cmd.cliOptions, state)
           case Run(cmd: Commands.Help, _) =>
             notHandled("help", cmd.cliOptions, state)
           case Run(cmd: Commands.Command, next) =>

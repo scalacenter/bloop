@@ -5,6 +5,7 @@ import java.nio.file.Path
 
 import bloop.cli.BspProtocol
 import bloop.cli.Commands
+import bloop.cli.CommonOptions
 import bloop.cli.ExitStatus
 import bloop.cli.Validate
 import bloop.engine.Action
@@ -12,6 +13,7 @@ import bloop.engine.Exit
 import bloop.engine.Feedback
 import bloop.engine.Print
 import bloop.engine.Run
+import bloop.internal.build.BuildInfo
 import bloop.testing.BaseSuite
 import bloop.util.UUIDUtil
 
@@ -152,6 +154,34 @@ object CliSpec extends BaseSuite {
     checkReservedPort(127)
     checkReservedPort(21)
     checkReservedPort(23)
+  }
+
+  test("print about info when `--version` is passed without a command") {
+    checkPrintsAbout(Cli.parse(Array("--version"), CommonOptions.default))
+  }
+
+  test("print about info when the `version` command is used") {
+    checkPrintsAbout(Cli.parse(Array("version"), CommonOptions.default))
+  }
+
+  test("print about info before running a command when `--version` is passed") {
+    val action = Cli.parse(Array("compile", "foo", "--version"), CommonOptions.default)
+    checkPrintsAbout(
+      action,
+      alsoRuns = { case Run(_: Commands.Compile, Exit(ExitStatus.Ok)) => () }
+    )
+  }
+
+  def checkPrintsAbout(
+      action: Action,
+      alsoRuns: PartialFunction[Action, Unit] = { case Exit(ExitStatus.Ok) => () }
+  ): Unit = {
+    action match {
+      case Print(msg, _, next) if msg.contains(BuildInfo.version) && alsoRuns.isDefinedAt(next) =>
+        ()
+      case _ =>
+        throw new AssertionError(s"Expected about info to be printed, got ${action}.")
+    }
   }
 
   def uniqueId: String = UUIDUtil.randomUUID.take(8)
