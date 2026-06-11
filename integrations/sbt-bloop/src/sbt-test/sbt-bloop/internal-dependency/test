@@ -1,0 +1,5 @@
+> bloopInstall
+$ exists .bloop/util.json
+$ exists .bloop/core.json
+$ exists .bloop/core-test.json
+> checkBloopFiles
