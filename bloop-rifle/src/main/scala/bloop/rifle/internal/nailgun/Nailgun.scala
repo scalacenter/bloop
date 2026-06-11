@@ -242,11 +242,12 @@ final class Protocol(
       sendStdinOpt.foreach(_._2.release(Int.MaxValue))
     }
 
-    if (stopFurtherProcessing.get())
-      sendStdinOpt.foreach(_._1.interrupt())
-
-    logger.debug("Waiting for stdin thread to finish...")
-    sendStdinOpt.foreach(_._1.join())
+    // Don't join the stdin reader: it's a daemon thread that may be parked in a blocking read
+    // on the client's real stdin (the server requests input eagerly, even for programs that
+    // never consume it). Joining would force the user to press Enter before the command can
+    // return. Interrupt as best-effort (unblocks the semaphore-parked case) and abandon it —
+    // it dies with the client process.
+    sendStdinOpt.foreach(_._1.interrupt())
     logger.debug("Waiting for heartbeat thread to finish...")
     heartbeatThread.join()
     logger.debug("Returning exit code...")
