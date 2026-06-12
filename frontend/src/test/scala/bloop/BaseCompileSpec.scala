@@ -2180,6 +2180,97 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
     }
   }
 
+  // Removing a source from the build and later re-adding it with unchanged
+  // contents must recompile the retained sources whose implicit resolution
+  // depends on it. This mirrors the original report: a package object `p` lives
+  // in a togglable source root and the implicit it provides changes how code in
+  // package `p` and importers of `p` resolve `implicitly[Level]`.
+  test("recompiles a source directory removed from and then re-added to the project") {
+    TestUtil.withinWorkspace { workspace =>
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+
+      // `p.A` (same package as the togglable package object) and `q.Main` (an
+      // importer of `p`) both resolve `implicitly[Level]` at COMPILE TIME:
+      //   - to `Level.fallback` (5) when the package object is absent, or
+      //   - to the package object's `boosted` (14) when it is present.
+      // Package `p` stays alive via `Level.scala`/`A.scala`, so both keep
+      // compiling either way. Re-adding the package object must recompile BOTH
+      // `p.A` (same package) and `q.Main` (importer); leaving either stale is
+      // observable in the printed sum. Exercises Scala compilation semantics,
+      // not merely the presence of a class file on the runtime classpath.
+      val base = TestProject(
+        workspace,
+        "a",
+        List(
+          """/p/Level.scala
+            |package p
+            |final case class Level(n: Int)
+            |object Level {
+            |  implicit val fallback: Level = Level(5)
+            |}
+          """.stripMargin,
+          """/p/A.scala
+            |package p
+            |object A {
+            |  def value: Int = implicitly[Level].n
+            |}
+          """.stripMargin,
+          """/q/Main.scala
+            |package q
+            |import p._
+            |object Main {
+            |  def main(args: Array[String]): Unit =
+            |    println("RESULT=" + (A.value + implicitly[Level].n))
+            |}
+          """.stripMargin
+        )
+      )
+
+      // A second source root whose package object `p` supplies the
+      // higher-priority implicit resolved by `p.A` and `q.Main` when present.
+      val secondSrcDir = workspace.resolve("a-extra-src")
+      Files.createDirectories(secondSrcDir.underlying)
+      writeFile(
+        secondSrcDir.resolve("package.scala"),
+        """package object p {
+          |  implicit val boosted: Level = Level(14)
+          |}
+          """.stripMargin
+      )
+
+      val withBoth =
+        base.copy(
+          config = base.config.copy(sources = base.config.sources :+ secondSrcDir.underlying)
+        )
+      // `base` already lists only the default source root
+      val withoutSecond = base
+
+      // Runs the app and returns its `RESULT=` line, the user-visible output.
+      def runResult(state: TestState, project: bloop.util.TestProject): String = {
+        logger.clear()
+        val runState = state.run(project)
+        assertExitStatus(runState, ExitStatus.Ok)
+        logger.infos
+          .find(_.startsWith("RESULT="))
+          .map(_.stripPrefix("RESULT="))
+          .getOrElse(sys.error(s"Run printed no RESULT line; infos: ${logger.infos}"))
+      }
+
+      // 1. Both present: `p.A` and `q.Main` resolve the boosted implicit (14 + 14).
+      val state1 = loadState(workspace, List(withBoth), logger)
+      assertNoDiff(runResult(state1, withBoth), "28")
+
+      // 2. Remove the package object: both fall back (5 + 5).
+      val state2 = reloadWithNewProject(withoutSecond, state1)
+      assertNoDiff(runResult(state2, withoutSecond), "10")
+
+      // 3. Re-add it: both `p.A` and `q.Main` must recompile to the boosted
+      //    implicit again (14 + 14) — the #1347 regression.
+      val state3 = reloadWithNewProject(withBoth, state2)
+      assertNoDiff(runResult(state3, withBoth), "28")
+    }
+  }
+
   test("fail compilation when using wildcard import from empty package - after package rename") {
     TestUtil.withinWorkspace { workspace =>
       object Sources {
