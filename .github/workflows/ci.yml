@@ -47,6 +47,7 @@ jobs:
       - name: Sbt 2
         run: |
           sbt "++3.7.3 sbtBloop/scripted \
+            sbt-bloop/exclude-filter \
             sbt-bloop/wartremover \
             sbt-bloop/stale-projects \
             sbt-bloop/sbt-plugin-build \

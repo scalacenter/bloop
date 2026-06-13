@@ -1020,11 +1020,23 @@ object BloopDefaults {
 
             /* This is a best-effort to export source directories + stray source files that
              * are not contained in them. Source directories are superior over source files because
-             * they allow us to watch them and detect the creation of new source files in situ. */
-            val sources = {
+             * they allow us to watch them and detect the creation of new source files in situ.
+             * When sbt file filters hide sources that the server would pick up from a plain
+             * directory, that directory is exported as a sources glob excluding those files, so
+             * that bloop compiles exactly what sbt compiles. */
+            val (sources, sourcesGlobs) = {
               val sourceDirs = Keys.sourceDirectories.value.map(_.toPath)
-              val sourceFiles = pruneSources(sourceDirs, Keys.sources.value.map(_.toPath))
-              (sourceDirs ++ sourceFiles).toList
+              val unmanagedSourceDirs = Keys.unmanagedSourceDirectories.value.map(_.toPath)
+              val sbtSources = Keys.sources.value.map(_.toPath)
+              val sourceFiles = pruneSources(sourceDirs, sbtSources)
+              val (plainDirs, globs) = SourcesGlobsExport.splitDirectoriesIntoGlobs(
+                sourceDirs,
+                unmanagedSourceDirs,
+                sbtSources,
+                (Keys.unmanagedSources / Keys.includeFilter).value,
+                (Keys.unmanagedSources / Keys.excludeFilter).value
+              )
+              ((plainDirs ++ sourceFiles).toList, globs)
             }
 
             val testOptions = {
@@ -1151,7 +1163,7 @@ object BloopDefaults {
                 baseDirectory,
                 Option(buildBaseDirectory.toPath),
                 sources,
-                None,
+                sourcesGlobs,
                 None,
                 dependenciesAndAggregates,
                 classpath,
