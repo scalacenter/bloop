@@ -41,7 +41,7 @@ object Dependencies {
   val difflibVersion = "1.3.0"
   val braveVersion = "5.18.1"
   val zipkinSenderVersion = "2.17.2"
-  val jnaVersion = "5.18.1"
+  val jnaVersion = "5.19.0"
   val asmVersion = "9.10.1"
   val ztExecVersion = "1.12"
   val debugAdapterVersion = "4.2.8"
@@ -57,7 +57,7 @@ object Dependencies {
   val bloopConfig = "ch.epfl.scala" %% "bloop-config" % bloopConfigVersion
 
   val libraryManagement = "org.scala-sbt" %% "librarymanagement-ivy" % lmVersion
-  val log4j = "org.apache.logging.log4j" % "log4j-core" % "2.23.0"
+  val log4j = "org.apache.logging.log4j" % "log4j-core" % "2.23.1"
   val scalazCore = "org.scalaz" %% "scalaz-core" % scalazVersion
   val coursierInterface = "io.get-coursier" % "interface" % "1.0.28"
   val configDirectories = "io.get-coursier.util" % "directories-jni" % "0.1.2"
@@ -74,7 +74,6 @@ object Dependencies {
   val sourcecode = "com.lihaoyi" %% "sourcecode" % sourcecodeVersion
   val sbtTestInterface = "org.scala-sbt" % "test-interface" % sbtTestInterfaceVersion
   val sbtTestAgent = "org.scala-sbt" % "test-agent" % sbtTestAgentVersion
-  val snailgun = "io.github.alexarchambault.scala-cli.snailgun" %% "snailgun-core" % "0.4.1-sc2"
   val ztExec = "org.zeroturnaround" % "zt-exec" % ztExecVersion
   val logback = "ch.qos.logback" % "logback-classic" % "1.5.34"
   val libdaemonjvm = "ch.epfl.scala" %% "libdaemon" % "0.0.12"

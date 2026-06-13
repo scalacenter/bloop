@@ -1454,6 +1454,78 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
     }
   }
 
+  test("report the full stack trace once when a compiler plugin crashes the compiler") {
+    TestUtil.withinWorkspace { workspace =>
+      val pluginSources = List(
+        """/CrashingPlugin.scala
+          |package crash
+          |
+          |import scala.tools.nsc.Global
+          |import scala.tools.nsc.Phase
+          |import scala.tools.nsc.plugins.Plugin
+          |import scala.tools.nsc.plugins.PluginComponent
+          |
+          |class CrashingPlugin(val global: Global) extends Plugin {
+          |  val name = "crash"
+          |  val description = "Crashes the compiler after typer"
+          |  val components = List[PluginComponent](Component)
+          |
+          |  object Component extends PluginComponent {
+          |    val global: CrashingPlugin.this.global.type = CrashingPlugin.this.global
+          |    val phaseName = "crash"
+          |    val runsAfter = List("typer")
+          |    def newPhase(prev: Phase): Phase = new StdPhase(prev) {
+          |      def apply(unit: global.CompilationUnit): Unit =
+          |        throw new NoSuchMethodError("boom")
+          |    }
+          |  }
+          |}
+          """.stripMargin
+      )
+
+      val appSources = List(
+        """/App.scala
+          |object App
+          """.stripMargin
+      )
+
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val `A` = TestProject(workspace, "a", pluginSources)
+      // Scalac accepts an exploded plugin archive, so point -Xplugin at the classes directory
+      val `B` = TestProject(
+        workspace,
+        "b",
+        appSources,
+        scalacOptions = List(s"-Xplugin:${`A`.externalClassesDir}", "-Xplugin-require:crash")
+      )
+
+      val projects = List(`A`, `B`)
+      val state = loadState(workspace, projects, logger)
+      val compiledPlugin = state.compile(`A`)
+      assertExitStatus(compiledPlugin, ExitStatus.Ok)
+      writeFile(
+        `A`.externalClassesDir.resolve("scalac-plugin.xml"),
+        """<plugin>
+          |  <name>crash</name>
+          |  <classname>crash.CrashingPlugin</classname>
+          |</plugin>
+          """.stripMargin
+      )
+
+      val compiledState = compiledPlugin.compile(`B`)
+      assertExitStatus(compiledState, ExitStatus.CompilationError)
+
+      val crashReports =
+        logger.errors.filter(_.startsWith("Unexpected error when compiling b"))
+      assert(crashReports.size == 1)
+      assert(crashReports.head.contains("The compiler crashed with a NoSuchMethodError"))
+      assert(crashReports.head.contains("java.lang.NoSuchMethodError: boom"))
+      assert(crashReports.head.contains("at crash.CrashingPlugin"))
+      // The trace must be reported exactly once, not echoed again from the compiler backend
+      assert(logger.errors.count(_.contains("java.lang.NoSuchMethodError: boom")) == 1)
+    }
+  }
+
   test("cascade compilation compiles only a strict subset of targets") {
     TestUtil.withinWorkspace { workspace =>
       /*

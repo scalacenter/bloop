@@ -8,9 +8,8 @@ import bloop.rifle.{
   FailedToStartServerExitCodeException,
   FailedToStartServerTimeoutException
 }
+import bloop.rifle.internal.nailgun.{Client, SocketClient, Streams, TcpClient}
 import libdaemonjvm.LockFiles
-import snailgun.protocol.Streams
-import snailgun.{Client, TcpClient}
 
 import java.io.{File, InputStream, OutputStream}
 import java.net.{
@@ -328,7 +327,7 @@ object Operations {
       case BloopRifleConfig.Address.Tcp(host, port) =>
         TcpClient(host, port)
       case addr: BloopRifleConfig.Address.DomainSocket =>
-        SnailgunClient { () =>
+        SocketClient { () =>
           val files = lockFiles(addr)
           val res = libdaemonjvm.client.Connect.tryConnect(files)
           res match {
@@ -389,7 +388,7 @@ object Operations {
           workingDir,
           sys.env.toMap,
           streams,
-          logger.nailgunLogger,
+          logger,
           stop0,
           interactiveSession = false
         )
@@ -405,10 +404,10 @@ object Operations {
       catch { case _: IllegalStateException => }
     }
 
-    val snailgunThread = new Thread(runnable, threadName)
-    snailgunThread.setDaemon(true)
+    val nailgunThread = new Thread(runnable, threadName)
+    nailgunThread.setDaemon(true)
 
-    snailgunThread.start()
+    nailgunThread.start()
 
     new BspConnection {
       def address = bspSocketOrPort match {
@@ -506,7 +505,7 @@ object Operations {
       workingDir,
       sys.env.toMap,
       streams,
-      logger.nailgunLogger,
+      logger,
       stop0,
       interactiveSession = false
     )
@@ -532,7 +531,7 @@ object Operations {
         workingDir,
         sys.env.toMap,
         streams,
-        logger.nailgunLogger,
+        logger,
         stop0,
         interactiveSession = false
       )

@@ -559,9 +559,10 @@ object BloopDefaults {
    * Creates a project name from a classpath dependency and its configuration.
    *
    * This function uses internal sbt utils (`sbt.Classpaths`) to parse configuration
-   * dependencies like sbt does and extract them. This parsing only supports compile
-   * and test, any kind of other dependency will be assumed to be test and will be
-   * reported to the user.
+   * dependencies like sbt does and extract them. Internal configurations such as
+   * `compile-internal` are resolved like their base configuration because they only
+   * differ in publishing semantics. Any other unsupported dependency will be assumed
+   * to be test and will be reported to the user.
    *
    * Ref https://www.scala-sbt.org/1.x/docs/Library-Management.html#Configurations.
    */
@@ -574,9 +575,12 @@ object BloopDefaults {
       data: ScopeSettings,
       logger: Logger
   ): List[String] = {
-    // We only detect dependencies for those configurations that are supported
+    // We only detect dependencies for those configurations that are supported,
+    // where the hidden `*-internal` variant of a supported configuration is supported too
     def filterSupported(configurationNames: Seq[String]): Seq[String] = {
-      configurationNames.filter(conf => supportedConfigurationNames.exists(_ == conf))
+      configurationNames.filter(conf =>
+        supportedConfigurationNames.contains(conf.stripSuffix("-internal"))
+      )
     }
 
     val ref = dep.project
@@ -594,8 +598,10 @@ object BloopDefaults {
         )
 
         val mappedConfiguration = {
+          // Mappings like `compile-internal` are keyed by the hidden internal variant
+          // of the configuration, which sbt resolves classpaths from
+          var mapped = mapping(configuration.name) ++ mapping(configuration.name + "-internal")
           // We need this to make `Provided` & `Optional` mean `Compile`
-          var mapped = mapping(configuration.name)
           if (configuration == Compile) {
             if (mapped.isEmpty)
               mapped = mapping(Provided.name)
@@ -609,7 +615,9 @@ object BloopDefaults {
           case Nil => Nil
           case configurationNames =>
             val configurations = configurationNames.iterator
-              .flatMap(name => activeDependentConfigurations.find(_.name == name).toList)
+              .flatMap(name =>
+                activeDependentConfigurations.find(_.name == name.stripSuffix("-internal")).toList
+              )
               .flatMap(c => defaultSbtConfigurationMappings.getOrElse(c.name, Some(c)).toList)
               .toList
 
@@ -1412,6 +1420,15 @@ object BloopDefaults {
   }
 
   /**
+   * Delegate to `ConfigUtil.pathsOutsideRoots` after normalizing both roots and
+   * candidate paths to absolute. A relative single-segment path has a null
+   * parent, which makes the upstream utility NPE; normalizing both sides also
+   * avoids misclassifying in-root resources when the roots are relative.
+   */
+  private def resourcesOutsideRoots(roots: Seq[Path], paths: Seq[Path]): Seq[Path] =
+    ConfigUtil.pathsOutsideRoots(roots.map(_.toAbsolutePath), paths.map(_.toAbsolutePath))
+
+  /**
    * This task is triggered by `bloopGenerate` and does stuff which is
    * sometimes dangerous because it can incur on cyclic dependencies, such as:
    *
@@ -1446,7 +1463,7 @@ object BloopDefaults {
             val currentResourceDirs = currentResources.filter(Files.isDirectory(_))
             val allResourceFiles = (configuration / Keys.resources).value
             val additionalResources =
-              ConfigUtil.pathsOutsideRoots(currentResourceDirs, allResourceFiles.map(_.toPath))
+              resourcesOutsideRoots(currentResourceDirs, allResourceFiles.map(_.toPath))
 
             val newGeneratedProject = {
               val sbt = computeSbtMetadata.value.map(_.config)
@@ -1501,7 +1518,7 @@ object BloopDefaults {
 
         val unmanagedResourceFiles = (configKey / Keys.unmanagedResources).value
         val additionalResources =
-          ConfigUtil.pathsOutsideRoots(resourceDirs, unmanagedResourceFiles.map(_.toPath))
+          resourcesOutsideRoots(resourceDirs, unmanagedResourceFiles.map(_.toPath))
         (resourceDirs ++ additionalResources).toList
       }
     }
