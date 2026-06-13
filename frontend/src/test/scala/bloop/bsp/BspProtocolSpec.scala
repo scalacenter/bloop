@@ -5,6 +5,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
 
+import scala.concurrent.duration.FiniteDuration
 import scala.util._
 
 import ch.epfl.scala.bsp.JvmEnvironmentItem
@@ -26,7 +27,7 @@ import com.github.plokhotnyuk.jsoniter_scala.core._
 object TcpBspProtocolSpec extends BspProtocolSpec(BspProtocol.Tcp)
 object LocalBspProtocolSpec extends BspProtocolSpec(BspProtocol.Local)
 
-class BspProtocolSpec(
+abstract class BspProtocolSpec(
     override val protocol: BspProtocol
 ) extends BspBaseSuite {
   import ch.epfl.scala.bsp
@@ -195,6 +196,38 @@ class BspProtocolSpec(
           (stateA, environmentItems)
         }
       )
+    }
+  }
+
+  test("run-uses-project-working-directory-as-cwd") {
+    TestUtil.withinWorkspace { workspace =>
+      // The forked process must inherit the project's working directory as its real
+      // OS-level cwd, not the bloop server's launch directory. We probe the OS cwd with a
+      // relative-path `File.exists` (which resolves against the OS cwd) rather than the
+      // `user.dir` property, since `-Duser.dir` is passed to the child regardless and would
+      // mask the bug: pre-fix the cwd was the server dir, where the marker is absent.
+      object Sources {
+        val `A.scala` =
+          """/A.scala
+            |object A {
+            |  def main(args: Array[String]): Unit =
+            |    sys.exit(if (new java.io.File("bloop-1210-cwd-marker").exists()) 0 else 1)
+            |}
+          """.stripMargin
+      }
+
+      val workingDir = workspace.underlying.resolve("working-dir")
+      Files.createDirectories(workingDir)
+      Files.createFile(workingDir.resolve("bloop-1210-cwd-marker"))
+
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val jvmConfig = Some(Config.JvmConfig(None, List(s"-Duser.dir=$workingDir")))
+      val `A` = TestProject(workspace, "a", List(Sources.`A.scala`), jvmConfig = jvmConfig)
+
+      loadBspState(workspace, List(`A`), logger) { state =>
+        val runState = TestUtil.await(FiniteDuration(30, "s"))(state.runTask(`A`, None))
+        assert(runState.status == ExitStatus.Ok)
+      }
     }
   }
 

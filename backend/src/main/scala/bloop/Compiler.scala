@@ -1,8 +1,6 @@
 package bloop
 
 import java.io.File
-import java.io.PrintWriter
-import java.io.StringWriter
 import java.nio.file.Files
 import java.nio.file.NoSuchFileException
 import java.nio.file.Path
@@ -782,10 +780,7 @@ object Compiler {
                 toBackgroundTasks(backgroundTasksForFailedCompilation.toList)
               Result.Failed(failedProblems, None, elapsed, backgroundTasks, None)
             case t: Throwable =>
-              t.printStackTrace()
-              val sw = new StringWriter()
-              t.printStackTrace(new PrintWriter(sw))
-              logger.error(sw.toString())
+              // The full stack trace is reported by the consumer of this failed result
               val backgroundTasks =
                 toBackgroundTasks(backgroundTasksForFailedCompilation.toList)
               val failedProblems = findFailedProblems(reporter, None)

@@ -1,11 +1,15 @@
 package bloop.testing
 
+import java.net.URL
+import java.nio.file.Path
 import java.util.regex.Pattern
 
+import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.util.control.NonFatal
 
 import ch.epfl.scala.debugadapter.testing.TestSuiteEvent
+import com.github.sbt.junit.jupiter.api.JupiterTestCollector
 
 import bloop.DependencyResolution
 import bloop.cli.CommonOptions
@@ -19,6 +23,7 @@ import bloop.io.AbsolutePath
 import bloop.logging.DebugFilter
 import bloop.logging.Logger
 import bloop.task.Task
+import bloop.util.JavaRuntime
 
 import monix.execution.atomic.AtomicBoolean
 import org.scalatools.testing.{Framework => OldFramework}
@@ -67,6 +72,20 @@ object TestInternals {
     )
     new FilteredLoader(getClass.getClassLoader, filter)
   }
+
+  /** Implementation class of the sbt test-interface adapter for JUnit 5 (Jupiter). */
+  final val JupiterFrameworkClass = "com.github.sbt.junit.jupiter.api.JupiterFramework"
+
+  /** Minimum Java version of the Bloop server JVM required to run JUnit 5 discovery. */
+  private final val JUnit5MinJavaVersion = 17
+
+  /**
+   * Whether `framework` is the JUnit 5 (Jupiter) adapter. Its fingerprint reports a fake
+   * annotation name on purpose, so fingerprint-based discovery never matches Jupiter tests;
+   * they must be discovered with `discoverJUnit5Tests` instead.
+   */
+  def isJupiterFramework(framework: Framework): Boolean =
+    framework.getClass.getName == JupiterFrameworkClass || framework.name() == "Jupiter"
 
   /**
    * Parses `filters` to produce a filtering function for the tests.
@@ -290,6 +309,92 @@ object TestInternals {
   ): Runner = {
     val args = args0.toArray.flatMap(_.args)
     framework.runner(args, Array.empty, testClassLoader)
+  }
+
+  /** Jars that make up the JUnit Platform / Jupiter stack, which Bloop bundles itself. */
+  private def isBundledJupiterJar(url: URL): Boolean = {
+    val name = url.getPath.split('/').lastOption.getOrElse("")
+    name.startsWith("junit-platform-") || name.startsWith("junit-jupiter-") ||
+    name.startsWith("junit-vintage-") || name.startsWith("jupiter-interface-") ||
+    name.startsWith("opentest4j-") || name.startsWith("apiguardian-api-")
+  }
+
+  /** Major version of the JVM Bloop itself is running on (handles both "17.0.x" and "1.8.0"). */
+  private def currentJavaMajorVersion: Int = {
+    val raw = JavaRuntime.version
+    val normalized = if (raw.startsWith("1.")) raw.substring(2) else raw
+    normalized.takeWhile(_.isDigit) match {
+      case "" => 0
+      case digits => digits.toInt
+    }
+  }
+
+  /**
+   * Discovers JUnit 5 (Jupiter) tests using the JUnit Platform launcher.
+   *
+   * Bloop's regular fingerprint discovery (via Zinc analysis) cannot find Jupiter tests: the
+   * adapter reports a fake fingerprint on purpose and relies on its own discovery, which in sbt
+   * lives in a plugin. We port that step here by running `JupiterTestCollector` against the
+   * project's compiled classes, using Bloop's *bundled* JUnit Platform launcher and Jupiter
+   * engine (Bloop is built against `jupiter-interface`).
+   *
+   * The project's own `junit-platform`/`junit-jupiter` jars are deliberately kept out of the
+   * discovery classloader: if both Bloop's and the project's copies were visible, the platform's
+   * ServiceLoader would see two copies of `TestEngine`/`JupiterTestEngine` and fail with
+   * "TestEngine ... not a subtype" or duplicate-engine errors. The compiled test classes in
+   * `classDirectory` are scanned with Bloop's engine; the tests themselves are run in the forked
+   * JVM with the project's own engine.
+   *
+   * Bloop's bundled JUnit Platform launcher is compiled for Java 17, so discovery is skipped (with
+   * a clear message) when the Bloop server runs on an older JVM.
+   *
+   * @param classDirectory   Directory that directly contains the project's compiled `.class` files.
+   * @param runtimeClasspath Project runtime classpath URLs (Bloop's Jupiter jars are filtered out).
+   * @param logger           Logger for diagnostic messages.
+   * @return TaskDefs for the discovered Jupiter tests (empty if none, on failure, or on JDK < 17).
+   */
+  def discoverJUnit5Tests(
+      classDirectory: Path,
+      runtimeClasspath: Array[URL],
+      logger: Logger
+  ): List[TaskDef] = {
+    if (currentJavaMajorVersion < JUnit5MinJavaVersion) {
+      logger.warn(
+        s"JUnit 5 test discovery requires the Bloop server to run on JDK $JUnit5MinJavaVersion+ " +
+          s"(current: ${JavaRuntime.version}); skipping JUnit 5 discovery."
+      )
+      Nil
+    } else {
+      try {
+        logger.debug(s"Discovering JUnit 5 tests in ${classDirectory.toAbsolutePath}")
+        val discoveryClasspath = runtimeClasspath.filterNot(isBundledJupiterJar)
+        val collector = new JupiterTestCollector.Builder()
+          .withClassDirectory(classDirectory.toFile)
+          .withClassLoader(getClass.getClassLoader)
+          .withRuntimeClassPath(discoveryClasspath)
+          .build()
+        val discovered = collector.collectTests().getDiscoveredTests.asScala.toList
+        logger.debug(s"Discovered ${discovered.size} JUnit 5 test(s)")
+        discovered.map { item =>
+          new TaskDef(
+            item.getFullyQualifiedClassName,
+            item.getFingerprint,
+            item.isExplicit,
+            item.getSelectors
+          )
+        }
+      } catch {
+        case e: LinkageError =>
+          logger.error(
+            s"JUnit 5 support requires the Bloop server on JDK $JUnit5MinJavaVersion+ " +
+              s"(JUnit Platform 6 targets Java 17). Discovery skipped: ${e.getMessage}"
+          )
+          Nil
+        case NonFatal(t) =>
+          logger.error(s"JUnit 5 test discovery failed in ${classDirectory.toAbsolutePath}", t)
+          Nil
+      }
+    }
   }
 
   /**

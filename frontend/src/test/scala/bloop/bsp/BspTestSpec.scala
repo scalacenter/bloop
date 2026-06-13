@@ -21,7 +21,7 @@ import scalaz.std.java.time
 object TcpBspTestSpec extends BspTestSpec(BspProtocol.Tcp)
 object LocalBspTestSpec extends BspTestSpec(BspProtocol.Local)
 
-class BspTestSpec(override val protocol: BspProtocol) extends BspBaseSuite {
+abstract class BspTestSpec(override val protocol: BspProtocol) extends BspBaseSuite {
 
   val junitJars = BuildTestInfo.junitTestJars.map(AbsolutePath.apply).toArray
 

@@ -9,7 +9,7 @@ import bloop.io.Paths
 import bloop.logging.RecordingLogger
 import bloop.task.Task
 
-class ProjectBaseSuite(buildName: String) extends BaseSuite {
+abstract class ProjectBaseSuite(buildName: String) extends BaseSuite {
   val workspace: AbsolutePath = AbsolutePath(Files.createTempDirectory(s"workspace-${buildName}"))
   val build: TestBuild = {
     val logger = new RecordingLogger(ansiCodesSupported = false)

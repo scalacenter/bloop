@@ -636,7 +636,8 @@
                 "examples": [
                   "org.scalacheck.ScalaCheckFramework",
                   "org.scalatest.tools.Framework",
-                  "org.scalatest.tools.ScalaTestFramework"
+                  "org.scalatest.tools.ScalaTestFramework",
+                  "com.github.sbt.junit.jupiter.api.JupiterFramework"
                 ]
               }
             },

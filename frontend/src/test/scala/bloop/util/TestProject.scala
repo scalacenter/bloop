@@ -115,7 +115,8 @@ abstract class BaseTestProject {
       jars: Array[AbsolutePath] = Array(),
       sourcesGlobs: List[Config.SourcesGlobs] = Nil,
       sourceGenerators: List[Config.SourceGenerator] = Nil,
-      additionalResources: List[Path] = Nil
+      additionalResources: List[Path] = Nil,
+      testFrameworks: Option[List[Config.TestFramework]] = None
   ): TestProject = {
     val projectBaseDir = Files.createDirectories(baseDir.underlying.resolve(name))
     val ProjectArchetype(sourceDir, outDir, resourceDir, classes, runtimeResourceDir) =
@@ -168,7 +169,8 @@ abstract class BaseTestProject {
 
     val javacConfig = Config.Java(javacOptions)
 
-    val frameworks = if (enableTests) Config.TestFramework.DefaultFrameworks else Nil
+    val frameworks =
+      if (enableTests) testFrameworks.getOrElse(Config.TestFramework.DefaultFrameworks) else Nil
     val testConfig = Config.Test(frameworks, Config.TestOptions.empty)
     val platform = Config.Platform.Jvm(
       javaConfig,

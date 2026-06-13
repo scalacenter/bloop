@@ -57,6 +57,8 @@ object Interpreter {
             execute(next, runBsp(cmd, state))
           case Run(cmd: Commands.About, _) =>
             notHandled("about", cmd.cliOptions, state)
+          case Run(cmd: Commands.Version, _) =>
+            notHandled("version", cmd.cliOptions, state)
           case Run(cmd: Commands.Help, _) =>
             notHandled("help", cmd.cliOptions, state)
           case Run(cmd: Commands.Command, next) =>
@@ -401,7 +403,16 @@ object Interpreter {
           (userSelectedProjects, projectsToTest)
         } else {
           val result = Dag.inverseDependencies(state.build.dags, userSelectedProjects)
-          (result.reduced, result.allCascaded)
+          val cascaded = result.allCascaded
+          val projectsToTest =
+            if (!cmd.includeDependencies) cascaded
+            else {
+              val dependencies = userSelectedProjects.flatMap { p =>
+                Dag.dfs(state.build.getDagFor(p), mode = Dag.PreOrder)
+              }
+              (cascaded ++ dependencies).distinct
+            }
+          (result.reduced, projectsToTest)
         }
       }
 
@@ -535,18 +546,22 @@ object Interpreter {
   }
 
   private def clean(cmd: Commands.Clean, state: State): Task[State] = {
-    if (cmd.projects.isEmpty) {
-      val projects = state.build.loadedProjects.map(_.project)
-      Tasks.clean(state, projects, cmd.includeDependencies).map(_.mergeStatus(ExitStatus.Ok))
-    } else {
+    def doClean(projects: List[Project]): Task[State] = {
+      val cascaded =
+        if (!cmd.cascade) Nil
+        else Dag.inverseDependencies(state.build.dags, projects).allCascaded
+      val downward =
+        if (!cmd.includeDependencies) Nil
+        else projects.flatMap(p => Dag.dfs(state.build.getDagFor(p), mode = Dag.PreOrder))
+      val targets = (projects ++ cascaded ++ downward).distinct
+      Tasks.clean(state, targets, includeDeps = false).map(_.mergeStatus(ExitStatus.Ok))
+    }
+
+    if (cmd.projects.isEmpty) doClean(state.build.loadedProjects.map(_.project))
+    else {
       val lookup = lookupProjects(cmd.projects, state.build.getProjectFor(_))
-      if (!lookup.missing.isEmpty)
-        Task.now(reportMissing(lookup.missing, state))
-      else {
-        Tasks
-          .clean(state, lookup.found, cmd.includeDependencies)
-          .map(_.mergeStatus(ExitStatus.Ok))
-      }
+      if (lookup.missing.nonEmpty) Task.now(reportMissing(lookup.missing, state))
+      else doClean(lookup.found)
     }
   }
 

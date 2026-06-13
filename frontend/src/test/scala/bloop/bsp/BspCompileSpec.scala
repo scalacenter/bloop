@@ -26,7 +26,7 @@ import coursierapi.Fetch
 object TcpBspCompileSpec extends BspCompileSpec(BspProtocol.Tcp)
 object LocalBspCompileSpec extends BspCompileSpec(BspProtocol.Local)
 
-class BspCompileSpec(
+abstract class BspCompileSpec(
     override val protocol: BspProtocol
 ) extends BspBaseSuite {
 

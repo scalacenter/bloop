@@ -2,6 +2,13 @@ package bloop
 
 import scala.util.control.NoStackTrace
 
+/**
+ * A fatal error thrown by the compiler, wrapped in a non-fatal exception so that it can
+ * be turned into a failed compilation result and reported back to the client.
+ */
+final class CompilerCrash(message: String, cause: Throwable)
+    extends RuntimeException(message, cause)
+
 private[bloop] object CompileExceptions {
   abstract class CompileException(msg: String) extends RuntimeException(msg) with NoStackTrace
   object FailedOrCancelledPromise

@@ -400,7 +400,10 @@ object TestUtil {
     val classpath = depsTargets ++ allJars ++ extraJars
     val sourceDirectories = List(srcs)
     val testFrameworks =
-      if (classpath.exists(_.syntax.contains("junit"))) List(Config.TestFramework.JUnit) else Nil
+      if (classpath.exists(_.syntax.contains("jupiter-interface")))
+        List(Config.TestFramework(List(bloop.testing.TestInternals.JupiterFrameworkClass)))
+      else if (classpath.exists(_.syntax.contains("junit"))) List(Config.TestFramework.JUnit)
+      else Nil
 
     writeFilesToBase(srcs, sources.map(kv => RelativePath(kv._1) -> kv._2))
     Project(
@@ -650,6 +653,15 @@ object TestUtil {
 
   private lazy val hasPython3 = hasPythonNamed("python3")
   private lazy val hasPython2 = hasPythonNamed("python")
+
+  /** Whether the `coursier` launcher is on the PATH (the binary `bloop console` shells out to). */
+  lazy val hasCoursier: Boolean = try {
+    scala.sys.process
+      .Process(Seq("coursier", "version"))
+      .!(scala.sys.process.ProcessLogger(_ => (), _ => ())) == 0
+  } catch {
+    case NonFatal(_) => false
+  }
 
   lazy val generator: List[String] =
     if (hasPython3) List("python3", BuildTestInfo.sampleSourceGenerator.getAbsolutePath)
