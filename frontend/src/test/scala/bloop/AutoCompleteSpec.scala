@@ -41,6 +41,7 @@ class AutoCompleteSpec {
         |--reporter[Pick reporter to show compilation messages. By default, bloop's used.]:reporter:_reporters
         |--watch=-[Run the command when projects' source files change. By default, false.]:watch:(true false)
         |--cascade=-[Compile a project and all projects depending on it. By default, false.]:cascade:(true false)
+        |--summary=-[Print a summary of project compile times, blocked projects and totals. By default, false.]:summary:(true false)
         |--config-dir[File path to the bloop config directory, defaults to `.bloop` in the current working directory.]:config-dir:
         |--version=-[If set, print the about section at the beginning of the execution. Defaults to false.]:version:(true false)
         |--verbose=-[If set, print out debugging information to stderr. Defaults to false.]:verbose:(true false)
@@ -78,6 +79,7 @@ class AutoCompleteSpec {
         |reporter#'Pick reporter to show compilation messages. By default, bloop's used.'#(_reporters)
         |watch#'Run the command when projects' source files change. By default, false.'#(_boolean)
         |cascade#'Compile a project and all projects depending on it. By default, false.'#(_boolean)
+        |summary#'Print a summary of project compile times, blocked projects and totals. By default, false.'#(_boolean)
         |config-dir#'File path to the bloop config directory, defaults to `.bloop` in the current working directory.'#
         |version#'If set, print the about section at the beginning of the execution. Defaults to false.'#(_boolean)
         |verbose#'If set, print out debugging information to stderr. Defaults to false.'#(_boolean)
@@ -115,6 +117,7 @@ class AutoCompleteSpec {
         |--reporter _reporters
         |--watch
         |--cascade
+        |--summary
         |--config-dir
         |--version
         |--verbose
