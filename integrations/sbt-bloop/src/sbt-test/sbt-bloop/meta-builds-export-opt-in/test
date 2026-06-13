@@ -1,0 +1,8 @@
+# The meta-build export is opt-in: a default load exports neither meta-build layer.
+> checkExportsAbsent
+# Opt in at both the outer (project/) and nested (project/project/) layers, reload,
+# and both must now export.
+$ copy-file changes/export-meta.sbt project/export-meta.sbt
+$ copy-file changes/export-meta.sbt project/project/export-meta.sbt
+> reload
+> checkExportsPresent

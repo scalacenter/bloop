@@ -261,5 +261,32 @@ either you or an sbt plugin are incremental and complete as soon as possible.
 Lastly, make sure you keep a hot sbt session around as much time as possible. Running `bloopInstall`
 a second time in the sbt session is *really* fast.
 
+### Export the sbt meta-build
+
+Bloop can also export the sbt **meta-build** (the build definition under `project/`) so that Metals
+and similar tools can compile and navigate your `project/*.scala` and `*.sbt` sources. This is
+**opt-in** — a plain `sbt` session does not export the meta-build, so startup stays fast and quiet.
+
+Enable it with the `bloop.export-meta-build` system property or the `BLOOP_EXPORT_META_BUILD`
+environment variable. These are read at every meta-build layer, so they also cover nested
+`project/project` builds:
+
+```bash
+sbt -Dbloop.export-meta-build=true
+# or
+BLOOP_EXPORT_META_BUILD=true sbt
+```
+
+Metals sets this automatically when it runs `bloopInstall`, so meta-build navigation works there
+without any extra configuration.
+
+You can also enable it from the build with the `bloopExportMetaBuild` setting, but it only affects the
+layer it is defined in (`project/*.sbt` configures the outer meta-build, `project/project/*.sbt` the
+next one down), so for nested meta-builds prefer the property or environment variable above:
+
+```scala
+Global / bloopExportMetaBuild := true
+```
+
 [sbt-configuration]: https://www.scala-sbt.org/1.x/docs/Multi-Project.html
 [integration-test-conf]: https://www.scala-sbt.org/1.0/docs/offline/Testing.html#Integration+Tests
