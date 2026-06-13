@@ -1,0 +1,5 @@
+$ mkdir app/src/main/scala/empty-skipped
+> bloopInstall
+> checkBloopFiles
+> bloopInstall
+> checkBloopFiles

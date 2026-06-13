@@ -401,6 +401,68 @@ object FileWatchingSpec extends BaseSuite {
     }
   }
 
+  flakyTest("watcher picks up new files in sources globs directories", 3) {
+    TestUtil.withinWorkspace { workspace =>
+      import ExecutionContext.ioScheduler
+      val source =
+        """/A.scala
+          |object A
+          |""".stripMargin
+
+      val baseProject = TestProject(workspace, "a", List(source))
+      val globDirectory = baseProject.config.directory.resolve("glob-sources")
+      java.nio.file.Files.createDirectories(globDirectory)
+      val `A` = baseProject.copy(
+        config = baseProject.config.copy(
+          sourcesGlobs = Some(
+            List(
+              Config.SourcesGlobs(
+                globDirectory,
+                walkDepth = None,
+                includes = List("glob:*.scala"),
+                excludes = Nil
+              )
+            )
+          )
+        )
+      )
+      val projects = List(`A`)
+      val initialState = loadState(workspace, projects, new RecordingLogger())
+      val compiledState = initialState.compile(`A`)
+      assert(compiledState.status == ExitStatus.Ok)
+      assertValidCompilationState(compiledState, projects)
+
+      val (logObserver, logsObservable) =
+        Observable.multicast[(String, String)](MulticastStrategy.replay)(ioScheduler)
+      val logger = new PublisherLogger(logObserver, DebugFilter.All)
+
+      compiledState.withLogger(logger).compileHandle(`A`, watch = true)
+
+      // The empty glob directory contributes no expanded files, so watching it
+      // is the only way new files can trigger an iteration
+      val HasIterationStoppedMsg = s"Watching 2"
+      def waitUntilIteration(totalIterations: Int, duration: Option[Long] = None): Task[Unit] =
+        waitUntilWatchIteration(logsObservable, totalIterations, HasIterationStoppedMsg, duration)
+
+      def testValidLatestState: TestState = {
+        val state = compiledState.getLatestSavedStateGlobally()
+        assert(state.status == ExitStatus.Ok)
+        assertValidCompilationState(state, projects)
+        state
+      }
+
+      TestUtil.await(FiniteDuration(20, TimeUnit.SECONDS), ExecutionContext.ioScheduler) {
+        for {
+          _ <- waitUntilIteration(1)
+          _ <- Task(testValidLatestState)
+          _ <- Task(writeFile(AbsolutePath(globDirectory.resolve("B.scala")), "object B"))
+          _ <- waitUntilIteration(2, Some(6000L))
+          _ <- Task(testValidLatestState)
+        } yield ()
+      }
+    }
+  }
+
   def waitUntilWatchIteration(
       logsObservable: Observable[(String, String)],
       totalIterations: Int,
@@ -486,7 +548,10 @@ object FileWatchingSpec extends BaseSuite {
 
   private def numberDirsOf(dag: Dag[Project]): Int = {
     val reachable = Dag.dfs(dag, mode = Dag.PreOrder)
-    val allSources = reachable.iterator.flatMap(_.sources.toList).map(_.underlying).toList
+    val allSources = reachable.iterator
+      .flatMap(p => p.sources.toList ++ p.sourcesGlobs.map(_.directory))
+      .map(_.underlying)
+      .toList
     allSources.filter { p =>
       val s = p.toString
       java.nio.file.Files.exists(p) && !s.endsWith(".scala") && !s.endsWith(".java")

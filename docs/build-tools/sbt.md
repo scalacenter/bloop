@@ -128,6 +128,29 @@ $ sbt bloopInstall
 ...
 ```
 
+### Source file filters
+
+sbt's `includeFilter`/`excludeFilter` settings on `unmanagedSources` are honored by the export: a
+source directory containing filtered content is exported as a sources glob whose excludes mirror
+the filters. How faithful that mirror is depends on the kind of filter:
+
+- **Name-based filters** — glob expressions (`"*Excluded.scala"`), `ExactFilter`,
+  `PrefixFilter`/`SuffixFilter`, `ExtensionFilter`, and `||`-combinations of them — are translated
+  into equivalent glob patterns. They keep working for files and directories created *after* the
+  export, with no re-export needed. This applies to both `excludeFilter` and `includeFilter`,
+  with one difference: a custom `includeFilter` is only translated when it is *entirely*
+  name-based (a partial translation could make Bloop compile less than sbt). Hidden files —
+  names starting with a dot — are never compiled by Bloop, regardless of filters.
+- **Predicate filters** — arbitrary functions such as
+  `new SimpleFileFilter(f => f.getAbsolutePath.endsWith("bar.scala"))` — cannot be evaluated
+  against files that do not exist yet. The export records the files and directory subtrees the
+  predicate rejects at export time. A file created later that the predicate would reject is
+  compiled by Bloop until the next `bloopInstall` (or build re-import in your editor); files meant
+  to be included are always picked up immediately.
+
+Prefer name-based filters where possible: they are exported exactly. Conjunctions and negations
+(`&&`, `--`) are treated like predicates and exported as an export-time snapshot.
+
 ### Enable custom configurations
 
 By default, `bloopInstall` exports projects for the standard `Compile`,
