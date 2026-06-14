@@ -247,30 +247,38 @@ object Cli {
                 }
               case Right(c: Commands.Test) =>
                 val newCommand = c.copy(cliOptions = c.cliOptions.copy(common = commonOptions))
-                withProjectsOrAll(
-                  c.projects,
-                  remainingArgs.remaining
-                ) { ps =>
-                  run(
-                    // Infer everything after '--' as if they were execution args
-                    newCommand.copy(projects = ps, args = c.args ++ remainingArgs.unparsed),
-                    newCommand.cliOptions
-                  )
-                }
+                Validate
+                  .jvmDebug(newCommand.jvmDebug, newCommand.jvmDebugSuspend, commonOptions)
+                  .getOrElse {
+                    withProjectsOrAll(
+                      c.projects,
+                      remainingArgs.remaining
+                    ) { ps =>
+                      run(
+                        // Infer everything after '--' as if they were execution args
+                        newCommand.copy(projects = ps, args = c.args ++ remainingArgs.unparsed),
+                        newCommand.cliOptions
+                      )
+                    }
+                  }
               case Right(c: Commands.Run) =>
                 val newCommand = c.copy(cliOptions = c.cliOptions.copy(common = commonOptions))
-                withNonEmptyProjects(
-                  c.projects,
-                  commandName.mkString(" "),
-                  remainingArgs.remaining,
-                  commonOptions
-                ) { ps =>
-                  run(
-                    // Infer everything after '--' as if they were execution args
-                    newCommand.copy(projects = ps, args = c.args ++ remainingArgs.unparsed),
-                    newCommand.cliOptions
-                  )
-                }
+                Validate
+                  .jvmDebug(newCommand.jvmDebug, newCommand.jvmDebugSuspend, commonOptions)
+                  .getOrElse {
+                    withNonEmptyProjects(
+                      c.projects,
+                      commandName.mkString(" "),
+                      remainingArgs.remaining,
+                      commonOptions
+                    ) { ps =>
+                      run(
+                        // Infer everything after '--' as if they were execution args
+                        newCommand.copy(projects = ps, args = c.args ++ remainingArgs.unparsed),
+                        newCommand.cliOptions
+                      )
+                    }
+                  }
               case Right(c: Commands.Clean) =>
                 // We accept no project arguments in clean
                 val potentialProjects = c.projects ++ remainingArgs.remaining

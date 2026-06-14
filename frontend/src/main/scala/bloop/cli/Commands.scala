@@ -204,7 +204,15 @@ object Commands {
       @HelpMessage(
         "Run tests in parallel. Should be chosen at user's discretion. By default, false"
       )
-      parallel: Boolean = false
+      parallel: Boolean = false,
+      @HelpMessage(
+        "Fork the JVM with a JDWP debug agent on this port so a debugger (IntelliJ, jdb) can attach. JVM projects only; unrelated to --debug."
+      )
+      jvmDebug: Option[Int] = None,
+      @HelpMessage(
+        "With --jvm-debug, make the JVM wait for the debugger to attach before running. By default, false."
+      )
+      jvmDebugSuspend: Boolean = false
   ) extends CompilingCommand
 
   object Test {
@@ -266,6 +274,14 @@ object Commands {
         "If an optimizer is used (e.g. Scala Native or Scala.js), run it in `debug` or `release` mode. Defaults to `debug`."
       )
       optimize: Option[OptimizerConfig] = None,
+      @HelpMessage(
+        "Fork the JVM with a JDWP debug agent on this port so a debugger (IntelliJ, jdb) can attach. JVM projects only; unrelated to --debug."
+      )
+      jvmDebug: Option[Int] = None,
+      @HelpMessage(
+        "With --jvm-debug, make the JVM wait for the debugger to attach before running. By default, false."
+      )
+      jvmDebugSuspend: Boolean = false,
       @Recurse cliOptions: CliOptions = CliOptions.default
   ) extends LinkingCommand
 

@@ -61,6 +61,31 @@ object Validate {
   }
 
   /**
+   * Validates the `--jvm-debug` port and `--jvm-debug-suspend` options shared by `run` and `test`.
+   *
+   * The port range mirrors the bsp port validation. The `--parallel` interaction is checked later,
+   * in the interpreter, where the resolved set of test projects (and thus the number of forked
+   * JVMs) is known.
+   *
+   * @return `Some(errorAction)` if the options are invalid, `None` if they are accepted.
+   */
+  def jvmDebug(
+      jvmDebug: Option[Int],
+      jvmDebugSuspend: Boolean,
+      commonOptions: CommonOptions
+  ): Option[Action] = {
+    jvmDebug match {
+      case None =>
+        if (jvmDebugSuspend) Some(cliError(Feedback.jvmDebugSuspendWithoutPort, commonOptions))
+        else None
+      case Some(port) if port > 0 && port <= 1023 =>
+        Some(cliError(Feedback.reservedPortNumber(port), commonOptions))
+      case Some(port) if port > 1023 && port <= 65535 => None
+      case Some(invalid) => Some(cliError(Feedback.outOfRangePort(invalid), commonOptions))
+    }
+  }
+
+  /**
    * Reports errors related to the build definition.
    *
    * The method is responsible of handling non-existing .bloop configuration directories

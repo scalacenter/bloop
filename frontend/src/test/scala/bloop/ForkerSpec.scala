@@ -9,6 +9,7 @@ import scala.concurrent.duration.Duration
 import bloop.cli.CommonOptions
 import bloop.cli.ExitStatus
 import bloop.data.JdkConfig
+import bloop.engine.tasks.RunMode
 import bloop.exec.Forker
 import bloop.exec.JvmProcessForker
 import bloop.io.AbsolutePath
@@ -220,5 +221,27 @@ class ForkerSpec {
         assertEquals(0, exitCode.toLong)
         assert(messages.contains(expected), s"$messages did not contain $expected")
     }
+  }
+
+  @Test
+  def jdwpAgentArgKeepsDapDefaults(): Unit = {
+    // The default debug mode (no fixed address, suspend) is what the DAP/Metals path relies on:
+    // the JVM picks a free port and reports it on stdout. This string must not change.
+    assertEquals(
+      "-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,quiet=n",
+      JvmProcessForker.jdwpAgentArg(RunMode.Debug())
+    )
+  }
+
+  @Test
+  def jdwpAgentArgUsesFixedAddressAndSuspend(): Unit = {
+    assertEquals(
+      "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,quiet=n,address=5005",
+      JvmProcessForker.jdwpAgentArg(RunMode.Debug(Some(5005), suspend = false))
+    )
+    assertEquals(
+      "-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,quiet=n,address=5005",
+      JvmProcessForker.jdwpAgentArg(RunMode.Debug(Some(5005), suspend = true))
+    )
   }
 }

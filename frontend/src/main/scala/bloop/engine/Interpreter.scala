@@ -357,34 +357,72 @@ object Interpreter {
     }
   }
 
+  /**
+   * A fixed `--jvm-debug` port can only back one forked JVM, so combining it with `--parallel`
+   * conflicts only when more than one JVM test project will be forked at once. Non-JVM (JS, Native)
+   * test projects don't fork a debuggable JVM, so they never collide on the port.
+   */
+  private[bloop] def debugForkCollision(
+      jvmDebug: Option[Int],
+      parallel: Boolean,
+      projectsToTest: List[Project]
+  ): Boolean =
+    jvmDebug.isDefined && parallel &&
+      projectsToTest.count(p =>
+        TestTask.isTestProject(p) && p.platform.isInstanceOf[Platform.Jvm]
+      ) > 1
+
+  private[bloop] def warnIfJvmDebugUnsupported(
+      project: Project,
+      jvmDebug: Option[Int],
+      logger: Logger
+  ): Unit = {
+    if (jvmDebug.isDefined && !project.platform.isInstanceOf[Platform.Jvm])
+      logger.warn(
+        s"Ignoring --jvm-debug for '${project.name}': it is only supported for JVM projects."
+      )
+  }
+
   private def test(cmd: Commands.Test, state: State): Task[State] = {
     import state.logger
+
+    val runMode = cmd.jvmDebug match {
+      case Some(port) => RunMode.Debug(Some(port), suspend = cmd.jvmDebugSuspend)
+      case None => RunMode.Normal
+    }
 
     def testAllProjects(
         state: State,
         projectsToCompile: List[Project],
         projectsToTest: List[Project]
     ): Task[State] = {
-      val testFilter = TestInternals.parseFilters(cmd.only)
-      compileAnd(cmd, state, projectsToCompile, cmd.cliOptions.noColor, "`test`") { state =>
-        logger.debug(
-          s"Preparing test execution for ${projectsToTest.mkString(", ")}"
-        )(DebugFilter.Test)
+      if (debugForkCollision(cmd.jvmDebug, cmd.parallel, projectsToTest)) {
+        Task.now(
+          state.withError(Feedback.jvmDebugWithParallel, ExitStatus.InvalidCommandLineOption)
+        )
+      } else {
+        projectsToTest.foreach(warnIfJvmDebugUnsupported(_, cmd.jvmDebug, logger))
+        val testFilter = TestInternals.parseFilters(cmd.only)
+        compileAnd(cmd, state, projectsToCompile, cmd.cliOptions.noColor, "`test`") { state =>
+          logger.debug(
+            s"Preparing test execution for ${projectsToTest.mkString(", ")}"
+          )(DebugFilter.Test)
 
-        val handler = new LoggingEventHandler(state.logger)
+          val handler = new LoggingEventHandler(state.logger)
 
-        Tasks
-          .test(
-            state,
-            projectsToTest,
-            cmd.args,
-            testFilter,
-            ch.epfl.scala.bsp.ScalaTestSuites(Nil, Nil, Nil),
-            handler,
-            cmd.parallel,
-            RunMode.Normal
-          )
-          .map(testRuns => state.mergeStatus(testRuns.status))
+          Tasks
+            .test(
+              state,
+              projectsToTest,
+              cmd.args,
+              testFilter,
+              ch.epfl.scala.bsp.ScalaTestSuites(Nil, Nil, Nil),
+              handler,
+              cmd.parallel,
+              runMode
+            )
+            .map(testRuns => state.mergeStatus(testRuns.status))
+        }
       }
     }
 
@@ -623,12 +661,17 @@ object Interpreter {
   }
 
   private def run(cmd: Commands.Run, state: State): Task[State] = {
+    val runMode = cmd.jvmDebug match {
+      case Some(port) => RunMode.Debug(Some(port), suspend = cmd.jvmDebugSuspend)
+      case None => RunMode.Normal
+    }
     def doRun(project: Project)(state: State): Task[State] = {
       val cwd = project.workingDirectory
       compileAnd(cmd, state, List(project), cmd.cliOptions.noColor, "`run`") { state =>
         getMainClass(state, project, cmd.main) match {
           case Left(failedState) => Task.now(failedState)
           case Right(mainClass) =>
+            warnIfJvmDebugUnsupported(project, cmd.jvmDebug, state.logger)
             project.platform match {
               case platform @ Platform.Native(config, _, _) =>
                 val target = ScalaNativeToolchain.linkTargetFrom(project, config)
@@ -678,7 +721,7 @@ object Interpreter {
                   cmd.args.toArray,
                   cmd.skipJargs,
                   envVars = Nil,
-                  RunMode.Normal
+                  runMode
                 )
             }
         }
