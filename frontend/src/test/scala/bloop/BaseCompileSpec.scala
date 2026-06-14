@@ -335,6 +335,62 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
     }
   }
 
+  test("clean fully resets analysis when a package becomes an object") {
+    TestUtil.withinWorkspace { workspace =>
+      object Sources {
+        // A `foo.bar` package containing an object.
+        val `Foo.scala` =
+          """/main/scala/Foo.scala
+            |package foo.bar
+            |
+            |object Bar {
+            |  val myFooBar: Int = 1
+            |}
+          """.stripMargin
+
+        // The same FQN, but `bar` is now a top-level object instead of a package.
+        val `Foo2.scala` =
+          """/main/scala/Foo.scala
+            |package foo
+            |
+            |object bar {
+            |  object Bar {
+            |    val myFooBar: Int = 1
+            |  }
+            |}
+          """.stripMargin
+      }
+
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val `A` = TestProject(workspace, "a", List(Sources.`Foo.scala`))
+      val projects = List(`A`)
+      val state = loadState(workspace, projects, logger)
+      val compiledState = state.compile(`A`)
+      assertExitStatus(compiledState, ExitStatus.Ok)
+      assertValidCompilationState(compiledState, projects)
+
+      val analysisFile = compiledState.getProjectFor(`A`).analysisOut
+      assert(analysisFile.exists)
+
+      // Turn the `foo.bar` package into a top-level `object bar` with the same FQN.
+      assertIsFile(writeFile(`A`.srcFor("main/scala/Foo.scala"), Sources.`Foo2.scala`))
+
+      // A clean must also delete the persisted analysis, otherwise it is reloaded after a
+      // restart and the next compile runs incrementally against the stale package definition.
+      val _ = compiledState.clean(`A`)
+      assertNotFile(analysisFile)
+
+      // Compile from a freshly loaded state with no intervening recompile, so the test exercises
+      // a server restart at the point where the stale analysis would otherwise still be present.
+      val restartedLogger = new RecordingLogger(ansiCodesSupported = false)
+      val restartedState = loadState(workspace, projects, restartedLogger)
+      val restartedCompile = restartedState.compile(`A`)
+      assertExitStatus(restartedCompile, ExitStatus.Ok)
+      assertValidCompilationState(restartedCompile, projects)
+      assert(!restartedLogger.renderErrors().contains("already defined as package"))
+    }
+  }
+
   test("simulate an incremental compiler session") {
     TestUtil.withinWorkspace { workspace =>
       object Sources {
