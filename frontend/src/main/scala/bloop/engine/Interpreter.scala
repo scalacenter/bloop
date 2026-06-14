@@ -7,6 +7,7 @@ import java.nio.file.Files
 import scala.collection.immutable.Nil
 import scala.concurrent.Promise
 
+import bloop.DependencyResolution
 import bloop.ScalaInstance
 import bloop.bsp.BspServer
 import bloop.cli.Commands.CompilingCommand
@@ -24,6 +25,8 @@ import bloop.engine.tasks.Tasks
 import bloop.engine.tasks.TestTask
 import bloop.engine.tasks.toolchains.ScalaJsToolchain
 import bloop.engine.tasks.toolchains.ScalaNativeToolchain
+import bloop.internal.build.BuildInfo
+import bloop.io.AbsolutePath
 import bloop.io.RelativePath
 import bloop.io.SourceWatcher
 import bloop.logging.DebugFilter
@@ -284,6 +287,22 @@ object Interpreter {
                 }
               }
 
+              // Resolve REPL artifacts programmatically (via coursier's API) and emit a plain
+              // `java -cp ... <main>` command. This avoids depending on a `coursier`/`cs`
+              // launcher on the client's PATH and surfaces resolution failures with a clear
+              // message instead of a raw stack trace.
+              def withResolved(artifact: DependencyResolution.Artifact, hint: String)(
+                  build: List[AbsolutePath] => Task[State]
+              ): Task[State] = {
+                DependencyResolution.resolveWithErrors(List(artifact), state.logger) match {
+                  case Right(jars) => build(jars.toList)
+                  case Left(error) =>
+                    val coords = s"${artifact.organization}:${artifact.module}:${artifact.version}"
+                    val msg = s"Could not resolve $coords. $hint ${error.getMessage}"
+                    Task.now(state.withError(msg, ExitStatus.RunError))
+                }
+              }
+
               cmd.repl match {
                 case ScalacRepl =>
                   if (cmd.ammoniteVersion.isDefined) {
@@ -294,23 +313,40 @@ object Interpreter {
                     val dag = state.build.getDagFor(project)
                     val scalaVersion = project.scalaInstance
                       .map(_.version)
-                      .getOrElse(ScalaInstance.scalaInstanceForJavaProjects(state.logger))
+                      .orElse(
+                        ScalaInstance.scalaInstanceForJavaProjects(state.logger).map(_.version)
+                      )
+                      .getOrElse(BuildInfo.scalaVersion)
 
-                    val classpath = project.fullRuntimeClasspath(dag, state.client)
-                    val classpathStr = classpath.map(_.syntax).mkString(java.io.File.pathSeparator)
+                    val projectClasspath = project
+                      .fullRuntimeClasspath(dag, state.client)
+                      .map(_.syntax)
+                      .mkString(java.io.File.pathSeparator)
 
-                    val scalaCmd = List(
-                      "coursier",
-                      "launch",
-                      s"org.scala-lang:scala-compiler:$scalaVersion",
-                      "--main-class",
-                      "scala.tools.nsc.MainGenericRunner",
-                      "--",
-                      "-cp",
-                      classpathStr
-                    ) ++ cmd.args
-
-                    outputReplCommand(scalaCmd, "Scala REPL")
+                    val artifact =
+                      DependencyResolution.Artifact(
+                        "org.scala-lang",
+                        "scala-compiler",
+                        scalaVersion
+                      )
+                    withResolved(
+                      artifact,
+                      s"The Scala compiler may be unavailable for $scalaVersion."
+                    ) { compilerJars =>
+                      // Compiler jars run the JVM; the project is the REPL's user classpath.
+                      val compilerCp =
+                        compilerJars.map(_.syntax).mkString(java.io.File.pathSeparator)
+                      val scalaCmd =
+                        List(
+                          "java",
+                          "-cp",
+                          compilerCp,
+                          "scala.tools.nsc.MainGenericRunner",
+                          "-cp",
+                          projectClasspath
+                        ) ++ cmd.args
+                      outputReplCommand(scalaCmd, "Scala REPL")
+                    }
                   }
                 case AmmoniteRepl =>
                   def findScalaVersion(dag: Dag[Project]): Option[String] = {
@@ -327,22 +363,29 @@ object Interpreter {
 
                   val dag = state.build.getDagFor(project)
                   val scalaVersion = findScalaVersion(dag)
-                    .getOrElse(ScalaInstance.scalaInstanceForJavaProjects(state.logger))
+                    .orElse(ScalaInstance.scalaInstanceForJavaProjects(state.logger).map(_.version))
+                    .getOrElse(BuildInfo.scalaVersion)
 
                   val ammVersion = cmd.ammoniteVersion.getOrElse("latest.release")
-                  val classpath = project.fullRuntimeClasspath(dag, state.client)
-                  val coursierClasspathArgs =
-                    classpath.flatMap(elem => Seq("--extra-jars", elem.syntax))
+                  val projectClasspath = project.fullRuntimeClasspath(dag, state.client).toList
 
-                  val ammCmd = List(
-                    "coursier",
-                    "launch",
-                    s"com.lihaoyi:ammonite_$scalaVersion:$ammVersion",
-                    "--main-class",
-                    "ammonite.Main"
-                  ) ++ coursierClasspathArgs ++ ("--" :: cmd.args)
-
-                  outputReplCommand(ammCmd, "Ammonite")
+                  val artifact =
+                    DependencyResolution.Artifact(
+                      "com.lihaoyi",
+                      s"ammonite_$scalaVersion",
+                      ammVersion
+                    )
+                  val hint = s"Ammonite may not be published for Scala $scalaVersion; " +
+                    "try a different --ammonite-version."
+                  withResolved(artifact, hint) { ammJars =>
+                    // Ammonite seeds the REPL from its own classpath, so the project goes there too.
+                    val classpath =
+                      (ammJars ++ projectClasspath)
+                        .map(_.syntax)
+                        .mkString(java.io.File.pathSeparator)
+                    val ammCmd = List("java", "-cp", classpath, "ammonite.Main") ++ cmd.args
+                    outputReplCommand(ammCmd, "Ammonite")
+                  }
               }
             }
           case None => Task.now(reportMissing(project :: Nil, state))
