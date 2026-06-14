@@ -316,6 +316,10 @@ sidebar_label: CLI --help
   <dd><p>If set, do not color output. Defaults to false.</p></dd>
   <dt><code>--debug</code> (type: <code>"all" | "file-watching" | "compilation" | "test" | "bsp" | "link"*</code>)</dt>
   <dd><p>Debug the execution of a concrete task.</p></dd>
+  <dt><code>--jvm-debug</code> (type: <code>int?</code>)</dt>
+  <dd><p>Fork the JVM with a JDWP debug agent on this port so a debugger (IntelliJ, jdb) can attach. JVM projects only; unrelated to --debug.</p></dd>
+  <dt><code>--jvm-debug-suspend</code> (type: <code>bool</code>)</dt>
+  <dd><p>With --jvm-debug, make the JVM wait for the debugger to attach before running. By default, false.</p></dd>
 </dl>
 
 #### Examples
@@ -324,6 +328,7 @@ sidebar_label: CLI --help
   * <samp>bloop run foobar -m com.acme.Main -- -J-Xmx4g arg1 arg2</samp>
   * <samp>bloop run foobar -O debug -- arg1</samp>
   * <samp>bloop run foobar -m com.acme.Main -O release -w</samp>
+  * <samp>bloop run foobar --jvm-debug 5005</samp>
 
 ## `bloop test`
 
@@ -360,6 +365,10 @@ sidebar_label: CLI --help
   <dd><p>Debug the execution of a concrete task.</p></dd>
   <dt><code>--parallel</code> (type: <code>bool</code>)</dt>
   <dd><p>Run tests in parallel. Should be chosen at user's discretion. By default, false</p></dd>
+  <dt><code>--jvm-debug</code> (type: <code>int?</code>)</dt>
+  <dd><p>Fork the JVM with a JDWP debug agent on this port so a debugger (IntelliJ, jdb) can attach. JVM projects only; unrelated to --debug.</p></dd>
+  <dt><code>--jvm-debug-suspend</code> (type: <code>bool</code>)</dt>
+  <dd><p>With --jvm-debug, make the JVM wait for the debugger to attach before running. By default, false.</p></dd>
 </dl>
 
 #### Examples
@@ -372,3 +381,4 @@ sidebar_label: CLI --help
   * <samp>bloop test foobar --propagate -w</samp>
   * <samp>bloop test foobar --only com.acme.StringSpecification</samp>
   * <samp>bloop test foobar --only com.acme.StringSpecification -- -J-Xmx4g</samp>
+  * <samp>bloop test foobar --jvm-debug 5005</samp>

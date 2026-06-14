@@ -1076,7 +1076,7 @@ object DebugServerSpec extends DebugBspBaseSuite {
       Array.empty,
       skipJargs = false,
       envVars = List.empty,
-      RunMode.Debug
+      RunMode.Debug()
     )
 
     remoteProcess.runAsync(defaultScheduler)
