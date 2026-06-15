@@ -46,7 +46,7 @@ jobs:
         shell: bash
       - name: Sbt 2
         run: |
-          sbt "++3.7.3 sbtBloop/scripted \
+          sbt "++3.8.4 sbtBloop/scripted \
             sbt-bloop/wartremover \
             sbt-bloop/stale-projects \
             sbt-bloop/sbt-plugin-build \

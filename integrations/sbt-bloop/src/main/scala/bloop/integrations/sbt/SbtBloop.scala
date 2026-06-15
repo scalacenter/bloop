@@ -70,12 +70,14 @@ object BloopKeys {
     settingKey[Option[Set[String]]](
       "The classifiers that will be exported with `updateClassifiers`"
     )
+  @transient
   val bloopProductDirectories: TaskKey[Seq[File]] =
     taskKey[Seq[File]]("Bloop product directories")
   val bloopClassDirectory: SettingKey[File] =
     settingKey[File]("Directory where to write the class files")
   val bloopTargetDir: SettingKey[File] =
     settingKey[File]("Target directory for the pertinent project and configuration")
+  @transient
   val bloopInternalClasspath: TaskKey[Seq[(File, File)]] =
     taskKey[Seq[(File, File)]]("Directory where to write the class files")
   val bloopInstall: TaskKey[Unit] =
@@ -101,6 +103,7 @@ object BloopKeys {
     settingKey[Seq[Configuration]](
       "The sequence of configurations that are used to detect inter-project dependencies by bloop."
     )
+  @transient
   val bloopExtraExportedJars: TaskKey[Seq[File]] =
     taskKey[Seq[File]](
       "Jar files from internal dependencies whose exportedProducts differ from productDirectories"
