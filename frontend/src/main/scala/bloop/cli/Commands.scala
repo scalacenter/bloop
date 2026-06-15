@@ -168,6 +168,10 @@ object Commands {
       watch: Boolean = false,
       @HelpMessage("Compile a project and all projects depending on it. By default, false.")
       cascade: Boolean = false,
+      @HelpMessage(
+        "Print a summary of project compile times, blocked projects and totals. By default, false."
+      )
+      summary: Boolean = false,
       @Recurse cliOptions: CliOptions = CliOptions.default
   ) extends CompilingCommand
 

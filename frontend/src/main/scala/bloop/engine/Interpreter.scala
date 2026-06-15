@@ -7,6 +7,7 @@ import java.nio.file.Files
 import scala.collection.immutable.Nil
 import scala.concurrent.Promise
 
+import bloop.Compiler
 import bloop.ScalaInstance
 import bloop.bsp.BspServer
 import bloop.cli.Commands.CompilingCommand
@@ -155,7 +156,8 @@ object Interpreter {
       cmd: CompilingCommand,
       state0: State,
       projects: List[Project],
-      noColor: Boolean
+      noColor: Boolean,
+      printSummary: Boolean = false
   ): Task[State] = {
     // Make new state cleaned of all compilation products if compilation is not incremental
     val state: Task[State] = {
@@ -184,7 +186,50 @@ object Interpreter {
       )
     }
 
-    compileTask.map(_.mergeStatus(ExitStatus.Ok))
+    Task(System.nanoTime).flatMap { startNanos =>
+      compileTask.map { compiled =>
+        val newState = compiled.mergeStatus(ExitStatus.Ok)
+        if (printSummary) {
+          val dagProjects = Dag.dfs(getProjectsDag(projects, newState), mode = Dag.PreOrder)
+          printCompileSummary(dagProjects, newState, (System.nanoTime - startNanos) / 1000000)
+        }
+        newState
+      }
+    }
+  }
+
+  /**
+   * Prints a summary of the compile run over the closure of the requested projects:
+   * per-project compile durations sorted slowest-first, blocked and errored projects without
+   * timing, the sum of all module compile times and the wall-clock duration of the whole run,
+   * including the clean preceding a non-incremental compile.
+   */
+  private def printCompileSummary(
+      dagProjects: List[Project],
+      newState: State,
+      wallClockMs: Long
+  ): Unit = {
+    val results = dagProjects.map(p => (p, newState.results.latestResult(p)))
+    val timed = results.collect {
+      case (p, Compiler.Result.Success(_, _, elapsed, _, _, _, _)) => (p.name, elapsed, "")
+      case (p, Compiler.Result.Failed(_, _, elapsed, _, _)) => (p.name, elapsed, " (failed)")
+      case (p, Compiler.Result.Cancelled(_, elapsed, _)) => (p.name, elapsed, " (cancelled)")
+    }
+    val untimed = results.collect {
+      case (p, Compiler.Result.Blocked(on)) => s"${p.name} - blocked on ${on.mkString(", ")}"
+      case (p, _: Compiler.Result.GlobalError) => s"${p.name} - failed with a global error"
+    }
+
+    val logger = newState.logger
+    val delimiter = "=" * LoggingEventHandler.getTerminalWidth
+    logger.info(delimiter)
+    timed.sortBy { case (name, elapsed, _) => (-elapsed, name) }.foreach {
+      case (name, elapsed, status) => logger.info(s"$name - ${elapsed}ms$status")
+    }
+    untimed.sorted.foreach(logger.info)
+    logger.info(s"Total module compile time: ${timed.map(_._2).sum}ms")
+    logger.info(s"Wall-clock duration: ${wallClockMs}ms")
+    logger.info(delimiter)
   }
 
   private def compile(cmd: Commands.Compile, state: State): Task[State] = {
@@ -194,8 +239,8 @@ object Interpreter {
         else Dag.inverseDependencies(state.build.dags, projectsToCompile).reduced
       }
 
-      if (!cmd.watch) runCompile(cmd, state, projects, cmd.cliOptions.noColor)
-      else watch(projects, state)(runCompile(cmd, _, projects, cmd.cliOptions.noColor))
+      if (!cmd.watch) runCompile(cmd, state, projects, cmd.cliOptions.noColor, cmd.summary)
+      else watch(projects, state)(runCompile(cmd, _, projects, cmd.cliOptions.noColor, cmd.summary))
     }
 
     if (cmd.projects.isEmpty) {
