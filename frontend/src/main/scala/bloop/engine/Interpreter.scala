@@ -243,6 +243,39 @@ object Interpreter {
     }
   }
 
+  /**
+   * Picks the REPL artifact and main class for a Scala version. Scala 2 uses `scala-compiler`
+   * with `MainGenericRunner`; Scala 3 uses `dotty.tools.repl.Main`, served by `scala3-compiler`
+   * before 3.8.0 and the dedicated `scala3-repl` artifact from 3.8.0 on.
+   */
+  private[bloop] def scalaReplArtifactAndMain(
+      scalaVersion: String
+  ): (DependencyResolution.Artifact, String) = {
+    val org = "org.scala-lang"
+    if (scalaVersion.startsWith("3.")) {
+      val module =
+        if (isScalaVersionAtLeast(scalaVersion, 3, 8)) "scala3-repl_3" else "scala3-compiler_3"
+      (DependencyResolution.Artifact(org, module, scalaVersion), "dotty.tools.repl.Main")
+    } else {
+      val artifact = DependencyResolution.Artifact(org, "scala-compiler", scalaVersion)
+      (artifact, "scala.tools.nsc.MainGenericRunner")
+    }
+  }
+
+  /** True if `scalaVersion` >= `major.minor`, comparing numeric parts and ignoring any suffix. */
+  private[bloop] def isScalaVersionAtLeast(
+      scalaVersion: String,
+      major: Int,
+      minor: Int
+  ): Boolean = {
+    def num(s: String): Option[Int] = scala.util.Try(s.toInt).toOption
+    val parts = scalaVersion.split("-").head.split('.')
+    (parts.lift(0).flatMap(num), parts.lift(1).flatMap(num)) match {
+      case (Some(maj), Some(min)) => maj > major || (maj == major && min >= minor)
+      case _ => false
+    }
+  }
+
   private def console(cmd: Commands.Console, state: State): Task[State] = {
     cmd.projects match {
       case Nil =>
@@ -254,10 +287,15 @@ object Interpreter {
       case project :: Nil =>
         state.build.getProjectFor(project) match {
           case Some(project) =>
+            // `--exclude-root` starts the console against only the target's dependencies, so we
+            // compile (and later classpath) those instead of the target project itself.
+            val projectsToCompile =
+              if (cmd.excludeRoot) project.dependencies.flatMap(state.build.getProjectFor)
+              else List(project)
             compileAnd(
               cmd,
               state,
-              List(project),
+              projectsToCompile,
               cmd.cliOptions.noColor,
               "`console`"
             ) { state =>
@@ -301,88 +339,106 @@ object Interpreter {
                 }
               }
 
-              cmd.repl match {
-                case ScalacRepl =>
-                  if (cmd.ammoniteVersion.isDefined) {
-                    val errMsg =
-                      "Specifying an Ammonite version while using the Scalac console does not work"
-                    Task.now(state.withError(errMsg, ExitStatus.InvalidCommandLineOption))
-                  } else {
-                    val dag = state.build.getDagFor(project)
-                    val scalaVersion = project.scalaInstance
-                      .map(_.version)
-                      .orElse(
-                        ScalaInstance.scalaInstanceForJavaProjects(state.logger).map(_.version)
-                      )
-                      .getOrElse(BuildInfo.scalaVersion)
+              val dag = state.build.getDagFor(project)
+              // Launch under the project's configured JDK and JVM options (mirrors run/test via
+              // JvmProcessForker), not an ambient `java` — this is a JDK-sensitive feature.
+              val jdkConfig = project.runtimeJdkConfig
+              val javaBin = jdkConfig.map(_.javaBinary.syntax).getOrElse("java")
+              val javaOptions = jdkConfig.toList.flatMap(_.javaOptions.toList)
+              // With `--exclude-root` the REPL classpath is the dependencies' classpath; otherwise
+              // it's the target's full runtime classpath (which includes its own classes).
+              val replClasspath =
+                if (cmd.excludeRoot)
+                  projectsToCompile
+                    .flatMap(p => p.fullRuntimeClasspath(state.build.getDagFor(p), state.client))
+                    .distinct
+                else project.fullRuntimeClasspath(dag, state.client).toList
 
-                    val projectClasspath = project
-                      .fullRuntimeClasspath(dag, state.client)
-                      .map(_.syntax)
-                      .mkString(java.io.File.pathSeparator)
+              // Report a missing configured JDK here (like run does via JvmProcessForker) instead
+              // of emitting a command that only fails later in the client.
+              jdkConfig.map(_.javaBinary).filter(!_.exists) match {
+                case Some(missing) =>
+                  val msg = s"Configured Java executable does not exist: ${missing.syntax}"
+                  Task.now(state.withError(msg, ExitStatus.RunError))
+                case None =>
+                  cmd.repl match {
+                    case ScalacRepl =>
+                      if (cmd.ammoniteVersion.isDefined) {
+                        val errMsg =
+                          "Specifying an Ammonite version while using the Scalac console does not work"
+                        Task.now(state.withError(errMsg, ExitStatus.InvalidCommandLineOption))
+                      } else {
+                        val scalaVersion = project.scalaInstance
+                          .map(_.version)
+                          .orElse(
+                            ScalaInstance.scalaInstanceForJavaProjects(state.logger).map(_.version)
+                          )
+                          .getOrElse(BuildInfo.scalaVersion)
 
-                    val artifact =
-                      DependencyResolution.Artifact(
-                        "org.scala-lang",
-                        "scala-compiler",
-                        scalaVersion
-                      )
-                    withResolved(
-                      artifact,
-                      s"The Scala compiler may be unavailable for $scalaVersion."
-                    ) { compilerJars =>
-                      // Compiler jars run the JVM; the project is the REPL's user classpath.
-                      val compilerCp =
-                        compilerJars.map(_.syntax).mkString(java.io.File.pathSeparator)
-                      val scalaCmd =
-                        List(
-                          "java",
-                          "-cp",
-                          compilerCp,
-                          "scala.tools.nsc.MainGenericRunner",
-                          "-cp",
-                          projectClasspath
-                        ) ++ cmd.args
-                      outputReplCommand(scalaCmd, "Scala REPL")
-                    }
-                  }
-                case AmmoniteRepl =>
-                  def findScalaVersion(dag: Dag[Project]): Option[String] = {
-                    dag match {
-                      case Aggregate(dags) => dags.flatMap(findScalaVersion).headOption
-                      case Leaf(value) => value.scalaInstance.map(_.version)
-                      case Parent(value, children) =>
-                        children.flatMap(findScalaVersion) match {
-                          case Nil => value.scalaInstance.map(_.version)
-                          case xs => Some(xs.head)
+                        val (artifact, mainClass) = scalaReplArtifactAndMain(scalaVersion)
+                        withResolved(
+                          artifact,
+                          s"The Scala REPL may be unavailable for $scalaVersion."
+                        ) { replJars =>
+                          // REPL jars run the JVM (`usejavacp` lets the compiler find the JDK classes
+                          // on JDK > 8); the project is the REPL's user classpath.
+                          val replCp = replJars.map(_.syntax).mkString(java.io.File.pathSeparator)
+                          val projectCp =
+                            replClasspath.map(_.syntax).mkString(java.io.File.pathSeparator)
+                          val scalaCmd =
+                            (javaBin :: javaOptions) ++ List(
+                              "-Dscala.usejavacp=true",
+                              "-cp",
+                              replCp,
+                              mainClass,
+                              "-classpath",
+                              projectCp
+                            ) ++ cmd.args
+                          outputReplCommand(scalaCmd, "Scala REPL")
                         }
-                    }
-                  }
+                      }
+                    case AmmoniteRepl =>
+                      def findScalaVersion(dag: Dag[Project]): Option[String] = {
+                        dag match {
+                          case Aggregate(dags) => dags.flatMap(findScalaVersion).headOption
+                          case Leaf(value) => value.scalaInstance.map(_.version)
+                          case Parent(value, children) =>
+                            children.flatMap(findScalaVersion) match {
+                              case Nil => value.scalaInstance.map(_.version)
+                              case xs => Some(xs.head)
+                            }
+                        }
+                      }
 
-                  val dag = state.build.getDagFor(project)
-                  val scalaVersion = findScalaVersion(dag)
-                    .orElse(ScalaInstance.scalaInstanceForJavaProjects(state.logger).map(_.version))
-                    .getOrElse(BuildInfo.scalaVersion)
+                      val scalaVersion = findScalaVersion(dag)
+                        .orElse(
+                          ScalaInstance.scalaInstanceForJavaProjects(state.logger).map(_.version)
+                        )
+                        .getOrElse(BuildInfo.scalaVersion)
 
-                  val ammVersion = cmd.ammoniteVersion.getOrElse("latest.release")
-                  val projectClasspath = project.fullRuntimeClasspath(dag, state.client).toList
-
-                  val artifact =
-                    DependencyResolution.Artifact(
-                      "com.lihaoyi",
-                      s"ammonite_$scalaVersion",
-                      ammVersion
-                    )
-                  val hint = s"Ammonite may not be published for Scala $scalaVersion; " +
-                    "try a different --ammonite-version."
-                  withResolved(artifact, hint) { ammJars =>
-                    // Ammonite seeds the REPL from its own classpath, so the project goes there too.
-                    val classpath =
-                      (ammJars ++ projectClasspath)
-                        .map(_.syntax)
-                        .mkString(java.io.File.pathSeparator)
-                    val ammCmd = List("java", "-cp", classpath, "ammonite.Main") ++ cmd.args
-                    outputReplCommand(ammCmd, "Ammonite")
+                      val ammVersion = cmd.ammoniteVersion.getOrElse("latest.release")
+                      val artifact =
+                        DependencyResolution.Artifact(
+                          "com.lihaoyi",
+                          s"ammonite_$scalaVersion",
+                          ammVersion
+                        )
+                      val hint = s"Ammonite may not be published for Scala $scalaVersion; " +
+                        "try a different --ammonite-version."
+                      withResolved(artifact, hint) { ammJars =>
+                        // Ammonite seeds the REPL from its own classpath, so the project goes there too.
+                        val classpath =
+                          (ammJars ++ replClasspath)
+                            .map(_.syntax)
+                            .mkString(java.io.File.pathSeparator)
+                        val ammCmd =
+                          (javaBin :: javaOptions) ++ List(
+                            "-cp",
+                            classpath,
+                            "ammonite.Main"
+                          ) ++ cmd.args
+                        outputReplCommand(ammCmd, "Ammonite")
+                      }
                   }
               }
             }

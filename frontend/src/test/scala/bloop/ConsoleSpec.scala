@@ -1,6 +1,9 @@
 package bloop
 
 import bloop.cli.ExitStatus
+import bloop.cli.ScalacRepl
+import bloop.config.Config
+import bloop.engine.Interpreter
 import bloop.io.Environment.lineSeparator
 import bloop.logging.RecordingLogger
 import bloop.testing.BaseSuite
@@ -15,13 +18,13 @@ object ConsoleSpec extends BaseSuite {
     if (TestUtil.hasCoursier) test(name)(fun)
     else ignore(name, "IGNORED (coursier not on PATH)")(fun)
 
-  // The server logs the REPL command newline-joined; split it back into its tokens.
+  // The server logs the REPL command newline-joined; split it back into its tokens. The first
+  // token is the JDK's java binary (an absolute path), so we locate the command by its `-cp` token.
   private def replCommandTokens(logger: RecordingLogger): IndexedSeq[String] =
     logger.infos
-      .find(_.startsWith("java"))
+      .map(_.split("\n").toIndexedSeq)
+      .find(_.contains("-cp"))
       .getOrElse(sys.error(s"No REPL command logged: ${logger.infos}"))
-      .split("\n")
-      .toIndexedSeq
 
   consoleTest("default ammonite console command uses the project classpath") {
     TestUtil.withinWorkspace { workspace =>
@@ -51,7 +54,7 @@ object ConsoleSpec extends BaseSuite {
       val classpathB = projectB.fullRuntimeClasspath(dagB, state.client)
 
       val tokens = replCommandTokens(logger)
-      assert(tokens.head == "java")
+      assert(tokens.head.endsWith("java") || tokens.head.endsWith("java.exe"))
       assert(tokens.contains("ammonite.Main"))
       // The whole project runtime classpath (a, b and their deps) must be on the REPL classpath.
       val classpath = tokens(tokens.indexOf("-cp") + 1)
@@ -102,6 +105,134 @@ object ConsoleSpec extends BaseSuite {
       Predef.assert(
         output.toString.contains(marker),
         s"Expected '$marker' (from the project class) in Ammonite output:\n$output"
+      )
+    }
+  }
+
+  test("scalaReplArtifactAndMain selects the REPL artifact per Scala version") {
+    def select(version: String): (String, String) = {
+      val (artifact, mainClass) = Interpreter.scalaReplArtifactAndMain(version)
+      assertEquals(artifact.organization, "org.scala-lang")
+      assertEquals(artifact.version, version)
+      (artifact.module, mainClass)
+    }
+    assertEquals(select("2.13.18"), ("scala-compiler", "scala.tools.nsc.MainGenericRunner"))
+    assertEquals(select("2.12.21"), ("scala-compiler", "scala.tools.nsc.MainGenericRunner"))
+    assertEquals(select("3.3.4"), ("scala3-compiler_3", "dotty.tools.repl.Main"))
+    assertEquals(select("3.7.4"), ("scala3-compiler_3", "dotty.tools.repl.Main"))
+    assertEquals(select("3.8.0"), ("scala3-repl_3", "dotty.tools.repl.Main"))
+    assertEquals(select("3.10.0"), ("scala3-repl_3", "dotty.tools.repl.Main"))
+    // Suffixed (RC/nightly) versions compare on the numeric part only.
+    assertEquals(select("3.8.0-RC1"), ("scala3-repl_3", "dotty.tools.repl.Main"))
+    assertEquals(
+      select("3.7.4-RC1-bin-20260101-abcdef-NIGHTLY"),
+      ("scala3-compiler_3", "dotty.tools.repl.Main")
+    )
+  }
+
+  consoleTest("excludeRoot console command uses only the dependencies' classpath") {
+    TestUtil.withinWorkspace { workspace =>
+      val aSource = """/A.scala
+                      |class A
+                    """.stripMargin
+      val bSource = """/B.scala
+                      |class B extends A
+                    """.stripMargin
+
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val `A` = TestProject(workspace, "a", List(aSource))
+      val `B` = TestProject(workspace, "b", List(bSource), List(`A`))
+      val state = loadState(workspace, List(`A`, `B`), logger)
+
+      val consoleState = state.console(`B`, List("--no-home-predef"), excludeRoot = true)
+      assert(consoleState.status == ExitStatus.Ok)
+
+      val classpath = {
+        val tokens = replCommandTokens(logger)
+        tokens(tokens.indexOf("-cp") + 1)
+      }
+      val projectA = state.getProjectFor(`A`)
+      val projectB = state.getProjectFor(`B`)
+      val classpathA =
+        projectA.fullRuntimeClasspath(state.getDagFor(`A`), state.client).map(_.syntax).toList
+      // a's classpath must be present; b's own entries (those not in a's classpath) must not be.
+      classpathA.foreach(entry => assertContains(classpath, entry))
+      projectB
+        .fullRuntimeClasspath(state.getDagFor(`B`), state.client)
+        .map(_.syntax)
+        .filterNot(classpathA.contains)
+        .foreach(bOwn => assert(!classpath.contains(bOwn)))
+    }
+  }
+
+  // The scalac REPL must also initialize on JDK > 8 (via -Dscala.usejavacp=true) without the
+  // MissingRequirementError, with the project's classes visible in the session.
+  consoleTest("scalac console launches without MissingRequirementError") {
+    TestUtil.withinWorkspace { workspace =>
+      val marker = "bloop-scalac-ok"
+      val aSource =
+        s"""/A.scala
+           |package mytest
+           |object A { val marker = "$marker" }
+          """.stripMargin
+
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val `A` = TestProject(workspace, "a", List(aSource))
+      val projects = List(`A`)
+      val state = loadState(workspace, projects, logger)
+
+      val consoleState = state.console(`A`, args = Nil, repl = ScalacRepl)
+      assert(consoleState.status == ExitStatus.Ok)
+
+      val tokens = replCommandTokens(logger)
+      assert(tokens.contains("-Dscala.usejavacp=true"))
+
+      // The scalac REPL reads from stdin; feed it an expression using the project class, then quit.
+      val replInput = s"""println(mytest.A.marker)${lineSeparator}:quit$lineSeparator"""
+      val input =
+        new java.io.ByteArrayInputStream(
+          replInput.getBytes(java.nio.charset.StandardCharsets.UTF_8)
+        )
+      val output = new StringBuilder
+      val procLogger = scala.sys.process.ProcessLogger { line =>
+        output.append(line).append(lineSeparator)
+        ()
+      }
+      (scala.sys.process.Process(tokens, workspace.toFile) #< input).!(procLogger)
+
+      Predef.assert(
+        !output.toString.contains("MissingRequirementError"),
+        s"Scala REPL failed with MissingRequirementError:\n$output"
+      )
+      // Printing the marker proves the REPL started and the project is on the session classpath.
+      Predef.assert(
+        output.toString.contains(marker),
+        s"Expected '$marker' (from the project class) in Scala REPL output:\n$output"
+      )
+    }
+  }
+
+  // A missing configured JDK must be reported by the server (like `run`), not emitted as a
+  // command that only fails later in the local CLI. No coursier needed: the guard runs first.
+  test("console reports a missing configured JDK") {
+    TestUtil.withinWorkspace { workspace =>
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val missingJdk = workspace.resolve("no-such-jdk")
+      val `A` = TestProject(
+        workspace,
+        "a",
+        List("""/A.scala
+               |class A
+             """.stripMargin),
+        runtimeJvmConfig = Some(Config.JvmConfig(Some(missingJdk.underlying), Nil))
+      )
+      val state = loadState(workspace, List(`A`), logger)
+
+      val consoleState = state.console(`A`, Nil)
+      assert(consoleState.status == ExitStatus.RunError)
+      assertContains(
+        logger.errors.mkString(lineSeparator),
+        "Configured Java executable does not exist"
       )
     }
   }
