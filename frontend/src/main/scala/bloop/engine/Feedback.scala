@@ -92,6 +92,10 @@ object Feedback {
     s"Port number '${n}' is either negative or bigger than 65535"
   def reservedPortNumber(n: Int): String =
     s"Port number '${n}' is reserved for the operating system. Use a port number bigger than 1024"
+  val jvmDebugSuspendWithoutPort: String =
+    "`--jvm-debug-suspend` can only be used together with `--jvm-debug <port>`"
+  val jvmDebugWithParallel: String =
+    "`--jvm-debug` cannot be combined with `--parallel`: a single debug port can't back multiple JVMs at once. Debug one project at a time."
   def unknownHostName(host: String): String =
     s"Host name '$host' could not be either parsed or resolved"
 

@@ -85,7 +85,7 @@ private final class MainClassDebugAdapter(
       mainClass.arguments.toArray,
       jvmOptions.toArray,
       mainClass.environmentVariables.getOrElse(Nil),
-      RunMode.Debug
+      RunMode.Debug()
     )
     runState.map(_.status)
   }
@@ -127,7 +127,7 @@ private final class TestSuiteDebugAdapter(
       filter,
       testClasses,
       handler,
-      mode = RunMode.Debug
+      mode = RunMode.Debug()
     )
 
     task.map(_.status)

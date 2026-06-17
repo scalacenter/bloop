@@ -1,6 +1,10 @@
 package bloop
 
 import bloop.cli.Commands
+import bloop.cli.ExitStatus
+import bloop.config.Config
+import bloop.data.Platform
+import bloop.engine.Interpreter
 import bloop.engine.Run
 import bloop.io.AbsolutePath
 import bloop.io.Environment.lineSeparator
@@ -208,6 +212,146 @@ class GenericTestSpec {
         """.stripMargin,
         logger.startedTestInfos.sorted.mkString(lineSeparator)
       )
+    }
+  }
+
+  @Test
+  def jvmDebugRejectedWhenParallelForksManyJvms(): Unit = {
+    // Two test projects + --parallel would fork two JVMs that can't share one debug port.
+    object Sources {
+      val `F.scala` =
+        """
+          |package p0
+          |import org.junit.Test
+          |class F { @Test def testF(): Unit = () }
+        """.stripMargin
+      val `G.scala` =
+        """
+          |package p4
+          |import org.junit.Test
+          |class G { @Test def testG(): Unit = () }
+        """.stripMargin
+    }
+    val structure = Map(
+      "F" -> Map("F.scala" -> Sources.`F.scala`),
+      "G" -> Map("G.scala" -> Sources.`G.scala`)
+    )
+    val logger = new RecordingLogger(ansiCodesSupported = false)
+    val junitJars = bloop.internal.build.BuildTestInfo.junitTestJars.map(AbsolutePath.apply).toArray
+    TestUtil.testState(
+      structure,
+      Map.empty[String, Set[String]],
+      userLogger = Some(logger),
+      extraJars = junitJars,
+      testProjects = Set("F", "G")
+    ) { state =>
+      val action = Run(Commands.Test(List("F", "G"), parallel = true, jvmDebug = Some(5005)))
+      val resultState = TestUtil.blockingExecute(action, state)
+      Assert.assertEquals(ExitStatus.InvalidCommandLineOption, resultState.status)
+      Assert.assertTrue(
+        s"Expected an error mentioning --jvm-debug, got: ${logger.errors}",
+        logger.errors.exists(_.contains("--jvm-debug"))
+      )
+    }
+  }
+
+  @Test
+  def jvmDebugAllowedForSingleProjectEvenWithParallel(): Unit = {
+    // A single test project forks one JVM, so --parallel is a no-op and debugging is fine.
+    object Sources {
+      val `F.scala` =
+        """
+          |package p0
+          |import org.junit.Test
+          |class F { @Test def testF(): Unit = () }
+        """.stripMargin
+    }
+    val structure = Map("F" -> Map("F.scala" -> Sources.`F.scala`))
+    val logger = new RecordingLogger(ansiCodesSupported = false)
+    val junitJars = bloop.internal.build.BuildTestInfo.junitTestJars.map(AbsolutePath.apply).toArray
+    val port = {
+      val socket = new java.net.ServerSocket(0)
+      try socket.getLocalPort
+      finally socket.close()
+    }
+    TestUtil.testState(
+      structure,
+      Map.empty[String, Set[String]],
+      userLogger = Some(logger),
+      extraJars = junitJars,
+      testProjects = Set("F")
+    ) { state =>
+      val action = Run(Commands.Test(List("F"), parallel = true, jvmDebug = Some(port)))
+      val resultState = TestUtil.blockingExecute(action, state)
+      Assert.assertTrue(
+        s"Single-project debug + parallel should not be rejected, got: ${resultState.status}",
+        resultState.status.isOk
+      )
+    }
+  }
+
+  @Test
+  def debugForkCollisionCountsOnlyJvmTestProjects(): Unit = {
+    object Sources {
+      val `F.scala` =
+        """
+          |package p0
+          |import org.junit.Test
+          |class F { @Test def testF(): Unit = () }
+        """.stripMargin
+    }
+    val structure = Map("F" -> Map("F.scala" -> Sources.`F.scala`))
+    val logger = new RecordingLogger(ansiCodesSupported = false)
+    val junitJars = bloop.internal.build.BuildTestInfo.junitTestJars.map(AbsolutePath.apply).toArray
+    TestUtil.testState(
+      structure,
+      Map.empty[String, Set[String]],
+      userLogger = Some(logger),
+      extraJars = junitJars,
+      testProjects = Set("F")
+    ) { state =>
+      val jvm = state.build.getProjectFor("F").get
+      val jvm2 = jvm.copy(name = "F2")
+      // A Scala.js test project carries the Test tag but forks no debuggable JVM.
+      val js = jvm.copy(name = "Fjs", platform = Platform.Js(Config.JsConfig.empty, None, None))
+
+      // Two JVM test projects would fork two JVMs that can't share one debug port.
+      Assert.assertTrue(
+        Interpreter.debugForkCollision(Some(5005), parallel = true, List(jvm, jvm2))
+      )
+      // A JVM test project alongside a Scala.js one: only one JVM forks, so no collision.
+      Assert.assertFalse(Interpreter.debugForkCollision(Some(5005), parallel = true, List(jvm, js)))
+      // A single JVM test project: `--parallel` is a no-op.
+      Assert.assertFalse(Interpreter.debugForkCollision(Some(5005), parallel = true, List(jvm)))
+      // No conflict without `--jvm-debug` or without `--parallel`.
+      Assert.assertFalse(Interpreter.debugForkCollision(None, parallel = true, List(jvm, jvm2)))
+      Assert.assertFalse(
+        Interpreter.debugForkCollision(Some(5005), parallel = false, List(jvm, jvm2))
+      )
+    }
+  }
+
+  @Test
+  def warnsAboutJvmDebugOnNonJvmProject(): Unit = {
+    val structure = Map("F" -> Map("F.scala" -> "package p0\nclass F"))
+    TestUtil.testState(structure, Map.empty[String, Set[String]]) { state =>
+      val jvm = state.build.getProjectFor("F").get
+      val js = jvm.copy(name = "Fjs", platform = Platform.Js(Config.JsConfig.empty, None, None))
+
+      val jsLog = new RecordingLogger(ansiCodesSupported = false)
+      Interpreter.warnIfJvmDebugUnsupported(js, Some(5005), jsLog)
+      Assert.assertTrue(
+        s"Expected a warning for the non-JVM project, got: ${jsLog.warnings}",
+        jsLog.warnings.exists(_.contains("--jvm-debug"))
+      )
+
+      val jvmLog = new RecordingLogger(ansiCodesSupported = false)
+      Interpreter.warnIfJvmDebugUnsupported(jvm, Some(5005), jvmLog)
+      Assert.assertTrue("A JVM project must not warn", jvmLog.warnings.isEmpty)
+
+      val noFlagLog = new RecordingLogger(ansiCodesSupported = false)
+      Interpreter.warnIfJvmDebugUnsupported(js, None, noFlagLog)
+      Assert.assertTrue("Without --jvm-debug there must be no warning", noFlagLog.warnings.isEmpty)
     }
   }
 }
