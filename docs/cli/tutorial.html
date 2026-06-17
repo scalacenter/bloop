@@ -278,8 +278,9 @@ Total duration: 11ms
 All 1 <span class="hljs-built_in">test</span> suites passed.
 ===============================================
 </code></pre>
-<p>To debug our tests, we can use instead
-<code>-J-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005</code>.</p>
+<p>To debug our tests, pass <code>--jvm-debug 5005</code> so a debugger (IntelliJ, <code>jdb</code>) can attach on that port.
+The tests start immediately; add <code>--jvm-debug-suspend</code> to make the JVM wait for the debugger to
+attach first.</p>
 <h2><a class="anchor" aria-hidden="true" id="run-an-application"></a><a href="#run-an-application" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Run an application</h2>
 <p>If our application defines one main method, we can run it:</p>
 <pre><code class="hljs css language-bash">→ bloop run foo
@@ -307,8 +308,9 @@ the forked virtual machine.</p>
 <pre><code class="hljs css language-bash">→ bloop run foo -- -J-Xms2g -J-Xmx4g
 Hello, World!
 </code></pre>
-<p>To debug an application, pass the following JVM argument instead
-<code>-J-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005</code>.</p>
+<p>To debug an application, pass <code>--jvm-debug 5005</code> so a debugger (IntelliJ, <code>jdb</code>) can attach on that
+port. The application starts immediately; add <code>--jvm-debug-suspend</code> to make the JVM wait for the
+debugger to attach first.</p>
 <h2><a class="anchor" aria-hidden="true" id="enable-file-watching"></a><a href="#enable-file-watching" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Enable file watching</h2>
 <p>When using the command-line tool, it's common to run a bloop task with file watching enabled. For
 example, you can run your tests in a loop with:</p>
