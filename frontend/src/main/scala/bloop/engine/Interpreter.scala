@@ -7,6 +7,7 @@ import java.nio.file.Files
 import scala.collection.immutable.Nil
 import scala.concurrent.Promise
 
+import bloop.Compiler
 import bloop.DependencyResolution
 import bloop.ScalaInstance
 import bloop.bsp.BspServer
@@ -60,6 +61,8 @@ object Interpreter {
             execute(next, runBsp(cmd, state))
           case Run(cmd: Commands.About, _) =>
             notHandled("about", cmd.cliOptions, state)
+          case Run(cmd: Commands.Version, _) =>
+            notHandled("version", cmd.cliOptions, state)
           case Run(cmd: Commands.Help, _) =>
             notHandled("help", cmd.cliOptions, state)
           case Run(cmd: Commands.Command, next) =>
@@ -156,7 +159,8 @@ object Interpreter {
       cmd: CompilingCommand,
       state0: State,
       projects: List[Project],
-      noColor: Boolean
+      noColor: Boolean,
+      printSummary: Boolean = false
   ): Task[State] = {
     // Make new state cleaned of all compilation products if compilation is not incremental
     val state: Task[State] = {
@@ -185,7 +189,50 @@ object Interpreter {
       )
     }
 
-    compileTask.map(_.mergeStatus(ExitStatus.Ok))
+    Task(System.nanoTime).flatMap { startNanos =>
+      compileTask.map { compiled =>
+        val newState = compiled.mergeStatus(ExitStatus.Ok)
+        if (printSummary) {
+          val dagProjects = Dag.dfs(getProjectsDag(projects, newState), mode = Dag.PreOrder)
+          printCompileSummary(dagProjects, newState, (System.nanoTime - startNanos) / 1000000)
+        }
+        newState
+      }
+    }
+  }
+
+  /**
+   * Prints a summary of the compile run over the closure of the requested projects:
+   * per-project compile durations sorted slowest-first, blocked and errored projects without
+   * timing, the sum of all module compile times and the wall-clock duration of the whole run,
+   * including the clean preceding a non-incremental compile.
+   */
+  private def printCompileSummary(
+      dagProjects: List[Project],
+      newState: State,
+      wallClockMs: Long
+  ): Unit = {
+    val results = dagProjects.map(p => (p, newState.results.latestResult(p)))
+    val timed = results.collect {
+      case (p, Compiler.Result.Success(_, _, elapsed, _, _, _, _)) => (p.name, elapsed, "")
+      case (p, Compiler.Result.Failed(_, _, elapsed, _, _)) => (p.name, elapsed, " (failed)")
+      case (p, Compiler.Result.Cancelled(_, elapsed, _)) => (p.name, elapsed, " (cancelled)")
+    }
+    val untimed = results.collect {
+      case (p, Compiler.Result.Blocked(on)) => s"${p.name} - blocked on ${on.mkString(", ")}"
+      case (p, _: Compiler.Result.GlobalError) => s"${p.name} - failed with a global error"
+    }
+
+    val logger = newState.logger
+    val delimiter = "=" * LoggingEventHandler.getTerminalWidth
+    logger.info(delimiter)
+    timed.sortBy { case (name, elapsed, _) => (-elapsed, name) }.foreach {
+      case (name, elapsed, status) => logger.info(s"$name - ${elapsed}ms$status")
+    }
+    untimed.sorted.foreach(logger.info)
+    logger.info(s"Total module compile time: ${timed.map(_._2).sum}ms")
+    logger.info(s"Wall-clock duration: ${wallClockMs}ms")
+    logger.info(delimiter)
   }
 
   private def compile(cmd: Commands.Compile, state: State): Task[State] = {
@@ -195,8 +242,8 @@ object Interpreter {
         else Dag.inverseDependencies(state.build.dags, projectsToCompile).reduced
       }
 
-      if (!cmd.watch) runCompile(cmd, state, projects, cmd.cliOptions.noColor)
-      else watch(projects, state)(runCompile(cmd, _, projects, cmd.cliOptions.noColor))
+      if (!cmd.watch) runCompile(cmd, state, projects, cmd.cliOptions.noColor, cmd.summary)
+      else watch(projects, state)(runCompile(cmd, _, projects, cmd.cliOptions.noColor, cmd.summary))
     }
 
     if (cmd.projects.isEmpty) {
@@ -454,34 +501,72 @@ object Interpreter {
     }
   }
 
+  /**
+   * A fixed `--jvm-debug` port can only back one forked JVM, so combining it with `--parallel`
+   * conflicts only when more than one JVM test project will be forked at once. Non-JVM (JS, Native)
+   * test projects don't fork a debuggable JVM, so they never collide on the port.
+   */
+  private[bloop] def debugForkCollision(
+      jvmDebug: Option[Int],
+      parallel: Boolean,
+      projectsToTest: List[Project]
+  ): Boolean =
+    jvmDebug.isDefined && parallel &&
+      projectsToTest.count(p =>
+        TestTask.isTestProject(p) && p.platform.isInstanceOf[Platform.Jvm]
+      ) > 1
+
+  private[bloop] def warnIfJvmDebugUnsupported(
+      project: Project,
+      jvmDebug: Option[Int],
+      logger: Logger
+  ): Unit = {
+    if (jvmDebug.isDefined && !project.platform.isInstanceOf[Platform.Jvm])
+      logger.warn(
+        s"Ignoring --jvm-debug for '${project.name}': it is only supported for JVM projects."
+      )
+  }
+
   private def test(cmd: Commands.Test, state: State): Task[State] = {
     import state.logger
+
+    val runMode = cmd.jvmDebug match {
+      case Some(port) => RunMode.Debug(Some(port), suspend = cmd.jvmDebugSuspend)
+      case None => RunMode.Normal
+    }
 
     def testAllProjects(
         state: State,
         projectsToCompile: List[Project],
         projectsToTest: List[Project]
     ): Task[State] = {
-      val testFilter = TestInternals.parseFilters(cmd.only)
-      compileAnd(cmd, state, projectsToCompile, cmd.cliOptions.noColor, "`test`") { state =>
-        logger.debug(
-          s"Preparing test execution for ${projectsToTest.mkString(", ")}"
-        )(DebugFilter.Test)
+      if (debugForkCollision(cmd.jvmDebug, cmd.parallel, projectsToTest)) {
+        Task.now(
+          state.withError(Feedback.jvmDebugWithParallel, ExitStatus.InvalidCommandLineOption)
+        )
+      } else {
+        projectsToTest.foreach(warnIfJvmDebugUnsupported(_, cmd.jvmDebug, logger))
+        val testFilter = TestInternals.parseFilters(cmd.only)
+        compileAnd(cmd, state, projectsToCompile, cmd.cliOptions.noColor, "`test`") { state =>
+          logger.debug(
+            s"Preparing test execution for ${projectsToTest.mkString(", ")}"
+          )(DebugFilter.Test)
 
-        val handler = new LoggingEventHandler(state.logger)
+          val handler = new LoggingEventHandler(state.logger)
 
-        Tasks
-          .test(
-            state,
-            projectsToTest,
-            cmd.args,
-            testFilter,
-            ch.epfl.scala.bsp.ScalaTestSuites(Nil, Nil, Nil),
-            handler,
-            cmd.parallel,
-            RunMode.Normal
-          )
-          .map(testRuns => state.mergeStatus(testRuns.status))
+          Tasks
+            .test(
+              state,
+              projectsToTest,
+              cmd.args,
+              testFilter,
+              ch.epfl.scala.bsp.ScalaTestSuites(Nil, Nil, Nil),
+              handler,
+              cmd.parallel,
+              runMode
+            )
+            .map(testRuns => state.mergeStatus(testRuns.status))
+        }
       }
     }
 
@@ -500,7 +585,16 @@ object Interpreter {
           (userSelectedProjects, projectsToTest)
         } else {
           val result = Dag.inverseDependencies(state.build.dags, userSelectedProjects)
-          (result.reduced, result.allCascaded)
+          val cascaded = result.allCascaded
+          val projectsToTest =
+            if (!cmd.includeDependencies) cascaded
+            else {
+              val dependencies = userSelectedProjects.flatMap { p =>
+                Dag.dfs(state.build.getDagFor(p), mode = Dag.PreOrder)
+              }
+              (cascaded ++ dependencies).distinct
+            }
+          (result.reduced, projectsToTest)
         }
       }
 
@@ -634,18 +728,22 @@ object Interpreter {
   }
 
   private def clean(cmd: Commands.Clean, state: State): Task[State] = {
-    if (cmd.projects.isEmpty) {
-      val projects = state.build.loadedProjects.map(_.project)
-      Tasks.clean(state, projects, cmd.includeDependencies).map(_.mergeStatus(ExitStatus.Ok))
-    } else {
+    def doClean(projects: List[Project]): Task[State] = {
+      val cascaded =
+        if (!cmd.cascade) Nil
+        else Dag.inverseDependencies(state.build.dags, projects).allCascaded
+      val downward =
+        if (!cmd.includeDependencies) Nil
+        else projects.flatMap(p => Dag.dfs(state.build.getDagFor(p), mode = Dag.PreOrder))
+      val targets = (projects ++ cascaded ++ downward).distinct
+      Tasks.clean(state, targets, includeDeps = false).map(_.mergeStatus(ExitStatus.Ok))
+    }
+
+    if (cmd.projects.isEmpty) doClean(state.build.loadedProjects.map(_.project))
+    else {
       val lookup = lookupProjects(cmd.projects, state.build.getProjectFor(_))
-      if (!lookup.missing.isEmpty)
-        Task.now(reportMissing(lookup.missing, state))
-      else {
-        Tasks
-          .clean(state, lookup.found, cmd.includeDependencies)
-          .map(_.mergeStatus(ExitStatus.Ok))
-      }
+      if (lookup.missing.nonEmpty) Task.now(reportMissing(lookup.missing, state))
+      else doClean(lookup.found)
     }
   }
 
@@ -707,12 +805,17 @@ object Interpreter {
   }
 
   private def run(cmd: Commands.Run, state: State): Task[State] = {
+    val runMode = cmd.jvmDebug match {
+      case Some(port) => RunMode.Debug(Some(port), suspend = cmd.jvmDebugSuspend)
+      case None => RunMode.Normal
+    }
     def doRun(project: Project)(state: State): Task[State] = {
       val cwd = project.workingDirectory
       compileAnd(cmd, state, List(project), cmd.cliOptions.noColor, "`run`") { state =>
         getMainClass(state, project, cmd.main) match {
           case Left(failedState) => Task.now(failedState)
           case Right(mainClass) =>
+            warnIfJvmDebugUnsupported(project, cmd.jvmDebug, state.logger)
             project.platform match {
               case platform @ Platform.Native(config, _, _) =>
                 val target = ScalaNativeToolchain.linkTargetFrom(project, config)
@@ -762,7 +865,7 @@ object Interpreter {
                   cmd.args.toArray,
                   cmd.skipJargs,
                   envVars = Nil,
-                  RunMode.Normal
+                  runMode
                 )
             }
         }

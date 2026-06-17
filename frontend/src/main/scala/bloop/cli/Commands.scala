@@ -80,6 +80,15 @@ object Commands {
     implicit lazy val help: CaseAppHelp[About] = CaseAppHelp.derive
   }
 
+  case class Version(
+      @Recurse cliOptions: CliOptions = CliOptions.default
+  ) extends RawCommand
+
+  object Version {
+    implicit lazy val parser: Parser[Version] = Parser.derive
+    implicit lazy val help: CaseAppHelp[Version] = CaseAppHelp.derive
+  }
+
   case class Projects(
       @HelpMessage("Print out a dot graph you can pipe into `dot`. By default, false.")
       dotGraph: Boolean = false,
@@ -159,6 +168,10 @@ object Commands {
       watch: Boolean = false,
       @HelpMessage("Compile a project and all projects depending on it. By default, false.")
       cascade: Boolean = false,
+      @HelpMessage(
+        "Print a summary of project compile times, blocked projects and totals. By default, false."
+      )
+      summary: Boolean = false,
       @Recurse cliOptions: CliOptions = CliOptions.default
   ) extends CompilingCommand
 
@@ -195,7 +208,15 @@ object Commands {
       @HelpMessage(
         "Run tests in parallel. Should be chosen at user's discretion. By default, false"
       )
-      parallel: Boolean = false
+      parallel: Boolean = false,
+      @HelpMessage(
+        "Fork the JVM with a JDWP debug agent on this port so a debugger (IntelliJ, jdb) can attach. JVM projects only; unrelated to --debug."
+      )
+      jvmDebug: Option[Int] = None,
+      @HelpMessage(
+        "With --jvm-debug, make the JVM wait for the debugger to attach before running. By default, false."
+      )
+      jvmDebugSuspend: Boolean = false
   ) extends CompilingCommand
 
   object Test {
@@ -257,6 +278,14 @@ object Commands {
         "If an optimizer is used (e.g. Scala Native or Scala.js), run it in `debug` or `release` mode. Defaults to `debug`."
       )
       optimize: Option[OptimizerConfig] = None,
+      @HelpMessage(
+        "Fork the JVM with a JDWP debug agent on this port so a debugger (IntelliJ, jdb) can attach. JVM projects only; unrelated to --debug."
+      )
+      jvmDebug: Option[Int] = None,
+      @HelpMessage(
+        "With --jvm-debug, make the JVM wait for the debugger to attach before running. By default, false."
+      )
+      jvmDebugSuspend: Boolean = false,
       @Recurse cliOptions: CliOptions = CliOptions.default
   ) extends LinkingCommand
 

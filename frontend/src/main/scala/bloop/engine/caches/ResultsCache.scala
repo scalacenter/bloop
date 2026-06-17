@@ -79,7 +79,7 @@ final case class ResultsCache private (
       logger: Logger
   ): Task[ResultsCache] = {
     def delete(path: AbsolutePath): Task[Unit] = Task {
-      logger.debug(s"Deleting classes directory: $path")(DebugFilter.All)
+      logger.debug(s"Deleting $path")(DebugFilter.All)
       Paths.delete(path)
     }
     // Remove all the successful results from the cache.
@@ -92,8 +92,11 @@ final case class ResultsCache private (
           delete(client.getUniqueClassesDirFor(project, forceGeneration = false))
         )
     }
+    // The persisted analysis is deleted for every target, not only those with an in-memory
+    // result, so a clean fully resets incremental state and is reloaded fresh after a restart.
+    val deleteAnalysisFiles = projects.iterator.map(p => delete(p.analysisOut)).toList
 
-    Task.gatherUnordered(deleteClassesDirs).map { _ =>
+    Task.gatherUnordered(deleteClassesDirs.toList ++ deleteAnalysisFiles).map { _ =>
       new ResultsCache(newAll, newSuccessful)
     }
   }

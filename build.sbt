@@ -264,7 +264,6 @@ lazy val bloopRifle: Project = project
       Dependencies.bsp4j,
       Dependencies.scalaCollectionCompat,
       Dependencies.libdaemonjvm,
-      Dependencies.snailgun,
       Dependencies.expecty % Test,
       Dependencies.munit % Test
     ),
@@ -315,7 +314,7 @@ lazy val sbtBloop: Project = project
     name := "sbt-bloop",
     pluginCrossBuild / sbtVersion := (scalaBinaryVersion.value match {
       case "2.12" => SbtVersion
-      case _ => "2.0.0-RC8"
+      case _ => "2.0.0"
     }),
     crossScalaVersions := List(Scala212Version, Scala3Version),
     scalaVersion := Dependencies.Scala212Version,

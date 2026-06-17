@@ -14,7 +14,7 @@ import bloop.util.TestUtil
 
 object TcpBspSbtClientSpec extends BspSbtClientSpec(BspProtocol.Tcp)
 
-class BspSbtClientSpec(
+abstract class BspSbtClientSpec(
     override val protocol: BspProtocol
 ) extends BspBaseSuite {
   test("compilations with same origin id are cached if used from sbt") {

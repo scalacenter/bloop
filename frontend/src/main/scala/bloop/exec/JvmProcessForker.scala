@@ -94,8 +94,21 @@ object JvmProcessForker {
   ): JvmProcessForker = {
     mode match {
       case RunMode.Normal => new JvmForker(config, classpath)
-      case RunMode.Debug => new JvmDebuggingForker(new JvmForker(config, classpath))
+      case debug: RunMode.Debug =>
+        new JvmDebuggingForker(new JvmForker(config, classpath), debug)
     }
+  }
+
+  /**
+   * Builds the JDWP agent argument that enables remote debugging of the forked JVM.
+   *
+   * Kept as a pure function (rather than inlined in [[JvmDebuggingForker]]) so the generated
+   * agent string is straightforward to unit-test.
+   */
+  def jdwpAgentArg(debug: RunMode.Debug): String = {
+    val suspend = if (debug.suspend) "y" else "n"
+    val address = debug.address.map(port => s",address=$port").getOrElse("")
+    s"-agentlib:jdwp=transport=dt_socket,server=y,suspend=$suspend,quiet=n$address"
   }
 }
 
@@ -227,7 +240,10 @@ final class JvmForker(config: JdkConfig, classpath: Array[AbsolutePath]) extends
   }
 }
 
-final class JvmDebuggingForker(underlying: JvmProcessForker) extends JvmProcessForker {
+final class JvmDebuggingForker(
+    underlying: JvmProcessForker,
+    debug: RunMode.Debug
+) extends JvmProcessForker {
 
   override def newClassLoader(parent: Option[ClassLoader]): ClassLoader =
     underlying.newClassLoader(parent)
@@ -241,11 +257,7 @@ final class JvmDebuggingForker(underlying: JvmProcessForker) extends JvmProcessF
       opts: CommonOptions,
       extraClasspath: Array[AbsolutePath]
   ): Task[Int] = {
-    val jargs = jargs0 :+ enableDebugInterface
+    val jargs = jargs0 :+ JvmProcessForker.jdwpAgentArg(debug)
     underlying.runMain(cwd, mainClass, args, jargs, logger, opts, extraClasspath)
-  }
-
-  private def enableDebugInterface: String = {
-    s"-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,quiet=n"
   }
 }

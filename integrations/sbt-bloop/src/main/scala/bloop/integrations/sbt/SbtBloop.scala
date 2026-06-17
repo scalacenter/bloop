@@ -64,18 +64,22 @@ object BloopKeys {
     settingKey[File]("Directory where to write bloop configuration files")
   val bloopIsMetaBuild: SettingKey[Boolean] =
     settingKey[Boolean]("Is this a meta build?")
+  val bloopExportMetaBuild: SettingKey[Boolean] =
+    settingKey[Boolean]("Automatically export the sbt meta-build on load (needed by Metals).")
   val bloopAggregateSourceDependencies: SettingKey[Boolean] =
     settingKey[Boolean]("Flag to tell bloop to aggregate bloop config files in the same bloop dir")
   val bloopExportJarClassifiers: SettingKey[Option[Set[String]]] =
     settingKey[Option[Set[String]]](
       "The classifiers that will be exported with `updateClassifiers`"
     )
+  @transient
   val bloopProductDirectories: TaskKey[Seq[File]] =
     taskKey[Seq[File]]("Bloop product directories")
   val bloopClassDirectory: SettingKey[File] =
     settingKey[File]("Directory where to write the class files")
   val bloopTargetDir: SettingKey[File] =
     settingKey[File]("Target directory for the pertinent project and configuration")
+  @transient
   val bloopInternalClasspath: TaskKey[Seq[(File, File)]] =
     taskKey[Seq[(File, File)]]("Directory where to write the class files")
   val bloopInstall: TaskKey[Unit] =
@@ -101,6 +105,7 @@ object BloopKeys {
     settingKey[Seq[Configuration]](
       "The sequence of configurations that are used to detect inter-project dependencies by bloop."
     )
+  @transient
   val bloopExtraExportedJars: TaskKey[Seq[File]] =
     taskKey[Seq[File]](
       "Jar files from internal dependencies whose exportedProducts differ from productDirectories"
@@ -148,6 +153,11 @@ object BloopDefaults {
         .map(_.split(",").toSet)
         .orElse(Some(Set("sources")))
     },
+    BloopKeys.bloopExportMetaBuild := {
+      Option(System.getProperty("bloop.export-meta-build"))
+        .orElse(Option(System.getenv("BLOOP_EXPORT_META_BUILD")))
+        .contains("true")
+    },
     BloopKeys.bloopInstall := bloopInstall.value,
     BloopKeys.bloopAggregateSourceDependencies := true,
     // Override classifiers so that we don't resolve always docs
@@ -164,16 +174,18 @@ object BloopDefaults {
     },
     Keys.onLoad := {
       val oldOnLoad = Keys.onLoad.value
+      val isMetaBuild = BloopKeys.bloopIsMetaBuild.value
+      val exportMetaBuild = BloopKeys.bloopExportMetaBuild.value
       oldOnLoad.andThen { state =>
-        val isMetaBuild = BloopKeys.bloopIsMetaBuild.value
-        if (!isMetaBuild) state
-        else runCommandAndRemaining("bloopInstall")(state)
+        if (isMetaBuild && exportMetaBuild) runCommandAndRemaining("bloopInstall")(state)
+        else state
       }
     },
     BloopKeys.bloopSupportedConfigurations := List(
       Compile,
       Test,
       IntegrationTest,
+      MultiJvm,
       Provided,
       Optional
     )
@@ -229,10 +241,20 @@ object BloopDefaults {
       Keys.run / BloopKeys.bloopMainClass := BloopKeys.bloopMainClass.value
     ) ++ discoveredSbtPluginsSettings
 
+  /**
+   * The configuration used by Akka's sbt-multi-jvm plugin for its `src/multi-jvm`
+   * sources. Bloop matches it by name so that multi-jvm targets are exported
+   * automatically, without users having to wire `configSettings` in their build.
+   * Projects that don't enable the plugin define no products for it, so
+   * `bloopGenerate` short-circuits and no target is produced.
+   */
+  val MultiJvm: Configuration = Configuration.of("MultiJvm", "multi-jvm")
+
   lazy val projectSettings: Seq[Def.Setting[?]] = {
     sbt.inConfig(Compile)(configSettings) ++
       sbt.inConfig(Test)(configSettings) ++
       sbt.inConfig(IntegrationTest)(configSettings) ++
+      sbt.inConfig(MultiJvm)(configSettings) ++
       List(
         BloopKeys.bloopScalaJSStage := findOutScalaJsStage.value,
         BloopKeys.bloopScalaJSModuleKind := findOutScalaJsModuleKind.value,
@@ -548,9 +570,10 @@ object BloopDefaults {
    * Creates a project name from a classpath dependency and its configuration.
    *
    * This function uses internal sbt utils (`sbt.Classpaths`) to parse configuration
-   * dependencies like sbt does and extract them. This parsing only supports compile
-   * and test, any kind of other dependency will be assumed to be test and will be
-   * reported to the user.
+   * dependencies like sbt does and extract them. Internal configurations such as
+   * `compile-internal` are resolved like their base configuration because they only
+   * differ in publishing semantics. Any other unsupported dependency will be assumed
+   * to be test and will be reported to the user.
    *
    * Ref https://www.scala-sbt.org/1.x/docs/Library-Management.html#Configurations.
    */
@@ -563,9 +586,12 @@ object BloopDefaults {
       data: ScopeSettings,
       logger: Logger
   ): List[String] = {
-    // We only detect dependencies for those configurations that are supported
+    // We only detect dependencies for those configurations that are supported,
+    // where the hidden `*-internal` variant of a supported configuration is supported too
     def filterSupported(configurationNames: Seq[String]): Seq[String] = {
-      configurationNames.filter(conf => supportedConfigurationNames.exists(_ == conf))
+      configurationNames.filter(conf =>
+        supportedConfigurationNames.contains(conf.stripSuffix("-internal"))
+      )
     }
 
     val ref = dep.project
@@ -583,8 +609,10 @@ object BloopDefaults {
         )
 
         val mappedConfiguration = {
+          // Mappings like `compile-internal` are keyed by the hidden internal variant
+          // of the configuration, which sbt resolves classpaths from
+          var mapped = mapping(configuration.name) ++ mapping(configuration.name + "-internal")
           // We need this to make `Provided` & `Optional` mean `Compile`
-          var mapped = mapping(configuration.name)
           if (configuration == Compile) {
             if (mapped.isEmpty)
               mapped = mapping(Provided.name)
@@ -598,7 +626,9 @@ object BloopDefaults {
           case Nil => Nil
           case configurationNames =>
             val configurations = configurationNames.iterator
-              .flatMap(name => activeDependentConfigurations.find(_.name == name).toList)
+              .flatMap(name =>
+                activeDependentConfigurations.find(_.name == name.stripSuffix("-internal")).toList
+              )
               .flatMap(c => defaultSbtConfigurationMappings.getOrElse(c.name, Some(c)).toList)
               .toList
 
@@ -809,7 +839,10 @@ object BloopDefaults {
       }
     } else {
       Def.task {
-        val isForkedExecution = if (configuration == Test || configuration == IntegrationTest) {
+        val isTestLike =
+          configuration == Test || configuration == IntegrationTest ||
+            configuration.name == MultiJvm.name
+        val isForkedExecution = if (isTestLike) {
           (Test / Keys.test / Keys.fork).value
         } else {
           (Compile / Keys.run / Keys.fork).value
@@ -908,6 +941,8 @@ object BloopDefaults {
     val tags = configuration match {
       case IntegrationTest => List(Tag.IntegrationTest)
       case Test => List(Tag.Test)
+      // multi-jvm extends Test, so its target holds test code
+      case c if c.name == MultiJvm.name => List(Tag.Test)
       case _ => List(Tag.Library)
     }
 
@@ -1396,6 +1431,15 @@ object BloopDefaults {
   }
 
   /**
+   * Delegate to `ConfigUtil.pathsOutsideRoots` after normalizing both roots and
+   * candidate paths to absolute. A relative single-segment path has a null
+   * parent, which makes the upstream utility NPE; normalizing both sides also
+   * avoids misclassifying in-root resources when the roots are relative.
+   */
+  private def resourcesOutsideRoots(roots: Seq[Path], paths: Seq[Path]): Seq[Path] =
+    ConfigUtil.pathsOutsideRoots(roots.map(_.toAbsolutePath), paths.map(_.toAbsolutePath))
+
+  /**
    * This task is triggered by `bloopGenerate` and does stuff which is
    * sometimes dangerous because it can incur on cyclic dependencies, such as:
    *
@@ -1430,7 +1474,7 @@ object BloopDefaults {
             val currentResourceDirs = currentResources.filter(Files.isDirectory(_))
             val allResourceFiles = (configuration / Keys.resources).value
             val additionalResources =
-              ConfigUtil.pathsOutsideRoots(currentResourceDirs, allResourceFiles.map(_.toPath))
+              resourcesOutsideRoots(currentResourceDirs, allResourceFiles.map(_.toPath))
 
             val newGeneratedProject = {
               val sbt = computeSbtMetadata.value.map(_.config)
@@ -1485,7 +1529,7 @@ object BloopDefaults {
 
         val unmanagedResourceFiles = (configKey / Keys.unmanagedResources).value
         val additionalResources =
-          ConfigUtil.pathsOutsideRoots(resourceDirs, unmanagedResourceFiles.map(_.toPath))
+          resourcesOutsideRoots(resourceDirs, unmanagedResourceFiles.map(_.toPath))
         (resourceDirs ++ additionalResources).toList
       }
     }

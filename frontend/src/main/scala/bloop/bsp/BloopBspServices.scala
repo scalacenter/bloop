@@ -1035,7 +1035,7 @@ final class BloopBspServices(
         state: State
     ): Task[State] = {
       import bloop.engine.tasks.LinkTask.{linkJS, linkNative}
-      val cwd = state.commonOptions.workingPath
+      val cwd = project.workingDirectory
 
       parseMainClass(project, state) match {
         case Left(error) =>

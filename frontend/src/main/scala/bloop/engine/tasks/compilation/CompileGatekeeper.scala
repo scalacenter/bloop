@@ -279,4 +279,10 @@ object CompileGatekeeper {
       lastSuccessfulResults.clear()
     }
   }
+
+  // Drop the cached last successful result for a single project so a clean fully resets it.
+  private[bloop] def clearSuccessfulResult(project: Project): Unit = {
+    lastSuccessfulResults.remove(project.uniqueId)
+    ()
+  }
 }

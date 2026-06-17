@@ -204,9 +204,9 @@ object Cli {
             Print(commandUsageAsked(commandName.mkString(" ")), commonOptions, Exit(ExitStatus.Ok))
           case Right((commandName, WithHelp(_, _, command), remainingArgs)) =>
             // Override common options depending who's the caller of parse (whether nailgun or main)
-            def run(command: Commands.RawCommand, cliOptions: CliOptions): Run = {
+            def run(command: Commands.RawCommand, cliOptions: CliOptions): Action = {
               if (!cliOptions.version) Run(command, Exit(ExitStatus.Ok))
-              else Run(Commands.About(cliOptions), Run(command, Exit(ExitStatus.Ok)))
+              else Print(aboutAsked, commonOptions, Run(command, Exit(ExitStatus.Ok)))
             }
 
             command match {
@@ -214,6 +214,8 @@ object Cli {
               case Right(_: Commands.Help) =>
                 Print(helpAsked, commonOptions, Exit(ExitStatus.Ok))
               case Right(_: Commands.About) =>
+                Print(aboutAsked, commonOptions, Exit(ExitStatus.Ok))
+              case Right(_: Commands.Version) =>
                 Print(aboutAsked, commonOptions, Exit(ExitStatus.Ok))
               case Right(c: Commands.Bsp) =>
                 val newCommand = c.copy(cliOptions = c.cliOptions.copy(common = commonOptions))
@@ -245,30 +247,38 @@ object Cli {
                 }
               case Right(c: Commands.Test) =>
                 val newCommand = c.copy(cliOptions = c.cliOptions.copy(common = commonOptions))
-                withProjectsOrAll(
-                  c.projects,
-                  remainingArgs.remaining
-                ) { ps =>
-                  run(
-                    // Infer everything after '--' as if they were execution args
-                    newCommand.copy(projects = ps, args = c.args ++ remainingArgs.unparsed),
-                    newCommand.cliOptions
-                  )
-                }
+                Validate
+                  .jvmDebug(newCommand.jvmDebug, newCommand.jvmDebugSuspend, commonOptions)
+                  .getOrElse {
+                    withProjectsOrAll(
+                      c.projects,
+                      remainingArgs.remaining
+                    ) { ps =>
+                      run(
+                        // Infer everything after '--' as if they were execution args
+                        newCommand.copy(projects = ps, args = c.args ++ remainingArgs.unparsed),
+                        newCommand.cliOptions
+                      )
+                    }
+                  }
               case Right(c: Commands.Run) =>
                 val newCommand = c.copy(cliOptions = c.cliOptions.copy(common = commonOptions))
-                withNonEmptyProjects(
-                  c.projects,
-                  commandName.mkString(" "),
-                  remainingArgs.remaining,
-                  commonOptions
-                ) { ps =>
-                  run(
-                    // Infer everything after '--' as if they were execution args
-                    newCommand.copy(projects = ps, args = c.args ++ remainingArgs.unparsed),
-                    newCommand.cliOptions
-                  )
-                }
+                Validate
+                  .jvmDebug(newCommand.jvmDebug, newCommand.jvmDebugSuspend, commonOptions)
+                  .getOrElse {
+                    withNonEmptyProjects(
+                      c.projects,
+                      commandName.mkString(" "),
+                      remainingArgs.remaining,
+                      commonOptions
+                    ) { ps =>
+                      run(
+                        // Infer everything after '--' as if they were execution args
+                        newCommand.copy(projects = ps, args = c.args ++ remainingArgs.unparsed),
+                        newCommand.cliOptions
+                      )
+                    }
+                  }
               case Right(c: Commands.Clean) =>
                 // We accept no project arguments in clean
                 val potentialProjects = c.projects ++ remainingArgs.remaining
@@ -295,9 +305,8 @@ object Cli {
         newAction.getOrElse {
           userOptions match {
             case Left(err) => printErrorAndExit(err.message, commonOptions)
-            case Right(cliOptions0) =>
-              val cliOptions = cliOptions0.copy(common = commonOptions)
-              if (cliOptions.version) Run(Commands.About(cliOptions), Exit(ExitStatus.Ok))
+            case Right(cliOptions) =>
+              if (cliOptions.version) Print(aboutAsked, commonOptions, Exit(ExitStatus.Ok))
               else {
                 val msg = "These flags can only go together with commands!"
                 Print(msg, commonOptions, Exit(ExitStatus.InvalidCommandLineOption))

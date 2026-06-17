@@ -131,8 +131,13 @@ $ sbt bloopInstall
 ### Enable custom configurations
 
 By default, `bloopInstall` exports projects for the standard `Compile`,
-`Test` and `IntegrationTest` sbt configurations. If your build defines
-additional configurations in a project, such as [your own sbt custom
+`Test` and `IntegrationTest` sbt configurations, as well as the `multi-jvm`
+configuration used by Akka's [sbt-multi-jvm](https://doc.akka.io/docs/akka/current/multi-jvm-testing.html)
+plugin. The latter is exported automatically whenever a project enables the
+plugin, so its `src/multi-jvm` sources are compiled with no extra setup.
+
+If your build defines other additional configurations in a project, such as
+[your own sbt custom
 configuration](https://www.scala-sbt.org/1.0/docs/offline/Testing.html#Custom+test+configuration),
 you might want to export these configurations to Bloop projects too.
 
@@ -255,6 +260,33 @@ either you or an sbt plugin are incremental and complete as soon as possible.
 
 Lastly, make sure you keep a hot sbt session around as much time as possible. Running `bloopInstall`
 a second time in the sbt session is *really* fast.
+
+### Export the sbt meta-build
+
+Bloop can also export the sbt **meta-build** (the build definition under `project/`) so that Metals
+and similar tools can compile and navigate your `project/*.scala` and `*.sbt` sources. This is
+**opt-in** — a plain `sbt` session does not export the meta-build, so startup stays fast and quiet.
+
+Enable it with the `bloop.export-meta-build` system property or the `BLOOP_EXPORT_META_BUILD`
+environment variable. These are read at every meta-build layer, so they also cover nested
+`project/project` builds:
+
+```bash
+sbt -Dbloop.export-meta-build=true
+# or
+BLOOP_EXPORT_META_BUILD=true sbt
+```
+
+Metals sets this automatically when it runs `bloopInstall`, so meta-build navigation works there
+without any extra configuration.
+
+You can also enable it from the build with the `bloopExportMetaBuild` setting, but it only affects the
+layer it is defined in (`project/*.sbt` configures the outer meta-build, `project/project/*.sbt` the
+next one down), so for nested meta-builds prefer the property or environment variable above:
+
+```scala
+Global / bloopExportMetaBuild := true
+```
 
 [sbt-configuration]: https://www.scala-sbt.org/1.x/docs/Multi-Project.html
 [integration-test-conf]: https://www.scala-sbt.org/1.0/docs/offline/Testing.html#Integration+Tests

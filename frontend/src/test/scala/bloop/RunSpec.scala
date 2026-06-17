@@ -1,6 +1,7 @@
 package bloop
 
 import java.io.ByteArrayInputStream
+import java.io.InputStream
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.StandardOpenOption
@@ -341,6 +342,52 @@ class RunSpec extends BloopHelpers {
         try TestUtil.blockingExecute(action, state, duration)
         catch { case t: Throwable => println(msgs.mkString("\n")); throw t }
       assert(compiledState.status.isOk)
+    }
+  }
+
+  // On the CLI path stdin is nailgun's NGInputStream, whose `available()` returns 0 even
+  // while data is pending; a poll loop gated on `available() > 0` silently drops input and
+  // `readInt` fails/hangs. This stream simulates that, so the test fails on a poll loop and
+  // passes on a blocking reader. A plain ByteArrayInputStream would NOT catch it (its
+  // `available()` is honest).
+  final class ZeroAvailableInputStream(underlying: InputStream) extends InputStream {
+    override def available(): Int = 0
+    override def read(): Int = underlying.read()
+    override def read(b: Array[Byte], off: Int, len: Int): Int = underlying.read(b, off, len)
+  }
+
+  @Test
+  def canRunApplicationThatReadsStdinWithoutAvailableBytes: Unit = {
+    object Sources {
+      val `A.scala` =
+        """object Foo {
+          |  def main(args: Array[String]): Unit = {
+          |    val x = scala.io.StdIn.readInt()
+          |    val y = scala.io.StdIn.readInt()
+          |    println(x + y)
+          |  }
+          |}
+        """.stripMargin
+    }
+
+    val logger = new RecordingLogger
+    val structure = Map("A" -> Map("A.scala" -> Sources.`A.scala`))
+    TestUtil.testState(structure, Map.empty) { (state0: State) =>
+      val raw = new ByteArrayInputStream("1\n2\n".getBytes(StandardCharsets.UTF_8))
+      val ourInputStream = new ZeroAvailableInputStream(raw)
+      val hijackedCommonOptions = state0.commonOptions.copy(in = ourInputStream)
+      val state = state0.copy(logger = logger).copy(commonOptions = hijackedCommonOptions)
+      val action = Run(Commands.Run(List("A")))
+      val duration = Duration.apply(15, TimeUnit.SECONDS)
+      def msgs = logger.getMessages
+      val compiledState =
+        try TestUtil.blockingExecute(action, state, duration)
+        catch { case t: Throwable => println(msgs.mkString("\n")); throw t }
+      assert(compiledState.status.isOk, s"Run failed! Messages:\n${msgs.mkString("\n")}")
+      assert(
+        msgs.contains(("info", "3")),
+        s"Expected stdin to be forwarded and program to print '3'. Messages:\n${msgs.mkString("\n")}"
+      )
     }
   }
 
@@ -719,5 +766,37 @@ class RunSpec extends BloopHelpers {
       assert(logOutput.contains("ATest"))
       assert(logOutput.contains("BTest"))
     }
+  }
+
+  @Test
+  def runForksJvmWithDebugAgent(): Unit = {
+    val port = freePort()
+    val projectName = "test-project"
+    // The main prints the JVM's own input arguments so we can assert the debug agent was injected.
+    val source =
+      s"""package $packageName
+         |object DebugMain {
+         |  def main(args: Array[String]): Unit = {
+         |    val jvmArgs = java.lang.management.ManagementFactory.getRuntimeMXBean.getInputArguments
+         |    println("JVM-ARGS: " + jvmArgs)
+         |  }
+         |}""".stripMargin
+    // suspend defaults to false, so the JVM runs (and exits) without waiting for a debugger.
+    val command =
+      Commands.Run(List(projectName), Some(s"$packageName.DebugMain"), jvmDebug = Some(port))
+    runAndCheck(projectName, List(source), command) { messages =>
+      val expectedAgent =
+        s"-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,quiet=n,address=$port"
+      assert(
+        messages.exists { case (level, msg) => level == "info" && msg.contains(expectedAgent) },
+        s"Forked JVM args did not contain debug agent '$expectedAgent'.\nMessages: $messages"
+      )
+    }
+  }
+
+  private def freePort(): Int = {
+    val socket = new java.net.ServerSocket(0)
+    try socket.getLocalPort
+    finally socket.close()
   }
 }

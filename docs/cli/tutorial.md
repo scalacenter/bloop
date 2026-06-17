@@ -286,8 +286,9 @@ All 1 test suites passed.
 ===============================================
 ```
 
-To debug our tests, we can use instead
-`-J-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005`.
+To debug our tests, pass `--jvm-debug 5005` so a debugger (IntelliJ, `jdb`) can attach on that port.
+The tests start immediately; add `--jvm-debug-suspend` to make the JVM wait for the debugger to
+attach first.
 
 
 ## Run an application
@@ -334,8 +335,9 @@ the forked virtual machine.
 Hello, World!
 ```
 
-To debug an application, pass the following JVM argument instead
-`-J-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005`.
+To debug an application, pass `--jvm-debug 5005` so a debugger (IntelliJ, `jdb`) can attach on that
+port. The application starts immediately; add `--jvm-debug-suspend` to make the JVM wait for the
+debugger to attach first.
 
 
 ## Enable file watching

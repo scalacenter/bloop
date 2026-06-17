@@ -4,7 +4,7 @@ import scala.util.control.NonFatal
 
 import bloop.util.Diff
 
-import utest.ufansi.Color
+import utest.shaded.fansi.Color
 
 // Borrowed from scalameta/scalameta to experiment a bit with richer test infra
 object DiffAssertions {

@@ -44,10 +44,12 @@ object Tasks {
     val allTargetsToClean =
       if (!includeDeps) targets
       else targets.flatMap(t => Dag.dfs(state.build.getDagFor(t), mode = Dag.PreOrder)).distinct
-    state.results.cleanSuccessful(allTargetsToClean.toSet, state.client, state.logger).map {
-      newResults =>
-        state.copy(results = newResults)
-    }
+    // Drop the cross-client in-memory last successful results so the next compile can't reuse them.
+    Task(allTargetsToClean.foreach(CompileGatekeeper.clearSuccessfulResult))
+      .flatMap { _ =>
+        state.results.cleanSuccessful(allTargetsToClean.toSet, state.client, state.logger)
+      }
+      .map(newResults => state.copy(results = newResults))
   }
 
   /**
