@@ -297,15 +297,19 @@ object Interpreter {
    */
   private[bloop] def scalaReplArtifactAndMain(
       scalaVersion: String
-  ): (DependencyResolution.Artifact, String) = {
-    val org = "org.scala-lang"
+  ): (List[DependencyResolution.Artifact], String) = {
+    def artifact(module: String) =
+      DependencyResolution.Artifact("org.scala-lang", module, scalaVersion)
     if (scalaVersion.startsWith("3.")) {
-      val module =
-        if (isScalaVersionAtLeast(scalaVersion, 3, 8)) "scala3-repl_3" else "scala3-compiler_3"
-      (DependencyResolution.Artifact(org, module, scalaVersion), "dotty.tools.repl.Main")
+      // The REPL moved to `scala3-repl` at 3.8.0; below that it ships in `scala3-compiler`.
+      // `scala3-repl` excludes the stdlib, so `scala3-compiler` must be resolved alongside it.
+      val artifacts =
+        if (isScalaVersionAtLeast(scalaVersion, 3, 8))
+          List(artifact("scala3-repl_3"), artifact("scala3-compiler_3"))
+        else List(artifact("scala3-compiler_3"))
+      (artifacts, "dotty.tools.repl.Main")
     } else {
-      val artifact = DependencyResolution.Artifact(org, "scala-compiler", scalaVersion)
-      (artifact, "scala.tools.nsc.MainGenericRunner")
+      (List(artifact("scala-compiler")), "scala.tools.nsc.MainGenericRunner")
     }
   }
 
@@ -374,13 +378,16 @@ object Interpreter {
               // `java -cp ... <main>` command. This avoids depending on a `coursier`/`cs`
               // launcher on the client's PATH and surfaces resolution failures with a clear
               // message instead of a raw stack trace.
-              def withResolved(artifact: DependencyResolution.Artifact, hint: String)(
+              def withResolved(artifacts: List[DependencyResolution.Artifact], hint: String)(
                   build: List[AbsolutePath] => Task[State]
               ): Task[State] = {
-                DependencyResolution.resolveWithErrors(List(artifact), state.logger) match {
+                DependencyResolution.resolveWithErrors(artifacts, state.logger) match {
                   case Right(jars) => build(jars.toList)
                   case Left(error) =>
-                    val coords = s"${artifact.organization}:${artifact.module}:${artifact.version}"
+                    val coords =
+                      artifacts
+                        .map(a => s"${a.organization}:${a.module}:${a.version}")
+                        .mkString(", ")
                     val msg = s"Could not resolve $coords. $hint ${error.getMessage}"
                     Task.now(state.withError(msg, ExitStatus.RunError))
                 }
@@ -422,9 +429,9 @@ object Interpreter {
                           )
                           .getOrElse(BuildInfo.scalaVersion)
 
-                        val (artifact, mainClass) = scalaReplArtifactAndMain(scalaVersion)
+                        val (artifacts, mainClass) = scalaReplArtifactAndMain(scalaVersion)
                         withResolved(
-                          artifact,
+                          artifacts,
                           s"The Scala REPL may be unavailable for $scalaVersion."
                         ) { replJars =>
                           // REPL jars run the JVM (`usejavacp` lets the compiler find the JDK classes
@@ -472,7 +479,7 @@ object Interpreter {
                         )
                       val hint = s"Ammonite may not be published for Scala $scalaVersion; " +
                         "try a different --ammonite-version."
-                      withResolved(artifact, hint) { ammJars =>
+                      withResolved(List(artifact), hint) { ammJars =>
                         // Ammonite seeds the REPL from its own classpath, so the project goes there too.
                         val classpath =
                           (ammJars ++ replClasspath)

@@ -109,25 +109,28 @@ object ConsoleSpec extends BaseSuite {
     }
   }
 
-  test("scalaReplArtifactAndMain selects the REPL artifact per Scala version") {
-    def select(version: String): (String, String) = {
-      val (artifact, mainClass) = Interpreter.scalaReplArtifactAndMain(version)
-      assertEquals(artifact.organization, "org.scala-lang")
-      assertEquals(artifact.version, version)
-      (artifact.module, mainClass)
+  test("scalaReplArtifactAndMain selects the REPL artifacts per Scala version") {
+    def select(version: String): (List[String], String) = {
+      val (artifacts, mainClass) = Interpreter.scalaReplArtifactAndMain(version)
+      artifacts.foreach { a =>
+        assertEquals(a.organization, "org.scala-lang")
+        assertEquals(a.version, version)
+      }
+      (artifacts.map(_.module), mainClass)
     }
-    assertEquals(select("2.13.18"), ("scala-compiler", "scala.tools.nsc.MainGenericRunner"))
-    assertEquals(select("2.12.21"), ("scala-compiler", "scala.tools.nsc.MainGenericRunner"))
-    assertEquals(select("3.3.4"), ("scala3-compiler_3", "dotty.tools.repl.Main"))
-    assertEquals(select("3.7.4"), ("scala3-compiler_3", "dotty.tools.repl.Main"))
-    assertEquals(select("3.8.0"), ("scala3-repl_3", "dotty.tools.repl.Main"))
-    assertEquals(select("3.10.0"), ("scala3-repl_3", "dotty.tools.repl.Main"))
+    val scala2 = (List("scala-compiler"), "scala.tools.nsc.MainGenericRunner")
+    val scala3Old = (List("scala3-compiler_3"), "dotty.tools.repl.Main")
+    // scala3-repl excludes the stdlib, so scala3-compiler must be resolved alongside it.
+    val scala3New = (List("scala3-repl_3", "scala3-compiler_3"), "dotty.tools.repl.Main")
+    assertEquals(select("2.13.18"), scala2)
+    assertEquals(select("2.12.21"), scala2)
+    assertEquals(select("3.3.4"), scala3Old)
+    assertEquals(select("3.7.4"), scala3Old)
+    assertEquals(select("3.8.0"), scala3New)
+    assertEquals(select("3.10.0"), scala3New)
     // Suffixed (RC/nightly) versions compare on the numeric part only.
-    assertEquals(select("3.8.0-RC1"), ("scala3-repl_3", "dotty.tools.repl.Main"))
-    assertEquals(
-      select("3.7.4-RC1-bin-20260101-abcdef-NIGHTLY"),
-      ("scala3-compiler_3", "dotty.tools.repl.Main")
-    )
+    assertEquals(select("3.8.0-RC1"), scala3New)
+    assertEquals(select("3.7.4-RC1-bin-20260101-abcdef-NIGHTLY"), scala3Old)
   }
 
   consoleTest("excludeRoot console command uses only the dependencies' classpath") {
