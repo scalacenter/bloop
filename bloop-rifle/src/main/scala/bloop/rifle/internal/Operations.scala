@@ -42,7 +42,7 @@ object Operations {
       if (!Properties.isWin)
         Files.setPosixFilePermissions(path, PosixFilePermissions.fromString("rwx------"))
     }
-    LockFiles.under(path)
+    LockFiles.under(path, addPipePrefix = true, checkPermissions = false)
   }
 
   /**
