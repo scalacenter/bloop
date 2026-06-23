@@ -12,11 +12,9 @@ import bloop.util.TestUtil
 
 object ConsoleSpec extends BaseSuite {
 
-  // The console resolves REPL artifacts with coursier's API, so these tests need a working
-  // coursier setup; gate on the launcher being present as a proxy and skip otherwise.
-  private def consoleTest(name: String)(fun: => Any): Unit =
-    if (TestUtil.hasCoursier) test(name)(fun)
-    else ignore(name, "IGNORED (coursier not on PATH)")(fun)
+  // The console resolves REPL artifacts with the coursier API (no `coursier`/`cs` binary needed)
+  // and launches plain `java`, so these tests only need network/cache + a JDK, like the rest of
+  // the suite that resolves dependencies.
 
   // The server logs the REPL command newline-joined; split it back into its tokens. The first
   // token is the JDK's java binary (an absolute path), so we locate the command by its `-cp` token.
@@ -26,7 +24,7 @@ object ConsoleSpec extends BaseSuite {
       .find(_.contains("-cp"))
       .getOrElse(sys.error(s"No REPL command logged: ${logger.infos}"))
 
-  consoleTest("default ammonite console command uses the project classpath") {
+  test("default ammonite console command uses the project classpath") {
     TestUtil.withinWorkspace { workspace =>
       object Sources {
         val `A.scala` =
@@ -68,7 +66,7 @@ object ConsoleSpec extends BaseSuite {
   //   MissingRequirementError: object java.lang.Object in compiler mirror not found
   // Actually launching the command the server generates must initialize Ammonite's compiler on
   // the running JDK without that error, with the project's classes visible in the REPL.
-  consoleTest("ammonite console launches without MissingRequirementError") {
+  test("ammonite console launches without MissingRequirementError") {
     TestUtil.withinWorkspace { workspace =>
       val marker = "bloop-1226-ok"
       val aSource =
@@ -133,7 +131,7 @@ object ConsoleSpec extends BaseSuite {
     assertEquals(select("3.7.4-RC1-bin-20260101-abcdef-NIGHTLY"), scala3Old)
   }
 
-  consoleTest("excludeRoot console command uses only the dependencies' classpath") {
+  test("excludeRoot console command uses only the dependencies' classpath") {
     TestUtil.withinWorkspace { workspace =>
       val aSource = """/A.scala
                       |class A
@@ -170,7 +168,7 @@ object ConsoleSpec extends BaseSuite {
 
   // The scalac REPL must also initialize on JDK > 8 (via -Dscala.usejavacp=true) without the
   // MissingRequirementError, with the project's classes visible in the session.
-  consoleTest("scalac console launches without MissingRequirementError") {
+  test("scalac console launches without MissingRequirementError") {
     TestUtil.withinWorkspace { workspace =>
       val marker = "bloop-scalac-ok"
       val aSource =
