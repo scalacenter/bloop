@@ -115,13 +115,17 @@ private final class BloopNameHashing(
               current.apis.internalAPI
             )
           debug("\nChanges:\n" + newApiChanges)
+
+          val addedPackageObjectInvalidations =
+            invalidationsFromAddedPackageObjects(invalidatedSources, previous, current)
+
           val nextInvalidations = invalidateAfterInternalCompilation(
             current,
             newApiChanges,
             recompiledClasses,
             cycleNum >= options.transitiveStep,
             IncrementalCommon.comesFromScalaSource(previous.relations, Some(current.relations))
-          )
+          ) ++ addedPackageObjectInvalidations
           debug(s"Next invalidations: $nextInvalidations")
 
           val continue = lookup.shouldDoIncrementalCompilation(nextInvalidations, current)
@@ -265,6 +269,57 @@ private final class BloopNameHashing(
       val merged = pruned ++ fresh
       debug("********* Merged: \n" + merged.relations + "\n*********")
       merged
+    }
+  }
+
+  /**
+   * Computes extra invalidations for package objects that were just (re-)added.
+   *
+   * A Bloop-specific workaround for source-set churn: a removed-then-re-added
+   * source loses the dependency edges from retained sources, so Zinc's
+   * edge-based invalidation leaves them compiled against the stale state (the
+   * precise fix belongs in Zinc, per the note on [[BloopNameHashing]]). Package
+   * objects are the common trigger since they contribute implicits to the whole
+   * package's implicit scope.
+   *
+   * When a recompiled source produces a `*.package` class absent from the
+   * previous analysis, we invalidate every class in that package and everything
+   * referencing one of them. Deliberately conservative and fires only for added
+   * package objects, so ordinary and clean compiles are unaffected. Coverage is
+   * bounded by recorded edges: a source that imports only package-object members
+   * (without referencing any of the package's classes) has no edge to detect.
+   */
+  private def invalidationsFromAddedPackageObjects(
+      recompiledSources: Set[VirtualFile],
+      previous: Analysis,
+      current: Analysis
+  ): Set[String] = {
+    def packageOf(className: String): String = {
+      val i = className.lastIndexOf('.')
+      if (i < 0) "" else className.substring(0, i)
+    }
+
+    val knownClasses = previous.relations.classes._2s
+    val addedPackageObjects = recompiledSources
+      .flatMap(src => current.relations.classNames(src))
+      .filter(name => name.endsWith(".package") && !knownClasses.contains(name))
+
+    if (addedPackageObjects.isEmpty) Set.empty
+    else {
+      val allClasses = current.relations.classes._2s
+      addedPackageObjects.flatMap { packageObject =>
+        val pkg = packageOf(packageObject)
+        // Every class in the package has the package object in its implicit
+        // scope, so any of them may now resolve implicits differently.
+        val classesInPackage =
+          allClasses.filter(name => name != packageObject && packageOf(name) == pkg)
+        // Classes that reference one of the package's classes (e.g. importers
+        // that use its types). This is the most we can detect from recorded
+        // edges — see the method doc for the bound on coverage.
+        val packageClassUsers =
+          classesInPackage.flatMap(name => current.relations.usesInternalClass(name))
+        classesInPackage ++ packageClassUsers
+      }
     }
   }
 }
