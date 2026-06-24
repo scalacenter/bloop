@@ -40,6 +40,10 @@ import sbt.TaskKey
 import sbt.Test
 import sbt.ThisBuild
 import sbt.ThisProject
+import sbt.io.ExtensionFilter
+import sbt.io.FileFilter
+import sbt.io.HiddenFileFilter
+import sbt.io.NothingFilter
 import sbt.{given, *}
 import xsbti.compile.CompileOrder
 
@@ -412,6 +416,50 @@ object BloopDefaults {
 
     val realSources = sources.map(_.toAbsolutePath())
     sources.filter(source => !sourceDirs.exists(dir => checkIfParent(dir, source.getParent)))
+  }
+
+  /**
+   * Whether a configuration customizes the source include/exclude filters of its unmanaged
+   * sources. The server compiles every non-hidden `*.scala`/`*.java` file under an exported
+   * directory; when the filters are customized, sbt may compile a different set than that, both
+   * now and for files added later, so such directories are exported as an explicit file list
+   * instead of as directories.
+   */
+  def hasNonDefaultSourceFilters(includeFilter: FileFilter, excludeFilter: FileFilter): Boolean = {
+    val defaultInclude = includeFilter match {
+      case extensions: ExtensionFilter => extensions.extensions.toSet == Set("scala", "java")
+      case _ => false
+    }
+    val defaultExclude = excludeFilter == HiddenFileFilter || excludeFilter == NothingFilter
+    !defaultInclude || !defaultExclude
+  }
+
+  /**
+   * Splits source directories into those exported as directories and the explicit source files
+   * of directories whose filters are customized. Directories are exported verbatim so that the
+   * server can watch them and pick up new files. When the unmanaged source filters are not the
+   * defaults, the unmanaged directories are replaced by the list of files sbt actually compiles,
+   * because exporting them as directories would let the server compile files that sbt's filters
+   * hide, including files added after the export. Managed directories are always kept because
+   * filters do not apply to managed sources.
+   */
+  def selectSources(
+      sourceDirs: Seq[Path],
+      unmanagedSourceDirs: Seq[Path],
+      sbtSources: Seq[Path],
+      hasNonDefaultFilters: Boolean
+  ): (Seq[Path], Seq[Path]) = {
+    if (!hasNonDefaultFilters) (sourceDirs, Nil)
+    else {
+      val unmanagedSet = unmanagedSourceDirs.map(_.toAbsolutePath.normalize).toSet
+      val managedDirs =
+        sourceDirs.filterNot(dir => unmanagedSet.contains(dir.toAbsolutePath.normalize))
+      val filesInUnmanagedDirs = sbtSources.filter { source =>
+        val normalized = source.toAbsolutePath.normalize
+        unmanagedSourceDirs.exists(dir => normalized.startsWith(dir.toAbsolutePath.normalize))
+      }
+      (managedDirs, filesInUnmanagedDirs)
+    }
   }
 
   private def distinctOn[A, B](list: Seq[A], f: A => B): List[A] = {
@@ -1031,11 +1079,24 @@ object BloopDefaults {
 
             /* This is a best-effort to export source directories + stray source files that
              * are not contained in them. Source directories are superior over source files because
-             * they allow us to watch them and detect the creation of new source files in situ. */
+             * they allow us to watch them and detect the creation of new source files in situ.
+             * When sbt file filters hide sources that the server would pick up from a directory,
+             * that directory is replaced by the explicit list of files sbt compiles so that bloop
+             * compiles exactly what sbt compiles. */
             val sources = {
               val sourceDirs = Keys.sourceDirectories.value.map(_.toPath)
-              val sourceFiles = pruneSources(sourceDirs, Keys.sources.value.map(_.toPath))
-              (sourceDirs ++ sourceFiles).toList
+              val unmanagedSourceDirs = Keys.unmanagedSourceDirectories.value.map(_.toPath)
+              val sbtSources = Keys.sources.value.map(_.toPath)
+              val hasNonDefaultFilters = hasNonDefaultSourceFilters(
+                (Keys.unmanagedSources / Keys.includeFilter).value,
+                (Keys.unmanagedSources / Keys.excludeFilter).value
+              )
+              if (hasNonDefaultFilters)
+                logger.warn(Feedback.sourceFiltersRequireReimport(projectName))
+              val (plainDirs, filteredFiles) =
+                selectSources(sourceDirs, unmanagedSourceDirs, sbtSources, hasNonDefaultFilters)
+              val strayFiles = pruneSources(sourceDirs, sbtSources)
+              (plainDirs ++ filteredFiles ++ strayFiles).distinct.toList
             }
 
             val testOptions = {
