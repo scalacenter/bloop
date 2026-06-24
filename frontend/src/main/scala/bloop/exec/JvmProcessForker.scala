@@ -20,7 +20,6 @@ import bloop.io.Paths
 import bloop.logging.DebugFilter
 import bloop.logging.Logger
 import bloop.task.Task
-import bloop.util.CrossPlatform
 
 /**
  * Collects configuration to start a new program in a new process
@@ -235,13 +234,9 @@ final class JvmForker(config: JdkConfig, classpath: Array[AbsolutePath]) extends
   }
 
   private def javaExecutable: Try[AbsolutePath] = {
-    val javaPath = config.javaHome.resolve("bin").resolve("java")
-    if (javaPath.exists) Success(javaPath)
-    else {
-      val javaExePath = config.javaHome.resolve("bin").resolve("java.exe")
-      if (CrossPlatform.isWindows && javaExePath.exists) Success(javaExePath)
-      else Failure(new IllegalStateException(s"Missing java executable at $javaPath!"))
-    }
+    val java = config.javaBinary
+    if (java.exists) Success(java)
+    else Failure(new IllegalStateException(s"Missing java executable at $java!"))
   }
 }
 
