@@ -335,6 +335,62 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
     }
   }
 
+  test("clean fully resets analysis when a package becomes an object") {
+    TestUtil.withinWorkspace { workspace =>
+      object Sources {
+        // A `foo.bar` package containing an object.
+        val `Foo.scala` =
+          """/main/scala/Foo.scala
+            |package foo.bar
+            |
+            |object Bar {
+            |  val myFooBar: Int = 1
+            |}
+          """.stripMargin
+
+        // The same FQN, but `bar` is now a top-level object instead of a package.
+        val `Foo2.scala` =
+          """/main/scala/Foo.scala
+            |package foo
+            |
+            |object bar {
+            |  object Bar {
+            |    val myFooBar: Int = 1
+            |  }
+            |}
+          """.stripMargin
+      }
+
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val `A` = TestProject(workspace, "a", List(Sources.`Foo.scala`))
+      val projects = List(`A`)
+      val state = loadState(workspace, projects, logger)
+      val compiledState = state.compile(`A`)
+      assertExitStatus(compiledState, ExitStatus.Ok)
+      assertValidCompilationState(compiledState, projects)
+
+      val analysisFile = compiledState.getProjectFor(`A`).analysisOut
+      assert(analysisFile.exists)
+
+      // Turn the `foo.bar` package into a top-level `object bar` with the same FQN.
+      assertIsFile(writeFile(`A`.srcFor("main/scala/Foo.scala"), Sources.`Foo2.scala`))
+
+      // A clean must also delete the persisted analysis, otherwise it is reloaded after a
+      // restart and the next compile runs incrementally against the stale package definition.
+      val _ = compiledState.clean(`A`)
+      assertNotFile(analysisFile)
+
+      // Compile from a freshly loaded state with no intervening recompile, so the test exercises
+      // a server restart at the point where the stale analysis would otherwise still be present.
+      val restartedLogger = new RecordingLogger(ansiCodesSupported = false)
+      val restartedState = loadState(workspace, projects, restartedLogger)
+      val restartedCompile = restartedState.compile(`A`)
+      assertExitStatus(restartedCompile, ExitStatus.Ok)
+      assertValidCompilationState(restartedCompile, projects)
+      assert(!restartedLogger.renderErrors().contains("already defined as package"))
+    }
+  }
+
   test("simulate an incremental compiler session") {
     TestUtil.withinWorkspace { workspace =>
       object Sources {
@@ -1451,6 +1507,78 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
         logger.renderErrors(exceptContaining = "Failed to compile"),
         """bad option: '-Ytyper-degug'""".stripMargin
       )
+    }
+  }
+
+  test("report the full stack trace once when a compiler plugin crashes the compiler") {
+    TestUtil.withinWorkspace { workspace =>
+      val pluginSources = List(
+        """/CrashingPlugin.scala
+          |package crash
+          |
+          |import scala.tools.nsc.Global
+          |import scala.tools.nsc.Phase
+          |import scala.tools.nsc.plugins.Plugin
+          |import scala.tools.nsc.plugins.PluginComponent
+          |
+          |class CrashingPlugin(val global: Global) extends Plugin {
+          |  val name = "crash"
+          |  val description = "Crashes the compiler after typer"
+          |  val components = List[PluginComponent](Component)
+          |
+          |  object Component extends PluginComponent {
+          |    val global: CrashingPlugin.this.global.type = CrashingPlugin.this.global
+          |    val phaseName = "crash"
+          |    val runsAfter = List("typer")
+          |    def newPhase(prev: Phase): Phase = new StdPhase(prev) {
+          |      def apply(unit: global.CompilationUnit): Unit =
+          |        throw new NoSuchMethodError("boom")
+          |    }
+          |  }
+          |}
+          """.stripMargin
+      )
+
+      val appSources = List(
+        """/App.scala
+          |object App
+          """.stripMargin
+      )
+
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val `A` = TestProject(workspace, "a", pluginSources)
+      // Scalac accepts an exploded plugin archive, so point -Xplugin at the classes directory
+      val `B` = TestProject(
+        workspace,
+        "b",
+        appSources,
+        scalacOptions = List(s"-Xplugin:${`A`.externalClassesDir}", "-Xplugin-require:crash")
+      )
+
+      val projects = List(`A`, `B`)
+      val state = loadState(workspace, projects, logger)
+      val compiledPlugin = state.compile(`A`)
+      assertExitStatus(compiledPlugin, ExitStatus.Ok)
+      writeFile(
+        `A`.externalClassesDir.resolve("scalac-plugin.xml"),
+        """<plugin>
+          |  <name>crash</name>
+          |  <classname>crash.CrashingPlugin</classname>
+          |</plugin>
+          """.stripMargin
+      )
+
+      val compiledState = compiledPlugin.compile(`B`)
+      assertExitStatus(compiledState, ExitStatus.CompilationError)
+
+      val crashReports =
+        logger.errors.filter(_.startsWith("Unexpected error when compiling b"))
+      assert(crashReports.size == 1)
+      assert(crashReports.head.contains("The compiler crashed with a NoSuchMethodError"))
+      assert(crashReports.head.contains("java.lang.NoSuchMethodError: boom"))
+      assert(crashReports.head.contains("at crash.CrashingPlugin"))
+      // The trace must be reported exactly once, not echoed again from the compiler backend
+      assert(logger.errors.count(_.contains("java.lang.NoSuchMethodError: boom")) == 1)
     }
   }
 

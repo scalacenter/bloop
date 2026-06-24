@@ -7,6 +7,8 @@ import java.nio.file.Files
 import scala.collection.immutable.Nil
 import scala.concurrent.Promise
 
+import bloop.Compiler
+import bloop.DependencyResolution
 import bloop.ScalaInstance
 import bloop.bsp.BspServer
 import bloop.cli.Commands.CompilingCommand
@@ -24,6 +26,8 @@ import bloop.engine.tasks.Tasks
 import bloop.engine.tasks.TestTask
 import bloop.engine.tasks.toolchains.ScalaJsToolchain
 import bloop.engine.tasks.toolchains.ScalaNativeToolchain
+import bloop.internal.build.BuildInfo
+import bloop.io.AbsolutePath
 import bloop.io.RelativePath
 import bloop.io.SourceWatcher
 import bloop.logging.DebugFilter
@@ -158,7 +162,8 @@ object Interpreter {
       cmd: CompilingCommand,
       state0: State,
       projects: List[Project],
-      noColor: Boolean
+      noColor: Boolean,
+      printSummary: Boolean = false
   ): Task[State] = {
     // Make new state cleaned of all compilation products if compilation is not incremental
     val state: Task[State] = {
@@ -187,7 +192,50 @@ object Interpreter {
       )
     }
 
-    compileTask.map(_.mergeStatus(ExitStatus.Ok))
+    Task(System.nanoTime).flatMap { startNanos =>
+      compileTask.map { compiled =>
+        val newState = compiled.mergeStatus(ExitStatus.Ok)
+        if (printSummary) {
+          val dagProjects = Dag.dfs(getProjectsDag(projects, newState), mode = Dag.PreOrder)
+          printCompileSummary(dagProjects, newState, (System.nanoTime - startNanos) / 1000000)
+        }
+        newState
+      }
+    }
+  }
+
+  /**
+   * Prints a summary of the compile run over the closure of the requested projects:
+   * per-project compile durations sorted slowest-first, blocked and errored projects without
+   * timing, the sum of all module compile times and the wall-clock duration of the whole run,
+   * including the clean preceding a non-incremental compile.
+   */
+  private def printCompileSummary(
+      dagProjects: List[Project],
+      newState: State,
+      wallClockMs: Long
+  ): Unit = {
+    val results = dagProjects.map(p => (p, newState.results.latestResult(p)))
+    val timed = results.collect {
+      case (p, Compiler.Result.Success(_, _, elapsed, _, _, _, _)) => (p.name, elapsed, "")
+      case (p, Compiler.Result.Failed(_, _, elapsed, _, _)) => (p.name, elapsed, " (failed)")
+      case (p, Compiler.Result.Cancelled(_, elapsed, _)) => (p.name, elapsed, " (cancelled)")
+    }
+    val untimed = results.collect {
+      case (p, Compiler.Result.Blocked(on)) => s"${p.name} - blocked on ${on.mkString(", ")}"
+      case (p, _: Compiler.Result.GlobalError) => s"${p.name} - failed with a global error"
+    }
+
+    val logger = newState.logger
+    val delimiter = "=" * LoggingEventHandler.getTerminalWidth
+    logger.info(delimiter)
+    timed.sortBy { case (name, elapsed, _) => (-elapsed, name) }.foreach {
+      case (name, elapsed, status) => logger.info(s"$name - ${elapsed}ms$status")
+    }
+    untimed.sorted.foreach(logger.info)
+    logger.info(s"Total module compile time: ${timed.map(_._2).sum}ms")
+    logger.info(s"Wall-clock duration: ${wallClockMs}ms")
+    logger.info(delimiter)
   }
 
   private def compile(cmd: Commands.Compile, state: State): Task[State] = {
@@ -197,8 +245,8 @@ object Interpreter {
         else Dag.inverseDependencies(state.build.dags, projectsToCompile).reduced
       }
 
-      if (!cmd.watch) runCompile(cmd, state, projects, cmd.cliOptions.noColor)
-      else watch(projects, state)(runCompile(cmd, _, projects, cmd.cliOptions.noColor))
+      if (!cmd.watch) runCompile(cmd, state, projects, cmd.cliOptions.noColor, cmd.summary)
+      else watch(projects, state)(runCompile(cmd, _, projects, cmd.cliOptions.noColor, cmd.summary))
     }
 
     if (cmd.projects.isEmpty) {
@@ -245,6 +293,43 @@ object Interpreter {
     }
   }
 
+  /**
+   * Picks the REPL artifact and main class for a Scala version. Scala 2 uses `scala-compiler`
+   * with `MainGenericRunner`; Scala 3 uses `dotty.tools.repl.Main`, served by `scala3-compiler`
+   * before 3.8.0 and the dedicated `scala3-repl` artifact from 3.8.0 on.
+   */
+  private[bloop] def scalaReplArtifactAndMain(
+      scalaVersion: String
+  ): (List[DependencyResolution.Artifact], String) = {
+    def artifact(module: String) =
+      DependencyResolution.Artifact("org.scala-lang", module, scalaVersion)
+    if (scalaVersion.startsWith("3.")) {
+      // The REPL moved to `scala3-repl` at 3.8.0; below that it ships in `scala3-compiler`.
+      // `scala3-repl` excludes the stdlib, so `scala3-compiler` must be resolved alongside it.
+      val artifacts =
+        if (isScalaVersionAtLeast(scalaVersion, 3, 8))
+          List(artifact("scala3-repl_3"), artifact("scala3-compiler_3"))
+        else List(artifact("scala3-compiler_3"))
+      (artifacts, "dotty.tools.repl.Main")
+    } else {
+      (List(artifact("scala-compiler")), "scala.tools.nsc.MainGenericRunner")
+    }
+  }
+
+  /** True if `scalaVersion` >= `major.minor`, comparing numeric parts and ignoring any suffix. */
+  private[bloop] def isScalaVersionAtLeast(
+      scalaVersion: String,
+      major: Int,
+      minor: Int
+  ): Boolean = {
+    def num(s: String): Option[Int] = scala.util.Try(s.toInt).toOption
+    val parts = scalaVersion.split("-").head.split('.')
+    (parts.lift(0).flatMap(num), parts.lift(1).flatMap(num)) match {
+      case (Some(maj), Some(min)) => maj > major || (maj == major && min >= minor)
+      case _ => false
+    }
+  }
+
   private def console(cmd: Commands.Console, state: State): Task[State] = {
     cmd.projects match {
       case Nil =>
@@ -256,10 +341,15 @@ object Interpreter {
       case project :: Nil =>
         state.build.getProjectFor(project) match {
           case Some(project) =>
+            // `--exclude-root` starts the console against only the target's dependencies, so we
+            // compile (and later classpath) those instead of the target project itself.
+            val projectsToCompile =
+              if (cmd.excludeRoot) project.dependencies.flatMap(state.build.getProjectFor)
+              else List(project)
             compileAnd(
               cmd,
               state,
-              List(project),
+              projectsToCompile,
               cmd.cliOptions.noColor,
               "`console`"
             ) { state =>
@@ -287,65 +377,126 @@ object Interpreter {
                 }
               }
 
-              cmd.repl match {
-                case ScalacRepl =>
-                  if (cmd.ammoniteVersion.isDefined) {
-                    val errMsg =
-                      "Specifying an Ammonite version while using the Scalac console does not work"
-                    Task.now(state.withError(errMsg, ExitStatus.InvalidCommandLineOption))
-                  } else {
-                    val dag = state.build.getDagFor(project)
-                    val scalaVersion = project.scalaInstance
-                      .map(_.version)
-                      .getOrElse(ScalaInstance.scalaInstanceForJavaProjects(state.logger))
+              // Resolve REPL artifacts programmatically (via coursier's API) and emit a plain
+              // `java -cp ... <main>` command. This avoids depending on a `coursier`/`cs`
+              // launcher on the client's PATH and surfaces resolution failures with a clear
+              // message instead of a raw stack trace.
+              def withResolved(artifacts: List[DependencyResolution.Artifact], hint: String)(
+                  build: List[AbsolutePath] => Task[State]
+              ): Task[State] = {
+                DependencyResolution.resolveWithErrors(artifacts, state.logger) match {
+                  case Right(jars) => build(jars.toList)
+                  case Left(error) =>
+                    val coords =
+                      artifacts
+                        .map(a => s"${a.organization}:${a.module}:${a.version}")
+                        .mkString(", ")
+                    val msg = s"Could not resolve $coords. $hint ${error.getMessage}"
+                    Task.now(state.withError(msg, ExitStatus.RunError))
+                }
+              }
 
-                    val classpath = project.fullRuntimeClasspath(dag, state.client)
-                    val classpathStr = classpath.map(_.syntax).mkString(java.io.File.pathSeparator)
+              val dag = state.build.getDagFor(project)
+              // Launch under the project's configured JDK and JVM options (mirrors run/test via
+              // JvmProcessForker), not an ambient `java` — this is a JDK-sensitive feature.
+              val jdkConfig = project.runtimeJdkConfig
+              val javaBin = jdkConfig.map(_.javaBinary.syntax).getOrElse("java")
+              val javaOptions = jdkConfig.toList.flatMap(_.javaOptions.toList)
+              // With `--exclude-root` the REPL classpath is the dependencies' classpath; otherwise
+              // it's the target's full runtime classpath (which includes its own classes).
+              val replClasspath =
+                if (cmd.excludeRoot)
+                  projectsToCompile
+                    .flatMap(p => p.fullRuntimeClasspath(state.build.getDagFor(p), state.client))
+                    .distinct
+                else project.fullRuntimeClasspath(dag, state.client).toList
 
-                    val scalaCmd = List(
-                      "coursier",
-                      "launch",
-                      s"org.scala-lang:scala-compiler:$scalaVersion",
-                      "--main-class",
-                      "scala.tools.nsc.MainGenericRunner",
-                      "--",
-                      "-cp",
-                      classpathStr
-                    ) ++ cmd.args
+              // Report a missing configured JDK here (like run does via JvmProcessForker) instead
+              // of emitting a command that only fails later in the client.
+              jdkConfig.map(_.javaBinary).filter(!_.exists) match {
+                case Some(missing) =>
+                  val msg = s"Configured Java executable does not exist: ${missing.syntax}"
+                  Task.now(state.withError(msg, ExitStatus.RunError))
+                case None =>
+                  cmd.repl match {
+                    case ScalacRepl =>
+                      if (cmd.ammoniteVersion.isDefined) {
+                        val errMsg =
+                          "Specifying an Ammonite version while using the Scalac console does not work"
+                        Task.now(state.withError(errMsg, ExitStatus.InvalidCommandLineOption))
+                      } else {
+                        val scalaVersion = project.scalaInstance
+                          .map(_.version)
+                          .orElse(
+                            ScalaInstance.scalaInstanceForJavaProjects(state.logger).map(_.version)
+                          )
+                          .getOrElse(BuildInfo.scalaVersion)
 
-                    outputReplCommand(scalaCmd, "Scala REPL")
-                  }
-                case AmmoniteRepl =>
-                  def findScalaVersion(dag: Dag[Project]): Option[String] = {
-                    dag match {
-                      case Aggregate(dags) => dags.flatMap(findScalaVersion).headOption
-                      case Leaf(value) => value.scalaInstance.map(_.version)
-                      case Parent(value, children) =>
-                        children.flatMap(findScalaVersion) match {
-                          case Nil => value.scalaInstance.map(_.version)
-                          case xs => Some(xs.head)
+                        val (artifacts, mainClass) = scalaReplArtifactAndMain(scalaVersion)
+                        withResolved(
+                          artifacts,
+                          s"The Scala REPL may be unavailable for $scalaVersion."
+                        ) { replJars =>
+                          // REPL jars run the JVM (`usejavacp` lets the compiler find the JDK classes
+                          // on JDK > 8); the project is the REPL's user classpath.
+                          val replCp = replJars.map(_.syntax).mkString(java.io.File.pathSeparator)
+                          val projectCp =
+                            replClasspath.map(_.syntax).mkString(java.io.File.pathSeparator)
+                          val scalaCmd =
+                            (javaBin :: javaOptions) ++ List(
+                              "-Dscala.usejavacp=true",
+                              "-cp",
+                              replCp,
+                              mainClass,
+                              "-classpath",
+                              projectCp
+                            ) ++ cmd.args
+                          outputReplCommand(scalaCmd, "Scala REPL")
                         }
-                    }
+                      }
+                    case AmmoniteRepl =>
+                      def findScalaVersion(dag: Dag[Project]): Option[String] = {
+                        dag match {
+                          case Aggregate(dags) => dags.flatMap(findScalaVersion).headOption
+                          case Leaf(value) => value.scalaInstance.map(_.version)
+                          case Parent(value, children) =>
+                            children.flatMap(findScalaVersion) match {
+                              case Nil => value.scalaInstance.map(_.version)
+                              case xs => Some(xs.head)
+                            }
+                        }
+                      }
+
+                      val scalaVersion = findScalaVersion(dag)
+                        .orElse(
+                          ScalaInstance.scalaInstanceForJavaProjects(state.logger).map(_.version)
+                        )
+                        .getOrElse(BuildInfo.scalaVersion)
+
+                      val ammVersion = cmd.ammoniteVersion.getOrElse("latest.release")
+                      val artifact =
+                        DependencyResolution.Artifact(
+                          "com.lihaoyi",
+                          s"ammonite_$scalaVersion",
+                          ammVersion
+                        )
+                      val hint = s"Ammonite may not be published for Scala $scalaVersion; " +
+                        "try a different --ammonite-version."
+                      withResolved(List(artifact), hint) { ammJars =>
+                        // Ammonite seeds the REPL from its own classpath, so the project goes there too.
+                        val classpath =
+                          (ammJars ++ replClasspath)
+                            .map(_.syntax)
+                            .mkString(java.io.File.pathSeparator)
+                        val ammCmd =
+                          (javaBin :: javaOptions) ++ List(
+                            "-cp",
+                            classpath,
+                            "ammonite.Main"
+                          ) ++ cmd.args
+                        outputReplCommand(ammCmd, "Ammonite")
+                      }
                   }
-
-                  val dag = state.build.getDagFor(project)
-                  val scalaVersion = findScalaVersion(dag)
-                    .getOrElse(ScalaInstance.scalaInstanceForJavaProjects(state.logger))
-
-                  val ammVersion = cmd.ammoniteVersion.getOrElse("latest.release")
-                  val classpath = project.fullRuntimeClasspath(dag, state.client)
-                  val coursierClasspathArgs =
-                    classpath.flatMap(elem => Seq("--extra-jars", elem.syntax))
-
-                  val ammCmd = List(
-                    "coursier",
-                    "launch",
-                    s"com.lihaoyi:ammonite_$scalaVersion:$ammVersion",
-                    "--main-class",
-                    "ammonite.Main"
-                  ) ++ coursierClasspathArgs ++ ("--" :: cmd.args)
-
-                  outputReplCommand(ammCmd, "Ammonite")
               }
             }
           case None => Task.now(reportMissing(project :: Nil, state))
@@ -360,34 +511,72 @@ object Interpreter {
     }
   }
 
+  /**
+   * A fixed `--jvm-debug` port can only back one forked JVM, so combining it with `--parallel`
+   * conflicts only when more than one JVM test project will be forked at once. Non-JVM (JS, Native)
+   * test projects don't fork a debuggable JVM, so they never collide on the port.
+   */
+  private[bloop] def debugForkCollision(
+      jvmDebug: Option[Int],
+      parallel: Boolean,
+      projectsToTest: List[Project]
+  ): Boolean =
+    jvmDebug.isDefined && parallel &&
+      projectsToTest.count(p =>
+        TestTask.isTestProject(p) && p.platform.isInstanceOf[Platform.Jvm]
+      ) > 1
+
+  private[bloop] def warnIfJvmDebugUnsupported(
+      project: Project,
+      jvmDebug: Option[Int],
+      logger: Logger
+  ): Unit = {
+    if (jvmDebug.isDefined && !project.platform.isInstanceOf[Platform.Jvm])
+      logger.warn(
+        s"Ignoring --jvm-debug for '${project.name}': it is only supported for JVM projects."
+      )
+  }
+
   private def test(cmd: Commands.Test, state: State): Task[State] = {
     import state.logger
+
+    val runMode = cmd.jvmDebug match {
+      case Some(port) => RunMode.Debug(Some(port), suspend = cmd.jvmDebugSuspend)
+      case None => RunMode.Normal
+    }
 
     def testAllProjects(
         state: State,
         projectsToCompile: List[Project],
         projectsToTest: List[Project]
     ): Task[State] = {
-      val testFilter = TestInternals.parseFilters(cmd.only)
-      compileAnd(cmd, state, projectsToCompile, cmd.cliOptions.noColor, "`test`") { state =>
-        logger.debug(
-          s"Preparing test execution for ${projectsToTest.mkString(", ")}"
-        )(DebugFilter.Test)
+      if (debugForkCollision(cmd.jvmDebug, cmd.parallel, projectsToTest)) {
+        Task.now(
+          state.withError(Feedback.jvmDebugWithParallel, ExitStatus.InvalidCommandLineOption)
+        )
+      } else {
+        projectsToTest.foreach(warnIfJvmDebugUnsupported(_, cmd.jvmDebug, logger))
+        val testFilter = TestInternals.parseFilters(cmd.only)
+        compileAnd(cmd, state, projectsToCompile, cmd.cliOptions.noColor, "`test`") { state =>
+          logger.debug(
+            s"Preparing test execution for ${projectsToTest.mkString(", ")}"
+          )(DebugFilter.Test)
 
-        val handler = new LoggingEventHandler(state.logger)
+          val handler = new LoggingEventHandler(state.logger)
 
-        Tasks
-          .test(
-            state,
-            projectsToTest,
-            cmd.args,
-            testFilter,
-            ch.epfl.scala.bsp.ScalaTestSuites(Nil, Nil, Nil),
-            handler,
-            cmd.parallel,
-            RunMode.Normal
-          )
-          .map(testRuns => state.mergeStatus(testRuns.status))
+          Tasks
+            .test(
+              state,
+              projectsToTest,
+              cmd.args,
+              testFilter,
+              ch.epfl.scala.bsp.ScalaTestSuites(Nil, Nil, Nil),
+              handler,
+              cmd.parallel,
+              runMode
+            )
+            .map(testRuns => state.mergeStatus(testRuns.status))
+        }
       }
     }
 
@@ -626,12 +815,17 @@ object Interpreter {
   }
 
   private def run(cmd: Commands.Run, state: State): Task[State] = {
+    val runMode = cmd.jvmDebug match {
+      case Some(port) => RunMode.Debug(Some(port), suspend = cmd.jvmDebugSuspend)
+      case None => RunMode.Normal
+    }
     def doRun(project: Project)(state: State): Task[State] = {
       val cwd = project.workingDirectory
       compileAnd(cmd, state, List(project), cmd.cliOptions.noColor, "`run`") { state =>
         getMainClass(state, project, cmd.main) match {
           case Left(failedState) => Task.now(failedState)
           case Right(mainClass) =>
+            warnIfJvmDebugUnsupported(project, cmd.jvmDebug, state.logger)
             project.platform match {
               case platform @ Platform.Native(config, _, _) =>
                 val target = ScalaNativeToolchain.linkTargetFrom(project, config)
@@ -681,7 +875,7 @@ object Interpreter {
                   cmd.args.toArray,
                   cmd.skipJargs,
                   envVars = Nil,
-                  RunMode.Normal
+                  runMode
                 )
             }
         }

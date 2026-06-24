@@ -2,6 +2,7 @@ package bloop.data
 
 import bloop.config.Config
 import bloop.io.AbsolutePath
+import bloop.util.CrossPlatform
 import bloop.util.JavaRuntime
 
 /**
@@ -13,6 +14,17 @@ import bloop.util.JavaRuntime
  */
 final case class JdkConfig(javaHome: AbsolutePath, javaOptions: Array[String]) {
   def javacBin: Option[AbsolutePath] = JavaRuntime.javacBinaryFromJavaHome(javaHome)
+
+  /** The `java` executable under this JDK's home (falls back to `java.exe` on Windows). */
+  def javaBinary: AbsolutePath = {
+    val java = javaHome.resolve("bin").resolve("java")
+    if (java.exists) java
+    else {
+      val javaExe = javaHome.resolve("bin").resolve("java.exe")
+      if (CrossPlatform.isWindows && javaExe.exists) javaExe
+      else java
+    }
+  }
 }
 
 object JdkConfig {

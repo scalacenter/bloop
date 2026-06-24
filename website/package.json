@@ -12,6 +12,6 @@
     "docusaurus": "^1.14.4"
   },
   "dependencies": {
-    "js-yaml": "^4.1.1"
+    "js-yaml": "^4.2.0"
   }
 }

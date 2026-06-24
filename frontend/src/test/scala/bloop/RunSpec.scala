@@ -767,4 +767,36 @@ class RunSpec extends BloopHelpers {
       assert(logOutput.contains("BTest"))
     }
   }
+
+  @Test
+  def runForksJvmWithDebugAgent(): Unit = {
+    val port = freePort()
+    val projectName = "test-project"
+    // The main prints the JVM's own input arguments so we can assert the debug agent was injected.
+    val source =
+      s"""package $packageName
+         |object DebugMain {
+         |  def main(args: Array[String]): Unit = {
+         |    val jvmArgs = java.lang.management.ManagementFactory.getRuntimeMXBean.getInputArguments
+         |    println("JVM-ARGS: " + jvmArgs)
+         |  }
+         |}""".stripMargin
+    // suspend defaults to false, so the JVM runs (and exits) without waiting for a debugger.
+    val command =
+      Commands.Run(List(projectName), Some(s"$packageName.DebugMain"), jvmDebug = Some(port))
+    runAndCheck(projectName, List(source), command) { messages =>
+      val expectedAgent =
+        s"-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,quiet=n,address=$port"
+      assert(
+        messages.exists { case (level, msg) => level == "info" && msg.contains(expectedAgent) },
+        s"Forked JVM args did not contain debug agent '$expectedAgent'.\nMessages: $messages"
+      )
+    }
+  }
+
+  private def freePort(): Int = {
+    val socket = new java.net.ServerSocket(0)
+    try socket.getLocalPort
+    finally socket.close()
+  }
 }

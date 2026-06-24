@@ -8,7 +8,7 @@ object Dependencies {
   val Scala211Version = "2.11.12"
   val Scala212Version = "2.12.21"
   val Scala213Version = "2.13.18"
-  val Scala3Version = "3.7.4"
+  val Scala3Version = "3.8.4"
 
   val SbtVersion = "1.9.0"
 
@@ -17,14 +17,14 @@ object Dependencies {
 
   val bspVersion = "2.1.1"
 
-  val scalazVersion = "7.3.8"
+  val scalazVersion = "7.3.9"
   val lmVersion = "1.12.2"
   val configDirsVersion = "26"
   val caseAppVersion = "2.0.6"
-  val coursierVersion = "2.1.25-M25"
+  val coursierVersion = "2.1.25-M26"
   val sourcecodeVersion = "0.4.4"
   val sbtTestInterfaceVersion = "1.0"
-  val sbtTestAgentVersion = "1.12.11"
+  val sbtTestAgentVersion = "1.12.13"
   val junitVersion = "0.13.3"
   val jupiterInterfaceVersion = "0.19.0"
   val directoryWatcherVersion = "0.8.0+6-f651bd93"
@@ -34,14 +34,14 @@ object Dependencies {
   val scalaNative04Version = "0.4.17"
   val scalaNative05Version = "0.5.12"
   val scalaJs06Version = "0.6.33"
-  val scalaJs1Version = "1.21.0"
+  val scalaJs1Version = "1.22.0"
   val scalaJsEnvsVersion = "1.6.0"
   val xxHashVersion = "1.3.0"
   val ztVersion = "1.17"
   val difflibVersion = "1.3.0"
   val braveVersion = "5.18.1"
   val zipkinSenderVersion = "2.17.2"
-  val jnaVersion = "5.19.0"
+  val jnaVersion = "5.19.1"
   val asmVersion = "9.10.1"
   val ztExecVersion = "1.12"
   val debugAdapterVersion = "4.2.8"
@@ -57,7 +57,7 @@ object Dependencies {
   val bloopConfig = "ch.epfl.scala" %% "bloop-config" % bloopConfigVersion
 
   val libraryManagement = "org.scala-sbt" %% "librarymanagement-ivy" % lmVersion
-  val log4j = "org.apache.logging.log4j" % "log4j-core" % "2.23.1"
+  val log4j = "org.apache.logging.log4j" % "log4j-core" % "2.26.0"
   val scalazCore = "org.scalaz" %% "scalaz-core" % scalazVersion
   val coursierInterface = "io.get-coursier" % "interface" % "1.0.28"
   val configDirectories = "io.get-coursier.util" % "directories-jni" % "0.1.2"
@@ -80,7 +80,7 @@ object Dependencies {
   val scopt = "com.github.scopt" % "scopt_2.12" % "4.0.0-RC2"
 
   val utest = "com.lihaoyi" %% "utest" % "0.9.5"
-  def munit = "org.scalameta" %% "munit" % "1.3.1"
+  def munit = "org.scalameta" %% "munit" % "1.3.3"
   def expecty = "com.eed3si9n.expecty" %% "expecty" % "0.17.1"
   val pprint = "com.lihaoyi" %% "pprint" % "0.9.6"
   val oslib = "com.lihaoyi" %% "os-lib" % "0.11.8"

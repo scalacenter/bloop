@@ -64,18 +64,22 @@ object BloopKeys {
     settingKey[File]("Directory where to write bloop configuration files")
   val bloopIsMetaBuild: SettingKey[Boolean] =
     settingKey[Boolean]("Is this a meta build?")
+  val bloopExportMetaBuild: SettingKey[Boolean] =
+    settingKey[Boolean]("Automatically export the sbt meta-build on load (needed by Metals).")
   val bloopAggregateSourceDependencies: SettingKey[Boolean] =
     settingKey[Boolean]("Flag to tell bloop to aggregate bloop config files in the same bloop dir")
   val bloopExportJarClassifiers: SettingKey[Option[Set[String]]] =
     settingKey[Option[Set[String]]](
       "The classifiers that will be exported with `updateClassifiers`"
     )
+  @transient
   val bloopProductDirectories: TaskKey[Seq[File]] =
     taskKey[Seq[File]]("Bloop product directories")
   val bloopClassDirectory: SettingKey[File] =
     settingKey[File]("Directory where to write the class files")
   val bloopTargetDir: SettingKey[File] =
     settingKey[File]("Target directory for the pertinent project and configuration")
+  @transient
   val bloopInternalClasspath: TaskKey[Seq[(File, File)]] =
     taskKey[Seq[(File, File)]]("Directory where to write the class files")
   val bloopInstall: TaskKey[Unit] =
@@ -101,6 +105,7 @@ object BloopKeys {
     settingKey[Seq[Configuration]](
       "The sequence of configurations that are used to detect inter-project dependencies by bloop."
     )
+  @transient
   val bloopExtraExportedJars: TaskKey[Seq[File]] =
     taskKey[Seq[File]](
       "Jar files from internal dependencies whose exportedProducts differ from productDirectories"
@@ -148,6 +153,11 @@ object BloopDefaults {
         .map(_.split(",").toSet)
         .orElse(Some(Set("sources")))
     },
+    BloopKeys.bloopExportMetaBuild := {
+      Option(System.getProperty("bloop.export-meta-build"))
+        .orElse(Option(System.getenv("BLOOP_EXPORT_META_BUILD")))
+        .contains("true")
+    },
     BloopKeys.bloopInstall := bloopInstall.value,
     BloopKeys.bloopAggregateSourceDependencies := true,
     // Override classifiers so that we don't resolve always docs
@@ -164,10 +174,11 @@ object BloopDefaults {
     },
     Keys.onLoad := {
       val oldOnLoad = Keys.onLoad.value
+      val isMetaBuild = BloopKeys.bloopIsMetaBuild.value
+      val exportMetaBuild = BloopKeys.bloopExportMetaBuild.value
       oldOnLoad.andThen { state =>
-        val isMetaBuild = BloopKeys.bloopIsMetaBuild.value
-        if (!isMetaBuild) state
-        else runCommandAndRemaining("bloopInstall")(state)
+        if (isMetaBuild && exportMetaBuild) runCommandAndRemaining("bloopInstall")(state)
+        else state
       }
     },
     BloopKeys.bloopSupportedConfigurations := List(

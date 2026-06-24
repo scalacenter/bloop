@@ -7,7 +7,9 @@ import scala.concurrent.duration.Duration
 import scala.concurrent.duration.FiniteDuration
 
 import bloop.Compiler
+import bloop.cli.AmmoniteRepl
 import bloop.cli.Commands
+import bloop.cli.ReplKind
 import bloop.data.Project
 import bloop.data.WorkspaceSettings
 import bloop.engine.BuildLoader
@@ -164,6 +166,12 @@ trait BloopHelpers {
       new TestState(TestUtil.blockingExecute(compileTask, state))
     }
 
+    def compileWithSummary(projects: TestProject*): TestState = {
+      val projectNames = projects.map(_.config.name).toList
+      val compileTask = Run(Commands.Compile(projectNames, summary = true))
+      new TestState(TestUtil.blockingExecute(compileTask, state))
+    }
+
     def runTask(project: TestProject, watch: Boolean = false): Task[TestState] = {
       val runTask = Run(Commands.Run(List(project.config.name), watch = watch))
       TestUtil.interpreterTask(runTask, state).map(new TestState(_))
@@ -174,9 +182,19 @@ trait BloopHelpers {
       new TestState(TestUtil.blockingExecute(runTask, state))
     }
 
-    def console(project: TestProject, args: List[String]): TestState = {
-      val compileTask = Run(Commands.Console(List(project.config.name), args = args))
-      new TestState(TestUtil.blockingExecute(compileTask, state))
+    def console(
+        project: TestProject,
+        args: List[String],
+        repl: ReplKind = AmmoniteRepl,
+        excludeRoot: Boolean = false
+    ): TestState = {
+      val cmd = Commands.Console(
+        List(project.config.name),
+        args = args,
+        repl = repl,
+        excludeRoot = excludeRoot
+      )
+      new TestState(TestUtil.blockingExecute(Run(cmd), state))
     }
 
     def compileHandle(
