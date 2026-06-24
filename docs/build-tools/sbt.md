@@ -130,26 +130,16 @@ $ sbt bloopInstall
 
 ### Source file filters
 
-sbt's `includeFilter`/`excludeFilter` settings on `unmanagedSources` are honored by the export: a
-source directory containing filtered content is exported as a sources glob whose excludes mirror
-the filters. How faithful that mirror is depends on the kind of filter:
+sbt's `includeFilter`/`excludeFilter` settings on `unmanagedSources` are honored by the export. A
+source directory is normally exported as a directory, which lets Bloop watch it and pick up new
+files automatically. When a project customizes those filters, its unmanaged source directories are
+instead exported as the explicit list of files that sbt compiles, so Bloop compiles exactly the
+same files as sbt — both for files present now and for files the filters would hide later.
 
-- **Name-based filters** — glob expressions (`"*Excluded.scala"`), `ExactFilter`,
-  `PrefixFilter`/`SuffixFilter`, `ExtensionFilter`, and `||`-combinations of them — are translated
-  into equivalent glob patterns. They keep working for files and directories created *after* the
-  export, with no re-export needed. This applies to both `excludeFilter` and `includeFilter`,
-  with one difference: a custom `includeFilter` is only translated when it is *entirely*
-  name-based (a partial translation could make Bloop compile less than sbt). Hidden files —
-  names starting with a dot — are never compiled by Bloop, regardless of filters.
-- **Predicate filters** — arbitrary functions such as
-  `new SimpleFileFilter(f => f.getAbsolutePath.endsWith("bar.scala"))` — cannot be evaluated
-  against files that do not exist yet. The export records the files and directory subtrees the
-  predicate rejects at export time. A file created later that the predicate would reject is
-  compiled by Bloop until the next `bloopInstall` (or build re-import in your editor); files meant
-  to be included are always picked up immediately.
-
-Prefer name-based filters where possible: they are exported exactly. Conjunctions and negations
-(`&&`, `--`) are treated like predicates and exported as an export-time snapshot.
+Because that file list is computed at export time, **adding or removing sources in a project that
+uses filters requires re-running `bloopInstall`** (or re-importing the build in your editor) for
+Bloop to see the change; `bloopInstall` prints a warning naming the affected projects. Projects
+whose filters are left at their defaults keep exporting directories and need no re-import.
 
 ### Enable custom configurations
 
