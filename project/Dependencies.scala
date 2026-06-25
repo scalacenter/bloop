@@ -75,7 +75,7 @@ object Dependencies {
   val sbtTestInterface = "org.scala-sbt" % "test-interface" % sbtTestInterfaceVersion
   val sbtTestAgent = "org.scala-sbt" % "test-agent" % sbtTestAgentVersion
   val ztExec = "org.zeroturnaround" % "zt-exec" % ztExecVersion
-  val logback = "ch.qos.logback" % "logback-classic" % "1.5.34"
+  val logback = "ch.qos.logback" % "logback-classic" % "1.5.35"
   val libdaemonjvm = "ch.epfl.scala" %% "libdaemon" % "0.0.12"
   val scopt = "com.github.scopt" % "scopt_2.12" % "4.0.0-RC2"
 
