@@ -74,6 +74,7 @@ object Dependencies {
   val sourcecode = "com.lihaoyi" %% "sourcecode" % sourcecodeVersion
   val sbtTestInterface = "org.scala-sbt" % "test-interface" % sbtTestInterfaceVersion
   val sbtTestAgent = "org.scala-sbt" % "test-agent" % sbtTestAgentVersion
+  val snailgun = "io.github.alexarchambault.scala-cli.snailgun" %% "snailgun-core" % "0.4.1-sc2"
   val ztExec = "org.zeroturnaround" % "zt-exec" % ztExecVersion
   val logback = "ch.qos.logback" % "logback-classic" % "1.5.35"
   val libdaemonjvm = "ch.epfl.scala" %% "libdaemon" % "0.0.12"

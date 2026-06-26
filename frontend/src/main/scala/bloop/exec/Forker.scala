@@ -6,6 +6,7 @@ import java.io.OutputStream
 import java.util.concurrent.TimeUnit
 
 import scala.collection.JavaConverters._
+import scala.concurrent.duration.FiniteDuration
 import scala.sys.process.BasicIO
 import scala.util.control.NonFatal
 
@@ -68,43 +69,62 @@ object Forker {
       logger: Logger,
       opts: CommonOptions
   ): Task[Int] = {
+    val consumeInput: Option[Cancelable] = None
+    @volatile var shutdownInput: Boolean = false
+
+    /* We need to gobble the input manually with a fixed delay because otherwise
+     * the remote process will not see it.
+     *
+     * The input gobble runs on a 50ms basis and it can process a maximum of 4096
+     * bytes at a time. The rest that is not read will be read in the next 50ms. */
+    def goobleInput(to: OutputStream): Cancelable = {
+      val duration = FiniteDuration(50, TimeUnit.MILLISECONDS)
+      ExecutionContext.ioScheduler.scheduleWithFixedDelay(duration, duration) {
+        val buffer = new Array[Byte](4096)
+        if (shutdownInput) {
+          consumeInput.foreach(_.cancel())
+        } else {
+          try {
+            if (opts.in.available() > 0) {
+              val read = opts.in.read(buffer, 0, buffer.length)
+              if (read == -1) ()
+              else {
+                to.write(buffer, 0, read)
+                to.flush()
+              }
+            }
+          } catch {
+            case t: IOException =>
+              // A broken/closed pipe is expected once the child stops reading stdin;
+              // anything else is a genuine input-forwarding failure worth surfacing.
+              val benign = shutdownInput ||
+                Option(t.getMessage).exists { m =>
+                  m.contains("Broken pipe") || m.contains("Stream closed")
+                }
+              if (benign) {
+                logger.debug(s"Error from input gobbler: ${t.getMessage}")
+                logger.trace(t)
+              } else {
+                logger.error("Error forwarding standard input to the forked process", t)
+              }
+              // Rethrow so that Monix cancels future scheduling of the same task
+              throw t
+          }
+        }
+      }
+    }
+
     val runTask = run(
       Some(cwd.underlying.toFile),
       cmd,
       logger,
       opts.env.toMap,
       writeToStdIn = outputStream => {
-        /* Forward stdin to the forked process on the blocking-I/O scheduler. We must
-         * BLOCK on `read` rather than poll `available()`: on the CLI path `opts.in` is
-         * nailgun's NGInputStream, whose `available()` returns 0 even while data is in
-         * flight, which silently drops input. Mirrors the Task-on-ioScheduler blocking
-         * I/O idiom used by `BspServer`/`TestServer`. */
-        val pipe = Task {
-          val buffer = new Array[Byte](4096)
-          try {
-            var read = opts.in.read(buffer, 0, buffer.length)
-            while (read != -1) {
-              outputStream.write(buffer, 0, read)
-              outputStream.flush()
-              read = opts.in.read(buffer, 0, buffer.length)
-            }
-          } catch {
-            case t: IOException =>
-              // A broken/closed pipe is expected once the child stops reading stdin;
-              // anything else is a genuine input-forwarding failure worth surfacing.
-              val benign = Option(t.getMessage).exists { m =>
-                m.contains("Broken pipe") || m.contains("Stream closed")
-              }
-              if (benign) {
-                logger.debug(s"Error forwarding standard input: ${t.getMessage}")
-                logger.trace(t)
-              } else {
-                logger.error("Error forwarding standard input to the forked process", t)
-              }
-          }
-        }.executeOn(ExecutionContext.ioScheduler)
-        val handle = pipe.runAsync(ExecutionContext.ioScheduler)
-        Cancelable(() => handle.cancel())
+        val mainCancellable = goobleInput(outputStream)
+        Cancelable { () =>
+          shutdownInput = true
+          mainCancellable.cancel()
+        }
       },
       debugLog = msg => {
         opts.ngout.println(msg)
