@@ -487,9 +487,10 @@ object Operations {
       assumeOutTty: Boolean = false,
       assumeErrTty: Boolean = false
   ): Int = {
-
+    logger.debug(s"Operations.run: creating nailgun client for $address")
     val stop0 = new AtomicBoolean
     val nailgunClient0 = nailgunClient(address, logger)
+    logger.debug("Operations.run: nailgun client created, creating streams")
     val streams = Streams(
       inOpt,
       out,
@@ -498,8 +499,8 @@ object Operations {
       outIsATty = if (assumeOutTty) 1 else 0,
       errIsATty = if (assumeErrTty) 1 else 0
     )
-
-    nailgunClient0.run(
+    logger.debug(s"Operations.run: calling nailgunClient0.run($command)")
+    val result = nailgunClient0.run(
       command,
       args,
       workingDir,
@@ -509,6 +510,8 @@ object Operations {
       stop0,
       interactiveSession = false
     )
+    logger.debug(s"Operations.run: nailgunClient0.run completed with result $result")
+    result
   }
 
   def about(

@@ -202,7 +202,7 @@ final class Protocol(
     val out = new DataOutputStream(out0)
 
     var sendStdinOpt = Option.empty[(Thread, Semaphore)]
-    val heartbeatThread = daemonThread("bloop-nailgun-heartbeat")(() => heartbeatLoop(in, out))
+    var heartbeatThread: Thread = null
 
     try {
       logger.debug(s"Sending arguments '${cmdArgs.mkString(" ")}' to Nailgun server")
@@ -213,6 +213,10 @@ final class Protocol(
       sendChunk(ChunkTypes.Directory, absoluteCwd, out)
       logger.debug(s"Sending command $cmd to Nailgun server")
       sendChunk(ChunkTypes.Command, cmd, out)
+
+      // Start heartbeat thread AFTER command is sent
+      logger.debug("Starting heartbeat thread...")
+      heartbeatThread = createHeartbeatThread(in, out)
 
       logger.debug("Starting thread to read stdin...")
       sendStdinOpt = createStdinThread(out)
@@ -248,11 +252,16 @@ final class Protocol(
     // return. Interrupt as best-effort (unblocks the semaphore-parked case) and abandon it —
     // it dies with the client process.
     sendStdinOpt.foreach(_._1.interrupt())
-    logger.debug("Waiting for heartbeat thread to finish...")
-    heartbeatThread.join()
+    if (heartbeatThread != null) {
+      logger.debug("Waiting for heartbeat thread to finish...")
+      heartbeatThread.join()
+    }
     logger.debug("Returning exit code...")
     exitCode.get()
   }
+
+  private def createHeartbeatThread(in: DataInputStream, out: DataOutputStream): Thread =
+    daemonThread("bloop-nailgun-heartbeat")(() => heartbeatLoop(in, out))
 
   private def sendChunk(tpe: Byte, msg: String, out: DataOutputStream): Unit = {
     val payload = msg.getBytes(StandardCharsets.UTF_8)
@@ -276,21 +285,38 @@ final class Protocol(
 
     val readAction = Try {
       val bytesToRead = in.readInt()
-      in.readByte() match {
-        case ChunkTypes.SendInput => Action.SendStdin
-        case ChunkTypes.Stdout => Action.Print(readPayload(bytesToRead), streams.out)
-        case ChunkTypes.Stderr => Action.Print(readPayload(bytesToRead), streams.err)
+      val chunkType = in.readByte()
+      val chunkTypeChar = if (chunkType >= 32 && chunkType < 127) chunkType.toChar.toString else "?"
+      logger.debug(s"Received chunk: type=$chunkTypeChar ($chunkType), length=$bytesToRead")
+      chunkType match {
+        case ChunkTypes.SendInput => 
+          logger.debug("  -> SendInput")
+          Action.SendStdin
+        case ChunkTypes.Stdout => 
+          val payload = readPayload(bytesToRead)
+          logger.debug(s"  -> Stdout: ${new String(payload, StandardCharsets.UTF_8).take(100)}")
+          Action.Print(payload, streams.out)
+        case ChunkTypes.Stderr => 
+          val payload = readPayload(bytesToRead)
+          logger.debug(s"  -> Stderr: ${new String(payload, StandardCharsets.UTF_8).take(100)}")
+          Action.Print(payload, streams.err)
         case ChunkTypes.Exit =>
-          val raw = new String(readPayload(bytesToRead), StandardCharsets.US_ASCII).trim
+          val payload = readPayload(bytesToRead)
+          val raw = new String(payload, StandardCharsets.US_ASCII).trim
+          logger.debug(s"  -> Exit: '$raw' (bytes: ${payload.toList})")
           Action.Exit(Integer.parseInt(raw))
         case other =>
-          Action.ExitForcefully(new RuntimeException(s"Unexpected chunk type: $other"))
+          val payload = if (bytesToRead > 0 && bytesToRead < 1000) readPayload(bytesToRead) else Array.empty[Byte]
+          logger.debug(s"  -> Unknown chunk type $other, payload: ${payload.toList}")
+          Action.ExitForcefully(new RuntimeException(s"Unexpected chunk type: $other ($chunkTypeChar)"))
       }
     }
 
     readAction match {
       case Success(action) => action
-      case Failure(exception) => Action.ExitForcefully(exception)
+      case Failure(exception) => 
+        logger.debug(s"  -> Failed to read chunk: ${exception.getMessage}")
+        Action.ExitForcefully(exception)
     }
   }
 
@@ -316,34 +342,50 @@ final class Protocol(
     streams.in.map { in =>
       val sendStdinSemaphore = new Semaphore(0)
       val thread = daemonThread("bloop-nailgun-stdin") { () =>
-        val reader = new BufferedReader(new InputStreamReader(in))
         def shouldStop = !isRunning.get() || stopFurtherProcessing.get()
+        // Defer reader creation until we actually need it (when server requests stdin).
+        // This avoids potential issues with System.in in non-interactive environments.
+        var readerOpt: Option[BufferedReader] = None
+        def getReader(): BufferedReader = readerOpt.getOrElse {
+          val r = new BufferedReader(new InputStreamReader(in))
+          readerOpt = Some(r)
+          r
+        }
         try {
           var continue = true
           while (continue) {
             if (shouldStop) continue = false
             else {
               // Don't send input until the server requests it (SendStdin).
-              sendStdinSemaphore.acquire()
-              val line = if (shouldStop) null else reader.readLine()
-              if (shouldStop) continue = false
-              else if (line == null) {
-                // EOF: notify the server and stop. Checked before `line.length`, which
-                // would NPE on a null line.
-                swallowExceptionsIfServerFinished {
-                  out.synchronized(sendChunk(ChunkTypes.StdinEOF, "", out))
+              // This blocks until released or interrupted.
+              val acquired = sendStdinSemaphore.tryAcquire(100, TimeUnit.MILLISECONDS)
+              if (!acquired) {
+                // Check if we should stop while waiting
+                if (shouldStop) continue = false
+                // Otherwise keep waiting
+              } else {
+                if (shouldStop) continue = false
+                else {
+                  val reader = getReader()
+                  val line = reader.readLine()
+                  if (line == null) {
+                    // EOF: notify the server and stop.
+                    swallowExceptionsIfServerFinished {
+                      out.synchronized(sendChunk(ChunkTypes.StdinEOF, "", out))
+                    }
+                    continue = false
+                  } else
+                    // Forward the line *with* its terminator. `readLine` strips the newline;
+                    // without it the forked app's readInt/readLine/Scanner never sees a
+                    // delimiter and blocks forever.
+                    swallowExceptionsIfServerFinished {
+                      out.synchronized(sendChunk(ChunkTypes.Stdin, line + "\n", out))
+                    }
                 }
-                continue = false
-              } else
-                // Forward the line *with* its terminator. `readLine` strips the newline;
-                // without it the forked app's readInt/readLine/Scanner never sees a
-                // delimiter and blocks forever.
-                swallowExceptionsIfServerFinished {
-                  out.synchronized(sendChunk(ChunkTypes.Stdin, line + "\n", out))
-                }
+              }
             }
           }
-        } finally reader.close()
+        } finally readerOpt.foreach(_.close())
       }
       (thread, sendStdinSemaphore)
     }
@@ -359,18 +401,28 @@ final class Protocol(
     }
 
   private def printException(exception: Throwable): Unit =
-    logger.debug("Unexpected error forces client exit!", exception)
+    logger.error("Unexpected error forces client exit.", exception)
 
   private def daemonThread(name: String)(run0: () => Unit): Thread = {
-    val runnable: Runnable = { () =>
-      try run0()
-      catch {
-        case NonFatal(exception) =>
-          if (anyThreadFailed.compareAndSet(false, true)) printException(exception)
+    val runnable: Runnable = new Runnable {
+      def run(): Unit = {
+        try run0()
+        catch {
+          case NonFatal(exception) =>
+            if (anyThreadFailed.compareAndSet(false, true)) printException(exception)
+          case fatal: Throwable =>
+            if (anyThreadFailed.compareAndSet(false, true)) printException(fatal)
+            throw fatal
+        }
       }
+    }
+    val handler: Thread.UncaughtExceptionHandler = new Thread.UncaughtExceptionHandler {
+      def uncaughtException(thread: Thread, ex: Throwable): Unit =
+        logger.error(s"Uncaught exception in thread ${thread.getName}", ex)
     }
     val t = new Thread(runnable, name)
     t.setDaemon(true)
+    t.setUncaughtExceptionHandler(handler)
     t.start()
     t
   }

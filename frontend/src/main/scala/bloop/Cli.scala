@@ -86,8 +86,6 @@ object Cli {
         printErrorAndExit(helpAsked, nailgunOptions)
       else parse(args, nailgunOptions)
     }
-    println(nailgunOptions.workingDirectory)
-    println(nailgunOptions.workingPath)
 
     try {
       val exitStatus = run(cmd, NailgunPool(ngContext))
@@ -97,6 +95,14 @@ object Cli {
         // print stack trace of fatal errors thrown in asynchronous code, see https://stackoverflow.com/questions/17265022/what-is-a-boxed-error-in-scala
         // the stack trace is somehow propagated all the way to the client when printing this
         x.getCause.printStackTrace(ngContext.out)
+        ngContext.exit(ExitStatus.UnexpectedError.code)
+      case t: Throwable =>
+        // Catch all non-fatal exceptions to prevent nailgun from returning exit code 899 (EXIT_EXCEPTION)
+        // which gives no indication of what went wrong
+        ngContext.err.println(
+          s"Unexpected error in Bloop CLI: ${t.getClass.getName}: ${t.getMessage}"
+        )
+        t.printStackTrace(ngContext.err)
         ngContext.exit(ExitStatus.UnexpectedError.code)
     }
   }
