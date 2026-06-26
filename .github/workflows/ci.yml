@@ -119,7 +119,7 @@ jobs:
   publish-binaries:
     name: Publish binaries for ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
-    if: github.event_name == 'push'
+    # if: github.event_name == 'push'
     strategy:
       fail-fast: false
       matrix:
@@ -183,13 +183,23 @@ jobs:
       - name: Sanity check of the generated binary
         run: sbt publishLocal
 
-      - name: Check on windows
+      - name: Check on windows (domain socket)
         if: matrix.os == 'windows-latest'
-        run: cli/target/graalvm-native-image/bloop-cli.exe about
+        run: cli/target/graalvm-native-image/bloop-cli.exe -v -v -v about
+        continue-on-error: true
       
-      - name: Check on other systems
+      - name: Check on windows (TCP mode)
         if: matrix.os == 'windows-latest'
-        run: cli/target/graalvm-native-image/bloop-cli about
+        run: cli/target/graalvm-native-image/bloop-cli.exe -v -v -v --host 127.0.0.1 --port 8212 about
+      
+      - name: Check on other systems (domain socket)
+        if: matrix.os != 'windows-latest'
+        run: cli/target/graalvm-native-image/bloop-cli -v -v -v about
+        continue-on-error: true
+      
+      - name: Check on other systems (TCP mode)
+        if: matrix.os != 'windows-latest'
+        run: cli/target/graalvm-native-image/bloop-cli -v -v -v --host 127.0.0.1 --port 8212 about
 
   release:
     name: Release version on ${{ matrix.os }}

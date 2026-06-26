@@ -43,6 +43,9 @@ object Default extends Command[DefaultOptions] {
 
     val args0 = args.all
 
+    // Commands that need stdin forwarding (interactive input)
+    val stdinCommands = Set("run", "test")
+
     args0 match {
       case Seq() =>
         // FIXME Give more details?
@@ -54,19 +57,31 @@ object Default extends Command[DefaultOptions] {
       case Seq(cmd, cmdArgs @ _*) =>
         val assumeTty = System.console() != null
         val cwd = os.pwd.wrapped
-        val retCode = Operations.run(
-          command = cmd,
-          args = cmdArgs.toArray,
-          workingDir = cwd,
-          address = bloopRifleConfig.address,
-          inOpt = Some(System.in),
-          out = System.out,
-          err = System.err,
-          logger = logger.bloopRifleLogger,
-          assumeInTty = assumeTty,
-          assumeOutTty = assumeTty,
-          assumeErrTty = assumeTty
-        )
+        // Only pass stdin for commands that actually need it (run, test)
+        // Other commands like about, projects, compile don't need stdin
+        val inOpt = if (stdinCommands.contains(cmd)) Some(System.in) else None
+        logger.debug(s"Running command '$cmd' with address: ${bloopRifleConfig.address}")
+        logger.debug(s"stdin enabled: ${inOpt.isDefined}, assumeTty: $assumeTty")
+        val retCode = try {
+          Operations.run(
+            command = cmd,
+            args = cmdArgs.toArray,
+            workingDir = cwd,
+            address = bloopRifleConfig.address,
+            inOpt = inOpt,
+            out = System.out,
+            err = System.err,
+            logger = logger.bloopRifleLogger,
+            assumeInTty = assumeTty && inOpt.isDefined,
+            assumeOutTty = assumeTty,
+            assumeErrTty = assumeTty
+          )
+        } catch {
+          case e: Throwable =>
+            logger.error(s"Exception running $cmd: ${e.getClass.getName}: ${e.getMessage}")
+            e.printStackTrace(System.err)
+            throw e
+        }
         if (retCode == 0)
           logger.debug(s"Bloop command $cmd ran successfully (return code 0)")
         else {
