@@ -1,5 +1,7 @@
 package bloop.rifle
 
+import snailgun.logging.{Logger => SnailgunLogger}
+
 import java.io.OutputStream
 
 trait BloopRifleLogger { self =>
@@ -19,6 +21,17 @@ trait BloopRifleLogger { self =>
   def bloopBspStderr: Option[OutputStream]
   def bloopCliInheritStdout: Boolean
   def bloopCliInheritStderr: Boolean
+
+  def nailgunLogger: SnailgunLogger =
+    new SnailgunLogger {
+      val name: String = "bloop"
+      val isVerbose: Boolean = true
+      def debug(msg: String): Unit = self.debug("nailgun debug: " + msg)
+      def error(msg: String): Unit = self.debug("nailgun error: " + msg)
+      def warn(msg: String): Unit = self.debug("nailgun warn: " + msg)
+      def info(msg: String): Unit = self.debug("nailgun info: " + msg)
+      def trace(exception: Throwable): Unit = self.debug("nailgun trace: " + exception.toString)
+    }
 }
 
 object BloopRifleLogger {
