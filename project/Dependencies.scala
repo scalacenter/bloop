@@ -57,7 +57,7 @@ object Dependencies {
   val bloopConfig = "ch.epfl.scala" %% "bloop-config" % bloopConfigVersion
 
   val libraryManagement = "org.scala-sbt" %% "librarymanagement-ivy" % lmVersion
-  val log4j = "org.apache.logging.log4j" % "log4j-core" % "2.26.0"
+  val log4j = "org.apache.logging.log4j" % "log4j-core" % "2.26.1"
   val scalazCore = "org.scalaz" %% "scalaz-core" % scalazVersion
   val coursierInterface = "io.get-coursier" % "interface" % "1.0.28"
   val configDirectories = "io.get-coursier.util" % "directories-jni" % "0.1.2"
