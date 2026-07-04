@@ -13,9 +13,10 @@ object SourceWatcherSpec extends bloop.testing.BaseSuite {
   private def globs(
       directory: AbsolutePath,
       includes: List[String],
-      excludes: List[String]
+      excludes: List[String],
+      walkDepth: Option[Int] = None
   ): List[SourcesGlobs] =
-    SourcesGlobs.fromStrings("test", directory, None, includes, excludes, logger)
+    SourcesGlobs.fromStrings("test", directory, walkDepth, includes, excludes, logger)
 
   private def isWatched(
       plainSources: Seq[Path],
@@ -73,6 +74,15 @@ object SourceWatcherSpec extends bloop.testing.BaseSuite {
     }
   }
 
+  test("source globs obey walkDepth when matching watcher events") {
+    TestUtil.withinWorkspace { workspace =>
+      val globDir = workspace.resolve("globbed")
+      val projectGlobs = globs(globDir, List("glob:**.scala"), Nil, Some(1))
+      assert(isWatched(Nil, projectGlobs, Nil, globDir.resolve("Foo.scala")))
+      assert(!isWatched(Nil, projectGlobs, Nil, globDir.resolve("nested").resolve("Foo.scala")))
+    }
+  }
+
   test("source generator inputs are watched even outside glob and plain directories") {
     TestUtil.withinWorkspace { workspace =>
       val inputsDir = workspace.resolve("generator-inputs")
@@ -80,6 +90,15 @@ object SourceWatcherSpec extends bloop.testing.BaseSuite {
       assert(isWatched(Nil, Nil, generatorGlobs, inputsDir.resolve("data.in")))
       // a stray source file in a generator input directory keeps the default rule
       assert(isWatched(Nil, Nil, generatorGlobs, inputsDir.resolve("Stray.scala")))
+    }
+  }
+
+  test("source generator globs obey walkDepth when matching watcher events") {
+    TestUtil.withinWorkspace { workspace =>
+      val inputsDir = workspace.resolve("generator-inputs")
+      val generatorGlobs = globs(inputsDir, List("glob:**.in"), Nil, Some(1))
+      assert(isWatched(Nil, Nil, generatorGlobs, inputsDir.resolve("data.in")))
+      assert(!isWatched(Nil, Nil, generatorGlobs, inputsDir.resolve("sub").resolve("data.in")))
     }
   }
 

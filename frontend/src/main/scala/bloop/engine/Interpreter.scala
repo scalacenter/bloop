@@ -136,11 +136,23 @@ object Interpreter {
     }
     val groupTasks =
       projectsSourcesAndDirs.grouped(8).map(group => Task.gatherUnordered(group)).toList
+    val watchedPlainSources = reachable.flatMap(_.sources.map(_.underlying))
+    val watchedProjectGlobs = reachable.flatMap(_.sourcesGlobs)
+    val watchedSourceGeneratorGlobs = reachable.flatMap { project =>
+      project.sourceGenerators.flatMap(_.sourcesGlobs)
+    }
     Task
       .sequence(groupTasks)
       .map(fp => fp.flatten.flatten.map(_.underlying))
       .flatMap { allSources =>
-        val watcher = SourceWatcher(projects.map(_.name), allSources, state.logger)
+        val watcher = SourceWatcher(
+          projects.map(_.name),
+          allSources,
+          watchedPlainSources,
+          watchedProjectGlobs,
+          watchedSourceGeneratorGlobs,
+          state.logger
+        )
         val fg = (state: State) => {
           val newState = State.stateCache.getUpdatedStateFrom(state).getOrElse(state)
           f(newState).map { state =>

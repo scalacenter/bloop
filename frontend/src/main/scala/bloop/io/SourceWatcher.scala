@@ -31,6 +31,9 @@ final class SourceWatcher private (
     projectNames: List[String],
     dirs: Seq[Path],
     files: Seq[Path],
+    plainSources: Seq[Path],
+    projectGlobs: Seq[SourcesGlobs],
+    sourceGeneratorGlobs: Seq[SourcesGlobs],
     logger: Logger
 ) {
   import java.nio.file.Files
@@ -54,18 +57,9 @@ final class SourceWatcher private (
       )
 
     var watchingEnabled: Boolean = true
-    val isSourceFile: Path => Boolean = {
-      val projects = state0.build.loadedProjects.map(_.project)
-      val plainSources = projects.flatMap(_.sources.map(_.underlying))
-      val projectGlobs = projects.flatMap(_.sourcesGlobs)
-      val sourceGeneratorGlobs = for {
-        project <- projects
-        sourceGenerator <- project.sourceGenerators
-        glob <- sourceGenerator.sourcesGlobs
-      } yield glob
+    val isSourceFile: Path => Boolean =
       path =>
         SourceWatcher.isWatchedSourceFile(plainSources, projectGlobs, sourceGeneratorGlobs, path)
-    }
     val listener = new DirectoryChangeListener {
       override def isWatching: Boolean = watchingEnabled
 
@@ -232,27 +226,52 @@ object SourceWatcher {
       sourceGeneratorGlobs: Seq[SourcesGlobs],
       path: Path
   ): Boolean = {
+    val normalizedPath = path.toAbsolutePath.normalize
+    val normalizedPlainSources = plainSources.map(_.toAbsolutePath.normalize)
+
     // `SourcesGlobs.matches` relativizes against its own directory, and Java glob semantics let a
     // `**` pattern match the resulting `../` path. Only globs whose directory contains the path
     // may decide whether it is a source.
-    def enclosesPath(glob: SourcesGlobs): Boolean = path.startsWith(glob.directory.underlying)
+    def globDirectory(glob: SourcesGlobs): Path = glob.directory.underlying.toAbsolutePath.normalize
+    def enclosesPath(glob: SourcesGlobs): Boolean = normalizedPath.startsWith(globDirectory(glob))
+    def withinWalkDepth(glob: SourcesGlobs): Boolean =
+      globDirectory(glob).relativize(normalizedPath).getNameCount <= glob.walkDepth
     def matchedBy(globs: Seq[SourcesGlobs]): Boolean =
-      globs.exists(glob => enclosesPath(glob) && glob.matches(path))
-    def underPlainSource = plainSources.exists(source => path.startsWith(source))
+      globs.exists(glob =>
+        enclosesPath(glob) && withinWalkDepth(glob) && glob.matches(normalizedPath)
+      )
+    def underPlainSource =
+      normalizedPlainSources.exists(source => normalizedPath.startsWith(source))
 
     // A non-hidden Scala/Java file is a source unless it sits inside a sources-glob directory
     // that filters it out and no plain source directory covers it.
     def isDefaultSource =
-      SourceHasher.matchSourceFile(path) && (!projectGlobs.exists(enclosesPath) || underPlainSource)
+      SourceHasher.matchSourceFile(normalizedPath) &&
+        (!projectGlobs.exists(enclosesPath) || underPlainSource)
 
     matchedBy(projectGlobs) || matchedBy(sourceGeneratorGlobs) || isDefaultSource
   }
 
-  def apply(projectNames: List[String], paths0: Seq[Path], logger: Logger): SourceWatcher = {
+  def apply(
+      projectNames: List[String],
+      paths0: Seq[Path],
+      plainSources: Seq[Path],
+      projectGlobs: Seq[SourcesGlobs],
+      sourceGeneratorGlobs: Seq[SourcesGlobs],
+      logger: Logger
+  ): SourceWatcher = {
     val existingPaths = paths0.distinct.filter(p => Files.exists(p))
     val dirs = existingPaths.filter(p => Files.isDirectory(p))
     val files = existingPaths.filter(p => Files.isRegularFile(p))
-    new SourceWatcher(projectNames, dirs, files, logger)
+    new SourceWatcher(
+      projectNames,
+      dirs,
+      files,
+      plainSources,
+      projectGlobs,
+      sourceGeneratorGlobs,
+      logger
+    )
   }
 
   sealed trait EventStream
