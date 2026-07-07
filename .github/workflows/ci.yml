@@ -175,6 +175,7 @@ jobs:
           cp cli/target/graalvm-native-image/bloop-cli bloop-artifacts/$ARTIFACT_NAME
 
       - uses: actions/upload-artifact@v7
+        if: github.event_name == 'push'
         with:
           name: ${{ matrix.artifact }}
           path: bloop-artifacts/${{ matrix.artifact }}
@@ -187,7 +188,7 @@ jobs:
         run: cli/target/graalvm-native-image/bloop-cli.exe about
       
       - name: Check on other systems
-        if: matrix.os != 'windows-latest'
+        if: matrix.os == 'windows-latest'
         run: cli/target/graalvm-native-image/bloop-cli about
 
   release:
