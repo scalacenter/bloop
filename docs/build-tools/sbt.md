@@ -128,6 +128,19 @@ $ sbt bloopInstall
 ...
 ```
 
+### Source file filters
+
+sbt's `includeFilter`/`excludeFilter` settings on `unmanagedSources` are honored by the export. A
+source directory is normally exported as a directory, which lets Bloop watch it and pick up new
+files automatically. When a project customizes those filters, its unmanaged source directories are
+instead exported as the explicit list of files that sbt compiles, so Bloop compiles exactly the
+same files as sbt — both for files present now and for files the filters would hide later.
+
+Because that file list is computed at export time, **adding or removing sources in a project that
+uses filters requires re-running `bloopInstall`** (or re-importing the build in your editor) for
+Bloop to see the change; `bloopInstall` prints a warning naming the affected projects. Projects
+whose filters are left at their defaults keep exporting directories and need no re-import.
+
 ### Enable custom configurations
 
 By default, `bloopInstall` exports projects for the standard `Compile`,
