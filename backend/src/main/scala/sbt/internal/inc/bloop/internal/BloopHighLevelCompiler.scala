@@ -8,7 +8,6 @@ import java.util.Optional
 import scala.concurrent.Promise
 import scala.util.control.NonFatal
 
-import bloop.CompilerCrash
 import bloop.logging.ObservedLogger
 import bloop.logging.TeeOutputStream
 import bloop.reporter.ZincReporter
@@ -135,14 +134,6 @@ final class BloopHighLevelCompiler(
             _.addListener(baos)
           }
 
-          // Wrap a fatal error in a non-fatal crash: fatal errors escape the task that runs
-          // the compilation, so they would never complete it and clients would wait forever.
-          // The consumer of the failed compilation result reports the full stack trace.
-          def compilerCrash(cause: Throwable, advice: String): CompilerCrash = {
-            JavaCompleted.tryFailure(cause)
-            new CompilerCrash(s"The compiler crashed with a ${cause.getClass().getSimpleName()}. $advice", cause)
-          }
-
           try {
             scalac.compile(
               sources.toArray,
@@ -158,11 +149,13 @@ final class BloopHighLevelCompiler(
             )
           } catch {
             case t: StackOverflowError =>
-              throw compilerCrash(t, "You might need to restart your Bloop build server")
+              val msg = "Encountered a StackOverflowError coming from the compiler. You might need to restart your Bloop build server"
+              logger.error(s"${msg}:\n${t.getStackTrace().mkString("\n")}")
+              throw new CompileFailed(new Array(0), msg, new Array(0), None, t)
             case t: NoClassDefFoundError =>
-              throw compilerCrash(t, "You might need to clean compile your workspace")
-            case t: LinkageError =>
-              throw compilerCrash(t, "A compiler plugin or something else on the compiler classpath may be incompatible with the used Scala version")
+              val msg = "Encountered a NoClassDefFoundError coming from the compiler. You might need to clean compile your workspace"
+              logger.error(s"${msg}:\n${t.getStackTrace().mkString("\n")}")
+              throw new CompileFailed(new Array(0), msg, new Array(0), None, t)
             case NonFatal(t) =>
               // If scala compilation happens, complete the java promise so that it doesn't block
               JavaCompleted.tryFailure(t)
