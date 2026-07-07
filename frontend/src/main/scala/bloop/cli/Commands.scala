@@ -80,15 +80,6 @@ object Commands {
     implicit lazy val help: CaseAppHelp[About] = CaseAppHelp.derive
   }
 
-  case class Version(
-      @Recurse cliOptions: CliOptions = CliOptions.default
-  ) extends RawCommand
-
-  object Version {
-    implicit lazy val parser: Parser[Version] = Parser.derive
-    implicit lazy val help: CaseAppHelp[Version] = CaseAppHelp.derive
-  }
-
   case class Projects(
       @HelpMessage("Print out a dot graph you can pipe into `dot`. By default, false.")
       dotGraph: Boolean = false,

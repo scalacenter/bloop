@@ -5,7 +5,6 @@ import java.nio.file.Path
 
 import bloop.cli.BspProtocol
 import bloop.cli.Commands
-import bloop.cli.CommonOptions
 import bloop.cli.ExitStatus
 import bloop.cli.Validate
 import bloop.engine.Action
@@ -13,7 +12,6 @@ import bloop.engine.Exit
 import bloop.engine.Feedback
 import bloop.engine.Print
 import bloop.engine.Run
-import bloop.internal.build.BuildInfo
 import bloop.testing.BaseSuite
 import bloop.util.UUIDUtil
 
