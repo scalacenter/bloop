@@ -1,2 +1,4 @@
 > bloopInstall
-> jsProject/check js
+> jsProject/check js false false
+> jsdomProject/check js false true
+> jsdomAllProject/check js true true

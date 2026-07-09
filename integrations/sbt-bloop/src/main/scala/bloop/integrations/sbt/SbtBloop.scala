@@ -103,6 +103,8 @@ object BloopKeys {
     settingKey("Proxy for Scala.js definition of `scalajsLinkerConfig#sourceMap`")
   val bloopScalaJSUseWebAssembly: SettingKey[Option[Boolean]] =
     settingKey("Proxy for Scala.js definition of `scalajsLinkerConfig#experimentalUseWebAssembly`")
+  val bloopScalaJSJsdom: TaskKey[Option[Boolean]] =
+    taskKey[Option[Boolean]]("Proxy for Scala.js `jsEnv`: whether the configured env uses jsdom")
   val bloopMainClass: SettingKey[Option[String]] =
     settingKey[Option[String]]("The main class to run a bloop target")
   val bloopSupportedConfigurations: SettingKey[Seq[Configuration]] =
@@ -241,6 +243,8 @@ object BloopDefaults {
         if (Keys.bspEnabled.value) bloopGenerate.value else Value(None)
       },
       BloopKeys.bloopPostGenerate := bloopPostGenerate.value,
+      // Config-scoped, unlike the other Scala.js proxies, so that `Test / jsEnv` is honored
+      BloopKeys.bloopScalaJSJsdom := findOutScalaJsJsdom.value,
       BloopKeys.bloopMainClass := None,
       Keys.run / BloopKeys.bloopMainClass := BloopKeys.bloopMainClass.value
     ) ++ discoveredSbtPluginsSettings
@@ -294,6 +298,8 @@ object BloopDefaults {
   private final val NoJSModule = "NoModule"
   private final val CommonJSModule = "CommonJSModule"
   private final val ESModule = "ESModule"
+
+  private final val JsdomEnvClassName = "org.scalajs.jsenv.jsdomnodejs.JSDOMNodeJSEnv"
 
   /**
    * Create a "proxy" for a setting that will allow us to inspect its value even though
@@ -377,6 +383,36 @@ object BloopDefaults {
     } catch {
       case _: ClassNotFoundException => Def.setting(None)
       case _: NoSuchMethodException => Def.setting(None)
+    }
+  }
+
+  /** Like `proxyForSetting` but for keys that Scala.js defines as tasks, e.g. `jsEnv`. */
+  def proxyForTask(id: String, `class`: Class[?]): Def.Initialize[Task[Option[AnyRef]]] = {
+    val taskManifest = new Manifest[AnyRef] { override def runtimeClass = `class` }
+    Compat.toAnyRefTaskKey(id, taskManifest).?
+  }
+
+  /**
+   * Detects whether the `jsEnv` configured in this scope needs the DOM. Must be
+   * evaluated in the configuration scope of `bloopGenerate` so that `Test / jsEnv`
+   * is honored through regular sbt delegation.
+   */
+  def findOutScalaJsJsdom: Def.Initialize[Task[Option[Boolean]]] = Def.taskDyn {
+    try {
+      val jsEnvClass = Class.forName("org.scalajs.jsenv.JSEnv")
+      val jsEnvTask = proxyForTask("jsEnv", jsEnvClass)
+      Def.task {
+        jsEnvTask.value.map { env =>
+          // If the jsdom env class isn't loadable here, no instance of it can exist;
+          // the name check covers shaded or otherwise classloader-isolated copies
+          val isJsdomInstance =
+            try Class.forName(JsdomEnvClassName).isInstance(env)
+            catch { case _: ClassNotFoundException => false }
+          isJsdomInstance || env.getClass.getName.contains("JSDOMNodeJSEnv")
+        }
+      }
+    } catch {
+      case _: ClassNotFoundException => Compat.inlinedTask[Option[Boolean]](None)
     }
   }
 
@@ -880,7 +916,7 @@ object BloopDefaults {
 
         val scalaJsEmitSourceMaps = BloopKeys.bloopScalaJSSourceMap.value.getOrElse(false)
         val scalaJsUseWebAssembly = BloopKeys.bloopScalaJSUseWebAssembly.value.getOrElse(false)
-        val jsdom = Some(false)
+        val jsdom = BloopKeys.bloopScalaJSJsdom.value.orElse(Some(false))
         val jsConfig = Config.JsConfig(scalaJsVersion, scalaJsStage, scalaJsModule, scalaJsEmitSourceMaps, jsdom, None, None, Nil,
             /* moduleSplitStyle*/ None, scalaJsUseWebAssembly)
         Config.Platform.Js(jsConfig, mainClass)
