@@ -9,6 +9,7 @@ import java.util.concurrent.TimeUnit
 import scala.collection.JavaConverters._
 import scala.concurrent.duration.FiniteDuration
 
+import bloop.data.SourcesGlobs
 import bloop.engine.ExecutionContext
 import bloop.engine.State
 import bloop.logging.DebugFilter
@@ -30,6 +31,9 @@ final class SourceWatcher private (
     projectNames: List[String],
     dirs: Seq[Path],
     files: Seq[Path],
+    plainSources: Seq[Path],
+    projectGlobs: Seq[SourcesGlobs],
+    sourceGeneratorGlobs: Seq[SourcesGlobs],
     logger: Logger
 ) {
   import java.nio.file.Files
@@ -53,14 +57,9 @@ final class SourceWatcher private (
       )
 
     var watchingEnabled: Boolean = true
-    val isSourceFile: Path => Boolean = {
-      val sourceGeneratorGlobs = for {
-        loadedProject <- state0.build.loadedProjects
-        sourceGenerator <- loadedProject.project.sourceGenerators
-        glob <- sourceGenerator.sourcesGlobs
-      } yield glob
-      path => SourceHasher.matchSourceFile(path) || sourceGeneratorGlobs.exists(_.matches(path))
-    }
+    val isSourceFile: Path => Boolean =
+      path =>
+        SourceWatcher.isWatchedSourceFile(plainSources, projectGlobs, sourceGeneratorGlobs, path)
     val listener = new DirectoryChangeListener {
       override def isWatching: Boolean = watchingEnabled
 
@@ -213,11 +212,66 @@ final class SourceWatcher private (
 }
 
 object SourceWatcher {
-  def apply(projectNames: List[String], paths0: Seq[Path], logger: Logger): SourceWatcher = {
+
+  /**
+   * Decides whether a file watching event should trigger a new compilation iteration.
+   *
+   * A file inside a sources-glob directory is a source only if some glob matches it; otherwise
+   * it is filtered out and must not wake compilation, unless a plain source directory also
+   * covers it. Files outside glob directories keep the default non-hidden source-file rule.
+   */
+  def isWatchedSourceFile(
+      plainSources: Seq[Path],
+      projectGlobs: Seq[SourcesGlobs],
+      sourceGeneratorGlobs: Seq[SourcesGlobs],
+      path: Path
+  ): Boolean = {
+    val normalizedPath = path.toAbsolutePath.normalize
+    val normalizedPlainSources = plainSources.map(_.toAbsolutePath.normalize)
+
+    // `SourcesGlobs.matches` relativizes against its own directory, and Java glob semantics let a
+    // `**` pattern match the resulting `../` path. Only globs whose directory contains the path
+    // may decide whether it is a source.
+    def globDirectory(glob: SourcesGlobs): Path = glob.directory.underlying.toAbsolutePath.normalize
+    def enclosesPath(glob: SourcesGlobs): Boolean = normalizedPath.startsWith(globDirectory(glob))
+    def withinWalkDepth(glob: SourcesGlobs): Boolean =
+      globDirectory(glob).relativize(normalizedPath).getNameCount <= glob.walkDepth
+    def matchedBy(globs: Seq[SourcesGlobs]): Boolean =
+      globs.exists(glob =>
+        enclosesPath(glob) && withinWalkDepth(glob) && glob.matches(normalizedPath)
+      )
+    def underPlainSource =
+      normalizedPlainSources.exists(source => normalizedPath.startsWith(source))
+
+    // A non-hidden Scala/Java file is a source unless it sits inside a sources-glob directory
+    // that filters it out and no plain source directory covers it.
+    def isDefaultSource =
+      SourceHasher.matchSourceFile(normalizedPath) &&
+        (!projectGlobs.exists(enclosesPath) || underPlainSource)
+
+    matchedBy(projectGlobs) || matchedBy(sourceGeneratorGlobs) || isDefaultSource
+  }
+
+  def apply(
+      projectNames: List[String],
+      paths0: Seq[Path],
+      plainSources: Seq[Path],
+      projectGlobs: Seq[SourcesGlobs],
+      sourceGeneratorGlobs: Seq[SourcesGlobs],
+      logger: Logger
+  ): SourceWatcher = {
     val existingPaths = paths0.distinct.filter(p => Files.exists(p))
     val dirs = existingPaths.filter(p => Files.isDirectory(p))
     val files = existingPaths.filter(p => Files.isRegularFile(p))
-    new SourceWatcher(projectNames, dirs, files, logger)
+    new SourceWatcher(
+      projectNames,
+      dirs,
+      files,
+      plainSources,
+      projectGlobs,
+      sourceGeneratorGlobs,
+      logger
+    )
   }
 
   sealed trait EventStream

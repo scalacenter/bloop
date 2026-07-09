@@ -126,18 +126,33 @@ object Interpreter {
     val projectsSourcesAndDirs = reachable.map { project =>
       for {
         unmanaged <- project.allUnmanagedSourceFilesAndDirectories
+        // Globs expand to the files existing now; watch their directories so
+        // that creating a new matching file also triggers an iteration
+        globDirectories = project.sourcesGlobs.map(_.directory)
         generatorSourceDirs = project.sourceGenerators.flatMap(gen =>
           gen.sourcesGlobs.map(_.directory) ++ gen.unmangedInputs
         )
-      } yield unmanaged ++ generatorSourceDirs
+      } yield unmanaged ++ globDirectories ++ generatorSourceDirs
     }
     val groupTasks =
       projectsSourcesAndDirs.grouped(8).map(group => Task.gatherUnordered(group)).toList
+    val watchedPlainSources = reachable.flatMap(_.sources.map(_.underlying))
+    val watchedProjectGlobs = reachable.flatMap(_.sourcesGlobs)
+    val watchedSourceGeneratorGlobs = reachable.flatMap { project =>
+      project.sourceGenerators.flatMap(_.sourcesGlobs)
+    }
     Task
       .sequence(groupTasks)
       .map(fp => fp.flatten.flatten.map(_.underlying))
       .flatMap { allSources =>
-        val watcher = SourceWatcher(projects.map(_.name), allSources, state.logger)
+        val watcher = SourceWatcher(
+          projects.map(_.name),
+          allSources,
+          watchedPlainSources,
+          watchedProjectGlobs,
+          watchedSourceGeneratorGlobs,
+          state.logger
+        )
         val fg = (state: State) => {
           val newState = State.stateCache.getUpdatedStateFrom(state).getOrElse(state)
           f(newState).map { state =>
