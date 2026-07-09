@@ -238,7 +238,19 @@ object BloopHighLevelCompiler {
   def apply(config: CompileConfiguration, reporter: ZincReporter, logger: ObservedLogger[_], tracer: BraveTracer, classpathOptions: ClasspathOptions): BloopHighLevelCompiler = {
     val (searchClasspath, entry) = MixedAnalyzingCompiler.searchClasspathAndLookup(config)
     val scalaCompiler = config.compiler.asInstanceOf[AnalyzingCompiler]
-    val javaCompiler = new AnalyzingJavaCompiler(config.javac, config.classpath, config.compiler.scalaInstance, classpathOptions, entry, searchClasspath)
+    val scalaInstance = config.compiler.scalaInstance
+
+    // Ensure the full compile classpath is available for Java analysis.
+    // This is needed because Zinc's JavaAnalyze uses reflection to load classes,
+    // and for Java-only projects referencing Scala libraries (e.g., Scala 3 enums
+    // which extend scala.reflect.Enum), the analysis classloader needs access to
+    // all dependency jars, not just what MixedAnalyzingCompiler.searchClasspathAndLookup returns.
+    // See: https://github.com/sbt/zinc/pull/1660
+    // See: https://github.com/VirtusLab/scala-cli/issues/4361
+    val searchClasspathIds = searchClasspath.map(_.id()).toSet
+    val additionalClasspath = config.classpath.filterNot(jar => searchClasspathIds.contains(jar.id()))
+    val searchClasspathWithFullCp = searchClasspath ++ additionalClasspath
+    val javaCompiler = new AnalyzingJavaCompiler(config.javac, config.classpath, scalaInstance, classpathOptions, entry, searchClasspathWithFullCp)
     new BloopHighLevelCompiler(scalaCompiler, javaCompiler, config, reporter, logger, tracer)
   }
 }

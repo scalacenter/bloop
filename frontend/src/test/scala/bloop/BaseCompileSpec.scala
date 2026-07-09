@@ -126,6 +126,72 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
     )
   )
 
+  // https://github.com/VirtusLab/scala-cli/issues/4361
+  // Java files referencing Scala 3 enums should compile successfully.
+  // Previously, Zinc's JavaAnalyze would fail with NoClassDefFoundError: scala/reflect/Enum
+  // because the Scala library wasn't on the analysis classpath.
+  test("compile Java file referencing Scala 3 enum") {
+    TestUtil.withinWorkspace { workspace =>
+      object Sources {
+        val `Repro.java` =
+          """/Repro.java
+            |import llm4zio.javaapi.*;
+            |import llm4zio.flow.Plan;
+            |
+            |public class Repro {
+            |  public static void main(String[] args) {
+            |    Llm4zioJava.flow(args, "owner/repo#number", flow -> {
+            |      var maybeRef = Refs.issue(flow.userPrompt());
+            |      if (maybeRef.isEmpty()) {
+            |        flow.fail("usage");
+            |        return;
+            |      }
+            |      var ref = maybeRef.get();
+            |      var issue = flow.stage("Read issue " + ref.shortRef(), () -> flow.gh().readIssue(ref));
+            |      var payload = "Issue: " + issue.title();
+            |      var planPath = flow.workDir().resolve(".llm4zio/issue-" + ref.number() + ".md");
+            |      Plan plan;
+            |      var existing = flow.loadPlan(planPath);
+            |      if (existing.isPresent()) {
+            |        plan = existing.get();
+            |      } else {
+            |        var assessment = flow.assessThenPlan(payload);
+            |        if (assessment instanceof JavaAssessment.Blocked blocked) {
+            |          flow.stage("Post assessment on the issue", () -> flow.gh().writeIssueComment(ref, blocked.reason()));
+            |          return;
+            |        }
+            |        plan = ((JavaAssessment.Proceed) assessment).plan();
+            |        flow.git().checkoutOrCreate(plan.epicId());
+            |        flow.savePlan(planPath, plan);
+            |      }
+            |      System.out.println(plan.epicId());
+            |    });
+            |  }
+            |}
+            |""".stripMargin
+      }
+
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val llm4zioJars = DependencyResolution.resolve(
+        List(DependencyResolution.Artifact("io.github.riccardomerolla", "llm4zio-java", "3.12.0")),
+        logger
+      )
+      val `A` = TestProject(
+        workspace,
+        "a",
+        List(Sources.`Repro.java`),
+        scalaVersion = None,
+        jars = llm4zioJars,
+        order = Config.JavaThenScala
+      )
+      val projects = List(`A`)
+      val state = loadState(workspace, projects, logger)
+      val compiledState = state.compile(`A`)
+      assertExitStatus(compiledState, ExitStatus.Ok)
+      assertValidCompilationState(compiledState, projects)
+    }
+  }
+
   test("compile a project twice with no input changes produces a no-op") {
     TestUtil.withinWorkspace { workspace =>
       val sources = List(
