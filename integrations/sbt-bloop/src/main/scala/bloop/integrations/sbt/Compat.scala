@@ -7,6 +7,7 @@ import sbt.Def
 import sbt.Exec
 import sbt.Keys
 import sbt.SettingKey
+import sbt.TaskKey
 import sbt.io.syntax.File
 import sbt.librarymanagement.ScalaModuleInfo
 import sbt.util.CacheStore
@@ -42,6 +43,12 @@ object Compat extends CompatPlatform {
   def toAnyRefSettingKey(id: String, m: Manifest[AnyRef]): SettingKey[AnyRef] = {
     implicit val manifest: Manifest[AnyRef] = m
     SettingKey(id)
+  }
+
+  // sbt 1 requires a Manifest and sbt 2 a ClassTag; a Manifest satisfies both
+  def toAnyRefTaskKey(id: String, m: Manifest[AnyRef]): TaskKey[AnyRef] = {
+    implicit val manifest: Manifest[AnyRef] = m
+    TaskKey(id)
   }
 
   val bloopCompatSettings: Seq[Def.Setting[?]] = List(
