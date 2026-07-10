@@ -44,7 +44,7 @@ object Dependencies {
   val zipkinSenderVersion = "2.17.2"
   val jnaVersion = "5.19.1"
   val asmVersion = "9.10.1"
-  val ztExecVersion = "1.12"
+  val ztExecVersion = "1.13.0"
   val debugAdapterVersion = "4.2.10"
   val bloopConfigVersion = "2.3.3"
   val semanticdbVersion = "4.14.0"
