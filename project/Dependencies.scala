@@ -45,7 +45,7 @@ object Dependencies {
   val jnaVersion = "5.19.1"
   val asmVersion = "9.10.1"
   val ztExecVersion = "1.13.0"
-  val debugAdapterVersion = "4.2.10"
+  val debugAdapterVersion = "4.2.11"
   val bloopConfigVersion = "2.3.3"
   val semanticdbVersion = "4.14.0"
   val millVersion = "0.12.7"
