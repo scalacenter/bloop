@@ -154,6 +154,9 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: sbt/setup-sbt@v1
+      - uses: coursier/setup-action@v3
+        with:
+          apps: scala-cli
 
       - name: Publish GraalVM Native artifacts
         run: sbt "cli/graalvm-native-image:packageBin"
@@ -187,28 +190,12 @@ jobs:
       - name: Check the native binary
         shell: bash
         run: |
-          root=$(pwd)
           if [ "${{ matrix.os }}" = "windows-latest" ]; then
-            bin=$root/cli/target/graalvm-native-image/bloop-cli.exe
+            bin=cli/target/graalvm-native-image/bloop-cli.exe
           else
-            bin=$root/cli/target/graalvm-native-image/bloop-cli
+            bin=cli/target/graalvm-native-image/bloop-cli
           fi
-          "$bin" about
-          # A -D before the command is a launcher property that Bloop.main must extract
-          # before command selection (see -H:-ParseRuntimeOptions in build.sbt); the
-          # command must still run. If extraction regressed, the -D would be treated as
-          # the command and the banner would not be printed.
-          "$bin" -Dbloop.smoke.marker=1 about 2>&1 | grep -F 'Maintained by'
-          # A -D after `--` must survive the native launcher and reach the server (the
-          # core of the fix); the server echoes it back as an unknown project name. The
-          # generated config path handling is awkward on Windows, so run this elsewhere.
-          if [ "${{ matrix.os }}" != "windows-latest" ]; then
-            ws=$(mktemp -d)
-            mkdir -p "$ws/.bloop" "$ws/out/classes"
-            printf '{"version":"1.4.0","project":{"name":"smoke","directory":"%s","workspaceDir":"%s","sources":[],"dependencies":[],"classpath":[],"out":"%s/out","classesDir":"%s/out/classes"}}' \
-              "$ws" "$ws" "$ws" "$ws" > "$ws/.bloop/smoke.json"
-            ( cd "$ws" && "$bin" compile -- -Dbloop.smoke.marker=1 2>&1 || true ) | grep -F -- '-Dbloop.smoke.marker=1'
-          fi
+          bin/test-native-cli.sh "$bin"
 
   release:
     name: Release version on ${{ matrix.os }}
