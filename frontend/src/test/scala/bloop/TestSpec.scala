@@ -54,6 +54,13 @@ object SeedTestSpec extends BaseTestSpec("root-test", "scala-seed-project") {
         |All 1 test suites passed.
         |$delimiter
         |""".stripMargin
+
+  testProject("test framework receives -D arguments", runOnlyOnJava8 = false) { (build, logger) =>
+    val project = build.projectFor(projectName)
+    build.state.test(project, Nil, List("-Dkey=value"))
+    try assert(logger.infos.exists(_.contains("HelloSpec config key=value")))
+    catch { case err: AssertionError => logger.dump(); throw err }
+  }
 }
 
 object ResourcesTestSpec extends BaseTestSpec("root-test", "resources-test-project") {

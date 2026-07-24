@@ -232,6 +232,14 @@ lazy val cliSettings = Seq(
       "--add-exports=org.graalvm.nativeimage.base/com.oracle.svm.util=ALL-UNNAMED",
       "--add-exports=org.graalvm.nativeimage.builder/com.oracle.svm.core.jni=ALL-UNNAMED",
       "--add-exports=org.graalvm.nativeimage.builder/com.oracle.svm.core.jdk=ALL-UNNAMED",
+      // Do not let the native launcher consume -D/-X/-XX: options at startup, so that
+      // arguments after `--` reach the server (e.g. `bloop test foo -- -Dkey=value` for
+      // the test framework). Bloop.main re-applies the launcher's own -D properties that
+      // appear before the command (bloop.java-opts, bloop.server, ...); -X/-XX: runtime
+      // options for the client binary itself are no longer honoured (a native image
+      // cannot apply them once started).
+      // On GraalVM for JDK 21+ this needs -H:+UnlockExperimentalVMOptions before it.
+      "-H:-ParseRuntimeOptions",
       "--no-fallback",
       "--enable-url-protocols=http,https",
       "--enable-all-security-services",

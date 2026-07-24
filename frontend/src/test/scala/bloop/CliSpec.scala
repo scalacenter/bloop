@@ -249,6 +249,31 @@ object CliSpec extends BaseSuite {
     }
   }
 
+  test("parse test args after -- as framework args") {
+    Cli.parse(
+      Array("test", "foo", "--only", "MySpec", "--", "-Dkey=value", "-z", "ok"),
+      CommonOptions.default
+    ) match {
+      case Run(cmd: Commands.Test, _) =>
+        assert(cmd.projects == List("foo"))
+        assert(cmd.only == List("MySpec"))
+        assert(cmd.args == List("-Dkey=value", "-z", "ok"))
+      case action => throw new AssertionError(s"Expected a test command, got $action")
+    }
+  }
+
+  test("parse run args after -- as process args") {
+    Cli.parse(
+      Array("run", "foo", "--", "-Dkey=value", "arg1"),
+      CommonOptions.default
+    ) match {
+      case Run(cmd: Commands.Run, _) =>
+        assert(cmd.projects == List("foo"))
+        assert(cmd.args == List("-Dkey=value", "arg1"))
+      case action => throw new AssertionError(s"Expected a run command, got $action")
+    }
+  }
+
   test("reject an out-of-range --jvm-debug port through the CLI") {
     checkIsCliError(
       Cli.parse(Array("run", "foo", "--jvm-debug", "70000"), CommonOptions.default),

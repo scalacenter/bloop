@@ -109,7 +109,7 @@ jobs:
               "frontend/test:compile; \
               backend/test; \
               docs/compile; \
-              cli/compile; \
+              cli/test; \
               bloopRifle/test; \
               frontend/testOnly bloop.ScalaVersionsSpec; \
               frontend/testOnly -bloop.ScalaVersionsSpec; \
@@ -154,6 +154,9 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: sbt/setup-sbt@v1
+      - uses: coursier/setup-action@v3
+        with:
+          apps: scala-cli
 
       - name: Publish GraalVM Native artifacts
         run: sbt "cli/graalvm-native-image:packageBin"
@@ -184,13 +187,15 @@ jobs:
       - name: Sanity check of the generated binary
         run: sbt publishLocal
 
-      - name: Check on windows
-        if: matrix.os == 'windows-latest'
-        run: cli/target/graalvm-native-image/bloop-cli.exe about
-      
-      - name: Check on other systems
-        if: matrix.os == 'windows-latest'
-        run: cli/target/graalvm-native-image/bloop-cli about
+      - name: Check the native binary
+        shell: bash
+        run: |
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            bin=cli/target/graalvm-native-image/bloop-cli.exe
+          else
+            bin=cli/target/graalvm-native-image/bloop-cli
+          fi
+          bin/test-native-cli.sh "$bin"
 
   release:
     name: Release version on ${{ matrix.os }}
