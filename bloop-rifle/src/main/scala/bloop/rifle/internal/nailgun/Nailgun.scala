@@ -343,6 +343,9 @@ final class Protocol(
                 }
             }
           }
+        } catch {
+          case exception: InterruptedException =>
+            logger.debug("Stdin thread interrupted", exception)
         } finally reader.close()
       }
       (thread, sendStdinSemaphore)
