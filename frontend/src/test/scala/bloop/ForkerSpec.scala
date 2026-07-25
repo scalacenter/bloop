@@ -58,13 +58,15 @@ class ForkerSpec {
       cwd: AbsolutePath,
       args: Array[String],
       extraClasspath: Array[AbsolutePath] = Array.empty,
-      envs: List[String] = Nil
+      envs: List[String] = Nil,
+      configJavaOptions: Array[String] = Array.empty,
+      jargs: Array[String] = Array.empty
   )(
       op: (Int, List[(String, String)]) => Unit
   ): Unit =
     TestUtil.checkAfterCleanCompilation(runnableProject, dependencies) { state =>
       val project = TestUtil.getProject(TestUtil.RootProject, state)
-      val env = JdkConfig.default
+      val env = JdkConfig.default.copy(javaOptions = configJavaOptions)
       val classpath = project.fullRuntimeClasspath(state.build.getDagFor(project), state.client)
       val config = JvmProcessForker(env, classpath)
       val logger = new RecordingLogger
@@ -76,7 +78,7 @@ class ForkerSpec {
           cwd,
           mainClass,
           args,
-          Array.empty,
+          jargs,
           envVars = envs,
           logger.asVerbose,
           opts,
@@ -218,6 +220,25 @@ class ForkerSpec {
     run(cwd, Array.empty) {
       case (exitCode, messages) =>
         val expected = "info" -> s"CWD: ${cwd.underlying.toRealPath()}"
+        assertEquals(0, exitCode.toLong)
+        assert(messages.contains(expected), s"$messages did not contain $expected")
+    }
+  }
+
+  @Test
+  def callerJvmOptionsOverrideConfigJavaOptions(): Unit = TestUtil.withinWorkspace { tmp =>
+    val injectedDir = tmp.resolve("injected-dir")
+    val wantedDir = tmp.resolve("wanted-dir")
+    Files.createDirectory(injectedDir.underlying)
+    Files.createDirectory(wantedDir.underlying)
+    run(
+      tmp,
+      Array.empty,
+      configJavaOptions = Array(s"-Duser.dir=${injectedDir.syntax}"),
+      jargs = Array(s"-Duser.dir=${wantedDir.syntax}")
+    ) {
+      case (exitCode, messages) =>
+        val expected = "info" -> s"CWD: ${wantedDir.underlying.toRealPath()}"
         assertEquals(0, exitCode.toLong)
         assert(messages.contains(expected), s"$messages did not contain $expected")
     }

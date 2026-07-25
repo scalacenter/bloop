@@ -138,7 +138,9 @@ final class JvmForker(config: JdkConfig, classpath: Array[AbsolutePath]) extends
       opts: CommonOptions,
       extraClasspath: Array[AbsolutePath]
   ): Task[Int] = {
-    val jvmOptions = jargs ++ config.javaOptions
+    // Caller options come last so they take precedence: for single-valued options
+    // (e.g. -Duser.dir or -Xmx) the JVM honours the last occurrence
+    val jvmOptions = config.javaOptions ++ jargs
     val fullClasspath = classpath ++ extraClasspath
     val fullClasspathStr = fullClasspath.map(_.syntax).mkString(File.pathSeparator)
 
