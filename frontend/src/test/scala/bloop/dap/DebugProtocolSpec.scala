@@ -5,6 +5,7 @@ import java.nio.file.Files
 
 import ch.epfl.scala.bsp
 
+import bloop.config.Config
 import bloop.logging.RecordingLogger
 import bloop.util.TestProject
 import bloop.util.TestUtil
@@ -85,6 +86,45 @@ object DebugProtocolSpec extends DebugBspBaseSuite {
             .filterNot(_.contains("JDWP exit error AGENT_ERROR_NO_JNI_ENV"))
             .mkString("\n"),
           "hello\nworld!"
+        )
+      }
+    }
+  }
+
+  test("caller jvm options override config java options") {
+    TestUtil.withinWorkspace { workspace =>
+      val main =
+        """|/main/scala/Main.scala
+           |object Main {
+           |  def main(args: Array[String]): Unit = {
+           |    print(sys.props("world"))
+           |  }
+           |}
+           |""".stripMargin
+
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val jvmConfig = Config.JvmConfig(None, List("-Dworld=config"))
+      val project = TestProject(workspace, "p", List(main), jvmConfig = Some(jvmConfig))
+
+      loadBspState(workspace, List(project), logger) { state =>
+        val params = mainClassParams("Main", jvmOptions = List("-J-Dworld=user"))
+        val output = state.withDebugSession(project, params) { client =>
+          for {
+            _ <- client.initialize()
+            _ <- client.launch(noDebug = true)
+            _ <- client.configurationDone()
+            _ <- client.exited
+            _ <- client.terminated
+            output <- client.blockForAllOutput
+          } yield output
+        }
+
+        assertNoDiff(
+          output.linesIterator
+            .filterNot(_.contains("ERROR: JDWP Unable to get JNI 1.2 environment"))
+            .filterNot(_.contains("JDWP exit error AGENT_ERROR_NO_JNI_ENV"))
+            .mkString("\n"),
+          "user"
         )
       }
     }
