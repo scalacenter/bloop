@@ -25,6 +25,13 @@ fi
 
 bin=$(cd "$(dirname "$1")" && pwd)/$(basename "$1")
 
+# On Windows, scala-cli is installed as scala-cli.bat by coursier
+if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "cygwin" || "$OSTYPE" == "win32" ]]; then
+  SCALA_CLI="scala-cli.bat"
+else
+  SCALA_CLI="scala-cli"
+fi
+
 "$bin" about
 
 out=$("$bin" -Dbloop.smoke.marker=1 about 2>&1 || true)
@@ -45,7 +52,7 @@ class SmokeTest extends AnyFunSuite with BeforeAndAfterAllConfigMap {
 }
 EOF
 
-(cd "$workspace" && scala-cli compile --test .)
+(cd "$workspace" && $SCALA_CLI compile --test .)
 
 testProject=$(basename "$workspace"/.scala-build/.bloop/*-test.json .json)
 out=$(cd "$workspace/.scala-build" && "$bin" test "$testProject" -- -Dkey=value 2>&1 || true)
