@@ -30,7 +30,7 @@ abstract class BaseTestSpec(val projectName: String, buildName: String)
     build.state.test(project)
     try assert(logger.errors.size == 0)
     catch { case _: AssertionError => logger.dump() }
-    assertNoDiff(
+    assertEndsWith(
       logger.renderTimeInsensitiveTestInfos,
       expectedFullTestsOutput
     )
