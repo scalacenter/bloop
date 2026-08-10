@@ -304,7 +304,8 @@ object BuildLoaderSpec extends BaseSuite {
             localServiceName = Some("42"),
             traceStartAnnotation = Some("start"),
             traceEndAnnotation = Some("end"),
-            enabled = Some(true)
+            enabled = Some(true),
+            compilationTrace = None
           )
         ),
         None

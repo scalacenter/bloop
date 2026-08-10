@@ -397,7 +397,7 @@ object CompileGraph {
        * `FailPromise` exception that makes the partial result be recognized as error.
        */
       def toPartialFailure(bundle: SuccessfulCompileBundle, results: ResultBundle): PartialFailure = {
-        PartialFailure(bundle.project, FailedOrCancelledPromise, Task.now(results))
+        PartialFailure(bundle.project, FailedOrCancelledPromise, Task.now(results), Some(bundle))
       }
 
       def loop(dag: Dag[Project]): CompileTraversal = {
@@ -437,7 +437,7 @@ object CompileGraph {
                     val transitive = dagResults.flatMap(Dag.dfs(_, mode = Dag.PreOrder)).distinct
                     transitive.flatMap {
                       case PartialSuccess(bundle, result) => Some(result.map(r => bundle.project -> r))
-                      case PartialFailure(project, _, result) => Some(result.map(r => project -> r))
+                      case PartialFailure(project, _, result, _) => Some(result.map(r => project -> r))
                       case _ => None
                     }
                   }
