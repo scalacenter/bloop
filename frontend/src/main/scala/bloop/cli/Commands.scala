@@ -130,6 +130,21 @@ object Commands {
     implicit lazy val help: CaseAppHelp[Clean] = CaseAppHelp.derive
   }
 
+  case class Reload(
+      @ExtraName("p")
+      @ExtraName("project")
+      @HelpMessage(
+        "The projects whose compilation state to reload from disk (you can specify multiple). If none, all are reloaded."
+      )
+      projects: List[String] = Nil,
+      @Recurse cliOptions: CliOptions = CliOptions.default
+  ) extends RawCommand
+
+  object Reload {
+    implicit lazy val parser: Parser[Reload] = Parser.derive
+    implicit lazy val help: CaseAppHelp[Reload] = CaseAppHelp.derive
+  }
+
   @CommandName("bsp")
   case class Bsp(
       @HelpMessage("The connection protocol for the bsp server. By default, local.")

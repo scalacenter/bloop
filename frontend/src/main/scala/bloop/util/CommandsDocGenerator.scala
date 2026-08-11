@@ -33,7 +33,7 @@ object CommandsDocGenerator {
           val progName = "bloop"
           val b = new StringBuilder
           b ++= NL
-          b ++= s"## `$progName $commandName$argsOption`"
+          b ++= s"## `$progName ${commandName.mkString(" ")}$argsOption`"
           b ++= NL
           b ++= NL
           b ++= "#### Usage"
@@ -123,6 +123,8 @@ object CommandsDocGenerator {
       s"bloop clean $ExampleProjectName",
       s"bloop clean $ExampleProjectName $ExampleProjectName2",
       s"bloop clean $ExampleProjectName --propagate",
+      "bloop reload",
+      s"bloop reload $ExampleProjectName",
       s"bloop bsp --protocol local --socket ${tmp.resolve("socket").toString} --pipe-name \\\\.\\pipe\\my-name-pipe",
       "bloop bsp --protocol tcp --host 127.0.0.1 --port 5101",
       s"bloop compile $ExampleProjectName",
@@ -158,6 +160,7 @@ object CommandsDocGenerator {
       case _: Commands.About => Some("about")
       case _: Commands.Projects => Some("projects")
       case _: Commands.Clean => Some("clean")
+      case _: Commands.Reload => Some("reload")
       case _: Commands.Bsp => Some("bsp")
       case _: Commands.Compile => Some("compile")
       case _: Commands.Test => Some("test")

@@ -10,9 +10,12 @@ import bloop.cli.ExitStatus
 import bloop.data.JdkConfig
 import bloop.data.Project
 import bloop.engine.Dag
+import bloop.engine.ExecutionContext
 import bloop.engine.State
 import bloop.engine.caches.LastSuccessfulResult
+import bloop.engine.caches.ResultsCache
 import bloop.engine.tasks.compilation.CompileGatekeeper
+import bloop.engine.tasks.compilation.ReloadFailure
 import bloop.exec.Forker
 import bloop.exec.JvmProcessForker
 import bloop.io.AbsolutePath
@@ -44,12 +47,29 @@ object Tasks {
     val allTargetsToClean =
       if (!includeDeps) targets
       else targets.flatMap(t => Dag.dfs(state.build.getDagFor(t), mode = Dag.PreOrder)).distinct
-    // Drop the cross-client in-memory last successful results so the next compile can't reuse them.
-    Task(allTargetsToClean.foreach(CompileGatekeeper.clearSuccessfulResult))
-      .flatMap { _ =>
+    // Drop the cross-client in-memory last successful results so the next compile can't reuse
+    // them, and keep the projects reserved until their products are gone
+    CompileGatekeeper
+      .cleaning(allTargetsToClean) {
         state.results.cleanSuccessful(allTargetsToClean.toSet, state.client, state.logger)
       }
       .map(newResults => state.copy(results = newResults))
+  }
+
+  /**
+   * Reloads the persisted compilation state of `targets`, so analysis written by an external
+   * tool becomes visible without a restart. Publishes it or fails without changing anything.
+   */
+  def reloadAnalysis(state: State, targets: List[Project]): Task[Either[ReloadFailure, State]] = {
+    val cwd = state.commonOptions.workingPath
+    Task {
+      CompileGatekeeper.reloadSuccessfulResults(targets) { () =>
+        ResultsCache.loadPersistedResults(targets, cwd, state.logger)
+      } { reloaded =>
+        State.stateCache.transformResults(state)(_.replaceWithReloaded(reloaded))
+      }
+    }.executeOn(ExecutionContext.ioScheduler)
+      .map(_.map(_ => state))
   }
 
   /**

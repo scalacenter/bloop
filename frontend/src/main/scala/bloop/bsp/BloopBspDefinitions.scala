@@ -1,5 +1,6 @@
 package bloop.bsp
 
+import ch.epfl.scala.bsp
 import ch.epfl.scala.bsp.Uri
 
 import com.github.plokhotnyuk.jsoniter_scala.core.JsonValueCodec
@@ -52,6 +53,32 @@ object BloopBspDefinitions {
   object stopClientCaching
       extends Endpoint[StopClientCachingParams, Unit]("bloop/stopClientCaching")(
         StopClientCachingParams.codec,
+        Endpoint.unitCodec
+      )
+
+  /**
+   * Why a reload did not happen, reported as data so clients decide from `retryable` instead of
+   * matching on the message.
+   */
+  final case class ReloadAnalysisError(reason: String, retryable: Boolean)
+  object ReloadAnalysisError {
+    implicit val codec: JsonValueCodec[ReloadAnalysisError] =
+      JsonCodecMaker.makeWithRequiredCollectionFields
+  }
+
+  final case class ReloadAnalysisParams(targets: Option[List[bsp.BuildTargetIdentifier]])
+  object ReloadAnalysisParams {
+    implicit val codec: JsonValueCodec[ReloadAnalysisParams] =
+      JsonCodecMaker.makeWithRequiredCollectionFields
+  }
+
+  /**
+   * Re-reads the compilation state persisted on disk, which `workspace/reload` does not: that
+   * request must keep working while the build compiles, whereas importing state needs it idle.
+   */
+  object reloadAnalysis
+      extends Endpoint[ReloadAnalysisParams, Unit]("bloop/reloadAnalysis")(
+        ReloadAnalysisParams.codec,
         Endpoint.unitCodec
       )
 }

@@ -269,6 +269,9 @@ object BloopServer {
     val aliasManager = server.getAliasManager
     aliasManager.addAlias(new Alias("about", "Show bloop information.", classOf[Cli]))
     aliasManager.addAlias(new Alias("clean", "Clean project(s) in the build.", classOf[Cli]))
+    aliasManager.addAlias(
+      new Alias("reload", "Reload the compilation state of project(s) from disk.", classOf[Cli])
+    )
     aliasManager.addAlias(new Alias("compile", "Compile project(s) in the build.", classOf[Cli]))
     aliasManager.addAlias(new Alias("test", "Run project(s)' tests in the build.", classOf[Cli]))
     aliasManager.addAlias(

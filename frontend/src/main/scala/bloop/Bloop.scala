@@ -12,6 +12,7 @@ import bloop.engine.BuildLoader
 import bloop.engine.Exit
 import bloop.engine.Interpreter
 import bloop.engine.NoPool
+import bloop.engine.tasks.compilation.CompileGatekeeper
 import bloop.engine.Run
 import bloop.engine.State
 import bloop.io.AbsolutePath
@@ -49,7 +50,10 @@ object Bloop extends CaseApp[CliOptions] {
     def waitForState(t: Task[State]): State = {
       // Ignore the exit status here, all we want is the task to finish execution or fail.
       Cli.waitUntilEndOfWorld(options, state.pool, config, state.logger) {
-        t.map(s => { State.stateCache.updateBuild(s.copy(status = ExitStatus.Ok)); s.status })
+        t.map { s =>
+          CompileGatekeeper.commitState(state, s.copy(status = ExitStatus.Ok))
+          s.status
+        }
       }
 
       // Recover the state if the previous task has been successful.

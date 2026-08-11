@@ -227,6 +227,11 @@ trait BloopHelpers {
       new TestState(TestUtil.blockingExecute(cleanTask, state))
     }
 
+    def reloadAnalysis(projects: TestProject*): TestState = {
+      val reloadTask = Run(Commands.Reload(projects.map(_.config.name).toList))
+      new TestState(TestUtil.blockingExecute(reloadTask, state))
+    }
+
     def testTask(project: TestProject, only: List[String], args: List[String]): Task[TestState] = {
       val testTask = Run(Commands.Test(List(project.config.name), only = only, args = args))
       TestUtil.interpreterTask(testTask, state).map(new TestState(_))

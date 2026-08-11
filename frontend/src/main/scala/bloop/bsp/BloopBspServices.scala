@@ -31,6 +31,8 @@ import ch.epfl.scala.debugadapter.Debuggee
 import bloop.Compiler
 import bloop.ScalaInstance
 import bloop.bsp.BloopBspDefinitions.BloopExtraBuildParams
+import bloop.bsp.BloopBspDefinitions.ReloadAnalysisError
+import bloop.bsp.BloopBspDefinitions.ReloadAnalysisParams
 import bloop.bsp.BloopBspDefinitions.ScalaCompileReport
 import bloop.bsp.BloopBspDefinitions.ScalaCompileReportKind
 import bloop.cli.Commands
@@ -57,6 +59,8 @@ import bloop.engine.State
 import bloop.engine.tasks.CompileTask
 import bloop.engine.tasks.RunMode
 import bloop.engine.tasks.Tasks
+import bloop.engine.tasks.compilation.CompileGatekeeper
+import bloop.engine.tasks.compilation.ReloadFailure
 import bloop.engine.tasks.TestTask
 import bloop.engine.tasks.compilation.CompileClientStore
 import bloop.engine.tasks.toolchains.ScalaJsToolchain
@@ -136,6 +140,7 @@ final class BloopBspServices(
     .request(endpoints.Build.shutdown)(_ => shutdown())
     .notificationAsync(endpoints.Build.exit)(_ => exit())
     .requestAsync(endpoints.Workspace.buildTargets)(_ => schedule(buildTargets()))
+    .requestAsync(endpoints.Workspace.reload)(_ => schedule(reload()))
     .requestAsync(endpoints.BuildTarget.sources)(p => schedule(sources(p)))
     .requestAsync(endpoints.BuildTarget.inverseSources)(p => schedule(inverseSources(p)))
     .requestAsync(endpoints.BuildTarget.resources)(p => schedule(resources(p)))
@@ -154,6 +159,7 @@ final class BloopBspServices(
     .requestAsync(endpoints.BuildTarget.jvmTestEnvironment)(p => schedule(jvmTestEnvironment(p)))
     .requestAsync(endpoints.BuildTarget.jvmRunEnvironment)(p => schedule(jvmRunEnvironment(p)))
     .notificationAsync(BloopBspDefinitions.stopClientCaching)(p => stopClientCaching(p))
+    .requestAsync(BloopBspDefinitions.reloadAnalysis)(p => schedule(reloadAnalysis(p)))
 
   // Internal state, initial value defaults to
   @volatile private var currentState: State = callSiteState
@@ -200,12 +206,17 @@ final class BloopBspServices(
       }
   }
 
-  private def saveState(state: State, bspLogger: BspServerLogger): Task[Unit] = {
+  private def saveState(
+      previous: State,
+      state: State,
+      bspLogger: BspServerLogger
+  ): Task[Unit] = {
     Task {
       val configDir = state.build.origin
       bspLogger.debug(s"Saving bsp state for ${configDir.syntax}")
-      // Save the state globally so that it can be accessed by other clients
-      State.stateCache.updateBuild(state)
+      // Save what this request changed so that other clients see it, without overwriting what
+      // they published while it ran
+      CompileGatekeeper.commitState(previous, state)
       publishStateInObserver(state)
     }.flatten
   }
@@ -327,7 +338,7 @@ final class BloopBspServices(
               buildTargetChangedProvider = Some(false),
               jvmTestEnvironmentProvider = Some(true),
               jvmRunEnvironmentProvider = Some(true),
-              canReload = Some(false)
+              canReload = Some(true)
             ),
             None,
             None
@@ -381,7 +392,7 @@ final class BloopBspServices(
         case Right(clientInfo) =>
           reloadState(currentState.build.origin, clientInfo, None, bspLogger).flatMap { state =>
             compute(state, bspLogger).flatMap {
-              case (state, e) => saveState(state, bspLogger).map(_ => e)
+              case (newState, e) => saveState(state, newState, bspLogger).map(_ => e)
             }
           }
       }
@@ -696,6 +707,63 @@ final class BloopBspServices(
           }
       }
     }
+  }
+
+  /** Reloads the build configuration only; `bloop/reloadAnalysis` imports compilation state. */
+  def reload(): BspEndpointResponse[Unit] = {
+    ifInitialized(None) { (state: State, _: BspServerLogger) =>
+      Task.now((state, Right(())))
+    }
+  }
+
+  /**
+   * Re-reads the compilation state persisted on disk. Nothing is replaced unless the whole
+   * import succeeds, so an error leaves clients the state the server already had.
+   */
+  def reloadAnalysis(params: ReloadAnalysisParams): BspEndpointResponse[Unit] = {
+    ifInitialized(None) { (state: State, logger: BspServerLogger) =>
+      // An absent selection means every project, but an empty one asks for nothing and is far
+      // more likely to be a mistake than a request to reload the whole build
+      val targets: Either[ReloadFailure, List[Project]] = params.targets match {
+        case None => Right(state.build.loadedProjects.map(_.project))
+        case Some(Nil) =>
+          Left(ReloadFailure.UnknownTargets("No build targets to reload were given"))
+        case Some(requested) =>
+          mapToProjects(requested, state) match {
+            case Right(mappings) => Right(mappings.map(_._2).toList)
+            case Left(error) => Left(ReloadFailure.UnknownTargets(error))
+          }
+      }
+
+      // A failed reload leaves the state exactly as it found it, so nothing is published
+      def fail(state: State, failure: ReloadFailure): (State, BspResponse[Unit]) = {
+        logger.error(failure.message)
+        (state, Left(reloadError(failure)))
+      }
+
+      targets match {
+        case Left(failure) => Task.now(fail(state, failure))
+        case Right(projects) =>
+          Tasks.reloadAnalysis(state, projects).map {
+            case Right(newState) => (newState, Right(()))
+            case Left(failure) => fail(state, failure)
+          }
+      }
+    }
+  }
+
+  private def reloadError(failure: ReloadFailure): Response.Error = {
+    val code = failure match {
+      case _: ReloadFailure.UnknownTargets => ErrorCode.InvalidParams
+      // The request itself is well formed, the server just could not carry it out, so this
+      // belongs in the range reserved for implementation-defined server errors
+      case _ => ErrorCode.Unknown(BloopBspServices.ReloadFailedErrorCode)
+    }
+    val data = ReloadAnalysisError(failure.reason, failure.retryable)
+    Response.Error(
+      ErrorObject(code, failure.message, Some(RawJson(writeToArray(data)))),
+      RequestId.Null
+    )
   }
 
   def scalaTestClasses(
@@ -1615,6 +1683,10 @@ final class BloopBspServices(
 }
 
 object BloopBspServices {
+
+  /** Server error code, from the range JSON-RPC reserves for implementation-defined errors. */
+  private[bloop] final val ReloadFailedErrorCode: Int = -32001
+
   private[bloop] val counter: AtomicInteger = new AtomicInteger(0)
   private[bloop] val DefaultLanguages = List("scala", "java")
   private[bloop] val JavaOnly = List("java")

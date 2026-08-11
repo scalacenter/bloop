@@ -109,6 +109,38 @@ to it.
 You can exit the server by running `bloop exit` from the CLI. You can also kill
 it with `kill`, the Activity Monitor in your machine or `htop`.
 
+## Reload compilation state from disk
+
+The server reads the compilation state it persists for each project once and
+then keeps it in memory, so a server that is already running does not notice
+when that state changes on disk. Reloading makes the server read it again:
+
+- CLI: `bloop reload` reloads the compilation state of all projects, or a
+  selection with `--project`.
+- BSP: the `bloop/reloadAnalysis` request does the same, for the given build
+  targets, or for all of them when the request carries no target list. (The
+  standard `workspace/reload` request reloads the *build configuration* only —
+  Bloop already does that on every request.)
+
+When a reload does not happen, the BSP request fails with a machine-readable
+reason and a `retryable` flag in the error data: a build that is busy compiling
+or being cleaned settles on its own, whereas state that cannot be used needs the
+caller to fix what is on disk.
+
+A reload either replaces the state of every requested project or changes
+nothing at all. It fails, leaving the server exactly as it was, when a
+requested project is compiling, when its state changes while the reload is in
+progress, or when the state on disk cannot be used. Projects with no persisted
+state simply start their next compilation from scratch.
+
+Two limits are worth knowing before building on this. Compilation state records
+absolute paths, so state produced under a different workspace path — on another
+machine, or in another checkout — is not usable: the reload is rejected and
+the state the server already had is kept. And Bloop only re-reads what it wrote itself; it does not
+define an interchange format, so producing state elsewhere and placing it in
+Bloop's output directories relies on internals that are free to change between
+versions.
+
 ## Ignore exceptions in server logs
 
 Bloop uses Nailgun, which sometimes prints exceptions in your server logs such

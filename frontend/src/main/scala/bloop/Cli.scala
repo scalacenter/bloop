@@ -15,6 +15,7 @@ import bloop.cli.ExitStatus
 import bloop.cli.Validate
 import bloop.data.ClientInfo.CliClientInfo
 import bloop.engine._
+import bloop.engine.tasks.compilation.CompileGatekeeper
 import bloop.io.AbsolutePath
 import bloop.io.Paths
 import bloop.logging.BloopLogger
@@ -290,6 +291,11 @@ object Cli {
                 val potentialProjects = c.projects ++ remainingArgs.remaining
                 val cliOptions = c.cliOptions.copy(common = commonOptions)
                 run(c.copy(projects = potentialProjects, cliOptions = cliOptions), c.cliOptions)
+              case Right(c: Commands.Reload) =>
+                // We accept no project arguments in reload
+                val potentialProjects = c.projects ++ remainingArgs.remaining
+                val cliOptions = c.cliOptions.copy(common = commonOptions)
+                run(c.copy(projects = potentialProjects, cliOptions = cliOptions), c.cliOptions)
               case Right(c: Commands.Projects) =>
                 val newCommand = c.copy(cliOptions = c.cliOptions.copy(common = commonOptions))
                 run(newCommand, newCommand.cliOptions)
@@ -389,15 +395,21 @@ object Cli {
     val configDir = configDirectory.underlying
     waitUntilEndOfWorld(cliOptions, pool, configDir, logger, cancel) {
       val taskToInterpret = { (cli: CliClientInfo) =>
-        val state = State.loadActiveStateFor(configDirectory, cli, pool, cliOptions.common, logger)
-        Interpreter.execute(action, state).map { newState =>
-          action match {
-            case Run(_: Commands.ValidatedBsp, _) =>
-              () // Ignore, BSP services auto-update the build
-            case _ => State.stateCache.updateBuild(newState.copy(status = ExitStatus.Ok))
-          }
+        val stateTask =
+          State.loadActiveStateFor(configDirectory, cli, pool, cliOptions.common, logger)
+        stateTask.flatMap { initialState =>
+          Interpreter.execute(action, Task.now(initialState)).map { newState =>
+            action match {
+              case Run(_: Commands.ValidatedBsp, _) =>
+                () // Ignore, BSP services auto-update the build
+              case _ =>
+                // Publish what this action changed, so an action that ran concurrently with
+                // another keeps both sets of results
+                CompileGatekeeper.commitState(initialState, newState.copy(status = ExitStatus.Ok))
+            }
 
-          newState
+            newState
+          }
         }
       }
 

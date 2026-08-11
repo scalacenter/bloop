@@ -22,7 +22,7 @@ object TestConstants {
         "buildTargetChangedProvider": false,
         "jvmRunEnvironmentProvider": true,
         "jvmTestEnvironmentProvider": true,
-        "canReload": false
+        "canReload": true
       }
     },
     "id": 2,

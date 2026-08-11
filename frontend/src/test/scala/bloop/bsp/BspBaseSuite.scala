@@ -18,6 +18,7 @@ import ch.epfl.scala.bsp.endpoints
 
 import bloop.TestSchedulers
 import bloop.bsp.BloopBspDefinitions.BloopExtraBuildParams
+import bloop.bsp.BloopBspDefinitions.ReloadAnalysisParams
 import bloop.cli.BspProtocol
 import bloop.cli.Commands
 import bloop.cli.ExitStatus
@@ -295,6 +296,42 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
       // Use a default timeout of 5 seconds for every clean operation
       TestUtil.await(FiniteDuration(5, "s")) {
         cleanTask(project)
+      }
+    }
+
+    def reloadAnalysisTask(projects: List[TestProject]): Task[ManagedBspTestState] = {
+      val targets = if (projects.isEmpty) None else Some(projects.map(_.bspId))
+      rpcRequest(BloopBspDefinitions.reloadAnalysis, ReloadAnalysisParams(targets)).flatMap { _ =>
+        // `headL` returns latest saved state from bsp because source is behavior subject
+        Task
+          .liftMonixTaskUncancellable(
+            serverStates.headL
+          )
+          .map { state =>
+            new ManagedBspTestState(
+              state,
+              bsp.StatusCode.Ok,
+              None,
+              None,
+              currentCompileIteration,
+              diagnostics,
+              client0,
+              serverStates
+            )
+          }
+      }
+    }
+
+    def reloadAnalysis(projects: TestProject*): ManagedBspTestState = {
+      // Use a default timeout of 5 seconds for every reload operation
+      TestUtil.await(FiniteDuration(5, "s")) {
+        reloadAnalysisTask(projects.toList)
+      }
+    }
+
+    def workspaceReload(): Unit = {
+      TestUtil.await(FiniteDuration(5, "s")) {
+        rpcRequest(Workspace.reload, None)
       }
     }
 

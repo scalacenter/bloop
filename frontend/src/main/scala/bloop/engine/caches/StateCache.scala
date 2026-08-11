@@ -66,15 +66,51 @@ final class StateCache(cache: ConcurrentHashMap[AbsolutePath, StateCache.CachedS
     getStateFor(state.build.origin, state.client, state.pool, state.commonOptions, state.logger)
   }
 
-  /**
-   * Updates the cache with `state`.
-   *
-   * @param state The state to put in the cache.
-   * @return The updated `State`.
-   */
-  def updateBuild(state: State): State = {
+  /** Replaces everything cached for this build. Requests publish with [[commit]] instead. */
+  private[bloop] def updateBuild(state: State): State = {
     cache.put(state.build.origin, StateCache.CachedState.fromState(state))
     state
+  }
+
+  /**
+   * Publishes what `next` changed with respect to `previous`, as one atomic step. Publish
+   * through `CompileGatekeeper.commitState`, which holds the coordinator lock this needs.
+   */
+  private[bloop] def commit(previous: State, next: State)(
+      reconcile: ResultsCache => ResultsCache
+  ): State = {
+    cache.compute(
+      next.build.origin,
+      (_: AbsolutePath, cached: StateCache.CachedState) => {
+        if (cached == null)
+          StateCache.CachedState.fromState(next).copy(results = reconcile(next.results))
+        else {
+          StateCache.CachedState(
+            if (previous.build eq next.build) cached.build else next.build,
+            reconcile(next.results.mergeOnto(previous.results, cached.results)),
+            if (previous.compilerCache eq next.compilerCache) cached.compilerCache
+            else next.compilerCache,
+            if (previous.sourceGeneratorCache eq next.sourceGeneratorCache)
+              cached.sourceGeneratorCache
+            else next.sourceGeneratorCache
+          )
+        }
+      }
+    )
+    next
+  }
+
+  /** Applies `f` to the results cached for `state` as one atomic read-modify-write. */
+  private[bloop] def transformResults(state: State)(f: ResultsCache => ResultsCache): Unit = {
+    cache.compute(
+      state.build.origin,
+      (_: AbsolutePath, cached: StateCache.CachedState) => {
+        // Seed from the caller when this build has never been cached, so the change is not lost
+        val base = if (cached == null) StateCache.CachedState.fromState(state) else cached
+        base.copy(results = f(base.results))
+      }
+    )
+    ()
   }
 
   /**
@@ -118,7 +154,7 @@ final class StateCache(cache: ConcurrentHashMap[AbsolutePath, StateCache.CachedS
         BuildLoader
           .loadBuildIncrementally(from, createdOrModified, changed, settings, logger)
           .map { newProjects =>
-            val newState = previousState match {
+            val newStateOrSeed = previousState match {
               case Some(state) =>
                 // Update the build incrementally and then create a new updated state
                 val currentProjects = state.build.loadedProjects
@@ -132,8 +168,24 @@ final class StateCache(cache: ConcurrentHashMap[AbsolutePath, StateCache.CachedS
               // Create a new state since there was no previous one
               case None => createState(Build(from, newProjects, settings))
             }
-            cache.put(from, StateCache.CachedState.fromState(newState))
-            newState
+            previousState match {
+              // Only the build definition changed here, so committing the difference keeps
+              // results that were published while the configuration files were read
+              case Some(previous) =>
+                bloop.engine.tasks.compilation.CompileGatekeeper
+                  .commitState(previous, newStateOrSeed)
+              case None =>
+                // Another caller may have seeded this build and had state imported into it
+                // already, so keep those results and adopt only the definition loaded here
+                cache.compute(
+                  from,
+                  (_: AbsolutePath, cached: StateCache.CachedState) => {
+                    if (cached == null) StateCache.CachedState.fromState(newStateOrSeed)
+                    else cached.copy(build = newStateOrSeed.build)
+                  }
+                )
+                newStateOrSeed
+            }
           }
     }
   }

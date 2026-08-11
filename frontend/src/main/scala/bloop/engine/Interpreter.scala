@@ -20,6 +20,7 @@ import bloop.data.Platform
 import bloop.data.Project
 import bloop.engine.Feedback.XMessageString
 import bloop.engine.tasks.CompileTask
+import bloop.engine.tasks.compilation.CompileGatekeeper
 import bloop.engine.tasks.LinkTask
 import bloop.engine.tasks.RunMode
 import bloop.engine.tasks.Tasks
@@ -74,6 +75,8 @@ object Interpreter {
                 cmd match {
                   case cmd: Commands.Clean =>
                     execute(next, clean(cmd, state))
+                  case cmd: Commands.Reload =>
+                    execute(next, reload(cmd, state))
                   case cmd: Commands.Compile =>
                     execute(next, compile(cmd, state))
                   case cmd: Commands.Console =>
@@ -157,7 +160,9 @@ object Interpreter {
           val newState = State.stateCache.getUpdatedStateFrom(state).getOrElse(state)
           f(newState).map { state =>
             watcher.notifyWatch()
-            State.stateCache.updateBuild(state)
+            // Commit what this iteration changed: a whole-snapshot write would undo anything
+            // published while it compiled, such as a reload of another target
+            CompileGatekeeper.commitState(newState, state)
           }
         }
 
@@ -766,6 +771,23 @@ object Interpreter {
       val lookup = lookupProjects(cmd.projects, state.build.getProjectFor(_))
       if (lookup.missing.nonEmpty) Task.now(reportMissing(lookup.missing, state))
       else doClean(lookup.found)
+    }
+  }
+
+  private def reload(cmd: Commands.Reload, state: State): Task[State] = {
+    def doReload(projects: List[Project]): Task[State] = {
+      Tasks.reloadAnalysis(state, projects).map {
+        case Right(newState) => newState.mergeStatus(ExitStatus.Ok)
+        // Nothing was changed, so the state is returned as it was and never published
+        case Left(failure) => state.withError(failure.message, ExitStatus.RunError)
+      }
+    }
+
+    if (cmd.projects.isEmpty) doReload(state.build.loadedProjects.map(_.project))
+    else {
+      val lookup = lookupProjects(cmd.projects, state.build.getProjectFor(_))
+      if (lookup.missing.nonEmpty) Task.now(reportMissing(lookup.missing, state))
+      else doReload(lookup.found)
     }
   }
 
