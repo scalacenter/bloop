@@ -27,10 +27,11 @@ class AutoCompleteSpec {
         |help
         |link
         |projects
+        |reload
         |run
         |test
         |version
-        |clean compile console link run test
+        |clean compile console link reload run test
         |A
         |B
         |A
@@ -65,10 +66,11 @@ class AutoCompleteSpec {
         |help
         |link
         |projects
+        |reload
         |run
         |test
         |version
-        |clean compile console link run test
+        |clean compile console link reload run test
         |A
         |B
         |A
@@ -103,10 +105,11 @@ class AutoCompleteSpec {
         |help
         |link
         |projects
+        |reload
         |run
         |test
         |version
-        |clean compile console link run test
+        |clean compile console link reload run test
         |A
         |B
         |A
