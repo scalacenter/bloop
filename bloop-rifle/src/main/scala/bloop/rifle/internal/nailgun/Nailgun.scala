@@ -238,8 +238,16 @@ final class Protocol(
         if (!stopFurtherProcessing.get()) printException(exception)
     } finally {
       isRunning.compareAndSet(true, false)
+      // Drain any existing permits first to avoid overflow when releasing Int.MaxValue.
+      // The semaphore may have accumulated permits from SendStdin chunks that were never
+      // consumed (e.g., when the forked app doesn't read stdin). Adding Int.MaxValue to
+      // a non-zero count causes integer overflow and throws "Maximum permit count exceeded".
+      waitTermination.drainPermits()
       waitTermination.release(Int.MaxValue)
-      sendStdinOpt.foreach(_._2.release(Int.MaxValue))
+      sendStdinOpt.foreach { case (_, sem) =>
+        sem.drainPermits()
+        sem.release(Int.MaxValue)
+      }
     }
 
     // Don't join the stdin reader: it's a daemon thread that may be parked in a blocking read
