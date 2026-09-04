@@ -92,6 +92,10 @@ final case class Project(
     customWorkingDirectory.orElse(workspaceDirectory).getOrElse(baseDirectory)
   }
 
+  /** The workspace this project belongs to, falling back to the parent of the config dir. */
+  def workspaceRoot: AbsolutePath =
+    workspaceDirectory.getOrElse(origin.path.getParent.getParent)
+
   /** Returns concatenated list of "sources" and expanded "sourcesGlobs". */
   def allUnmanagedSourceFilesAndDirectories: Task[List[AbsolutePath]] = Task {
     val buf = mutable.ListBuffer.empty[AbsolutePath]

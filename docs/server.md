@@ -82,6 +82,32 @@ server. For example, use this to increase the memory to Bloop.
 export BLOOP_JAVA_OPTS="-Xmx16G -XX:+UseZGC -Xss4m"
 ```
 
+### Portable analysis (opt-in)
+
+By default, the incremental compilation analysis Bloop persists next to a project's outputs
+(`<out>/<name>-analysis.bin`) contains absolute paths. Moving a workspace to a different location
+(a Docker build, a CI checkout, a `git worktree`) therefore turns the first compile there into a
+full compile, even when no source changed.
+
+Set `-Dbloop.analysis.portable=true` in `BLOOP_JAVA_OPTS` to persist analysis files with paths
+relative to well-known roots: `${BASE}` (the workspace), `${CSR_CACHE}` (the coursier cache),
+`${IVY_HOME}`, `${SBT_BOOT}` and `${JAVA_HOME}`. Reading such files is always supported, so they
+also load on the same machine with the option off, and files written without the option keep
+loading as before.
+
+To reuse a build elsewhere, ship both the analysis file and the `bloop-internal-classes`
+directory found under the project's `out` directory, keeping the same layout relative to the
+workspace. Notes and limitations:
+
+- `IVY_HOME` (`~/.ivy2`), `SBT_BOOT` (`~/.sbt/boot`) and `JAVA_HOME` (the server's JVM) are
+  heuristics. Add or override roots with `-Dbloop.analysis.roots=KEY=/path,KEY2=/path`.
+- Paths outside every root stay absolute and are not portable.
+- Sharing analysis files between different operating systems is not supported.
+- An analysis whose roots cannot be resolved on the current machine is ignored with a warning,
+  a full compile follows, and the file stays on disk until the next successful compile replaces it.
+- Positions of previously reported warnings are not rewritten, so diagnostics replayed to
+  editors can point at the old location until the affected files are recompiled.
+
 ### Custom Java home
 
 By default Bloop CLI will try to find JDK 17 and up on your system, if it's not

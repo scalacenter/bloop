@@ -5,6 +5,7 @@ import scala.concurrent.Promise
 import bloop.ClientClassesObserver
 import bloop.CompileOutPaths
 import bloop.Compiler
+import bloop.PortableAnalysis
 import bloop.ScalaInstance
 import bloop.UniqueCompileInputs
 import bloop.cli.CommonOptions
@@ -23,6 +24,7 @@ import bloop.task.Task
 import bloop.tracing.BraveTracer
 
 import monix.reactive.Observable
+import xsbti.compile.analysis.ReadWriteMappers
 
 sealed trait CompileBundle
 
@@ -91,12 +93,19 @@ final case class SuccessfulCompileBundle(
   val isJavaOnly: Boolean = scalaSources.isEmpty && !javaSources.isEmpty
   val out: CompileOutPaths = {
     val readOnlyClassesDir = lastSuccessful.classesDir
+    val analysisMappers =
+      if (!PortableAnalysis.enabled) ReadWriteMappers.getEmptyMappers()
+      else
+        PortableAnalysis.writeMappers(
+          PortableAnalysis.Roots.derive(project.workspaceRoot.underlying)
+        )
     CompileOutPaths(
       project.out,
       project.analysisOut,
       project.genericClassesDir,
       clientClassesObserver.classesDir,
-      readOnlyClassesDir
+      readOnlyClassesDir,
+      analysisMappers
     )
   }
 
