@@ -1,5 +1,5 @@
 import sbt._
 
 object Dependencies {
-  lazy val munit = "org.scalameta" %% "munit" % "1.3.5"
+  lazy val munit = "org.scalameta" %% "munit" % "1.3.6"
 }
