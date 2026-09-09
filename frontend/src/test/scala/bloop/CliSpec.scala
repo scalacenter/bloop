@@ -249,6 +249,37 @@ object CliSpec extends BaseSuite {
     }
   }
 
+  test("parse --reverse-order on compile") {
+    Cli.parse(Array("compile", "foo"), CommonOptions.default) match {
+      case Run(cmd: Commands.Compile, _) =>
+        assert(cmd.reverseOrder.isEmpty)
+      case action => throw new AssertionError(s"Expected a compile command, got $action")
+    }
+    Cli.parse(Array("compile", "foo", "--reverse-order=false"), CommonOptions.default) match {
+      case Run(cmd: Commands.Compile, _) =>
+        assert(cmd.reverseOrder == Some(false))
+      case action => throw new AssertionError(s"Expected a compile command, got $action")
+    }
+    Cli.parse(Array("compile", "foo", "--reverse-order"), CommonOptions.default) match {
+      case Run(cmd: Commands.Compile, _) =>
+        assert(cmd.reverseOrder == Some(true))
+      case action => throw new AssertionError(s"Expected a compile command, got $action")
+    }
+  }
+
+  test("parse --reverse-order on test and run") {
+    Cli.parse(Array("test", "foo", "--reverse-order=false"), CommonOptions.default) match {
+      case Run(cmd: Commands.Test, _) =>
+        assert(cmd.reverseOrder == Some(false))
+      case action => throw new AssertionError(s"Expected a test command, got $action")
+    }
+    Cli.parse(Array("run", "foo", "--reverse-order=false"), CommonOptions.default) match {
+      case Run(cmd: Commands.Run, _) =>
+        assert(cmd.reverseOrder == Some(false))
+      case action => throw new AssertionError(s"Expected a run command, got $action")
+    }
+  }
+
   test("parse test args after -- as framework args") {
     Cli.parse(
       Array("test", "foo", "--only", "MySpec", "--", "-Dkey=value", "-z", "ok"),
