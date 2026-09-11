@@ -40,6 +40,7 @@ object Commands {
   sealed trait CompilingCommand extends RawCommand {
     def projects: List[String]
     def reporter: ReporterKind
+    def reverseOrder: Option[Boolean]
     def incremental: Boolean
     def pipeline: Boolean
   }
@@ -163,6 +164,10 @@ object Commands {
       pipeline: Boolean = false,
       @HelpMessage("Pick reporter to show compilation messages. By default, bloop's used.")
       reporter: ReporterKind = BloopReporter,
+      @HelpMessage(
+        "Print errors newest-first. Pass --reverse-order=false to print them as the compiler reports them. By default, bloop reverses and scalac does not."
+      )
+      reverseOrder: Option[Boolean] = None,
       @ExtraName("w")
       @HelpMessage("Run the command when projects' source files change. By default, false.")
       watch: Boolean = false,
@@ -201,6 +206,10 @@ object Commands {
       args: List[String] = Nil,
       @HelpMessage("Pick reporter to show compilation messages. By default, bloop's used.")
       reporter: ReporterKind = BloopReporter,
+      @HelpMessage(
+        "Print errors newest-first. Pass --reverse-order=false to print them as the compiler reports them. By default, bloop reverses and scalac does not."
+      )
+      reverseOrder: Option[Boolean] = None,
       @ExtraName("w")
       @HelpMessage("Run the command when projects' source files change. By default, false.")
       watch: Boolean = false,
@@ -235,6 +244,10 @@ object Commands {
       pipeline: Boolean = false,
       @HelpMessage("Pick reporter to show compilation messages. By default, bloop's used.")
       reporter: ReporterKind = BloopReporter,
+      @HelpMessage(
+        "Print errors newest-first. Pass --reverse-order=false to print them as the compiler reports them. By default, bloop reverses and scalac does not."
+      )
+      reverseOrder: Option[Boolean] = None,
       @HelpMessage("Start up the console compiling only the target project's dependencies.")
       excludeRoot: Boolean = false,
       @HelpMessage(
@@ -266,6 +279,10 @@ object Commands {
       pipeline: Boolean = false,
       @HelpMessage("Pick reporter to show compilation messages. By default, bloop's used.")
       reporter: ReporterKind = BloopReporter,
+      @HelpMessage(
+        "Print errors newest-first. Pass --reverse-order=false to print them as the compiler reports them. By default, bloop reverses and scalac does not."
+      )
+      reverseOrder: Option[Boolean] = None,
       @HelpMessage("The arguments to pass in to the main class.")
       args: List[String] = Nil,
       @ExtraName("w")
@@ -308,6 +325,10 @@ object Commands {
       pipeline: Boolean = false,
       @HelpMessage("Pick reporter to show compilation messages. By default, bloop's used.")
       reporter: ReporterKind = BloopReporter,
+      @HelpMessage(
+        "Print errors newest-first. Pass --reverse-order=false to print them as the compiler reports them. By default, bloop reverses and scalac does not."
+      )
+      reverseOrder: Option[Boolean] = None,
       @ExtraName("w")
       @HelpMessage("If set, run the command whenever projects' source files change.")
       watch: Boolean = false,

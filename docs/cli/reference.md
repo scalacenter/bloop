@@ -117,6 +117,8 @@ sidebar_label: CLI --help
   <dd><p>Pipeline the compilation of modules in your build. By default, false.</p></dd>
   <dt><code>--reporter</code> (type: <code>reporter</code>)</dt>
   <dd><p>Pick reporter to show compilation messages. By default, bloop's used.</p></dd>
+  <dt><code>--reverse-order</code> (type: <code>bool?</code>)</dt>
+  <dd><p>Print errors newest-first. Pass --reverse-order=false to print them as the compiler reports them. By default, bloop reverses and scalac does not.</p></dd>
   <dt><code>--watch</code> or <code>-w</code> (type: <code>bool</code>)</dt>
   <dd><p>Run the command when projects' source files change. By default, false.</p></dd>
   <dt><code>--cascade</code> (type: <code>bool</code>)</dt>
@@ -175,6 +177,8 @@ sidebar_label: CLI --help
   <dd><p>Pipeline the compilation of modules in your build. By default, false.</p></dd>
   <dt><code>--reporter</code> (type: <code>reporter</code>)</dt>
   <dd><p>Pick reporter to show compilation messages. By default, bloop's used.</p></dd>
+  <dt><code>--reverse-order</code> (type: <code>bool?</code>)</dt>
+  <dd><p>Print errors newest-first. Pass --reverse-order=false to print them as the compiler reports them. By default, bloop reverses and scalac does not.</p></dd>
   <dt><code>--exclude-root</code> (type: <code>bool</code>)</dt>
   <dd><p>Start up the console compiling only the target project's dependencies.</p></dd>
   <dt><code>--repl</code> (type: <code>repl</code>)</dt>
@@ -235,6 +239,8 @@ sidebar_label: CLI --help
   <dd><p>Pipeline the compilation of modules in your build. By default, false.</p></dd>
   <dt><code>--reporter</code> (type: <code>reporter</code>)</dt>
   <dd><p>Pick reporter to show compilation messages. By default, bloop's used.</p></dd>
+  <dt><code>--reverse-order</code> (type: <code>bool?</code>)</dt>
+  <dd><p>Print errors newest-first. Pass --reverse-order=false to print them as the compiler reports them. By default, bloop reverses and scalac does not.</p></dd>
   <dt><code>--watch</code> or <code>-w</code> (type: <code>bool</code>)</dt>
   <dd><p>If set, run the command whenever projects' source files change.</p></dd>
   <dt><code>--optimize</code> or <code>-O</code> (type: <code>"debug" | "release"?</code>)</dt>
@@ -298,6 +304,8 @@ sidebar_label: CLI --help
   <dd><p>Pipeline the compilation of modules in your build. By default, false.</p></dd>
   <dt><code>--reporter</code> (type: <code>reporter</code>)</dt>
   <dd><p>Pick reporter to show compilation messages. By default, bloop's used.</p></dd>
+  <dt><code>--reverse-order</code> (type: <code>bool?</code>)</dt>
+  <dd><p>Print errors newest-first. Pass --reverse-order=false to print them as the compiler reports them. By default, bloop reverses and scalac does not.</p></dd>
   <dt><code>--args</code> (type: <code>string*</code>)</dt>
   <dd><p>The arguments to pass in to the main class.</p></dd>
   <dt><code>--watch</code> or <code>-w</code> (type: <code>bool</code>)</dt>
@@ -351,6 +359,8 @@ sidebar_label: CLI --help
   <dd><p>The arguments to pass in to the test framework.</p></dd>
   <dt><code>--reporter</code> (type: <code>reporter</code>)</dt>
   <dd><p>Pick reporter to show compilation messages. By default, bloop's used.</p></dd>
+  <dt><code>--reverse-order</code> (type: <code>bool?</code>)</dt>
+  <dd><p>Print errors newest-first. Pass --reverse-order=false to print them as the compiler reports them. By default, bloop reverses and scalac does not.</p></dd>
   <dt><code>--watch</code> or <code>-w</code> (type: <code>bool</code>)</dt>
   <dd><p>Run the command when projects' source files change. By default, false.</p></dd>
   <dt><code>--config-dir</code> or <code>-c</code> (type: <code>path?</code>)</dt>

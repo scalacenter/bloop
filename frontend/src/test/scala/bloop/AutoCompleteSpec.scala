@@ -39,6 +39,7 @@ class AutoCompleteSpec {
         |--incremental=-[Compile the project incrementally. By default, true.]:incremental:(true false)
         |--pipeline=-[Pipeline the compilation of modules in your build. By default, false.]:pipeline:(true false)
         |--reporter[Pick reporter to show compilation messages. By default, bloop's used.]:reporter:_reporters
+        |--reverse-order=-[Print errors newest-first. Pass --reverse-order=false to print them as the compiler reports them. By default, bloop reverses and scalac does not.]:reverse-order:(true false)
         |--watch=-[Run the command when projects' source files change. By default, false.]:watch:(true false)
         |--cascade=-[Compile a project and all projects depending on it. By default, false.]:cascade:(true false)
         |--summary=-[Print a summary of project compile times, blocked projects and totals. By default, false.]:summary:(true false)
@@ -77,6 +78,7 @@ class AutoCompleteSpec {
         |incremental#'Compile the project incrementally. By default, true.'#(_boolean)
         |pipeline#'Pipeline the compilation of modules in your build. By default, false.'#(_boolean)
         |reporter#'Pick reporter to show compilation messages. By default, bloop's used.'#(_reporters)
+        |reverse-order#'Print errors newest-first. Pass --reverse-order=false to print them as the compiler reports them. By default, bloop reverses and scalac does not.'#(_boolean)
         |watch#'Run the command when projects' source files change. By default, false.'#(_boolean)
         |cascade#'Compile a project and all projects depending on it. By default, false.'#(_boolean)
         |summary#'Print a summary of project compile times, blocked projects and totals. By default, false.'#(_boolean)
@@ -115,6 +117,7 @@ class AutoCompleteSpec {
         |--incremental
         |--pipeline
         |--reporter _reporters
+        |--reverse-order
         |--watch
         |--cascade
         |--summary
