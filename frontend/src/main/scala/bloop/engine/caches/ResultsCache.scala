@@ -14,6 +14,7 @@ import bloop.CompileOutPaths
 import bloop.CompileProducts
 import bloop.Compiler
 import bloop.Compiler.Result
+import bloop.PortableAnalysis
 import bloop.UniqueCompileInputs
 import bloop.data.ClientInfo
 import bloop.data.Project
@@ -242,7 +243,12 @@ object ResultsCache {
       val analysisFile = p.analysisOut
       if (analysisFile.exists) {
         Task {
-          val contents = FileAnalysisStore.binary(analysisFile.toFile).get().toOption
+          // Tokens in a portable analysis resolve against this build's roots; a token that
+          // cannot be resolved makes the store return nothing and records the reason
+          val roots = PortableAnalysis.Roots.derive(p.workspaceRoot.underlying)
+          val readSide = PortableAnalysis.readMappers(roots)
+          val contents =
+            FileAnalysisStore.binary(analysisFile.toFile, readSide.mappers).get().toOption
           contents match {
             case Some(res) =>
               logger.debug(s"Loading previous analysis for '${p.name}' from '$analysisFile'.")
@@ -294,7 +300,14 @@ object ResultsCache {
                   ResultBundle.empty -> None
               }
             case None =>
-              logger.debug(s"Analysis '$analysisFile' for '${p.name}' is empty.")
+              readSide.failure match {
+                case Some(reason) =>
+                  logger.warn(
+                    s"Ignoring persisted analysis for '${p.name}': $reason; a full compile will follow"
+                  )
+                case None =>
+                  logger.debug(s"Analysis '$analysisFile' for '${p.name}' is empty.")
+              }
               ResultBundle.empty -> None
           }
 
