@@ -9,6 +9,7 @@ import bloop.ScalaInstance
 import bloop.UniqueCompileInputs
 import bloop.cli.CommonOptions
 import bloop.data.Project
+import bloop.engine.Dag
 import bloop.engine.Feedback
 import bloop.engine.caches.LastSuccessfulResult
 import bloop.engine.caches.SourceGeneratorCache
@@ -170,9 +171,12 @@ object CompileBundle {
     tracer.traceTaskVerbose(s"computing bundle ${project.name}") { tracer =>
       val compileDependenciesData = {
         tracer.traceVerbose("dependency classpath") { _ =>
+          val transitiveDependencies =
+            Dag.dfs(inputs.dag, mode = Dag.PreOrder).filter(_ != project)
           CompileDependenciesData.compute(
             project.rawClasspath.toArray,
-            dependentProducts
+            dependentProducts,
+            transitiveDependencies
           )
         }
       }
