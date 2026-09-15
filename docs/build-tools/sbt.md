@@ -184,6 +184,10 @@ sbt> bloopInstall
 [success] Generated '/disk/foo/.bloop/foo-custom-config.json'.
 ```
 
+A custom configuration that extends `Test` (or `IntegrationTest`) is exported as a test
+project, so `bloop test foo-custom-config` runs its suites and editors such as Metals offer
+them as runnable tests. Configurations that extend only `Compile` are exported as libraries.
+
 ### Enable sbt project references 
 
 Source dependencies are not well supported in sbt. Nonetheless, if you use them in your build and

@@ -18,6 +18,19 @@ val bar = project
   )
   .dependsOn(foo % "custom-it->it;custom-it->test;test->test")
 
+// Extended at the `.configs` site only, so the object reaching `inConfig` loses `extendsConfigs`.
+lazy val Inline = config("inline-it")
+
+val baz = project
+  .in(file(".") / "baz")
+  .configs(Inline.extend(Test))
+  .settings(
+    inConfig(Inline)(
+      Defaults.testSettings ++
+        BloopDefaults.configSettings
+    )
+  )
+
 val checkBloopFile = taskKey[Unit]("Check bloop file contents")
 checkBloopFile in ThisBuild := {
   import java.nio.file.Files
@@ -26,6 +39,7 @@ checkBloopFile in ThisBuild := {
   val barConfig = bloopDir./("bar.json")
   val barTestConfig = bloopDir./("bar-test.json")
   val barCustomTestConfig = bloopDir./("bar-custom-it.json")
+  val bazInlineTestConfig = bloopDir./("baz-inline-it.json")
   val fooTestConfig = bloopDir./("foo-test.json")
   val fooRuntimeConfig = bloopDir./("foo-runtime.json")
   val fooItConfig = bloopDir./("foo-it.json")
@@ -35,7 +49,8 @@ checkBloopFile in ThisBuild := {
     fooTestConfig,
     barConfig,
     barTestConfig,
-    barCustomTestConfig
+    barCustomTestConfig,
+    bazInlineTestConfig
   )
 
   allConfigs.foreach(f => assert(Files.exists(f.toPath), s"Missing config file for ${f}."))
@@ -58,4 +73,19 @@ checkBloopFile in ThisBuild := {
     barItConfigContents.contains(""""dependencies":["foo-it","bar","bar-test"]"""),
     "Dependency custom-it->test is missing in bar-custom-it."
   )
+
+  // Bloop only runs tests for targets tagged `test` or `integration-test`.
+  def assertTags(config: File, expected: String): Unit = {
+    val contents = readBareFile(config.toPath)
+    assert(
+      contents.contains(s""""tags":["$expected"]"""),
+      s"Expected tag $expected in ${config.getName}."
+    )
+  }
+
+  assertTags(fooConfig, "library")
+  assertTags(fooTestConfig, "test")
+  assertTags(fooItConfig, "integration-test")
+  assertTags(barCustomTestConfig, "test")
+  assertTags(bazInlineTestConfig, "test")
 }
