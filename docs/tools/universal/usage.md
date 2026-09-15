@@ -16,52 +16,54 @@ Maintained by the Scala Center and the community.
 ### Command-Line Completions
 
 Bloop supports command-line completions in bash, zsh and fish. The use of command-line
-autocompletions is recommended as it significantly improves the user experience. The installation
-of autocompletions via `curl` requires you to configure the completions manually.
+autocompletions is recommended as it significantly improves the user experience.
 
-> Note that the following instructions assume that the bloop installation directory is the default
-`$HOME/.bloop`.
+Installing Bloop with coursier does not install the completion scripts, so download the one for
+your shell from the release artifacts and put it where your shell looks for completions.
 
 #### Zsh Completions
 
-Add the following to your `~/.zshrc`:
+```sh
+mkdir -p ~/.zsh/completion
+curl -fL https://github.com/scalacenter/bloop/releases/download/v@VERSION@/zsh-completions \
+  -o ~/.zsh/completion/_bloop
+```
+
+The file must be named `_bloop`, which is the name zsh looks for. Then add the following to your
+`~/.zshrc`:
 
 ```sh
+fpath=(~/.zsh/completion $fpath)
 autoload -U compinit
-fpath=($HOME/.bloop/zsh $fpath)
 compinit
 ```
 
 #### Bash Completions
 
-Add the following to your `~/.bash_profile`:
+```sh
+mkdir -p ~/.local/share/bloop
+curl -fL https://github.com/scalacenter/bloop/releases/download/v@VERSION@/bash-completions \
+  -o ~/.local/share/bloop/bloop-completions.bash
+```
+
+Then add the following to your `~/.bash_profile`:
 
 ```sh
-. $HOME/.bloop/bash/bloop
+. ~/.local/share/bloop/bloop-completions.bash
 ```
+
+If you use [bash-completion](https://github.com/scop/bash-completion) 2.x, you can instead save the
+file as `~/.local/share/bash-completion/completions/bloop` and skip the `~/.bash_profile` line.
 
 #### Fish Completions
 
-Symlink the fish completions file in the Bloop installation directory to your local fish completions
-directory (usually `~/.config/fish/completions`).
-
 ```sh
-ln -s $HOME/.bloop/fish/bloop.fish ~/.config/fish/completions/bloop.fish
+mkdir -p ~/.config/fish/completions
+curl -fL https://github.com/scalacenter/bloop/releases/download/v@VERSION@/fish-completions \
+  -o ~/.config/fish/completions/bloop.fish
 ```
 
-> Make sure that the target fish completions directory already exists.
+Fish loads completions from that directory automatically, so there is nothing to configure.
 
-Bloop CLI completions will not work if the build server is not running when the shell is reloaded.
-Make sure that, before reloading the fish shell, the build server is started.
-
-If you still experience problems, reload the completion script:
-
-```bash
-source $HOME/.bloop/fish/bloop.fish bloop.fish
-```
-
-Or, if you use [Oh My Fish](https://github.com/oh-my-fish/oh-my-fish):
-
-```bash
-omf reload
-```
+Reload your shell to pick up the completions. The first completion may pause while the build
+server starts.

@@ -15,7 +15,10 @@ Maintained by the Scala Center and the community.
 ### Command-line completions
 
 Bloop does not support PowerShell completions at the moment. However, it does support Bash/Zsh
-command-line completions which are available alongside the release artifacts in the Bloop repository.
+command-line completions, which are published with each release:
+[`bash-completions`](https://github.com/scalacenter/bloop/releases/download/v@VERSION@/bash-completions)
+and [`zsh-completions`](https://github.com/scalacenter/bloop/releases/download/v@VERSION@/zsh-completions).
+
 There are several projects that allow you to use Bash style completions in your PowerShell:
 
 1. [PSReadLine](https://github.com/lzybkr/PSReadLine), a plugin that improves the PowerShell experience and supports bash completions.
