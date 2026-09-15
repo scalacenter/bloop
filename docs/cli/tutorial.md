@@ -367,6 +367,29 @@ pressing <kbd>Ctrl</kbd> + <kbd>C</kbd>.
 > given that concurrent actions may collide. Such actions will be handled gracefully in future bloop
 > releases.
 
+## File watching and long-running applications
+
+`bloop run -w` waits for your application to exit before it reacts to a source change. For an
+application that terminates on its own, this gives you the run-on-every-save loop you expect. For a
+long-running one—an HTTP server, a daemon, a REPL-like process—the first run never finishes,
+so no later change triggers a recompile or a restart. Bloop will not kill and restart the forked
+process for you when sources change.
+
+If you want a restart-on-change loop for a server, drive `bloop run` from an external supervisor
+that owns the process lifecycle:
+
+```bash
+# watchexec: https://github.com/watchexec/watchexec
+→ watchexec --exts scala --watch src/main/scala --restart -- bloop run foo
+
+# entr: http://eradman.com/entrproject/
+→ find . -name '*.scala' | entr -r bloop run foo
+```
+
+`entr` watches a fixed list of files, so restart it after adding a source file. Users of
+[scala-cli](https://scala-cli.virtuslab.org) can instead pass its built-in `--restart` (also
+spelled `--revolver`) flag, which manages the application process on the client side.
+
 ## Run an Ammonite REPL on a project
 
 The `console` commands runs an Ammonite REPL with a project's classpath.
