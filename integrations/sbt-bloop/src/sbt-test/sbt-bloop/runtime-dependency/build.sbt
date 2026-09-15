@@ -50,6 +50,17 @@ checkBloopFiles := {
     s"Runtime-only dependencies must not be on the compile classpath, got: $compileClasspath"
   )
 
+  // Runtime-only dependencies must reach `resolution` with their sources jar, otherwise
+  // `buildTarget/dependencySources` and the debugger's source lookup cannot see them.
+  val resolvedModules = configContents.project.resolution.toList.flatMap(_.modules)
+  val classifiersByModule = resolvedModules.map(m => m.name -> m.artifacts.flatMap(_.classifier))
+  assert(
+    resolvedModules.exists { m =>
+      m.name == "logback-classic" && m.artifacts.exists(_.classifier.contains("sources"))
+    },
+    s"Runtime-only dependency or its sources jar not in resolution, got: $classifiersByModule"
+  )
+
   // The test configuration already sees runtime dependencies through its own compile classpath,
   // so it gets no separate runtime classpath.
   val configTestContents = BloopDefaults.unsafeParseConfig(bloopTestConfigFile.value.toPath)
