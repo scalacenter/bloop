@@ -19,11 +19,9 @@ bloopTestConfigFile := {
 
 val checkBloopFiles = taskKey[Unit]("Check bloop file contents")
 checkBloopFiles := {
-  if (Keys.name.value != "nonCompiling") {
-    val configContents = BloopDefaults.unsafeParseConfig(bloopConfigFile.value.toPath)
-    assert(configContents.project.platform.isDefined)
+  val configContents = BloopDefaults.unsafeParseConfig(bloopConfigFile.value.toPath)
+  assert(configContents.project.platform.isDefined)
 
-    val configTestContents = BloopDefaults.unsafeParseConfig(bloopTestConfigFile.value.toPath)
-    assert(configTestContents.project.platform.isDefined)
-  }
+  val configTestContents = BloopDefaults.unsafeParseConfig(bloopTestConfigFile.value.toPath)
+  assert(configTestContents.project.platform.isDefined)
 }

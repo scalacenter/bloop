@@ -7,8 +7,10 @@ ThisBuild / dynverSeparator := "-"
 
 // Add hook for scalafmt validation
 Global / onLoad ~= { old =>
-  if (!scala.util.Properties.isWin) {
-    import java.nio.file._
+  import java.nio.file._
+  // In a git worktree `.git` is a file pointing at the real git dir, so the hook
+  // belongs to the main checkout only. Skip it rather than fail the build load.
+  if (!scala.util.Properties.isWin && Files.isDirectory(Paths.get(".git"))) {
     val prePush = Paths.get(".git", "hooks", "pre-push")
     Files.createDirectories(prePush.getParent)
     Files.write(
