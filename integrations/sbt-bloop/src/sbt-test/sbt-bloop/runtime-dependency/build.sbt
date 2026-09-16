@@ -43,6 +43,15 @@ checkBloopFiles := {
     configContents.project.classpath.map(_.getFileName.toString) == List("scala-library.jar")
   )
 
+  // Runtime-only dependencies must reach `resolution`, otherwise their source jars are
+  // invisible to `buildTarget/dependencySources` and to the debugger's source lookup.
+  val resolvedModules =
+    configContents.project.resolution.toList.flatMap(_.modules.map(_.name)).sorted
+  assert(
+    resolvedModules.contains("logback-classic"),
+    s"Runtime-only dependency missing from resolution, got: $resolvedModules"
+  )
+
   val configTestContents = BloopDefaults.unsafeParseConfig(bloopTestConfigFile.value.toPath)
   assert(configTestContents.project.platform.isDefined)
   val testPlatformJvm =
