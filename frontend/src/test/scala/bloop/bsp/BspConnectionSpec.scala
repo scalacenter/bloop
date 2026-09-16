@@ -1,8 +1,11 @@
 package bloop.bsp
 
+import java.nio.file.Files
+
 import scala.concurrent.duration.FiniteDuration
 
 import bloop.cli.BspProtocol
+import bloop.cli.Commands
 import bloop.cli.ExitStatus
 import bloop.io.Environment.lineSeparator
 import bloop.logging.BspClientLogger
@@ -15,7 +18,36 @@ import monix.execution.ExecutionModel
 import monix.execution.Scheduler
 
 object TcpBspConnectionSpec extends BspConnectionSpec(BspProtocol.Tcp)
-object LocalBspConnectionSpec extends BspConnectionSpec(BspProtocol.Local)
+object LocalBspConnectionSpec extends BspConnectionSpec(BspProtocol.Local) {
+  test("delete the socket file when the session ends") {
+    TestUtil.withinWorkspace { workspace =>
+      val `A` = TestProject(workspace, "a", Nil)
+      val configDir = TestProject.populateWorkspace(workspace, List(`A`))
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val bspLogger = new BspClientLogger(logger)
+
+      val cmd = createBspCommand(configDir)
+      val socketFile = cmd match {
+        case cmd: Commands.UnixLocalBsp => cmd.socket
+        case cmd => fail(s"Expected a local BSP command, got $cmd")
+      }
+
+      val state = TestUtil.loadTestProject(configDir.underlying, logger)
+      openBspConnection(state, () => cmd, configDir, bspLogger).withinSession { _ =>
+        assert(Files.exists(socketFile.underlying))
+        ()
+      }
+
+      // The server deletes the socket file as it stops listening, after the session closed
+      val deadline = System.currentTimeMillis() + 10000
+      while (Files.exists(socketFile.underlying) && System.currentTimeMillis() < deadline) {
+        Thread.sleep(100)
+      }
+
+      assert(!Files.exists(socketFile.underlying))
+    }
+  }
+}
 
 abstract class BspConnectionSpec(
     override val protocol: BspProtocol

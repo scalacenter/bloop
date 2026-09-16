@@ -898,7 +898,7 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
               case e: Throwable =>
                 logger.warn("Error closing socket", e)
             }
-            cleanUpLastResources(cmd)
+            // The server deletes the socket file itself when it stops listening
           }
         }
       }
