@@ -1022,12 +1022,21 @@ object BloopDefaults {
     val hasConfigSettings = Keys.productDirectories.?.value.isDefined
     val projectName = projectNameFromString(project.id, configuration, logger)
     val currentSbtUniverse = BloopKeys.bloopGlobalUniqueId.value
-    val tags = configuration match {
-      case IntegrationTest => List(Tag.IntegrationTest)
-      case Test => List(Tag.Test)
-      // multi-jvm extends Test, so its target holds test code
-      case c if c.name == MultiJvm.name => List(Tag.Test)
-      case _ => List(Tag.Library)
+    val tags = {
+      // A configuration holds test code when it extends `Test`, and bloop only runs tests for
+      // targets tagged `test` or `integration-test`, so tag by lineage. The config in the
+      // scope can have lost its `extendsConfigs`, so resolve the project's own by name too
+      // (same workaround as `eligibleDepsFromConfig`).
+      val resolvedConfig = project.configurations.find(_.name == configuration.name)
+      val lineage = distinctOn(
+        depsFromConfig(configuration) ++ resolvedConfig.toList.flatMap(depsFromConfig),
+        (c: Configuration) => c.name
+      ).map(_.name)
+
+      // `it` first because `IntegrationTest` usually extends `Test` too
+      if (lineage.contains(IntegrationTest.name)) List(Tag.IntegrationTest)
+      else if (lineage.contains(Test.name) || lineage.contains(MultiJvm.name)) List(Tag.Test)
+      else List(Tag.Library)
     }
 
     lazy val generated = Option(targetNamesToConfigs.get(projectName))
