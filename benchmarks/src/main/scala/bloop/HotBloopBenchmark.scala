@@ -38,7 +38,8 @@ abstract class HotBloopBenchmarkBase {
   @Setup(Level.Trial) def spawn(): Unit = {
     val configDir = CommunityBuild.getConfigDirForBenchmark(project)
     val base = configDir.getParent
-    val bloopClasspath = BuildInfo.fullCompilationClasspath.map(_.getAbsolutePath).mkString(":")
+    val bloopClasspath =
+      BuildInfo.fullCompilationClasspath.map(_.getAbsolutePath).mkString(File.pathSeparator)
 
     val jvmArgs = {
       val defaultJvmArgs = List(
@@ -78,7 +79,7 @@ abstract class HotBloopBenchmarkBase {
 
     processOutputReader = new BufferedReader(new InputStreamReader(bloopProcess.getInputStream))
     processInputReader = new BufferedWriter(new OutputStreamWriter(bloopProcess.getOutputStream))
-    awaitPrompt()
+    awaitPrompt(failOnError = false)
   }
 
   @Benchmark
@@ -97,7 +98,10 @@ abstract class HotBloopBenchmarkBase {
     processInputReader.flush()
   }
 
-  def awaitPrompt(): Unit = {
+  // Errors logged while the build loads (say, a project pinned to an uninstalled JDK) are
+  // reported but don't invalidate a measurement. A failed compilation does: it returns early
+  // and the timings no longer describe the work we mean to measure.
+  def awaitPrompt(failOnError: Boolean = true): Unit = {
     output.setLength(0)
     val buffer = new Array[Char](128)
     var read: Int = -1
@@ -107,7 +111,11 @@ abstract class HotBloopBenchmarkBase {
       else {
         output.append(buffer, 0, read)
         if (output.toString.contains("shell> ")) {
-          if (output.toString.contains("[E]")) sys.error(output.toString)
+          val logs = output.toString
+          if (logs.contains("[E]")) {
+            if (failOnError) sys.error(logs)
+            else System.err.println(logs)
+          }
           return
         }
       }
