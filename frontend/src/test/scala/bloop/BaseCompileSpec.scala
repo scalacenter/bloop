@@ -4,6 +4,7 @@ import java.io.ByteArrayOutputStream
 import java.io.PrintStream
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
+import java.nio.file.Path
 import java.nio.file.Paths
 import java.util.concurrent.TimeUnit
 import scala.concurrent.Await
@@ -2253,6 +2254,150 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
 
       val compiledState = state.compile(`B`)
       assertExitStatus(compiledState, ExitStatus.Ok)
+    }
+  }
+
+  /**
+   * Shared by the `deriving.conf` cases below. The macro reads `deriving.conf`
+   * off its own classloader while expanding, the way scalaz-deriving's macro does, and,
+   * unlike it, aborts when the file is missing: a failing case then surfaces as a positioned
+   * diagnostic instead of the silent fallback that scalaz-deriving turns into a misleading
+   * implicit-not-found.
+   */
+  private object DerivingConfSources {
+    final val content = "hello"
+
+    val `m/Macro.scala`: String =
+      s"""/m/Macro.scala
+         |package m
+         |import scala.io.Source
+         |import scala.language.experimental.macros
+         |import scala.reflect.macros.blackbox.Context
+         |object M {
+         |  def m(ctx: Context)(): ctx.Tree = {
+         |    val res = getClass.getClassLoader.getResourceAsStream("deriving.conf")
+         |    if (res == null)
+         |      ctx.abort(ctx.enclosingPosition, "deriving.conf missing from macro classpath")
+         |    val found = try Source.fromInputStream(res).mkString finally res.close()
+         |    if (found != "$content")
+         |      ctx.abort(ctx.enclosingPosition, "unexpected deriving.conf content: " + found)
+         |    import ctx.universe._
+         |    q"()"
+         |  }
+         |  def check(): Unit = macro m
+         |}""".stripMargin
+
+    /** A source that expands the macro, so compiling it needs the resource. */
+    def callingMacro(pkg: String, obj: String): String =
+      s"""/$pkg/$obj.scala
+         |package $pkg
+         |object $obj {
+         |  m.M.check()
+         |}""".stripMargin
+
+    def emptyObject(pkg: String, obj: String): String =
+      s"""/$pkg/$obj.scala
+         |package $pkg
+         |object $obj""".stripMargin
+
+    /**
+     * Writes `deriving.conf` into a directory no project lists by default; the caller hands it
+     * to one project through `additionalResources`. The workspace-wide directory that
+     * `TestProject(resources = ...)` writes into is listed by every project in the build, so a
+     * resource placed there is reachable however the classpath is computed.
+     */
+    def writePrivateDerivingConf(workspace: AbsolutePath): Path = {
+      val resourceDir = workspace.underlying.resolve("private-resources")
+      Files.createDirectories(resourceDir)
+      Files.write(resourceDir.resolve("deriving.conf"), content.getBytes(StandardCharsets.UTF_8))
+      resourceDir
+    }
+  }
+
+  test("compile sees compile-time resources of a resources-only dependency") {
+    TestUtil.withinWorkspace { workspace =>
+      import DerivingConfSources._
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val resourceDir = writePrivateDerivingConf(workspace)
+
+      val `M` = TestProject(workspace, "m", List(`m/Macro.scala`))
+      // No sources at all: this project contributes only resources. Its runtime resources point
+      // at an empty directory, so reading them instead of the compile-time ones fails the test.
+      val `A` = TestProject(
+        workspace,
+        "a",
+        Nil,
+        additionalResources = List(resourceDir),
+        runtimeResources = Some(Nil)
+      )
+      val `B` = TestProject(workspace, "b", List(callingMacro("b", "B")), List(`A`, `M`))
+
+      val state = loadState(workspace, List(`M`, `A`, `B`), logger)
+      assertExitStatus(state.compile(`B`), ExitStatus.Ok)
+    }
+  }
+
+  test("compile still sees compile-time resources of a dependency with sources") {
+    TestUtil.withinWorkspace { workspace =>
+      import DerivingConfSources._
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val resourceDir = writePrivateDerivingConf(workspace)
+
+      val `M` = TestProject(workspace, "m", List(`m/Macro.scala`))
+      // Control: a dependency with sources produces compile products, and its resources were
+      // on the classpath before the fix. This guards the products path the fix must not break.
+      val `A` = TestProject(
+        workspace,
+        "a",
+        List(emptyObject("a", "A")),
+        additionalResources = List(resourceDir)
+      )
+      val `B` = TestProject(workspace, "b", List(callingMacro("b", "B")), List(`A`, `M`))
+
+      val state = loadState(workspace, List(`M`, `A`, `B`), logger)
+      assertExitStatus(state.compile(`B`), ExitStatus.Ok)
+    }
+  }
+
+  test("compile sees compile-time resources of a transitive resources-only dependency") {
+    TestUtil.withinWorkspace { workspace =>
+      import DerivingConfSources._
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val resourceDir = writePrivateDerivingConf(workspace)
+
+      val `M` = TestProject(workspace, "m", List(`m/Macro.scala`))
+      // The runtime versus compile-time resource split is already guarded by the first case.
+      val `A` = TestProject(workspace, "a", Nil, additionalResources = List(resourceDir))
+      val `B` = TestProject(workspace, "b", List(emptyObject("b", "B")), List(`A`))
+      // `C` declares no dependency on `A`; `A` reaches its classpath only transitively via `B`.
+      val `C` = TestProject(workspace, "c", List(callingMacro("c", "C")), List(`B`, `M`))
+
+      val state = loadState(workspace, List(`M`, `A`, `B`, `C`), logger)
+      assertExitStatus(state.compile(`C`), ExitStatus.Ok)
+    }
+  }
+
+  test("compile does not see compile-time resources of a project it does not depend on") {
+    TestUtil.withinWorkspace { workspace =>
+      import DerivingConfSources._
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val resourceDir = writePrivateDerivingConf(workspace)
+
+      val `M` = TestProject(workspace, "m", List(`m/Macro.scala`))
+      val `B` = TestProject(workspace, "b", List(callingMacro("b", "B")), List(`M`))
+      // Resources-only; the edge to `B` places it in `B`'s component without ever putting it on
+      // `B`'s classpath. Its resources must stay out: they are only spliced next to a classpath
+      // entry.
+      val `D` = TestProject(workspace, "d", Nil, List(`B`), additionalResources = List(resourceDir))
+
+      val state = loadState(workspace, List(`M`, `B`, `D`), logger)
+      assertExitStatus(state.compile(`B`), ExitStatus.CompilationError)
+      // The abort is positioned at `B`'s call site, so pin both path and message together
+      assert(
+        logger.errors.exists { e =>
+          e.contains("B.scala") && e.contains("deriving.conf missing from macro classpath")
+        }
+      )
     }
   }
 

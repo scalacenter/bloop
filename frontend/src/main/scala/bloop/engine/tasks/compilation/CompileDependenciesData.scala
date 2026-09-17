@@ -28,12 +28,18 @@ case class CompileDependenciesData(
 }
 
 object CompileDependenciesData {
+
+  /**
+   * `transitiveDependencies` is every project the compiled one depends on, directly or
+   * transitively, excluding the project itself; its own resources are prepended by
+   * `buildFullCompileClasspathFor`.
+   */
   def compute(
       genericClasspath: Array[AbsolutePath],
-      dependentProducts: Map[Project, Either[PartialCompileProducts, CompileProducts]]
+      dependentProducts: Map[Project, Either[PartialCompileProducts, CompileProducts]],
+      transitiveDependencies: List[Project]
   ): CompileDependenciesData = {
     val dependentClassesDir = new mutable.HashMap[AbsolutePath, Array[AbsolutePath]]()
-    val dependentResources = new mutable.HashMap[AbsolutePath, Array[AbsolutePath]]()
     val dependentBestEffortDirs = new mutable.ArrayBuffer[AbsolutePath]()
     val dependentInvalidatedClassFiles = new mutable.HashSet[File]()
     val dependentGeneratedClassFilePaths = new mutable.HashMap[String, File]()
@@ -62,7 +68,6 @@ object CompileDependenciesData {
           if (newClassesDir == readOnlyClassesDir) Array(newClassesDir)
           else Array(newClassesDir, readOnlyClassesDir)
         }
-        val resources = Project.pickValidResources(project.resources)
 
         if (project.isBestEffort) {
           dependentBestEffortDirs ++= classesDirs
@@ -72,22 +77,27 @@ object CompileDependenciesData {
         dependentClassesDir.put(genericClassesDir, classesDirs.map(AbsolutePath(_)))
         dependentInvalidatedClassFiles.++=(products.invalidatedCompileProducts)
         dependentGeneratedClassFilePaths.++=(products.generatedRelativeClassFilePaths.iterator)
-        dependentResources.put(genericClassesDir, resources)
     }
+
+    // Resources are compilation inputs, not compilation products, so they come from the
+    // dependency graph rather than from `dependentProducts`. A dependency without sources
+    // produces no products, yet a macro expanding in a dependent must still read its
+    // resources, as it does under sbt.
+    val dependentResources: Map[AbsolutePath, Array[AbsolutePath]] =
+      transitiveDependencies.iterator
+        .map(d => d.genericClassesDir -> Project.pickValidResources(d.resources))
+        .toMap
 
     val addedResources = new mutable.HashSet[AbsolutePath]()
     val rewrittenClasspath = genericClasspath.flatMap { entry =>
-      dependentClassesDir.get(entry) match {
-        case Some(classesDirs) =>
-          dependentResources.get(entry) match {
-            case Some(existingResources) =>
-              val newExistingResources =
-                existingResources.filterNot(r => addedResources.contains(r))
-              newExistingResources.foreach(r => addedResources.add(r))
-              newExistingResources ++ classesDirs
-            case None => classesDirs
-          }
-        case None => List(entry)
+      val classesDirs = dependentClassesDir.getOrElse(entry, Array(entry))
+      dependentResources.get(entry) match {
+        case Some(existingResources) =>
+          val newExistingResources =
+            existingResources.filterNot(r => addedResources.contains(r))
+          newExistingResources.foreach(r => addedResources.add(r))
+          newExistingResources ++ classesDirs
+        case None => classesDirs
       }
     }
 
