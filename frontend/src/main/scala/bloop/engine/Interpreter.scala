@@ -187,7 +187,11 @@ object Interpreter {
     }
 
     val compileTask = state.flatMap { state =>
-      val config = ReporterKind.toReporterConfig(cmd.reporter).copy(colors = !noColor)
+      val baseConfig = ReporterKind.toReporterConfig(cmd.reporter)
+      val config = baseConfig.copy(
+        colors = !noColor,
+        reverseOrder = cmd.reverseOrder.getOrElse(baseConfig.reverseOrder)
+      )
       val dag = getProjectsDag(projects, state)
       val createReporter = (inputs: ReporterInputs[Logger]) =>
         new LogReporter(inputs.project, inputs.logger, inputs.cwd, config)
