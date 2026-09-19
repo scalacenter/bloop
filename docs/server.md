@@ -91,9 +91,9 @@ full compile, even when no source changed.
 
 Set `-Dbloop.analysis.portable=true` in `BLOOP_JAVA_OPTS` to persist analysis files with paths
 relative to well-known roots: `${BASE}` (the workspace), `${CSR_CACHE}` (the coursier cache),
-`${IVY_HOME}`, `${SBT_BOOT}` and `${JAVA_HOME}`. Reading such files is always supported, so they
-also load on the same machine with the option off, and files written without the option keep
-loading as before.
+`${IVY_HOME}`, `${SBT_BOOT}` and `${JAVA_HOME}`. The option governs both writing and reading, so
+set it wherever a portable analysis is produced and wherever it is consumed. Files written
+without the option keep loading either way.
 
 To reuse a build elsewhere, ship both the analysis file and the `bloop-internal-classes`
 directory found under the project's `out` directory, keeping the same layout relative to the
@@ -103,6 +103,8 @@ workspace. Notes and limitations:
   heuristics. Add or override roots with `-Dbloop.analysis.roots=KEY=/path,KEY2=/path`.
 - Paths outside every root stay absolute and are not portable.
 - Sharing analysis files between different operating systems is not supported.
+- With the option off, a portable analysis is ignored and a full compile follows, which rewrites
+  the file with absolute paths.
 - An analysis whose roots cannot be resolved on the current machine is ignored with a warning,
   a full compile follows, and the file stays on disk until the next successful compile replaces it.
 - Positions of previously reported warnings are not rewritten, so diagnostics replayed to

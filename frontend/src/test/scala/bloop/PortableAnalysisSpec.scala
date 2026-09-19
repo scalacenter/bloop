@@ -7,6 +7,7 @@ import java.nio.file.Paths
 import java.nio.file.StandardCopyOption
 
 import bloop.cli.ExitStatus
+import bloop.engine.tasks.compilation.CompileGatekeeper
 import bloop.io.AbsolutePath
 import bloop.logging.RecordingLogger
 import bloop.util.TestProject
@@ -110,6 +111,9 @@ object PortableAnalysisSpec extends bloop.testing.BaseSuite {
         val first = loadState(workspace, projects, newLogger()).compile(projects.last)
         assertExitStatus(first, ExitStatus.Ok)
       }
+      // Results are cached process-globally per project id, and the id is the config path, so
+      // without this the reload would reuse them and never read the analysis back from disk
+      CompileGatekeeper.clearSuccessfulResults()
       withPortableAnalysis(readEnabled) {
         val logger = newLogger()
         val reloaded = loadState(workspace, projects, logger).compile(projects.last)
@@ -153,8 +157,9 @@ object PortableAnalysisSpec extends bloop.testing.BaseSuite {
     assertNoDiff(compiled(compileThenReload(writeEnabled = false, readEnabled = true)), "")
   }
 
-  test("a portable analysis loads on the same machine when portable analysis is off") {
-    assertNoDiff(compiled(compileThenReload(writeEnabled = true, readEnabled = false)), "")
+  test("a portable analysis is ignored when portable analysis is off") {
+    val logger = compileThenReload(writeEnabled = true, readEnabled = false)
+    assertNoDiff(compiled(logger), bothCompiled)
   }
 
   test("an analysis with an unknown root is ignored with a warning and the build keeps working") {

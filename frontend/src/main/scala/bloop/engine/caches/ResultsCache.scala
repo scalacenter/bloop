@@ -36,6 +36,7 @@ import bloop.task.Task
 import sbt.internal.inc.Analysis
 import sbt.internal.inc.FileAnalysisStore
 import xsbti.compile.PreviousResult
+import xsbti.compile.analysis.ReadWriteMappers
 
 /**
  * Maps projects to compilation results, populated by `Tasks.compile`.
@@ -243,12 +244,16 @@ object ResultsCache {
       val analysisFile = p.analysisOut
       if (analysisFile.exists) {
         Task {
-          // Tokens in a portable analysis resolve against this build's roots; a token that
-          // cannot be resolved makes the store return nothing and records the reason
-          val roots = PortableAnalysis.Roots.derive(p.workspaceRoot.underlying)
-          val readSide = PortableAnalysis.readMappers(roots)
-          val contents =
-            FileAnalysisStore.binary(analysisFile.toFile, readSide.mappers).get().toOption
+          // Only a build that opted in can have written tokens, so leave the default path
+          // untouched; a token that cannot be resolved makes the store return nothing
+          val readSide =
+            if (!PortableAnalysis.enabled) None
+            else {
+              val roots = PortableAnalysis.Roots.derive(p.workspaceRoot.underlying)
+              Some(PortableAnalysis.readMappers(roots))
+            }
+          val mappers = readSide.map(_.mappers).getOrElse(ReadWriteMappers.getEmptyMappers())
+          val contents = FileAnalysisStore.binary(analysisFile.toFile, mappers).get().toOption
           contents match {
             case Some(res) =>
               logger.debug(s"Loading previous analysis for '${p.name}' from '$analysisFile'.")
@@ -300,7 +305,7 @@ object ResultsCache {
                   ResultBundle.empty -> None
               }
             case None =>
-              readSide.failure match {
+              readSide.flatMap(_.failure) match {
                 case Some(reason) =>
                   logger.warn(
                     s"Ignoring persisted analysis for '${p.name}': $reason; a full compile will follow"
