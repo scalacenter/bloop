@@ -46,6 +46,7 @@ import sbt.internal.inc.bloop.internal.BloopStamps
 import sbt.util.InterfaceUtil
 import xsbti.T2
 import xsbti.VirtualFileRef
+import xsbti.compile.analysis.ReadWriteMappers
 import xsbti.compile._
 
 case class CompileInputs(
@@ -80,7 +81,9 @@ case class CompileOutPaths(
     analysisOut: AbsolutePath,
     genericClassesDir: AbsolutePath,
     externalClassesDir: AbsolutePath,
-    internalReadOnlyClassesDir: AbsolutePath
+    internalReadOnlyClassesDir: AbsolutePath,
+    // How paths are rewritten when the analysis is persisted (see `PortableAnalysis`)
+    analysisMappers: ReadWriteMappers = ReadWriteMappers.getEmptyMappers()
 ) {
   // Don't change the internals of this method without updating how they are cleaned up
   private def createInternalNewDir(generateDirName: String => String): AbsolutePath = {
@@ -534,7 +537,8 @@ object Compiler {
 
           def persistAnalysis(analysis: CompileAnalysis, out: AbsolutePath): Task[Unit] = {
             // Important to memoize it, it's triggered by different clients
-            Task(persist(out, analysis, result.setup, tracer, logger)).memoize
+            val mappers = compileInputs.out.analysisMappers
+            Task(persist(out, analysis, result.setup, mappers, tracer, logger)).memoize
           }
 
           // .betasty files are always produced with -Ybest-effort, even when
@@ -1229,6 +1233,7 @@ object Compiler {
       storeFile: AbsolutePath,
       analysis: CompileAnalysis,
       setup: MiniSetup,
+      mappers: ReadWriteMappers,
       tracer: BraveTracer,
       logger: Logger
   ): Unit = try {
@@ -1238,7 +1243,9 @@ object Compiler {
         logger.debug(s"Skipping analysis persistence to ${storeFile.syntax}, analysis is empty")
       } else {
         logger.debug(label)
-        FileAnalysisStore.binary(storeFile.toFile).set(ConcreteAnalysisContents(analysis, setup))
+        FileAnalysisStore
+          .binary(storeFile.toFile, mappers)
+          .set(ConcreteAnalysisContents(analysis, setup))
         logger.debug(s"Wrote analysis to ${storeFile.syntax}...")
       }
     }
