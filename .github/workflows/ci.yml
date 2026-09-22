@@ -117,6 +117,14 @@ jobs:
               frontend/runMain bloop.util.CommandsDocGenerator --out ../docs/cli/reference.md"
         shell: bash
 
+      # Keeps the JMH harness runnable; the numbers mean nothing on shared runners. JMH exits 0
+      # when a benchmark's setup throws, so `-foe true` is what makes a broken harness fail the job.
+      - name: Benchmark harness smoke test
+        if: matrix.os == 'ubuntu-latest' && matrix.jdk == '17'
+        run: |
+          sbt "benchmarks/Jmh/run .*HotBloopBenchmark.* -wi 0 -i 1 -f1 -t1 -foe true -p project=simple-build -p projectName=simple-build"
+        shell: bash
+
   publish-binaries:
     name: Publish binaries for ${{ matrix.os }}
     runs-on: ${{ matrix.os }}

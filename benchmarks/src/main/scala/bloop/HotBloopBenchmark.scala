@@ -35,8 +35,20 @@ abstract class HotBloopBenchmarkBase {
   var output = new java.lang.StringBuilder()
 
   import bloop.benchmarks.BuildInfo
+
+  // Builds exported by buildpress come first. The projects under `frontend/src/test/resources`
+  // (exported by `frontend/test:compile`) are accepted too, so a smoke run needs no buildpress.
+  private def resolveConfigDir(name: String): Path = {
+    val testResourceConfigDir =
+      BuildInfo.test_resourceDirectory.toPath.resolve(name).resolve("bloop-config")
+    CommunityBuild.builds
+      .collectFirst { case (`name`, base) => base.resolve(".bloop").underlying }
+      .orElse(Some(testResourceConfigDir).filter(Files.isDirectory(_)))
+      .getOrElse(sys.error(s"No buildpress build or test resource project named $name"))
+  }
+
   @Setup(Level.Trial) def spawn(): Unit = {
-    val configDir = CommunityBuild.getConfigDirForBenchmark(project)
+    val configDir = resolveConfigDir(project)
     val base = configDir.getParent
     val bloopClasspath =
       BuildInfo.fullCompilationClasspath.map(_.getAbsolutePath).mkString(File.pathSeparator)
