@@ -104,6 +104,12 @@ final case class Project(
     buf.result()
   }
 
+  /** The javac `-s` directory, where annotation processors write the sources they generate. */
+  def annotationProcessorSourcesDir: Option[AbsolutePath] = {
+    val index = javacOptions.indexOf("-s")
+    if (index < 0) None else javacOptions.lift(index + 1).map(AbsolutePath(_))
+  }
+
   val uniqueId: String = s"${origin.path.syntax}#${name}"
   override def toString: String = s"$name"
   override val hashCode: Int =
