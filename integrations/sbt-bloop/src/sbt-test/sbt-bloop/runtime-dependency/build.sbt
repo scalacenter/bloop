@@ -22,42 +22,48 @@ bloopTestConfigFile := {
 
 val checkBloopFiles = taskKey[Unit]("Check bloop file contents")
 checkBloopFiles := {
+  // Jar file names carry the Scala version and the resolver's layout, and their order on the
+  // classpath is not stable across sbt 1 and sbt 2. Assert on where the runtime-only dependency
+  // ends up rather than on an exact listing.
+  val runtimeOnlyJars =
+    List("logback-classic-1.2.7.jar", "logback-core-1.2.7.jar", "slf4j-api-1.7.32.jar")
+
   val configContents = BloopDefaults.unsafeParseConfig(bloopConfigFile.value.toPath)
 
-  assert(configContents.project.platform.isDefined)
+  assert(configContents.project.platform.isDefined, "Compile config has no platform")
   val platformJvm =
     configContents.project.platform.get.asInstanceOf[bloop.config.Config.Platform.Jvm]
-  val obtainedRuntimeClasspath = platformJvm.classpath.map(_.map(_.getFileName.toString))
-  val expectedRuntimeClasspath = Some(
-    List(
-      "classes",
-      "scala-library.jar",
-      "logback-classic-1.2.7.jar",
-      "logback-core-1.2.7.jar",
-      "slf4j-api-1.7.32.jar"
-    )
-  )
-  assert(obtainedRuntimeClasspath == expectedRuntimeClasspath)
+  val runtimeClasspath = platformJvm.classpath.toList.flatten.map(_.getFileName.toString)
 
   assert(
-    configContents.project.classpath.map(_.getFileName.toString) == List("scala-library.jar")
+    runtimeClasspath.headOption.contains("classes"),
+    s"Own classes directory should lead the runtime classpath, got: $runtimeClasspath"
+  )
+  assert(
+    runtimeOnlyJars.forall(runtimeClasspath.contains),
+    s"Runtime-only dependencies missing from the runtime classpath, got: $runtimeClasspath"
   )
 
+  val compileClasspath = configContents.project.classpath.map(_.getFileName.toString)
+  assert(
+    runtimeOnlyJars.forall(jar => !compileClasspath.contains(jar)),
+    s"Runtime-only dependencies must not be on the compile classpath, got: $compileClasspath"
+  )
+
+  // The test configuration already sees runtime dependencies through its own compile classpath,
+  // so it gets no separate runtime classpath.
   val configTestContents = BloopDefaults.unsafeParseConfig(bloopTestConfigFile.value.toPath)
-  assert(configTestContents.project.platform.isDefined)
+  assert(configTestContents.project.platform.isDefined, "Test config has no platform")
   val testPlatformJvm =
     configTestContents.project.platform.get.asInstanceOf[bloop.config.Config.Platform.Jvm]
-  assert(testPlatformJvm.classpath.isEmpty)
+  assert(
+    testPlatformJvm.classpath.isEmpty,
+    s"Test config should carry no runtime classpath, got: ${testPlatformJvm.classpath}"
+  )
 
-  val obtainedTestClasspath = configTestContents.project.classpath.map(_.getFileName.toString)
-  val expectedTestClasspath =
-    List(
-      "classes",
-      "scala-library.jar",
-      "logback-classic-1.2.7.jar",
-      "logback-core-1.2.7.jar",
-      "slf4j-api-1.7.32.jar"
-    )
-
-  assert(obtainedTestClasspath == expectedTestClasspath)
+  val testClasspath = configTestContents.project.classpath.map(_.getFileName.toString)
+  assert(
+    runtimeOnlyJars.forall(testClasspath.contains),
+    s"Test compile classpath should contain the runtime dependencies, got: $testClasspath"
+  )
 }
