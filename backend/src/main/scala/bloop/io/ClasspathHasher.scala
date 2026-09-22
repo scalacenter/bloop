@@ -15,6 +15,7 @@ import scala.collection.mutable
 import scala.concurrent.Promise
 import scala.util.control.NonFatal
 
+import bloop.logging.DebugFilter
 import bloop.logging.Logger
 import bloop.task.Task
 import bloop.tracing.BraveTracer
@@ -33,7 +34,8 @@ object ClasspathHasher {
 
   // For more safety, store both the time and size
   private type JarMetadata = (FileTime, Long)
-  private[this] val hashingPromises = new ConcurrentHashMap[Path, Promise[FileHash]]()
+  // Visible for testing
+  private[io] val hashingPromises = new ConcurrentHashMap[Path, Promise[FileHash]]()
   private[this] val cacheMetadataJar = new ConcurrentHashMap[Path, (JarMetadata, FileHash)]()
 
   /**
@@ -154,7 +156,7 @@ object ClasspathHasher {
       }
     }
 
-    tracer.traceTaskVerbose("computing hashes") { _ =>
+    tracer.traceTaskVerbose("computing hashes") { tracer =>
       val acquiredByOtherTasks = new mutable.ListBuffer[Task[Unit]]()
       val acquiredByThisHashingProcess = new mutable.ListBuffer[AcquiredTask]()
 
@@ -167,25 +169,35 @@ object ClasspathHasher {
             acquiredByThisHashingProcess.+=(AcquiredTask(entry, entryIdx, entryPromise))
           } else { // The hashing is acquired by another process, wait on its result
             acquiredByOtherTasks.+=(
-              Task.fromFuture(promise.future).flatMap { hash =>
-                if (hash == BloopStamps.cancelledHash) {
-                  if (cancelCompilation.isCompleted) Task.now(())
-                  else {
-                    // If the process that acquired it cancels the computation, try acquiring it again
-                    logger
-                      .warn(s"Unexpected hash computation of $entry was cancelled, restarting...")
-                    Task.eval(acquireHashingEntry(entry, entryIdx)).asyncBoundary
-                  }
-                } else {
-                  Task.now {
-                    // Save the result hash in its index
-                    classpathHashes(entryIdx) = hash
-                    ()
-                  }
-                }
+              Task.fromFuture(promise.future).map { hash =>
+                // Save the result hash in its index, a cancelled one is retried later
+                classpathHashes(entryIdx) = hash
               }
             )
           }
+        }
+      }
+
+      // Hash again the entries whose owner was cancelled, unless this run is cancelled too.
+      // Every retry needs yet another cancelled owner, which bounds the recursion.
+      def rehashCancelledEntries(): Task[Unit] = {
+        val cancelled = classpathHashes.indices.filter { idx =>
+          classpathHashes(idx).hash() == BloopStamps.cancelledHash
+        }
+        if (cancelled.isEmpty || isCancelled.get || cancelCompilation.isCompleted) Task.unit
+        else {
+          val msg =
+            s"Another compilation cancelled hashing ${cancelled.size} entries, restarting..."
+          logger.debug(msg)(DebugFilter.Compilation)
+          val entries = cancelled.map(classpath(_)).toArray
+          ClasspathHasher
+            .hash(entries, parallelUnits, cancelCompilation, scheduler, logger, tracer, serverOut)
+            .map {
+              case Right(hashes) =>
+                cancelled.zip(hashes).foreach { case (idx, hash) => classpathHashes(idx) = hash }
+              // Cancelled too: the cancelled hashes left in place make this run return Left
+              case Left(_) => ()
+            }
         }
       }
 
@@ -215,15 +227,19 @@ object ClasspathHasher {
               cancelCompilation.trySuccess(())
               Task.now(Left(()))
             } else {
-              Task.sequence(acquiredByOtherTasks.toList).map { _ =>
-                val hasCancelledHash = classpathHashes.exists(_.hash() == BloopStamps.cancelledHash)
-                if (hasCancelledHash || isCancelled.get || cancelCompilation.isCompleted) {
-                  cancelCompilation.trySuccess(())
-                  Left(())
-                } else {
-                  Right(classpathHashes.toVector)
+              Task
+                .sequence(acquiredByOtherTasks.toList)
+                .flatMap(_ => rehashCancelledEntries())
+                .map { _ =>
+                  val hasCancelledHash =
+                    classpathHashes.exists(_.hash() == BloopStamps.cancelledHash)
+                  if (hasCancelledHash || isCancelled.get || cancelCompilation.isCompleted) {
+                    cancelCompilation.trySuccess(())
+                    Left(())
+                  } else {
+                    Right(classpathHashes.toVector)
+                  }
                 }
-              }
             }
           }
       }

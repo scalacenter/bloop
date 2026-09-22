@@ -51,7 +51,7 @@ object ClasspathHasherSpec extends bloop.testing.BaseSuite {
     // Cancelling the first result doesn't affect the results of the second
     val competingResult = Await.result(running2, FiniteDuration(20, "s"))
     assert(competingResult.isRight)
-    assert(competingResult.forall(s => s != BloopStamps.cancelledHash))
+    assert(competingResult.forall(_.forall(_.hash() != BloopStamps.cancelledHash)))
     assert(!cancelPromise2.isCompleted)
   }
 
