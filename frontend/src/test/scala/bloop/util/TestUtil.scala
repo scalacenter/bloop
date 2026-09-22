@@ -133,15 +133,17 @@ object TestUtil {
     val handle = t.runAsync(scheduler)
     try Await.result(handle, duration)
     catch {
-      case NonFatal(t) => handle.cancel(); throw t
-      case i: InterruptedException => handle.cancel(); throw i
+      // Must come before `NonFatal`, which also matches timeouts
       case t: TimeoutException =>
         System.err.println("Error: timeout detected, printing logs!")
         logger.foreach(_.dump())
         System.err.println("Now, taking a thread dump!")
         System.err.println(threadDump)
         System.err.println("Rethrowing exception to the caller!")
+        handle.cancel()
         throw t
+      case NonFatal(t) => handle.cancel(); throw t
+      case i: InterruptedException => handle.cancel(); throw i
     }
   }
 

@@ -357,7 +357,9 @@ abstract class BspMetalsClientSpec(
         logger
       )
       loadBspState(workspace, projects, logger) { state =>
-        val compiledState = state.compile(`A`).toTestState
+        // The first compile with 2.12.8 also resolves that compiler and compiles a compiler
+        // bridge for it, which on a cold cache can take longer than the default 30 seconds
+        val compiledState = state.compile(`A`, timeout = 120).toTestState
         assert(compiledState.status == ExitStatus.Ok)
         assertSemanticdbFileFor("Foo.scala", compiledState)
         assertSemanticdbFileFor("Bar.java", compiledState)
