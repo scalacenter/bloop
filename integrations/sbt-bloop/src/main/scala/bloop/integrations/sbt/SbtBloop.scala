@@ -1233,7 +1233,15 @@ object BloopDefaults {
 
             val allModules = mergeModules(binaryModules, sourceModules)
             val resolution = {
-              val modules = onlyCompilationModules(allModules, classpath).toList
+              // Runtime-only dependencies are absent from the compile classpath, so match
+              // modules against the runtime classpath too. Otherwise their source jars never
+              // reach `buildTarget/dependencySources` or the debugger's source lookup.
+              val runtimeClasspath = platform match {
+                case jvm: Config.Platform.Jvm => jvm.classpath.toList.flatten
+                case _ => Nil
+              }
+              val modules =
+                onlyCompilationModules(allModules, (classpath ++ runtimeClasspath).distinct).toList
               if (modules.isEmpty) None else Some(Config.Resolution(modules))
             }
 
