@@ -292,7 +292,16 @@ lazy val cli: Project = project
   .enablePlugins(BuildInfoPlugin, GraalVMNativeImagePlugin)
   .settings(
     testSuiteSettings,
-    cliSettings
+    cliSettings,
+    // Expose the server's classpath to integration tests so they can launch a
+    // real bloop server through bloop-rifle (a library dependency on the 2.12
+    // frontend is not possible from this 2.13 module).
+    Test / resourceGenerators += Def.task {
+      val file = (Test / resourceManaged).value / "bloop-server-classpath.txt"
+      val classpath = (frontend / Runtime / fullClasspath).value.map(_.data.getAbsolutePath)
+      IO.write(file, classpath.mkString("\n"))
+      Seq(file)
+    }.taskValue
   )
   .dependsOn(bloopRifle)
 
