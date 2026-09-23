@@ -28,7 +28,7 @@ object Dependencies {
   val junitVersion = "0.13.3"
   val jupiterInterfaceVersion = "0.19.0"
   val directoryWatcherVersion = "0.8.0+6-f651bd93"
-  val monixVersion = "3.2.0"
+  val monixVersion = "3.4.1"
   val jsoniterVersion = "2.13.3.2"
   // Don't update shapeless, causes issues with native image
   val shapelessVersion = "2.3.4"
