@@ -12,6 +12,7 @@ import scala.concurrent.Promise
 
 import bloop.engine.ExecutionContext
 import bloop.task.Task
+import bloop.util.monix.BloopInputStreamObservable
 
 import com.microsoft.java.debug.core.protocol.Events
 import com.microsoft.java.debug.core.protocol.Events.DebugEvent
@@ -134,7 +135,7 @@ private[dap] final class DebugAdapterProxy(
 private[dap] object DebugAdapterProxy {
   def apply(socket: Socket): DebugAdapterProxy = {
     val in = LowLevelMessage
-      .fromInputStream(socket.getInputStream(), null)
+      .fromBytes(BloopInputStreamObservable(socket.getInputStream()), null)
       .liftByOperator(Parser)
       .guaranteeCase { _ => monix.eval.Task(socket.close()) }
 
