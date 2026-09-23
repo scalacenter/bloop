@@ -34,8 +34,7 @@ object ClasspathHasher {
 
   // For more safety, store both the time and size
   private type JarMetadata = (FileTime, Long)
-  // Visible for testing
-  private[io] val hashingPromises = new ConcurrentHashMap[Path, Promise[FileHash]]()
+  private[this] val hashingPromises = new ConcurrentHashMap[Path, Promise[FileHash]]()
   private[this] val cacheMetadataJar = new ConcurrentHashMap[Path, (JarMetadata, FileHash)]()
 
   /**
