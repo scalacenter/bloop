@@ -19,6 +19,9 @@ object LinkSpec extends BaseSuite {
   val TestNativeProject = "test-projectNative-test"
 
   private final val maxDuration = Duration.apply(60, TimeUnit.SECONDS)
+  // The first Scala Native link also resolves the toolchain and builds the native library,
+  // which alone can take close to a minute on Windows CI
+  private final val nativeMaxDuration = Duration.apply(180, TimeUnit.SECONDS)
 
   val jsState0 =
     TestUtil.loadTestProject(TestUtil.getBloopConfigDir("cross-test-build-scalajs-1.x"))
@@ -91,7 +94,7 @@ object LinkSpec extends BaseSuite {
     val state = native04State0.copy(logger = logger)
     val action = Run(Commands.Link(List(MainNativeProject)))
     val resultingState =
-      TestUtil.blockingExecute(action, state, maxDuration)
+      TestUtil.blockingExecute(action, state, nativeMaxDuration)
 
     assert(
       resultingState.status.isOk
@@ -111,7 +114,7 @@ object LinkSpec extends BaseSuite {
     val mode = OptimizerConfig.Release
     val action = Run(Commands.Link(List(MainNativeProject), optimize = Some(mode)))
     val resultingState =
-      TestUtil.blockingExecute(action, state, maxDuration)
+      TestUtil.blockingExecute(action, state, nativeMaxDuration)
 
     assert(
       resultingState.status.isOk
@@ -130,7 +133,7 @@ object LinkSpec extends BaseSuite {
     val state = native04State0.copy(logger = logger)
     val action = Run(Commands.Run(List(MainNativeProject)))
     val resultingState =
-      TestUtil.blockingExecute(action, state, maxDuration)
+      TestUtil.blockingExecute(action, state, nativeMaxDuration)
 
     assert(
       resultingState.status.isOk
@@ -171,7 +174,7 @@ object LinkSpec extends BaseSuite {
     val state = native05State0.copy(logger = logger)
     val action = Run(Commands.Link(List(MainNativeProject)))
     val resultingState =
-      TestUtil.blockingExecute(action, state, maxDuration)
+      TestUtil.blockingExecute(action, state, nativeMaxDuration)
 
     assert(
       resultingState.status.isOk
@@ -191,7 +194,7 @@ object LinkSpec extends BaseSuite {
     val mode = OptimizerConfig.Release
     val action = Run(Commands.Link(List(MainNativeProject), optimize = Some(mode)))
     val resultingState =
-      TestUtil.blockingExecute(action, state, maxDuration)
+      TestUtil.blockingExecute(action, state, nativeMaxDuration)
 
     assert(
       resultingState.status.isOk
@@ -210,7 +213,7 @@ object LinkSpec extends BaseSuite {
     val state = native05State0.copy(logger = logger)
     val action = Run(Commands.Run(List(MainNativeProject)))
     val resultingState =
-      TestUtil.blockingExecute(action, state, maxDuration)
+      TestUtil.blockingExecute(action, state, nativeMaxDuration)
 
     assert(
       resultingState.status.isOk
