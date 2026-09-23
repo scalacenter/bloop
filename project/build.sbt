@@ -10,7 +10,7 @@ addSbtPlugin("com.github.sbt" % "sbt-git" % "2.2.0")
 addSbtPlugin("com.github.sbt" % "sbt-ci-release" % "1.12.1")
 addSbtPlugin("org.scalameta" % "sbt-mdoc" % "2.9.2")
 addSbtPlugin("org.scala-debugger" % "sbt-jdi-tools" % "1.1.1")
-addSbtPlugin("com.github.sbt" % "sbt-native-packager" % "1.11.7")
+addSbtPlugin("com.github.sbt" % "sbt-native-packager" % "1.12.0")
 addSbtPlugin("ch.epfl.scala" % "sbt-scalafix" % "0.14.8")
 
 updateOptions := updateOptions.value.withLatestSnapshots(false)
