@@ -1300,10 +1300,13 @@ final class BloopBspServices(
           Task.gatherUnordered(tasks).map(_.flatten.map(sourceItem(_, isGenerated = true)))
         }
 
+        val annotationProcessorSources =
+          project.annotationProcessorSourcesDir.map(sourceItem(_, isGenerated = true)).toList
+
         for {
           unmanaged <- unmanagedSources
           managed <- managedSources
-        } yield (project, unmanaged ++ managed)
+        } yield (project, unmanaged ++ managed ++ annotationProcessorSources)
       }
 
       val projectToTarget = projects.map { case (target, project) => project -> target }.toMap
@@ -1333,7 +1336,8 @@ final class BloopBspServices(
       request: bsp.InverseSourcesParams
   ): BspEndpointResponse[bsp.InverseSourcesResult] = {
     def matchesSources(document: Path, project: Project): Boolean =
-      project.sources.exists(src => document.startsWith(src.underlying))
+      (project.sources ++ project.annotationProcessorSourcesDir)
+        .exists(src => document.startsWith(src.underlying))
     def matchesGlobs(document: Path, project: Project): Boolean =
       project.sourcesGlobs.exists(glob => glob.matches(document))
     val document = AbsolutePath(request.textDocument.uri.toPath).underlying

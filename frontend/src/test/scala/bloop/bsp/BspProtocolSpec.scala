@@ -12,6 +12,7 @@ import ch.epfl.scala.bsp.JvmEnvironmentItem
 import ch.epfl.scala.bsp.ScalacOptionsItem
 import ch.epfl.scala.bsp.Uri
 
+import bloop.DependencyResolution
 import bloop.bsp.BloopBspDefinitions.BloopExtraBuildParams
 import bloop.cli.BspProtocol
 import bloop.cli.ExitStatus
@@ -510,6 +511,73 @@ abstract class BspProtocolSpec(
         )
         Files.delete(hello2.underlying)
         assertSourcesMatches("Hello.scala")
+      }
+    }
+  }
+
+  test("sources request reports the annotation processor output directory") {
+    TestUtil.withinWorkspace { workspace =>
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      object Sources {
+        val `Greeting.java` =
+          """/main/java/example/Greeting.java
+            |package example;
+            |
+            |import org.immutables.value.Value;
+            |
+            |@Value.Immutable
+            |public interface Greeting {
+            |  String message();
+            |}
+          """.stripMargin
+        val `Main.java` =
+          """/main/java/example/Main.java
+            |package example;
+            |
+            |public class Main {
+            |  public static String hello() {
+            |    return ImmutableGreeting.builder().message("hi").build().message();
+            |  }
+            |}
+          """.stripMargin
+      }
+
+      val processorJars = DependencyResolution.resolve(
+        List(DependencyResolution.Artifact("org.immutables", "value", "2.10.1")),
+        logger
+      )
+      val generatedDir =
+        workspace.resolve("a/build/generated/sources/annotationProcessor/java/main")
+      val `A` = TestProject(
+        workspace,
+        "a",
+        List(Sources.`Greeting.java`, Sources.`Main.java`),
+        javacOptions = List(
+          "-s",
+          generatedDir.syntax,
+          "-processorpath",
+          processorJars.map(_.syntax).mkString(java.io.File.pathSeparator)
+        ),
+        jars = processorJars,
+        order = Config.JavaThenScala
+      )
+
+      loadBspState(workspace, List(`A`), logger) { state =>
+        // `Main.java` only compiles if the processor generated `ImmutableGreeting`
+        val compiledState = state.compile(`A`)
+        assertExitStatus(compiledState, ExitStatus.Ok)
+        val generatedFile = generatedDir.resolve("example/ImmutableGreeting.java")
+        assertIsFile(generatedFile)
+
+        val generatedSources = for {
+          item <- compiledState.requestSources(`A`).items
+          source <- item.sources
+          if source.generated
+        } yield AbsolutePath(source.uri.toPath)
+        assertEquals(generatedSources, List(generatedDir))
+
+        val targets = compiledState.requestInverseSources(generatedFile).targets
+        assertEquals(targets, List(`A`.bspId))
       }
     }
   }
