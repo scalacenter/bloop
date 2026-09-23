@@ -2,7 +2,7 @@ addSbtPlugin("org.portable-scala" % "sbt-scalajs-crossproject" % "1.3.2")
 addSbtPlugin("org.scala-js" % "sbt-scalajs" % "1.22.0")
 addSbtPlugin("com.github.sbt" % "sbt-dynver" % "5.1.1")
 addSbtPlugin("org.scalameta" % "sbt-scalafmt" % "2.6.2")
-addSbtPlugin("com.eed3si9n" % "sbt-buildinfo" % "0.13.1")
+addSbtPlugin("com.eed3si9n" % "sbt-buildinfo" % "0.13.2")
 // Bumping this will causes issues. The benchmark bridge
 // needs to be updated in order for us to bump to 0.4.x.
 addSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.8")
@@ -10,7 +10,7 @@ addSbtPlugin("com.github.sbt" % "sbt-git" % "2.2.0")
 addSbtPlugin("com.github.sbt" % "sbt-ci-release" % "1.12.1")
 addSbtPlugin("org.scalameta" % "sbt-mdoc" % "2.9.2")
 addSbtPlugin("org.scala-debugger" % "sbt-jdi-tools" % "1.1.1")
-addSbtPlugin("com.github.sbt" % "sbt-native-packager" % "1.11.7")
+addSbtPlugin("com.github.sbt" % "sbt-native-packager" % "1.12.0")
 addSbtPlugin("ch.epfl.scala" % "sbt-scalafix" % "0.14.9")
 
 updateOptions := updateOptions.value.withLatestSnapshots(false)
