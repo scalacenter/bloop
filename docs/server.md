@@ -137,6 +137,32 @@ to it.
 You can exit the server by running `bloop exit` from the CLI. You can also kill
 it with `kill`, the Activity Monitor in your machine or `htop`.
 
+## One server per user
+
+The server listens on a Unix domain socket inside a daemon directory, which
+also holds its `lock` and `pid` files and its log (`output`). By default the
+daemon directory is:
+
+| OS      | Daemon directory                              |
+| ------- | --------------------------------------------- |
+| Linux   | `~/.local/share/scalacli/bloop/daemon`        |
+| macOS   | `~/Library/Caches/ScalaCli/bloop/daemon`      |
+| Windows | `%LOCALAPPDATA%\ScalaCli\data\bloop\daemon`   |
+
+The Bloop CLI and Metals both use this directory, so they share one server.
+Because it lives in the user's home, every user on a machine gets their own
+server automatically. On Linux and macOS, Bloop creates the directory readable
+only by its owner and refuses to start if other users have access to it.
+
+To run a separate server, point the CLI at another directory with
+`--daemon-dir`:
+
+```bash
+bloop start --daemon-dir /path/to/dir
+bloop --daemon-dir /path/to/dir compile my-project
+bloop exit --daemon-dir /path/to/dir
+```
+
 ## Ignore exceptions in server logs
 
 Bloop uses Nailgun, which sometimes prints exceptions in your server logs such
@@ -144,7 +170,7 @@ as:
 
 ```
 Unable to load nailgun-version.properties.
-NGServer [UNKNOWN] started on address localhost/127.0.0.1 port 8212.
+NGServer [UNKNOWN] started on local socket /home/user/.local/share/scalacli/bloop/daemon/socket.
 [W] Internal error in session
 java.io.EOFException
 	at java.base/java.io.DataInputStream.readInt(DataInputStream.java:397)
