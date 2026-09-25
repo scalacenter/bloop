@@ -32,6 +32,7 @@ import bloop.logging.Slf4jAdapter
 import bloop.task.Task
 import bloop.util.TestUtil
 import bloop.util.UUIDUtil
+import bloop.util.monix.BloopInputStreamObservable
 
 import com.github.plokhotnyuk.jsoniter_scala.core._
 import jsonrpc4s._
@@ -148,7 +149,7 @@ trait BspClientTest {
 
       val lsClient = BloopLanguageClient.fromOutputStream(out, logger)
       val messages = LowLevelMessage
-        .fromInputStream(in, logger)
+        .fromBytes(BloopInputStreamObservable(in), logger)
         .map(msg => LowLevelMessage.toMsg(msg))
       val services =
         customServices(TestUtil.createTestServices(addDiagnosticsHandler, logger))

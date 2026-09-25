@@ -35,6 +35,7 @@ import bloop.testing.BaseSuite
 import bloop.util.CrossPlatform
 import bloop.util.TestProject
 import bloop.util.TestUtil
+import bloop.util.monix.BloopInputStreamObservable
 
 import com.github.plokhotnyuk.jsoniter_scala.core._
 import jsonrpc4s._
@@ -847,7 +848,7 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
 
       val lsClient = BloopLanguageClient.fromOutputStream(out, logger)
       val messages = LowLevelMessage
-        .fromInputStream(in, logger)
+        .fromBytes(BloopInputStreamObservable(in), logger)
         .map(msg => LowLevelMessage.toMsg(msg))
 
       val addDiagnosticsHandler = addServicesTest(

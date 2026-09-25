@@ -21,6 +21,7 @@ import bloop.io.ServerHandle
 import bloop.logging.BspClientLogger
 import bloop.logging.DebugFilter
 import bloop.task.Task
+import bloop.util.monix.BloopInputStreamObservable
 
 import jsonrpc4s._
 import monix.execution.CancelablePromise
@@ -94,7 +95,7 @@ object BspServer {
       val inputExit = CancelablePromise[Unit]()
       val mesages =
         LowLevelMessage
-          .fromInputStream(in, bspLogger)
+          .fromBytes(BloopInputStreamObservable(in), bspLogger)
           .guaranteeCase(_ => monix.eval.Task(inputExit.success(())))
           .asyncBoundary(OverflowStrategy.Unbounded) // allows to catch input stream close earlier
           .mapParallelUnordered(4) { bytes =>
