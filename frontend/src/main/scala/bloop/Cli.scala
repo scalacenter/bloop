@@ -12,6 +12,7 @@ import bloop.cli.CliOptions
 import bloop.cli.Commands
 import bloop.cli.CommonOptions
 import bloop.cli.ExitStatus
+import bloop.cli.NailgunOutputSession
 import bloop.cli.Validate
 import bloop.data.ClientInfo.CliClientInfo
 import bloop.engine._
@@ -62,50 +63,50 @@ object Cli {
     exitStatus.code
   }
 
-  def nailMain(ngContext: NGContext): Unit = {
-    val env = CommonOptions.PrettyProperties.from(ngContext.getEnv())
-    val nailgunOptions = CommonOptions(
-      in = ngContext.in,
-      out = ngContext.out,
-      err = ngContext.err,
-      ngout = ngContext.out,
-      ngerr = ngContext.err,
-      workingDirectory = ngContext.getWorkingDirectory,
-      env = env
-    )
+  def nailMain(ngContext: NGContext): Unit =
+    NailgunOutputSession.runWithSession(ngContext, ExecutionContext.ioScheduler) { session =>
+      val env = CommonOptions.PrettyProperties.from(ngContext.getEnv())
+      val nailgunOptions = CommonOptions(
+        in = ngContext.in,
+        out = session.out,
+        err = session.err,
+        ngout = session.out,
+        ngerr = session.err,
+        workingDirectory = ngContext.getWorkingDirectory,
+        env = env
+      )
 
-    val command = ngContext.getCommand
-    val args = {
-      if (command == "bloop.Cli") ngContext.getArgs
-      else command +: ngContext.getArgs
-    }
+      val command = ngContext.getCommand
+      val args = {
+        if (command == "bloop.Cli") ngContext.getArgs
+        else command +: ngContext.getArgs
+      }
 
-    val cmd = {
-      // If no command is given to bloop, we'll receive the script's name.
-      if (command == "bloop")
-        printErrorAndExit(helpAsked, nailgunOptions)
-      else parse(args, nailgunOptions)
-    }
+      try {
+        val cmd = {
+          // If no command is given to bloop, we'll receive the script's name.
+          if (command == "bloop")
+            printErrorAndExit(helpAsked, nailgunOptions)
+          else parse(args, nailgunOptions)
+        }
 
-    try {
-      val exitStatus = run(cmd, NailgunPool(ngContext))
-      ngContext.exit(exitStatus.code)
-    } catch {
-      case x: java.util.concurrent.ExecutionException =>
-        // print stack trace of fatal errors thrown in asynchronous code, see https://stackoverflow.com/questions/17265022/what-is-a-boxed-error-in-scala
-        // the stack trace is somehow propagated all the way to the client when printing this
-        x.getCause.printStackTrace(ngContext.out)
-        ngContext.exit(ExitStatus.UnexpectedError.code)
-      case t: Throwable =>
-        // Catch all exceptions to prevent nailgun from returning exit code 899 (EXIT_EXCEPTION)
-        // which gives no indication of what went wrong
-        ngContext.err.println(
-          s"Unexpected error in Bloop CLI: ${t.getClass.getName}: ${t.getMessage}"
-        )
-        t.printStackTrace(ngContext.err)
-        ngContext.exit(ExitStatus.UnexpectedError.code)
+        run(cmd, NailgunPool(ngContext)).code
+      } catch {
+        case x: java.util.concurrent.ExecutionException =>
+          // print stack trace of fatal errors thrown in asynchronous code, see https://stackoverflow.com/questions/17265022/what-is-a-boxed-error-in-scala
+          // the stack trace is somehow propagated all the way to the client when printing this
+          x.getCause.printStackTrace(session.out)
+          ExitStatus.UnexpectedError.code
+        case t: Throwable =>
+          // Catch all exceptions to prevent nailgun from returning exit code 899 (EXIT_EXCEPTION)
+          // which gives no indication of what went wrong
+          session.err.println(
+            s"Unexpected error in Bloop CLI: ${t.getClass.getName}: ${t.getMessage}"
+          )
+          t.printStackTrace(session.err)
+          ExitStatus.UnexpectedError.code
+      }
     }
-  }
 
   val commands: Seq[String] = Commands.RawCommand.help.messages.flatMap(_._1.headOption.toSeq)
   // Getting the name from the sbt generated metadata gives us `bloop-frontend` instead.
