@@ -302,6 +302,93 @@ abstract class BspCompileSpec(
     }
   }
 
+  test("no-op compile from a new client links the read-only classes dir into its classes dir") {
+    TestUtil.withinWorkspace { workspace =>
+      val sources = List(
+        """/main/scala/Foo.scala
+          |class Foo
+          """.stripMargin
+      )
+
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val `A` = TestProject(workspace, "a", sources)
+      val projects = List(`A`)
+      val cliState = loadState(workspace, projects, logger)
+      val compiledState = cliState.compile(`A`)
+      assertExitStatus(compiledState, ExitStatus.Ok)
+      assertValidCompilationState(compiledState, projects)
+      val cliClientDir = compiledState.getClientExternalDir(`A`)
+
+      // A new client gets an empty classes dir, filled by the no-op compile
+      loadBspState(workspace, projects, logger) { bspState =>
+        val noopState = bspState.compile(`A`)
+        assertExitStatus(noopState, ExitStatus.Ok)
+        assertValidCompilationState(noopState, projects)
+
+        val testState = noopState.toTestState
+        testState.getLastResultFor(`A`) match {
+          case success: bloop.Compiler.Result.Success => assert(success.isNoOp)
+          case result => fail(s"Expected a no-op compilation, obtained $result")
+        }
+        val bspClientDir = testState.getClientExternalDir(`A`)
+        assert(bspClientDir != cliClientDir)
+        assertLinked(testState.getLastClassesDir(`A`).get, bspClientDir)
+      }
+    }
+  }
+
+  test("a client that owns its classes dir gets copies instead of links") {
+    TestUtil.withinWorkspace { workspace =>
+      val sources = List(
+        """/main/scala/Foo.scala
+          |class Foo
+          """.stripMargin
+      )
+
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val `A` = TestProject(workspace, "a", sources)
+      val projects = List(`A`)
+      // Such a client compiles into the generic classes dir, which it may rewrite in place
+      loadBspStateAsSbtClient(workspace, projects, logger, ownsBuildFiles = true) { bspState =>
+        val compiledState = bspState.compile(`A`)
+        assertExitStatus(compiledState, ExitStatus.Ok)
+        assertValidCompilationState(compiledState, projects)
+
+        val testState = compiledState.toTestState
+        assertCopied(testState.getLastClassesDir(`A`).get, testState.getClientExternalDir(`A`))
+      }
+    }
+  }
+
+  test("a client that supplies its classes root gets copies instead of links") {
+    TestUtil.withinWorkspace { workspace =>
+      val sources = List(
+        """/main/scala/Foo.scala
+          |class Foo
+          """.stripMargin
+      )
+
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val `A` = TestProject(workspace, "a", sources)
+      val projects = List(`A`)
+      // The client owns this root, so it may rewrite files in place
+      val clientRoot = workspace.resolve("client-classes")
+      val extraParams = BloopBspDefinitions.BloopExtraBuildParams.empty.copy(
+        clientClassesRootDir = Some(ch.epfl.scala.bsp.Uri(clientRoot.toBspUri))
+      )
+      loadBspState(workspace, projects, logger, bloopExtraParams = extraParams) { bspState =>
+        val compiledState = bspState.compile(`A`)
+        assertExitStatus(compiledState, ExitStatus.Ok)
+        assertValidCompilationState(compiledState, projects)
+
+        val testState = compiledState.toTestState
+        val clientDir = testState.getClientExternalDir(`A`)
+        assert(clientDir.underlying.startsWith(clientRoot.underlying.toRealPath()))
+        assertCopied(testState.getLastClassesDir(`A`).get, clientDir)
+      }
+    }
+  }
+
   test("compile incrementally a build") {
     TestUtil.withinWorkspace { workspace =>
       object Sources {
@@ -599,6 +686,9 @@ abstract class BspCompileSpec(
           pprint.apply(classFilesAfterFreshFailure, height = Int.MaxValue).render,
           pprint.apply(classFilesPreviousIteration, height = Int.MaxValue).render
         )
+        // The empty client dir was filled from the read-only dir after the failed compile
+        val readOnlyDirA = freshCompiledState.toTestState.getLastClassesDir(`A`).get
+        assertLinked(readOnlyDirA, externalClassesDirA)
 
         val semanticdbFilesAfterFreshFailure = semanticdbFilesFrom(externalClassesDirA)
         assertNoDiff(

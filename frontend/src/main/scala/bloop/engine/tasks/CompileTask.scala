@@ -445,7 +445,8 @@ object CompileTask {
     } else {
       // Denylist ensure final dir doesn't contain class files that don't map to source files
       val denylist = products.invalidatedCompileProducts.iterator.map(_.toPath).toSet
-      val config = ParallelOps.CopyConfiguration(5, CopyMode.NoReplace, denylist, Set.empty)
+      val config =
+        ParallelOps.CopyConfiguration(5, CopyMode.NoReplace, denylist, Set.empty, linkFiles = true)
       val task = tracer.traceTaskVerbose("preparing new read-only classes directory") { _ =>
         ParallelOps.copyDirectories(config)(
           products.readOnlyClassesDir,

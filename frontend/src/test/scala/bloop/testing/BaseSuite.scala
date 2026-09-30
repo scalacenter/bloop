@@ -1,5 +1,7 @@
 package bloop.testing
 
+import java.nio.file.Files
+
 import scala.annotation.nowarn
 import scala.collection.JavaConverters._
 import scala.concurrent.Await
@@ -212,6 +214,37 @@ abstract class BaseSuite extends TestSuite with BloopHelpers {
       a.syntax,
       b.syntax
     )
+  }
+
+  private def classFilePairs(
+      readOnlyDir: AbsolutePath,
+      clientDir: AbsolutePath
+  ): List[(AbsolutePath, AbsolutePath)] = {
+    val classFiles = bloop.io.Paths.pathFilesUnder(readOnlyDir, "glob:**.class")
+    if (classFiles.isEmpty) fail(s"No class files found in $readOnlyDir")
+    classFiles.map(classFile => classFile -> clientDir.resolve(classFile.toRelative(readOnlyDir)))
+  }
+
+  /**
+   * Asserts that every class file in the read-only classes directory is the same file as
+   * its counterpart in the client classes directory, which Bloop fills with hard links.
+   */
+  def assertLinked(readOnlyDir: AbsolutePath, clientDir: AbsolutePath): Unit = {
+    classFilePairs(readOnlyDir, clientDir).foreach {
+      case (classFile, clientClassFile) =>
+        if (!Files.isSameFile(classFile.underlying, clientClassFile.underlying))
+          fail(s"$clientClassFile is not a hard link of $classFile")
+    }
+  }
+
+  /** Asserts that the client classes directory holds copies, not links, of the class files. */
+  def assertCopied(readOnlyDir: AbsolutePath, clientDir: AbsolutePath): Unit = {
+    classFilePairs(readOnlyDir, clientDir).foreach {
+      case (classFile, clientClassFile) =>
+        if (!clientClassFile.exists) fail(s"$clientClassFile is missing")
+        if (Files.isSameFile(classFile.underlying, clientClassFile.underlying))
+          fail(s"$clientClassFile is a hard link of $classFile")
+    }
   }
 
   def assertCancelledCompilation(state: TestState, projects: List[TestProject]): Unit = {
