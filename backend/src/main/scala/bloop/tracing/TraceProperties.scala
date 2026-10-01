@@ -9,7 +9,8 @@ case class TraceProperties(
     localServiceName: String,
     traceStartAnnotation: Option[String],
     traceEndAnnotation: Option[String],
-    enabled: Boolean
+    enabled: Boolean,
+    compilationTrace: Boolean
 )
 
 object TraceProperties {
@@ -20,6 +21,7 @@ object TraceProperties {
     val localServiceName = Properties.propOrElse("bloop.tracing.localServiceName", "bloop")
     val traceStartAnnotation = Properties.propOrNone("bloop.tracing.traceStartAnnotation")
     val traceEndAnnotation = Properties.propOrNone("bloop.tracing.traceEndAnnotation")
+    val compilationTrace = Properties.propOrFalse("bloop.tracing.compilationTrace")
 
     val traceServerUrl = Properties.propOrElse(
       "zipkin.server.url",
@@ -33,7 +35,8 @@ object TraceProperties {
       localServiceName,
       traceStartAnnotation,
       traceEndAnnotation,
-      enabled
+      enabled,
+      compilationTrace
     )
   }
 }
