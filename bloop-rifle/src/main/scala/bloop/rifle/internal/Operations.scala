@@ -24,7 +24,12 @@ import java.nio.charset.Charset
 import java.nio.file.attribute.PosixFilePermissions
 import java.nio.file.{Files, Path, Paths}
 import java.util.concurrent.atomic.AtomicBoolean
-import java.util.concurrent.{ExecutorService, ScheduledExecutorService, ScheduledFuture}
+import java.util.concurrent.{
+  ExecutorService,
+  ScheduledExecutorService,
+  ScheduledFuture,
+  TimeoutException
+}
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future, Promise}
@@ -517,14 +522,17 @@ object Operations {
       out: OutputStream,
       err: OutputStream,
       logger: BloopRifleLogger,
-      scheduler: ExecutorService
+      scheduler: ExecutorService,
+      timeout: Duration = 30.seconds + BloopRifleConfig.extraTimeout
   ): Int = {
 
     val stop0 = new AtomicBoolean
     val nailgunClient0 = nailgunClient(address, logger)
     val streams = Streams(None, out, err)
 
-    timeout(30.seconds + BloopRifleConfig.extraTimeout, scheduler, logger) {
+    // On timeout, stopping the Nailgun client makes its heartbeat loop close the socket,
+    // which releases the scheduler thread blocked reading from it
+    Operations.timeout(timeout, scheduler, logger, onTimeout = stop0.set(true)) {
       nailgunClient0.run(
         "about",
         Array.empty,
@@ -543,7 +551,22 @@ object Operations {
       duration: Duration,
       scheduler: ExecutorService,
       logger: BloopRifleLogger
-  )(body: => T) = {
+  )(body: => T): T =
+    timeout(duration, scheduler, logger, onTimeout = ())(body)
+
+  /**
+   * Runs `body` on `scheduler`, waiting at most `duration` for it to complete.
+   *
+   * On timeout, `onTimeout` is called before the `TimeoutException` is rethrown. It should make
+   * `body` return (e.g. by stopping a Nailgun call), so that the `scheduler` thread running it is
+   * released rather than left blocked.
+   */
+  def timeout[T](
+      duration: Duration,
+      scheduler: ExecutorService,
+      logger: BloopRifleLogger,
+      onTimeout: => Unit
+  )(body: => T): T = {
     val p = Promise[T]()
     scheduler.execute { () =>
       try {
@@ -556,6 +579,15 @@ object Operations {
       }
     }
 
-    Await.result(p.future, duration)
+    try Await.result(p.future, duration)
+    catch {
+      case e: TimeoutException =>
+        logger.debug(s"Timed out after $duration, cancelling the running code")
+        try onTimeout
+        catch {
+          case NonFatal(t) => logger.debug("Caught exception while cancelling timed out code", t)
+        }
+        throw e
+    }
   }
 }
