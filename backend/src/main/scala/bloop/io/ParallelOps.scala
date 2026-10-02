@@ -2,9 +2,11 @@ package bloop.io
 
 import java.io.IOException
 import java.nio.file.AccessDeniedException
+import java.nio.file.FileAlreadyExistsException
 import java.nio.file.FileVisitResult
 import java.nio.file.FileVisitor
 import java.nio.file.Files
+import java.nio.file.NoSuchFileException
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
 import java.nio.file.attribute.BasicFileAttributes
@@ -14,6 +16,7 @@ import java.util.concurrent.ConcurrentHashMap
 import scala.concurrent.Promise
 import scala.util.control.NonFatal
 
+import bloop.logging.DebugFilter
 import bloop.logging.Logger
 import bloop.task.Task
 
@@ -42,16 +45,26 @@ object ParallelOps {
    * @param parallelUnits Threads to use for parallel IO copy.
    * @param replaceExisting Whether the copy should replace existing paths in the target.
    * @param denylist A list of both origin and target paths that if matched skip the copy.
+   * @param linkFiles Whether to hard-link files into the target instead of copying them,
+   * so that syncing directories costs no data writes. Files are copied instead when the
+   * file store cannot link them.
    */
   case class CopyConfiguration(
       parallelUnits: Int,
       mode: CopyMode,
       denylist: Set[Path],
       denyDirs: Set[Path],
-      skipDotDirectories: Boolean = false
+      skipDotDirectories: Boolean = false,
+      linkFiles: Boolean = false
   )
 
   case class FileWalk(visited: List[Path], target: List[Path])
+
+  private[io] val HardLinksProperty = "bloop.classes.hardlinks"
+
+  // Read per call so that tests can toggle the property
+  private def hardLinksEnabled: Boolean =
+    !sys.props.get(HardLinksProperty).exists(_.equalsIgnoreCase("false"))
 
   private[this] val takenByOtherCopyProcess = new ConcurrentHashMap[Path, Promise[Unit]]()
 
@@ -72,10 +85,12 @@ object ParallelOps {
       for (file <- singleFiles)
         yield file.underlying -> copyTo.underlying.resolve(file.underlying.toFile().getName())
 
+    // Resources are user files that editors rewrite in place, so they are never linked
+    val resourcesConfig = config.copy(skipDotDirectories = true, linkFiles = false)
     val classpathEntriesCopy =
       for (entry <- classpathEntries) yield {
         ParallelOps
-          .copyDirectories(config.copy(skipDotDirectories = true))(
+          .copyDirectories(resourcesConfig)(
             entry.underlying,
             copyTo.underlying,
             scheduler,
@@ -100,7 +115,7 @@ object ParallelOps {
    * are done is arbitrary. This value is usually `false` because most of the
    * copies are key for compilation semantics.
    *
-   * @return The list of paths that have been copied.
+   * @return The list of paths that have been copied or linked.
    */
   def copyDirectories(configuration: CopyConfiguration)(
       origin: Path,
@@ -109,8 +124,38 @@ object ParallelOps {
       enableCancellation: Boolean,
       logger: Logger,
       additionalFiles: Seq[(Path, Path)] = Nil
+  ): Task[FileWalk] = {
+    val createLink: (Path, Path) => Unit = (link, existing) => {
+      Files.createLink(link, existing)
+      ()
+    }
+    copyDirectoriesWith(createLink)(configuration)(
+      origin,
+      target,
+      scheduler,
+      enableCancellation,
+      logger,
+      additionalFiles
+    )
+  }
+
+  /**
+   * Same as [[copyDirectories]] with the primitive that creates a hard link
+   * injected, so that tests can exercise the fallback to copying.
+   */
+  private[io] def copyDirectoriesWith(linkFile: (Path, Path) => Unit)(
+      configuration: CopyConfiguration
+  )(
+      origin: Path,
+      target: Path,
+      scheduler: Scheduler,
+      enableCancellation: Boolean,
+      logger: Logger,
+      additionalFiles: Seq[(Path, Path)]
   ): Task[FileWalk] = Task.defer {
     val isCancelled = AtomicBoolean(false)
+    // Linking is given up for the rest of the walk as soon as the file store refuses it
+    val linkingDisabled = AtomicBoolean(!(configuration.linkFiles && hardLinksEnabled))
 
     import scala.collection.mutable
     val visitedPaths = new mutable.ListBuffer[Path]()
@@ -207,7 +252,7 @@ object ParallelOps {
 
     val copyFileSequentially = Consumer.foreachTask[((Path, BasicFileAttributes), Path)] {
       case ((originFile, originAttrs), targetFile) =>
-        def copy(replaceExisting: Boolean, retry: Int = 3): Unit = try {
+        def copy(replaceExisting: Boolean): Unit = {
           if (replaceExisting) {
             Files.copy(
               originFile,
@@ -223,10 +268,54 @@ object ParallelOps {
             )
           }
           ()
+        }
+
+        // The file store refused the link, so the rest of the walk copies
+        def disableLinking(cause: Throwable): Unit = {
+          if (linkingDisabled.compareAndSet(false, true)) {
+            logger.debug(
+              s"Copying instead of linking $originFile to $targetFile: $cause"
+            )(DebugFilter.All)
+          }
+        }
+
+        // Returns false when the file has to be copied instead
+        def link(replaceExisting: Boolean): Boolean = {
+          val targetExists = replaceExisting && Files.exists(targetFile)
+          // A target that already links the origin needs no work
+          if (targetExists && Files.isSameFile(originFile, targetFile)) true
+          else {
+            if (targetExists) {
+              Files.deleteIfExists(targetFile)
+              ()
+            }
+            try {
+              linkFile(targetFile, originFile)
+              true
+            } catch {
+              // Not a capability failure: handle like a failed copy
+              case t @ (_: NoSuchFileException | _: FileAlreadyExistsException) => throw t
+              // Concerns this file only, for example one held open: copy it, keep linking
+              case _: AccessDeniedException => false
+              // A cross-device link, a file store without hard links, or any other failure
+              // that a copy may still get past
+              case NonFatal(t) =>
+                disableLinking(t)
+                false
+            }
+          }
+        }
+
+        def transfer(replaceExisting: Boolean, retry: Int = 3): Unit = try {
+          // Linking a symbolic link yields the link itself or its target depending on the
+          // system, while a copy always follows it
+          val canLink = !linkingDisabled.get && !originAttrs.isSymbolicLink
+          val linked = canLink && link(replaceExisting)
+          if (!linked) copy(replaceExisting)
         } catch {
           case _: AccessDeniedException if retry > 0 =>
-            logger.warn(s"Could not access file, retrying copying $originFile to $targetFile.")
-            copy(replaceExisting, retry - 1)
+            logger.warn(s"Could not access file, retrying to sync $originFile to $targetFile.")
+            transfer(replaceExisting, retry - 1)
           case NonFatal(t) =>
             logger.error(
               s"Unexpected error when copying $originFile to $targetFile, you might need to restart the build server.",
@@ -241,7 +330,7 @@ object ParallelOps {
             if (isCancelled.get) ()
             else {
               configuration.mode match {
-                case CopyMode.ReplaceExisting => copy(replaceExisting = true)
+                case CopyMode.ReplaceExisting => transfer(replaceExisting = true)
                 case CopyMode.ReplaceIfMetadataMismatch =>
                   import scala.util.{Try, Success, Failure}
                   Try(Files.readAttributes(targetFile, classOf[BasicFileAttributes])) match {
@@ -257,14 +346,14 @@ object ParallelOps {
                       }
 
                       if (!changedMetadata) ()
-                      else copy(replaceExisting = true)
+                      else transfer(replaceExisting = true)
                     // Can happen when the file does not exist, replace in that case
-                    case Failure(_: IOException) => copy(replaceExisting = true)
+                    case Failure(_: IOException) => transfer(replaceExisting = true)
                     case Failure(t) => throw t
                   }
                 case CopyMode.NoReplace =>
                   if (Files.exists(targetFile)) ()
-                  else copy(replaceExisting = false)
+                  else transfer(replaceExisting = false)
               }
             }
           } finally {

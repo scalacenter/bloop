@@ -10,6 +10,7 @@ import scala.util.control.NonFatal
 
 import ch.epfl.scala.{bsp => Bsp}
 
+import bloop.CompileOutPaths
 import bloop.ScalaInstance
 import bloop.bsp.ProjectUris
 import bloop.config.Config
@@ -163,12 +164,12 @@ final case class Project(
   }
 
   /**
-   * Defines a project-specific path under which Bloop will create all bsp
-   * client-owned classes directories. These directories host compile products
+   * Defines a project-specific path under which Bloop will create the client
+   * classes directories it owns. These directories host compile products
    * and their existence and contents are managed by Bloop itself.
    */
   def clientClassesRootDirectory: AbsolutePath = {
-    this.out.resolve("bloop-bsp-clients-classes")
+    CompileOutPaths.ownedClientClassesRootDir(this.out)
   }
 
   def compileJdkConfig: Option[JdkConfig] = {
