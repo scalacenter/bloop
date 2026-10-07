@@ -21,7 +21,7 @@ object Dependencies {
   val lmVersion = "1.12.3"
   val configDirsVersion = "26"
   val caseAppVersion = "2.0.6"
-  val coursierVersion = "2.1.25"
+  val coursierVersion = "2.1.26"
   val sourcecodeVersion = "0.4.4"
   val sbtTestInterfaceVersion = "1.0"
   val sbtTestAgentVersion = "1.13.0"
@@ -60,10 +60,10 @@ object Dependencies {
   val libraryManagement = "org.scala-sbt" %% "librarymanagement-ivy" % lmVersion
   val log4j = "org.apache.logging.log4j" % "log4j-core" % "2.26.1"
   val scalazCore = "org.scalaz" %% "scalaz-core" % scalazVersion
-  val coursierInterface = "io.get-coursier" % "interface" % "1.0.28"
+  val coursierInterface = "io.get-coursier" % "interface" % "1.0.30"
   val configDirectories = "io.get-coursier.util" % "directories-jni" % "0.1.2"
   val coursierInterfaceSubs = "io.get-coursier" % "interface-svm-subs" % "1.0.19"
-  val svm = "org.graalvm.nativeimage" % "svm" % "25.0.4.1"
+  val svm = "org.graalvm.nativeimage" % "svm" % "25.0.4.1.1"
   val coursier = "io.get-coursier" %% "coursier" % coursierVersion
   val coursierJvm = "io.get-coursier" %% "coursier-jvm" % coursierVersion
   val dependency = "io.get-coursier" %% "dependency" % "0.3.2"
@@ -76,7 +76,7 @@ object Dependencies {
   val sbtTestInterface = "org.scala-sbt" % "test-interface" % sbtTestInterfaceVersion
   val sbtTestAgent = "org.scala-sbt" % "test-agent" % sbtTestAgentVersion
   val ztExec = "org.zeroturnaround" % "zt-exec" % ztExecVersion
-  val logback = "ch.qos.logback" % "logback-classic" % "1.6.3"
+  val logback = "ch.qos.logback" % "logback-classic" % "1.6.5"
   val libdaemonjvm = "ch.epfl.scala" %% "libdaemon" % "0.0.12"
   val scopt = "com.github.scopt" % "scopt_2.12" % "4.0.0-RC2"
 

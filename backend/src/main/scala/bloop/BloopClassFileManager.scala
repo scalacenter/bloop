@@ -35,6 +35,12 @@ final class BloopClassFileManager(
   private[this] val readOnlyClassesDirPath = readOnlyClassesDir.toString
   private[this] val newClassesDir = outPaths.internalNewClassesDir.underlying
   private[this] val newClassesDirPath = newClassesDir.toString
+  // Only reference `inputs` in initializers: if it becomes a field, the background tasks
+  // capturing this manager retain every previous compilation result through it.
+  private[this] val dependentResults = inputs.dependentResults
+  private[this] val logger = inputs.logger
+  private[this] val ioScheduler = inputs.ioScheduler
+  private[this] val resources = inputs.resources
   private[this] val dependentClassFilesLinks = new mutable.HashSet[Path]()
   private[this] val weakClassFileInvalidations = new mutable.HashSet[Path]()
   private[this] val generatedFiles = new mutable.HashSet[File]
@@ -119,7 +125,7 @@ final class BloopClassFileManager(
 
         BloopClasspathEntryLookup.definedClassFileInDependencies(
           relativeFilePath,
-          inputs.dependentResults
+          dependentResults
         ) match {
           case None => ()
           case Some(foundClassFilePath) =>
@@ -128,10 +134,10 @@ final class BloopClassFileManager(
             BloopClassFileManager.link(newLink, foundClassFilePath) match {
               case Success(_) => dependentClassFilesLinks.+=(newLink)
               case Failure(exception) =>
-                inputs.logger.error(
+                logger.error(
                   s"Failed to create link for invalidated file $foundClassFilePath: ${exception.getMessage()}"
                 )
-                inputs.logger.trace(exception)
+                logger.trace(exception)
             }
             ()
         }
@@ -257,9 +263,9 @@ final class BloopClassFileManager(
               .copyDirectories(config)(
                 newClassesDir,
                 clientExternalClassesDir.underlying,
-                inputs.ioScheduler,
+                ioScheduler,
                 enableCancellation = false,
-                inputs.logger
+                logger
               )
               .map { walked =>
                 readOnlyCopyDenylist.++=(walked.target)
@@ -268,11 +274,11 @@ final class BloopClassFileManager(
               .flatMap(_ => deleteAfterCompilation)
 
             val copyResources = ParallelOps.copyResources(
-              inputs.resources,
+              resources,
               clientExternalClassesDir,
               config,
-              inputs.logger,
-              inputs.ioScheduler
+              logger,
+              ioScheduler
             )
             Task
               .gatherUnordered(
@@ -339,9 +345,9 @@ final class BloopClassFileManager(
                   .copyDirectories(config)(
                     Paths.get(readOnlyClassesDirPath),
                     clientExternalClassesDir.underlying,
-                    inputs.ioScheduler,
+                    ioScheduler,
                     enableCancellation = false,
-                    inputs.logger
+                    logger
                   )
                   .map(_ => ())
               }
