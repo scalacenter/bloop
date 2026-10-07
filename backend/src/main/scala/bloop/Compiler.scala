@@ -264,6 +264,10 @@ object Compiler {
     val tracer = compileInputs.tracer
     val compileOut = compileInputs.out
     val cancelPromise = compileInputs.cancelPromise
+    // Background tasks outlive the compilation and are stored in its result, so they must
+    // not capture `compileInputs`: it references the previous result, chaining all of them.
+    val ioScheduler = compileInputs.ioScheduler
+    val resources = compileInputs.resources
     val externalClassesDir = compileOut.externalClassesDir.underlying
     val externalClassesDirPath = externalClassesDir.toString
     val readOnlyClassesDir = compileOut.internalReadOnlyClassesDir.underlying
@@ -452,9 +456,9 @@ object Compiler {
               val secondTask = ParallelOps.copyDirectories(config)(
                 previousCompilationResults.newClassesDir,
                 clientClassesDir.underlying,
-                compileInputs.ioScheduler,
+                ioScheduler,
                 enableCancellation = false,
-                compileInputs.logger
+                logger
               )
               Task
                 .gatherUnordered(List(firstTask, secondTask))
@@ -537,7 +541,7 @@ object Compiler {
 
           def persistAnalysis(analysis: CompileAnalysis, out: AbsolutePath): Task[Unit] = {
             // Important to memoize it, it's triggered by different clients
-            val mappers = compileInputs.out.analysisMappers
+            val mappers = compileOut.analysisMappers
             Task(persist(out, analysis, result.setup, mappers, tracer, logger)).memoize
           }
 
@@ -588,7 +592,9 @@ object Compiler {
                         clientClassesDir,
                         clientTracer,
                         clientLogger,
-                        compileInputs,
+                        logger,
+                        ioScheduler,
+                        resources,
                         readOnlyClassesDir,
                         readOnlyCopyDenylist,
                         allInvalidatedClassFilesForProject,
@@ -694,7 +700,9 @@ object Compiler {
                     clientClassesDir,
                     clientTracer,
                     clientLogger,
-                    compileInputs,
+                    logger,
+                    ioScheduler,
+                    resources,
                     readOnlyClassesDir,
                     readOnlyCopyDenylist,
                     allInvalidatedClassFilesForProject,
@@ -797,7 +805,9 @@ object Compiler {
       clientClassesDir: AbsolutePath,
       clientTracer: BraveTracer,
       clientLogger: Logger,
-      compileInputs: CompileInputs,
+      logger: Logger,
+      ioScheduler: Scheduler,
+      resources: List[AbsolutePath],
       readOnlyClassesDir: Path,
       readOnlyCopyDenylist: mutable.HashSet[Path],
       allInvalidatedClassFilesForProject: mutable.HashSet[File],
@@ -820,18 +830,18 @@ object Compiler {
           ParallelOps.CopyConfiguration(5, CopyMode.ReplaceIfMetadataMismatch, denyList, denyDir)
 
         val copyResources = ParallelOps.copyResources(
-          compileInputs.resources,
+          resources,
           clientClassesDir,
           config,
-          compileInputs.logger,
-          compileInputs.ioScheduler
+          logger,
+          ioScheduler
         )
         val lastCopy = ParallelOps.copyDirectories(config)(
           readOnlyClassesDir,
           clientClassesDir.underlying,
-          compileInputs.ioScheduler,
+          ioScheduler,
           enableCancellation = false,
-          compileInputs.logger
+          logger
         )
 
         Task.gatherUnordered(List(copyResources, lastCopy)).map { _ =>
