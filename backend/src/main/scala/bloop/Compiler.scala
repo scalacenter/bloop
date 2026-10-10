@@ -612,6 +612,7 @@ object Compiler {
                     .flatMap { _ =>
                       updateExternalClassesDirWithReadOnly(
                         clientClassesDir,
+                        compileOut,
                         clientTracer,
                         clientLogger,
                         logger,
@@ -720,6 +721,7 @@ object Compiler {
                   // Only start these tasks after the previous IO tasks in the external dir are done
                   val firstTask = updateExternalClassesDirWithReadOnly(
                     clientClassesDir,
+                    compileOut,
                     clientTracer,
                     clientLogger,
                     logger,
@@ -825,6 +827,7 @@ object Compiler {
 
   def updateExternalClassesDirWithReadOnly(
       clientClassesDir: AbsolutePath,
+      compileOut: CompileOutPaths,
       clientTracer: BraveTracer,
       clientLogger: Logger,
       logger: Logger,
@@ -853,7 +856,7 @@ object Compiler {
           CopyMode.ReplaceIfMetadataMismatch,
           denyList,
           denyDir,
-          linkFiles = compileInputs.out.ownsClientClassesDir(clientClassesDir)
+          linkFiles = compileOut.ownsClientClassesDir(clientClassesDir)
         )
 
         val copyResources = ParallelOps.copyResources(

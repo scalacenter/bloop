@@ -110,13 +110,17 @@ workspace. Notes and limitations:
 - Positions of previously reported warnings are not rewritten, so diagnostics replayed to
   editors can point at the old location until the affected files are recompiled.
 
-### Class file hard links
+### Class file hard links (opt-in)
 
 Bloop keeps the class files of a project in a read-only directory under
-`<out>/bloop-internal-classes` and gives every connected client its own classes directory. The
-client directories Bloop owns (under `<out>/bloop-bsp-clients-classes`, used by Metals and the
-CLI) and the read-only directory of the next compilation are filled with hard links to the
-existing class files rather than copies, so keeping them in sync costs no data writes and no
+`<out>/bloop-internal-classes` and gives every connected client its own classes directory. By
+default Bloop copies class files between these directories. Set
+`-Dbloop.classes.hardlinks=true` in `BLOOP_JAVA_OPTS` to use hard links instead. The option
+takes effect after a server restart.
+
+With the option on, the client directories Bloop owns (under `<out>/bloop-bsp-clients-classes`,
+used by Metals and the CLI) and the read-only directory of the next compilation are filled with
+hard links to the existing class files, so keeping them in sync costs no data writes and no
 extra disk space. Directories a client owns (a client that passes `clientClassesRootDir` or
 `ownsBuildFiles` in the BSP `build/initialize` data) and resources keep being copied. Linking
 requires both directories to be on the same file system; a file that cannot be linked is
@@ -124,10 +128,9 @@ copied instead.
 
 A linked file is shared, so a process that rewrites a class file in place inside a client
 directory Bloop owns also changes Bloop's internal copy, which later compilations and every
-other client use. Delete the file and write a new one instead. Set
-`-Dbloop.classes.hardlinks=false` in `BLOOP_JAVA_OPTS` to always copy; it takes effect after a
-server restart and does not replace links that already exist, so delete the directories under
-`bloop-bsp-clients-classes` as well.
+other client use. Delete the file and write a new one instead. Turning the option off does not
+replace links that already exist, so delete the directories under `bloop-bsp-clients-classes`
+as well.
 
 ### Custom Java home
 

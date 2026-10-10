@@ -62,9 +62,9 @@ object ParallelOps {
 
   private[io] val HardLinksProperty = "bloop.classes.hardlinks"
 
-  // Read per call so that tests can toggle the property
+  // Opt-in for now. Read per call so that tests can toggle the property
   private def hardLinksEnabled: Boolean =
-    !sys.props.get(HardLinksProperty).exists(_.equalsIgnoreCase("false"))
+    sys.props.get(HardLinksProperty).exists(_.equalsIgnoreCase("true"))
 
   private[this] val takenByOtherCopyProcess = new ConcurrentHashMap[Path, Promise[Unit]]()
 

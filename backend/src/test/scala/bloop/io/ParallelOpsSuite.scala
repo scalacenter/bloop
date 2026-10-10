@@ -23,6 +23,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
+import org.junit.Before
 import org.junit.Test
 
 class ParallelOpsSuite {
@@ -36,6 +37,23 @@ class ParallelOpsSuite {
   }
 
   private def newTempDir(): Path = tracked(Files.createTempDirectory("parallel"))
+
+  // Hard links are opt-in, so the tests turn them on and put the property back afterwards
+  private var previousHardLinksProperty: Option[String] = None
+
+  @Before
+  def enableHardLinks(): Unit = {
+    previousHardLinksProperty = sys.props.get(ParallelOps.HardLinksProperty)
+    sys.props(ParallelOps.HardLinksProperty) = "true"
+  }
+
+  @After
+  def restoreHardLinksProperty(): Unit = {
+    previousHardLinksProperty match {
+      case Some(value) => sys.props(ParallelOps.HardLinksProperty) = value
+      case None => sys.props.remove(ParallelOps.HardLinksProperty); ()
+    }
+  }
 
   @After
   def deleteTempDirs(): Unit = tempDirs.foreach(dir => Paths.delete(AbsolutePath(dir)))
@@ -258,20 +276,19 @@ class ParallelOpsSuite {
   }
 
   @Test
-  def killSwitchFallsBackToCopies(): Unit = {
-    val from = createDirectoryWithFiles("A.class")
-    val to = newTempDir()
-    val previous = sys.props.get(ParallelOps.HardLinksProperty)
-    sys.props(ParallelOps.HardLinksProperty) = "false"
-    try copy(linkConfig(CopyMode.ReplaceExisting), from, to)
-    finally {
-      previous match {
-        case Some(value) => sys.props(ParallelOps.HardLinksProperty) = value
+  def filesAreCopiedUnlessHardLinksAreEnabled(): Unit = {
+    for (value <- List(None, Some("false"))) {
+      val from = createDirectoryWithFiles("A.class")
+      val to = newTempDir()
+      value match {
+        case Some(v) => sys.props(ParallelOps.HardLinksProperty) = v
         case None => sys.props.remove(ParallelOps.HardLinksProperty); ()
       }
-    }
 
-    assertCopied(from, to, "A.class")
+      copy(linkConfig(CopyMode.ReplaceExisting), from, to)
+
+      assertCopied(from, to, "A.class")
+    }
   }
 
   @Test
