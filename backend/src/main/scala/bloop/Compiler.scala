@@ -1,6 +1,7 @@
 package bloop
 
 import java.io.File
+import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.NoSuchFileException
 import java.nio.file.Path
@@ -108,6 +109,20 @@ case class CompileOutPaths(
   }
 
   /**
+   * Whether Bloop owns `clientClassesDir`, so that its class files can be shared with the
+   * internal directories. A directory the client owns may be rewritten in place by it.
+   */
+  def ownsClientClassesDir(clientClassesDir: AbsolutePath): Boolean = {
+    // Compare real paths. A path that cannot be resolved can only turn linking off,
+    // never link into a directory of the client
+    def realPath(path: Path): Path =
+      try path.toRealPath()
+      catch { case _: IOException => path }
+    val root = CompileOutPaths.ownedClientClassesRootDir(out).underlying
+    realPath(clientClassesDir.underlying).startsWith(realPath(root))
+  }
+
+  /**
    * Creates an internal directory where symbol pickles are stored when build
    * pipelining is enabled. This directory is removed whenever compilation
    * process has finished because pickles are useless when class files are
@@ -126,6 +141,13 @@ case class CompileOutPaths(
 }
 
 object CompileOutPaths {
+
+  /**
+   * Defines the project-specific root directory where Bloop creates the client
+   * classes directories it owns, as opposed to a root supplied by the client.
+   */
+  def ownedClientClassesRootDir(out: AbsolutePath): AbsolutePath =
+    out.resolve("bloop-bsp-clients-classes")
 
   /**
    * Defines a project-specific root directory where all the internal classes
@@ -590,6 +612,7 @@ object Compiler {
                     .flatMap { _ =>
                       updateExternalClassesDirWithReadOnly(
                         clientClassesDir,
+                        compileOut,
                         clientTracer,
                         clientLogger,
                         logger,
@@ -698,6 +721,7 @@ object Compiler {
                   // Only start these tasks after the previous IO tasks in the external dir are done
                   val firstTask = updateExternalClassesDirWithReadOnly(
                     clientClassesDir,
+                    compileOut,
                     clientTracer,
                     clientLogger,
                     logger,
@@ -803,6 +827,7 @@ object Compiler {
 
   def updateExternalClassesDirWithReadOnly(
       clientClassesDir: AbsolutePath,
+      compileOut: CompileOutPaths,
       clientTracer: BraveTracer,
       clientLogger: Logger,
       logger: Logger,
@@ -826,8 +851,13 @@ object Compiler {
         // Let's not copy outdated betasty from readOnly, since we do not have a mechanism
         // for tracking that otherwise
         val denyDir = Set(readOnlyClassesDir.resolve("META-INF/best-effort"))
-        val config =
-          ParallelOps.CopyConfiguration(5, CopyMode.ReplaceIfMetadataMismatch, denyList, denyDir)
+        val config = ParallelOps.CopyConfiguration(
+          5,
+          CopyMode.ReplaceIfMetadataMismatch,
+          denyList,
+          denyDir,
+          linkFiles = compileOut.ownsClientClassesDir(clientClassesDir)
+        )
 
         val copyResources = ParallelOps.copyResources(
           resources,
