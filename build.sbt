@@ -148,7 +148,8 @@ lazy val frontend: Project = project
       "jupiterInterfaceVersion" -> Dependencies.jupiterInterfaceVersion
     ),
     (run / javaOptions) ++= jvmOptions,
-    (Test / javaOptions) ++= jvmOptions,
+    // Hard links between classes directories are opt-in, so the specs that check them enable it
+    (Test / javaOptions) ++= jvmOptions :+ "-Dbloop.classes.hardlinks=true",
     (IntegrationTest / javaOptions) ++= jvmOptions,
     (run / fork) := true,
     (Test / fork) := true,

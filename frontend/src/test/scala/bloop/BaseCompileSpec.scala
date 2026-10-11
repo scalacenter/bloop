@@ -565,12 +565,17 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
        * Expected: incremental compilation succeeds and external classes dir is repopulated.
        */
 
-      writeFile(`A`.externalClassFileFor("Bar.class"), "incorrect class file contents")
+      // Delete before writing: the client class file is a hard link of the read-only one, and
+      // writing through it would corrupt both and hide the repopulation this scenario checks
+      val corruptedClassFile = `A`.externalClassFileFor("Bar.class")
+      Files.delete(corruptedClassFile.underlying)
+      writeFile(corruptedClassFile, "incorrect class file contents")
       assertIsFile(writeFile(`A`.srcFor("A.scala"), Sources.`A3.scala`))
       val fifthCompiledState = fourthCompiledState.compile(`B`)
       assertExitStatus(fifthCompiledState, ExitStatus.Ok)
       assertValidCompilationState(fifthCompiledState, List(`A`, `B`))
       assertIsFile(`A`.externalClassFileFor("Bar.class"))
+      assert(readFile(`A`.externalClassFileFor("Bar.class")) != "incorrect class file contents")
 
       /*
        * Scenario: a classes directory of the last successful result is removed.
