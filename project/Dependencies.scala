@@ -7,7 +7,7 @@ import sbt.Provided
 object Dependencies {
   val Scala211Version = "2.11.12"
   val Scala212Version = "2.12.21"
-  val Scala213Version = "2.13.18"
+  val Scala213Version = "3.10.0"
   val Scala3Version = "3.8.4"
 
   val SbtVersion = "1.9.0"
