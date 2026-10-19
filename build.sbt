@@ -73,6 +73,7 @@ lazy val bloopShared = project
       Dependencies.log4j,
       Dependencies.xxHashLibrary,
       Dependencies.configDirectories,
+      Dependencies.windowsJniUtils,
       Dependencies.coursierInterface,
       Dependencies.sbtTestInterface,
       Dependencies.sbtTestAgent
