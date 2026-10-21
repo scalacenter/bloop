@@ -81,13 +81,11 @@ object DefaultOptions {
       }
       val jvmCache = JvmCache()
         .withIndex(indexTask)
-        .withArchiveCache(
-          archiveCache.withCache(
-            cache.withMessage("Downloading JVM")
-          )
+        .copy(
+          archiveCache = archiveCache.copy(cache = cache.withMessage("Downloading JVM")),
+          os = finalJvmIndexOs,
+          architecture = jvm.jvmIndexArch.getOrElse(JvmIndex.defaultArchitecture())
         )
-        .withOs(finalJvmIndexOs)
-        .withArchitecture(jvm.jvmIndexArch.getOrElse(JvmIndex.defaultArchitecture()))
       JavaHome().withCache(jvmCache)
     }
 

@@ -3,13 +3,21 @@ package bloop.cli.util
 import coursier.cache.FileCache
 import coursier.parse.RepositoryParser
 import coursier.util.Task
-import coursier.{Fetch, moduleString}
+import coursier.Fetch
 import dependency.{AnyDependency, ScalaParameters}
 
 import bloop.cli.util.CoursierUtils._
 import bloop.cli.Logger
 
 object Artifacts {
+
+  // `mod"..."` is a coursier interpolator whose import differs between Scala 2.13 and 3.
+  private def scalaLangModule(name: String): coursier.Module =
+    coursier.Module(
+      coursier.Organization("org.scala-lang"),
+      coursier.ModuleName(name),
+      Map.empty
+    )
 
   final class NoScalaVersionProvidedError(
       val depOrModule: Either[dependency.AnyModule, dependency.AnyDependency]
@@ -60,8 +68,7 @@ object Artifacts {
         }
         .map(dep => dep.toCs(paramsOpt))
         .flatMap {
-          case Left(e: NoScalaVersionProvidedError) => Some(Left(e))
-          case Left(_) => None
+          case Left(e) => Some(Left(e))
           case Right(dep) => Some(Right(dep))
         }
 
@@ -107,19 +114,19 @@ object Artifacts {
       case Some(sv) =>
         if (sv.startsWith("2."))
           Seq(
-            mod"org.scala-lang:scala-library" -> sv,
-            mod"org.scala-lang:scala-compiler" -> sv,
-            mod"org.scala-lang:scala-reflect" -> sv
+            scalaLangModule("scala-library") -> sv,
+            scalaLangModule("scala-compiler") -> sv,
+            scalaLangModule("scala-reflect") -> sv
           )
         else
           // FIXME Shouldn't we force the org.scala-lang:scala-library version too?
           // (to a 2.13.x version)
           Seq(
-            mod"org.scala-lang:scala3-library_3" -> sv,
-            mod"org.scala-lang:scala3-compiler_3" -> sv,
-            mod"org.scala-lang:scala3-interfaces_3" -> sv,
-            mod"org.scala-lang:scala3-tasty-inspector_3" -> sv,
-            mod"org.scala-lang:tasty-core_3" -> sv
+            scalaLangModule("scala3-library_3") -> sv,
+            scalaLangModule("scala3-compiler_3") -> sv,
+            scalaLangModule("scala3-interfaces_3") -> sv,
+            scalaLangModule("scala3-tasty-inspector_3") -> sv,
+            scalaLangModule("tasty-core_3") -> sv
           )
     }
 

@@ -109,8 +109,8 @@ jobs:
               "frontend/test:compile; \
               backend/test; \
               docs/compile; \
-              cli/test; \
-              bloopRifle/test; \
+              +cli/test; \
+              +bloopRifle/test; \
               frontend/testOnly bloop.ScalaVersionsSpec; \
               frontend/testOnly -bloop.ScalaVersionsSpec; \
               frontend/runMain bloop.util.CommandsDocGenerator --test; \

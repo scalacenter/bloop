@@ -1,6 +1,7 @@
 package bloop.cli.options
 
 import caseapp._
+import bloop.cli.util.ParserCompat
 import com.github.plokhotnyuk.jsoniter_scala.core._
 import coursier.cache.FileCache
 import coursier.core.{Version => Ver}
@@ -156,6 +157,6 @@ final case class SharedCompilationServerOptions(
 
 object SharedCompilationServerOptions {
   lazy val parser: Parser[SharedCompilationServerOptions] = Parser.derive
-  implicit lazy val parserAux: Parser.Aux[SharedCompilationServerOptions, parser.D] = parser
+  implicit lazy val parserAux: ParserCompat.Aux[SharedCompilationServerOptions, parser.D] = parser
   implicit lazy val help: Help[SharedCompilationServerOptions] = Help.derive
 }

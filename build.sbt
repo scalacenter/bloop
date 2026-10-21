@@ -1,7 +1,14 @@
 import build.BuildImplementation.BuildDefaults
 import build.BuildImplementation.jvmOptions
 import build.Dependencies
-import build.Dependencies.{Scala211Version, Scala212Version, SbtVersion, Scala3Version}
+import build.Dependencies.{
+  Scala211Version,
+  Scala212Version,
+  Scala213Version,
+  Scala33Version,
+  SbtVersion,
+  Scala3Version
+}
 
 ThisBuild / dynverSeparator := "-"
 
@@ -211,9 +218,28 @@ lazy val frontend: Project = project
     }
   )
 
+// bloop-rifle and the CLI are consumed from both Scala 2.13 and Scala 3.
+// The default (and the native image) is the 3.3 LTS.
+lazy val crossPublishedLauncherSettings = Seq(
+  scalaVersion := Scala33Version,
+  crossScalaVersions := List(Scala213Version, Scala33Version),
+  // The shared 2.12/2.13 option set is not accepted by Scala 3.
+  scalacOptions --= {
+    if (scalaVersion.value.startsWith("3."))
+      Seq(
+        "-Yno-adapted-args",
+        "-Ywarn-numeric-widen",
+        "-Ywarn-value-discard",
+        "-Xfuture",
+        "-language:existentials",
+        "-language:higherKinds"
+      )
+    else Nil
+  }
+)
+
 lazy val cliSettings = Seq(
   name := "bloop-cli",
-  scalaVersion := Dependencies.Scala213Version,
   (run / fork) := true,
   (Test / fork) := true,
   (Test / parallelExecution) := false,
@@ -230,7 +256,9 @@ lazy val cliSettings = Seq(
   ),
   (GraalVMNativeImage / mainClass) := Some("bloop.cli.Bloop"),
   graalVMNativeImageOptions ++= {
-    val reflectionFile = (Compile / Keys.sourceDirectory).value./("graal")./("reflection.json")
+    val reflectionName =
+      if (scalaVersion.value.startsWith("3.")) "reflection.json" else "reflection-2.13.json"
+    val reflectionFile = (Compile / Keys.sourceDirectory).value./("graal")./(reflectionName)
     assert(reflectionFile.exists, s"${reflectionFile.getAbsolutePath()} doesn't exist")
     val baseOptions = List(
       "--add-exports=org.graalvm.nativeimage.base/com.oracle.svm.util=ALL-UNNAMED",
@@ -248,13 +276,8 @@ lazy val cliSettings = Seq(
       "--enable-url-protocols=http,https",
       "--enable-all-security-services",
       s"-H:ReflectionConfigurationFiles=$reflectionFile",
-      "-H:+ReportExceptionStackTraces",
-      "--initialize-at-build-time=scala.Symbol",
-      "--initialize-at-build-time=scala.Function1",
-      "--initialize-at-build-time=scala.Function2",
-      "--initialize-at-build-time=scala.runtime.StructuralCallSite",
-      "--initialize-at-build-time=scala.runtime.EmptyMethodCache"
-    )
+      "-H:+ReportExceptionStackTraces"
+    ) ++ initializeAtBuildTime(scalaVersion.value)
 
     if (scala.util.Properties.isWin) {
       val staticLibs = (Compile / Keys.sourceDirectory).value./("graal")./("static-libs")
@@ -265,13 +288,34 @@ lazy val cliSettings = Seq(
   }
 )
 
+// Scala 2.13 still needs the structural-call and FunctionN classes initialized while the
+// image is built. Scala 3.3 replaced that runtime; Statics$VM and ArrayOps$ are the classes
+// native-image otherwise initializes too late (or not at all) and then rejects.
+def initializeAtBuildTime(scalaVersion: String): List[String] = {
+  val classes =
+    if (scalaVersion.startsWith("3."))
+      List(
+        "scala.runtime.Statics$VM",
+        "scala.collection.ArrayOps$"
+      )
+    else
+      List(
+        "scala.Symbol",
+        "scala.Function1",
+        "scala.Function2",
+        "scala.runtime.StructuralCallSite",
+        "scala.runtime.EmptyMethodCache"
+      )
+  classes.map(cls => s"--initialize-at-build-time=$cls")
+}
+
 lazy val bloopRifle: Project = project
   .in(file("bloop-rifle"))
   .disablePlugins(ScriptedPlugin)
   .enablePlugins(BuildInfoPlugin)
   .settings(
     name := "bloop-rifle",
-    scalaVersion := Dependencies.Scala213Version,
+    crossPublishedLauncherSettings,
     libraryDependencies ++= List(
       Dependencies.bsp4j,
       Dependencies.scalaCollectionCompat,
@@ -294,6 +338,7 @@ lazy val cli: Project = project
   .enablePlugins(BuildInfoPlugin, GraalVMNativeImagePlugin)
   .settings(
     testSuiteSettings,
+    crossPublishedLauncherSettings,
     cliSettings
   )
   .dependsOn(bloopRifle)
