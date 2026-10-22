@@ -109,8 +109,8 @@ jobs:
               "frontend/test:compile; \
               backend/test; \
               docs/compile; \
-              cli/test; \
-              bloopRifle/test; \
+              +cli/test; \
+              +bloopRifle/test; \
               frontend/testOnly bloop.ScalaVersionsSpec; \
               frontend/testOnly -bloop.ScalaVersionsSpec; \
               frontend/runMain bloop.util.CommandsDocGenerator --test; \
@@ -157,9 +157,51 @@ jobs:
         with:
           version: '22.3.0'
           java-version: '17'
-          components: 'native-image'
           native-image-job-reports: 'true'
           github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      # GraalVM 22.3 does not bundle native-image. The setup action would run
+      # `gu install native-image`, and gu downloads the component itself with a
+      # ~10s connect timeout and no GitHub token. Hosted runners, especially
+      # macOS, time out on that handshake even though the asset is fine.
+      # Download via the API (same path the JDK tarball uses), then install locally.
+      - name: Install native-image
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          case "${RUNNER_OS}-${RUNNER_ARCH}" in
+            macOS-ARM64) suffix=darwin-aarch64 ;;
+            macOS-X64) suffix=darwin-amd64 ;;
+            Linux-X64) suffix=linux-amd64 ;;
+            Linux-ARM64) suffix=linux-aarch64 ;;
+            Windows-X64) suffix=windows-amd64 ;;
+            *) echo "unsupported runner ${RUNNER_OS}-${RUNNER_ARCH}"; exit 1 ;;
+          esac
+          asset="native-image-installable-svm-java17-${suffix}-22.3.0.jar"
+          jar="${RUNNER_TEMP}/${asset}"
+          for attempt in 1 2 3 4 5; do
+            if gh release download vm-22.3.0 \
+              --repo graalvm/graalvm-ce-builds \
+              --pattern "$asset" \
+              --output "$jar" \
+              --clobber; then
+              break
+            fi
+            if [[ "$attempt" -eq 5 ]]; then
+              echo "failed to download ${asset}"
+              exit 1
+            fi
+            sleep $((attempt * 5))
+          done
+          if [[ "${RUNNER_OS}" == "Windows" ]]; then
+            gu.cmd --non-interactive -L install --no-progress "$jar"
+            native-image.cmd --version
+          else
+            gu --non-interactive -L install --no-progress "$jar"
+            native-image --version
+          fi
 
       - uses: sbt/setup-sbt@v1
       - uses: coursier/setup-action@v3

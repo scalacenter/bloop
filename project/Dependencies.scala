@@ -8,6 +8,8 @@ object Dependencies {
   val Scala211Version = "2.11.12"
   val Scala212Version = "2.12.21"
   val Scala213Version = "2.13.18"
+  // 3.3 LTS for bloop-rifle, the CLI, and the native image. 3.8 is the sbt 2 plugin.
+  val Scala33Version = "3.3.8"
   val Scala3Version = "3.8.4"
 
   val SbtVersion = "1.9.0"

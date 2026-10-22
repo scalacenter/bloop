@@ -46,9 +46,9 @@ object CsLoggerUtil {
       javaHome.cache.map(_.archiveCache.cache) match {
         case Some(f: FileCache[Task]) =>
           val cache0 = f.withMessage(message)
-          javaHome.withCache(
-            javaHome.cache.map(c => c.withArchiveCache(c.archiveCache.withCache(cache0)))
-          )
+          javaHome.cache.fold(javaHome) { c =>
+            javaHome.withCache(c.copy(archiveCache = c.archiveCache.copy(cache = cache0)))
+          }
         case _ => javaHome
       }
   }

@@ -1,6 +1,7 @@
 package bloop.cli.options
 
 import caseapp._
+import bloop.cli.util.ParserCompat
 import bloop.cli.Directories
 
 // format: off
@@ -22,6 +23,6 @@ final case class SharedDirectoriesOptions(
 
 object SharedDirectoriesOptions {
   lazy val parser: Parser[SharedDirectoriesOptions] = Parser.derive
-  implicit lazy val parserAux: Parser.Aux[SharedDirectoriesOptions, parser.D] = parser
+  implicit lazy val parserAux: ParserCompat.Aux[SharedDirectoriesOptions, parser.D] = parser
   implicit lazy val help: Help[SharedDirectoriesOptions] = Help.derive
 }

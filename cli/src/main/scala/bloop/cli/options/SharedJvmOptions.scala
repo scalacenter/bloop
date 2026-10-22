@@ -1,6 +1,7 @@
 package bloop.cli.options
 
 import caseapp._
+import bloop.cli.util.ParserCompat
 
 // format: off
 final case class SharedJvmOptions(
@@ -30,6 +31,6 @@ final case class SharedJvmOptions(
 
 object SharedJvmOptions {
   lazy val parser: Parser[SharedJvmOptions] = Parser.derive
-  implicit lazy val parserAux: Parser.Aux[SharedJvmOptions, parser.D] = parser
+  implicit lazy val parserAux: ParserCompat.Aux[SharedJvmOptions, parser.D] = parser
   implicit lazy val help: Help[SharedJvmOptions] = Help.derive
 }

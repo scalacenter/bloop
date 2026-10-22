@@ -1,6 +1,7 @@
 package bloop.cli.options
 
 import caseapp._
+import bloop.cli.util.ParserCompat
 import coursier.cache.loggers.RefreshLogger
 import bloop.rifle.BloopRifleLogger
 import bloop.cli.Logger
@@ -69,6 +70,6 @@ final case class LoggingOptions(
 
 object LoggingOptions {
   lazy val parser: Parser[LoggingOptions] = Parser.derive
-  implicit lazy val parserAux: Parser.Aux[LoggingOptions, parser.D] = parser
+  implicit lazy val parserAux: ParserCompat.Aux[LoggingOptions, parser.D] = parser
   implicit lazy val help: Help[LoggingOptions] = Help.derive
 }

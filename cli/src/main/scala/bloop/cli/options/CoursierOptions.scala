@@ -1,6 +1,7 @@
 package bloop.cli.options
 
 import caseapp._
+import bloop.cli.util.ParserCompat
 import coursier.cache.{CacheLogger, FileCache}
 
 import scala.concurrent.duration.Duration
@@ -32,6 +33,6 @@ final case class CoursierOptions(
 
 object CoursierOptions {
   lazy val parser: Parser[CoursierOptions] = Parser.derive
-  implicit lazy val parserAux: Parser.Aux[CoursierOptions, parser.D] = parser
+  implicit lazy val parserAux: ParserCompat.Aux[CoursierOptions, parser.D] = parser
   implicit lazy val help: Help[CoursierOptions] = Help.derive
 }

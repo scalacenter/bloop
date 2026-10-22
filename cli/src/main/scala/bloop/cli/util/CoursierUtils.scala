@@ -46,13 +46,14 @@ object CoursierUtils {
         }
 
       for (cl <- dep.getUserParam("classifier"))
-        dep0 = dep0.withPublication(dep0.publication.withClassifier(coursier.core.Classifier(cl)))
+        dep0 =
+          dep0.copy(publication = dep0.publication.copy(classifier = coursier.core.Classifier(cl)))
       for (tpe <- dep.getUserParam("type"))
-        dep0 = dep0.withPublication(dep0.publication.withType(coursier.core.Type(tpe)))
+        dep0 = dep0.copy(publication = dep0.publication.copy(`type` = coursier.core.Type(tpe)))
       for (ext <- dep.getUserParam("ext"))
-        dep0 = dep0.withPublication(dep0.publication.withExt(coursier.core.Extension(ext)))
+        dep0 = dep0.copy(publication = dep0.publication.copy(ext = coursier.core.Extension(ext)))
       for (_ <- dep.getUserParam("intransitive"))
-        dep0 = dep0.withTransitive(false)
+        dep0 = dep0.copy(transitive = false)
       dep0
     }
   }
