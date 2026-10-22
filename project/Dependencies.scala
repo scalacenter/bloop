@@ -68,7 +68,7 @@ object Dependencies {
   // 0.4.0 adds Windows ARM64
   val windowsJniUtils = "io.get-coursier.jniutils" % "windows-jni-utils" % "0.4.0"
   val coursierInterfaceSubs = "io.get-coursier" % "interface-svm-subs" % "1.0.19"
-  val svm = "org.graalvm.nativeimage" % "svm" % "25.0.5"
+  val svm = "org.graalvm.nativeimage" % "svm" % "25.0.5.0.2"
   val coursier = "io.get-coursier" %% "coursier" % coursierVersion
   val coursierJvm = "io.get-coursier" %% "coursier-jvm" % coursierVersion
   val dependency = "io.get-coursier" %% "dependency" % "0.3.3"
