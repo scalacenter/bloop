@@ -52,5 +52,23 @@ object BloopSpec extends TestSuite {
       assert(props.isEmpty)
       assert(rest.isEmpty)
     }
+
+    test("help lists the launcher's own commands") {
+      val help = Default.helpMessage.replaceAll("\u001b\\[[0-9;]*m", "")
+      val commands = help.linesIterator.dropWhile(_ != "Commands:").drop(1).map(_.trim).toList
+      Seq("exit", "output", "start", "status").foreach { name =>
+        assert(commands.exists(_.startsWith(name)))
+      }
+    }
+
+    test("detects completion requests for the command list") {
+      assert(Default.isCommandsCompletion("autocomplete", Seq("--mode=commands", "--format=bash")))
+      assert(
+        Default.isCommandsCompletion("autocomplete", Seq("--format", "zsh", "--mode", "commands"))
+      )
+      assert(!Default.isCommandsCompletion("autocomplete", Seq("--mode=projects")))
+      assert(!Default.isCommandsCompletion("autocomplete", Seq("--mode", "flags", "commands")))
+      assert(!Default.isCommandsCompletion("compile", Seq("--mode=commands")))
+    }
   }
 }
