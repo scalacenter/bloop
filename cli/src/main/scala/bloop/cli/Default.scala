@@ -12,11 +12,28 @@ import bloop.rifle.BloopRifle
 import bloop.rifle.BloopThreads
 import bloop.rifle.internal.Operations
 
+import caseapp.core.Error
 import caseapp.core.RemainingArgs
 import caseapp.core.app.Command
 
 object Default extends Command[DefaultOptions] {
   override def stopAtFirstUnrecognized = true
+
+  // `bloop --help` lands here, so list the launcher's own commands as well
+  private[cli] def helpMessage: String = Bloop.help.help(helpFormat, showHidden = false)
+
+  override def helpAsked(progName: String, maybeOptions: Either[Error, DefaultOptions]): Nothing = {
+    printLine(helpMessage)
+    exit(0)
+  }
+
+  /**
+   * The launcher's own commands (`exit`, `status`, ...) never reach the server, so
+   * the server can't list them in `bloop autocomplete --mode commands`.
+   */
+  private[cli] def isCommandsCompletion(cmd: String, args: Seq[String]): Boolean =
+    cmd == "autocomplete" &&
+      (args.contains("--mode=commands") || args.sliding(2).contains(Seq("--mode", "commands")))
 
   def run(options: DefaultOptions, args: RemainingArgs): Unit = {
 
@@ -67,9 +84,11 @@ object Default extends Command[DefaultOptions] {
           assumeOutTty = assumeTty,
           assumeErrTty = assumeTty
         )
-        if (retCode == 0)
+        if (retCode == 0) {
           logger.debug(s"Bloop command $cmd ran successfully (return code 0)")
-        else {
+          if (isCommandsCompletion(cmd, cmdArgs))
+            Bloop.commands.flatMap(_.names).foreach(name => println(name.mkString(" ")))
+        } else {
           logger.debug(
             s"Got return code $retCode from Bloop server when running $cmd, exiting with it"
           )
