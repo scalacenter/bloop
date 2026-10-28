@@ -11,7 +11,7 @@ sidebar_label: CLI --help
 #### Usage
 
 <dl>
-  <dt><code>--config-dir</code> or <code>-c</code> (type: <code>.bloop</code>)</dt>
+  <dt><code>--config-dir</code> or <code>-c</code> (type: <code>path?</code>)</dt>
   <dd><p>File path to the bloop config directory, defaults to `.bloop` in the current working directory.</p></dd>
   <dt><code>--version</code> or <code>-v</code> (type: <code>bool</code>)</dt>
   <dd><p>If set, print the about section at the beginning of the execution. Defaults to false.</p></dd>
@@ -29,7 +29,7 @@ sidebar_label: CLI --help
 #### Usage
 
 <dl>
-  <dt><code>--config-dir</code> or <code>-c</code> (type: <code>.bloop</code>)</dt>
+  <dt><code>--config-dir</code> or <code>-c</code> (type: <code>path?</code>)</dt>
   <dd><p>File path to the bloop config directory, defaults to `.bloop` in the current working directory.</p></dd>
   <dt><code>--version</code> or <code>-v</code> (type: <code>bool</code>)</dt>
   <dd><p>If set, print the about section at the beginning of the execution. Defaults to false.</p></dd>
@@ -61,7 +61,7 @@ sidebar_label: CLI --help
   <dd><p>A path to a socket file to communicate through Unix sockets (local only).</p></dd>
   <dt><code>--pipe-name</code> (type: <code>string?</code>)</dt>
   <dd><p>A path to a new existing socket file to communicate through Unix sockets (local only).</p></dd>
-  <dt><code>--config-dir</code> or <code>-c</code> (type: <code>.bloop</code>)</dt>
+  <dt><code>--config-dir</code> or <code>-c</code> (type: <code>path?</code>)</dt>
   <dd><p>File path to the bloop config directory, defaults to `.bloop` in the current working directory.</p></dd>
   <dt><code>--version</code> or <code>-v</code> (type: <code>bool</code>)</dt>
   <dd><p>If set, print the about section at the beginning of the execution. Defaults to false.</p></dd>
@@ -85,7 +85,7 @@ sidebar_label: CLI --help
   <dd><p>Clean a project and all its dependencies. By default, false.</p></dd>
   <dt><code>--cascade</code> (type: <code>bool</code>)</dt>
   <dd><p>Clean a project and all projects depending on it. By default, false.</p></dd>
-  <dt><code>--config-dir</code> or <code>-c</code> (type: <code>.bloop</code>)</dt>
+  <dt><code>--config-dir</code> or <code>-c</code> (type: <code>path?</code>)</dt>
   <dd><p>File path to the bloop config directory, defaults to `.bloop` in the current working directory.</p></dd>
   <dt><code>--version</code> or <code>-v</code> (type: <code>bool</code>)</dt>
   <dd><p>If set, print the about section at the beginning of the execution. Defaults to false.</p></dd>
@@ -125,7 +125,7 @@ sidebar_label: CLI --help
   <dd><p>Compile a project and all projects depending on it. By default, false.</p></dd>
   <dt><code>--summary</code> (type: <code>bool</code>)</dt>
   <dd><p>Print a summary of project compile times, blocked projects and totals. By default, false.</p></dd>
-  <dt><code>--config-dir</code> or <code>-c</code> (type: <code>.bloop</code>)</dt>
+  <dt><code>--config-dir</code> or <code>-c</code> (type: <code>path?</code>)</dt>
   <dd><p>File path to the bloop config directory, defaults to `.bloop` in the current working directory.</p></dd>
   <dt><code>--version</code> or <code>-v</code> (type: <code>bool</code>)</dt>
   <dd><p>If set, print the about section at the beginning of the execution. Defaults to false.</p></dd>
@@ -153,7 +153,7 @@ sidebar_label: CLI --help
 <dl>
   <dt><code>--threads</code> (type: <code>int</code>)</dt>
   <dd><p>(deprecated) Set the number of threads used to compile and test all projects.</p></dd>
-  <dt><code>--config-dir</code> or <code>-c</code> (type: <code>.bloop</code>)</dt>
+  <dt><code>--config-dir</code> or <code>-c</code> (type: <code>path?</code>)</dt>
   <dd><p>File path to the bloop config directory, defaults to `.bloop` in the current working directory.</p></dd>
   <dt><code>--version</code> or <code>-v</code> (type: <code>bool</code>)</dt>
   <dd><p>If set, print the about section at the beginning of the execution. Defaults to false.</p></dd>
@@ -191,7 +191,7 @@ sidebar_label: CLI --help
   <dd><p>The Ammonite version to use, it defaults to latest release. Ammonite REPL only.</p></dd>
   <dt><code>--out-file</code> (type: <code>path?</code>)</dt>
   <dd><p>The output file where the Ammonite command is written. Ammonite REPL only.</p></dd>
-  <dt><code>--config-dir</code> or <code>-c</code> (type: <code>.bloop</code>)</dt>
+  <dt><code>--config-dir</code> or <code>-c</code> (type: <code>path?</code>)</dt>
   <dd><p>File path to the bloop config directory, defaults to `.bloop` in the current working directory.</p></dd>
   <dt><code>--version</code> or <code>-v</code> (type: <code>bool</code>)</dt>
   <dd><p>If set, print the about section at the beginning of the execution. Defaults to false.</p></dd>
@@ -213,7 +213,7 @@ sidebar_label: CLI --help
 #### Usage
 
 <dl>
-  <dt><code>--config-dir</code> or <code>-c</code> (type: <code>.bloop</code>)</dt>
+  <dt><code>--config-dir</code> or <code>-c</code> (type: <code>path?</code>)</dt>
   <dd><p>File path to the bloop config directory, defaults to `.bloop` in the current working directory.</p></dd>
   <dt><code>--version</code> or <code>-v</code> (type: <code>bool</code>)</dt>
   <dd><p>If set, print the about section at the beginning of the execution. Defaults to false.</p></dd>
@@ -247,7 +247,7 @@ sidebar_label: CLI --help
   <dd><p>If set, run the command whenever projects' source files change.</p></dd>
   <dt><code>--optimize</code> or <code>-O</code> (type: <code>"debug" | "release"?</code>)</dt>
   <dd><p>Optimization level of the linker. Valid options: `debug` or `release` mode. Defaults to `debug`.</p></dd>
-  <dt><code>--config-dir</code> or <code>-c</code> (type: <code>.bloop</code>)</dt>
+  <dt><code>--config-dir</code> or <code>-c</code> (type: <code>path?</code>)</dt>
   <dd><p>File path to the bloop config directory, defaults to `.bloop` in the current working directory.</p></dd>
   <dt><code>--version</code> or <code>-v</code> (type: <code>bool</code>)</dt>
   <dd><p>If set, print the about section at the beginning of the execution. Defaults to false.</p></dd>
@@ -274,7 +274,7 @@ sidebar_label: CLI --help
 <dl>
   <dt><code>--dot-graph</code> (type: <code>bool</code>)</dt>
   <dd><p>Print out a dot graph you can pipe into `dot`. By default, false.</p></dd>
-  <dt><code>--config-dir</code> or <code>-c</code> (type: <code>.bloop</code>)</dt>
+  <dt><code>--config-dir</code> or <code>-c</code> (type: <code>path?</code>)</dt>
   <dd><p>File path to the bloop config directory, defaults to `.bloop` in the current working directory.</p></dd>
   <dt><code>--version</code> or <code>-v</code> (type: <code>bool</code>)</dt>
   <dd><p>If set, print the about section at the beginning of the execution. Defaults to false.</p></dd>
@@ -320,7 +320,7 @@ sidebar_label: CLI --help
   <dd><p>Fork the JVM with a JDWP debug agent on this port so a debugger (IntelliJ, jdb) can attach. JVM projects only; unrelated to --debug.</p></dd>
   <dt><code>--jvm-debug-suspend</code> (type: <code>bool</code>)</dt>
   <dd><p>With --jvm-debug, make the JVM wait for the debugger to attach before running. By default, false.</p></dd>
-  <dt><code>--config-dir</code> or <code>-c</code> (type: <code>.bloop</code>)</dt>
+  <dt><code>--config-dir</code> or <code>-c</code> (type: <code>path?</code>)</dt>
   <dd><p>File path to the bloop config directory, defaults to `.bloop` in the current working directory.</p></dd>
   <dt><code>--version</code> or <code>-v</code> (type: <code>bool</code>)</dt>
   <dd><p>If set, print the about section at the beginning of the execution. Defaults to false.</p></dd>
@@ -365,7 +365,7 @@ sidebar_label: CLI --help
   <dd><p>Print errors newest-first. Pass --reverse-order=false to print them as the compiler reports them. By default, bloop reverses and scalac does not.</p></dd>
   <dt><code>--watch</code> or <code>-w</code> (type: <code>bool</code>)</dt>
   <dd><p>Run the command when projects' source files change. By default, false.</p></dd>
-  <dt><code>--config-dir</code> or <code>-c</code> (type: <code>.bloop</code>)</dt>
+  <dt><code>--config-dir</code> or <code>-c</code> (type: <code>path?</code>)</dt>
   <dd><p>File path to the bloop config directory, defaults to `.bloop` in the current working directory.</p></dd>
   <dt><code>--version</code> or <code>-v</code> (type: <code>bool</code>)</dt>
   <dd><p>If set, print the about section at the beginning of the execution. Defaults to false.</p></dd>
@@ -400,7 +400,7 @@ sidebar_label: CLI --help
 #### Usage
 
 <dl>
-  <dt><code>--config-dir</code> or <code>-c</code> (type: <code>.bloop</code>)</dt>
+  <dt><code>--config-dir</code> or <code>-c</code> (type: <code>path?</code>)</dt>
   <dd><p>File path to the bloop config directory, defaults to `.bloop` in the current working directory.</p></dd>
   <dt><code>--version</code> or <code>-v</code> (type: <code>bool</code>)</dt>
   <dd><p>If set, print the about section at the beginning of the execution. Defaults to false.</p></dd>

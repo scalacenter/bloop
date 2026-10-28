@@ -17,7 +17,6 @@ case class CliOptions(
     @HelpMessage(
       "File path to the bloop config directory, defaults to `.bloop` in the current working directory."
     )
-    @ValueDescription(".bloop")
     configDir: Option[Path] = None,
     @ExtraName("v")
     @HelpMessage(
