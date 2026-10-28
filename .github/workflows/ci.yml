@@ -54,6 +54,7 @@ jobs:
             sbt-bloop/runtime-dependency \
             sbt-bloop/optional-dependency \
             sbt-bloop/provided-dependency \
+            sbt-bloop/provided-runtime-classpath \
             sbt-bloop/optional-dependency \
             sbt-bloop/bsp-enabled \
             sbt-bloop/meta-builds \

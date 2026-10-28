@@ -1535,12 +1535,25 @@ object BloopDefaults {
     val internalClasspath = (Runtime / BloopKeys.bloopInternalClasspath).value.map(_._2)
     val externalClasspath = (Runtime / Keys.externalDependencyClasspath).value.toFiles.map(_.data)
     val extraExportedJars = (Runtime / BloopKeys.bloopExtraExportedJars).value
-    // Provided dependencies are in Compile classpath but not in Runtime classpath.
-    // For BSP export, we include them in the runtime classpath so IDEs can run with provided deps.
+    // Provided jars are on the Compile classpath only, and IDE runs need them, so add them here.
+    // Skip a jar whose module Runtime resolved to another version: it is an evicted version, not a
+    // Provided dependency, and adding it puts two versions of one library on the classpath.
     val compileClasspath = (Compile / Keys.externalDependencyClasspath).value.toFiles.map(_.data)
     val runtimePaths = externalClasspath.map(_.getCanonicalPath).toSet
-    val providedClasspath =
-      compileClasspath.filterNot(f => runtimePaths.contains(f.getCanonicalPath))
+    val moduleByPath = Keys.update.value.configurations
+      .flatMap(_.modules)
+      .flatMap { m =>
+        val module = (m.module.organization, m.module.name)
+        m.artifacts.map { case (_, f) => f -> module }
+      }
+      .distinct
+      .map { case (f, module) => f.getCanonicalPath -> module }
+      .toMap
+    val runtimeModules = runtimePaths.flatMap(moduleByPath.get)
+    val providedClasspath = compileClasspath.filterNot { f =>
+      val path = f.getCanonicalPath
+      runtimePaths.contains(path) || moduleByPath.get(path).exists(runtimeModules.contains)
+    }
     internalClasspath ++ extraExportedJars ++ externalClasspath ++ providedClasspath
   }
 
