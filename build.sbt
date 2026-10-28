@@ -339,7 +339,16 @@ lazy val cli: Project = project
   .settings(
     testSuiteSettings,
     crossPublishedLauncherSettings,
-    cliSettings
+    cliSettings,
+    // Expose the server's classpath to integration tests so they can launch a
+    // real bloop server through bloop-rifle (this module cannot depend on the
+    // 2.12 frontend).
+    Test / resourceGenerators += Def.task {
+      val file = (Test / resourceManaged).value / "bloop-server-classpath.txt"
+      val classpath = (frontend / Runtime / fullClasspath).value.map(_.data.getAbsolutePath)
+      IO.write(file, classpath.mkString("\n"))
+      Seq(file)
+    }.taskValue
   )
   .dependsOn(bloopRifle)
 
