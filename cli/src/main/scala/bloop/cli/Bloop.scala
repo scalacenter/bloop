@@ -5,6 +5,9 @@ import caseapp.core.app.Command
 
 object Bloop extends CommandsEntryPoint {
   def progName: String = "bloop"
+  override def description: String =
+    "Interact with Bloop (the build server) or check its status.\n" +
+      "Build commands (compile, test, run, ...) are listed by `bloop help`."
   def commands: Seq[Command[_]] = Seq(
     Exit,
     Output,
