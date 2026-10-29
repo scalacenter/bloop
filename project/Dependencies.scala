@@ -89,7 +89,7 @@ object Dependencies {
   def munit = "org.scalameta" %% "munit" % "1.3.6"
   def expecty = "com.eed3si9n.expecty" %% "expecty" % "0.17.1"
   val pprint = "com.lihaoyi" %% "pprint" % "0.9.6"
-  val oslib = "com.lihaoyi" %% "os-lib" % "0.11.9"
+  val oslib = "com.lihaoyi" %% "os-lib" % "0.11.10"
   val junit = "com.github.sbt" % "junit-interface" % junitVersion
   val jupiterInterface = "com.github.sbt.junit" % "jupiter-interface" % jupiterInterfaceVersion
   val directoryWatcher = "ch.epfl.scala" % "directory-watcher" % directoryWatcherVersion
