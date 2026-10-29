@@ -26,7 +26,7 @@ object Dependencies {
   val coursierVersion = "2.1.26"
   val sourcecodeVersion = "0.4.4"
   val sbtTestInterfaceVersion = "1.0"
-  val sbtTestAgentVersion = "1.13.0"
+  val sbtTestAgentVersion = "1.13.1"
   val junitVersion = "0.13.3"
   val jupiterInterfaceVersion = "0.19.0"
   val directoryWatcherVersion = "0.8.0+6-f651bd93"
