@@ -80,8 +80,8 @@ Maintained by the Scala Center <span class="hljs-keyword">and</span> the communi
 <h3><a class="anchor" aria-hidden="true" id="command-line-completions"></a><a href="#command-line-completions" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Command-line completions</h3>
 <p>Bloop does not support PowerShell completions at the moment. However, it does support Bash/Zsh
 command-line completions, which are published with each release:
-<a href="https://github.com/scalacenter/bloop/releases/download/v2.1.2/bash-completions"><code>bash-completions</code></a>
-and <a href="https://github.com/scalacenter/bloop/releases/download/v2.1.2/zsh-completions"><code>zsh-completions</code></a>.</p>
+<a href="https://github.com/scalacenter/bloop/releases/download/v2.1.3/bash-completions"><code>bash-completions</code></a>
+and <a href="https://github.com/scalacenter/bloop/releases/download/v2.1.3/zsh-completions"><code>zsh-completions</code></a>.</p>
 <p>There are several projects that allow you to use Bash style completions in your PowerShell:</p>
 <ol>
 <li><a href="https://github.com/lzybkr/PSReadLine">PSReadLine</a>, a plugin that improves the PowerShell experience and supports bash completions.</li>
@@ -105,7 +105,7 @@ in your <code>$PATH</code> so that the <code>bloop</code> command is available.<
 The build server <strong>will be started</strong> first time the command-line application is used.</p>
 <p>Verify your installation by running the command-line application:</p>
 <pre><code class="hljs">$ bloop about
-bloop v2.1.2
+bloop v2.1.3
 
 Using Scala v2.12.21 <span class="hljs-keyword">and</span> Zinc v1.12.0
 Running on Java JDK v25.0.1 (/Users/tgodzik/.sdkman/candidates/java/25.0.1-tem)
@@ -119,7 +119,7 @@ autocompletions is recommended as it significantly improves the user experience.
 your shell from the release artifacts and put it where your shell looks for completions.</p>
 <h4><a class="anchor" aria-hidden="true" id="zsh-completions"></a><a href="#zsh-completions" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Zsh Completions</h4>
 <pre><code class="hljs css language-sh">mkdir -p ~/.zsh/completion
-curl -fL https://github.com/scalacenter/bloop/releases/download/v2.1.2/zsh-completions \
+curl -fL https://github.com/scalacenter/bloop/releases/download/v2.1.3/zsh-completions \
   -o ~/.zsh/completion/_bloop
 </code></pre>
 <p>The file must be named <code>_bloop</code>, which is the name zsh looks for. Then add the following to your
@@ -130,7 +130,7 @@ compinit
 </code></pre>
 <h4><a class="anchor" aria-hidden="true" id="bash-completions"></a><a href="#bash-completions" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Bash Completions</h4>
 <pre><code class="hljs css language-sh">mkdir -p ~/.<span class="hljs-built_in">local</span>/share/bloop
-curl -fL https://github.com/scalacenter/bloop/releases/download/v2.1.2/bash-completions \
+curl -fL https://github.com/scalacenter/bloop/releases/download/v2.1.3/bash-completions \
   -o ~/.<span class="hljs-built_in">local</span>/share/bloop/bloop-completions.bash
 </code></pre>
 <p>Then add the following to your <code>~/.bash_profile</code>:</p>
@@ -140,7 +140,7 @@ curl -fL https://github.com/scalacenter/bloop/releases/download/v2.1.2/bash-comp
 file as <code>~/.local/share/bash-completion/completions/bloop</code> and skip the <code>~/.bash_profile</code> line.</p>
 <h4><a class="anchor" aria-hidden="true" id="fish-completions"></a><a href="#fish-completions" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Fish Completions</h4>
 <pre><code class="hljs css language-sh">mkdir -p ~/.config/fish/completions
-curl -fL https://github.com/scalacenter/bloop/releases/download/v2.1.2/fish-completions \
+curl -fL https://github.com/scalacenter/bloop/releases/download/v2.1.3/fish-completions \
   -o ~/.config/fish/completions/bloop.fish
 </code></pre>
 <p>Fish loads completions from that directory automatically, so there is nothing to configure.</p>
@@ -392,22 +392,22 @@ usually not the case if you're interfacing directly with the bloop CLI).</p>
       </thead>
       <tbody>
         <tr>
-          <td>2.1.2</td>
+          <td>2.1.3</td>
           <td>23 Oct 2018 12:55</td>
           <td><code>-r sonatype:releases</code></td>
         </tr>
         <tr>
-          <td>2.1.3</td>
-          <td>28 Oct 2026 16:31</td>
+          <td>2.1.3-2-f60bfdce-SNAPSHOT</td>
+          <td>29 Oct 2026 10:42</td>
           <td><code>-r sonatype:releases</code></td>
         </tr>
       </tbody>
     </table>
 <p>Install bloop by adding the following line to your <code>project/plugins.sbt</code>:</p>
-<pre><code class="hljs css language-sbt"><span class="hljs-function"><span class="hljs-title">addSbtPlugin</span><span class="hljs-params">(<span class="hljs-string">"ch.epfl.scala"</span> % <span class="hljs-string">"sbt-bloop"</span> % <span class="hljs-string">"2.1.2"</span>)</span></span>
+<pre><code class="hljs css language-sbt"><span class="hljs-function"><span class="hljs-title">addSbtPlugin</span><span class="hljs-params">(<span class="hljs-string">"ch.epfl.scala"</span> % <span class="hljs-string">"sbt-bloop"</span> % <span class="hljs-string">"2.1.3"</span>)</span></span>
 </code></pre>
 <p>If this does not work due to using an internal Artifactory, use instead:</p>
-<pre><code class="hljs css language-sbt">libraryDependencies += <span class="hljs-string">"ch.epfl.scala"</span> % <span class="hljs-string">"sbt-bloop_2.12_1.0"</span> % <span class="hljs-string">"2.1.2"</span>
+<pre><code class="hljs css language-sbt">libraryDependencies += <span class="hljs-string">"ch.epfl.scala"</span> % <span class="hljs-string">"sbt-bloop_2.12_1.0"</span> % <span class="hljs-string">"2.1.3"</span>
 </code></pre>
 <p>After that, start up sbt or reload your sbt shell to load the plugin.</p>
 <h2><a class="anchor" aria-hidden="true" id="export-your-build"></a><a href="#export-your-build" aria-hidden="true" class="hash-link"><svg class="hash-link-icon" aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Export your build</h2>
@@ -465,7 +465,7 @@ machine. Now, it's time to write Scala code and be productive.</p>
 available.</p>
 <p>If you need help, you can always come over our <a href="https://discord.gg/KWF9zMhJWS">Discord
 channel</a>.</p>
-</span></div></div></div></div></div><script src="/bloop/scripts/tools.js?t=1793205123345"></script><script src="/bloop/scripts/build-tools.js?t=1793205123345"></script></div></div><footer class="nav-footer" id="footer" style="background-color:rgb(17, 42, 68)"><section class="sitemap"><a href="/bloop/" class="nav-home"><img src="/bloop/img/impure-logo-bloop.svg" alt="Bloop" height="60"/></a><a href="/bloop/" class="nav-home"><img src="/bloop/img/frontpage/scala.png" alt="Bloop" height="60"/></a><div><h5>Overview</h5><a href="/bloop/docs/what-is-bloop">What is Bloop</a><a href="/bloop/docs/integration">Integrate with Bloop</a><a href="/bloop/docs/build-tools/overview">Build Tools</a><a href=" /bloop/docs/contributing-guide">Contributing</a></div><div><h5>Build Tools</h5><a href="/bloop/docs/build-tools/sbt">sbt</a><a href="/bloop/docs/build-tools/gradle">Gradle</a><a href="/bloop/docs/build-tools/maven">Maven</a><a href="/bloop/docs/build-tools/mill">Mill</a></div><div><h5>Social</h5><a href="https://github.com/scalacenter/bloop" target="_blank"><img src="https://img.shields.io/github/stars/scalacenter/bloop.svg?color=%23087e8b&amp;label=stars&amp;logo=github&amp;style=social"/></a><a href="https://discord.gg/KWF9zMhJWS" target="_blank"><img src="https://img.shields.io/discord/632642981228314653?logo=discord&amp;style=social"/></a></div></section><section class="copyright">Copyright © 2026 Bloop</section><section class="copyright">Credits to @freepik for svg icons</section><section class="copyright">Credits to Bazel, Babel and Metals for inspiring Bloop&#x27;s website design</section></footer></div><script type="text/javascript" src="https://cdn.jsdelivr.net/docsearch.js/1/docsearch.min.js"></script><script>
+</span></div></div></div></div></div><script src="/bloop/scripts/tools.js?t=1793270602358"></script><script src="/bloop/scripts/build-tools.js?t=1793270602358"></script></div></div><footer class="nav-footer" id="footer" style="background-color:rgb(17, 42, 68)"><section class="sitemap"><a href="/bloop/" class="nav-home"><img src="/bloop/img/impure-logo-bloop.svg" alt="Bloop" height="60"/></a><a href="/bloop/" class="nav-home"><img src="/bloop/img/frontpage/scala.png" alt="Bloop" height="60"/></a><div><h5>Overview</h5><a href="/bloop/docs/what-is-bloop">What is Bloop</a><a href="/bloop/docs/integration">Integrate with Bloop</a><a href="/bloop/docs/build-tools/overview">Build Tools</a><a href=" /bloop/docs/contributing-guide">Contributing</a></div><div><h5>Build Tools</h5><a href="/bloop/docs/build-tools/sbt">sbt</a><a href="/bloop/docs/build-tools/gradle">Gradle</a><a href="/bloop/docs/build-tools/maven">Maven</a><a href="/bloop/docs/build-tools/mill">Mill</a></div><div><h5>Social</h5><a href="https://github.com/scalacenter/bloop" target="_blank"><img src="https://img.shields.io/github/stars/scalacenter/bloop.svg?color=%23087e8b&amp;label=stars&amp;logo=github&amp;style=social"/></a><a href="https://discord.gg/KWF9zMhJWS" target="_blank"><img src="https://img.shields.io/discord/632642981228314653?logo=discord&amp;style=social"/></a></div></section><section class="copyright">Copyright © 2026 Bloop</section><section class="copyright">Credits to @freepik for svg icons</section><section class="copyright">Credits to Bazel, Babel and Metals for inspiring Bloop&#x27;s website design</section></footer></div><script type="text/javascript" src="https://cdn.jsdelivr.net/docsearch.js/1/docsearch.min.js"></script><script>
                 document.addEventListener('keyup', function(e) {
                   if (e.target !== document.body) {
                     return;
