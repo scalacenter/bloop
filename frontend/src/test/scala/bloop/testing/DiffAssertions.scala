@@ -15,43 +15,19 @@ object DiffAssertions {
       obtainedTitle: String,
       expectedTitle: String
   )(implicit source: sourcecode.Line): Unit = {
-    orPrintObtained(
-      () => { assertNoDiff(obtained, expected, obtainedTitle, expectedTitle); () },
-      obtained
-    )
+    orPrintObtained(obtained) { () =>
+      assertNoDiff(obtained, expected, obtainedTitle, expectedTitle); ()
+    }
   }
 
-  def assertNoDiffOrPrintExpected(
+  def assertEndsWithOrPrintObtained(
       obtained: String,
       expected: String,
       obtainedTitle: String,
-      expectedTitle: String,
-      print: Boolean = true
-  )(implicit
-      source: sourcecode.Line
-  ): Boolean = {
-    try assertNoDiff(obtained, expected, obtainedTitle, expectedTitle)
-    catch {
-      case ex: Exception =>
-        if (print) {
-          obtained.linesIterator.toList match {
-            case head +: tail =>
-              val b = new StringBuilder()
-              b.++=("    \"\"\"|" + head).++=(System.lineSeparator())
-              tail.foreach { line =>
-                b.++=("       |")
-                  .++=(line)
-                  .++=(System.lineSeparator())
-              }
-              b.++=("       |\"\"\".stripMargin").++=(System.lineSeparator())
-              println(b.mkString)
-            case head +: Nil =>
-              println(head)
-            case Nil =>
-              println("obtained is empty")
-          }
-        }
-        throw ex
+      expectedTitle: String
+  )(implicit source: sourcecode.Line): Unit = {
+    orPrintObtained(obtained) { () =>
+      assertEndsWith(obtained, expected, obtainedTitle, expectedTitle); ()
     }
   }
 
@@ -66,12 +42,22 @@ object DiffAssertions {
     if (result.isEmpty) true
     else {
       throw new TestFailedException(
-        error2message(
-          obtained,
-          expected,
-          obtainedTitle,
-          expectedTitle
-        )
+        error2message(obtained, expected, obtainedTitle, expectedTitle)
+      )
+    }
+  }
+
+  def assertEndsWith(
+      obtained: String,
+      expected: String,
+      obtainedTitle: String,
+      expectedTitle: String
+  )(implicit source: sourcecode.Line): Boolean = colored {
+    if (obtained.isEmpty && !expected.isEmpty) fail("Obtained empty output!")
+    if (obtained.stripLineEnd.endsWith(expected.stripLineEnd)) true
+    else {
+      throw new TestFailedException(
+        error2message(obtained, expected, obtainedTitle, expectedTitle)
       )
     }
   }
@@ -126,7 +112,7 @@ object DiffAssertions {
     }
   }
 
-  def orPrintObtained(thunk: () => Unit, obtained: String): Unit = {
+  def orPrintObtained(obtained: String)(thunk: () => Unit): Unit = {
     try thunk()
     catch {
       case ex: Exception =>

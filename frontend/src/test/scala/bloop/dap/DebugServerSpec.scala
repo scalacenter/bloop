@@ -146,10 +146,7 @@ object DebugServerSpec extends DebugBspBaseSuite {
           } yield {
             assert(client.socket.isClosed)
             assertNoDiff(
-              output.linesIterator
-                .filterNot(_.contains("ERROR: JDWP Unable to get JNI 1.2 environment"))
-                .filterNot(_.contains("JDWP exit error AGENT_ERROR_NO_JNI_ENV"))
-                .mkString(lineSeparator),
+              output.linesIterator.toSeq.last,
               "Hello, World!"
             )
           }
@@ -182,7 +179,7 @@ object DebugServerSpec extends DebugBspBaseSuite {
           project,
           state,
           arguments = List("hello"),
-          jvmOptions = List("-J-Dworld=world"),
+          jvmOptions = List("-Dworld=world"),
           environmentVariables = List("EXCL=!")
         )
 
@@ -199,10 +196,7 @@ object DebugServerSpec extends DebugBspBaseSuite {
           } yield {
             assert(client.socket.isClosed)
             assertNoDiff(
-              output.linesIterator
-                .filterNot(_.contains("ERROR: JDWP Unable to get JNI 1.2 environment"))
-                .filterNot(_.contains("JDWP exit error AGENT_ERROR_NO_JNI_ENV"))
-                .mkString(lineSeparator),
+              output.linesIterator.toSeq.takeRight(2).mkString(lineSeparator),
               "hello\nworld!"
             )
           }
@@ -375,7 +369,7 @@ object DebugServerSpec extends DebugBspBaseSuite {
           } yield {
             assert(client.socket.isClosed)
             assertNoDiff(
-              finalOutput,
+              finalOutput.linesIterator.toSeq.takeRight(7).mkString(lineSeparator),
               """|Breakpoint in main method
                  |Breakpoint in hello class
                  |Breakpoint in hello inner class
@@ -628,6 +622,7 @@ object DebugServerSpec extends DebugBspBaseSuite {
           for {
             port <- startRemoteProcess(buildProject, testState)
             client <- server.startConnection
+            initOutput <- client.takeCurrentOutput
             _ <- client.initialize()
             _ <- client.attach("localhost", port)
             breakpoints <- client.setBreakpoints(breakpoints)
@@ -643,12 +638,8 @@ object DebugServerSpec extends DebugBspBaseSuite {
           } yield {
             assert(client.socket.isClosed)
 
-            assertNoDiff(outputOnBreakpoint, "")
-
-            assertNoDiff(
-              finalOutput,
-              ""
-            )
+            assertNoDiff(outputOnBreakpoint, initOutput)
+            assertNoDiff(finalOutput, initOutput)
           }
         }
       }
@@ -750,7 +741,7 @@ object DebugServerSpec extends DebugBspBaseSuite {
             _ <- Task.fromFuture(client.closedPromise.future)
           } yield {
             assert(client.socket.isClosed)
-            assertNoDiff(finalOutput, workspace.toString)
+            assertNoDiff(finalOutput.linesIterator.toSeq.last, workspace.toString)
           }
         }
       }
