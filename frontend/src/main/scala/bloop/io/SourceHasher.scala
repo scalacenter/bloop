@@ -69,7 +69,7 @@ object SourceHasher {
     val subscribed = Promise[Unit]()
     def fileVisitor(matches: Path => Boolean) = new FileVisitor[Path] {
       def visitFile(file: Path, attributes: BasicFileAttributes): FileVisitResult = {
-        if (isCancelled.get) FileVisitResult.TERMINATE
+        if (isCancelled.get()) FileVisitResult.TERMINATE
         else {
           // `visitFile` can be called on a directory if we reach the max depth.
           if (attributes.isDirectory || !matches(file)) ()
@@ -89,7 +89,7 @@ object SourceHasher {
           directory: Path,
           attributes: BasicFileAttributes
       ): FileVisitResult = {
-        if (isCancelled.get) FileVisitResult.TERMINATE
+        if (isCancelled.get()) FileVisitResult.TERMINATE
         else {
           visitedDirs.+=(directory)
           FileVisitResult.CONTINUE
@@ -107,14 +107,14 @@ object SourceHasher {
       val opts = java.util.EnumSet.of(FileVisitOption.FOLLOW_LINKS)
       sourceFilesAndDirectories.foreach { sourcePath =>
         if (visitedDirs.contains(sourcePath.underlying) || !sourcePath.exists) ()
-        else if (isCancelled.get) ()
+        else if (isCancelled.get()) ()
         else {
           Files.walkFileTree(sourcePath.underlying, opts, Int.MaxValue, discovery)
         }
       }
       project.sourcesGlobs.foreach { glob =>
         val discovery = fileVisitor(glob.matches)
-        if (isCancelled.get) ()
+        if (isCancelled.get()) ()
         else {
           Files.walkFileTree(glob.directory.underlying, opts, glob.walkDepth, discovery)
         }
@@ -139,7 +139,7 @@ object SourceHasher {
     }
 
     val collectAllSources = Task.create[mutable.ListBuffer[HashedSource]] { (scheduler, cb) =>
-      if (isCancelled.get) {
+      if (isCancelled.get()) {
         cb.onSuccess(mutable.ListBuffer.empty)
         subscribed.success(())
         observer.onComplete()
@@ -171,7 +171,7 @@ object SourceHasher {
     Task
       .mapBoth(orderlyDiscovery, collectAllSources) {
         case (_, sources) =>
-          if (!isCancelled.get) Right(sources.toList.distinct)
+          if (!isCancelled.get()) Right(sources.toList.distinct)
           else {
             cancelCompilation.trySuccess(())
             Left(())

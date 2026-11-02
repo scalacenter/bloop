@@ -48,8 +48,9 @@ object JavaVersionSpec extends bloop.testing.BaseSuite {
           logger.renderErrors(),
           s"""|[E1] $targetFoo:2:22
               |     value repeat is not a member of String
+              |     did you mean replace?
               |     L2:   val output = "La ".repeat(2) + "Land";
-              |                              ^
+              |                        ^^^^^^^^^^^^
               |$targetFoo: L2 [E1]
               |Failed to compile 'a'
               |""".stripMargin

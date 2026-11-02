@@ -105,7 +105,7 @@ class RecordingLogger(
   def dump(out: PrintStream = System.out): Unit = {
     out.println {
       s"""Logger contains the following messages:
-         |${getMessages.map(s => s"[${s._1}] ${s._2}").mkString("\n  ", "\n  ", "\n")}
+         |${getMessages().map(s => s"[${s._1}] ${s._2}").mkString("\n  ", "\n  ", "\n")}
      """.stripMargin
     }
   }

@@ -29,7 +29,7 @@ import sbt.internal.inc.BloopComponentCompiler
  * @param status The status in which the state is currently.
  * @param logger The logger that is used and is associated with a given build.
  */
-final case class State private[engine] (
+final case class State(
     build: Build,
     results: ResultsCache,
     compilerCache: CompilerCache,

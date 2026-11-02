@@ -665,8 +665,8 @@ object Interpreter {
     cmd.mode match {
       case Mode.ProjectBoundCommands =>
         Task {
-          val commandsAcceptingProjects = Commands.RawCommand.help.messages.collect {
-            case (name, help) if help.args.exists(_.name.name == "projects") => name.mkString(" ")
+          val commandsAcceptingProjects = Commands.RawCommand.messages.collect {
+            case (name, help) if help.args.exists(_.name.name == "projects") => name
           }
 
           state.withInfo(commandsAcceptingProjects.mkString(" "))
@@ -674,8 +674,8 @@ object Interpreter {
       case Mode.Commands =>
         Task {
           for {
-            (name, args) <- Commands.RawCommand.help.messages
-            completion <- cmd.format.showCommand(name.mkString(" "), args)
+            (name, args) <- Commands.RawCommand.messages
+            completion <- cmd.format.showCommand(name, args)
           } state.logger.info(completion)
           state
         }
@@ -692,7 +692,7 @@ object Interpreter {
         Task {
           for {
             command <- cmd.command
-            message <- Commands.RawCommand.help.messages.toMap.get(Seq(command))
+            message <- Commands.RawCommand.messagesMap.get(command)
             arg <- message.args
             completion <- cmd.format.showArg(command, Case.kebabizeArg(arg))
           } state.logger.info(completion)

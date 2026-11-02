@@ -78,7 +78,7 @@ object BloopIncremental {
       profiler: InvalidationProfiler = InvalidationProfiler.empty
   )(implicit equivS: Equiv[Stamp]): Task[(Boolean, Analysis)] = {
     val setOfSources = sources.toSet
-    val incremental = new BloopNameHashing(log, options, profiler.profileRun, tracer)
+    val incremental = new BloopNameHashing(log, options, profiler.profileRun(), tracer)
     val initialChanges = incremental.detectInitialChanges(setOfSources, previous, current, lookup, HashedSource.converter, output)
     def isJrt(path: Path) = path.getFileSystem.provider().getScheme == "jrt"
     val binaryChanges = new DependencyChanges {

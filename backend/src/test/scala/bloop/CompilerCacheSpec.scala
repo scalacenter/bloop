@@ -102,14 +102,14 @@ class CompilerCacheSpec {
     val scalaInstance = ScalaInstance.resolve(
       "org.scala-lang",
       "scala-compiler",
-      bloop.internal.build.BloopScalaInfo.scalaVersion,
+      scala.util.Properties.versionNumberString,
       new RecordingLogger()
     )
     val cpOptions = ClasspathOptionsUtil.boot()
 
     val javac0 = compilerCache.get(scalaInstance, cpOptions, None, Nil).javaTools().javac()
     val javac1 = compilerCache.get(scalaInstance, cpOptions, None, Nil).javaTools().javac()
-    assertTrue(javac0 + " was not eq to " + javac1, javac0 eq javac1)
+    assertTrue(s"$javac0 was not eq to $javac1", javac0 eq javac1)
   }
 
   @Test
@@ -117,7 +117,7 @@ class CompilerCacheSpec {
     val scalaInstance = ScalaInstance.resolve(
       "org.scala-lang",
       "scala-compiler",
-      bloop.internal.build.BloopScalaInfo.scalaVersion,
+      scala.util.Properties.versionNumberString,
       new RecordingLogger()
     )
     val classpathOptions1 = ClasspathOptionsUtil.boot()
@@ -135,7 +135,7 @@ class CompilerCacheSpec {
     val scalaInstance = ScalaInstance.resolve(
       "org.scala-lang",
       "scala-compiler",
-      bloop.internal.build.BloopScalaInfo.scalaVersion,
+      scala.util.Properties.versionNumberString,
       new RecordingLogger()
     )
     val cpOptions = ClasspathOptionsUtil.boot()

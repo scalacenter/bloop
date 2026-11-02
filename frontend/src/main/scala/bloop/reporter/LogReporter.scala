@@ -9,7 +9,6 @@ import bloop.logging.Logger
 
 import xsbti.Severity
 import xsbti.VirtualFile
-import bloop.UniqueCompileInputs
 import bloop.util.HashedSource
 
 final class LogReporter(
