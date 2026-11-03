@@ -5,7 +5,6 @@ import bloop.config.Config
 import bloop.logging.RecordingLogger
 import bloop.util.TestProject
 import bloop.util.TestUtil
-import bloop.util.CrossPlatform
 
 object JavaVersionSpec extends bloop.testing.BaseSuite {
 
@@ -61,17 +60,15 @@ object JavaVersionSpec extends bloop.testing.BaseSuite {
     }
   }
 
-  if (!CrossPlatform.isM1) {
-    test("flag-is-added-correctly") {
-      checkFlag(Nil)
-    }
+  test("flag-is-added-correctly") {
+    checkFlag(Nil)
+  }
 
-    test("flag-is-not-added-correctly") {
-      checkFlag(List("-release", "8"))
-      checkFlag(List("-release:8"))
-      // no release flag available in 2.11
-      checkFlag(Nil, jdkVersion = "11", scalaVersion = Some("2.11.12"))
-    }
+  test("flag-is-not-added-correctly") {
+    checkFlag(List("-release", "8"))
+    checkFlag(List("-release:8"))
+    // no release flag available in 2.11
+    checkFlag(Nil, jdkVersion = "11", scalaVersion = Some("2.11.12"))
   }
 
   test("compiles-with-11") {
@@ -119,11 +116,11 @@ object JavaVersionSpec extends bloop.testing.BaseSuite {
           s"""|[E2] $targetFoo:3:15
               |     not found: type HttpClient
               |     L3:   val output: HttpClient = ???
-              |                       ^
+              |                       ^^^^^^^^^^
               |[E1] $targetFoo:1:17
               |     object http is not a member of package java.net
               |     L1: import java.net.http.HttpClient
-              |                         ^
+              |                ^^^^^^^^^^^^^
               |$targetFoo: L1 [E1], L3 [E2]
               |Failed to compile 'a'
               |""".stripMargin
@@ -134,10 +131,8 @@ object JavaVersionSpec extends bloop.testing.BaseSuite {
     }
   }
 
-  if (!CrossPlatform.isM1) {
-    test("doesnt-compile") {
-      checkRtJar(jdkVersion = "8")
-    }
+  test("doesnt-compile") {
+    checkRtJar(jdkVersion = "8")
   }
 
   test("compiles-11") {
