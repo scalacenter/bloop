@@ -208,15 +208,15 @@ final class Protocol(
       // The heartbeat thread is already running: write each chunk under the same
       // lock as heartbeats, so that a heartbeat can't land in the middle of a chunk
       logger.debug(s"Sending arguments '${cmdArgs.mkString(" ")}' to Nailgun server")
-      cmdArgs.foreach(arg => out.synchronized(sendChunk(ChunkTypes.Argument, arg, out)))
+      cmdArgs.foreach(arg => sendChunk(ChunkTypes.Argument, arg, out))
       logger.debug("Sending environment variables to Nailgun server")
       allEnvironment.foreach { kv =>
-        out.synchronized(sendChunk(ChunkTypes.Environment, s"${kv._1}=${kv._2}", out))
+        sendChunk(ChunkTypes.Environment, s"${kv._1}=${kv._2}", out)
       }
       logger.debug(s"Sending working directory $absoluteCwd to Nailgun server")
-      out.synchronized(sendChunk(ChunkTypes.Directory, absoluteCwd, out))
+      sendChunk(ChunkTypes.Directory, absoluteCwd, out)
       logger.debug(s"Sending command $cmd to Nailgun server")
-      out.synchronized(sendChunk(ChunkTypes.Command, cmd, out))
+      sendChunk(ChunkTypes.Command, cmd, out)
 
       logger.debug("Starting thread to read stdin...")
       sendStdinOpt = createStdinThread(out)
@@ -266,7 +266,7 @@ final class Protocol(
     exitCode.get()
   }
 
-  private def sendChunk(tpe: Byte, msg: String, out: DataOutputStream): Unit = {
+  private def sendChunk(tpe: Byte, msg: String, out: DataOutputStream): Unit = out.synchronized {
     val payload = msg.getBytes(StandardCharsets.UTF_8)
     out.writeInt(payload.length)
     out.writeByte(tpe.toInt)
