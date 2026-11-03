@@ -205,10 +205,14 @@ final class Protocol(
     val heartbeatThread = daemonThread("bloop-nailgun-heartbeat")(() => heartbeatLoop(in, out))
 
     try {
+      // The heartbeat thread is already running: write each chunk under the same
+      // lock as heartbeats, so that a heartbeat can't land in the middle of a chunk
       logger.debug(s"Sending arguments '${cmdArgs.mkString(" ")}' to Nailgun server")
-      cmdArgs.foreach(sendChunk(ChunkTypes.Argument, _, out))
+      cmdArgs.foreach(arg => sendChunk(ChunkTypes.Argument, arg, out))
       logger.debug("Sending environment variables to Nailgun server")
-      allEnvironment.foreach(kv => sendChunk(ChunkTypes.Environment, s"${kv._1}=${kv._2}", out))
+      allEnvironment.foreach { kv =>
+        sendChunk(ChunkTypes.Environment, s"${kv._1}=${kv._2}", out)
+      }
       logger.debug(s"Sending working directory $absoluteCwd to Nailgun server")
       sendChunk(ChunkTypes.Directory, absoluteCwd, out)
       logger.debug(s"Sending command $cmd to Nailgun server")
@@ -262,7 +266,7 @@ final class Protocol(
     exitCode.get()
   }
 
-  private def sendChunk(tpe: Byte, msg: String, out: DataOutputStream): Unit = {
+  private def sendChunk(tpe: Byte, msg: String, out: DataOutputStream): Unit = out.synchronized {
     val payload = msg.getBytes(StandardCharsets.UTF_8)
     out.writeInt(payload.length)
     out.writeByte(tpe.toInt)
