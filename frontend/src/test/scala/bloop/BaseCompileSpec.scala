@@ -364,6 +364,80 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
     }
   }
 
+  test("compile scala 3 macro caller after changing a class the macro calls") {
+    TestUtil.withinWorkspace { workspace =>
+      object Sources {
+        val `Routes.scala` =
+          """/Routes.scala
+            |object Routes {
+            |  def splitPath(path: String): List[String] = path.split('/').toList.filter(_.nonEmpty)
+            |}
+          """.stripMargin
+
+        val `Routes2.scala` =
+          """/Routes.scala
+            |object Routes {
+            |  def splitPath(path: String): List[String] = path.split('/').toList.filter(_.nonEmpty)
+            |  def extra: Int = 2
+            |}
+          """.stripMargin
+
+        val `CountMacro.scala` =
+          """/CountMacro.scala
+            |object CountMacro {
+            |  inline def segments(inline path: String): Int = ${ CountMacroImpl.segmentsImpl('path) }
+            |}
+          """.stripMargin
+
+        val `CountMacroImpl.scala` =
+          """/CountMacroImpl.scala
+            |import scala.quoted.*
+            |object CountMacroImpl {
+            |  def segmentsImpl(path: Expr[String])(using Quotes): Expr[Int] =
+            |    Expr(Routes.splitPath(path.valueOrAbort).size)
+            |}
+          """.stripMargin
+
+        val `Use.scala` =
+          """/Use.scala
+            |object Use { val segmentCount: Int = CountMacro.segments("a/b/c") }
+          """.stripMargin
+
+        val `Use2.scala` =
+          """/Use.scala
+            |object Use {
+            |  val segmentCount: Int = CountMacro.segments("a/b/c")
+            |  val other: Int = 1
+            |}
+          """.stripMargin
+
+        // Keeps the change below Zinc's threshold for recompiling everything.
+        val fillers = (1 to 6).toList.map(index => s"/Filler$index.scala\nobject Filler$index")
+      }
+
+      val logger = new RecordingLogger(ansiCodesSupported = false)
+      val sources = List(
+        Sources.`Routes.scala`,
+        Sources.`CountMacro.scala`,
+        Sources.`CountMacroImpl.scala`,
+        Sources.`Use.scala`
+      ) ++ Sources.fillers
+      val `A` = TestProject(workspace, "a", sources, scalaVersion = Some("3.3.7"))
+      val projects = List(`A`)
+      val state = loadState(workspace, projects, logger)
+      val compiledState = state.compile(`A`)
+      assertExitStatus(compiledState, ExitStatus.Ok)
+
+      assertIsFile(writeFile(`A`.srcFor("Routes.scala"), Sources.`Routes2.scala`))
+      assertIsFile(writeFile(`A`.srcFor("Use.scala"), Sources.`Use2.scala`))
+
+      val secondCompiledState = compiledState.compile(`A`)
+      assertExitStatus(secondCompiledState, ExitStatus.Ok)
+      assertSuccessfulCompilation(secondCompiledState, projects, isNoOp = false)
+      assertValidCompilationState(secondCompiledState, projects)
+    }
+  }
+
   test("compile project / clean / compile it again") {
     TestUtil.withinWorkspace { workspace =>
       val sources = List(

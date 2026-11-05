@@ -75,7 +75,11 @@ private final class BloopNameHashing(
       // Compute all the invalidated classes by aggregating invalidated package objects
       val invalidatedByPackageObjects =
         invalidatedPackageObjects(invalidatedClasses, previous.relations, previous.apis)
-      val classesToRecompile = invalidatedClasses ++ invalidatedByPackageObjects
+      val invalidatedBeforeMacros = invalidatedClasses ++ invalidatedByPackageObjects
+      val invalidatedByMacros = macroPathsToInvalidations(invalidatedBeforeMacros, previous)
+      if (invalidatedByMacros.nonEmpty)
+        debug(s"Invalidated by macro dependency paths: $invalidatedByMacros")
+      val classesToRecompile = invalidatedBeforeMacros ++ invalidatedByMacros
 
       // Computes which source files are mapped to the invalidated classes and recompile them
       val invalidatedSources =
@@ -270,6 +274,47 @@ private final class BloopNameHashing(
       debug("********* Merged: \n" + merged.relations + "\n*********")
       merged
     }
+  }
+
+  /**
+   * Computes the classes on internal dependency paths from a macro definition to
+   * an invalidated class, the macro definition included.
+   *
+   * A macro implementation runs inside the compiler and loads the classes it
+   * calls from the classes directories, where the class files of invalidated
+   * classes are pruned before recompiling them. If the macro implementation is
+   * not recompiled in the same cycle, expanding it fails with
+   * `NoClassDefFoundError`. Recompiling it makes Scala 3 suspend the macro
+   * callers until the cycle's new class files exist.
+   */
+  private def macroPathsToInvalidations(
+      invalidated: Set[String],
+      analysis: Analysis
+  ): Set[String] = {
+    val macroDefinitions = analysis.apis.internal.collect {
+      case (className, api) if api.hasMacro => className
+    }.toSet
+    if (invalidated.isEmpty || macroDefinitions.isEmpty) Set.empty
+    else {
+      val dependencies = analysis.relations.internalClassDep
+      val reachableFromMacros = transitiveClosure(macroDefinitions, dependencies.forward)
+      val dependingOnInvalidated = transitiveClosure(invalidated, dependencies.reverse)
+      (reachableFromMacros & dependingOnInvalidated) -- invalidated
+    }
+  }
+
+  private def transitiveClosure(
+      start: Set[String],
+      neighbors: String => Set[String]
+  ): Set[String] = {
+    @scala.annotation.tailrec
+    def visit(pending: List[String], visited: Set[String]): Set[String] = pending match {
+      case Nil => visited
+      case className :: rest =>
+        val unvisited = neighbors(className).filterNot(visited)
+        visit(unvisited.toList ::: rest, visited ++ unvisited)
+    }
+    visit(start.toList, start)
   }
 
   /**
