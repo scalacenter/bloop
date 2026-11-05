@@ -74,22 +74,23 @@ private final class BloopNameHashing(
     else {
       val invalidatedByPackageObjects =
         invalidatedPackageObjects(invalidatedClasses, previous.relations, previous.apis)
-      val sourcesInvalidatedByClasses =
+      val classesInvalidatedBeforeMacros = invalidatedClasses ++ invalidatedByPackageObjects
+      val sourcesToPrune =
         mapInvalidationsToSources(
-          invalidatedClasses ++ invalidatedByPackageObjects,
+          classesInvalidatedBeforeMacros,
           initialChangedSources,
           allSources.map(v => v: VirtualFileRef),
           previous
         )
       val sourcesInvalidatedByMacros =
-        sourcesOnMacroPathsToPrunedSources(sourcesInvalidatedByClasses, previous)
+        sourcesOnMacroPathsToPrunedSources(sourcesToPrune, previous)
       if (sourcesInvalidatedByMacros.nonEmpty)
         debug(s"Invalidated by macro dependency paths: $sourcesInvalidatedByMacros")
-      val classesToRecompile = invalidatedClasses ++ invalidatedByPackageObjects ++
+      val classesToRecompile = classesInvalidatedBeforeMacros ++
         sourcesInvalidatedByMacros.flatMap(previous.relations.classNames)
 
       val invalidatedSources =
-        (sourcesInvalidatedByClasses ++ sourcesInvalidatedByMacros).map {
+        (sourcesToPrune ++ sourcesInvalidatedByMacros).map {
           case f: VirtualFile => f
           case ref: VirtualFileRef => HashedSource.converter.toVirtualFile(ref)
         }
@@ -277,7 +278,7 @@ private final class BloopNameHashing(
     }
   }
 
-  // Scala 3 suspends macro callers only for macros compiled in the same run.
+  // Stale macro implementations must not run against pruned dependencies.
   private def sourcesOnMacroPathsToPrunedSources(
       prunedSources: Set[VirtualFileRef],
       analysis: Analysis
