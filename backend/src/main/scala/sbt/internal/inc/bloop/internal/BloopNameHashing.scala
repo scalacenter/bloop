@@ -72,23 +72,24 @@ private final class BloopNameHashing(
   ): Task[Analysis] = {
     if (invalidatedClasses.isEmpty && initialChangedSources.isEmpty) Task.now(previous)
     else {
-      // Compute all the invalidated classes by aggregating invalidated package objects
       val invalidatedByPackageObjects =
         invalidatedPackageObjects(invalidatedClasses, previous.relations, previous.apis)
-      val invalidatedBeforeMacros = invalidatedClasses ++ invalidatedByPackageObjects
-      val invalidatedByMacros = macroPathsToInvalidations(invalidatedBeforeMacros, previous)
-      if (invalidatedByMacros.nonEmpty)
-        debug(s"Invalidated by macro dependency paths: $invalidatedByMacros")
-      val classesToRecompile = invalidatedBeforeMacros ++ invalidatedByMacros
-
-      // Computes which source files are mapped to the invalidated classes and recompile them
-      val invalidatedSources =
+      val sourcesInvalidatedByClasses =
         mapInvalidationsToSources(
-          classesToRecompile,
+          invalidatedClasses ++ invalidatedByPackageObjects,
           initialChangedSources,
           allSources.map(v => v: VirtualFileRef),
           previous
-        ).map {
+        )
+      val sourcesInvalidatedByMacros =
+        sourcesOnMacroPathsToPrunedSources(sourcesInvalidatedByClasses, previous)
+      if (sourcesInvalidatedByMacros.nonEmpty)
+        debug(s"Invalidated by macro dependency paths: $sourcesInvalidatedByMacros")
+      val classesToRecompile = invalidatedClasses ++ invalidatedByPackageObjects ++
+        sourcesInvalidatedByMacros.flatMap(previous.relations.classNames)
+
+      val invalidatedSources =
+        (sourcesInvalidatedByClasses ++ sourcesInvalidatedByMacros).map {
           case f: VirtualFile => f
           case ref: VirtualFileRef => HashedSource.converter.toVirtualFile(ref)
         }
@@ -276,45 +277,34 @@ private final class BloopNameHashing(
     }
   }
 
-  /**
-   * Computes the classes on internal dependency paths from a macro definition to
-   * an invalidated class, the macro definition included.
-   *
-   * A macro implementation runs inside the compiler and loads the classes it
-   * calls from the classes directories, where the class files of invalidated
-   * classes are pruned before recompiling them. If the macro implementation is
-   * not recompiled in the same cycle, expanding it fails with
-   * `NoClassDefFoundError`. Recompiling it makes Scala 3 suspend the macro
-   * callers until the cycle's new class files exist.
-   */
-  private def macroPathsToInvalidations(
-      invalidated: Set[String],
+  // Scala 3 suspends macro callers only for macros compiled in the same run.
+  private def sourcesOnMacroPathsToPrunedSources(
+      prunedSources: Set[VirtualFileRef],
       analysis: Analysis
-  ): Set[String] = {
-    val macroDefinitions = analysis.apis.internal.collect {
-      case (className, api) if api.hasMacro => className
-    }.toSet
-    if (invalidated.isEmpty || macroDefinitions.isEmpty) Set.empty
+  ): Set[VirtualFileRef] = {
+    val relations = analysis.relations
+    val macroSources = analysis.apis.internal.iterator
+      .collect { case (className, api) if api.hasMacro => className }
+      .flatMap(relations.definesClass)
+      .toSet
+    if (prunedSources.isEmpty || macroSources.isEmpty) Set.empty
     else {
-      val dependencies = analysis.relations.internalClassDep
-      val reachableFromMacros = transitiveClosure(macroDefinitions, dependencies.forward)
-      val dependingOnInvalidated = transitiveClosure(invalidated, dependencies.reverse)
-      (reachableFromMacros & dependingOnInvalidated) -- invalidated
+      def sourcesLinkedBy(classLinks: String => Set[String])(source: VirtualFileRef) =
+        relations.classNames(source).flatMap(classLinks).flatMap(relations.definesClass)
+      val reachableFromMacros = IncrementalCommon.transitiveDeps(
+        macroSources,
+        log,
+        logging = false
+      )(sourcesLinkedBy(relations.internalClassDep.forward))
+      val reachingPrunedFromMacros = IncrementalCommon.transitiveDeps(
+        prunedSources,
+        log,
+        logging = false
+      )(source =>
+        sourcesLinkedBy(relations.internalClassDep.reverse)(source).filter(reachableFromMacros)
+      )
+      reachingPrunedFromMacros.filter(reachableFromMacros) -- prunedSources
     }
-  }
-
-  private def transitiveClosure(
-      start: Set[String],
-      neighbors: String => Set[String]
-  ): Set[String] = {
-    @scala.annotation.tailrec
-    def visit(pending: List[String], visited: Set[String]): Set[String] = pending match {
-      case Nil => visited
-      case className :: rest =>
-        val unvisited = neighbors(className).filterNot(visited)
-        visit(unvisited.toList ::: rest, visited ++ unvisited)
-    }
-    visit(start.toList, start)
   }
 
   /**
