@@ -364,6 +364,145 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
     }
   }
 
+  private def checkScala3MacroCallerRecompiles(
+      name: String,
+      sources: List[String],
+      edits: List[(String, String)]
+  ): Unit = {
+    test(name) {
+      TestUtil.withinWorkspace { workspace =>
+        // Keeps each cycle below Zinc's threshold for recompiling everything.
+        val fillers = (1 to 8).toList.map(index => s"/Filler$index.scala\nobject Filler$index")
+        val logger = new RecordingLogger(ansiCodesSupported = false)
+        val `A` = TestProject(workspace, "a", sources ++ fillers, scalaVersion = Some("3.3.7"))
+        val projects = List(`A`)
+        val state = loadState(workspace, projects, logger)
+        val compiledState = state.compile(`A`)
+        assertExitStatus(compiledState, ExitStatus.Ok)
+
+        edits.foreach {
+          case (fileName, content) => assertIsFile(writeFile(`A`.srcFor(fileName), content))
+        }
+
+        val secondCompiledState = compiledState.compile(`A`)
+        assertExitStatus(secondCompiledState, ExitStatus.Ok)
+        assertSuccessfulCompilation(secondCompiledState, projects, isNoOp = false)
+        assertValidCompilationState(secondCompiledState, projects)
+      }
+    }
+  }
+
+  private object Scala3MacroSources {
+    val `Routes.scala` =
+      """/Routes.scala
+        |object Routes {
+        |  def splitPath(path: String): List[String] = path.split('/').toList.filter(_.nonEmpty)
+        |}
+      """.stripMargin
+
+    val `Routes2.scala` =
+      """/Routes.scala
+        |object Routes {
+        |  def splitPath(path: String): List[String] = path.split('/').toList.filter(_.nonEmpty)
+        |  def extra: Int = 2
+        |}
+      """.stripMargin
+
+    val `CountMacro.scala` =
+      """/CountMacro.scala
+        |object CountMacro {
+        |  inline def segments(inline path: String): Int = ${ CountMacroImpl.segmentsImpl('path) }
+        |}
+      """.stripMargin
+
+    val `Use.scala` =
+      """/Use.scala
+        |object Use { val segmentCount: Int = CountMacro.segments("a/b/c") }
+      """.stripMargin
+
+    val `Use2.scala` =
+      """/Use.scala
+        |object Use {
+        |  val segmentCount: Int = CountMacro.segments("a/b/c")
+        |  val other: Int = 1
+        |}
+      """.stripMargin
+
+    val edits = List(
+      "Routes.scala" -> `Routes2.scala`,
+      "Use.scala" -> `Use2.scala`
+    )
+  }
+
+  checkScala3MacroCallerRecompiles(
+    "compile scala 3 macro caller after changing a class the macro calls",
+    sources = List(
+      Scala3MacroSources.`Routes.scala`,
+      Scala3MacroSources.`CountMacro.scala`,
+      """/CountMacroImpl.scala
+        |import scala.quoted.*
+        |object CountMacroImpl {
+        |  def segmentsImpl(path: Expr[String])(using Quotes): Expr[Int] =
+        |    Expr(Routes.splitPath(path.valueOrAbort).size)
+        |}
+      """.stripMargin,
+      Scala3MacroSources.`Use.scala`
+    ),
+    edits = Scala3MacroSources.edits
+  )
+
+  checkScala3MacroCallerRecompiles(
+    "compile scala 3 macro caller after changing a class a same-file macro calls",
+    sources = List(
+      Scala3MacroSources.`Routes.scala`,
+      """/Macros.scala
+        |import scala.quoted.*
+        |object CountMacro {
+        |  inline def segments(inline path: String): Int = ${ CountMacroImpl.segmentsImpl('path) }
+        |}
+        |object CountMacroImpl {
+        |  def segmentsImpl(path: Expr[String])(using Quotes): Expr[Int] =
+        |    Expr(Routes.splitPath(path.valueOrAbort).size)
+        |}
+      """.stripMargin,
+      Scala3MacroSources.`Use.scala`
+    ),
+    edits = Scala3MacroSources.edits
+  )
+
+  checkScala3MacroCallerRecompiles(
+    "compile scala 3 macro caller when a class the macro calls shares a source with an invalidated class",
+    sources = List(
+      """/Routes.scala
+        |object Routes { def version: Int = 1 }
+      """.stripMargin,
+      Scala3MacroSources.`CountMacro.scala`,
+      """/CountMacroImpl.scala
+        |import scala.quoted.*
+        |object CountMacroImpl {
+        |  def segmentsImpl(path: Expr[String])(using Quotes): Expr[Int] =
+        |    Expr(Helper.split(path.valueOrAbort).size)
+        |}
+      """.stripMargin,
+      """/X.scala
+        |object B { def v = Routes.version }
+        |object Helper { def split(s: String): List[String] = s.split('/').toList }
+      """.stripMargin,
+      """/Use.scala
+        |object Use {
+        |  val segmentCount: Int = CountMacro.segments("a/b/c")
+        |  def v = Routes.version
+        |}
+      """.stripMargin
+    ),
+    edits = List(
+      "Routes.scala" ->
+        """/Routes.scala
+          |object Routes { def version: Long = 1L }
+        """.stripMargin
+    )
+  )
+
   test("compile project / clean / compile it again") {
     TestUtil.withinWorkspace { workspace =>
       val sources = List(

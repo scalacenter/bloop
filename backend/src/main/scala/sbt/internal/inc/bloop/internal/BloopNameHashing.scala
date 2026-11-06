@@ -72,19 +72,25 @@ private final class BloopNameHashing(
   ): Task[Analysis] = {
     if (invalidatedClasses.isEmpty && initialChangedSources.isEmpty) Task.now(previous)
     else {
-      // Compute all the invalidated classes by aggregating invalidated package objects
       val invalidatedByPackageObjects =
         invalidatedPackageObjects(invalidatedClasses, previous.relations, previous.apis)
-      val classesToRecompile = invalidatedClasses ++ invalidatedByPackageObjects
-
-      // Computes which source files are mapped to the invalidated classes and recompile them
-      val invalidatedSources =
+      val classesInvalidatedBeforeMacros = invalidatedClasses ++ invalidatedByPackageObjects
+      val sourcesToPrune =
         mapInvalidationsToSources(
-          classesToRecompile,
+          classesInvalidatedBeforeMacros,
           initialChangedSources,
           allSources.map(v => v: VirtualFileRef),
           previous
-        ).map {
+        )
+      val sourcesInvalidatedByMacros =
+        sourcesOnMacroPathsToPrunedSources(sourcesToPrune, previous)
+      if (sourcesInvalidatedByMacros.nonEmpty)
+        debug(s"Invalidated by macro dependency paths: $sourcesInvalidatedByMacros")
+      val classesToRecompile = classesInvalidatedBeforeMacros ++
+        sourcesInvalidatedByMacros.flatMap(previous.relations.classNames)
+
+      val invalidatedSources =
+        (sourcesToPrune ++ sourcesInvalidatedByMacros).map {
           case f: VirtualFile => f
           case ref: VirtualFileRef => HashedSource.converter.toVirtualFile(ref)
         }
@@ -269,6 +275,36 @@ private final class BloopNameHashing(
       val merged = pruned ++ fresh
       debug("********* Merged: \n" + merged.relations + "\n*********")
       merged
+    }
+  }
+
+  // Stale macro implementations must not run against pruned dependencies.
+  private def sourcesOnMacroPathsToPrunedSources(
+      prunedSources: Set[VirtualFileRef],
+      analysis: Analysis
+  ): Set[VirtualFileRef] = {
+    val relations = analysis.relations
+    val macroSources = analysis.apis.internal.iterator
+      .collect { case (className, api) if api.hasMacro => className }
+      .flatMap(relations.definesClass)
+      .toSet
+    if (prunedSources.isEmpty || macroSources.isEmpty) Set.empty
+    else {
+      def sourcesLinkedBy(classLinks: String => Set[String])(source: VirtualFileRef) =
+        relations.classNames(source).flatMap(classLinks).flatMap(relations.definesClass)
+      val reachableFromMacros = IncrementalCommon.transitiveDeps(
+        macroSources,
+        log,
+        logging = false
+      )(sourcesLinkedBy(relations.internalClassDep.forward))
+      val reachingPrunedFromMacros = IncrementalCommon.transitiveDeps(
+        prunedSources,
+        log,
+        logging = false
+      )(source =>
+        sourcesLinkedBy(relations.internalClassDep.reverse)(source).filter(reachableFromMacros)
+      )
+      reachingPrunedFromMacros.filter(reachableFromMacros) -- prunedSources
     }
   }
 
