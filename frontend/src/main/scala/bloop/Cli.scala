@@ -24,7 +24,10 @@ import bloop.logging.Logger
 import bloop.task.Task
 import bloop.util.JavaRuntime
 
+import caseapp.core.Error
+import caseapp.core.RemainingArgs
 import caseapp.core.help.Help
+import caseapp.core.help.WithHelp
 import com.martiansoftware.nailgun.NGContext
 import monix.execution.atomic.AtomicBoolean
 
@@ -113,12 +116,17 @@ object Cli {
     }
   }
 
-  val commands: Seq[String] = Commands.RawCommand.help.messages.flatMap(_._1.headOption.toSeq)
+  val commands: Seq[String] = Commands.RawCommand.messages.map(_._1)
   // Getting the name from the sbt generated metadata gives us `bloop-frontend` instead.
   val beforeCommandMessages: Help[Unit] =
-    caseapp.core.help
-      .Help(Nil, "bloop", bloop.internal.build.BuildInfo.version, "bloop", None)
-      .withOptionsDesc(s"[options] [command] [command-options]")
+    caseapp.core.help.Help[Unit](
+      args = Nil,
+      appName = "bloop",
+      appVersion = bloop.internal.build.BuildInfo.version,
+      progName = "bloop",
+      argsNameOption = None,
+      optionsDesc = "[options] [command] [command-options]"
+    )
 
   private val progName: String = beforeCommandMessages.progName
   private def helpAsked: String =
@@ -129,10 +137,12 @@ object Cli {
 
   private def commandHelpAsked(command: String): String = {
     // We have to do this ourselves because case-app 1.2.0 has a bug in its `ArgsName` handling.
-    val messages = Commands.RawCommand.help.messagesMap(Seq(command))
+    val messages = Commands.RawCommand.messagesMap(command)
     val argsName =
       if (messages.args.exists(_.name.name.startsWith("project"))) Some("project") else None
-    messages.withArgsNameOption(argsName).helpMessage(beforeCommandMessages.progName, Seq(command))
+    messages
+      .copy(argsNameOption = argsName)
+      .helpMessage(beforeCommandMessages.progName, Seq(command))
   }
 
   private def usageAsked: String = {
@@ -165,8 +175,8 @@ object Cli {
   }
 
   private def commandUsageAsked(command: String): String =
-    Commands.RawCommand.help
-      .messagesMap(Seq(command))
+    Commands.RawCommand
+      .messagesMap(command)
       .usageMessage(beforeCommandMessages.progName, Seq(command))
 
   private def printErrorAndExit(msg: String, commonOptions: CommonOptions): Print =
@@ -199,21 +209,48 @@ object Cli {
     }
   }
 
+  /**
+   * Parses the options before the command, and then the command with its own options.
+   */
+  private def parseCommandLine(args: Seq[String]): Either[
+    Error,
+    (
+        WithHelp[CliOptions],
+        Option[Either[Error, (String, WithHelp[Commands.RawCommand], RemainingArgs)]]
+    )
+  ] = {
+    CliOptions.parser.withHelp.detailedParse(args, stopAtFirstUnrecognized = true).flatMap {
+      case (beforeCommand, rest) =>
+        rest.all.toList match {
+          case Nil => Right((beforeCommand, None))
+          case arg :: _ if arg.startsWith("-") => Left(Error.UnrecognizedArgument(arg))
+          case commandName :: commandArgs =>
+            val command = Commands.RawCommand.parsers.get(commandName) match {
+              case None => Left(Error.CommandNotFound(commandName))
+              case Some(parser) =>
+                parser.withHelp.detailedParse(commandArgs).map {
+                  case (command, remainingArgs) => (commandName, command, remainingArgs)
+                }
+            }
+            Right((beforeCommand, Some(command)))
+        }
+    }
+  }
+
   def parse(args: Array[String], commonOptions: CommonOptions): Action = {
-    import caseapp.core.help.WithHelp
-    Commands.RawCommand.parser.withHelp.detailedParse(args)(CliOptions.parser.withHelp) match {
+    parseCommandLine(args.toSeq) match {
       case Left(err) => printErrorAndExit(err.message, commonOptions)
-      case Right((WithHelp(_, help @ true, _), _, _)) =>
+      case Right((WithHelp(_, help @ true, _), _)) =>
         Print(helpAsked, commonOptions, Exit(ExitStatus.Ok))
-      case Right((WithHelp(usage @ true, _, _), _, _)) =>
+      case Right((WithHelp(usage @ true, _, _), _)) =>
         Print(usageAsked, commonOptions, Exit(ExitStatus.Ok))
-      case Right((WithHelp(_, _, userOptions), _, commandOpt)) =>
+      case Right((WithHelp(_, _, userOptions), commandOpt)) =>
         val newAction = commandOpt map {
           case Left(err) => printErrorAndExit(err.message, commonOptions)
           case Right((commandName, WithHelp(_, help @ true, _), _)) =>
-            Print(commandHelpAsked(commandName.mkString(" ")), commonOptions, Exit(ExitStatus.Ok))
+            Print(commandHelpAsked(commandName), commonOptions, Exit(ExitStatus.Ok))
           case Right((commandName, WithHelp(usage @ true, _, _), _)) =>
-            Print(commandUsageAsked(commandName.mkString(" ")), commonOptions, Exit(ExitStatus.Ok))
+            Print(commandUsageAsked(commandName), commonOptions, Exit(ExitStatus.Ok))
           case Right((commandName, WithHelp(_, _, command), remainingArgs)) =>
             // Override common options depending who's the caller of parse (whether nailgun or main)
             def run(command: Commands.RawCommand, cliOptions: CliOptions): Action = {
@@ -247,7 +284,7 @@ object Cli {
                 val newCommand = c.copy(cliOptions = c.cliOptions.copy(common = commonOptions))
                 withNonEmptyProjects(
                   c.projects,
-                  commandName.mkString(" "),
+                  commandName,
                   remainingArgs.remaining,
                   commonOptions
                 ) { ps =>
@@ -280,7 +317,7 @@ object Cli {
                   .getOrElse {
                     withNonEmptyProjects(
                       c.projects,
-                      commandName.mkString(" "),
+                      commandName,
                       remainingArgs.remaining,
                       commonOptions
                     ) { ps =>
@@ -306,7 +343,7 @@ object Cli {
                 val newCommand = c.copy(cliOptions = c.cliOptions.copy(common = commonOptions))
                 withNonEmptyProjects(
                   c.projects,
-                  commandName.mkString(" "),
+                  commandName,
                   remainingArgs.remaining,
                   commonOptions
                 ) { ps =>
@@ -443,7 +480,7 @@ object Cli {
   ): CliSession = {
     val isClientConnected = AtomicBoolean(true)
     pool.addListener(_ => isClientConnected.set(false))
-    val defaultClient = CliClientInfo(useStableCliDirs = true, () => isClientConnected.get)
+    val defaultClient = CliClientInfo(useStableCliDirs = true, () => isClientConnected.get())
 
     def sessionFor(client: CliClientInfo): CliSession = {
       val cliTask = processCliTask(client).map(_.status)
@@ -466,7 +503,7 @@ object Cli {
             if (sessions == null || sessions.isEmpty) List(defaultClientSession)
             else {
               logger.debug("Detected connected cli clients, starting CLI with unique dirs...")
-              val newClient = CliClientInfo(useStableCliDirs = false, () => isClientConnected.get)
+              val newClient = CliClientInfo(useStableCliDirs = false, () => isClientConnected.get())
               val newClientSession = sessionFor(newClient)
               newClientSession :: sessions
             }

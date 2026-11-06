@@ -5,7 +5,7 @@ import java.util.Optional
 import xsbti.Severity
 
 /** Describes a problem (error, warning, message, etc.) given to the reporter. */
-final case class Problem private (
+final case class Problem private[bloop] (
     /** A unique (per compilation run) number for this message. -1 means unknown. */
     id: Int,
     /** The severity of this message. */

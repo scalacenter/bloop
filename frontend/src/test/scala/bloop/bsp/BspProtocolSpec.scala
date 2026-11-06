@@ -343,7 +343,7 @@ abstract class BspProtocolSpec(
           ("ScalaTest", List("hello.ScalaTestTest", "hello.WritingTest", "hello.ResourcesTest"))
         ).map {
           case (framework, classes) =>
-            bsp.ScalaTestClassesItem(project.bspId, Some(framework), classes)
+            (project.bspId, Some(framework), classes.toSet)
         }
 
         val testSuites = compiledState.testClasses(project)
@@ -351,7 +351,9 @@ abstract class BspProtocolSpec(
 
         assert(items.size == expectedSuites.size)
 
-        try assertEquals(items.toSet, expectedSuites)
+        val obtainedSuites =
+          items.map(item => (item.target, item.framework, item.classes.toSet)).toSet
+        try assertEquals(obtainedSuites, expectedSuites)
         catch { case t: TestFailedException => logger.dump(); throw t }
       }
     }

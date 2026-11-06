@@ -6,6 +6,7 @@ import java.util.concurrent.ConcurrentHashMap
 
 import bloop.DependencyResolution
 import bloop.config.Config
+import bloop.io.AbsolutePath
 import bloop.logging.DebugFilter
 import bloop.logging.Logger
 
@@ -18,6 +19,12 @@ abstract class ToolchainCompanion[Toolchain] {
 
   /** The official name of the toolchain. */
   def name: String
+
+  /**
+   * The Scala binary version of the toolchain artifacts loaded with the bridges. Older toolchain
+   * versions are not published for Scala 3, so the bridges are compiled against the 2.13 ones.
+   */
+  protected final val toolchainScalaBinaryVersion: String = "2.13"
 
   type Platform <: Config.Platform
   type Config <: Config.PlatformConfig
@@ -92,7 +99,7 @@ abstract class ToolchainCompanion[Toolchain] {
       catch {
         case t: Throwable =>
           logger.error("Could not resolve platform artifacts: " + t)
-          Array()
+          Array.empty[AbsolutePath]
       }
 
     files.iterator.map(_.underlying).filter(_.toString.endsWith(".jar")).toList

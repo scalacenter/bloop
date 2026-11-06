@@ -30,7 +30,6 @@ import bloop.engine.NoPool
 import bloop.engine.State
 import bloop.engine.tasks.RunMode
 import bloop.engine.tasks.Tasks
-import bloop.internal.build
 import bloop.internal.build.BuildTestInfo
 import bloop.io.AbsolutePath
 import bloop.io.Environment.lineSeparator
@@ -227,7 +226,7 @@ object DebugServerSpec extends DebugBspBaseSuite {
           Dependency.of(
             "org.scala-lang",
             "scala-library",
-            build.BuildInfo.scalaVersion
+            scala.util.Properties.versionNumberString
           )
         )
         .fetch()
@@ -570,7 +569,7 @@ object DebugServerSpec extends DebugBspBaseSuite {
   }
 
   testTask("closes the client even though the debuggee cannot close", FiniteDuration(20, SECONDS)) {
-    val blockedDebuggee = Promise[Nothing]
+    val blockedDebuggee = Promise[Nothing]()
 
     startDebugServer(Task.fromFuture(blockedDebuggee.future)) { server =>
       for {
@@ -1073,7 +1072,7 @@ object DebugServerSpec extends DebugBspBaseSuite {
       jdkConfig,
       testState.state.commonOptions.workingPath,
       "Main",
-      Array.empty,
+      Array.empty[String],
       skipJargs = false,
       envVars = List.empty,
       RunMode.Debug()
@@ -1217,7 +1216,7 @@ object DebugServerSpec extends DebugBspBaseSuite {
 
   }
 
-  private final class TestServer(val server: DebugServer) extends AutoCloseable {
+  final class TestServer(val server: DebugServer) extends AutoCloseable {
     private val clients = mutable.Set.empty[DebugAdapterConnection]
 
     def cancel(): Unit = {

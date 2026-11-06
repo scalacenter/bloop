@@ -194,7 +194,7 @@ object CompileGatekeeper {
 
     def cleanUpAfterCompilationError[T](result: T): T =
       tracer.trace("cleaning after compilation error") { _ =>
-        if (!isAlreadyUnsubscribed.get) {
+        if (!isAlreadyUnsubscribed.get()) {
           // Remove running compilation if host compilation hasn't unsubscribed (maybe it's blocked)
           logger.debug(
             s"Remove running compilation if host compilation hasn't unsubscribed (maybe it's blocked):${oinputs}"

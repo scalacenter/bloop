@@ -7,12 +7,11 @@ import bloop.cli.CliParsers._
 import bloop.io.AbsolutePath
 
 import caseapp.CommandName
-import caseapp.CommandParser
-import caseapp.CommandsHelp
 import caseapp.ExtraName
 import caseapp.HelpMessage
 import caseapp.Parser
 import caseapp.Recurse
+import caseapp.core.help.CommandHelp
 import caseapp.{Help => CaseAppHelp}
 
 object Commands {
@@ -33,8 +32,37 @@ object Commands {
   sealed trait RawCommand extends Command
 
   object RawCommand {
-    implicit val help: CommandsHelp[RawCommand] = CommandsHelp.derive
-    implicit val parser: CommandParser[RawCommand] = CommandParser.derive
+    final class Entry[T <: RawCommand](
+        val name: String,
+        val parser: Parser[T],
+        val messages: CommandHelp
+    )
+
+    private def entry[T <: RawCommand](
+        name: String
+    )(implicit parser: Parser[T], help: CaseAppHelp[T]): Entry[T] =
+      new Entry(name, parser, CommandHelp(help.args, help.argsNameOption, None))
+
+    lazy val entries: List[Entry[_ <: RawCommand]] = List(
+      entry[About]("about"),
+      entry[Autocomplete]("autocomplete"),
+      entry[Bsp]("bsp"),
+      entry[Clean]("clean"),
+      entry[Compile]("compile"),
+      entry[Configure]("configure"),
+      entry[Console]("console"),
+      entry[Help]("help"),
+      entry[Link]("link"),
+      entry[Projects]("projects"),
+      entry[Run]("run"),
+      entry[Test]("test"),
+      entry[Version]("version")
+    )
+
+    lazy val messages: List[(String, CommandHelp)] = entries.map(e => e.name -> e.messages)
+    lazy val messagesMap: Map[String, CommandHelp] = messages.toMap
+    lazy val parsers: Map[String, Parser[_ <: RawCommand]] =
+      entries.map(e => e.name -> e.parser).toMap
   }
 
   sealed trait CompilingCommand extends RawCommand {
@@ -265,6 +293,11 @@ object Commands {
       @Recurse cliOptions: CliOptions = CliOptions.default
   ) extends CompilingCommand
 
+  object Console {
+    implicit lazy val parser: Parser[Console] = Parser.derive
+    implicit lazy val help: CaseAppHelp[Console] = CaseAppHelp.derive
+  }
+
   case class Run(
       @ExtraName("p")
       @ExtraName("project")
@@ -339,4 +372,9 @@ object Commands {
       optimize: Option[OptimizerConfig] = None,
       @Recurse cliOptions: CliOptions = CliOptions.default
   ) extends LinkingCommand
+
+  object Link {
+    implicit lazy val parser: Parser[Link] = Parser.derive
+    implicit lazy val help: CaseAppHelp[Link] = CaseAppHelp.derive
+  }
 }

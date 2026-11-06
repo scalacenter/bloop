@@ -22,10 +22,10 @@ object CommandsDocGenerator {
   private val NL = lineSeparator
   private final val DefaultDocsPath = "../docs/cli/reference.md"
   def generateHTML(commandExamples: Map[String, Seq[String]]): Seq[String] = {
-    Commands.RawCommand.help.messages.map {
+    Commands.RawCommand.messages.map {
       case (commandName, messages) =>
         val examples =
-          commandExamples.getOrElse(commandName.mkString(" "), Nil).reverse.map { example =>
+          commandExamples.getOrElse(commandName, Nil).reverse.map { example =>
             s"  * <samp>$example</samp>"
           }
 
@@ -33,7 +33,7 @@ object CommandsDocGenerator {
         val progName = "bloop"
         val b = new StringBuilder
         b ++= NL
-        b ++= s"## `$progName ${commandName.mkString(" ")}$argsOption`"
+        b ++= s"## `$progName $commandName$argsOption`"
         b ++= NL
         b ++= NL
         b ++= "#### Usage"
@@ -203,6 +203,6 @@ object CommandsDocGenerator {
         }
     }
 
-    parsed.map(_.groupBy(_.projectName).mapValues(_.flatMap(_.examples)))
+    parsed.map(_.groupBy(_.projectName).view.mapValues(_.flatMap(_.examples)).toMap)
   }
 }

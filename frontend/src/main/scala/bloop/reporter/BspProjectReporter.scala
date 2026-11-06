@@ -396,7 +396,7 @@ final class BspProjectReporter(
     }
     wasEndProcessed = true
     endEvent =
-      if (cycleCount.get == 0) mockNoOpCompileEventsAndEnd
+      if (cycleCount.get() == 0) mockNoOpCompileEventsAndEnd
       else {
         // Great, let's report the pending end incremental cycle as the last one
         val inputs =

@@ -51,7 +51,7 @@ import xsbti.compile.analysis.ReadWriteMappers
  * @param all The map of projects to latest compilation results.
  * @param successful The map of all projects to latest successful compilation results.
  */
-final case class ResultsCache private (
+final case class ResultsCache private[bloop] (
     all: Map[Project, Compiler.Result],
     successful: Map[Project, LastSuccessfulResult]
 ) {
@@ -85,8 +85,8 @@ final case class ResultsCache private (
       Paths.delete(path)
     }
     // Remove all the successful results from the cache.
-    val newSuccessful = successful.filterKeys(p => !projects.contains(p))
-    val newAll = all.filterKeys(p => !projects.contains(p))
+    val newSuccessful = successful -- projects
+    val newAll = all -- projects
     val deleteClassesDirs = successful.filterKeys(projects.contains).flatMap {
       case (project, result) =>
         List(

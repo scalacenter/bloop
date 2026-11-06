@@ -75,7 +75,7 @@ case object FinalEmptyResult extends FinalCompileResult {
   override final val result: ResultBundle = ResultBundle.empty
 }
 
-case class FinalNormalCompileResult private (
+case class FinalNormalCompileResult private[bloop] (
     project: Project,
     result: ResultBundle
 ) extends FinalCompileResult

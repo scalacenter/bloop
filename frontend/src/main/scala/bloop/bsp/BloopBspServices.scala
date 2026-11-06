@@ -268,7 +268,7 @@ final class BloopBspServices(
       ownsBuildFiles,
       clientClassesRootDir,
       refreshProjectsCommand,
-      () => isClientConnected.get
+      () => isClientConnected.get()
     )
 
     /**
@@ -1612,8 +1612,8 @@ final class BloopBspServices(
         Task.now(Left(()))
       )
       .map {
-        case Left(_) => closeServices
-        case Right(_) => closeServices
+        case Left(_) => closeServices()
+        case Right(_) => closeServices()
       }
   }
 }
