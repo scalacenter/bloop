@@ -110,14 +110,6 @@ final class BloopHighLevelCompiler(
           }
         }
 
-        def withTee(block: TeeOutputStream => Unit) = {
-          System.out match {
-            case tee: TeeOutputStream =>
-              block(tee)
-            case _ =>
-          }
-
-        }
         def compileSources(
             sources: Seq[VirtualFile],
             scalacOptions: Array[String],
@@ -131,9 +123,8 @@ final class BloopHighLevelCompiler(
             throw new CompileFailed(new Array(0), s"Expected Scala library jar in Scala instance containing ${scalac.scalaInstance.allJars().mkString(", ")}", new Array(0))
           }
           val baos = new ByteArrayOutputStream()
-          withTee {
-            _.addListener(baos)
-          }
+          val stdout = TeeOutputStream.systemOut()
+          stdout.addListener(baos)
 
           // Wrap a fatal error in a non-fatal crash: fatal errors escape the task that runs
           // the compilation, so they would never complete it and clients would wait forever.
@@ -173,12 +164,10 @@ final class BloopHighLevelCompiler(
                 case t => throw t
               }
           } finally {
-            withTee { tee =>
-              val result = baos.toString()
-              if (result.nonEmpty)
-                logger.info(baos.toString)
-              tee.removeListener(baos)
-            }
+            stdout.removeListener(baos)
+            val result = baos.toString()
+            if (result.nonEmpty)
+              logger.info(result)
           }
         }
 

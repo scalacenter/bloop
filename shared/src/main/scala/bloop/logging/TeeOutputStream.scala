@@ -34,3 +34,20 @@ class TeeOutputStream(targetPS: PrintStream) extends PrintStream(targetPS) {
     allStreams -= baos.hashCode
   }
 }
+
+object TeeOutputStream {
+
+  /**
+   * Returns the tee that wraps `System.out`, installing it on first use. All callers
+   * share it, so `System.out` is wrapped once per process instead of once per caller.
+   */
+  def systemOut(): TeeOutputStream = synchronized {
+    System.out match {
+      case tee: TeeOutputStream => tee
+      case out =>
+        val tee = new TeeOutputStream(out)
+        System.setOut(tee)
+        tee
+    }
+  }
+}

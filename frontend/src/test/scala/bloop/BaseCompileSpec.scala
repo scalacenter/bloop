@@ -253,6 +253,29 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
     }
   }
 
+  test("compile-with-Vprint:typer reaches the logger of a later client") {
+    TestUtil.withinWorkspace { workspace =>
+      val sources = List(
+        """/main/scala/Foo.scala
+          |class Foo
+          """.stripMargin
+      )
+
+      val firstLogger = new RecordingLogger(ansiCodesSupported = false)
+      val `A` = TestProject(workspace, "a", sources, scalacOptions = List("-Vprint:typer"))
+      val projects = List(`A`)
+      val firstState = loadState(workspace, projects, firstLogger).compile(`A`)
+      assertExitStatus(firstState, ExitStatus.Ok)
+      assert(firstLogger.infos.exists(_.contains("class Foo extends scala.AnyRef")))
+
+      assertIsFile(writeFile(`A`.srcFor("main/scala/Foo.scala"), "class Bar"))
+      val secondLogger = new RecordingLogger(ansiCodesSupported = false)
+      val secondState = firstState.withLogger(secondLogger).compile(`A`)
+      assertExitStatus(secondState, ExitStatus.Ok)
+      assert(secondLogger.infos.exists(_.contains("class Bar extends scala.AnyRef")))
+    }
+  }
+
   test("compile a project, delete an analysis and then write it back during a no-op compilation") {
     TestUtil.withinWorkspace { workspace =>
       val sources = List(
