@@ -19,7 +19,9 @@ import scala.concurrent.duration.DurationInt
 import scala.concurrent.duration.FiniteDuration
 import scala.util.Properties
 import scala.util.Try
+import scala.util.control.NonFatal
 
+import bloop.engine.ExecutionContext
 import bloop.engine.State
 import bloop.util.ProxySetup
 
@@ -47,7 +49,7 @@ object BloopServer {
       }
     }
   private val defaultPort: Int = 8212 // 8100 + 'p'
-  private val evictDeletedWorkspacesPeriod: FiniteDuration = 5.minutes
+  private val evictDeletedBuildsPeriod: FiniteDuration = 5.minutes
   def main(args: Array[String]): Unit = {
     def toPortNumber(userPort: String) = Try(userPort.toInt).getOrElse(BloopServer.defaultPort)
     val lockFilesDirOrHostPort = args match {
@@ -81,7 +83,7 @@ object BloopServer {
       truncateFilePeriodically(Paths.get(value))
     }
 
-    evictDeletedWorkspacesPeriodically()
+    evictDeletedBuildsPeriodically()
 
     lockFilesDirOrHostPort match {
       case Left(hostPort) =>
@@ -190,29 +192,23 @@ object BloopServer {
     ()
   }
 
-  private def evictDeletedWorkspacesPeriodically(): Unit = {
-    val scheduler = Executors.newSingleThreadScheduledExecutor(
-      new ThreadFactory {
-        def newThread(r: Runnable): Thread = {
-          val t = new Thread(r, "evict-deleted-workspaces")
-          t.setDaemon(true)
-          t
-        }
+  private def evictDeletedBuildsPeriodically(): Unit = {
+    ExecutionContext.ioScheduler.scheduleWithFixedDelay(
+      evictDeletedBuildsPeriod,
+      evictDeletedBuildsPeriod
+    ) {
+      try {
+        val evicted = State.evictDeletedBuilds()
+        if (evicted.nonEmpty)
+          System.err.println(
+            s"Evicted state of deleted config directories: ${evicted.mkString(", ")}"
+          )
+      } catch {
+        case NonFatal(t) =>
+          System.err.println(s"Caught $t while evicting deleted builds, ignoring it")
+          t.printStackTrace(System.err)
       }
-    )
-    val runnable: Runnable =
-      () =>
-        try {
-          val evicted = State.evictDeletedBuilds()
-          if (evicted.nonEmpty)
-            System.err.println(s"Evicted state of deleted workspaces: ${evicted.mkString(", ")}")
-        } catch {
-          case t: Throwable =>
-            System.err.println(s"Caught $t while evicting deleted workspaces, ignoring it")
-            t.printStackTrace(System.err)
-        }
-    val period = evictDeletedWorkspacesPeriod
-    scheduler.scheduleWithFixedDelay(runnable, period.length, period.length, period.unit)
+    }
     ()
   }
 

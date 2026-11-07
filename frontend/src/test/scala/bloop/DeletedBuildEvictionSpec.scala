@@ -3,7 +3,6 @@ package bloop
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicBoolean
 
 import scala.collection.JavaConverters._
 import scala.concurrent.duration.FiniteDuration
@@ -62,39 +61,21 @@ object DeletedBuildEvictionSpec extends bloop.testing.BaseSuite {
     }
   }
 
-  test("never removes an existing build while other threads update the cache") {
+  test("keeps a build that was replaced after it was selected for removal") {
     TestUtil.withinWorkspace { workspace =>
       val logger = newLogger()
       val cache = StateCache.empty
-      val existing = (1 to 4).map(i => loadBuildIn(workspace.resolve(s"e$i"), logger).state)
-      val deleted = (1 to 4).map(i => loadBuildIn(workspace.resolve(s"d$i"), logger).state)
-      deleted.foreach(state => BloopPaths.delete(state.build.origin))
-      val all = existing ++ deleted
-      val existingDirs = existing.map(_.build.origin).toSet
+      val selected = loadBuildIn(workspace.resolve("w"), logger).state
+      val replacement = loadBuildIn(workspace.resolve("w"), logger).state
+      cache.updateBuild(selected)
 
-      val isRunning = new AtomicBoolean(true)
-      val writers = (1 to 4).map { seed =>
-        val random = new scala.util.Random(seed.toLong)
-        val thread = new Thread(() => {
-          while (isRunning.get()) cache.updateBuild(all(random.nextInt(all.size)))
-        })
-        thread.start()
-        thread
+      val removed = cache.removeBuildsWhere { _ =>
+        cache.updateBuild(replacement)
+        true
       }
 
-      val deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(300)
-      var removedExisting = Set.empty[AbsolutePath]
-      while (System.nanoTime() < deadline) {
-        val removed = cache.removeDeletedBuilds().map(_.origin).toSet
-        removedExisting ++= removed.intersect(existingDirs)
-      }
-      isRunning.set(false)
-      writers.foreach(_.join())
-
-      cache.removeDeletedBuilds()
-      assertEquals(removedExisting, Set.empty[AbsolutePath])
-      existing.foreach(state => assert(cache.getRawCachedBuildFor(state.build.origin).isDefined))
-      deleted.foreach(state => assert(cache.getRawCachedBuildFor(state.build.origin).isEmpty))
+      assertEquals(removed, Nil)
+      assert(cache.getRawCachedBuildFor(replacement.build.origin).exists(_ eq replacement.build))
     }
   }
 

@@ -62,8 +62,6 @@ object State {
   /**
    * Evicts the in-memory state of every deleted build, including the last
    * successful results that compilations share across clients.
-   *
-   * @return The config directories of the evicted builds.
    */
   private[bloop] def evictDeletedBuilds(): List[bloop.io.AbsolutePath] = {
     val evicted = stateCache.removeDeletedBuilds()

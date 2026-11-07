@@ -54,27 +54,18 @@ final class StateCache(cache: ConcurrentHashMap[AbsolutePath, StateCache.CachedS
     Option(cache.get(path)).map(_.build)
 
   /**
-   * Drops the cached state of every deleted build: its config directory is
-   * gone, or it had projects and all their config files are gone. The second
-   * case covers an in-flight compile that recreates the output directories
-   * inside a deleted config directory and saves its state afterwards.
-   *
-   * A request that targets a dropped build later reloads it from disk.
-   *
-   * @return The builds that were dropped.
+   * Drops the cached state of every deleted build. A request that targets a
+   * dropped build later reloads it from disk.
    */
-  def removeDeletedBuilds(): List[Build] = {
-    import scala.collection.JavaConverters._
-    cache.keySet().asScala.toList.flatMap { path =>
-      var removed: Option[Build] = None
-      cache.computeIfPresent(
-        path,
-        (_: AbsolutePath, cached: StateCache.CachedState) =>
-          if (!StateCache.isDeleted(cached.build)) cached
-          else { removed = Some(cached.build); null }
-      )
-      removed
+  def removeDeletedBuilds(): List[Build] = removeBuildsWhere(StateCache.isDeleted)
+
+  /** Drops each build that `shouldRemove` selects, unless its entry was replaced meanwhile. */
+  private[bloop] def removeBuildsWhere(shouldRemove: Build => Boolean): List[Build] = {
+    val removed = List.newBuilder[Build]
+    cache.forEach { (path: AbsolutePath, cached: StateCache.CachedState) =>
+      if (shouldRemove(cached.build) && cache.remove(path, cached)) removed += cached.build
     }
+    removed.result()
   }
 
   /**
@@ -190,6 +181,7 @@ object StateCache {
 
   private def isDeleted(build: Build): Boolean = {
     val projects = build.loadedProjects
+    // Checks configs too: an in-flight compile can recreate output dirs in a deleted dir
     !build.origin.exists ||
     (projects.nonEmpty && projects.forall(loaded => !loaded.project.origin.path.exists))
   }
