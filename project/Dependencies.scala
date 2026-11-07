@@ -72,7 +72,7 @@ object Dependencies {
   val coursier = "io.get-coursier" %% "coursier" % coursierVersion
   val coursierJvm = "io.get-coursier" %% "coursier-jvm" % coursierVersion
   val dependency = "io.get-coursier" %% "dependency" % "0.3.4"
-  val directoriesJni = "io.get-coursier.util" % "directories-jni" % "0.1.4"
+  val directoriesJni = "io.get-coursier.util" % "directories-jni" % "0.2.0"
   val scalaCollectionCompat = "org.scala-lang.modules" %% "scala-collection-compat" % "2.14.0"
   val shapeless = "com.chuusai" %% "shapeless" % shapelessVersion
   val caseApp = "com.github.alexarchambault" %% "case-app" % caseAppVersion
