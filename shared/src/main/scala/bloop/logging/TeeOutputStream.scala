@@ -38,8 +38,8 @@ class TeeOutputStream(targetPS: PrintStream) extends PrintStream(targetPS) {
 object TeeOutputStream {
 
   /**
-   * Returns the tee that wraps `System.out`, installing it on first use. All callers
-   * share it, so `System.out` is wrapped once per process instead of once per caller.
+   * Returns the tee on `System.out`, wrapping the current `System.out` when it is not one. Call it
+   * before a Scala instance's class loader initializes `scala.Console`, which captures it once.
    */
   def systemOut(): TeeOutputStream = synchronized {
     System.out match {
