@@ -54,6 +54,30 @@ final class StateCache(cache: ConcurrentHashMap[AbsolutePath, StateCache.CachedS
     Option(cache.get(path)).map(_.build)
 
   /**
+   * Drops the cached state of every deleted build: its config directory is
+   * gone, or it had projects and all their config files are gone. The second
+   * case covers an in-flight compile that recreates the output directories
+   * inside a deleted config directory and saves its state afterwards.
+   *
+   * A request that targets a dropped build later reloads it from disk.
+   *
+   * @return The builds that were dropped.
+   */
+  def removeDeletedBuilds(): List[Build] = {
+    import scala.collection.JavaConverters._
+    cache.keySet().asScala.toList.flatMap { path =>
+      var removed: Option[Build] = None
+      cache.computeIfPresent(
+        path,
+        (_: AbsolutePath, cached: StateCache.CachedState) =>
+          if (!StateCache.isDeleted(cached.build)) cached
+          else { removed = Some(cached.build); null }
+      )
+      removed
+    }
+  }
+
+  /**
    * Gets an updated state (if any) associated to the build of the given state,
    * while keeping all the session-specific information in it.
    *
@@ -162,6 +186,12 @@ object StateCache {
         state.sourceGeneratorCache
       )
     }
+  }
+
+  private def isDeleted(build: Build): Boolean = {
+    val projects = build.loadedProjects
+    !build.origin.exists ||
+    (projects.nonEmpty && projects.forall(loaded => !loaded.project.origin.path.exists))
   }
 
   /** A cache that contains no states. */

@@ -16,9 +16,11 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import scala.annotation.tailrec
 import scala.concurrent.duration.DurationInt
+import scala.concurrent.duration.FiniteDuration
 import scala.util.Properties
 import scala.util.Try
 
+import bloop.engine.State
 import bloop.util.ProxySetup
 
 import com.martiansoftware.nailgun.Alias
@@ -45,6 +47,7 @@ object BloopServer {
       }
     }
   private val defaultPort: Int = 8212 // 8100 + 'p'
+  private val evictDeletedWorkspacesPeriod: FiniteDuration = 5.minutes
   def main(args: Array[String]): Unit = {
     def toPortNumber(userPort: String) = Try(userPort.toInt).getOrElse(BloopServer.defaultPort)
     val lockFilesDirOrHostPort = args match {
@@ -77,6 +80,8 @@ object BloopServer {
       System.err.println(s"Will truncate output file $value every 5 minutes")
       truncateFilePeriodically(Paths.get(value))
     }
+
+    evictDeletedWorkspacesPeriodically()
 
     lockFilesDirOrHostPort match {
       case Left(hostPort) =>
@@ -182,6 +187,32 @@ object BloopServer {
       period.length,
       period.unit
     )
+    ()
+  }
+
+  private def evictDeletedWorkspacesPeriodically(): Unit = {
+    val scheduler = Executors.newSingleThreadScheduledExecutor(
+      new ThreadFactory {
+        def newThread(r: Runnable): Thread = {
+          val t = new Thread(r, "evict-deleted-workspaces")
+          t.setDaemon(true)
+          t
+        }
+      }
+    )
+    val runnable: Runnable =
+      () =>
+        try {
+          val evicted = State.evictDeletedBuilds()
+          if (evicted.nonEmpty)
+            System.err.println(s"Evicted state of deleted workspaces: ${evicted.mkString(", ")}")
+        } catch {
+          case t: Throwable =>
+            System.err.println(s"Caught $t while evicting deleted workspaces, ignoring it")
+            t.printStackTrace(System.err)
+        }
+    val period = evictDeletedWorkspacesPeriod
+    scheduler.scheduleWithFixedDelay(runnable, period.length, period.length, period.unit)
     ()
   }
 
