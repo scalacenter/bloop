@@ -66,7 +66,7 @@ object Dependencies {
   val configDirectories = "io.get-coursier.util" % "directories-jni" % "0.1.2"
   // directories-jni 0.1.2 pulls windows-jni-utils 0.3.3, which only ships an x64 DLL;
   // 0.4.0 adds Windows ARM64
-  val windowsJniUtils = "io.get-coursier.jniutils" % "windows-jni-utils" % "0.4.0"
+  val windowsJniUtils = "io.get-coursier.jniutils" % "windows-jni-utils" % "0.5.0"
   val coursierInterfaceSubs = "io.get-coursier" % "interface-svm-subs" % "1.0.19"
   val svm = "org.graalvm.nativeimage" % "svm" % "25.0.5.0.3"
   val coursier = "io.get-coursier" %% "coursier" % coursierVersion
