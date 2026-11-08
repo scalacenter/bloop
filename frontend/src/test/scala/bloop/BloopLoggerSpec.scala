@@ -12,6 +12,7 @@ import scala.collection.mutable
 
 import bloop.logging.BloopLogger
 import bloop.logging.DebugFilter
+import bloop.logging.RecordingLogger
 import bloop.util.UUIDUtil
 
 import org.junit.Assert.assertEquals
@@ -219,6 +220,19 @@ class BloopLoggerSpec {
       // Color should have been removed from the message
       assertEquals(plainErrorPrefix + plainMessage, errMsgs.head)
     }(enableColors = false)
+  }
+
+  @Test
+  def creatingLoggersDoesNotWrapSystemOut(): Unit = {
+    val systemOut = System.out
+    val sink = new PrintStream(new ByteArrayOutputStream)
+    val logger = BloopLogger.at("logger", sink, sink, false, DebugFilter.All)
+    for (_ <- 1 to 1000) {
+      logger.asVerbose.asDiscrete.withOriginId(Some("origin"))
+      new RecordingLogger()
+      ()
+    }
+    assertTrue("Creating loggers replaced System.out", System.out eq systemOut)
   }
 
   private def isWarn(msg: String): Boolean = msg.contains("[W]")

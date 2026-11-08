@@ -34,3 +34,20 @@ class TeeOutputStream(targetPS: PrintStream) extends PrintStream(targetPS) {
     allStreams -= baos.hashCode
   }
 }
+
+object TeeOutputStream {
+
+  /**
+   * Returns the tee on `System.out`, wrapping the current `System.out` when it is not one. Call it
+   * before a Scala instance's class loader initializes `scala.Console`, which captures it once.
+   */
+  def systemOut(): TeeOutputStream = synchronized {
+    System.out match {
+      case tee: TeeOutputStream => tee
+      case out =>
+        val tee = new TeeOutputStream(out)
+        System.setOut(tee)
+        tee
+    }
+  }
+}
