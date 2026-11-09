@@ -1,5 +1,7 @@
 package bloop
 
+import java.lang.ref.WeakReference
+
 import bloop.cli.Commands
 import bloop.data.Project
 import bloop.engine.Run
@@ -75,5 +77,38 @@ class CleanSpec {
       Assert.assertTrue("I should NOT be cleaned", hasResult("I", cleaned))
       Assert.assertTrue("G should NOT be cleaned", hasResult("G", cleaned))
     }
+  }
+
+  @Test
+  def cleanReleasesCachedResults(): Unit = {
+    TestUtil.testState(structure, deps) { state =>
+      val (cleaned, cachedResultsOfI) = compileAndCleanI(state)
+      var attempts = 0
+      while (cachedResultsOfI.exists(_.get != null) && attempts < 50) {
+        System.gc()
+        Thread.sleep(100)
+        attempts += 1
+      }
+      Assert.assertTrue(
+        "The cached results of I should be collectable after cleaning I",
+        cachedResultsOfI.forall(_.get == null)
+      )
+      // Uses `cleaned` after the GC loop so the cleaned state stays reachable during it
+      Assert.assertTrue("G should NOT be cleaned", hasResult("G", cleaned))
+    }
+  }
+
+  private def compileAndCleanI(state: State): (State, List[WeakReference[AnyRef]]) = {
+    val compiled = TestUtil.blockingExecute(Run(Commands.Compile(List("I"))), state)
+    Assert.assertTrue("Unexpected compilation error", compiled.status.isOk)
+    val i = project("I", compiled)
+    val cachedResultsOfI = List[AnyRef](
+      compiled.results.latestResult(i),
+      compiled.results.lastSuccessfulResult(i).getOrElse(sys.error("Missing result for I"))
+    ).map(new WeakReference(_))
+    val cleaned = TestUtil.blockingExecute(Run(Commands.Clean(List("I"))), compiled)
+    Assert.assertTrue("Unexpected clean error", cleaned.status.isOk)
+    Assert.assertFalse("I should be cleaned", hasResult("I", cleaned))
+    (cleaned, cachedResultsOfI)
   }
 }
