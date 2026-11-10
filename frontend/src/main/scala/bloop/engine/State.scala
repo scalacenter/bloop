@@ -8,6 +8,7 @@ import bloop.data.WorkspaceSettings
 import bloop.engine.caches.ResultsCache
 import bloop.engine.caches.SourceGeneratorCache
 import bloop.engine.caches.StateCache
+import bloop.engine.tasks.compilation.CompileGatekeeper
 import bloop.io.Paths
 import bloop.logging.DebugFilter
 import bloop.logging.Logger
@@ -56,6 +57,18 @@ object State {
       singleCompilerCache = new CompilerCache(provider, logger)
       singleCompilerCache
     }
+  }
+
+  /**
+   * Evicts the in-memory state of every deleted build, including the last
+   * successful results that compilations share across clients.
+   */
+  private[bloop] def evictDeletedBuilds(): List[bloop.io.AbsolutePath] = {
+    val evicted = stateCache.removeDeletedBuilds()
+    evicted.foreach(_.loadedProjects.foreach { loaded =>
+      CompileGatekeeper.clearSuccessfulResult(loaded.project)
+    })
+    evicted.map(_.origin)
   }
 
   private[bloop] def forTests(

@@ -16,9 +16,13 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import scala.annotation.tailrec
 import scala.concurrent.duration.DurationInt
+import scala.concurrent.duration.FiniteDuration
 import scala.util.Properties
 import scala.util.Try
+import scala.util.control.NonFatal
 
+import bloop.engine.ExecutionContext
+import bloop.engine.State
 import bloop.util.ProxySetup
 
 import com.martiansoftware.nailgun.Alias
@@ -45,6 +49,7 @@ object BloopServer {
       }
     }
   private val defaultPort: Int = 8212 // 8100 + 'p'
+  private val evictDeletedBuildsPeriod: FiniteDuration = 5.minutes
   def main(args: Array[String]): Unit = {
     def toPortNumber(userPort: String) = Try(userPort.toInt).getOrElse(BloopServer.defaultPort)
     val lockFilesDirOrHostPort = args match {
@@ -77,6 +82,8 @@ object BloopServer {
       System.err.println(s"Will truncate output file $value every 5 minutes")
       truncateFilePeriodically(Paths.get(value))
     }
+
+    evictDeletedBuildsPeriodically()
 
     lockFilesDirOrHostPort match {
       case Left(hostPort) =>
@@ -182,6 +189,26 @@ object BloopServer {
       period.length,
       period.unit
     )
+    ()
+  }
+
+  private def evictDeletedBuildsPeriodically(): Unit = {
+    ExecutionContext.ioScheduler.scheduleWithFixedDelay(
+      evictDeletedBuildsPeriod,
+      evictDeletedBuildsPeriod
+    ) {
+      try {
+        val evicted = State.evictDeletedBuilds()
+        if (evicted.nonEmpty)
+          System.err.println(
+            s"Evicted state of deleted config directories: ${evicted.mkString(", ")}"
+          )
+      } catch {
+        case NonFatal(t) =>
+          System.err.println(s"Caught $t while evicting deleted builds, ignoring it")
+          t.printStackTrace(System.err)
+      }
+    }
     ()
   }
 

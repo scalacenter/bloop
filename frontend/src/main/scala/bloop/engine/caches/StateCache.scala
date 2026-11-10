@@ -54,6 +54,21 @@ final class StateCache(cache: ConcurrentHashMap[AbsolutePath, StateCache.CachedS
     Option(cache.get(path)).map(_.build)
 
   /**
+   * Drops the cached state of every deleted build. A request that targets a
+   * dropped build later reloads it from disk.
+   */
+  def removeDeletedBuilds(): List[Build] = removeBuildsWhere(StateCache.isDeleted)
+
+  /** Drops each build that `shouldRemove` selects, unless its entry was replaced meanwhile. */
+  private[bloop] def removeBuildsWhere(shouldRemove: Build => Boolean): List[Build] = {
+    val removed = List.newBuilder[Build]
+    cache.forEach { (path: AbsolutePath, cached: StateCache.CachedState) =>
+      if (shouldRemove(cached.build) && cache.remove(path, cached)) removed += cached.build
+    }
+    removed.result()
+  }
+
+  /**
    * Gets an updated state (if any) associated to the build of the given state,
    * while keeping all the session-specific information in it.
    *
@@ -162,6 +177,13 @@ object StateCache {
         state.sourceGeneratorCache
       )
     }
+  }
+
+  private def isDeleted(build: Build): Boolean = {
+    val projects = build.loadedProjects
+    // Checks configs too: an in-flight compile can recreate output dirs in a deleted dir
+    !build.origin.exists ||
+    (projects.nonEmpty && projects.forall(loaded => !loaded.project.origin.path.exists))
   }
 
   /** A cache that contains no states. */
