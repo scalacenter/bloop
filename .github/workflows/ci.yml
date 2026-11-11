@@ -58,6 +58,7 @@ jobs:
             sbt-bloop/optional-dependency \
             sbt-bloop/bsp-enabled \
             sbt-bloop/meta-builds \
+            sbt-bloop/meta-builds-export-opt-in \
             sbt-bloop/no-compile-incremental \
             sbt-bloop/multi-jvm-configuration \
             sbt-bloop/non-compiling"

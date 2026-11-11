@@ -86,10 +86,13 @@ object BloopKeys {
   @transient
   val bloopInternalClasspath: TaskKey[Seq[(File, File)]] =
     taskKey[Seq[(File, File)]]("Directory where to write the class files")
+  @transient
   val bloopInstall: TaskKey[Unit] =
     taskKey[Unit]("Generate all bloop configuration files")
+  @transient
   val bloopGenerate: TaskKey[Result[Option[File]]] =
     taskKey[Result[Option[File]]]("Generate bloop configuration file for this project")
+  @transient
   val bloopPostGenerate: TaskKey[Unit] =
     taskKey[Unit]("Force resource generators for Bloop.")
 
@@ -172,12 +175,9 @@ object BloopDefaults {
       val bloopClassifiers = (ThisBuild / BloopKeys.bloopExportJarClassifiers).value
       (if (bloopClassifiers.isEmpty) old else bloopClassifiers.get).toList
     },
-    BloopKeys.bloopIsMetaBuild := {
-      val buildStructure = Keys.loadedBuild.value
-      val baseDirectory = new File(buildStructure.root)
-      val isMetaBuild = (LocalRootProject / Keys.sbtPlugin).value
-      isMetaBuild && baseDirectory.getAbsolutePath != cwd
-    },
+    // `isMetaBuild` is set for every meta-build layer (`project/`, `project/project/`, …).
+    // `sbtPlugin` is also true for real sbt plugins, so it cannot be used to decide this.
+    BloopKeys.bloopIsMetaBuild := (LocalRootProject / Keys.isMetaBuild).value,
     Keys.onLoad := {
       val oldOnLoad = Keys.onLoad.value
       val isMetaBuild = BloopKeys.bloopIsMetaBuild.value
@@ -1377,6 +1377,18 @@ object BloopDefaults {
         .map(_.flatMap(_.toList).toSet)
         .value
     val removeProjects = removeStaleProjects(allConfigDirs)
+    // `postGenerate` writes the sbt build-target data. It depends on `bloopGenerate`,
+    // so requesting it here runs the write after generation. `triggeredBy` alone does
+    // not schedule it under sbt 2.
+    val _ = BloopKeys.bloopPostGenerate
+      .all(
+        sbt.ScopeFilter(
+          sbt.inAnyProject,
+          sbt.inAnyConfiguration,
+          sbt.inTasks(BloopKeys.bloopPostGenerate)
+        )
+      )
+      .value
     BloopKeys.bloopGenerate
       .all(filter)
       .map(_.toSet)
@@ -1579,11 +1591,16 @@ object BloopDefaults {
    *
    * * It collects sbt metadata information, which can trigger
    * compile/bloopGenerate when accessing `pluginData`, for reasons unknown to me.
+   * The metadata is written from this task, which `dependsOn` `bloopGenerate`,
+   * so `pluginData` is not a dependency of generation itself.
    *
-   * Note that this task is triggered by `bloopGenerate`, which means we will
-   * run it when `bloopGenerate` has finished its execution.
+   * `bloopInstall` requests this task. sbt 2 does not run `triggeredBy` tasks,
+   * so a bare `bloopGenerate` would leave the sbt data out of the config.
    */
   def bloopPostGenerate: Def.Initialize[Task[Unit]] = {
+    // `dependsOn` orders the write after generation. sbt 2 does not schedule
+    // `triggeredBy` tasks, so `bloopInstall` also requests this task directly.
+    // `Def.task` is uncached on sbt 2, so the rewrite is not skipped on a cache hit.
     Def
       .taskDyn {
         val name = BloopKeys.bloopTargetName.value
@@ -1596,35 +1613,31 @@ object BloopDefaults {
           logger.debug(s"Running postGenerate for $name")
           Def.task {
             val generated = targetNamesToConfigs.get(name)
-
             val currentResources = generated.project.resources.toList.flatten
             val currentResourceDirs = currentResources.filter(Files.isDirectory(_))
             val allResourceFiles = (configuration / Keys.resources).value
             val additionalResources =
               resourcesOutsideRoots(currentResourceDirs, allResourceFiles.map(_.toPath))
+            val sbt = computeSbtMetadata.value.map(_.config)
 
             val newGeneratedProject = {
-              val sbt = computeSbtMetadata.value.map(_.config)
               val newProject = generated.project.copy(sbt = sbt)
               if (additionalResources.isEmpty) newProject
               else {
                 val missingResources =
                   additionalResources.filter(resource => !currentResources.contains(resource))
                 if (missingResources.isEmpty) newProject
-                else {
-                  val newResources = Some(currentResources ++ missingResources)
-                  newProject.copy(resources = newResources)
-                }
+                else newProject.copy(resources = Some(currentResources ++ missingResources))
               }
             }
 
             val newConfig = Config.File(Config.File.LatestVersion, newGeneratedProject)
             writeConfigAtomically(newConfig, generated.outPath)
-
             ()
           }
         }
       }
+      .dependsOn(BloopKeys.bloopGenerate)
       .triggeredBy(BloopKeys.bloopGenerate)
   }
 
