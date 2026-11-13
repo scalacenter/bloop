@@ -87,7 +87,7 @@ object ClasspathHasher {
               try {
                 if (cancelCompilation.isCompleted) {
                   BloopStamps.cancelledHash(path)
-                } else if (isCancelled.get) {
+                } else if (isCancelled.get()) {
                   cancelCompilation.trySuccess(())
                   BloopStamps.cancelledHash(path)
                 } else {
@@ -160,7 +160,7 @@ object ClasspathHasher {
       val acquiredByThisHashingProcess = new mutable.ListBuffer[AcquiredTask]()
 
       def acquireHashingEntry(entry: Path, entryIdx: Int): Unit = {
-        if (isCancelled.get) ()
+        if (isCancelled.get()) ()
         else {
           val entryPromise = Promise[FileHash]()
           val promise = hashingPromises.putIfAbsent(entry, entryPromise)
@@ -183,7 +183,7 @@ object ClasspathHasher {
         val cancelled = classpathHashes.indices.filter { idx =>
           classpathHashes(idx).hash() == BloopStamps.cancelledHash
         }
-        if (cancelled.isEmpty || isCancelled.get || cancelCompilation.isCompleted) Task.unit
+        if (cancelled.isEmpty || isCancelled.get() || cancelCompilation.isCompleted) Task.unit
         else {
           val msg =
             s"Another compilation cancelled hashing ${cancelled.size} entries, restarting..."
@@ -222,7 +222,7 @@ object ClasspathHasher {
         cancelableAcquiredTask
           .doOnCancel(Task { isCancelled.compareAndSet(false, true); () })
           .flatMap { _ =>
-            if (isCancelled.get || cancelCompilation.isCompleted) {
+            if (isCancelled.get() || cancelCompilation.isCompleted) {
               cancelCompilation.trySuccess(())
               Task.now(Left(()))
             } else {
@@ -232,7 +232,7 @@ object ClasspathHasher {
                 .map { _ =>
                   val hasCancelledHash =
                     classpathHashes.exists(_.hash() == BloopStamps.cancelledHash)
-                  if (hasCancelledHash || isCancelled.get || cancelCompilation.isCompleted) {
+                  if (hasCancelledHash || isCancelled.get() || cancelCompilation.isCompleted) {
                     cancelCompilation.trySuccess(())
                     Left(())
                   } else {

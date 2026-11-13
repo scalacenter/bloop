@@ -176,7 +176,7 @@ object ParallelOps {
       var firstVisit: Boolean = true
       var currentTargetDirectory: Path = target
       def visitFile(file: Path, attributes: BasicFileAttributes): FileVisitResult = {
-        if (isCancelled.get) FileVisitResult.TERMINATE
+        if (isCancelled.get()) FileVisitResult.TERMINATE
         else {
           if (
             attributes.isDirectory || configuration.denylist.contains(
@@ -207,7 +207,7 @@ object ParallelOps {
       ): FileVisitResult = {
         if (configuration.skipDotDirectories && directory.getFileName.toString.startsWith(".")) {
           FileVisitResult.SKIP_SUBTREE
-        } else if (isCancelled.get) FileVisitResult.TERMINATE
+        } else if (isCancelled.get()) FileVisitResult.TERMINATE
         else {
           if (firstVisit) {
             firstVisit = false
@@ -309,7 +309,7 @@ object ParallelOps {
         def transfer(replaceExisting: Boolean, retry: Int = 3): Unit = try {
           // Linking a symbolic link yields the link itself or its target depending on the
           // system, while a copy always follows it
-          val canLink = !linkingDisabled.get && !originAttrs.isSymbolicLink
+          val canLink = !linkingDisabled.get() && !originAttrs.isSymbolicLink
           val linked = canLink && link(replaceExisting)
           if (!linked) copy(replaceExisting)
         } catch {
@@ -327,7 +327,7 @@ object ParallelOps {
         def triggerCopy(p: Promise[Unit]) = MonixTask.eval {
           try {
             // Skip work if cancellation is on and complete promise in finalizer
-            if (isCancelled.get) ()
+            if (isCancelled.get()) ()
             else {
               configuration.mode match {
                 case CopyMode.ReplaceExisting => transfer(replaceExisting = true)
@@ -374,7 +374,7 @@ object ParallelOps {
           }
         }
 
-        acquireFile.coeval(scheduler).value match {
+        acquireFile.coeval(scheduler).value() match {
           // The happy path is that we evaluate the task and return
           case Right(()) => MonixTask.now(())
           case Left(cancelable) =>
@@ -394,7 +394,7 @@ object ParallelOps {
      * no way to call the cancelable produced by the consumer.
      */
     val copyFilesInParallel = Task.create[List[Unit]] { (scheduler, cb) =>
-      if (isCancelled.get) {
+      if (isCancelled.get()) {
         cb.onSuccess(Nil)
         subscribed.success(())
         Cancelable.empty
@@ -409,7 +409,7 @@ object ParallelOps {
         val cancelable = CompositeCancelable(sourceSubscription, consumerSubscription)
         if (!enableCancellation) Cancelable.empty
         else {
-          if (isCancelled.get) {
+          if (isCancelled.get()) {
             cancelable.cancel()
           }
           cancelable

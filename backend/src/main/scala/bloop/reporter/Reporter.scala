@@ -379,7 +379,7 @@ object Reporter {
     override def reverse: Buffer[A] = {
       val reversed = mutable.Stack.empty[A]
       weakIterator.foreach(reversed.push)
-      newBuffer(reversed: _*)
+      newBuffer(reversed.toSeq*)
     }
     override def toList: List[A] = weakIterator.toList
     override def toArray[B >: A: ClassTag]: Array[B] = weakIterator.toArray

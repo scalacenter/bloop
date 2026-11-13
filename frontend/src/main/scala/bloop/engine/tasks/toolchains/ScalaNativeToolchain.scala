@@ -110,7 +110,7 @@ object ScalaNativeToolchain extends ToolchainCompanion[ScalaNativeToolchain] {
   override def getPlatformData(platform: Platform): Option[PlatformData] = {
     val artifactName = artifactNameFrom(platform.config.version)
     val platformVersion = platform.config.version
-    val scalaVersion = DependencyResolution.majorMinorVersion(BuildInfo.scalaVersion)
+    val scalaVersion = toolchainScalaBinaryVersion
 
     val artifacts = List(
       DependencyResolution.Artifact(BuildInfo.organization, artifactName, BuildInfo.version),

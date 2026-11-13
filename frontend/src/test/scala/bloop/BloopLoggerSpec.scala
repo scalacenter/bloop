@@ -274,6 +274,6 @@ class BloopLoggerSpec {
       buffer += current
     }
 
-    buffer
+    buffer.toSeq
   }
 }

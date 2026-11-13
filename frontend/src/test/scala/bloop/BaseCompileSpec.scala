@@ -701,7 +701,7 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
            |      found   : String("")
            |      required: Int
            |     L2:   println(A.foo(""))
-           |                         ^
+           |                         ^^
            |${targetBPath}: L2 [E1]""".stripMargin
       )
 
@@ -1127,11 +1127,11 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
            |[E2] ${targetBar}:2:22
            |     not found: type Foo
            |     L2:   val foo: Foo = new Foo
-           |                              ^
+           |                              ^^^
            |[E1] ${targetBar}:2:12
            |     not found: type Foo
            |     L2:   val foo: Foo = new Foo
-           |                    ^
+           |                    ^^^
            |${targetBar}: L2 [E1], L2 [E2]
           """.stripMargin,
         logger.renderErrors(exceptContaining = "Failed to compile")
@@ -1223,7 +1223,7 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
           s"""|[E1] ${targetBar}:3:15
               |     value greeting is not a member of Foo
               |     L3:   println(foo.greeting())
-              |                       ^
+              |                   ^^^^^^^^^^^^
               |${targetBar}: L3 [E1]
               |""".stripMargin
         )
@@ -1394,11 +1394,11 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
            |[E2] ${targetBar}:2:22
            |     not found: type Foo
            |     L2:   val foo: Foo = new Foo
-           |                              ^
+           |                              ^^^
            |[E1] ${targetBar}:2:12
            |     not found: type Foo
            |     L2:   val foo: Foo = new Foo
-           |                    ^
+           |                    ^^^
            |${targetBar}: L2 [E1], L2 [E2]
           """.stripMargin,
         logger.renderErrors(exceptContaining = "Failed to compile")
@@ -2074,13 +2074,13 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
            |      found   : String("")
            |      required: Int
            |     L3:   val a2: Int = ""
-           |                         ^
+           |                         ^^
            |[E1] ${targetA}:2:17
            |     type mismatch;
            |      found   : String("")
            |      required: Int
            |     L2:   val a1: Int = ""
-           |                         ^
+           |                         ^^
            |${targetA}: L2 [E1], L3 [E2]
            |Failed to compile 'a'""".stripMargin
       )

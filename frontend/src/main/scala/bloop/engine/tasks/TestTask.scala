@@ -217,7 +217,7 @@ object TestTask {
       scala.util.Success(ExitStatus.TestExecutionError.code)
     }
 
-    val checkCancelled = () => cancelled.get
+    val checkCancelled = () => cancelled.get()
     TestInternals
       .runJsTestsInProcess(suites, args, handler, checkCancelled, logger)
       .materialize
@@ -409,6 +409,7 @@ object TestTask {
 
     testsToRun
       .groupBy(_.framework)
+      .view
       .mapValues { taskDefs =>
         taskDefs.map {
           case TaskDefWithFramework(taskDef, _) =>
@@ -425,6 +426,7 @@ object TestTask {
             }
         }
       }
+      .toMap
   }
 
   private[bloop] def discoverTests(

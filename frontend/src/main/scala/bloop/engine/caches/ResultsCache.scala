@@ -51,7 +51,7 @@ import xsbti.compile.analysis.ReadWriteMappers
  * @param all The map of projects to latest compilation results.
  * @param successful The map of all projects to latest successful compilation results.
  */
-final case class ResultsCache private (
+final case class ResultsCache private[bloop] (
     all: Map[Project, Compiler.Result],
     successful: Map[Project, LastSuccessfulResult]
 ) {
