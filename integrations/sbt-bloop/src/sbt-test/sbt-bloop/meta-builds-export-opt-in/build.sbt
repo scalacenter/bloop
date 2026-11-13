@@ -21,9 +21,15 @@ checkExportsAbsent := {
 
 val checkExportsPresent = taskKey[Unit]("Assert both meta-build layers were exported")
 checkExportsPresent := {
-  assert(bloopJsons(metaBloopDir.value).nonEmpty, "Expected the outer meta-build to be exported")
-  assert(
-    bloopJsons(metaMetaBloopDir.value).nonEmpty,
-    "Expected the nested meta-build to be exported"
-  )
+  def assertSbtData(files: Seq[File], layer: String): Unit = {
+    assert(files.nonEmpty, s"Expected the $layer meta-build to be exported")
+    files.foreach { file =>
+      val contents = new String(java.nio.file.Files.readAllBytes(file.toPath)).replaceAll("\\s", "")
+      assert(contents.contains("\"autoImports\":[\""), s"Missing auto imports in $file")
+      assert(contents.contains("\"sbtVersion\":\""), s"Missing sbt version in $file")
+    }
+  }
+
+  assertSbtData(bloopJsons(metaBloopDir.value), "outer")
+  assertSbtData(bloopJsons(metaMetaBloopDir.value), "nested")
 }
