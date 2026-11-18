@@ -3,16 +3,14 @@ package bloop.bsp
 import java.nio.file.Paths
 
 import scala.concurrent.duration.FiniteDuration
+import scala.util.Properties
 import scala.util.Random
-
-import ch.epfl.scala.bsp.endpoints.BuildTarget.scalacOptions
 
 import bloop.bsp.BloopBspDefinitions.BloopExtraBuildParams
 import bloop.cli.BspProtocol
 import bloop.cli.ExitStatus
 import bloop.data.WorkspaceSettings
 import bloop.engine.ExecutionContext
-import bloop.internal.build.BuildInfo
 import bloop.internal.build.BuildTestInfo
 import bloop.io.AbsolutePath
 import bloop.io.Environment.LineSplitter
@@ -31,7 +29,7 @@ object TcpBspMetalsClientSpec extends BspMetalsClientSpec(BspProtocol.Tcp)
 abstract class BspMetalsClientSpec(
     override val protocol: BspProtocol
 ) extends BspBaseSuite {
-  private val testedScalaVersion = BuildInfo.scalaVersion
+  private val testedScalaVersion = Properties.versionNumberString
   private val semanticdbVersion = BuildTestInfo.semanticdbVersion
   private val javaSemanticdbVersion = "0.10.0"
 
@@ -183,7 +181,7 @@ abstract class BspMetalsClientSpec(
 
         val scalacOptions = state.scalaOptions(`A`)._2.items.head.options
         val expectedScalacOptions = correctSourceRootOption :: List(
-          s"-Xplugin:path-to-plugin/semanticdb-scalac_${BuildInfo.scalaVersion}-${semanticdbVersion}.jar",
+          s"-Xplugin:path-to-plugin/semanticdb-scalac_$testedScalaVersion-${semanticdbVersion}.jar",
           "-Yrangepos",
           "-P:semanticdb:failures:warning",
           "-P:semanticdb:synthetics:on",
@@ -752,7 +750,8 @@ abstract class BspMetalsClientSpec(
       val logger = new RecordingLogger(ansiCodesSupported = false)
 
       val projectName = "scala-java-processorpath"
-      val localScalaVersion = BuildInfo.scalaVersion
+      // The Scala version set in the build of the fixture project
+      val localScalaVersion = "2.12.21"
       val localSemanticdbJar = s"semanticdb-scalac_$localScalaVersion-$semanticdbVersion.jar"
 
       val extraParams = BloopExtraBuildParams(

@@ -93,7 +93,7 @@ object BloopRifleConfig {
 
   def bloopOrg = "ch.epfl.scala"
   def hardCodedDefaultModule: String =
-    s"$bloopOrg:bloop-frontend_2.12"
+    s"$bloopOrg:bloop-frontend_3"
   def hardCodedDefaultVersion: String =
     BuildInfo.version
   def hardCodedDefaultScalaVersion: String =

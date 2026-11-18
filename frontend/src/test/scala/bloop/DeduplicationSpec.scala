@@ -357,8 +357,8 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
             |package user
             |
             |object User2 extends App {
-            |  // Should report warning with -Ywarn-numeric-widen
-            |  val i: Long = 1.toInt
+            |  val n: Int = 1
+            |  val i: Long = n
             |  macros.SleepMacro.sleep()
             |}
           """.stripMargin
@@ -425,10 +425,10 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
         // Second compilation should be independent from 1 and report warning
         assertNoDiff(
           cliLogger.warnings.mkString(lineSeparator),
-          s"""| [E1] ${TestUtil.universalPath("user/src/main/scala/User2.scala")}:5:19
+          s"""| [E1] ${TestUtil.universalPath("user/src/main/scala/User2.scala")}:5:17
               |      implicit numeric widening
-              |      L5:   val i: Long = 1.toInt
-              |                            ^
+              |      L5:   val i: Long = n
+              |                          ^
               |${TestUtil.universalPath("user/src/main/scala/User2.scala")}: L5 [E1]
               |""".stripMargin
         )
@@ -560,7 +560,7 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
             |  -> Msg: Compiling b (1 Scala source)
             |  -> Data kind: compile-task
             |#1: b/src/B.scala
-            |  -> List(Diagnostic(Range(Position(2,28),Position(2,28)),Some(Error),Some(_),Some(_),type mismatch;  found   : Int  required: String,None,None,Some({"actions":[]})))
+            |  -> List(Diagnostic(Range(Position(2,28),Position(2,29)),Some(Error),Some(_),Some(_),type mismatch;  found   : Int  required: String,None,None,Some({"actions":[]})))
             |  -> reset = true
             |#1: task finish 1
             |  -> errors 1, warnings 0, noop false
@@ -641,7 +641,7 @@ object DeduplicationSpec extends bloop.bsp.BspBaseSuite {
             |  -> Msg: Compiling b (1 Scala source)
             |  -> Data kind: compile-task
             |#2: b/src/B.scala
-            |  -> List(Diagnostic(Range(Position(2,28),Position(2,28)),Some(Error),Some(_),Some(_),type mismatch;  found   : Int  required: String,None,None,Some({"actions":[]})))
+            |  -> List(Diagnostic(Range(Position(2,28),Position(2,29)),Some(Error),Some(_),Some(_),type mismatch;  found   : Int  required: String,None,None,Some({"actions":[]})))
             |  -> reset = true
             |#2: task finish 2
             |  -> errors 1, warnings 0, noop false

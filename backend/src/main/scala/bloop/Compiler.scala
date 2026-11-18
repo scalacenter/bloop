@@ -12,8 +12,10 @@ import scala.collection.mutable
 import scala.concurrent.Promise
 import scala.util.Try
 
+import bloop.CompilerCache
 import bloop.Compiler.Result.Failed
 import bloop.Compiler.Result.Ok
+import bloop.ScalaInstance
 import bloop.io.AbsolutePath
 import bloop.io.ParallelOps
 import bloop.io.ParallelOps.CopyMode

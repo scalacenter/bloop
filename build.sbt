@@ -37,10 +37,16 @@ val scalafixSettings: Seq[Setting[_]] = Seq(
   scalacOptions ++= {
     if (scalaVersion.value.startsWith("2.12")) Seq("-Ywarn-unused", "-Xlint:unused")
     else if (scalaVersion.value.startsWith("2.13")) Seq("-Wunused")
-    else Seq.empty
+    else Seq("-Wunused:all")
   },
   semanticdbEnabled := true,
   semanticdbVersion := scalafixSemanticdb.revision
+)
+
+// Settings for every module that is part of, or loaded by, the Scala 3 server
+val serverJsoniterSettings: Seq[Setting[_]] = Seq(
+  libraryDependencies += Dependencies.jsoniterCore213,
+  excludeDependencies += Dependencies.jsoniterCore3
 )
 
 /**
@@ -63,8 +69,8 @@ lazy val bloopShared = project
   .settings(
     name := "bloop-shared",
     scalafixSettings,
+    serverJsoniterSettings,
     libraryDependencies ++= Seq(
-      Dependencies.jsoniterCore,
       Dependencies.jsoniterMacros,
       Dependencies.bsp4s.excludeAll(
         ExclusionRule(
@@ -75,7 +81,10 @@ lazy val bloopShared = project
         )
       ),
       Dependencies.jsonrpc4s,
+      Dependencies.monix,
+      Dependencies.scalaCollectionCompat,
       Dependencies.zinc,
+      Dependencies.scalaParallelCollections,
       Dependencies.jna,
       Dependencies.log4j,
       Dependencies.xxHashLibrary,
@@ -99,6 +108,7 @@ lazy val backend = project
   .dependsOn(bloopShared)
   .settings(
     name := "bloop-backend",
+    serverJsoniterSettings,
     scalafixSettings,
     testSettings ++ testSuiteSettings,
     buildInfoPackage := "bloop.internal.build",
@@ -121,7 +131,8 @@ lazy val backend = project
       Dependencies.pprint,
       Dependencies.difflib,
       Dependencies.asm,
-      Dependencies.asmUtil
+      Dependencies.asmUtil,
+      Dependencies.scalaCompiler
     )
   )
 
@@ -137,6 +148,7 @@ lazy val frontend: Project = project
   .configs(IntegrationTest)
   .settings(
     name := "bloop-frontend",
+    serverJsoniterSettings,
     bloopName := "bloop",
     (Compile / run / mainClass) := Some("bloop.Cli"),
     buildInfoPackage := "bloop.internal.build",
@@ -176,7 +188,6 @@ lazy val frontend: Project = project
     ),
     // needed for tests and to be automatically updated
     Test / libraryDependencies += Dependencies.semanticdb intransitive (),
-    dependencyOverrides += Dependencies.shapeless,
     scalafixSettings,
     testSettings,
     testSuiteSettings,
@@ -222,20 +233,7 @@ lazy val frontend: Project = project
 // The default (and the native image) is the 3.3 LTS.
 lazy val crossPublishedLauncherSettings = Seq(
   scalaVersion := Scala33Version,
-  crossScalaVersions := List(Scala213Version, Scala33Version),
-  // The shared 2.12/2.13 option set is not accepted by Scala 3.
-  scalacOptions --= {
-    if (scalaVersion.value.startsWith("3."))
-      Seq(
-        "-Yno-adapted-args",
-        "-Ywarn-numeric-widen",
-        "-Ywarn-value-discard",
-        "-Xfuture",
-        "-language:existentials",
-        "-language:higherKinds"
-      )
-    else Nil
-  }
+  crossScalaVersions := List(Scala213Version, Scala33Version)
 )
 
 lazy val cliSettings = Seq(
@@ -244,7 +242,7 @@ lazy val cliSettings = Seq(
   (Test / fork) := true,
   (Test / parallelExecution) := false,
   libraryDependencies ++= List(
-    Dependencies.caseApp21,
+    Dependencies.caseApp,
     Dependencies.oslib,
     Dependencies.coursier,
     Dependencies.coursierJvm,
@@ -327,7 +325,7 @@ lazy val bloopRifle: Project = project
     buildInfoKeys := List[BuildInfoKey](
       Keys.version,
       // Scala version used by the server itself
-      "scalaVersion" -> Dependencies.Scala212Version,
+      "scalaVersion" -> Dependencies.Scala33Version,
       "bspVersion" -> Dependencies.bspVersion
     )
   )
@@ -341,8 +339,8 @@ lazy val cli: Project = project
     crossPublishedLauncherSettings,
     cliSettings,
     // Expose the server's classpath to integration tests so they can launch a
-    // real bloop server through bloop-rifle (this module cannot depend on the
-    // 2.12 frontend).
+    // real bloop server through bloop-rifle (this module is cross-built for 2.13,
+    // so it cannot depend on the frontend).
     Test / resourceGenerators += Def.task {
       val file = (Test / resourceManaged).value / "bloop-server-classpath.txt"
       val classpath = (frontend / Runtime / fullClasspath).value.map(_.data.getAbsolutePath)
@@ -353,10 +351,11 @@ lazy val cli: Project = project
   .dependsOn(bloopRifle)
 
 lazy val benchmarks = project
-  .dependsOn(frontend % "compile->it", BenchmarkBridgeCompilation % "compile->compile")
+  .dependsOn(frontend % "compile->it")
   .enablePlugins(BuildInfoPlugin, JmhPlugin)
   .settings(
     scalafixSettings,
+    serverJsoniterSettings,
     benchmarksSettings(frontend),
     (publish / skip) := true
   )
@@ -393,22 +392,16 @@ lazy val sbtBloop: Project = project
 
 lazy val buildpressConfig = (project in file("buildpress-config"))
   .settings(
-    scalaVersion := Scala212Version,
     scalafixSettings,
-    libraryDependencies ++= List(
-      Dependencies.jsoniterCore,
-      Dependencies.jsoniterMacros % Provided
-    ),
-    addCompilerPlugin(
-      "org.scalamacros" % "paradise" % "2.1.1" cross CrossVersion.full
-    )
+    serverJsoniterSettings,
+    libraryDependencies += Dependencies.jsoniterMacros % Provided
   )
 
 lazy val buildpress = project
   .dependsOn(bloopShared, buildpressConfig)
   .settings(
-    scalaVersion := Scala212Version,
     scalafixSettings,
+    serverJsoniterSettings,
     (run / fork) := true,
     libraryDependencies ++= List(
       Dependencies.caseApp,
@@ -422,10 +415,10 @@ val docs = project
   .enablePlugins(MdocPlugin, DocusaurusPlugin)
   .settings(
     name := "bloop-docs",
+    serverJsoniterSettings,
     moduleName := "bloop-docs",
     scalafixSettings,
     (publish / skip) := true,
-    scalaVersion := Scala212Version,
     mdoc := (Compile / run).evaluated,
     (Compile / mainClass) := Some("bloop.Docs"),
     (Compile / resources) ++= {
@@ -440,6 +433,7 @@ lazy val jsBridge06 = project
   .disablePlugins(ScriptedPlugin, ScalafixPlugin)
   .settings(
     name := jsBridge06Name,
+    serverJsoniterSettings,
     testSettings,
     libraryDependencies ++= List(
       Dependencies.scalaJsTools06,
@@ -455,6 +449,7 @@ lazy val jsBridge1 = project
   .disablePlugins(ScriptedPlugin, ScalafixPlugin)
   .settings(
     name := jsBridge1Name,
+    serverJsoniterSettings,
     testSettings,
     libraryDependencies ++= List(
       Dependencies.scalaJsLinker1,
@@ -474,6 +469,7 @@ lazy val nativeBridge04 = project
   .disablePlugins(ScalafixPlugin, ScriptedPlugin)
   .settings(
     name := nativeBridge04Name,
+    serverJsoniterSettings,
     testSettings,
     libraryDependencies ++= List(Dependencies.scalaNativeTools04, Dependencies.bloopConfig),
     (Test / javaOptions) ++= jvmOptions,
@@ -487,6 +483,7 @@ lazy val nativeBridge05 = project
   .disablePlugins(ScalafixPlugin, ScriptedPlugin)
   .settings(
     name := nativeBridge05Name,
+    serverJsoniterSettings,
     testSettings,
     libraryDependencies ++= List(Dependencies.scalaNativeTools05, Dependencies.bloopConfig),
     (Test / javaOptions) ++= jvmOptions,

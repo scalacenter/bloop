@@ -11,7 +11,7 @@ import buildpress.config.Config.RepoCacheFile
 
 final case class RepositoryCache(source: AbsolutePath, repositories: List[ClonedRepository]) {
   private lazy val lookupById: Map[String, ClonedRepository] =
-    repositories.map(r => r.metadata.id -> r)(collection.breakOut)
+    repositories.map(r => r.metadata.id -> r).toMap
 
   def getById(target: Repository): Option[ClonedRepository] =
     lookupById.get(target.id)
@@ -42,7 +42,7 @@ object RepositoryCache {
             case None =>
               List(leftRepo.metadata)
           }
-        }(collection.breakOut)
+        }.toSet
       }
       diff(prev, curr) ++ diff(curr, prev)
     }
