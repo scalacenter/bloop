@@ -51,6 +51,7 @@ object BloopServer {
   private val defaultPort: Int = 8212 // 8100 + 'p'
   private val evictDeletedBuildsPeriod: FiniteDuration = 5.minutes
   def main(args: Array[String]): Unit = {
+    ExecutionContext.installFatalOutOfMemoryHandler()
     def toPortNumber(userPort: String) = Try(userPort.toInt).getOrElse(BloopServer.defaultPort)
     val lockFilesDirOrHostPort = args match {
       case Array() =>
@@ -177,7 +178,7 @@ object BloopServer {
             }
           }
         } catch {
-          case t: Throwable =>
+          case NonFatal(t) =>
             System.err.println(
               s"Caught $t while checking if $file needs to be truncated, ignoring it"
             )
