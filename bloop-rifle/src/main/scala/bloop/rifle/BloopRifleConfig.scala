@@ -79,6 +79,7 @@ object BloopRifleConfig {
       "-XX:ZUncommitDelay=30",
       "-XX:ZCollectionInterval=5",
       "-XX:+IgnoreUnrecognizedVMOptions", // Do not fail if an non-standard (-X, -XX) VM option is not recognized.
+      "-XX:+ExitOnOutOfMemoryError",
       "-Dbloop.ignore-sig-int=true"
     )
 
