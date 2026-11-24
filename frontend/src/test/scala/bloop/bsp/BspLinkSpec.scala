@@ -20,6 +20,7 @@ abstract class BspLinkSpec(
         val project: TestProject = build.projectFor("test-projectNative")
         val compiledState =
           build.state.compile(project, arguments = Some(List("--link")), timeout = 60)
+        if (compiledState.status != ExitStatus.Ok) logger.dump()
         assertEquals(compiledState.status, ExitStatus.Ok)
         assert(
           logger
@@ -38,6 +39,7 @@ abstract class BspLinkSpec(
         val project: TestProject = build.projectFor("test-projectNative")
         val compiledState =
           build.state.compile(project, arguments = Some(List("--link")), timeout = 60)
+        if (compiledState.status != ExitStatus.Ok) logger.dump()
         assertEquals(compiledState.status, ExitStatus.Ok)
         assert(
           logger
@@ -56,6 +58,7 @@ abstract class BspLinkSpec(
         val project: TestProject = build.projectFor("test-projectNative")
         val compiledState =
           build.state.compile(project, arguments = Some(List("--link", "--release")), timeout = 60)
+        if (compiledState.status != ExitStatus.Ok) logger.dump()
         assertEquals(compiledState.status, ExitStatus.Ok)
         assert(
           logger
@@ -74,6 +77,7 @@ abstract class BspLinkSpec(
         val project: TestProject = build.projectFor("test-projectJS")
         val compiledState =
           build.state.compile(project, arguments = Some(List("--link")), timeout = 60)
+        if (compiledState.status != ExitStatus.Ok) logger.dump()
         assertEquals(compiledState.status, ExitStatus.Ok)
         assert(
           logger
@@ -92,6 +96,7 @@ abstract class BspLinkSpec(
         val project: TestProject = build.projectFor("test-projectJS")
         val compiledState =
           build.state.compile(project, arguments = Some(List("--link", "--release")), timeout = 60)
+        if (compiledState.status != ExitStatus.Ok) logger.dump()
         assertEquals(compiledState.status, ExitStatus.Ok)
         assert(
           logger

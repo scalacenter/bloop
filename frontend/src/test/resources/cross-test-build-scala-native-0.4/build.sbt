@@ -12,7 +12,13 @@ lazy val `test-project` =
 
 lazy val `test-project-native` = `test-project`.native.settings(
   // Should override default set above. Tested as part of ScalaNativeToolchainSpec.
-  (Compile / run / bloopMainClass) := Some("hello.DefaultApp")
+  (Compile / run / bloopMainClass) := Some("hello.DefaultApp"),
+  // With recent MSVC (14.52+) both the UCRT (libucrt.lib) and the static C++ runtime
+  // (libcpmt.lib) define `_Sinh` and `_FSinh`, which makes lld-link fail with duplicate
+  // symbols. Scala Native 0.4 only ignores those duplicates when LTO is enabled.
+  nativeLinkingOptions ++= {
+    if (scala.util.Properties.isWin) Seq("-Wl,/force:multiple") else Nil
+  }
 )
 
 lazy val `test-project-jvm` = `test-project`.jvm.settings(
