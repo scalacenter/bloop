@@ -1,0 +1,25 @@
+name: windows-llvm
+description: Install the LLVM version required by the MSVC STL of the runner, for Scala Native
+inputs:
+  version:
+    description: "LLVM version to install with Chocolatey"
+    required: false
+    # The MSVC STL shipped with Visual Studio 18 (14.52+) requires Clang 22 or newer
+    # (error STL1000), while the windows-2025 runner image comes with an older LLVM.
+    default: "22.1.8"
+runs:
+  using: "composite"
+  steps:
+    - name: Install LLVM ${{ inputs.version }}
+      shell: pwsh
+      run: |
+        choco upgrade llvm --version="${{ inputs.version }}" --allow-downgrade -y --no-progress
+        if ($LASTEXITCODE -ne 0) { throw "Installing LLVM ${{ inputs.version }} failed" }
+        $llvmBin = "C:\Program Files\LLVM\bin"
+        # Scala Native looks for clang / clang++ in LLVM_BIN first
+        "LLVM_BIN=$llvmBin" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        $version = & "$llvmBin\clang.exe" --version | Select-Object -First 1
+        Write-Host "Installed: $version"
+        if ($version -notmatch "clang version ${{ inputs.version }}") {
+          throw "Expected clang ${{ inputs.version }}, got: $version"
+        }

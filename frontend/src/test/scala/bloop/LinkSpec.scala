@@ -10,6 +10,7 @@ import bloop.cli.Commands
 import bloop.testing.BaseSuite
 import bloop.cli.OptimizerConfig
 import bloop.engine.Run
+import bloop.engine.State
 
 object LinkSpec extends BaseSuite {
 
@@ -32,6 +33,13 @@ object LinkSpec extends BaseSuite {
   val native04State0 =
     TestUtil.loadTestProject(TestUtil.getBloopConfigDir("cross-test-build-scala-native-0.4"))
 
+  // The linker output (e.g. clang errors) only ends up in the recording logger,
+  // so print it when the action fails to make CI failures diagnosable
+  private def assertStatusOk(state: State, logger: RecordingLogger): Unit = {
+    if (!state.status.isOk) logger.dump()
+    assert(state.status.isOk)
+  }
+
   ////////////////////////////////////////////////
   ////// ScalaJS
   ////////////////////////////////////////////////
@@ -43,9 +51,7 @@ object LinkSpec extends BaseSuite {
     val resultingState =
       TestUtil.blockingExecute(action, jsState0.copy(logger = logger), maxDuration)
 
-    assert(
-      resultingState.status.isOk
-    )
+    assertStatusOk(resultingState, logger)
     assert(
       logger
         .getMessagesAt(level = Some("info"))
@@ -96,9 +102,7 @@ object LinkSpec extends BaseSuite {
     val resultingState =
       TestUtil.blockingExecute(action, state, nativeMaxDuration)
 
-    assert(
-      resultingState.status.isOk
-    )
+    assertStatusOk(resultingState, logger)
 
     assert(
       logger
@@ -116,9 +120,7 @@ object LinkSpec extends BaseSuite {
     val resultingState =
       TestUtil.blockingExecute(action, state, nativeMaxDuration)
 
-    assert(
-      resultingState.status.isOk
-    )
+    assertStatusOk(resultingState, logger)
 
     assert(
       logger
@@ -135,9 +137,7 @@ object LinkSpec extends BaseSuite {
     val resultingState =
       TestUtil.blockingExecute(action, state, nativeMaxDuration)
 
-    assert(
-      resultingState.status.isOk
-    )
+    assertStatusOk(resultingState, logger)
 
     assert(
       logger
@@ -154,9 +154,7 @@ object LinkSpec extends BaseSuite {
     val resultingState =
       TestUtil.blockingExecute(action, state, maxDuration)
 
-    assert(
-      resultingState.status.isOk
-    )
+    assertStatusOk(resultingState, logger)
 
     assert(
       logger
@@ -176,9 +174,7 @@ object LinkSpec extends BaseSuite {
     val resultingState =
       TestUtil.blockingExecute(action, state, nativeMaxDuration)
 
-    assert(
-      resultingState.status.isOk
-    )
+    assertStatusOk(resultingState, logger)
 
     assert(
       logger
@@ -196,9 +192,7 @@ object LinkSpec extends BaseSuite {
     val resultingState =
       TestUtil.blockingExecute(action, state, nativeMaxDuration)
 
-    assert(
-      resultingState.status.isOk
-    )
+    assertStatusOk(resultingState, logger)
 
     assert(
       logger
@@ -215,9 +209,7 @@ object LinkSpec extends BaseSuite {
     val resultingState =
       TestUtil.blockingExecute(action, state, nativeMaxDuration)
 
-    assert(
-      resultingState.status.isOk
-    )
+    assertStatusOk(resultingState, logger)
 
     assert(
       logger
@@ -234,9 +226,7 @@ object LinkSpec extends BaseSuite {
     val resultingState =
       TestUtil.blockingExecute(action, state, maxDuration)
 
-    assert(
-      resultingState.status.isOk
-    )
+    assertStatusOk(resultingState, logger)
 
     assert(
       logger
