@@ -67,6 +67,7 @@ object TestUtil {
     state.build.getProjectFor(name).getOrElse(sys.error(s"Project '$name' does not exist!"))
 
   val jdkVersion: String = sys.props("java.version")
+  val javaVersion: Int = jdkVersion.split("\\.").head.toInt
   def isJdk8: Boolean = jdkVersion.startsWith("8") || jdkVersion.startsWith("1.8")
 
   def runOnlyOnJava8(thunk: => Unit): Unit = {

@@ -3,8 +3,6 @@ bloopConfigDir in Global := baseDirectory.value / "bloop-config"
 import _root_.sbtcrossproject.CrossPlugin.autoImport.{crossProject => crossProjects}
 import sbt.Value
 
-scalaVersion in ThisBuild := "2.12.8"
-
 lazy val `bloop-test-plugin` = project
   .settings(
     libraryDependencies += "org.scala-lang" % "scala-compiler" % scalaVersion.value,
