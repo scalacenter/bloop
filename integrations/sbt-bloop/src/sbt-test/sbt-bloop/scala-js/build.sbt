@@ -10,7 +10,7 @@ def checkSettings = List(
     val testConfig = stripped(bloopConfigDir.value / s"$id-test.json")
     assert(mainConfig.contains(s""""platform":{"name":"$expectedPlatform""""))
     assert(mainConfig.contains(s""""mode":"debug""""))
-    assert(mainConfig.contains(s""""version":"1.22.0""""))
+    assert(mainConfig.contains(s""""version":"1.23.0""""))
     assert(
       mainConfig.contains(s""""jsdom":$expectedMainJsdom"""),
       s"expected jsdom=$expectedMainJsdom in $id.json"
