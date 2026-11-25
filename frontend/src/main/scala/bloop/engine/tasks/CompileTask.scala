@@ -131,12 +131,23 @@ object CompileTask {
                 logger,
                 ExecutionContext.ioScheduler
               )
+
+            // Also copy mapped resources if any
+            val copyMappedResourcesTask: Task[Unit] =
+              bloop.io.ResourceMapper.copyMappedResources(
+                project.resourceMappings,
+                bundle.clientClassesObserver.classesDir,
+                logger
+              )
+
+            val allCopyTasks =
+              Task.gatherUnordered(List(copyResourcesTask, copyMappedResourcesTask))
             Task.now(
               ResultBundle(
                 Compiler.Result.Empty,
                 None,
                 None,
-                copyResourcesTask.runAsync(ExecutionContext.ioScheduler)
+                allCopyTasks.map(_ => ()).runAsync(ExecutionContext.ioScheduler)
               )
             )
           case Right(CompileSourcesAndInstance(sources, instance, _)) =>
@@ -192,7 +203,8 @@ object CompileTask {
                 ExecutionContext.ioExecutor,
                 bundle.dependenciesData.allInvalidatedClassFiles,
                 bundle.dependenciesData.allGeneratedClassFilePaths,
-                project.runtimeResources
+                project.runtimeResources,
+                project.resourceMappings
               )
             }
 
@@ -253,8 +265,14 @@ object CompileTask {
                         compileProjectTracer,
                         logger
                       )
-                      .doOnFinish(_ => Task(compileProjectTracer.terminate()))
-                  postCompilationTasks.runAsync(ExecutionContext.ioScheduler)
+
+                  // Copy mapped resources after compilation
+                  val allTasks = Task
+                    .gatherUnordered(List(postCompilationTasks))
+                    .map(_ => ())
+                    .doOnFinish(_ => Task(compileProjectTracer.terminate()))
+
+                  allTasks.runAsync(ExecutionContext.ioScheduler)
                 }
 
                 // Populate the last successful result if result was success
