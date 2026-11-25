@@ -195,6 +195,7 @@ object BspServer {
 
         listenToConnection(handle, serverSocket, shutdownHook).onErrorRecover {
           case t =>
+            ExecutionContext.handleIfOutOfMemory(t)
             System.err.println("Exiting BSP server with:")
             t.printStackTrace(System.err)
             state.withError(s"Exiting BSP server with ${t.getMessage}", t)
