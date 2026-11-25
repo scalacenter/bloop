@@ -62,7 +62,7 @@ object Dependencies {
   val libraryManagement = "org.scala-sbt" %% "librarymanagement-ivy" % lmVersion
   val log4j = "org.apache.logging.log4j" % "log4j-core" % "2.26.1"
   val scalazCore = "org.scalaz" %% "scalaz-core" % scalazVersion
-  val coursierInterface = "io.get-coursier" % "interface" % "1.0.30"
+  val coursierInterface = "io.get-coursier" % "interface" % "1.0.31"
   val configDirectories = "io.get-coursier.util" % "directories-jni" % "0.1.4"
   // directories-jni 0.1.2 pulls windows-jni-utils 0.3.3, which only ships an x64 DLL;
   // 0.4.0 adds Windows ARM64
