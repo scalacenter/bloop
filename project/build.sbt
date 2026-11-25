@@ -5,7 +5,7 @@ addSbtPlugin("org.scalameta" % "sbt-scalafmt" % "2.6.2")
 addSbtPlugin("com.eed3si9n" % "sbt-buildinfo" % "0.13.2")
 // Bumping this will causes issues. The benchmark bridge
 // needs to be updated in order for us to bump to 0.4.x.
-addSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.8")
+addSbtPlugin("pl.project13.scala" % "sbt-jmh" % "0.4.9")
 addSbtPlugin("com.github.sbt" % "sbt-git" % "3.0.0")
 addSbtPlugin("com.github.sbt" % "sbt-ci-release" % "1.12.1")
 addSbtPlugin("org.scalameta" % "sbt-mdoc" % "2.9.2")

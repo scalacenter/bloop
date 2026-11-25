@@ -5,6 +5,7 @@ import java.nio.file.Path
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.Await
 import scala.concurrent.ExecutionContext
+import scala.concurrent.Future
 import scala.concurrent.duration.Duration
 import scala.ref.SoftReference
 
@@ -100,6 +101,31 @@ object JsBridge {
       logger: BloopLogger,
       executionContext: ExecutionContext
   ): Unit = {
+    Await.result(
+      linkAsync(
+        config,
+        projectName,
+        classpath,
+        isTest,
+        mainClass,
+        targetDirectory,
+        logger,
+        executionContext
+      ),
+      Duration.Inf
+    )
+  }
+
+  def linkAsync(
+      config: JsConfig,
+      projectName: String,
+      classpath: Array[Path],
+      isTest: java.lang.Boolean,
+      mainClass: Option[String],
+      targetDirectory: Path,
+      logger: BloopLogger,
+      executionContext: ExecutionContext
+  ): Future[Unit] = {
     implicit val ec = executionContext
     implicit val logFilter: DebugFilter = DebugFilter.Link
     val linker = ScalaJSLinker.reuseOrCreate(config, targetDirectory)
@@ -125,7 +151,7 @@ object JsBridge {
         }
     }
 
-    val resultFuture = for {
+    for {
       libraryIRs <- libraryIrsFuture
       _ <- linker.link(
         libraryIRs,
@@ -134,8 +160,6 @@ object JsBridge {
         new Logger(logger)
       )
     } yield ()
-
-    Await.result(resultFuture, Duration.Inf)
   }
 
   /** @return (list of frameworks, function to close test adapter) */

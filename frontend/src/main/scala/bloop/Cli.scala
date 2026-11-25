@@ -33,6 +33,7 @@ object Cli {
 
   implicit private val filter: DebugFilter.All.type = DebugFilter.All
   def main(args: Array[String]): Unit = {
+    ExecutionContext.installFatalOutOfMemoryHandler()
     val action = parse(args, CommonOptions.default)
     val exitStatus = run(action, NoPool)
     sys.exit(exitStatus.code)
@@ -98,11 +99,13 @@ object Cli {
       exitStatus.code
     } catch {
       case x: java.util.concurrent.ExecutionException =>
+        ExecutionContext.handleIfOutOfMemory(x)
         // print stack trace of fatal errors thrown in asynchronous code, see https://stackoverflow.com/questions/17265022/what-is-a-boxed-error-in-scala
         // the stack trace is somehow propagated all the way to the client when printing this
         x.getCause.printStackTrace(out)
         ExitStatus.UnexpectedError.code
       case t: Throwable =>
+        ExecutionContext.handleIfOutOfMemory(t)
         // Catch all exceptions to prevent nailgun from returning exit code 899 (EXIT_EXCEPTION)
         // which gives no indication of what went wrong
         err.println(

@@ -1,9 +1,11 @@
 package bloop.engine.tasks.toolchains
 
 import java.lang.reflect.InvocationTargetException
+import java.lang.reflect.Method
 import java.nio.file.Path
 
 import scala.concurrent.ExecutionContext
+import scala.concurrent.Future
 import scala.util.Try
 
 import bloop.DependencyResolution
@@ -57,23 +59,30 @@ final class ScalaJsToolchain private (bridgeClassLoader: ClassLoader) {
       logger: Logger
   ): Task[Try[Unit]] = {
     val bridgeClazz = bridgeClassLoader.loadClass("bloop.scalajs.JsBridge")
-    val method = bridgeClazz.getMethod("link", paramTypesLink: _*)
     val target = targetDir.underlying
-    val linkage = Task(
-      method
-        .invoke(
-          null,
-          config,
-          project.name,
-          fullClasspath,
-          isTest,
-          mainClass,
-          target,
-          logger,
-          scheduler
-        )
-        .asInstanceOf[Unit]
-    ).materialize
+    def invokeLink(method: Method): AnyRef =
+      method.invoke(
+        null,
+        config,
+        project.name,
+        fullClasspath,
+        isTest,
+        mainClass,
+        target,
+        logger,
+        scheduler
+      )
+
+    val linkage =
+      if (config.version.startsWith("1.")) {
+        val method = bridgeClazz.getMethod("linkAsync", paramTypesLink: _*)
+        Task
+          .defer(Task.fromFuture(invokeLink(method).asInstanceOf[Future[Unit]]))
+          .materialize
+      } else {
+        val method = bridgeClazz.getMethod("link", paramTypesLink: _*)
+        Task(invokeLink(method).asInstanceOf[Unit]).materialize
+      }
     linkage.map {
       case s @ scala.util.Success(_) => s
       case f @ scala.util.Failure(t) =>
