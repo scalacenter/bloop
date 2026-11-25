@@ -16,8 +16,8 @@ jobs:
       - uses: actions/checkout@v7
       - uses: graalvm/setup-graalvm@v1
         with:
-          version: '22.3.0'
-          java-version: '17'
+          distribution: 'graalvm-community'
+          java-version: '25'
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Check formatting
@@ -36,8 +36,8 @@ jobs:
           submodules: true
       - uses: graalvm/setup-graalvm@v1
         with:
-          version: '22.3.0'
-          java-version: '17'
+          distribution: 'graalvm-community'
+          java-version: '25'
           github-token: ${{ secrets.GITHUB_TOKEN }}
       - uses: sbt/setup-sbt@v1
       - uses: coursier/cache-action@v9
@@ -70,7 +70,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-15, macos-15-intel]
-        jdk: ["22.3.0", "17"]
+        jdk: ["graalvm-25", "17"]
 
     name: Test ${{ matrix.os }} -- ${{ matrix.jdk }}
     env:
@@ -91,9 +91,10 @@ jobs:
         uses: ./.github/actions/windows-llvm
       - uses: graalvm/setup-graalvm@v1
         with:
-          version: ${{ matrix.jdk }}
-          java-version: '17'
-        if: matrix.jdk == '22.3.0'    
+          distribution: 'graalvm-community'
+          java-version: '25'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+        if: matrix.jdk == 'graalvm-25'
       - uses: coursier/cache-action@v9
       - uses: coursier/setup-action@v3
       - uses: sbt/setup-sbt@v1
@@ -160,52 +161,12 @@ jobs:
 
       - uses: graalvm/setup-graalvm@v1
         with:
-          version: '22.3.0'
-          java-version: '17'
+          # GraalVM CE for JDK 25 bundles native-image. On macos-15-intel the action
+          # falls back to 25.0.1, the last GraalVM CE release with a macOS x64 build.
+          distribution: 'graalvm-community'
+          java-version: '25'
           native-image-job-reports: 'true'
           github-token: ${{ secrets.GITHUB_TOKEN }}
-      # GraalVM 22.3 does not bundle native-image. The setup action would run
-      # `gu install native-image`, and gu downloads the component itself with a
-      # ~10s connect timeout and no GitHub token. Hosted runners, especially
-      # macOS, time out on that handshake even though the asset is fine.
-      # Download via the API (same path the JDK tarball uses), then install locally.
-      - name: Install native-image
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          case "${RUNNER_OS}-${RUNNER_ARCH}" in
-            macOS-ARM64) suffix=darwin-aarch64 ;;
-            macOS-X64) suffix=darwin-amd64 ;;
-            Linux-X64) suffix=linux-amd64 ;;
-            Linux-ARM64) suffix=linux-aarch64 ;;
-            Windows-X64) suffix=windows-amd64 ;;
-            *) echo "unsupported runner ${RUNNER_OS}-${RUNNER_ARCH}"; exit 1 ;;
-          esac
-          asset="native-image-installable-svm-java17-${suffix}-22.3.0.jar"
-          jar="${RUNNER_TEMP}/${asset}"
-          for attempt in 1 2 3 4 5; do
-            if gh release download vm-22.3.0 \
-              --repo graalvm/graalvm-ce-builds \
-              --pattern "$asset" \
-              --output "$jar" \
-              --clobber; then
-              break
-            fi
-            if [[ "$attempt" -eq 5 ]]; then
-              echo "failed to download ${asset}"
-              exit 1
-            fi
-            sleep $((attempt * 5))
-          done
-          if [[ "${RUNNER_OS}" == "Windows" ]]; then
-            gu.cmd --non-interactive -L install --no-progress "$jar"
-            native-image.cmd --version
-          else
-            gu --non-interactive -L install --no-progress "$jar"
-            native-image --version
-          fi
 
       - uses: sbt/setup-sbt@v1
       - uses: coursier/setup-action@v3
