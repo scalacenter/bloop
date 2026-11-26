@@ -35,7 +35,7 @@ object Dependencies {
   // Don't update shapeless, causes issues with native image
   val shapelessVersion = "2.3.4"
   val scalaNative04Version = "0.4.17"
-  val scalaNative05Version = "0.5.12"
+  val scalaNative05Version = "0.5.13"
   val scalaJs06Version = "0.6.33"
   val scalaJs1Version = "1.23.0"
   val scalaJsEnvsVersion = "1.7.0"
