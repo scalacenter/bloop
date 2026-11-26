@@ -77,15 +77,28 @@ object ScalaVersionsSpec extends bloop.testing.BaseSuite {
     "2.11.12"
   )
 
-  val scalaVersions = List(
+  // These versions fail on newer JDKs (e.g. JDK 25) when reading JDK classfiles,
+  // either while compiling the compiler bridge or the sources themselves
+  val upToJdk17Versions = List(
     "2.12.17",
     "2.13.10",
     "3.1.3",
-    "3.2.1",
+    "3.2.1"
+  )
+
+  val newerJdkVersions = List(
+    "2.12.18",
+    "3.3.1"
+  )
+
+  val scalaVersions = List(
     "2.13.13"
   )
 
-  val allVersions = if (TestUtil.isJdk8) jdk8OnlyVersions ++ scalaVersions else scalaVersions
+  val allVersions =
+    if (TestUtil.isJdk8) jdk8OnlyVersions ++ upToJdk17Versions ++ scalaVersions
+    else if (TestUtil.javaVersion <= 17) upToJdk17Versions ++ scalaVersions
+    else newerJdkVersions ++ scalaVersions
 
   test("cross-compile build to latest Scala versions") {
 
