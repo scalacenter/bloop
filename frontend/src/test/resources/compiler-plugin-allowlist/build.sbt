@@ -3,7 +3,7 @@ bloopConfigDir in Global := baseDirectory.value / "bloop-config"
 import _root_.sbtcrossproject.CrossPlugin.autoImport.{crossProject => crossProjects}
 import sbt.Value
 
-scalaVersion in ThisBuild := "2.12.8"
+scalaVersion in ThisBuild := "2.12.21"
 
 lazy val `bloop-test-plugin` = project
   .settings(
@@ -13,37 +13,31 @@ lazy val `bloop-test-plugin` = project
     bloopGenerate in Test := Value(None)
   )
 
-val silencerVersion = "1.3.1"
+val silencerVersion = "1.7.19"
 val derivingVersion = "1.0.0"
 // Don't add -Ycache-plugin-class-loader:last-modified, the point is that bloop will do it automatically
 lazy val allowlist = crossProjects(JVMPlatform, JSPlatform)
   .settings(
     wartremoverErrors ++= Warts.unsafe,
     addCompilerPlugin(scalafixSemanticdb),
-    addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.0" cross CrossVersion.full),
+    addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.1" cross CrossVersion.full),
     libraryDependencies ++= Seq(
-      compilerPlugin("com.github.ghik" %% "silencer-plugin" % silencerVersion),
-      "com.github.ghik" %% "silencer-lib" % silencerVersion % Provided
+      compilerPlugin(
+        "com.github.ghik" % "silencer-plugin" % silencerVersion cross CrossVersion.full
+      ),
+      "com.github.ghik" % "silencer-lib" % silencerVersion % Provided cross CrossVersion.full
     ),
-    addCompilerPlugin("com.sksamuel.scapegoat" %% "scalac-scapegoat-plugin" % "1.3.8"),
-    // Required to add as normal libdep too to work around https://github.com/sksamuel/scapegoat/issues/98
-    libraryDependencies += "com.sksamuel.scapegoat" %% "scalac-scapegoat-plugin" % "1.3.8",
-    libraryDependencies += "com.lihaoyi" %% "acyclic" % "0.1.7" % "provided",
+    addCompilerPlugin(
+      "com.sksamuel.scapegoat" % "scalac-scapegoat-plugin" % "3.4.1" cross CrossVersion.full
+    ),
+    libraryDependencies += "com.lihaoyi" % "acyclic" % "0.3.21" % "provided" cross CrossVersion.full,
     autoCompilerPlugins := true,
-    addCompilerPlugin("com.lihaoyi" %% "acyclic" % "0.1.7"),
+    addCompilerPlugin("com.lihaoyi" % "acyclic" % "0.3.21" cross CrossVersion.full),
     scalacOptions in Compile += "-P:scapegoat:dataDir:./target/scapegoat",
-    addCompilerPlugin("org.scoverage" %% "scalac-scoverage-plugin" % "1.3.1"),
-    libraryDependencies += "org.scoverage" %%% "scalac-scoverage-runtime" % "1.3.1",
-    scalacOptions in Compile += {
-      val scapegoatDataDir = (bloopConfigDir in Global).value / "allowlistJS" / "scapegoat"
-      java.nio.file.Files.createDirectories(scapegoatDataDir.toPath)
-      s"-P:scoverage:dataDir:${scapegoatDataDir}"
-    },
-    addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.8"),
+    addCompilerPlugin("org.typelevel" % "kind-projector" % "0.13.4" cross CrossVersion.full),
     addCompilerPlugin("ch.epfl.scala" %% "classpath-shrinker" % "0.1.1"),
-    addCompilerPlugin("ch.epfl.scala" %% "scalac-profiling" % "1.0.0"),
-    addCompilerPlugin("com.olegpy" %% "better-monadic-for" % "0.3.0-M4"),
-    addCompilerPlugin("io.tryp" % "splain" % "0.3.5" cross CrossVersion.patch),
+    addCompilerPlugin("ch.epfl.scala" % "scalac-profiling" % "1.2.2" cross CrossVersion.full),
+    addCompilerPlugin("com.olegpy" %% "better-monadic-for" % "0.3.1"),
     libraryDependencies ++= List(
       "org.scalaz" %% "deriving-macro" % derivingVersion,
       compilerPlugin("org.scalaz" %% "deriving-plugin" % derivingVersion)

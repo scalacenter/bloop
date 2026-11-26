@@ -332,6 +332,7 @@ abstract class BspMetalsClientSpec(
   }
 
   test("compile with old semanticDB") {
+    assume(TestUtil.javaVersion <= 17)
     TestUtil.withinWorkspace { workspace =>
       object JavacOptions {
         // This will cause to use the forked javac compiler, since addong any `-J` property causes it

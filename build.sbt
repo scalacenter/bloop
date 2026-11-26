@@ -270,11 +270,12 @@ lazy val cliSettings = Seq(
       // appear before the command (bloop.java-opts, bloop.server, ...); -X/-XX: runtime
       // options for the client binary itself are no longer honoured (a native image
       // cannot apply them once started).
-      // On GraalVM for JDK 21+ this needs -H:+UnlockExperimentalVMOptions before it.
       "-H:-ParseRuntimeOptions",
-      "--no-fallback",
+      // Scala 3.3's LazyVals uses sun.misc.Unsafe, which JDK 24+ reports with a warning on
+      // every run of the binary (JEP 498). Bake the setting into the image as a system
+      // property: the `--sun-misc-unsafe-memory-access` flag only exists in newer GraalVMs.
+      "-Dsun.misc.unsafe.memory.access=allow",
       "--enable-url-protocols=http,https",
-      "--enable-all-security-services",
       s"-H:ReflectionConfigurationFiles=$reflectionFile",
       "-H:+ReportExceptionStackTraces"
     ) ++ initializeAtBuildTime(scalaVersion.value)

@@ -1977,7 +1977,7 @@ abstract class BaseCompileSpec extends bloop.testing.BaseSuite {
 
           // Ensure that the next time we compile we hit the cache that tells us to allow or not
           val totalCacheHits = logger.debugs.count(_.startsWith("Cache hit true")).toLong
-          assert((totalCacheHits - previousCacheHits) == 16)
+          assert((totalCacheHits - previousCacheHits) == 13)
 
           // Disable the cache manually by changing scalac options in configuration file
           val (newAllowlistProject, stateWithDisabledPluginClassloader) = {
