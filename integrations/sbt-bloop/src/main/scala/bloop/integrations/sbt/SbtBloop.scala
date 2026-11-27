@@ -744,6 +744,36 @@ object BloopDefaults {
   }
 
   /**
+   * Resolve sbt 2.x path placeholders such as `${OUT}`, `${BASE}` or `${CSR_CACHE}`
+   * in compiler options, the same way sbt does before invoking the compiler.
+   *
+   * Placeholders can appear at the start of an option or of any `:` or `,`
+   * separated part of it, e.g. `-Xplugin:${CSR_CACHE}/...` or `-semanticdb-target ${OUT}/...`.
+   */
+  def resolveRootPaths(opts: List[String], rootPaths: Map[String, Path]): List[String] = {
+    if (rootPaths.isEmpty) opts
+    else {
+      def convertValue(value: String): String =
+        rootPaths
+          .collectFirst {
+            case (key, path) if value == s"$${$key}" => path.toString
+            case (key, path) if value.startsWith(s"$${$key}/") =>
+              path.resolve(value.stripPrefix(s"$${$key}/")).toString
+          }
+          .getOrElse(value)
+
+      opts.map { opt =>
+        if (!opt.contains("${")) opt
+        else
+          opt
+            .split(":", -1)
+            .map(_.split(",", -1).map(convertValue).mkString(","))
+            .mkString(":")
+      }
+    }
+  }
+
+  /**
    * Replace any old path that is used as a scalac option by the new path.
    *
    * This will make the code correct in the case sbt has references to
@@ -1188,7 +1218,11 @@ object BloopDefaults {
                 opt
               }
             }
-            val javacOptions = (configuration / Keys.compile / Keys.javacOptions).value.toList
+            val sbtRootPaths = Compat.rootPaths.value
+            val javacOptions = resolveRootPaths(
+              (configuration / Keys.compile / Keys.javacOptions).value.toList,
+              sbtRootPaths
+            )
             val scalacOptions = {
 
               // Drop pipelining options which need to be handled separately in Bloop
@@ -1201,7 +1235,7 @@ object BloopDefaults {
                     case ((acc, _), opt) => (acc :+ opt, false)
                   }
 
-              val options = filteredOptions
+              val options = resolveRootPaths(filteredOptions, sbtRootPaths)
                 .map(makePluginPathAbsolute)
 
               val internalClasspath = BloopKeys.bloopInternalClasspath.value

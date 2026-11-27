@@ -63,4 +63,10 @@ trait CompatPlatform {
     if (all.isEmpty) None else Some(all.toList)
   }
 
+  /**
+   * Root paths used by sbt 2.x to abstract machine-specific paths, such as
+   * `${OUT}`, `${BASE}` or `${CSR_CACHE}`, which can appear in compiler options.
+   */
+  def rootPaths: Def.Initialize[Map[String, Path]] = Def.setting(Keys.rootPaths.value)
+
 }

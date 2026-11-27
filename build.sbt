@@ -382,6 +382,11 @@ lazy val sbtBloop: Project = project
       case "2.12" => SbtVersion
       case _ => "2.0.0"
     }),
+    // Run scripted tests against the latest sbt 2.x, which virtualizes paths in options (e.g. `${OUT}`)
+    scriptedSbt := (scalaBinaryVersion.value match {
+      case "2.12" => (pluginCrossBuild / sbtVersion).value
+      case _ => "2.1.1"
+    }),
     crossScalaVersions := List(Scala212Version, Scala3Version),
     scalaVersion := Dependencies.Scala212Version,
     libraryDependencies += Dependencies.bloopConfig,

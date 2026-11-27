@@ -61,6 +61,7 @@ jobs:
             sbt-bloop/meta-builds-export-opt-in \
             sbt-bloop/no-compile-incremental \
             sbt-bloop/multi-jvm-configuration \
+            sbt-bloop/semanticdb-root-paths \
             sbt-bloop/non-compiling"
         shell: bash
 

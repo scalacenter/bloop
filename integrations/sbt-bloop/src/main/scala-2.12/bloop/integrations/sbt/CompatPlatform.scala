@@ -53,4 +53,7 @@ trait CompatPlatform {
   def scalaCompilerBridgeBinaryJar = Def.task {
     Keys.scalaCompilerBridgeBinaryJar.value.map(f => List(f.toPath()))
   }
+
+  /** sbt 1.x doesn't use placeholders for machine-specific paths. */
+  def rootPaths: Def.Initialize[Map[String, Path]] = Def.setting(Map.empty[String, Path])
 }
