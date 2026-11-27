@@ -311,16 +311,20 @@ object ScalaInstance {
             libraryJar <- findLocationForClazz(scala.Predef.getClass, "scala-library.jar")
             treesClazz = classOf[scala.reflect.api.Trees]
             reflectJar <- findLocationForClazz(treesClazz, "scala-reflect.jar")
-            compilerJar <- findLocationForClazz(scala.tools.nsc.Main.getClass, "scala-compiler.jar")
-            xmlJar <- findLocationForClazz(classOf[scala.xml.Node], "scala-xml.jar")
-            jlineJar <- findLocationForClazz(classOf[jline.console.ConsoleReader], "jline.jar")
+            compilerJar <- findLocationForClazz(
+              classOf[scala.tools.nsc.Global],
+              "scala-compiler.jar"
+            )
+            jlineJar <- findLocationForClazz(classOf[org.jline.reader.LineReader], "jline.jar")
           } yield {
-            logger.debug(s"Created Bloop scala instance for ${BloopScalaInfo.scalaVersion}")
-            val jars = List(libraryJar, reflectJar, compilerJar, xmlJar, jlineJar)
+            // Bloop runs on Scala 3, which uses the Scala 2.13 standard library and compiler
+            val scalaVersion = scala.util.Properties.versionNumberString
+            logger.debug(s"Created Bloop scala instance for $scalaVersion")
+            val jars = List(libraryJar, reflectJar, compilerJar, jlineJar)
             ScalaInstance(
               BloopScalaInfo.scalaOrganization,
               ScalacCompilerName,
-              BloopScalaInfo.scalaVersion,
+              scalaVersion,
               jars.map(AbsolutePath(_)),
               logger
             )

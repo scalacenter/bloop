@@ -337,7 +337,7 @@ class RunSpec extends BloopHelpers {
       val state = state0.copy(logger = logger).copy(commonOptions = hijackedCommonOptions)
       val action = Run(Commands.Run(List("A")))
       val duration = Duration.apply(15, TimeUnit.SECONDS)
-      def msgs = logger.getMessages
+      def msgs = logger.getMessages()
       val compiledState =
         try TestUtil.blockingExecute(action, state, duration)
         catch { case t: Throwable => println(msgs.mkString("\n")); throw t }
@@ -379,7 +379,7 @@ class RunSpec extends BloopHelpers {
       val state = state0.copy(logger = logger).copy(commonOptions = hijackedCommonOptions)
       val action = Run(Commands.Run(List("A")))
       val duration = Duration.apply(15, TimeUnit.SECONDS)
-      def msgs = logger.getMessages
+      def msgs = logger.getMessages()
       val compiledState =
         try TestUtil.blockingExecute(action, state, duration)
         catch { case t: Throwable => println(msgs.mkString("\n")); throw t }
@@ -414,7 +414,7 @@ class RunSpec extends BloopHelpers {
       val action = Run(Commands.Run(List("A")))
       val duration = Duration.apply(13, TimeUnit.SECONDS)
       val cancelTime = Duration.apply(7, TimeUnit.SECONDS)
-      def msgs = logger.getMessages
+      def msgs = logger.getMessages()
       val runTask = TestUtil.interpreterTask(action, state)
       val handle = runTask.runAsync(ExecutionContext.ioScheduler)
       val driver = ExecutionContext.ioScheduler.scheduleOnce(cancelTime) { handle.cancel() }
@@ -465,7 +465,7 @@ class RunSpec extends BloopHelpers {
       TestUtil.blockingExecute(action, state)
 
       assertEquals(4.toLong, logger.compilingInfos.size.toLong)
-      val errors = logger.getMessages.filter(_._1 == "error")
+      val errors = logger.getMessages().filter(_._1 == "error")
       val compilationError = errors.filter(_._2.contains("value s is not a member of object Dep"))
       assertTrue("A compilation error is missing", compilationError.size == 1)
       val msgs = errors.filter(_._2.contains("Could not find or load main class TestRoot"))

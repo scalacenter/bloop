@@ -91,7 +91,7 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
       lastCompilationHashes: Option[Map[String, Int]],
       currentCompileIteration: AtomicInt,
       val diagnostics: ConcurrentHashMap[bsp.BuildTargetIdentifier, StringBuilder],
-      implicit val client0: BloopLanguageClient,
+      val client0: BloopLanguageClient,
       val serverStates: Observable[State]
   ) {
     val underlying = state
@@ -852,7 +852,7 @@ abstract class BspBaseSuite extends BaseSuite with BspClientTest {
 
       val addDiagnosticsHandler = addServicesTest(
         configDirectory,
-        () => compileIteration.get,
+        () => compileIteration.get(),
         addToStringReport,
         compileStartPromises
       )

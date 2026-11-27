@@ -282,7 +282,7 @@ object BloopDebuggeeRunner {
     val fullClasspath = project.fullClasspath(dag, state.client)
     val unmanagedEntries = getUnmanagedEntries(fullClasspath, modules ++ libraries)
     val allClassUpdates = projects.map(state.client.getClassesObserverFor(_).observable)
-    val mergedClassUpdates = Observable.fromIterable(allClassUpdates).merge
+    val mergedClassUpdates = Observable.fromIterable(allClassUpdates).mergeMap(identity)
     (modules, libraries, unmanagedEntries, mergedClassUpdates)
   }
 
@@ -336,7 +336,13 @@ object BloopDebuggeeRunner {
       val classDir = client.getUniqueClassesDirFor(project, forceGeneration = true)
       val projectName = project.bspUri.toString
       val scalaVersion = project.scalaInstance.map(si => ScalaVersion(si.version))
-      Module(projectName, scalaVersion, project.scalacOptions, classDir.underlying, sourceBuffer)
+      Module(
+        projectName,
+        scalaVersion,
+        project.scalacOptions,
+        classDir.underlying,
+        sourceBuffer.toSeq
+      )
     }
   }
 }

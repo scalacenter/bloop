@@ -13,7 +13,7 @@ import bloop.logging.Logger
 import bloop.task.Task
 import bloop.util.CacheHashCode
 
-final case class Build private (
+final case class Build private[bloop] (
     origin: AbsolutePath,
     loadedProjects: List[LoadedProject],
     workspaceSettings: Option[WorkspaceSettings]

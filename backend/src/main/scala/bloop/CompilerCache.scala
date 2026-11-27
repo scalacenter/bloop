@@ -201,7 +201,8 @@ final class CompilerCache(
               }
             }
 
-            val newClasspathValue = newInvalidatedEntry.toFile + File.pathSeparator + classpathValue
+            val newClasspathValue =
+              s"${newInvalidatedEntry.toFile}${File.pathSeparator}$classpathValue"
             options(classpathValueIndex) = newClasspathValue
 
             output.getSingleOutputAsPath.ifPresent { p =>

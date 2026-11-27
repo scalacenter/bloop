@@ -18,7 +18,7 @@ class ProcessLoggerSpec {
     stream.write("world".getBytes("UTF-8"))
     stream.flush()
 
-    val messages = logger.getMessages
+    val messages = logger.getMessages()
 
     assertEquals(1, messages.length.toLong)
     assertEquals(messages.head, ("info", "helloworld"))
@@ -32,7 +32,7 @@ class ProcessLoggerSpec {
     stream.println("world")
     stream.println()
 
-    val messages = logger.getMessages
+    val messages = logger.getMessages()
 
     assertEquals(3, messages.length.toLong)
     assertEquals(messages.head, ("info", "hello"))

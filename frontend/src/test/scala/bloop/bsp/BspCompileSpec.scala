@@ -8,10 +8,10 @@ import java.util.concurrent.TimeUnit
 
 import scala.collection.JavaConverters._
 import scala.concurrent.duration.FiniteDuration
+import scala.util.Properties
 
 import bloop.cli.BspProtocol
 import bloop.cli.ExitStatus
-import bloop.internal.build.BuildInfo
 import bloop.internal.build.BuildTestInfo
 import bloop.io.AbsolutePath
 import bloop.io.Environment.lineSeparator
@@ -475,7 +475,7 @@ abstract class BspCompileSpec(
             |  -> Msg: Compiling a (1 Scala source)
             |  -> Data kind: compile-task
             |#2: a/src/main/scala/Foo.scala
-            |  -> List(Diagnostic(Range(Position(2,28),Position(2,28)),Some(Error),Some(_),Some(_),type mismatch;  found   : Int  required: String,None,None,Some({"actions":[]})))
+            |  -> List(Diagnostic(Range(Position(2,28),Position(2,29)),Some(Error),Some(_),Some(_),type mismatch;  found   : Int  required: String,None,None,Some({"actions":[]})))
             |  -> reset = true
             |#2: task finish 3
             |  -> errors 1, warnings 0, noop false
@@ -613,7 +613,7 @@ abstract class BspCompileSpec(
         .addDependencies(
           Dependency.of(
             "org.scalameta",
-            s"semanticdb-scalac_${BuildInfo.scalaVersion}",
+            s"semanticdb-scalac_${Properties.versionNumberString}",
             BuildTestInfo.semanticdbVersion
           )
         )
@@ -794,7 +794,7 @@ abstract class BspCompileSpec(
             |  -> Msg: Compiling a (1 Scala source)
             |  -> Data kind: compile-task
             |#2: a/src/A.scala
-            |  -> List(Diagnostic(Range(Position(2,6),Position(2,6)),Some(Error),Some(_),Some(_),x is already defined as value x,None,None,Some({"actions":[]})))
+            |  -> List(Diagnostic(Range(Position(2,6),Position(2,7)),Some(Error),Some(_),Some(_),x is already defined as value x,None,None,Some({"actions":[]})))
             |  -> reset = true
             |#2: task finish 2
             |  -> errors 1, warnings 0, noop false
@@ -841,7 +841,7 @@ abstract class BspCompileSpec(
             |  -> Msg: Compiling a (1 Scala source)
             |  -> Data kind: compile-task
             |#4: a/src/A.scala
-            |  -> List(Diagnostic(Range(Position(3,6),Position(3,6)),Some(Error),Some(_),Some(_),x is already defined as value x,None,None,Some({"actions":[]})))
+            |  -> List(Diagnostic(Range(Position(3,6),Position(3,7)),Some(Error),Some(_),Some(_),x is already defined as value x,None,None,Some({"actions":[]})))
             |  -> reset = true
             |#4: a/src/A.scala
             |  -> List(Diagnostic(Range(Position(0,21),Position(0,26)),Some(Warning),Some(_),Some(_),Unused import,None,None,Some({"actions":[]})))
@@ -903,7 +903,7 @@ abstract class BspCompileSpec(
             |  -> List(Diagnostic(Range(Position(0,21),Position(0,26)),Some(Warning),Some(_),Some(_),Unused import,None,None,Some({"actions":[]})))
             |  -> reset = true
             |#6: a/src/A.scala
-            |  -> List(Diagnostic(Range(Position(1,0),Position(3,1)),Some(Error),Some(_),Some(_),object creation impossible, since value y in trait Base of type Int is not defined,None,None,Some({"actions":[]})))
+            |  -> List(Diagnostic(Range(Position(1,7),Position(1,8)),Some(Error),Some(_),Some(_),object creation impossible. Missing implementation for member of trait Base:   val y: Int = ??? ,None,None,Some({"actions":[]})))
             |  -> reset = false
             |#6: task finish 6
             |  -> errors 1, warnings 1, noop false
@@ -981,7 +981,7 @@ abstract class BspCompileSpec(
         assertNoDiff(
           compiledState.lastDiagnostics(`A`),
           """#1: a/src/main/scala/App.scala
-            |  -> List(Diagnostic(Range(Position(2,4),Position(2,4)),Some(Warning),Some(_),Some(_),a pure expression does nothing in statement position,None,None,Some({"actions":[]})))
+            |  -> List(Diagnostic(Range(Position(2,4),Position(2,39)),Some(Warning),Some(_),Some(_),a pure expression does nothing in statement position,None,None,Some({"actions":[]})))
             |  -> reset = true""".stripMargin
         )
       }
@@ -1097,7 +1097,7 @@ abstract class BspCompileSpec(
             |  -> Msg: Compiling a (1 Scala source)
             |  -> Data kind: compile-task
             |#1: a/src/main/scala/App.scala
-            |  -> List(Diagnostic(Range(Position(2,4),Position(2,4)),Some(Warning),Some(_),Some(_),a pure expression does nothing in statement position,None,None,Some({"actions":[]})))
+            |  -> List(Diagnostic(Range(Position(2,4),Position(2,39)),Some(Warning),Some(_),Some(_),a pure expression does nothing in statement position,None,None,Some({"actions":[]})))
             |  -> reset = true
             |#1: task finish 1
             |  -> errors 0, warnings 0, noop false
@@ -1263,7 +1263,7 @@ abstract class BspCompileSpec(
             |  -> Msg: Compiling a (1 Scala source)
             |  -> Data kind: compile-task
             |#1: a/src/main/scala/Foo.scala
-            |  -> List(Diagnostic(Range(Position(1,28),Position(1,28)),Some(Error),Some(_),Some(_),type mismatch;  found   : Int  required: String,None,None,Some({"actions":[]})))
+            |  -> List(Diagnostic(Range(Position(1,28),Position(1,29)),Some(Error),Some(_),Some(_),type mismatch;  found   : Int  required: String,None,None,Some({"actions":[]})))
             |  -> reset = true
             |#1: task finish 1
             |  -> errors 1, warnings 0, noop false
@@ -1295,7 +1295,7 @@ abstract class BspCompileSpec(
             |  -> Msg: Compiling a (1 Scala source)
             |  -> Data kind: compile-task
             |#2: a/src/main/scala/Bar.scala
-            |  -> List(Diagnostic(Range(Position(1,28),Position(1,28)),Some(Error),Some(_),Some(_),type mismatch;  found   : Int  required: String,None,None,Some({"actions":[]})))
+            |  -> List(Diagnostic(Range(Position(1,28),Position(1,29)),Some(Error),Some(_),Some(_),type mismatch;  found   : Int  required: String,None,None,Some({"actions":[]})))
             |  -> reset = true
             |#2: a/src/main/scala/Foo.scala
             |  -> List()

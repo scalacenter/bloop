@@ -363,7 +363,6 @@ final class ConcurrentAnalysisCallback(
   override def isPickleJava(): Boolean = false
   override def getPickleJarPair(): ju.Optional[T2[Path, Path]] = ju.Optional.empty()
 
-  def getOrNil[A, B](m: collection.Map[A, Seq[B]], a: A): Seq[B] = m.get(a).toList.flatten
   def addCompilation(base: Analysis): Analysis =
     base.copy(compilations = base.compilations.add(compilation))
   def addUsedNames(base: Analysis): Analysis = usedNames.foldLeft(base) {
@@ -429,9 +428,9 @@ final class ConcurrentAnalysisCallback(
             .map(_._1)
         val analyzedApis = classesInSrc.map(analyzeClass)
         val info = SourceInfos.makeInfo(
-          getOrNil(reportedProblems.mapValues { _.asScala.toSeq }, src),
-          getOrNil(unreportedProblems.mapValues { _.asScala.toSeq }, src),
-          getOrNil(mainClasses.mapValues { _.asScala.toSeq }, src)
+          reportedProblems.get(src).toList.flatMap(_.asScala),
+          unreportedProblems.get(src).toList.flatMap(_.asScala),
+          mainClasses.get(src).toList.flatMap(_.asScala)
         )
         val binaries = binaryDeps.getOrElse(src, ConcurrentHashMap.newKeySet[Path]).asScala
         val localProds = localClasses

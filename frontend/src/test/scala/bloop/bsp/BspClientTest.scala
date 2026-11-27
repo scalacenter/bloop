@@ -6,9 +6,6 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.util.concurrent.ExecutionException
 
-import scala.collection.mutable
-import scala.concurrent.Promise
-import scala.concurrent.duration.FiniteDuration
 import scala.util._
 
 import ch.epfl.scala.bsp

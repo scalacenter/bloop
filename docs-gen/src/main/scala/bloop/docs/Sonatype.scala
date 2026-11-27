@@ -7,10 +7,10 @@ import bloop.internal.build.BuildInfo
 import org.jsoup.Jsoup
 
 import scala.collection.JavaConverters._
+import scala.util.Try
 import scala.util.control.NonFatal
 import bloop.DependencyResolution
 import bloop.logging.NoopLogger
-import coursierapi.MavenRepository
 
 case class Release(version: String, lastModified: Date) {
   def date: String = {
@@ -20,7 +20,9 @@ case class Release(version: String, lastModified: Date) {
 }
 
 object Sonatype {
-  lazy val releaseBloop = fetchLatest("bloop-frontend_2.12")
+  // Releases before the migration to Scala 3 were only published for 2.12
+  lazy val releaseBloop =
+    Try(fetchLatest("bloop-frontend_3")).getOrElse(fetchLatest("bloop-frontend_2.12"))
   lazy val releaseBloopMaven = fetchLatest("bloop-maven-plugin")
   lazy val releaseRifle = fetchLatest("bloop-rifle_2.13")
   lazy val releaseBloopGradle = fetchLatest("gradle-bloop_2.13")
@@ -45,7 +47,7 @@ object Sonatype {
             .stripSuffix(".jar")
             .stripPrefix(artifact + "-")
 
-        if (!firstTry.endsWith("_2.12")) firstTry
+        if (!firstTry.endsWith("_2.12") && !firstTry.endsWith("_3")) firstTry
         else jar.getParent.getParent.underlying.getFileName.toString
     }
 

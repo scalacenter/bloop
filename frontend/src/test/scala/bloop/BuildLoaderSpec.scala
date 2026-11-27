@@ -3,12 +3,12 @@ package bloop
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 
+import scala.util.Properties
 import scala.util.Try
 
 import bloop.data.TraceSettings
 import bloop.data.WorkspaceSettings
 import bloop.engine.Build
-import bloop.internal.build.BuildInfo
 import bloop.internal.build.BuildTestInfo
 import bloop.io.AbsolutePath
 import bloop.logging.RecordingLogger
@@ -33,7 +33,7 @@ object BuildLoaderSpec extends BaseSuite {
       WorkspaceSettings.fromSemanticdbSettings(
         "0.2.0",
         semanticdbVersion,
-        List(BuildInfo.scalaVersion)
+        List(Properties.versionNumberString)
       )
     testBuild.state.build.checkForChange(Some(settings), logger).map {
       case Build.ReturnPreviousState =>
@@ -50,7 +50,7 @@ object BuildLoaderSpec extends BaseSuite {
     WorkspaceSettings.fromSemanticdbSettings(
       "0.2.0",
       semanticdbVersion,
-      List(BuildInfo.scalaVersion)
+      List(Properties.versionNumberString)
     )
 
   testLoad("do not reload if same settings are added", Some(sameSettings)) { (testBuild, logger) =>
@@ -66,7 +66,7 @@ object BuildLoaderSpec extends BaseSuite {
       WorkspaceSettings.fromSemanticdbSettings(
         "0.2.0",
         oldSemanticdbVersion,
-        List(BuildInfo.scalaVersion)
+        List(Properties.versionNumberString)
       )
     testBuild.state.build.checkForChange(Some(newSettings), logger).map {
       case Build.ReturnPreviousState =>
@@ -84,7 +84,7 @@ object BuildLoaderSpec extends BaseSuite {
       WorkspaceSettings.fromSemanticdbSettings(
         "0.1.0",
         oldSemanticdbVersion,
-        List(BuildInfo.scalaVersion)
+        List(Properties.versionNumberString)
       )
     testBuild.state.build.checkForChange(Some(newSettings), logger).map {
       case Build.ReturnPreviousState =>
@@ -143,7 +143,7 @@ object BuildLoaderSpec extends BaseSuite {
         WorkspaceSettings.fromSemanticdbSettings(
           "0.2.0",
           oldSemanticdbVersion,
-          List(BuildInfo.scalaVersion)
+          List(Properties.versionNumberString)
         )
       testBuild.state.build.checkForChange(Some(newSettings), logger).map {
         case Build.ReturnPreviousState =>

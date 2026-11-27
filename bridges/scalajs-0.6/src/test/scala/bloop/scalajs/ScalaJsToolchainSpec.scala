@@ -44,8 +44,11 @@ class ScalaJsToolchainSpec {
     val action = Run(Commands.Link(List(MainProject), main = Some("hello.App")))
     val resultingState = TestUtil.blockingExecute(action, state, maxDuration)
 
-    assertTrue(s"Linking failed: ${logger.getMessages.mkString("\n")}", resultingState.status.isOk)
-    logger.getMessages.assertContain("Generated JavaScript file '", atLevel = "info")
+    assertTrue(
+      s"Linking failed: ${logger.getMessages().mkString("\n")}",
+      resultingState.status.isOk
+    )
+    logger.getMessages().assertContain("Generated JavaScript file '", atLevel = "info")
   }
 
   @Test def canLinkScalaJsProjectInReleaseMode(): Unit = {
@@ -57,8 +60,11 @@ class ScalaJsToolchainSpec {
     )
     val resultingState = TestUtil.blockingExecute(action, state, maxDuration * 2)
 
-    assertTrue(s"Linking failed: ${logger.getMessages.mkString("\n")}", resultingState.status.isOk)
-    logger.getMessages.assertContain("Inc. optimizer: Batch mode: true", atLevel = "debug")
+    assertTrue(
+      s"Linking failed: ${logger.getMessages().mkString("\n")}",
+      resultingState.status.isOk
+    )
+    logger.getMessages().assertContain("Inc. optimizer: Batch mode: true", atLevel = "debug")
   }
 
   @Test def canRunScalaJsProject(): Unit = {
@@ -67,8 +73,8 @@ class ScalaJsToolchainSpec {
     val action = Run(Commands.Run(List(MainProject), main = Some("hello.App")))
     val resultingState = TestUtil.blockingExecute(action, state, maxDuration)
 
-    assertTrue(s"Run failed: ${logger.getMessages.mkString("\n")}", resultingState.status.isOk)
-    logger.getMessages.assertContain("Hello, world!", atLevel = "info")
+    assertTrue(s"Run failed: ${logger.getMessages().mkString("\n")}", resultingState.status.isOk)
+    logger.getMessages().assertContain("Hello, world!", atLevel = "info")
   }
 
   @Test def canRunScalaJsProjectDefaultMainClass(): Unit = {
@@ -77,8 +83,8 @@ class ScalaJsToolchainSpec {
     val action = Run(Commands.Run(List(MainProject), main = None))
     val resultingState = TestUtil.blockingExecute(action, state, maxDuration)
 
-    assertTrue(s"Run failed: ${logger.getMessages.mkString("\n")}", resultingState.status.isOk)
-    logger.getMessages.assertContain("Hello, world from DefaultApp!", atLevel = "info")
+    assertTrue(s"Run failed: ${logger.getMessages().mkString("\n")}", resultingState.status.isOk)
+    logger.getMessages().assertContain("Hello, world from DefaultApp!", atLevel = "info")
   }
 
   private final val maxDuration = Duration.apply(90, TimeUnit.SECONDS)

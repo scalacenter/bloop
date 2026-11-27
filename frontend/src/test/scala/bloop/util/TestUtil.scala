@@ -309,7 +309,7 @@ object TestUtil {
     val commonOptions = state.commonOptions.copy(env = runAndTestProperties)
     val recordingState = state.copy(logger = recordingLogger).copy(commonOptions = commonOptions)
     TestUtil.blockingExecute(Run(cmd), recordingState)
-    try check(recordingLogger.getMessages)
+    try check(recordingLogger.getMessages())
     catch {
       case NonFatal(t) =>
         recordingLogger.dump()
@@ -398,7 +398,8 @@ object TestUtil {
     // Requires dependencies to be transitively listed
     val depsTargets =
       (dependencies.map(classesDir(baseDir.underlying, _))).map(AbsolutePath.apply).toList
-    val allJars = scalaInstance.map(_.allJars.map(AbsolutePath.apply)).getOrElse(Array.empty)
+    val allJars =
+      scalaInstance.map(_.allJars.map(AbsolutePath.apply)).getOrElse(Array.empty[AbsolutePath])
     val classpath = depsTargets ++ allJars ++ extraJars
     val sourceDirectories = List(srcs)
     val testFrameworks =
@@ -501,7 +502,7 @@ object TestUtil {
   }
 
   def errorsFromLogger(logger: RecordingLogger): List[String] =
-    logger.getMessages.iterator.filter(_._1 == "error").map(_._2).toList
+    logger.getMessages().iterator.filter(_._1 == "error").map(_._2).toList
 
   /** Fails the test with a pretty diff if there obtained is not the same as expected */
   def assertNoDiff(expected: String, obtained: String): Unit = {

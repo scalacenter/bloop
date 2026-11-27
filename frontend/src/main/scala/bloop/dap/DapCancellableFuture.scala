@@ -10,9 +10,9 @@ import bloop.task.Task
 import monix.execution.Cancelable
 import monix.execution.Scheduler
 
-private class DapCancellableFuture(future: Future[Unit], cancelable: Cancelable)
+private class DapCancellableFuture(underlying: Future[Unit], cancelable: Cancelable)
     extends ch.epfl.scala.debugadapter.CancelableFuture[Unit] {
-  override def future(): Future[Unit] = future
+  override def future: Future[Unit] = underlying
   override def cancel(): Unit = cancelable.cancel()
 }
 

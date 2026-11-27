@@ -209,7 +209,7 @@ object BuildImplementation {
   final val buildSettings: Seq[Def.Setting[_]] = Seq(
     Keys.organization := "ch.epfl.scala",
     Keys.updateOptions := Keys.updateOptions.value.withCachedResolution(true),
-    Keys.scalaVersion := Dependencies.Scala212Version,
+    Keys.scalaVersion := Dependencies.Scala33Version,
     sbt.nio.Keys.watchTriggeredMessage := sbt.Watch.clearScreenOnTrigger,
     // Keys.triggeredMessage := Watched.clearWhenTriggered,
     Keys.resolvers := {
@@ -237,6 +237,8 @@ object BuildImplementation {
   final val projectSettings: Seq[Def.Setting[_]] = Seq(
     Keys.scalacOptions := {
       CrossVersion.partialVersion(Keys.scalaVersion.value) match {
+        case Some((3, _)) =>
+          scala3CompileOptions
         case Some((2, 13)) =>
           reasonableCompileOptions
             .filterNot(opt => opt == "-deprecation" || opt == "-Yno-adapted-args")
@@ -268,6 +270,9 @@ object BuildImplementation {
       "-language:higherKinds" :: "-language:implicitConversions" :: "-unchecked" :: "-Yno-adapted-args" ::
       "-Ywarn-numeric-widen" :: "-Ywarn-value-discard" :: "-Xfuture" :: Nil
   )
+
+  final val scala3CompileOptions =
+    "-encoding" :: "UTF-8" :: "-feature" :: "-language:implicitConversions" :: "-unchecked" :: Nil
 
   final val jvmOptions =
     "-Xmx3g" :: "-Xms1g" :: "-XX:ReservedCodeCacheSize=512m" :: "-XX:MaxInlineLevel=20" :: Nil
